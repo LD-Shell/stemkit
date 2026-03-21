@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>DOI to BibTeX Fetcher | Citation Generator | STEMKit</title>
+    <meta name="title" content="DOI to BibTeX Fetcher | Citation Generator | STEMKit">
+    <meta name="description" content="Instantly convert Digital Object Identifiers (DOIs) into correctly formatted BibTeX citations. Build your bibliography directly in the browser with zero server tracking.">
+    <meta name="keywords" content="doi to bibtex, citation generator, crossref api fetcher, latex bibliography builder, research citation tool, STEMKit">
+    <meta name="author" content="STEMKit">
+    <meta name="theme-color" content="#4f46e5">
+
+    <link rel="canonical" href="https://stemkit.net/doi-fetcher">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stemkit.net/doi-fetcher">
+    <meta property="og:title" content="DOI to BibTeX Fetcher | STEMKit">
+    <meta property="og:description" content="Instantly convert DOIs into perfectly formatted BibTeX citations. Build your library locally.">
+    <meta property="og:image" content="https://stemkit.net/assets/og-doi.webp">
+
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://stemkit.net/doi-fetcher">
+    <meta property="twitter:title" content="DOI to BibTeX Fetcher | STEMKit">
+    <meta property="twitter:description" content="Instantly convert DOIs into perfectly formatted BibTeX citations. Build your library locally.">
+    <meta property="twitter:image" content="https://stemkit.net/assets/og-doi.webp">
+
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class', 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                } 
+            } 
+        };
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="js/doi-fetcher.js" defer></script>
+
+    <style>
+        @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .toast-enter { animation: slideIn 0.3s forwards; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <header class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 sticky top-0 z-50">
+        <nav class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center" aria-label="Main Navigation">
+            <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <i class="fa-solid fa-magnifying-glass-chart text-indigo-600 dark:text-indigo-400 text-xl"></i>
+                <span class="text-xl font-black tracking-tighter">STEMKit</span>
+            </a>
+            <button id="themeToggle" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-moon dark:hidden"></i>
+                <i class="fa-solid fa-sun hidden dark:block text-yellow-400"></i>
+            </button>
+        </nav>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
+        
+        <div class="mb-4">
+            <h1 class="text-3xl font-bold mb-2">DOI to BibTeX Fetcher</h1>
+            <p class="text-slate-500 dark:text-slate-400">Generate flawless citations instantly. Input a DOI, and we will securely ping the official registry to retrieve the metadata and append it to your bibliography.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <div class="lg:col-span-5 flex flex-col gap-6">
+                
+                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+                    <h2 class="text-lg font-semibold mb-4">1. Enter Document Object Identifier</h2>
+                    
+                    <div class="flex flex-col gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">DOI URL or String</label>
+                            <input type="text" id="doiInput" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="e.g. 10.1038/s41586-020-2649-2">
+                            <p class="text-[11px] text-slate-400 mt-2">Supports raw DOIs or full URLs (e.g., https://doi.org/10...)</p>
+                        </div>
+
+                        <button id="fetchBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white w-full py-3 rounded-xl font-bold transition-colors shadow-sm flex items-center justify-center">
+                            <i class="fa-solid fa-cloud-arrow-down mr-2"></i> Fetch Metadata
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5 flex gap-4 text-sm text-blue-800 dark:text-blue-300">
+                    <i class="fa-solid fa-circle-info mt-0.5 text-lg"></i>
+                    <div>
+                        <strong class="block mb-1">How it works</strong>
+                        <p>This tool uses content negotiation to securely request `application/x-bibtex` data directly from the doi.org API. No data is stored on STEMKit servers.</p>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="lg:col-span-7 flex flex-col h-full">
+                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col flex-grow min-h-[500px]">
+                    
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold">2. Accumulated Bibliography</h2>
+                        <span id="entryCount" class="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 px-3 py-1 rounded-full text-xs font-bold">0 Entries</span>
+                    </div>
+
+                    <div class="relative flex-grow flex flex-col">
+                        <textarea id="bibOutput" class="w-full flex-grow bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder="Your formatted BibTeX entries will accumulate here..."></textarea>
+                        
+                        <div id="loadingOverlay" class="absolute inset-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center hidden">
+                            <i class="fa-solid fa-circle-notch fa-spin text-4xl text-indigo-600 dark:text-indigo-500 mb-3"></i>
+                            <span class="text-sm font-medium text-slate-600 dark:text-slate-400">Querying global registry...</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-3 gap-3">
+                        <button id="copyBtn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 py-2.5 rounded-lg font-medium transition-colors border border-slate-200 dark:border-slate-700">
+                            <i class="fa-regular fa-copy mr-2"></i> Copy
+                        </button>
+                        <button id="downloadBtn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 py-2.5 rounded-lg font-medium transition-colors border border-slate-200 dark:border-slate-700">
+                            <i class="fa-solid fa-download mr-2"></i> Save .bib
+                        </button>
+                        <button id="clearBtn" class="bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 py-2.5 rounded-lg font-medium transition-colors border border-red-200 dark:border-red-800/50">
+                            <i class="fa-solid fa-trash-can mr-2"></i> Clear
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
+
+</body>
+</html>
