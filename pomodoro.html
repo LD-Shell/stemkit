@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Ambient Pomodoro | Deep Work Timer | STEMKit</title>
+    <meta name="title" content="Ambient Pomodoro | Deep Work Timer | STEMKit">
+    <meta name="description" content="A professional, distraction-free Pomodoro timer featuring integrated ambient soundscapes like rain and cafe chatter for maximum deep work focus.">
+    <meta name="keywords" content="pomodoro timer, deep work, ambient noise, study timer, productivity tool, focus timer">
+    <meta name="author" content="STEMKit">
+    <meta name="theme-color" content="#4f46e5">
+
+    <link rel="canonical" href="https://stemkit.net/pomodoro.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stemkit.net/pomodoro.html">
+    <meta property="og:title" content="Ambient Pomodoro | Deep Work Timer">
+    <meta property="og:description" content="Distraction-free focus timer with built-in ambient soundscapes.">
+    <meta property="og:image" content="https://stemkit.net/assets/og-pomodoro.webp">
+
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://stemkit.net/pomodoro.html">
+    <meta property="twitter:title" content="Ambient Pomodoro | Deep Work Timer">
+    <meta property="twitter:description" content="Distraction-free focus timer with built-in ambient soundscapes.">
+    <meta property="twitter:image" content="https://stemkit.net/assets/og-pomodoro.webp">
+
+    <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
+    <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } };
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
+    </script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Custom range slider styling for a pro feel */
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #4f46e5; cursor: pointer; margin-top: -6px; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #cbd5e1; border-radius: 2px; }
+        .dark input[type=range]::-webkit-slider-runnable-track { background: #334155; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <nav class="max-w-7xl mx-auto px-6 h-20 w-full flex justify-between items-center z-50">
+        <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <div class="bg-indigo-600 text-white p-2 rounded-lg shadow-sm">
+                <i class="fa-solid fa-flask text-xl"></i>
+            </div>
+            <span class="text-2xl font-black tracking-tighter">STEMKit</span>
+        </a>
+        
+        <div class="flex items-center gap-6">
+            <a href="index.html#focus-tools" class="hidden sm:block text-sm font-medium text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Back to Tools
+            </a>
+            <div class="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
+            <button id="themeToggle" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300" aria-label="Toggle dark mode">
+                <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="flex-grow flex items-center justify-center px-6 py-12">
+        <div class="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-8 sm:p-12 relative overflow-hidden">
+            
+            <div class="flex justify-center gap-2 mb-10 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-full">
+                <button id="btn-mode-pomodoro" class="mode-btn flex-1 py-2 px-4 rounded-full text-sm font-bold bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400 transition-all">Focus</button>
+                <button id="btn-mode-short" class="mode-btn flex-1 py-2 px-4 rounded-full text-sm font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all">Short Break</button>
+                <button id="btn-mode-long" class="mode-btn flex-1 py-2 px-4 rounded-full text-sm font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all">Long Break</button>
+            </div>
+
+            <div class="text-center mb-10 relative">
+                <h1 id="time-display" class="text-7xl sm:text-8xl font-black tracking-tighter text-slate-800 dark:text-white font-mono drop-shadow-sm">25:00</h1>
+            </div>
+
+            <div class="flex justify-center gap-4 mb-12">
+                <button id="btn-toggle" class="bg-indigo-600 hover:bg-indigo-700 text-white w-32 py-4 rounded-2xl font-black text-lg shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+                    START
+                </button>
+                <button id="btn-reset" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 p-4 rounded-2xl font-bold shadow-sm transition-all" aria-label="Reset Timer">
+                    <i class="fa-solid fa-rotate-right text-xl"></i>
+                </button>
+            </div>
+
+            <hr class="border-slate-200 dark:border-slate-800 mb-8">
+
+            <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                <i class="fa-solid fa-sliders"></i> Ambient Mixer
+            </h3>
+            
+            <div class="space-y-6">
+                <div class="flex items-center gap-4">
+                    <div class="w-8 text-center text-slate-400"><i class="fa-solid fa-cloud-rain text-lg"></i></div>
+                    <input type="range" id="vol-rain" min="0" max="1" step="0.01" value="0" class="w-full">
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="w-8 text-center text-slate-400"><i class="fa-solid fa-mug-hot text-lg"></i></div>
+                    <input type="range" id="vol-cafe" min="0" max="1" step="0.01" value="0" class="w-full">
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="w-8 text-center text-slate-400"><i class="fa-solid fa-wave-square text-lg"></i></div>
+                    <input type="range" id="vol-noise" min="0" max="1" step="0.01" value="0" class="w-full">
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <footer class="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-8">
+        <div class="max-w-7xl mx-auto px-6 text-center text-sm font-medium text-slate-500 dark:text-slate-400">
+            &copy; 2026 STEMKit. Engineered for Science.
+        </div>
+    </footer>
+
+    <script src="js/pomodoro.js"></script>
+    <script>
+        // Shared Theme toggle logic
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        });
+    </script>
+</body>
+</html>
