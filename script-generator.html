@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>HPC Script Generator | STEMKit</title>
+    <meta name="title" content="HPC Script Generator | STEMKit">
+    <meta name="description" content="Visually generate flawless SLURM job arrays and GROMACS topology configurations. Optimize hybrid CPU-GPU threading instantly.">
+    <meta name="keywords" content="slurm script generator, gromacs topology, amber fudge factors, computational chemistry, hpc job array, mdrun optimization">
+    <meta name="author" content="STEMKit">
+    <meta name="theme-color" content="#f43f5e"> <link rel="canonical" href="https://stemkit.net/script-generator.html">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class', 
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } 
+        };
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
+    </script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        .accordion-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; max-height: 0; opacity: 0; overflow: hidden; }
+        .accordion-content.expanded { max-height: 800px; opacity: 1; overflow: visible; }
+        .accordion-icon { transition: transform 0.3s ease; }
+        .accordion-btn[aria-expanded="true"] .accordion-icon { transform: rotate(180deg); }
+        
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+        .dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
+
+    <nav class="max-w-7xl mx-auto px-6 h-20 w-full flex justify-between items-center border-b border-slate-200 dark:border-slate-800 shrink-0">
+        <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <div class="bg-indigo-600 text-white p-2 rounded-lg shadow-sm">
+                <i class="fa-solid fa-flask text-xl"></i>
+            </div>
+            <span class="text-2xl font-black tracking-tighter">STEMKit</span>
+        </a>
+        <div class="flex items-center gap-4">
+            <button id="themeToggle" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300">
+                <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="flex-grow w-full h-[calc(100vh-80px)] flex flex-col relative max-w-7xl mx-auto px-6 py-8">
+        
+        <header class="mb-6">
+            <div class="inline-flex items-center gap-2 bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4 border border-rose-200 dark:border-rose-800/50">
+                <i class="fa-solid fa-server"></i> HPC Environment
+            </div>
+            <h1 class="text-4xl font-black mb-2 tracking-tight">SLURM & Topology Generator</h1>
+            <p class="text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
+                Configure your cluster dimensions and forcefield parameters. The engine automatically outputs thread-optimized batch scripts and strict `.top` headers.
+            </p>
+        </header>
+
+        <div id="toastContainer" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+        <div class="flex flex-col lg:flex-row gap-6 flex-grow overflow-hidden">
+            
+            <div class="w-full lg:w-[450px] flex flex-col gap-4 overflow-y-auto custom-scroll pr-2 shrink-0">
+                
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
+                    <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                        <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider"><i class="fa-solid fa-terminal text-rose-500 mr-2"></i>Cluster Parameters</span>
+                    </div>
+                    <div class="p-4 flex flex-col gap-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">Job Name</span>
+                                <input type="text" id="jobName" value="md_prod" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 mt-1">
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">Partition</span>
+                                <input type="text" id="jobPartition" value="gpu" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 mt-1">
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">Nodes</span>
+                                <input type="number" id="jobNodes" value="1" min="1" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 mt-1">
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">CPUs per Task</span>
+                                <input type="number" id="jobCpus" value="8" min="1" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 mt-1">
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">GPUs per Node</span>
+                                <input type="number" id="jobGpus" value="1" min="0" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 mt-1">
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">Wall Time</span>
+                                <input type="text" id="jobTime" value="24:00:00" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 mt-1 font-mono">
+                            </div>
+                        </div>
+
+                        <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
+                            <label class="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
+                                Enable Job Array
+                                <input type="checkbox" id="jobArrayToggle" checked class="w-4 h-4 text-rose-600 bg-slate-100 border-slate-300 rounded focus:ring-rose-500">
+                            </label>
+                            <div id="arraySettings" class="mt-2 flex gap-2">
+                                <input type="text" id="jobArrayRange" value="1-5" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 font-mono" placeholder="e.g., 1-10">
+                                <input type="text" id="jobArrayDir" value="alpha_run_" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 font-mono" placeholder="Base Dir Name">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
+                    <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                        <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider"><i class="fa-solid fa-atom text-rose-500 mr-2"></i>Topology [ defaults ]</span>
+                    </div>
+                    <div class="p-4 flex flex-col gap-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">Base Forcefield</span>
+                                <select id="topForcefield" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none">
+                                    <option value="amber99sb-ildn">AMBER99SB-ILDN</option>
+                                    <option value="charmm36">CHARMM36</option>
+                                    <option value="opls-aa">OPLS-AA</option>
+                                </select>
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">Solvent Model</span>
+                                <select id="topSolvent" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none">
+                                    <option value="spce">SPC/E (ClayFF preferred)</option>
+                                    <option value="tip3p">TIP3P</option>
+                                    <option value="tip4p">TIP4P</option>
+                                </select>
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">Comb Rule</span>
+                                <select id="topComb" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none">
+                                    <option value="2">2 (Lorentz-Berthelot)</option>
+                                    <option value="1">1 (Geometric)</option>
+                                    <option value="3">3 (OPLS)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">Fudge Factors (LJ / QQ)</span>
+                                <select id="topFudge" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none">
+                                    <option value="amber">0.5 / 0.8333 (AMBER)</option>
+                                    <option value="opls">0.5 / 0.5 (OPLS)</option>
+                                    <option value="none">1.0 / 1.0 (None)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-2">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase">Custom ITP Includes</span>
+                            <textarea id="topIncludes" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none font-mono resize-none h-16 custom-scroll" placeholder='e.g., #include "glycine.itp"&#10;#include "alpha_alumina.itp"'>#include "glycine.itp"&#10;#include "alpha_alumina.itp"</textarea>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="flex-grow flex flex-col gap-4 overflow-hidden">
+                
+                <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col flex-1 relative overflow-hidden">
+                    <div class="bg-slate-950 px-4 py-2.5 flex justify-between items-center border-b border-slate-800 shrink-0">
+                        <span class="text-sm font-bold text-rose-400 uppercase tracking-wider font-mono">submit.sh</span>
+                        <button class="copy-btn bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1" data-target="slurmOutput">
+                            <i class="fa-regular fa-copy"></i> Copy Script
+                        </button>
+                    </div>
+                    <div class="flex-grow p-4 overflow-auto custom-scroll relative">
+                        <pre><code id="slurmOutput" class="text-slate-300 font-mono text-[11px] leading-relaxed whitespace-pre-wrap select-all"></code></pre>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col h-1/3 min-h-[220px] relative overflow-hidden">
+                    <div class="bg-slate-950 px-4 py-2.5 flex justify-between items-center border-b border-slate-800 shrink-0">
+                        <span class="text-sm font-bold text-emerald-400 uppercase tracking-wider font-mono">topol.top</span>
+                        <button class="copy-btn bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1" data-target="topOutput">
+                            <i class="fa-regular fa-copy"></i> Copy Header
+                        </button>
+                    </div>
+                    <div class="flex-grow p-4 overflow-auto custom-scroll relative">
+                        <pre><code id="topOutput" class="text-slate-300 font-mono text-[11px] leading-relaxed whitespace-pre-wrap select-all"></code></pre>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </main>
+
+    <script src="js/script-generator.js"></script>
+</body>
+</html>
