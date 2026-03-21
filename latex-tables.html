@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Visual LaTeX Table Generator | STEMKit</title>
+    <meta name="title" content="Visual LaTeX Table Generator | STEMKit">
+    <meta name="description" content="Paste data from Excel or CSV to instantly generate publication-ready LaTeX table code. Supports booktabs, custom alignments, and captions securely in your browser.">
+    <meta name="keywords" content="latex table generator, excel to latex, csv to latex, booktabs generator, academic table formatter, client side latex tool">
+    <meta name="author" content="STEMKit">
+    <meta name="theme-color" content="#14b8a6"> <link rel="canonical" href="https://stemkit.net/latex-tables.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stemkit.net/latex-tables.html">
+    <meta property="og:title" content="Visual LaTeX Table Generator | STEMKit">
+    <meta property="og:description" content="Stop hand-coding tables. Paste from Excel and instantly copy publication-ready LaTeX syntax.">
+    
+    <script type="application/ld+json">
+        {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "STEMKit LaTeX Table Generator",
+        "url": "https://stemkit.net/latex-tables.html",
+        "description": "Convert Excel and CSV data into perfectly formatted LaTeX tables natively in the browser.",
+        "applicationCategory": "UtilityApplication",
+        "operatingSystem": "All",
+        "browserRequirements": "Requires JavaScript",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "featureList": [
+            "Excel to LaTeX conversion",
+            "Booktabs integration",
+            "Real-time syntax rendering"
+        ]
+        }
+    </script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class', 
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } 
+        };
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
+    </script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        .accordion-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; max-height: 0; opacity: 0; overflow: hidden; }
+        .accordion-content.expanded { max-height: 800px; opacity: 1; overflow: visible; }
+        .accordion-icon { transition: transform 0.3s ease; }
+        .accordion-btn[aria-expanded="true"] .accordion-icon { transform: rotate(180deg); }
+        
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+        .dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
+
+        /* Preview table aesthetics */
+        .preview-table { border-collapse: collapse; width: 100%; text-align: left; font-size: 0.875rem; }
+        .preview-table th, .preview-table td { padding: 0.5rem 0.75rem; border: 1px solid #e2e8f0; }
+        .dark .preview-table th, .dark .preview-table td { border-color: #334155; }
+        .preview-table th { background-color: #f8fafc; font-weight: 700; }
+        .dark .preview-table th { background-color: #0f172a; }
+        
+        /* Booktabs preview style */
+        .preview-table.booktabs { border: none; }
+        .preview-table.booktabs th, .preview-table.booktabs td { border: none; }
+        .preview-table.booktabs thead { border-top: 2px solid #334155; border-bottom: 1px solid #334155; }
+        .dark .preview-table.booktabs thead { border-top: 2px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; }
+        .preview-table.booktabs tbody tr:last-child { border-bottom: 2px solid #334155; }
+        .dark .preview-table.booktabs tbody tr:last-child { border-bottom: 2px solid #cbd5e1; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
+
+    <nav class="max-w-7xl mx-auto px-6 h-20 w-full flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
+        <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <div class="bg-indigo-600 text-white p-2 rounded-lg shadow-sm">
+                <i class="fa-solid fa-flask text-xl"></i>
+            </div>
+            <span class="text-2xl font-black tracking-tighter">STEMKit</span>
+        </a>
+        <div class="flex items-center gap-4">
+            <button id="themeToggle" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300">
+                <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
+        
+        <header class="mb-4">
+            <div class="inline-flex items-center gap-2 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4 border border-teal-200 dark:border-teal-800/50">
+                <i class="fa-solid fa-table-cells"></i> Formatting utility
+            </div>
+            <h1 class="text-4xl font-black mb-2 tracking-tight">Visual LaTeX Tables</h1>
+            <p class="text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
+                Paste your data matrix directly from Excel or CSV. Configure your typographical parameters below, and instantly copy the compiled LaTeX syntax.
+            </p>
+        </header>
+
+        <div id="toastContainer" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+        <div class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-260px)] min-h-[600px]">
+            
+            <div class="w-full lg:w-[450px] flex flex-col gap-4 shrink-0">
+                
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col flex-grow">
+                    <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2">1. Paste Data Matrix</h2>
+                    <textarea id="dataInput" class="w-full flex-grow bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-teal-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" placeholder="Paste data here from Excel, Numbers, or CSV...&#10;&#10;Column A&#9;Column B&#9;Column C&#10;Data 1&#9;Data 2&#9;Data 3"></textarea>
+                    <p class="text-[10px] text-slate-400 mt-2"><i class="fa-solid fa-circle-info mr-1"></i> First row is automatically treated as the header.</p>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
+                    <button class="accordion-btn w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center text-left focus:outline-none" aria-expanded="true" data-target="settingsContent">
+                        <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">2. Typographical Parameters</span>
+                        <i class="fa-solid fa-chevron-down accordion-icon text-slate-400 text-xs"></i>
+                    </button>
+                    <div id="settingsContent" class="accordion-content expanded px-4 pb-4 pt-2">
+                        <div class="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">Environment</span>
+                                <select id="envSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs mt-1">
+                                    <option value="table">table (Standard)</option>
+                                    <option value="table*">table* (Full width)</option>
+                                    <option value="sidewaystable">sidewaystable (Landscape)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">Style Protocol</span>
+                                <select id="styleSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs mt-1">
+                                    <option value="booktabs">Booktabs (Academic)</option>
+                                    <option value="standard">Standard Lines</option>
+                                    <option value="grid">Full Grid (Borders)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase">Global Alignment</span>
+                            <div class="flex gap-2 mt-1">
+                                <label class="flex items-center gap-1 text-xs cursor-pointer"><input type="radio" name="align" value="l" class="text-teal-600"> Left</label>
+                                <label class="flex items-center gap-1 text-xs cursor-pointer"><input type="radio" name="align" value="c" checked class="text-teal-600"> Center</label>
+                                <label class="flex items-center gap-1 text-xs cursor-pointer"><input type="radio" name="align" value="r" class="text-teal-600"> Right</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase">Caption</span>
+                            <input type="text" id="captionInput" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs mt-1" placeholder="Enter table caption...">
+                        </div>
+                        
+                        <div>
+                            <span class="text-[10px] font-bold text-slate-500 uppercase">Reference Label</span>
+                            <input type="text" id="labelInput" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs mt-1 font-mono" placeholder="tab:my_table">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="flex-grow flex flex-col gap-4">
+                
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col h-1/3 min-h-[200px]">
+                    <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2 shrink-0">HTML Optical Preview</h2>
+                    <div class="flex-grow overflow-auto custom-scroll bg-slate-50 dark:bg-slate-950 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
+                        <div id="tablePreview" class="w-full h-full flex items-center justify-center text-slate-400 text-sm">
+                            Paste data to render preview.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col flex-grow relative overflow-hidden">
+                    <div class="bg-slate-950 px-4 py-3 flex justify-between items-center border-b border-slate-800 shrink-0">
+                        <span class="text-sm font-bold text-teal-400 uppercase tracking-wider font-mono">Compiled LaTeX</span>
+                        <button id="btnCopyCode" class="bg-teal-600 hover:bg-teal-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md transform hover:-translate-y-0.5 active:scale-95 flex items-center gap-1">
+                            <i class="fa-regular fa-copy"></i> Copy syntax
+                        </button>
+                    </div>
+                    <div class="flex-grow p-4 overflow-auto custom-scroll">
+                        <pre><code id="latexOutput" class="text-slate-300 font-mono text-xs leading-relaxed whitespace-pre-wrap select-all">Waiting for input matrix...</code></pre>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </main>
+
+    <script src="js/latex-tables.js"></script>
+</body>
+</html>
