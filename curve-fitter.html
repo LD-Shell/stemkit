@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Curve Fitter & Regression Calculator | STEMKit</title>
+    <meta name="title" content="Curve Fitter & Regression Calculator | STEMKit">
+    <meta name="description" content="Client-side non-linear curve fitting. Calculate exponential, polynomial, power, and logarithmic regressions instantly from your browser.">
+    <meta name="keywords" content="curve fitter online, non linear regression calculator, exponential curve fit, polynomial regression, client side plotting, r-squared calculator">
+    <meta name="author" content="STEMKit">
+    <meta name="theme-color" content="#10b981"> <link rel="canonical" href="https://stemkit.net/curve-fitter.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stemkit.net/curve-fitter.html">
+    <meta property="og:title" content="Curve Fitter & Regression Calculator | STEMKit">
+    <meta property="og:description" content="Paste your X/Y data to instantly calculate optimal coefficients and R² values for non-linear models.">
+    
+    <script type="application/ld+json">
+        {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "STEMKit Curve Fitter",
+        "url": "https://stemkit.net/curve-fitter.html",
+        "description": "Perform robust client-side regression analysis and plot generation for scientific data.",
+        "applicationCategory": "UtilityApplication",
+        "operatingSystem": "All",
+        "browserRequirements": "Requires JavaScript"
+        }
+    </script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class', 
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } 
+        };
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
+    </script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/regression/2.0.1/regression.min.js"></script>
+
+    <style>
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+        .dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
+
+    <nav class="max-w-7xl mx-auto px-6 h-20 w-full flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
+        <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <div class="bg-indigo-600 text-white p-2 rounded-lg shadow-sm">
+                <i class="fa-solid fa-flask text-xl"></i>
+            </div>
+            <span class="text-2xl font-black tracking-tighter">STEMKit</span>
+        </a>
+        <div class="flex items-center gap-4">
+            <button id="themeToggle" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300">
+                <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
+        
+        <header class="mb-4">
+            <div class="inline-flex items-center gap-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4 border border-emerald-200 dark:border-emerald-800/50">
+                <i class="fa-solid fa-wave-square"></i> Data Analysis
+            </div>
+            <h1 class="text-4xl font-black mb-2 tracking-tight">Non-Linear Curve Fitter</h1>
+            <p class="text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
+                Paste your raw X/Y coordinates to instantly perform least-squares regression modeling. Extract optimal coefficients and R² values securely in your browser.
+            </p>
+        </header>
+
+        <div id="toastContainer" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+        <div class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-260px)] min-h-[600px]">
+            
+            <div class="w-full lg:w-[400px] flex flex-col gap-4 shrink-0">
+                
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col flex-grow">
+                    <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2">1. Input X/Y Data</h2>
+                    <textarea id="dataInput" class="w-full flex-grow bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-emerald-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" placeholder="Paste 2 columns (X and Y)&#10;&#10;0.5   1.2&#10;1.0   2.8&#10;1.5   4.5&#10;2.0   7.1"></textarea>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 shrink-0">
+                    <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-3">2. Regression Model</h2>
+                    <div class="space-y-3">
+                        <div>
+                            <select id="modelSelect" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-emerald-500 outline-none">
+                                <option value="linear">Linear: y = mx + c</option>
+                                <option value="exponential">Exponential: y = a * e^(bx)</option>
+                                <option value="power">Power: y = a * x^b</option>
+                                <option value="logarithmic">Logarithmic: y = a + b * ln(x)</option>
+                                <option value="polynomial2">Polynomial (Degree 2): y = ax² + bx + c</option>
+                                <option value="polynomial3">Polynomial (Degree 3): y = ax³ + bx² + cx + d</option>
+                            </select>
+                        </div>
+                        <button id="btnFit" class="w-full bg-slate-800 hover:bg-slate-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl transition-all shadow-md transform hover:-translate-y-0.5 active:scale-95 text-sm">
+                            Compute Fit
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="flex-grow flex flex-col gap-4">
+                
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-2 flex flex-col flex-grow relative">
+                    <div id="plotContainer" class="w-full h-full"></div>
+                </div>
+
+                <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col shrink-0 relative overflow-hidden">
+                    <div class="bg-slate-950 px-4 py-3 flex justify-between items-center border-b border-slate-800">
+                        <span class="text-sm font-bold text-emerald-400 uppercase tracking-wider font-mono">Mathematical Model</span>
+                        <div class="flex gap-3 items-center">
+                            <span class="text-xs font-mono text-slate-400">R² = <span id="r2Value" class="text-white font-bold">0.0000</span></span>
+                            <button id="btnCopyEquation" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 text-[10px] uppercase rounded font-bold transition-colors">
+                                Copy Eq
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-5 overflow-auto custom-scroll flex items-center justify-center min-h-[80px]">
+                        <p id="equationOutput" class="text-white font-mono text-lg tracking-wide text-center">Awaiting data...</p>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </main>
+
+    <script src="js/curve-fitter.js"></script>
+</body>
+</html>
