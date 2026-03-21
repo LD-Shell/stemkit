@@ -3,40 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
     <title>STEMdle | Daily Science Puzzle | STEMKit</title>
     <meta name="title" content="STEMdle | Daily Science Puzzle | STEMKit">
-    <meta name="description" content="A daily 5-letter logic and vocabulary puzzle built for the STEM community. Test your knowledge and build your daily streak.">
+    <meta name="description" content="A daily 5-letter logic and vocabulary puzzle built for the STEM community. Test your knowledge and build your daily streak securely in your browser.">
+    <meta name="keywords" content="stemdle, science wordle, daily puzzle, logic game, stem vocabulary, browser game">
     
+    <link rel="canonical" href="https://stemkit.net/stemdle.html">
+    <meta property="og:url" content="https://stemkit.net/stemdle.html">
+    <meta property="twitter:url" content="https://stemkit.net/stemdle.html">
+    
+    <meta property="og:title" content="STEMdle | Daily Science Puzzle">
+    <meta property="twitter:title" content="STEMdle | Daily Science Puzzle">
+    <meta property="og:description" content="A daily 5-letter logic and vocabulary puzzle built for the STEM community.">
+    <meta property="twitter:description" content="A daily 5-letter logic and vocabulary puzzle built for the STEM community.">
+    
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            "name": "STEMdle",
+            "url": "https://stemkit.net/stemdle.html",
+            "description": "A daily logic and vocabulary puzzle built for the STEM community.",
+            "applicationCategory": "GameApplication",
+            "operatingSystem": "All",
+            "browserRequirements": "Requires JavaScript",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "featureList": [ "Daily Seeded Puzzles", "Local Streak Tracking", "Scientific Vocabulary Focus" ]
+        }
+    </script>
+
+    <meta name="author" content="STEMKit">
+    <meta name="theme-color" content="#4f46e5">
+
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://stemkit.net/assets/og-image.webp">
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp">
+
+    <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="https://stemkit.net/assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="https://stemkit.net/assets/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } };
+        tailwind.config = { 
+            darkMode: 'class', 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    animation: { 'float': 'float 6s ease-in-out infinite', 'bounce-slow': 'bounce 3s infinite' },
+                    keyframes: { float: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-15px)' } } }
+                } 
+            } 
+        };
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
     </script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
         .tile { transition: transform 0.4s ease, background-color 0.4s ease; }
         .tile.flip { transform: rotateX(90deg); }
+        .key { transition: background-color 0.1s ease; }
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
 
-    <nav class="max-w-7xl mx-auto px-6 h-20 w-full flex justify-between items-center z-50">
-        <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <div class="bg-indigo-600 text-white p-2 rounded-lg shadow-sm">
-                <i class="fa-solid fa-flask text-xl"></i>
+    <nav class="sticky top-0 z-50 w-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16 sm:h-20">
+                <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                    <div class="bg-indigo-600 text-white p-2 sm:p-2.5 rounded-lg shadow-sm flex items-center justify-center">
+                        <i class="fa-solid fa-flask text-lg sm:text-xl"></i>
+                    </div>
+                    <span class="text-xl sm:text-2xl font-black tracking-tighter text-slate-900 dark:text-white">STEMKit</span>
+                </a>
+
+                <div class="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                    <a href="index.html#data-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Data</a>
+                    <a href="index.html#comp-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Compute</a>
+                    <a href="index.html#pub-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Publish</a>
+                    <a href="index.html#focus-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Focus</a>
+                    
+                    <div class="h-5 w-px bg-slate-200 dark:bg-slate-700"></div>
+                    
+                    <button class="themeToggle p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" aria-label="Toggle dark mode">
+                        <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                        <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+                    </button>
+                    
+                    <a href="plot-digitizer.html" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg">
+                        <i class="fa-solid fa-crosshairs mr-1"></i> Digitizer Pro
+                    </a>
+                </div>
+
+                <div class="flex items-center gap-2 md:hidden">
+                    <button class="themeToggle p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300">
+                        <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                        <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+                    </button>
+                    <button id="mobile-menu-btn" class="text-slate-600 dark:text-slate-300 hover:text-indigo-600 p-2 focus:outline-none">
+                        <i class="fa-solid fa-bars text-2xl" id="menu-icon"></i>
+                    </button>
+                </div>
             </div>
-            <span class="text-2xl font-black tracking-tighter">STEMKit</span>
-        </a>
-        <div class="flex items-center gap-6">
-            <a href="index.html#focus-tools" class="hidden sm:block text-sm font-medium text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400">
-                <i class="fa-solid fa-arrow-left mr-1"></i> Back
-            </a>
-            <button id="themeToggle" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300">
-                <i class="fa-solid fa-moon dark:hidden text-lg"></i>
-                <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
-            </button>
+        </div>
+
+        <div id="mobile-menu" class="hidden md:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 absolute w-full shadow-xl">
+            <div class="px-4 pt-2 pb-6 space-y-2 text-base font-semibold text-slate-600 dark:text-slate-300">
+                <a href="index.html#data-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Data & Stats</a>
+                <a href="index.html#comp-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Compute</a>
+                <a href="index.html#pub-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Publish</a>
+                <a href="index.html#focus-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Focus & Flow</a>
+                <div class="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800">
+                    <a href="plot-digitizer.html" class="block text-center bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl shadow-md transition-colors">Digitizer Pro</a>
+                </div>
+            </div>
         </div>
     </nav>
 
@@ -93,12 +178,57 @@
 
     </main>
 
-    <script src="js/stemdle.js"></script>
+    <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400">
+            <div class="flex items-center gap-2 mb-4 md:mb-0">
+                <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
+                <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
+            </div>
+            <div class="text-center md:text-left mb-4 md:mb-0 text-sm font-medium">
+                &copy; 2026 STEMKit. Engineered for Science.
+            </div>
+            <div class="flex gap-6 text-sm font-medium">
+                <a href="#" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
+                <a href="#" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+            </div>
+        </div>
+    </footer>
+
     <script>
-        document.getElementById('themeToggle').addEventListener('click', () => {
-            document.documentElement.classList.toggle('dark');
-            localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        // 1. Theme toggle logic (Mobile & Desktop)
+        document.querySelectorAll('.themeToggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+                localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            });
         });
+
+        // 2. Mobile menu logic
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const menuIcon = document.getElementById('menu-icon');
+
+        if(mobileMenuBtn) {
+            mobileMenuBtn.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+                if(mobileMenu.classList.contains('hidden')) {
+                    menuIcon.classList.remove('fa-xmark');
+                    menuIcon.classList.add('fa-bars');
+                } else {
+                    menuIcon.classList.remove('fa-bars');
+                    menuIcon.classList.add('fa-xmark');
+                }
+            });
+
+            document.querySelectorAll('.mobile-link').forEach(link => {
+                link.addEventListener('click', () => {
+                    mobileMenu.classList.add('hidden');
+                    menuIcon.classList.remove('fa-xmark');
+                    menuIcon.classList.add('fa-bars');
+                });
+            });
+        }
     </script>
+    <script src="js/stemdle.js"></script>
 </body>
 </html>
