@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>BibTeX Reference Deduplicator | STEMKit</title>
+    <meta name="title" content="BibTeX Reference Deduplicator | STEMKit">
+    <meta name="description" content="Clean your LaTeX bibliography instantly. Upload your BibTeX file to automatically detect and resolve duplicate citations entirely in your browser.">
+    <meta name="keywords" content="bibtex deduplicator, clean bibtex online, remove duplicate citations, latex bibliography tool, client-side bibtex parser, STEMKit">
+    <meta name="author" content="STEMKit">
+    <meta name="theme-color" content="#4f46e5">
+
+    <link rel="canonical" href="https://stemkit.net/bibtex-deduplicator">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stemkit.net/bibtex-deduplicator">
+    <meta property="og:title" content="BibTeX Reference Deduplicator | STEMKit">
+    <meta property="og:description" content="Automatically detect and merge duplicate citations in your BibTeX files locally.">
+    <meta property="og:image" content="https://stemkit.net/assets/og-bibtex.webp">
+
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://stemkit.net/bibtex-deduplicator">
+    <meta property="twitter:title" content="BibTeX Reference Deduplicator | STEMKit">
+    <meta property="twitter:description" content="Automatically detect and merge duplicate citations in your BibTeX files locally.">
+    <meta property="twitter:image" content="https://stemkit.net/assets/og-bibtex.webp">
+
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class', 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                } 
+            } 
+        };
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdn.jsdelivr.net/npm/bibtex-parse-js@0.0.11/bibtexParse.min.js"></script>
+
+    <script src="js/bibtex-deduplicator.js" defer></script>
+
+    <style>
+        @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .toast-enter { animation: slideIn 0.3s forwards; }
+        .duplicate-group { transition: all 0.3s ease; }
+        .duplicate-group.resolved { opacity: 0.5; filter: grayscale(100%); pointer-events: none; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <header class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 sticky top-0 z-50">
+        <nav class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center" aria-label="Main Navigation">
+            <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <i class="fa-solid fa-book-bookmark text-indigo-600 dark:text-indigo-400 text-xl"></i>
+                <span class="text-xl font-black tracking-tighter">STEMKit</span>
+            </a>
+            <button id="themeToggle" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-moon dark:hidden"></i>
+                <i class="fa-solid fa-sun hidden dark:block text-yellow-400"></i>
+            </button>
+        </nav>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
+        
+        <div class="mb-4">
+            <h1 class="text-3xl font-bold mb-2">BibTeX Reference Deduplicator</h1>
+            <p class="text-slate-500 dark:text-slate-400">Scan your bibliography for duplicate entries caused by merging multiple libraries. Resolves conflicts locally without uploading your research data.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <div class="lg:col-span-5 flex flex-col gap-6">
+                
+                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col">
+                    <div class="flex justify-between items-end mb-4">
+                        <h2 class="text-lg font-semibold">1. Input Bibliography</h2>
+                        <label class="cursor-pointer bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded text-sm font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
+                            <i class="fa-solid fa-upload mr-1"></i> Upload .bib
+                            <input type="file" id="fileInput" accept=".bib,.txt" class="hidden">
+                        </label>
+                    </div>
+                    <textarea id="bibInput" class="w-full flex-grow min-h-[250px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none resize-y" placeholder="Paste your BibTeX entries here..."></textarea>
+                    
+                    <button id="scanBtn" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white w-full py-3 rounded-xl font-bold transition-colors shadow-sm">
+                        Scan for Duplicates
+                    </button>
+                </div>
+
+                <div id="diagnosticsCard" class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm hidden">
+                    <h2 class="text-lg font-semibold mb-4">Library Diagnostics</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 text-center">
+                            <span class="block text-xs text-slate-500 uppercase tracking-widest mb-1">Total Entries</span>
+                            <span class="text-2xl font-black text-slate-700 dark:text-slate-200" id="totalEntriesCount">0</span>
+                        </div>
+                        <div class="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl p-4 text-center">
+                            <span class="block text-xs text-red-500 uppercase tracking-widest mb-1">Duplicates Found</span>
+                            <span class="text-2xl font-black text-red-600 dark:text-red-400" id="duplicateCount">0</span>
+                        </div>
+                    </div>
+                    
+                    <button id="exportBtn" class="mt-6 bg-emerald-600 hover:bg-emerald-700 text-white w-full py-3 rounded-xl font-bold transition-colors shadow-sm flex items-center justify-center disabled:opacity-50" disabled>
+                        <i class="fa-solid fa-download mr-2"></i> Export Cleaned .bib
+                    </button>
+                </div>
+
+            </div>
+
+            <div class="lg:col-span-7 flex flex-col">
+                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm min-h-[500px] flex flex-col">
+                    <div class="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+                        <h2 class="text-lg font-semibold">2. Resolve Conflicts</h2>
+                        <button id="autoResolveBtn" class="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hidden">
+                            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Auto-Keep First
+                        </button>
+                    </div>
+
+                    <div id="emptyState" class="flex-grow flex flex-col items-center justify-center text-slate-400">
+                        <i class="fa-solid fa-check-double text-6xl mb-4 opacity-20"></i>
+                        <p class="font-medium">Upload a library to scan for duplicate citations.</p>
+                    </div>
+
+                    <div id="conflictList" class="flex flex-col gap-6 overflow-y-auto pr-2"></div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
+
+</body>
+</html>
