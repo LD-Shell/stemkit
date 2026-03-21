@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Multi-Dataset Plot Builder | STEMKit</title>
+    <meta name="title" content="Multi-Dataset Plot Builder | STEMKit">
+    <meta name="description" content="Build publication-ready plots directly in your browser. Layer multiple CSV datasets, customize axes, and export to SVG or high-res PNG without writing Python code.">
+    <meta name="keywords" content="scientific plotting, multi-dataset graph, browser originlab alternative, plotly csv, export svg plot, STEMKit graphing">
+    <meta name="author" content="STEMKit">
+    <meta name="theme-color" content="#4f46e5">
+
+    <link rel="canonical" href="https://stemkit.net/plot-builder">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class', 
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } 
+        };
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+    <script src="js/plot-builder.js" defer></script>
+
+    <style>
+        @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .toast-enter { animation: slideIn 0.3s forwards; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300 overflow-hidden">
+
+    <header class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 flex-shrink-0 z-50">
+        <nav class="max-w-[1600px] mx-auto px-6 h-16 flex justify-between items-center" aria-label="Main Navigation">
+            <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <i class="fa-solid fa-chart-area text-indigo-600 dark:text-indigo-400 text-xl" aria-hidden="true"></i>
+                <span class="text-xl font-black tracking-tighter">STEMKit</span>
+            </a>
+            <button id="themeToggle" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-moon dark:hidden"></i>
+                <i class="fa-solid fa-sun hidden dark:block text-yellow-400"></i>
+            </button>
+        </nav>
+    </header>
+
+    <main class="flex-grow max-w-[1600px] mx-auto px-4 py-6 w-full flex flex-col lg:flex-row gap-6 h-[calc(100vh-4rem)]">
+        
+        <aside class="w-full lg:w-[450px] flex flex-col gap-6 overflow-y-auto pr-2 pb-8 scrollbar-hide flex-shrink-0">
+            
+            <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+                <h2 class="text-base font-bold mb-3 flex items-center justify-between">
+                    <span>1. Data pool</span>
+                    <span class="text-xs font-normal text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">CSV format</span>
+                </h2>
+                
+                <div id="uploadZone" class="border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-xl bg-indigo-50/50 dark:bg-indigo-900/10 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer p-4 text-center group">
+                    <input type="file" id="fileInput" accept=".csv" multiple class="hidden">
+                    <p class="text-sm font-medium text-slate-600 dark:text-slate-300"><i class="fa-solid fa-file-csv mr-1 text-indigo-500"></i> Drop files or click to add</p>
+                </div>
+                <div id="fileInventory" class="mt-3 flex flex-col gap-2 empty:hidden"></div>
+            </div>
+
+            <div id="datasetContainer" class="flex flex-col gap-4 hidden">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-base font-bold">2. Active traces</h2>
+                    <button id="addTraceBtn" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
+                        <i class="fa-solid fa-plus mr-1"></i> Add trace
+                    </button>
+                </div>
+                
+                <div id="traceList" class="flex flex-col gap-3"></div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+                <h2 class="text-base font-bold mb-4">3. Aesthetics & layout</h2>
+                
+                <div class="flex flex-col gap-4">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Titles</label>
+                        <input type="text" id="plotTitle" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 mb-2" placeholder="Main Plot Title">
+                        <div class="grid grid-cols-2 gap-2">
+                            <input type="text" id="xAxisLabel" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" placeholder="X-Axis Label">
+                            <input type="text" id="yAxisLabel" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" placeholder="Y-Axis Label">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-800 pt-4">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Axes & grid</label>
+                            <label class="flex items-center gap-2 text-sm cursor-pointer mb-2">
+                                <input type="checkbox" id="showFrame" class="rounded text-indigo-600" checked> Boxed frame
+                            </label>
+                            <label class="flex items-center gap-2 text-sm cursor-pointer mb-2">
+                                <input type="checkbox" id="showGridX" class="rounded text-indigo-600"> Inner X grid
+                            </label>
+                            <label class="flex items-center gap-2 text-sm cursor-pointer">
+                                <input type="checkbox" id="showGridY" class="rounded text-indigo-600"> Inner Y grid
+                            </label>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Scale & ticks</label>
+                            <label class="flex items-center gap-2 text-sm cursor-pointer mb-2">
+                                <input type="checkbox" id="xLogScale" class="rounded text-indigo-600"> X log scale
+                            </label>
+                            <label class="flex items-center gap-2 text-sm cursor-pointer mb-3">
+                                <input type="checkbox" id="yLogScale" class="rounded text-indigo-600"> Y log scale
+                            </label>
+                            <select id="tickStyle" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none focus:border-indigo-500">
+                                <option value="inside">Ticks: Inside</option>
+                                <option value="outside">Ticks: Outside</option>
+                                <option value="">Ticks: Hidden</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-slate-100 dark:border-slate-800 pt-4">
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Legend configuration</label>
+                        <select id="legendPosition" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500">
+                            <option value="top-right">Inner Top Right</option>
+                            <option value="top-left">Inner Top Left</option>
+                            <option value="bottom-right">Inner Bottom Right</option>
+                            <option value="outside">Outside Right</option>
+                            <option value="hidden">Hidden</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button id="updatePlotBtn" class="bg-slate-900 dark:bg-indigo-600 text-white w-full py-3 rounded-xl font-bold transition-colors shadow-sm mt-6">
+                    Render Graph
+                </button>
+            </div>
+
+        </aside>
+
+        <section class="flex-grow flex flex-col bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden h-full">
+            
+            <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex justify-between items-center z-10">
+                <h2 class="text-sm font-bold text-slate-700 dark:text-slate-300">Plot viewport</h2>
+                <div class="flex gap-2">
+                    <button id="downloadSvgBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold hover:text-indigo-600 transition-colors shadow-sm">
+                        <i class="fa-solid fa-download mr-1"></i> SVG
+                    </button>
+                    <button id="downloadPngBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold hover:text-indigo-600 transition-colors shadow-sm">
+                        <i class="fa-solid fa-download mr-1"></i> PNG
+                    </button>
+                </div>
+            </div>
+
+            <div id="plotlyCanvas" class="flex-grow w-full relative">
+                <div id="emptyPlotState" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                    <i class="fa-solid fa-chart-line text-6xl mb-4 opacity-20" aria-hidden="true"></i>
+                    <p class="font-medium">Upload datasets and add traces to begin</p>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
+
+</body>
+</html>
