@@ -4,29 +4,47 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <title>Outlier Detector | Data Scrubbing | STEMKit</title>
-    <meta name="title" content="Outlier Detector | Data Scrubbing | STEMKit">
-    <meta name="description" content="Detect and remove statistical outliers from your datasets locally. Utilize Z-Score and Interquartile Range (IQR) algorithms securely within your browser.">
+    <title>Statistical Outlier Detector | Z-Score & IQR | STEMKit</title>
+    <meta name="title" content="Statistical Outlier Detector | Z-Score & IQR | STEMKit">
+    <meta name="description" content="Detect data anomalies instantly using Z-Score and Interquartile Range (IQR) algorithms. A secure, 100% client-side statistics utility.">
     <meta name="keywords" content="outlier detection, remove outliers csv, z-score outlier, iqr outlier, scientific data cleaning, STEMKit">
+    
+    <link rel="canonical" href="https://stemkit.net/outlier-detector.html">
+    <meta property="og:url" content="https://stemkit.net/outlier-detector.html">
+    <meta property="twitter:url" content="https://stemkit.net/outlier-detector.html">
+    
+    <meta property="og:title" content="Statistical Outlier Detector | Z-Score & IQR">
+    <meta property="twitter:title" content="Statistical Outlier Detector | Z-Score & IQR">
+    <meta property="og:description" content="Detect and scrub statistical anomalies from your datasets locally using Z-Score and IQR methods.">
+    <meta property="twitter:description" content="Detect and scrub statistical anomalies from your datasets locally using Z-Score and IQR methods.">
+    
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            "name": "STEMKit Outlier Detector",
+            "url": "https://stemkit.net/outlier-detector.html",
+            "description": "Detect data anomalies instantly using Z-Score and Interquartile Range (IQR) algorithms.",
+            "applicationCategory": "UtilityApplication",
+            "operatingSystem": "All",
+            "browserRequirements": "Requires JavaScript",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "featureList": [ "Z-Score Analysis", "IQR Detection", "Client-side Processing", "Visual Anomaly Flagging" ]
+        }
+    </script>
+    
     <meta name="author" content="STEMKit">
     <meta name="theme-color" content="#4f46e5">
 
-    <link rel="canonical" href="https://stemkit.net/outlier-detector">
-
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://stemkit.net/outlier-detector">
-    <meta property="og:title" content="Outlier Detector | STEMKit">
-    <meta property="og:description" content="Detect and scrub statistical anomalies from your datasets locally using Z-Score and IQR methods.">
     <meta property="og:image" content="https://stemkit.net/assets/og-outlier.webp">
-
     <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://stemkit.net/outlier-detector">
-    <meta property="twitter:title" content="Outlier Detector | STEMKit">
-    <meta property="twitter:description" content="Detect and scrub statistical anomalies from your datasets locally using Z-Score and IQR methods.">
     <meta property="twitter:image" content="https://stemkit.net/assets/og-outlier.webp">
 
-    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
-    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+    <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="https://stemkit.net/assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="https://stemkit.net/assets/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -34,19 +52,20 @@
             darkMode: 'class', 
             theme: { 
                 extend: { 
-                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    animation: { 'float': 'float 6s ease-in-out infinite', 'bounce-slow': 'bounce 3s infinite' },
+                    keyframes: { float: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-15px)' } } }
                 } 
             } 
         };
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
     </script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.6/jstat.min.js"></script>
-
-    <script src="js/outlier-detector.js" defer></script>
 
     <style>
         .table-container::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -58,24 +77,65 @@
         @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .toast-enter { animation: slideIn 0.3s forwards; }
         
+        /* Specific highlight for anomaly rows */
         .outlier-row { background-color: rgba(239, 68, 68, 0.1); }
         .dark .outlier-row { background-color: rgba(239, 68, 68, 0.15); }
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
 
-    <header class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 sticky top-0 z-50">
-        <nav class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center" aria-label="Main Navigation">
-            <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                <i class="fa-solid fa-filter text-indigo-600 dark:text-indigo-400 text-xl" aria-hidden="true"></i>
-                <span class="text-xl font-black tracking-tighter">STEMKit</span>
-            </a>
-            <button id="themeToggle" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                <i class="fa-solid fa-moon dark:hidden"></i>
-                <i class="fa-solid fa-sun hidden dark:block text-yellow-400"></i>
-            </button>
-        </nav>
-    </header>
+    <nav class="sticky top-0 z-50 w-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16 sm:h-20">
+                <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                    <div class="bg-indigo-600 text-white p-2 sm:p-2.5 rounded-lg shadow-sm flex items-center justify-center">
+                        <i class="fa-solid fa-flask text-lg sm:text-xl"></i>
+                    </div>
+                    <span class="text-xl sm:text-2xl font-black tracking-tighter text-slate-900 dark:text-white">STEMKit</span>
+                </a>
+
+                <div class="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                    <a href="index.html#data-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Data</a>
+                    <a href="index.html#comp-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Compute</a>
+                    <a href="index.html#pub-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Publish</a>
+                    <a href="index.html#focus-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Focus</a>
+                    
+                    <div class="h-5 w-px bg-slate-200 dark:bg-slate-700"></div>
+                    
+                    <button class="themeToggle p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" aria-label="Toggle dark mode">
+                        <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                        <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+                    </button>
+                    
+                    <a href="plot-digitizer.html" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg">
+                        <i class="fa-solid fa-crosshairs mr-1"></i> Digitizer Pro
+                    </a>
+                </div>
+
+                <div class="flex items-center gap-2 md:hidden">
+                    <button class="themeToggle p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300">
+                        <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                        <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+                    </button>
+                    <button id="mobile-menu-btn" class="text-slate-600 dark:text-slate-300 hover:text-indigo-600 p-2 focus:outline-none">
+                        <i class="fa-solid fa-bars text-2xl" id="menu-icon"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="mobile-menu" class="hidden md:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 absolute w-full shadow-xl">
+            <div class="px-4 pt-2 pb-6 space-y-2 text-base font-semibold text-slate-600 dark:text-slate-300">
+                <a href="index.html#data-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Data & Stats</a>
+                <a href="index.html#comp-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Compute</a>
+                <a href="index.html#pub-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Publish</a>
+                <a href="index.html#focus-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Focus & Flow</a>
+                <div class="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800">
+                    <a href="plot-digitizer.html" class="block text-center bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl shadow-md transition-colors">Digitizer Pro</a>
+                </div>
+            </div>
+        </div>
+    </nav>
 
     <main class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
         
@@ -161,5 +221,57 @@
 
     <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
 
+    <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400">
+            <div class="flex items-center gap-2 mb-4 md:mb-0">
+                <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
+                <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
+            </div>
+            <div class="text-center md:text-left mb-4 md:mb-0 text-sm font-medium">
+                &copy; 2026 STEMKit. Engineered for Science.
+            </div>
+            <div class="flex gap-6 text-sm font-medium">
+                <a href="#" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
+                <a href="#" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // 1. Theme toggle logic (Mobile & Desktop)
+        document.querySelectorAll('.themeToggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+                localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            });
+        });
+
+        // 2. Mobile menu logic
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const menuIcon = document.getElementById('menu-icon');
+
+        if(mobileMenuBtn) {
+            mobileMenuBtn.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+                if(mobileMenu.classList.contains('hidden')) {
+                    menuIcon.classList.remove('fa-xmark');
+                    menuIcon.classList.add('fa-bars');
+                } else {
+                    menuIcon.classList.remove('fa-bars');
+                    menuIcon.classList.add('fa-xmark');
+                }
+            });
+
+            document.querySelectorAll('.mobile-link').forEach(link => {
+                link.addEventListener('click', () => {
+                    mobileMenu.classList.add('hidden');
+                    menuIcon.classList.remove('fa-xmark');
+                    menuIcon.classList.add('fa-bars');
+                });
+            });
+        }
+    </script>
+    <script src="js/outlier-detector.js" defer></script>
 </body>
 </html>
