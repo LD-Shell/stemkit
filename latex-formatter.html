@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>LaTeX Equation Formatter & Visual Editor | STEMKit</title>
+    <meta name="title" content="LaTeX Equation Formatter & Visual Editor | STEMKit">
+    <meta name="description" content="Visually build complex LaTeX equations, generate matrices, and debug syntax errors in real-time. 100% client-side execution for academic manuscript preparation.">
+    <meta name="keywords" content="latex equation editor, visual latex formatter, katex preview, mathlive, generate latex matrix, STEMKit">
+    <meta name="author" content="STEMKit">
+    <meta name="theme-color" content="#4f46e5">
+
+    <link rel="canonical" href="https://stemkit.net/latex-formatter">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stemkit.net/latex-formatter">
+    <meta property="og:title" content="LaTeX Equation Formatter & Visual Editor | STEMKit">
+    <meta property="og:description" content="Visually build and debug complex LaTeX equations entirely in your browser.">
+    <meta property="og:image" content="https://stemkit.net/assets/og-latex.webp">
+
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://stemkit.net/latex-formatter">
+    <meta property="twitter:title" content="LaTeX Equation Formatter & Visual Editor | STEMKit">
+    <meta property="twitter:description" content="Visually build and debug complex LaTeX equations entirely in your browser.">
+    <meta property="twitter:image" content="https://stemkit.net/assets/og-latex.webp">
+
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class', 
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } 
+        };
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    
+    <script defer src="https://unpkg.com/mathlive@0.94.8/dist/mathlive.min.js"></script>
+
+    <script src="js/latex-formatter.js" defer></script>
+
+    <style>
+        @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .toast-enter { animation: slideIn 0.3s forwards; }
+        
+        /* Modifying the MathLive component shadow DOM variables for theme compliance */
+        math-field {
+            --contains-highlight-backround: transparent;
+            font-size: 1.5rem;
+            width: 100%;
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+        .dark math-field {
+            --text-color: #f1f5f9;
+            --keyboard-background: #0f172a;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <header class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 sticky top-0 z-50">
+        <nav class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center" aria-label="Main navigation">
+            <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <i class="fa-solid fa-square-root-variable text-indigo-600 dark:text-indigo-400 text-xl" aria-hidden="true"></i>
+                <span class="text-xl font-black tracking-tighter">STEMKit</span>
+            </a>
+            <button id="themeToggle" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-moon dark:hidden"></i>
+                <i class="fa-solid fa-sun hidden dark:block text-yellow-400"></i>
+            </button>
+        </nav>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
+        
+        <div class="mb-2">
+            <h1 class="text-3xl font-bold mb-2">LaTeX Equation Formatter</h1>
+            <p class="text-slate-500 dark:text-slate-400">Build equations visually, generate boilerplate matrices, and debug compilation errors instantly before updating your manuscript.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <div class="flex flex-col gap-6">
+                
+                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col">
+                    <h2 class="text-lg font-semibold mb-4">1. Visual Equation Builder</h2>
+                    
+                    <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex-grow flex items-center justify-center min-h-[150px] shadow-inner mb-4">
+                        <math-field id="mathField" class="bg-transparent outline-none">H = \sum_{i=1}^{N} \frac{p_i^2}{2m} + V(q_1, \dots, q_N)</math-field>
+                    </div>
+
+                    <p class="text-xs text-slate-500 mb-2"><i class="fa-solid fa-keyboard mr-1"></i> You can type standard LaTeX commands (e.g., \alpha) directly into the box, or click to open the virtual math keyboard.</p>
+                </div>
+
+                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+                    <h2 class="text-lg font-semibold mb-4">Matrix & Environment Generator</h2>
+                    
+                    <div class="grid grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Rows</label>
+                            <input type="number" id="matrixRows" min="1" max="10" value="3" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Columns</label>
+                            <input type="number" id="matrixCols" min="1" max="10" value="3" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Bracket Style</label>
+                            <select id="matrixStyle" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                                <option value="bmatrix">[ ] bmatrix</option>
+                                <option value="pmatrix">( ) pmatrix</option>
+                                <option value="vmatrix">| | vmatrix</option>
+                                <option value="matrix">None</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button id="generateMatrixBtn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 w-full py-2.5 rounded-xl font-bold transition-colors shadow-sm text-sm">
+                        Append Matrix to Editor
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6">
+                
+                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col flex-grow">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold">2. Raw Source Code</h2>
+                        <button id="copyLatexBtn" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded">
+                            <i class="fa-regular fa-copy mr-1"></i> Copy Code
+                        </button>
+                    </div>
+                    
+                    <textarea id="latexInput" class="w-full flex-grow min-h-[150px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none resize-y" placeholder="Raw LaTeX string..."></textarea>
+                </div>
+
+                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col h-[200px]">
+                    <div class="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
+                        <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider">Live Compilation Output</h2>
+                        <span id="syntaxStatus" class="text-xs font-bold text-emerald-500"><i class="fa-solid fa-check mr-1"></i> Valid Syntax</span>
+                    </div>
+                    
+                    <div class="flex-grow flex items-center justify-center overflow-auto">
+                        <div id="katexPreview" class="text-xl"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
+
+</body>
+</html>
