@@ -4,18 +4,59 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <title>HPC Script Generator | STEMKit</title>
-    <meta name="title" content="HPC Script Generator | STEMKit">
-    <meta name="description" content="Visually generate flawless SLURM job arrays and GROMACS topology configurations. Optimize hybrid CPU-GPU threading instantly.">
+    <title>HPC Script Generator | SLURM & GROMACS | STEMKit</title>
+    <meta name="title" content="HPC Script Generator | SLURM & GROMACS | STEMKit">
+    <meta name="description" content="Generate flawless SLURM job arrays and GROMACS topology configurations. Optimize hybrid CPU-GPU threading and forcefield fudge factors instantly.">
     <meta name="keywords" content="slurm script generator, gromacs topology, amber fudge factors, computational chemistry, hpc job array, mdrun optimization">
+    
+    <link rel="canonical" href="https://stemkit.net/script-generator.html">
+    <meta property="og:url" content="https://stemkit.net/script-generator.html">
+    <meta property="twitter:url" content="https://stemkit.net/script-generator.html">
+    
+    <meta property="og:title" content="HPC Script Generator | SLURM & GROMACS">
+    <meta property="twitter:title" content="HPC Script Generator | SLURM & GROMACS">
+    <meta property="og:description" content="Generate flawless SLURM job arrays and GROMACS parameters instantly.">
+    <meta property="twitter:description" content="Generate flawless SLURM job arrays and GROMACS parameters instantly.">
+    
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            "name": "STEMKit HPC Script Generator",
+            "url": "https://stemkit.net/script-generator.html",
+            "description": "Generate flawless SLURM job arrays and GROMACS topology parameters.",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "All",
+            "browserRequirements": "Requires JavaScript",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "featureList": [ "SLURM Job Arrays", "GROMACS Topology Headers", "Forcefield Fudge Factors", "100% Client-Side" ]
+        }
+    </script>
+
     <meta name="author" content="STEMKit">
-    <meta name="theme-color" content="#f43f5e"> <link rel="canonical" href="https://stemkit.net/script-generator.html">
+    <meta name="theme-color" content="#f43f5e">
+
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://stemkit.net/assets/og-image.webp">
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp">
+
+    <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="https://stemkit.net/assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="https://stemkit.net/assets/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = { 
             darkMode: 'class', 
-            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    animation: { 'float': 'float 6s ease-in-out infinite', 'bounce-slow': 'bounce 3s infinite' },
+                    keyframes: { float: { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-15px)' } } }
+                } 
+            } 
         };
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
     </script>
@@ -37,22 +78,60 @@
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
 
-    <nav class="max-w-7xl mx-auto px-6 h-20 w-full flex justify-between items-center border-b border-slate-200 dark:border-slate-800 shrink-0">
-        <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <div class="bg-indigo-600 text-white p-2 rounded-lg shadow-sm">
-                <i class="fa-solid fa-flask text-xl"></i>
+    <nav class="sticky top-0 z-50 w-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16 sm:h-20">
+                <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                    <div class="bg-indigo-600 text-white p-2 sm:p-2.5 rounded-lg shadow-sm flex items-center justify-center">
+                        <i class="fa-solid fa-flask text-lg sm:text-xl"></i>
+                    </div>
+                    <span class="text-xl sm:text-2xl font-black tracking-tighter text-slate-900 dark:text-white">STEMKit</span>
+                </a>
+
+                <div class="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                    <a href="index.html#data-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Data</a>
+                    <a href="index.html#comp-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Compute</a>
+                    <a href="index.html#pub-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Publish</a>
+                    <a href="index.html#focus-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Focus</a>
+                    
+                    <div class="h-5 w-px bg-slate-200 dark:bg-slate-700"></div>
+                    
+                    <button class="themeToggle p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" aria-label="Toggle dark mode">
+                        <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                        <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+                    </button>
+                    
+                    <a href="plot-digitizer.html" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg">
+                        <i class="fa-solid fa-crosshairs mr-1"></i> Digitizer Pro
+                    </a>
+                </div>
+
+                <div class="flex items-center gap-2 md:hidden">
+                    <button class="themeToggle p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300">
+                        <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                        <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+                    </button>
+                    <button id="mobile-menu-btn" class="text-slate-600 dark:text-slate-300 hover:text-indigo-600 p-2 focus:outline-none">
+                        <i class="fa-solid fa-bars text-2xl" id="menu-icon"></i>
+                    </button>
+                </div>
             </div>
-            <span class="text-2xl font-black tracking-tighter">STEMKit</span>
-        </a>
-        <div class="flex items-center gap-4">
-            <button id="themeToggle" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300">
-                <i class="fa-solid fa-moon dark:hidden text-lg"></i>
-                <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
-            </button>
+        </div>
+
+        <div id="mobile-menu" class="hidden md:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 absolute w-full shadow-xl">
+            <div class="px-4 pt-2 pb-6 space-y-2 text-base font-semibold text-slate-600 dark:text-slate-300">
+                <a href="index.html#data-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Data & Stats</a>
+                <a href="index.html#comp-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Compute</a>
+                <a href="index.html#pub-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Publish</a>
+                <a href="index.html#focus-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Focus & Flow</a>
+                <div class="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800">
+                    <a href="plot-digitizer.html" class="block text-center bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl shadow-md transition-colors">Digitizer Pro</a>
+                </div>
+            </div>
         </div>
     </nav>
 
-    <main class="flex-grow w-full h-[calc(100vh-80px)] flex flex-col relative max-w-7xl mx-auto px-6 py-8">
+    <main class="flex-grow w-full flex flex-col max-w-7xl mx-auto px-6 py-8">
         
         <header class="mb-6">
             <div class="inline-flex items-center gap-2 bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4 border border-rose-200 dark:border-rose-800/50">
@@ -60,15 +139,15 @@
             </div>
             <h1 class="text-4xl font-black mb-2 tracking-tight">SLURM & Topology Generator</h1>
             <p class="text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
-                Configure your cluster dimensions and forcefield parameters. The engine automatically outputs thread-optimized batch scripts and strict `.top` headers.
+                Configure cluster dimensions and forcefield parameters. The engine automatically outputs thread-optimized batch scripts and strict <code>.top</code> headers for GROMACS.
             </p>
         </header>
 
         <div id="toastContainer" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-        <div class="flex flex-col lg:flex-row gap-6 flex-grow overflow-hidden">
+        <div class="flex flex-col lg:flex-row gap-6 flex-grow overflow-hidden min-h-[600px]">
             
-            <div class="w-full lg:w-[450px] flex flex-col gap-4 overflow-y-auto custom-scroll pr-2 shrink-0">
+            <div class="w-full lg:w-[420px] flex flex-col gap-4 overflow-y-auto custom-scroll pr-2 shrink-0">
                 
                 <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
                     <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
@@ -117,13 +196,13 @@
 
                 <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
                     <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                        <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider"><i class="fa-solid fa-atom text-rose-500 mr-2"></i>Topology [ defaults ]</span>
+                        <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider"><i class="fa-solid fa-atom text-rose-500 mr-2"></i>Topology Header</span>
                     </div>
                     <div class="p-4 flex flex-col gap-3">
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <span class="text-[10px] font-bold text-slate-500 uppercase">Base Forcefield</span>
-                                <select id="topForcefield" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none">
+                                <select id="topForcefield" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none focus:ring-2 focus:ring-rose-500">
                                     <option value="amber99sb-ildn">AMBER99SB-ILDN</option>
                                     <option value="charmm36">CHARMM36</option>
                                     <option value="opls-aa">OPLS-AA</option>
@@ -131,23 +210,23 @@
                             </div>
                             <div>
                                 <span class="text-[10px] font-bold text-slate-500 uppercase">Solvent Model</span>
-                                <select id="topSolvent" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none">
-                                    <option value="spce">SPC/E (ClayFF preferred)</option>
+                                <select id="topSolvent" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none focus:ring-2 focus:ring-rose-500">
+                                    <option value="spce">SPC/E (ClayFF)</option>
                                     <option value="tip3p">TIP3P</option>
                                     <option value="tip4p">TIP4P</option>
                                 </select>
                             </div>
                             <div>
                                 <span class="text-[10px] font-bold text-slate-500 uppercase">Comb Rule</span>
-                                <select id="topComb" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none">
+                                <select id="topComb" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none focus:ring-2 focus:ring-rose-500">
                                     <option value="2">2 (Lorentz-Berthelot)</option>
                                     <option value="1">1 (Geometric)</option>
                                     <option value="3">3 (OPLS)</option>
                                 </select>
                             </div>
                             <div>
-                                <span class="text-[10px] font-bold text-slate-500 uppercase">Fudge Factors (LJ / QQ)</span>
-                                <select id="topFudge" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none">
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">Fudge Factors</span>
+                                <select id="topFudge" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none focus:ring-2 focus:ring-rose-500">
                                     <option value="amber">0.5 / 0.8333 (AMBER)</option>
                                     <option value="opls">0.5 / 0.5 (OPLS)</option>
                                     <option value="none">1.0 / 1.0 (None)</option>
@@ -157,44 +236,99 @@
                         
                         <div class="mt-2">
                             <span class="text-[10px] font-bold text-slate-500 uppercase">Custom ITP Includes</span>
-                            <textarea id="topIncludes" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none font-mono resize-none h-16 custom-scroll" placeholder='e.g., #include "glycine.itp"&#10;#include "alpha_alumina.itp"'>#include "glycine.itp"&#10;#include "alpha_alumina.itp"</textarea>
+                            <textarea id="topIncludes" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none font-mono resize-none h-16 custom-scroll" placeholder='e.g., #include "glycine.itp"'>#include "glycine.itp"&#10;#include "alpha_alumina.itp"</textarea>
                         </div>
                     </div>
                 </div>
-
             </div>
 
-            <div class="flex-grow flex flex-col gap-4 overflow-hidden">
+            <div class="flex-grow flex flex-col gap-4 overflow-hidden h-full">
                 
                 <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col flex-1 relative overflow-hidden">
                     <div class="bg-slate-950 px-4 py-2.5 flex justify-between items-center border-b border-slate-800 shrink-0">
-                        <span class="text-sm font-bold text-rose-400 uppercase tracking-wider font-mono">submit.sh</span>
-                        <button class="copy-btn bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1" data-target="slurmOutput">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/50"></span>
+                            <span class="text-sm font-bold text-rose-400 uppercase tracking-wider font-mono">submit.sh</span>
+                        </div>
+                        <button class="copy-btn bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1 active:scale-95" data-target="slurmOutput">
                             <i class="fa-regular fa-copy"></i> Copy Script
                         </button>
                     </div>
                     <div class="flex-grow p-4 overflow-auto custom-scroll relative">
-                        <pre><code id="slurmOutput" class="text-slate-300 font-mono text-[11px] leading-relaxed whitespace-pre-wrap select-all"></code></pre>
+                        <pre><code id="slurmOutput" class="text-slate-300 font-mono text-[11px] leading-relaxed whitespace-pre-wrap select-all"># SLURM script will appear here...</code></pre>
                     </div>
                 </div>
 
                 <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col h-1/3 min-h-[220px] relative overflow-hidden">
                     <div class="bg-slate-950 px-4 py-2.5 flex justify-between items-center border-b border-slate-800 shrink-0">
-                        <span class="text-sm font-bold text-emerald-400 uppercase tracking-wider font-mono">topol.top</span>
-                        <button class="copy-btn bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1" data-target="topOutput">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-emerald-500/20 border border-emerald-500/50"></span>
+                            <span class="text-sm font-bold text-emerald-400 uppercase tracking-wider font-mono">topol.top</span>
+                        </div>
+                        <button class="copy-btn bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1 active:scale-95" data-target="topOutput">
                             <i class="fa-regular fa-copy"></i> Copy Header
                         </button>
                     </div>
                     <div class="flex-grow p-4 overflow-auto custom-scroll relative">
-                        <pre><code id="topOutput" class="text-slate-300 font-mono text-[11px] leading-relaxed whitespace-pre-wrap select-all"></code></pre>
+                        <pre><code id="topOutput" class="text-slate-300 font-mono text-[11px] leading-relaxed whitespace-pre-wrap select-all">; Topology header will appear here...</code></pre>
                     </div>
                 </div>
 
             </div>
-
         </div>
     </main>
 
+    <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400">
+            <div class="flex items-center gap-2 mb-4 md:mb-0">
+                <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
+                <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
+            </div>
+            <div class="text-center md:text-left mb-4 md:mb-0 text-sm font-medium">
+                &copy; 2026 STEMKit. Engineered for Science.
+            </div>
+            <div class="flex gap-6 text-sm font-medium">
+                <a href="#" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
+                <a href="#" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // 1. Universal Theme Toggle
+        document.querySelectorAll('.themeToggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+                localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            });
+        });
+
+        // 2. Mobile Menu Toggle
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const menuIcon = document.getElementById('menu-icon');
+
+        if(mobileMenuBtn) {
+            mobileMenuBtn.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+                if(mobileMenu.classList.contains('hidden')) {
+                    menuIcon.classList.remove('fa-xmark');
+                    menuIcon.classList.add('fa-bars');
+                } else {
+                    menuIcon.classList.remove('fa-bars');
+                    menuIcon.classList.add('fa-xmark');
+                }
+            });
+
+            document.querySelectorAll('.mobile-link').forEach(link => {
+                link.addEventListener('click', () => {
+                    mobileMenu.classList.add('hidden');
+                    menuIcon.classList.remove('fa-xmark');
+                    menuIcon.classList.add('fa-bars');
+                });
+            });
+        }
+    </script>
     <script src="js/script-generator.js"></script>
 </body>
 </html>
