@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Decision Matrix | Optimize Your Choices | STEMKit</title>
+    <meta name="title" content="Decision Matrix | Optimize Your Choices | STEMKit">
+    <meta name="description" content="A mathematical weighted decision matrix tool. Input options, weight criteria, and calculate the mathematically optimal choice instantly.">
+    <meta name="keywords" content="decision matrix, weighted decision, optimal choice calculator, pro and con alternative, decision making tool">
+    <meta name="author" content="STEMKit">
+    <meta name="theme-color" content="#4f46e5">
+
+    <link rel="canonical" href="https://stemkit.net/decision.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stemkit.net/decision.html">
+    <meta property="og:title" content="Decision Matrix | Optimize Your Choices">
+    <meta property="og:description" content="Calculate the mathematically optimal choice for any complex decision.">
+    <meta property="og:image" content="https://stemkit.net/assets/og-decision.webp">
+
+    <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
+    <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } };
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
+    </script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <nav class="max-w-7xl mx-auto px-6 h-20 w-full flex justify-between items-center z-50">
+        <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <div class="bg-indigo-600 text-white p-2 rounded-lg shadow-sm">
+                <i class="fa-solid fa-flask text-xl"></i>
+            </div>
+            <span class="text-2xl font-black tracking-tighter">STEMKit</span>
+        </a>
+        
+        <div class="flex items-center gap-6">
+            <a href="index.html#focus-tools" class="hidden sm:block text-sm font-medium text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Back to Tools
+            </a>
+            <button id="themeToggle" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300">
+                <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto px-6 py-12 w-full flex-grow">
+        
+        <div class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-black mb-4 tracking-tight">Decision Matrix</h1>
+            <p class="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">Remove the emotion. Define your options, weight your criteria, and let the algorithm calculate the optimal path.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+            
+            <div class="lg:col-span-1 bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
+                <h2 class="text-xl font-bold mb-6 flex items-center gap-2"><i class="fa-solid fa-sliders text-indigo-500"></i> Parameters</h2>
+                
+                <div class="mb-6">
+                    <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">1. Options (Comma separated)</label>
+                    <input type="text" id="input-options" placeholder="e.g. React, Vue, Angular" class="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                </div>
+                
+                <div class="mb-8">
+                    <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">2. Criteria (Comma separated)</label>
+                    <input type="text" id="input-criteria" placeholder="e.g. Salary, Learning Curve, Fun" class="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                </div>
+                
+                <button id="btn-generate" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
+                    Build Matrix
+                </button>
+            </div>
+
+            <div class="lg:col-span-2 bg-indigo-50 dark:bg-indigo-900/10 p-8 rounded-3xl border border-indigo-100 dark:border-indigo-500/20 flex flex-col items-center justify-center text-center min-h-[300px]">
+                <div id="results-container" class="w-full">
+                    <i class="fa-solid fa-calculator text-4xl text-indigo-300 dark:text-indigo-700 mb-4"></i>
+                    <h3 class="text-xl font-medium text-slate-500 dark:text-slate-400">Your calculated result will appear here.</h3>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="matrix-wrapper" class="hidden bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
+            <div class="overflow-x-auto p-8" id="matrix-container">
+                </div>
+            <div class="bg-slate-50 dark:bg-slate-800 p-6 border-t border-slate-200 dark:border-slate-700 flex justify-end">
+                <button id="btn-calculate" class="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-3 rounded-xl font-bold shadow-md transition-all">
+                    Calculate Optimal Choice
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-8 mt-auto">
+        <div class="max-w-7xl mx-auto px-6 text-center text-sm font-medium text-slate-500 dark:text-slate-400">
+            &copy; 2026 STEMKit. Engineered for Science.
+        </div>
+    </footer>
+
+    <script src="js/decision.js"></script>
+    <script>
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        });
+    </script>
+</body>
+</html>
