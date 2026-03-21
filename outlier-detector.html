@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Outlier Detector | Data Scrubbing | STEMKit</title>
+    <meta name="title" content="Outlier Detector | Data Scrubbing | STEMKit">
+    <meta name="description" content="Detect and remove statistical outliers from your datasets locally. Utilize Z-Score and Interquartile Range (IQR) algorithms securely within your browser.">
+    <meta name="keywords" content="outlier detection, remove outliers csv, z-score outlier, iqr outlier, scientific data cleaning, STEMKit">
+    <meta name="author" content="STEMKit">
+    <meta name="theme-color" content="#4f46e5">
+
+    <link rel="canonical" href="https://stemkit.net/outlier-detector">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stemkit.net/outlier-detector">
+    <meta property="og:title" content="Outlier Detector | STEMKit">
+    <meta property="og:description" content="Detect and scrub statistical anomalies from your datasets locally using Z-Score and IQR methods.">
+    <meta property="og:image" content="https://stemkit.net/assets/og-outlier.webp">
+
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://stemkit.net/outlier-detector">
+    <meta property="twitter:title" content="Outlier Detector | STEMKit">
+    <meta property="twitter:description" content="Detect and scrub statistical anomalies from your datasets locally using Z-Score and IQR methods.">
+    <meta property="twitter:image" content="https://stemkit.net/assets/og-outlier.webp">
+
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class', 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                } 
+            } 
+        };
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.6/jstat.min.js"></script>
+
+    <script src="js/outlier-detector.js" defer></script>
+
+    <style>
+        .table-container::-webkit-scrollbar { width: 8px; height: 8px; }
+        .table-container::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 8px; }
+        .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+        .dark .table-container::-webkit-scrollbar-track { background: #0f172a; }
+        .dark .table-container::-webkit-scrollbar-thumb { background: #334155; }
+        
+        @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .toast-enter { animation: slideIn 0.3s forwards; }
+        
+        .outlier-row { background-color: rgba(239, 68, 68, 0.1); }
+        .dark .outlier-row { background-color: rgba(239, 68, 68, 0.15); }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <header class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 sticky top-0 z-50">
+        <nav class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center" aria-label="Main Navigation">
+            <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <i class="fa-solid fa-filter text-indigo-600 dark:text-indigo-400 text-xl" aria-hidden="true"></i>
+                <span class="text-xl font-black tracking-tighter">STEMKit</span>
+            </a>
+            <button id="themeToggle" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-moon dark:hidden"></i>
+                <i class="fa-solid fa-sun hidden dark:block text-yellow-400"></i>
+            </button>
+        </nav>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
+        
+        <section id="uploadZone" class="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-3xl bg-indigo-50/50 dark:bg-indigo-900/10 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer p-12 text-center group">
+            <input type="file" id="fileInput" accept=".csv" class="hidden" aria-label="Upload CSV dataset">
+            <div class="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl flex items-center justify-center mb-6 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
+                <i class="fa-solid fa-bullseye text-4xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold mb-3">Outlier Detector</h1>
+            <p class="text-slate-500 dark:text-slate-400 mb-6 max-w-md">Identify and isolate statistical anomalies in your experimental data or MD trajectories locally.</p>
+            <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-sm">
+                Select CSV Data
+            </button>
+        </section>
+
+        <section id="workspace" class="hidden flex-col gap-6 w-full">
+            
+            <div class="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                <div class="lg:col-span-3">
+                    <h2 id="fileName" class="font-bold text-lg truncate">dataset.csv</h2>
+                    <p id="dataMeta" class="text-sm text-slate-500 dark:text-slate-400 mb-4">0 Rows</p>
+                    
+                    <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+                        <span class="block text-xs font-bold text-slate-500 uppercase mb-1">Anomalies Detected</span>
+                        <span class="text-3xl font-black text-red-600 dark:text-red-500" id="outlierCount">0</span>
+                    </div>
+                </div>
+                
+                <div class="lg:col-span-6 flex flex-col gap-4 bg-slate-50 dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Target Variable</label>
+                            <select id="colSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Algorithm</label>
+                            <select id="methodSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                <option value="zscore">Z-Score (Parametric)</option>
+                                <option value="iqr">Interquartile Range (Non-parametric)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Threshold Multiplier</label>
+                        <div class="flex items-center gap-4">
+                            <input type="range" id="thresholdSlider" min="1" max="5" step="0.1" value="3" class="w-full">
+                            <span id="thresholdValue" class="font-mono font-bold text-indigo-600 dark:text-indigo-400 w-12 text-right">3.0</span>
+                        </div>
+                        <p id="methodHint" class="text-xs text-slate-500 mt-2">Flags values where |Z| > 3.0.</p>
+                    </div>
+
+                    <button id="scanBtn" class="bg-slate-900 dark:bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-slate-800 dark:hover:bg-indigo-700 transition-colors shadow-sm w-full mt-2">
+                        Execute Scan
+                    </button>
+                </div>
+
+                <div class="lg:col-span-3 flex flex-col gap-3">
+                    <button id="exportCleanBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 rounded-xl font-bold transition-colors shadow-sm flex items-center justify-center w-full disabled:opacity-50" disabled>
+                        <i class="fa-solid fa-download mr-2"></i> Export Cleaned
+                    </button>
+                    <button id="exportFlaggedBtn" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-indigo-600 px-5 py-3 rounded-xl font-bold transition-colors shadow-sm flex items-center justify-center w-full disabled:opacity-50" disabled>
+                        Export Anomalies Only
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col h-[500px]">
+                <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 flex justify-between items-center">
+                    <span class="text-sm font-semibold text-slate-600 dark:text-slate-300">Data Array Preview</span>
+                </div>
+                <div class="table-container overflow-auto flex-grow relative">
+                    <table class="w-full text-left text-sm whitespace-nowrap">
+                        <thead id="tableHead" class="bg-slate-100 dark:bg-slate-800 sticky top-0 shadow-sm z-10"></thead>
+                        <tbody id="tableBody" class="divide-y divide-slate-100 dark:divide-slate-800/50"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
+
+</body>
+</html>
