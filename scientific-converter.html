@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Scientific Unit Matrix | STEMKit</title>
+    <meta name="title" content="Scientific Unit Matrix | STEMKit">
+    <meta name="description" content="Instant, high-precision conversions for Energy, Length, Time, Force, and Pressure. Tailored for computational chemistry and physics.">
+    <meta name="keywords" content="energy converter, length converter, time converter, gromacs units, hartree to ev, kcal/mol to kj/mol, scientific unit matrix, mdrun units">
+    <meta name="author" content="STEMKit">
+    <meta name="theme-color" content="#f97316"> 
+
+    <link rel="canonical" href="https://stemkit.net/scientific-converter.html">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class', 
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } 
+        };
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
+    </script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        .info-group .tooltip { visibility: hidden; opacity: 0; transition: opacity 0.2s ease, visibility 0.2s ease; }
+        .info-group:hover .tooltip { visibility: visible; opacity: 1; }
+        
+        .custom-scroll::-webkit-scrollbar { height: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+        .dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
+
+        /* Dynamic active styling handles */
+        .tab-active { background-color: var(--tw-bg-opacity, #f3f4f6); font-weight: 700; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
+
+    <nav class="max-w-7xl mx-auto px-6 h-20 w-full flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
+        <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <div class="bg-indigo-600 text-white p-2 rounded-lg shadow-sm">
+                <i class="fa-solid fa-flask text-xl"></i>
+            </div>
+            <span class="text-2xl font-black tracking-tighter">STEMKit</span>
+        </a>
+        <div class="flex items-center gap-4">
+            <button id="themeToggle" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300">
+                <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="flex-grow max-w-5xl mx-auto px-6 py-12 w-full">
+        
+        <header class="mb-8 text-center">
+            <div id="categoryBadge" class="inline-flex items-center gap-2 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4 border border-orange-200 dark:border-orange-800/50 transition-colors">
+                <i id="categoryIcon" class="fa-solid fa-bolt"></i> <span id="categoryName">Energy & Thermodynamics</span>
+            </div>
+            <h1 class="text-4xl font-black mb-4 tracking-tight">Scientific Unit Matrix</h1>
+            <p class="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
+                Select a domain and enter a value. The matrix instantly computes all corresponding unit equivalents using strict scientific constants. Supports standard and exponential notation (e.g., 1.5e-3).
+            </p>
+        </header>
+
+        <div id="toastContainer" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+        <div class="flex overflow-x-auto custom-scroll gap-2 mb-6 pb-2 justify-start md:justify-center">
+            <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="energy" data-color="orange">
+                <i class="fa-solid fa-bolt mr-1 text-orange-500"></i> Energy
+            </button>
+            <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="length" data-color="blue">
+                <i class="fa-solid fa-ruler mr-1 text-blue-500"></i> Length
+            </button>
+            <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="time" data-color="emerald">
+                <i class="fa-solid fa-clock mr-1 text-emerald-500"></i> Time
+            </button>
+            <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="force" data-color="purple">
+                <i class="fa-solid fa-arrow-down-up-across-line mr-1 text-purple-500"></i> Force
+            </button>
+            <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="pressure" data-color="rose">
+                <i class="fa-solid fa-compress mr-1 text-rose-500"></i> Pressure
+            </button>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl p-8 relative overflow-hidden">
+            
+            <div class="flex justify-end mb-6">
+                <button id="btnReset" class="text-xs font-bold text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1">
+                    <i class="fa-solid fa-rotate-right"></i> Clear Matrix
+                </button>
+            </div>
+
+            <div id="matrixGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                </div>
+            
+            <div class="mt-8 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
+                <p class="font-bold mb-1"><i class="fa-solid fa-microchip mr-1"></i> Conversion logic</p>
+                <p>Calculations execute locally utilizing standard CODATA relative reference factors. Floating-point representation is automatically clamped to prevent JavaScript precision drift while maintaining strict scientific accuracy.</p>
+            </div>
+
+        </div>
+    </main>
+
+    <script src="js/scientific-converter.js"></script>
+</body>
+</html>
