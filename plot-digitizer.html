@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plot Digitizer Pro | PDFKing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } };
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        #plotCanvas { cursor: crosshair; }
+        .loupe-active { cursor: none !important; }
+        .dataset-btn.active { border-color: #6366f1; background-color: #e0e7ff; }
+        html.dark .dataset-btn.active { background-color: rgba(79, 70, 229, 0.2); border-color: #6366f1; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
+        
+        .accordion-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; max-height: 0; opacity: 0; overflow: hidden; }
+        .accordion-content.expanded { max-height: 1000px; opacity: 1; overflow: visible; }
+        .accordion-icon { transition: transform 0.3s ease; }
+        .accordion-btn[aria-expanded="true"] .accordion-icon { transform: rotate(180deg); }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans overflow-hidden transition-colors duration-300">
+
+    <header class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-50">
+        <nav class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
+            <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <i class="fa-solid fa-chart-line text-indigo-600 text-xl"></i>
+                <span class="text-xl font-black tracking-tighter">Plot Digitizer Pro</span>
+            </a>
+            <button id="themeToggle" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-moon dark:hidden"></i>
+                <i class="fa-solid fa-sun hidden dark:block text-yellow-400"></i>
+            </button>
+        </nav>
+    </header>
+
+    <main class="flex-grow max-w-[1600px] mx-auto px-4 py-6 w-full flex flex-col items-center relative">
+        
+        <section id="uploadZone" class="w-full max-w-4xl flex flex-col items-center justify-center border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-3xl bg-indigo-50/50 hover:bg-indigo-50 dark:bg-indigo-900/10 dark:hover:bg-indigo-900/20 cursor-pointer p-16 text-center group transition-colors mt-10">
+            <input type="file" id="fileInput" accept="image/png, image/jpeg, image/webp" class="hidden">
+            <div class="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl flex items-center justify-center mb-6 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
+                <i class="fa-solid fa-microscope text-4xl"></i>
+            </div>
+            <h1 class="text-3xl font-bold mb-3">Initialize digitizer</h1>
+            <p class="text-slate-500 dark:text-slate-400 mb-2">Upload a reference plot to extract coordinate data and generate automated Matplotlib rendering scripts.</p>
+            <p class="text-xs font-bold text-slate-400 dark:text-slate-500 mb-6 uppercase tracking-wider">Supported formats: PNG, JPEG, WEBP</p>
+            <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-medium shadow-sm transition-colors">Select graph image</button>
+        </section>
+
+        <div id="pythonModal" class="fixed inset-0 bg-slate-900/90 z-[60] hidden flex-col items-center justify-center p-6 backdrop-blur-sm">
+            <div class="bg-slate-950 p-6 rounded-3xl max-w-4xl w-full flex flex-col shadow-2xl border border-slate-800">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-black text-white"><i class="fa-brands fa-python text-blue-400 mr-2"></i>Matplotlib rendering script</h3>
+                    <button id="closePythonModal" class="text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+                <div class="relative flex-grow">
+                    <pre><code id="pythonCodeBlock" class="block bg-slate-900 text-emerald-400 p-4 rounded-xl text-sm font-mono overflow-y-auto max-h-[60vh] border border-slate-800"></code></pre>
+                    <button id="copyPythonBtn" class="absolute top-4 right-4 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-lg">Copy code</button>
+                </div>
+                <p class="text-xs text-slate-500 mt-4">Save this script in the same directory as your exported CSV to reproduce the plot.</p>
+            </div>
+        </div>
+
+        <section id="workspace" class="hidden w-full flex-col lg:flex-row gap-4 h-[calc(100vh-120px)] relative">
+            
+            <div id="canvasContainer" class="flex-grow bg-slate-200 dark:bg-slate-800 rounded-3xl overflow-hidden relative flex items-center justify-center border border-slate-300 dark:border-slate-700 shadow-inner p-4">
+                <canvas id="plotCanvas" class="max-w-full max-h-full object-contain drop-shadow-2xl"></canvas>
+                <canvas id="loupeCanvas" width="120" height="120" class="absolute pointer-events-none border-2 border-indigo-500 rounded-full shadow-xl hidden bg-white dark:bg-slate-900 z-50"></canvas>
+            </div>
+
+            <div class="w-full lg:w-[420px] bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-y-auto shadow-sm">
+                
+                <div class="p-6 pb-2 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950 sticky top-0 z-10 rounded-t-3xl">
+                    <h2 class="text-lg font-black tracking-tight">Digitization protocol</h2>
+                    <div class="flex gap-2">
+                        <div class="relative group">
+                            <button id="btnUndo" class="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 transition-colors flex items-center justify-center"><i class="fa-solid fa-rotate-left"></i></button>
+                            <div class="absolute right-0 top-full mt-2 hidden group-hover:block bg-slate-800 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-50">Undo last point</div>
+                        </div>
+                        <label class="relative group cursor-pointer w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                            <input type="checkbox" id="toggleBackground" checked class="hidden">
+                            <i id="eyeIcon" class="fa-solid fa-eye text-slate-600 dark:text-slate-400"></i>
+                            <div class="absolute right-0 top-full mt-2 hidden group-hover:block bg-slate-800 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-50">Toggle background image</div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="p-4 flex flex-col gap-2">
+                    
+                    <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800/50">
+                        <button class="accordion-btn w-full px-4 py-3 flex justify-between items-center text-left focus:outline-none" aria-expanded="false" data-target="guideContent">
+                            <span class="text-sm font-bold text-slate-800 dark:text-slate-200"><i class="fa-solid fa-circle-info text-indigo-500 mr-2"></i>How to digitize</span>
+                            <i class="fa-solid fa-chevron-down accordion-icon text-slate-400 text-xs"></i>
+                        </button>
+                        <div id="guideContent" class="accordion-content bg-white dark:bg-slate-900 px-4 pb-3">
+                            <ol class="list-decimal pl-4 text-xs text-slate-600 dark:text-slate-400 space-y-1 mt-2">
+                                <li><strong>Calibrate:</strong> Click "Set X1", then click the known point on the X-axis. Type its value. Repeat for X2, Y1, Y2.</li>
+                                <li><strong>Add datasets:</strong> Use the "+" button to create distinct curves. Pick colors to match the literature plot.</li>
+                                <li><strong>Extract:</strong> Use <em>Manual</em> to click points, or hold/drag. Use <em>Auto-extract</em> to click a colored line for instant tracing.</li>
+                                <li><strong>Clean up:</strong> Select <em>Erase</em> to brush over and remove erroneous points from the active dataset.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900 mt-2">
+                        <button class="accordion-btn w-full px-4 py-3 flex justify-between items-center text-left focus:outline-none" aria-expanded="true" data-target="calibContent">
+                            <span class="text-sm font-bold text-slate-800 dark:text-slate-200">1. Spatial calibration</span>
+                            <i class="fa-solid fa-chevron-down accordion-icon text-slate-400 text-xs"></i>
+                        </button>
+                        <div id="calibContent" class="accordion-content expanded px-4 pb-4">
+                            <div class="flex items-center gap-4 mb-3">
+                                <label class="flex items-center gap-1 text-xs font-bold text-slate-500 dark:text-slate-400 cursor-pointer">
+                                    <input type="checkbox" id="isLogX" class="w-3 h-3 text-indigo-600 bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600 rounded"> Log X
+                                </label>
+                                <label class="flex items-center gap-1 text-xs font-bold text-slate-500 dark:text-slate-400 cursor-pointer">
+                                    <input type="checkbox" id="isLogY" class="w-3 h-3 text-indigo-600 bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600 rounded"> Log Y
+                                </label>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button id="btnCalibX1" class="calib-btn bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 text-xs py-1.5 rounded-lg font-medium text-slate-700 dark:text-slate-300 transition-colors">Set X1</button>
+                                <input type="number" id="valX1" placeholder="Value" class="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 rounded-lg px-2 text-xs">
+                                <button id="btnCalibX2" class="calib-btn bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 text-xs py-1.5 rounded-lg font-medium text-slate-700 dark:text-slate-300 transition-colors">Set X2</button>
+                                <input type="number" id="valX2" placeholder="Value" class="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 rounded-lg px-2 text-xs">
+                                <button id="btnCalibY1" class="calib-btn bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 text-xs py-1.5 rounded-lg font-medium text-slate-700 dark:text-slate-300 transition-colors mt-2">Set Y1</button>
+                                <input type="number" id="valY1" placeholder="Value" class="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 rounded-lg px-2 text-xs mt-2">
+                                <button id="btnCalibY2" class="calib-btn bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 text-xs py-1.5 rounded-lg font-medium text-slate-700 dark:text-slate-300 transition-colors mt-2">Set Y2</button>
+                                <input type="number" id="valY2" placeholder="Value" class="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 rounded-lg px-2 text-xs mt-2">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
+                        <button class="accordion-btn w-full px-4 py-3 flex justify-between items-center text-left focus:outline-none" aria-expanded="true" data-target="extractContent">
+                            <span class="text-sm font-bold text-slate-800 dark:text-slate-200">2. Data extraction</span>
+                            <i class="fa-solid fa-chevron-down accordion-icon text-slate-400 text-xs"></i>
+                        </button>
+                        <div id="extractContent" class="accordion-content expanded px-4 pb-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Dataset mapping</span>
+                                <button id="btnAddDataset" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 text-xs font-bold bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded transition-colors"><i class="fa-solid fa-plus mr-1"></i> Add series</button>
+                            </div>
+                            <div id="datasetList" class="flex flex-col gap-1.5 max-h-24 overflow-y-auto mb-3 pr-1"></div>
+                            
+                            <div class="grid grid-cols-3 gap-2 mb-2">
+                                <button id="btnManualMode" class="border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200"><i class="fa-solid fa-pen-nib mr-1"></i> Manual</button>
+                                <button id="btnAutoMode" class="border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Auto</button>
+                                <button id="btnEraseMode" class="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-700 dark:text-red-400 font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200"><i class="fa-solid fa-eraser mr-1"></i> Erase</button>
+                            </div>
+                            
+                            <div id="autoControls" class="hidden flex-col gap-1 mt-2 p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-800">
+                                <div class="flex justify-between text-[10px] font-bold text-indigo-800 dark:text-indigo-300">
+                                    <span>Color tolerance sweep</span>
+                                    <span id="toleranceVal">30</span>
+                                </div>
+                                <input type="range" id="colorTolerance" min="5" max="100" value="30" class="w-full accent-indigo-600 dark:accent-indigo-400">
+                            </div>
+                            
+                            <div id="eraseControls" class="hidden flex-col gap-1 mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-800">
+                                <div class="flex justify-between text-[10px] font-bold text-red-800 dark:text-red-300">
+                                    <span>Eraser radius (px)</span>
+                                    <span id="eraseRadiusVal">10</span>
+                                </div>
+                                <input type="range" id="eraseRadius" min="5" max="50" value="10" class="w-full accent-red-600 dark:accent-red-400">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-indigo-50/30 dark:bg-indigo-900/10">
+                        <button class="accordion-btn w-full px-4 py-3 flex justify-between items-center text-left focus:outline-none" aria-expanded="false" data-target="plotContent">
+                            <span class="text-sm font-bold text-indigo-900 dark:text-indigo-300"><i class="fa-brands fa-python mr-2"></i>3. Plot configurations</span>
+                            <i class="fa-solid fa-chevron-down accordion-icon text-indigo-400 text-xs"></i>
+                        </button>
+                        <div id="plotContent" class="accordion-content px-4 pb-4">
+                            <div class="grid grid-cols-2 gap-2 mb-2">
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase">X-Axis Label</span>
+                                    <input type="text" id="pyXLabel" value="Distance (Å)" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs">
+                                </div>
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Y-Axis Label</span>
+                                    <input type="text" id="pyYLabel" value="Density (g/cm³)" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mb-2">
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Dimensions (Inches)</span>
+                                    <div class="flex items-center gap-1">
+                                        <input type="number" id="pyFigWidth" value="8" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center" placeholder="W">
+                                        <span class="text-xs text-slate-400">x</span>
+                                        <input type="number" id="pyFigHeight" value="6" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center" placeholder="H">
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Plot Layout</span>
+                                    <select id="pyPlotLayout" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs">
+                                        <option value="single">Single plot</option>
+                                        <option value="subplots">Separate subplots</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mb-3">
+                                <label class="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer">
+                                    <input type="checkbox" id="pyShowGrid" class="w-3 h-3 text-indigo-600 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 rounded">
+                                    Show grid lines
+                                </label>
+                                <label class="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer">
+                                    <input type="checkbox" id="pyBgTrans" class="w-3 h-3 text-indigo-600 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 rounded">
+                                    Transparent bg
+                                </label>
+                            </div>
+                            <div class="flex gap-2 mt-4">
+                                <button id="btnPreviewPlot" class="flex-1 bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-bold py-2 rounded-lg text-xs transition-transform transform hover:-translate-y-0.5 shadow-sm hover:shadow-md">Live Preview</button>
+                                <button id="btnGeneratePython" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg text-xs transition-transform transform hover:-translate-y-0.5 shadow-sm hover:shadow-md"><i class="fa-brands fa-python mr-1"></i>Script</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="mt-auto p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3 rounded-b-3xl">
+                    <div>
+                        <span class="text-[10px] font-bold text-slate-500 uppercase">Output filename</span>
+                        <div class="flex items-center mt-1 relative">
+                            <input type="text" id="csvFilename" value="extracted_data" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm pr-12 focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow">
+                            <span class="absolute right-3 text-slate-400 text-sm font-mono">.csv</span>
+                        </div>
+                    </div>
+                    <button id="exportCsvBtn" class="w-full bg-slate-800 hover:bg-slate-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl active:scale-95 shadow-md text-sm flex justify-center items-center">
+                        <i class="fa-solid fa-file-csv mr-2 text-lg"></i> Download dataset
+                    </button>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <script src="js/plot-digitizer.js"></script>
+    <script>
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        });
+    </script>
+</body>
+</html>
