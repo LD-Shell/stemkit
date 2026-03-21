@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Error Bar Generator | Calculate SD, SEM, & CI | STEMKit</title>
+    <meta name="title" content="Error Bar Generator | Calculate SD, SEM, & CI | STEMKit">
+    <meta name="description" content="Instantly calculate Mean, Standard Deviation (SD), Standard Error (SEM), and 95% Confidence Intervals (CI) from raw replicate data for your scientific plots.">
+    <meta name="keywords" content="error bar calculator, standard deviation calculator, standard error of the mean, 95% confidence interval, scientific plotting, STEMKit">
+    <meta name="author" content="STEMKit">
+    <meta name="theme-color" content="#4f46e5">
+
+    <link rel="canonical" href="https://stemkit.net/error-bar-generator">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stemkit.net/error-bar-generator">
+    <meta property="og:title" content="Error Bar Generator | STEMKit">
+    <meta property="og:description" content="Instantly calculate Mean, SD, SEM, and 95% CI from raw replicate data locally.">
+    <meta property="og:image" content="https://stemkit.net/assets/og-errorbar.webp">
+
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://stemkit.net/error-bar-generator">
+    <meta property="twitter:title" content="Error Bar Generator | STEMKit">
+    <meta property="twitter:description" content="Instantly calculate Mean, SD, SEM, and 95% CI from raw replicate data locally.">
+    <meta property="twitter:image" content="https://stemkit.net/assets/og-errorbar.webp">
+
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class', 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                } 
+            } 
+        };
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.6/jstat.min.js"></script>
+
+    <script src="js/error-bar-generator.js" defer></script>
+
+    <style>
+        @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .toast-enter { animation: slideIn 0.3s forwards; }
+        
+        .table-container::-webkit-scrollbar { width: 6px; height: 6px; }
+        .table-container::-webkit-scrollbar-track { background: transparent; }
+        .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark .table-container::-webkit-scrollbar-thumb { background: #475569; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <header class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 sticky top-0 z-50">
+        <nav class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center" aria-label="Main Navigation">
+            <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <i class="fa-solid fa-chart-column text-indigo-600 dark:text-indigo-400 text-xl"></i>
+                <span class="text-xl font-black tracking-tighter">STEMKit</span>
+            </a>
+            <button id="themeToggle" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-moon dark:hidden"></i>
+                <i class="fa-solid fa-sun hidden dark:block text-yellow-400"></i>
+            </button>
+        </nav>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
+        
+        <div class="mb-4">
+            <h1 class="text-3xl font-bold mb-2">Error Bar Generator</h1>
+            <p class="text-slate-500 dark:text-slate-400">Paste raw experimental replicates or upload a CSV to instantly compute the Mean, Standard Deviation (SD), Standard Error (SEM), and 95% Confidence Interval bounds for your plots.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <div class="lg:col-span-4 flex flex-col gap-6">
+                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col flex-grow">
+                    
+                    <div class="flex justify-between items-end mb-4">
+                        <h2 class="text-lg font-semibold">1. Input Replicate Data</h2>
+                        <label class="cursor-pointer bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded text-sm font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
+                            <i class="fa-solid fa-upload mr-1"></i> Upload CSV
+                            <input type="file" id="fileInput" accept=".csv,.txt" class="hidden">
+                        </label>
+                    </div>
+                    
+                    <textarea id="dataInput" class="w-full flex-grow min-h-[300px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none resize-y whitespace-pre" placeholder="Label&#9;Rep1&#9;Rep2&#9;Rep3&#10;Ctrl&#9;4.5&#9;4.2&#9;4.8&#10;Trt1&#9;6.1&#9;6.5&#9;6.2&#10;Trt2&#9;8.3&#9;8.1&#9;8.9"></textarea>
+                    
+                    <div class="mt-4">
+                        <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 cursor-pointer mb-4">
+                            <input type="checkbox" id="hasHeaders" class="rounded text-indigo-600 focus:ring-indigo-500" checked>
+                            First column contains text labels
+                        </label>
+                        <button id="calculateBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white w-full py-3 rounded-xl font-bold transition-colors shadow-sm">
+                            Calculate Metrics
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 rounded-xl p-5 text-sm text-indigo-800 dark:text-indigo-300">
+                    <strong class="block mb-2"><i class="fa-solid fa-graduation-cap mr-1"></i> Which error bar to use?</strong>
+                    <ul class="list-disc pl-4 space-y-1">
+                        <li><strong>SD:</strong> Shows the variability/scatter of your raw data.</li>
+                        <li><strong>SEM:</strong> Shows the precision of your mean estimate.</li>
+                        <li><strong>95% CI:</strong> Shows the range where the true population mean lies with 95% certainty. Best for visual significance testing.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="lg:col-span-8 flex flex-col h-full">
+                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col flex-grow min-h-[500px] overflow-hidden">
+                    
+                    <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex justify-between items-center">
+                        <h2 class="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">2. Computed Statistics</h2>
+                        <button id="exportCsvBtn" class="px-4 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-colors shadow-sm disabled:opacity-50" disabled>
+                            <i class="fa-solid fa-download mr-1"></i> Export CSV
+                        </button>
+                    </div>
+
+                    <div class="table-container overflow-auto flex-grow relative bg-white dark:bg-slate-950">
+                        <table class="w-full text-left text-sm whitespace-nowrap">
+                            <thead class="bg-slate-100 dark:bg-slate-800 sticky top-0 shadow-sm z-10">
+                                <tr>
+                                    <th class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700">Label</th>
+                                    <th class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">N</th>
+                                    <th class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">Mean</th>
+                                    <th class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300" title="Standard Deviation">SD (±)</th>
+                                    <th class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300" title="Standard Error of the Mean">SEM (±)</th>
+                                    <th class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300" title="95% Confidence Interval">95% CI (±)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsBody" class="divide-y divide-slate-100 dark:divide-slate-800/50">
+                                <tr>
+                                    <td colspan="6" class="px-4 py-16 text-center text-slate-400">
+                                        Paste data or upload a CSV to view metrics.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <details class="group bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 transition-all mt-auto">
+                        <summary class="px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer list-none flex justify-between items-center">
+                            <span><i class="fa-solid fa-square-root-variable mr-2 text-indigo-500"></i> Mathematical Theory</span>
+                            <i class="fa-solid fa-chevron-down text-slate-400 group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <div class="px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400">
+                            <div id="theoryContainer" class="overflow-x-auto py-2"></div>
+                        </div>
+                    </details>
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
+
+</body>
+</html>
