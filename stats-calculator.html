@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Statistical Test Calculator | Client-Side Statistics | STEMKit</title>
+    <meta name="title" content="Statistical Test Calculator | Client-Side Statistics | STEMKit">
+    <meta name="description" content="Run t-tests, ANOVA, and correlations locally in your browser. Get instant p-values and publication-ready summaries without uploading sensitive research data.">
+    <meta name="keywords" content="statistical calculator, t-test calculator, ANOVA browser, client-side statistics, p-value calculator, pearson correlation, STEMKit">
+    <meta name="author" content="STEMKit">
+    <meta name="theme-color" content="#4f46e5">
+
+    <link rel="canonical" href="https://stemkit.net/stats-calculator">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://stemkit.net/stats-calculator">
+    <meta property="og:title" content="Statistical Test Calculator | STEMKit">
+    <meta property="og:description" content="Instant, secure client-side statistical tests for researchers. Zero servers.">
+    <meta property="og:image" content="https://stemkit.net/assets/og-stats.webp">
+
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://stemkit.net/stats-calculator">
+    <meta property="twitter:title" content="Statistical Test Calculator | STEMKit">
+    <meta property="twitter:description" content="Instant, secure client-side statistical tests for researchers. Zero servers.">
+    <meta property="twitter:image" content="https://stemkit.net/assets/og-stats.webp">
+
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico">
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class', 
+            theme: { 
+                extend: { 
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                } 
+            } 
+        };
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) { document.documentElement.classList.add('dark'); }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.6/jstat.min.js"></script>
+
+    <script src="js/stats-calculator.js" defer></script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <header class="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 sticky top-0 z-50">
+        <nav class="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center" aria-label="Main Navigation">
+            <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <i class="fa-solid fa-chart-line text-indigo-600 dark:text-indigo-400 text-xl"></i>
+                <span class="text-xl font-black tracking-tighter">STEMKit</span>
+            </a>
+            <button id="themeToggle" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <i class="fa-solid fa-moon dark:hidden"></i>
+                <i class="fa-solid fa-sun hidden dark:block text-yellow-400"></i>
+            </button>
+        </nav>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
+        
+        <div class="mb-4">
+            <h1 class="text-3xl font-bold mb-2">Statistical Test Calculator</h1>
+            <p class="text-slate-500 dark:text-slate-400">Paste your data from Excel or upload a CSV to instantly compute p-values and generate publication-ready summaries.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col">
+                <div class="flex justify-between items-end mb-4">
+                    <h2 class="text-lg font-semibold">1. Input Data</h2>
+                    <label class="cursor-pointer bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded text-sm font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
+                        <i class="fa-solid fa-upload mr-1"></i> Upload CSV
+                        <input type="file" id="fileInput" accept=".csv" class="hidden">
+                    </label>
+                </div>
+                <textarea id="dataInput" class="w-full flex-grow min-h-[300px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none resize-y" placeholder="Paste data here (columns separated by tabs or commas)...&#10;Group A&#9;Group B&#10;4.5&#9;6.1&#10;5.1&#9;5.8&#10;4.9&#9;6.3"></textarea>
+                <div class="mt-4 flex justify-between items-center">
+                    <span id="dataMeta" class="text-xs text-slate-500 dark:text-slate-400 font-medium">0 Rows • 0 Variables</span>
+                    <button id="parseBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-sm">
+                        Parse Data
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-6">
+                
+                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+                    <h2 class="text-lg font-semibold mb-4">2. Configure Test</h2>
+                    
+                    <div class="flex flex-col gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Test Type</label>
+                            <select id="testType" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                <option value="ttest_ind">Independent Two-Sample T-Test</option>
+                                <option value="ttest_pair">Paired T-Test</option>
+                                <option value="anova">One-Way ANOVA</option>
+                                <option value="pearson">Pearson Correlation</option>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Variable 1</label>
+                                <select id="var1" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50" disabled></select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Variable 2</label>
+                                <select id="var2" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50" disabled></select>
+                            </div>
+                        </div>
+
+                        <button id="runTestBtn" class="mt-2 bg-slate-900 dark:bg-indigo-600 text-white w-full py-3 rounded-xl font-bold hover:bg-slate-800 dark:hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            Run Analysis
+                        </button>
+                    </div>
+                </div>
+
+                <div id="resultsContainer" class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm hidden">
+                    <h2 class="text-lg font-semibold mb-4">3. Results</h2>
+                    
+                    <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mb-4">
+                        <div class="grid grid-cols-2 gap-4 text-center">
+                            <div>
+                                <span class="block text-xs text-slate-500 uppercase tracking-widest mb-1" id="statLabel">T-Statistic</span>
+                                <span class="text-2xl font-black text-indigo-600 dark:text-indigo-400" id="statValue">--</span>
+                            </div>
+                            <div class="border-l border-slate-200 dark:border-slate-800">
+                                <span class="block text-xs text-slate-500 uppercase tracking-widest mb-1">P-Value</span>
+                                <span class="text-2xl font-black text-emerald-600 dark:text-emerald-400" id="pValue">--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Publication Summary</label>
+                        <div class="relative">
+                            <textarea id="pubSummary" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" rows="3" readonly></textarea>
+                            <button id="copyBtn" class="absolute top-2 right-2 text-slate-400 hover:text-indigo-600 transition-colors bg-white dark:bg-slate-800 p-1.5 rounded shadow-sm border border-slate-200 dark:border-slate-700" title="Copy to clipboard">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <details class="group bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg open:shadow-sm transition-all">
+                        <summary class="px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer list-none flex justify-between items-center">
+                            <span><i class="fa-solid fa-square-root-variable mr-2 text-indigo-500"></i> Mathematical Theory</span>
+                            <i class="fa-solid fa-chevron-down text-slate-400 group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <div class="px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400">
+                            <div id="theoryContainer" class="overflow-x-auto py-2"></div>
+                        </div>
+                    </details>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
+
+</body>
+</html>
