@@ -34,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const coordOutput = document.getElementById('coordOutput');
     const btnCopyBuffer = document.getElementById('btnCopyBuffer');
     const toastContainer = document.getElementById('toastContainer');
-    const themeToggleBtn = document.getElementById('themeToggle');
 
     // UI accordion initialization
     document.querySelectorAll('.accordion-btn').forEach(btn => {
@@ -43,11 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.setAttribute('aria-expanded', !isExpanded);
             document.getElementById(btn.getAttribute('data-target')).classList.toggle('expanded');
         });
-    });
-
-    themeToggleBtn.addEventListener('click', () => {
-        document.documentElement.classList.toggle('dark');
-        localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
     });
 
     // --- 3. I/O handling ---
