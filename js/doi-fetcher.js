@@ -1,9 +1,9 @@
 document.addEventListener("DOMContentLoaded", () => {
     
-    // --- State Management ---
+    // # --- 1. State management ---
     let entryCount = 0;
 
-    // --- DOM Elements ---
+    // # --- 2. DOM elements ---
     const doiInput = document.getElementById('doiInput');
     const fetchBtn = document.getElementById('fetchBtn');
     const bibOutput = document.getElementById('bibOutput');
@@ -14,13 +14,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const downloadBtn = document.getElementById('downloadBtn');
     const clearBtn = document.getElementById('clearBtn');
 
-    // --- Theme Toggle ---
-    document.getElementById('themeToggle').addEventListener('click', () => {
+    // # Binding theme toggles
+    document.querySelectorAll('.themeToggle').forEach(btn => btn.addEventListener('click', () => {
         document.documentElement.classList.toggle('dark');
         localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
     });
 
-    // Allow pressing "Enter" in the input field to trigger the fetch
+    // # Binding the enter key to trigger the fetch
     doiInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     fetchBtn.addEventListener('click', executeFetch);
 
-    // --- Fetch Pipeline ---
+    // # --- 3. Fetch pipeline ---
     async function executeFetch() {
         const rawInput = doiInput.value.trim();
         
@@ -39,14 +39,14 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Clean the DOI string (Removes https://doi.org/ or dx.doi.org/ prefixes)
+        // # I am cleaning the DOI string to remove url prefixes and isolate the identifier
         const cleanDOI = rawInput.replace(/^(https?:\/\/)?(dx\.)?doi\.org\//i, '').trim();
 
         fetchBtn.disabled = true;
         loadingOverlay.classList.remove('hidden');
 
         try {
-            // Using standard Content Negotiation to ask doi.org for BibTeX format
+            // # I am using standard content negotiation to request BibTeX format directly from doi.org
             const response = await fetch(`https://doi.org/${cleanDOI}`, {
                 method: 'GET',
                 headers: {
@@ -64,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const bibtexData = await response.text();
             
-            // Append the new entry to the output area
+            // # Appending the new entry to the output area
             if (bibOutput.value.trim() !== "") {
                 bibOutput.value += "\n\n";
             }
@@ -73,7 +73,8 @@ document.addEventListener("DOMContentLoaded", () => {
             entryCount++;
             entryCountBadge.innerText = `${entryCount} ${entryCount === 1 ? 'Entry' : 'Entries'}`;
             
-            doiInput.value = ''; // Clear input for the next DOI
+            // # Clearing input for the next DOI
+            doiInput.value = ''; 
             showToast("Citation successfully retrieved.", "success");
 
         } catch (error) {
@@ -86,7 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // --- Utility Controls ---
+    // # --- 4. Utility controls ---
     copyBtn.addEventListener('click', () => {
         if (!bibOutput.value.trim()) {
             showToast("Nothing to copy.", "error");
@@ -95,7 +96,8 @@ document.addEventListener("DOMContentLoaded", () => {
         bibOutput.select();
         document.execCommand('copy');
         showToast("Bibliography copied to clipboard.", "info");
-        // Deselect text
+        
+        // # Deselecting text
         window.getSelection().removeAllRanges();
     });
 
@@ -122,7 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showToast("Workspace cleared.", "info");
     });
 
-    // --- Notification System ---
+    // # --- 5. Notification system ---
     function showToast(msg, type) {
         const container = document.getElementById('toastContainer');
         const toast = document.createElement('div');
