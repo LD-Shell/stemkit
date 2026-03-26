@@ -1,41 +1,37 @@
-/**
- * STEMKit - Decision Matrix Logic
- * Implements a Weighted Decision Matrix (WDM)
- */
-
-// Step 1: Cache DOM Elements
+// # --- 1. State and DOM ---
+// Caching DOM elements
 const btnGenerate = document.getElementById('btn-generate');
 const btnCalculate = document.getElementById('btn-calculate');
 const matrixWrapper = document.getElementById('matrix-wrapper');
 const matrixContainer = document.getElementById('matrix-container');
 const resultsContainer = document.getElementById('results-container');
 
-// State variables to hold the parsed inputs
+// # Initializing state variables for parsed inputs
 let parsedOptions = [];
 let parsedCriteria = [];
 
-// Step 2: Parse Inputs & Generate the Grid
+// # --- 2. Input parsing and grid generation ---
 btnGenerate.addEventListener('click', () => {
-    // Split by comma, trim whitespace, and filter out empty strings
+    // Parsing inputs by comma, trimming whitespace, and filtering empty strings
     const rawOptions = document.getElementById('input-options').value;
     const rawCriteria = document.getElementById('input-criteria').value;
 
     parsedOptions = rawOptions.split(',').map(item => item.trim()).filter(item => item !== '');
     parsedCriteria = rawCriteria.split(',').map(item => item.trim()).filter(item => item !== '');
 
-    // Validation
+    // Validating input arrays
     if (parsedOptions.length < 2) return alert("Please provide at least 2 options to compare.");
     if (parsedCriteria.length < 1) return alert("Please provide at least 1 criteria to judge by.");
 
     buildTableUI();
     
-    // Reveal the matrix area smoothly
+    // Revealing matrix area
     matrixWrapper.classList.remove('hidden');
     resultsContainer.innerHTML = `<h3 class="text-xl font-medium text-slate-500">Matrix generated. Fill out the scores below!</h3>`;
 });
 
 function buildTableUI() {
-    // Build the table header with Criteria and Weight inputs
+    // Building table header with criteria and weight inputs
     let tableHTML = `
         <table class="w-full text-left border-collapse min-w-[600px]">
             <thead>
@@ -57,7 +53,7 @@ function buildTableUI() {
     
     tableHTML += `</tr></thead><tbody>`;
 
-    // Build the rows for Options with Rating inputs
+    // Building option rows with rating inputs
     parsedOptions.forEach(opt => {
         tableHTML += `<tr class="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
             <td class="p-4 font-bold text-indigo-600 dark:text-indigo-400 text-lg">${opt}</td>`;
@@ -80,19 +76,18 @@ function buildTableUI() {
     matrixContainer.innerHTML = tableHTML;
 }
 
-// Step 3: Calculate the Mathematics
+// # --- 3. Mathematical execution ---
 btnCalculate.addEventListener('click', () => {
     const weights = {};
     const scores = {};
-    const breakdowns = {}; // Stores the string representation of the math for the UI
+    const breakdowns = {}; 
 
-    // 3a. Extract Weights: w_j
+    // Extracting criteria weights
     document.querySelectorAll('.crit-weight').forEach(input => {
-        // Fallback to 1 if user clears the input
         weights[input.dataset.criteria] = parseFloat(input.value) || 1; 
     });
 
-    // 3b. Calculate Scores: Sum of (r_ij * w_j)
+    // Calculating scores
     document.querySelectorAll('.opt-rating').forEach(input => {
         const opt = input.dataset.option;
         const crit = input.dataset.criteria;
@@ -101,31 +96,25 @@ btnCalculate.addEventListener('click', () => {
         
         const calculatedValue = rating * weight;
 
-        // Initialize objects if they don't exist yet
         if (!scores[opt]) {
             scores[opt] = 0;
             breakdowns[opt] = [];
         }
 
-        // Add to total score
         scores[opt] += calculatedValue;
-        
-        // Save the math string for the breakdown (e.g. "8x5")
         breakdowns[opt].push(`${rating}x${weight}`);
     });
 
-    // 3c. Determine Winner
-    // We use reduce to find the key with the highest value in the scores object
+    // Identifying optimal choice
     const winner = Object.keys(scores).reduce((a, b) => scores[a] > scores[b] ? a : b);
 
-    // 3d. Render the Result Breakdown
+    // Rendering result UI
     let breakdownHTML = `
         <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 w-full max-w-lg mx-auto mb-4">
             <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">Optimal Choice</h4>
             <h2 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-emerald-500 mb-6">${winner}</h2>
             <div class="text-left space-y-3 border-t border-slate-100 dark:border-slate-800 pt-4">`;
 
-    // Loop through all options to show the user EXACTLY how the math worked digit-by-digit
     for (const [opt, totalScore] of Object.entries(scores)) {
         const mathString = breakdowns[opt].join(' + ');
         const isWinner = opt === winner;
@@ -142,6 +131,6 @@ btnCalculate.addEventListener('click', () => {
     breakdownHTML += `</div></div>`;
     resultsContainer.innerHTML = breakdownHTML;
     
-    // Smooth scroll back up to the result
+    // Scrolling to results
     document.getElementById('results-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
 });
