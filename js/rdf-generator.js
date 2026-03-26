@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const emptyPlotState = document.getElementById('emptyPlotState');
 
     // Theme logic
-    document.getElementById('themeToggle').addEventListener('click', () => {
+    document.querySelectorAll('.themeToggle').forEach(btn => btn.addEventListener('click', () => {
         document.documentElement.classList.toggle('dark');
         localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
         if (computedGr.length > 0) renderPlot();
