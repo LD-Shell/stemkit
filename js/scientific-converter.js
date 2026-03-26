@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- 1. Master Scientific Database ---
-    // Every category defines a set of units. The 'factor' is a multiplier relative to the defined 'base' unit.
+    // # --- 1. Master scientific dictionary ---
     const UNIT_DB = {
         energy: {
             title: "Energy & Thermodynamics",
@@ -68,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- 2. Interface Bindings ---
+    // # --- 2. Interface bindings ---
     const matrixGrid = document.getElementById('matrixGrid');
     const tabs = document.querySelectorAll('.cat-tab');
     const categoryBadge = document.getElementById('categoryBadge');
@@ -76,23 +75,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const categoryName = document.getElementById('categoryName');
     const btnReset = document.getElementById('btnReset');
     const toastContainer = document.getElementById('toastContainer');
-    const themeToggleBtn = document.getElementById('themeToggle');
 
     let activeCategory = 'energy';
     let activeColor = 'orange';
 
-    // --- 3. Dynamic Rendering Engine ---
+    // # --- 3. Dynamic rendering engine ---
     function renderGrid(categoryKey) {
         activeCategory = categoryKey;
         const catData = UNIT_DB[categoryKey];
         activeColor = catData.color;
 
-        // Update header aesthetics
         categoryIcon.className = `fa-solid ${catData.icon}`;
         categoryName.innerText = catData.title;
         categoryBadge.className = `inline-flex items-center gap-2 bg-${activeColor}-100 dark:bg-${activeColor}-900/30 text-${activeColor}-700 dark:text-${activeColor}-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4 border border-${activeColor}-200 dark:border-${activeColor}-800/50 transition-colors`;
 
-        // Update tab states
         tabs.forEach(tab => {
             const isActive = tab.getAttribute('data-cat') === categoryKey;
             const tColor = tab.getAttribute('data-color');
@@ -104,7 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Generate matrix inputs dynamically
         matrixGrid.innerHTML = '';
         Object.entries(catData.units).forEach(([unitKey, unitData]) => {
             const wrapper = document.createElement('div');
@@ -131,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         bindMatrixEvents();
     }
 
-    // --- 4. Mathematical Engine ---
+    // # --- 4. Mathematical scaling engine ---
     function formatOutput(value) {
         if (value === 0) return "";
         const absVal = Math.abs(value);
@@ -152,10 +147,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const catData = UNIT_DB[activeCategory];
         const sourceFactor = catData.units[sourceUnitKey].factor;
         
-        // 1. Normalize to base representation
+        // # I am transforming the user input into a standardized base reference scalar
         const normalizedBase = sourceValue / sourceFactor;
 
-        // 2. Extrapolate to all matrix nodes
+        // # I am mapping the normalized scalar across all active output fields to ensure synchronous updates
         const inputs = document.querySelectorAll('.unit-input');
         inputs.forEach(input => {
             const targetKey = input.getAttribute('data-unit');
@@ -182,7 +177,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // Dynamic focus styling
             input.addEventListener('focus', (e) => {
                 inputs.forEach(inp => inp.classList.remove(`bg-${activeColor}-50`, `dark:bg-${activeColor}-900/20`, `border-${activeColor}-400`));
                 e.target.classList.add(`bg-${activeColor}-50`, `dark:bg-${activeColor}-900/20`, `border-${activeColor}-400`);
@@ -206,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- 5. Global Listeners ---
+    // # --- 5. Global listeners ---
     tabs.forEach(tab => {
         tab.addEventListener('click', (e) => {
             renderGrid(e.currentTarget.getAttribute('data-cat'));
@@ -221,10 +215,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    themeToggleBtn.addEventListener('click', () => {
+    document.querySelectorAll('.themeToggle').forEach(btn => btn.addEventListener('click', () => {
         document.documentElement.classList.toggle('dark');
         localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-    });
+    }));
 
     function showToast(message) {
         const toast = document.createElement('div');
@@ -245,6 +239,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2000);
     }
 
-    // Initialize with the Energy category default
+    // # Initiating the grid rendering call
     renderGrid('energy');
 });
