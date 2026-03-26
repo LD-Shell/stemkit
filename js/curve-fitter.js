@@ -9,20 +9,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const r2Value = document.getElementById('r2Value');
     const btnCopyEquation = document.getElementById('btnCopyEquation');
     const toastContainer = document.getElementById('toastContainer');
-    const themeToggleBtn = document.getElementById('themeToggle');
 
     let currentEquationString = "";
 
     // --- 2. Event Listeners ---
     btnFit.addEventListener('click', processRegression);
-    
-    // Theme sync for Plotly background rendering
-    themeToggleBtn.addEventListener('click', () => {
-        document.documentElement.classList.toggle('dark');
-        localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-        // Auto-replot to fix text colors if data exists
+
+    // Theme change observer for Plotly re-render
+    const themeObserver = new MutationObserver(() => {
         if (dataInput.value.trim() !== '') processRegression();
     });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
     // --- 3. Parsing Engine ---
     function parseInputData(rawText) {
@@ -183,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const layout = {
             plot_bgcolor: 'transparent',
             paper_bgcolor: 'transparent',
-            font: { family: 'Inter', color: fontColor },
+            font: { family: 'Inter, system-ui, sans-serif', color: fontColor },
             xaxis: { gridcolor: gridColor, zerolinecolor: gridColor },
             yaxis: { gridcolor: gridColor, zerolinecolor: gridColor },
             margin: { t: 40, r: 40, b: 40, l: 60 },
