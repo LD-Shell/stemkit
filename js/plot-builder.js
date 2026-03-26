@@ -1,14 +1,15 @@
-// # --- 1. State management and architecture ---
 document.addEventListener("DOMContentLoaded", () => {
     
-    // Decoupling data storage from visual traces allows multiple traces per file
+    // # --- 1. State management and architecture ---
+    
+    // # I am decoupling data storage from visual traces to allow multiple traces per file
     const dataStore = {}; 
     let traces = []; 
     let traceCounter = 0;
 
     const defaultColors = ['#4f46e5', '#ef4444', '#10b981', '#f59e0b', '#06b6d4', '#8b5cf6', '#ec4899'];
 
-    // DOM references
+    // # Caching DOM references
     const uploadZone = document.getElementById('uploadZone');
     const fileInput = document.getElementById('fileInput');
     const fileInventory = document.getElementById('fileInventory');
@@ -32,9 +33,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const plotlyCanvas = document.getElementById('plotlyCanvas');
     const emptyPlotState = document.getElementById('emptyPlotState');
 
-    // Theme configuration
+    // # Configuring theme logic
     const isDark = () => document.documentElement.classList.contains('dark');
-    document.getElementById('themeToggle').addEventListener('click', () => {
+    document.querySelectorAll('.themeToggle').forEach(btn => btn.addEventListener('click', () => {
         document.documentElement.classList.toggle('dark');
         localStorage.theme = isDark() ? 'dark' : 'light';
         if (traces.length > 0) renderPlot();
@@ -61,7 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
-            // Using file name and size as a unique dictionary key
+            // # I am using the file name and size as a unique dictionary key to prevent redundant loads
             const fileId = `${file.name}_${file.size}`;
             if (dataStore[fileId]) {
                 showToast(`${file.name} is already loaded.`, 'info');
@@ -92,7 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     updateFileInventory();
                     
-                    // Auto-create initial trace for the first uploaded file
+                    // # Generating initial trace automatically for the first uploaded file
                     if (Object.keys(dataStore).length === 1 && traces.length === 0) {
                         createNewTrace(fileId);
                         datasetContainer.classList.remove('hidden');
@@ -116,7 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // # --- 3. Trace configuration UI ---
+    // # --- 3. Trace configuration setup ---
     addTraceBtn.addEventListener('click', () => {
         const fileIds = Object.keys(dataStore);
         if (fileIds.length === 0) return;
@@ -154,7 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const card = document.createElement('div');
             card.className = 'bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 flex flex-col gap-3 relative';
             
-            // Dropdown to select which memory file this trace reads from
+            // # Creating dropdowns to map traces to memory files
             const fileOptions = fileIds.map(fid => `<option value="${fid}" ${trace.fileId === fid ? 'selected' : ''}>${dataStore[fid].filename}</option>`).join('');
             
             const currentHeaders = dataStore[trace.fileId].headers;
@@ -207,21 +208,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             `;
 
-            // State mutation event listeners
+            // # Binding state mutation event listeners
             card.querySelector('.trace-name').addEventListener('change', (e) => updateTrace(trace.id, 'name', e.target.value));
             card.querySelector('.trace-mode').addEventListener('change', (e) => updateTrace(trace.id, 'mode', e.target.value));
             card.querySelector('.trace-color').addEventListener('change', (e) => updateTrace(trace.id, 'color', e.target.value));
             card.querySelector('.trace-x').addEventListener('change', (e) => updateTrace(trace.id, 'xCol', e.target.value));
             card.querySelector('.trace-y').addEventListener('change', (e) => updateTrace(trace.id, 'yCol', e.target.value));
             
-            // Handle dataset reassignment
+            // # Handling dataset reassignment
             card.querySelector('.trace-file').addEventListener('change', (e) => {
                 const tr = traces.find(t => t.id === trace.id);
                 tr.fileId = e.target.value;
                 const newHeaders = dataStore[tr.fileId].headers;
                 tr.config.xCol = newHeaders[0];
                 tr.config.yCol = newHeaders[1] || newHeaders[0];
-                renderTraceUI(); // Re-render to update the col dropdowns
+                renderTraceUI(); 
             });
 
             card.querySelector('.remove-trace').addEventListener('click', () => {
@@ -254,7 +255,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const xCol = trace.config.xCol;
             const yCol = trace.config.yCol;
 
-            // Isolate numeric data to prevent Plotly from failing on NaN strings
+            // # I am isolating numeric data to prevent Plotly from failing on NaN strings
             const xData = [];
             const yData = [];
             for (let i = 0; i < raw.length; i++) {
@@ -275,7 +276,7 @@ document.addEventListener("DOMContentLoaded", () => {
             };
         });
 
-        // Interpreting aesthetic controls
+        // # Interpreting aesthetic controls
         const textColor = isDark() ? '#cbd5e1' : '#475569';
         const axisColor = isDark() ? '#475569' : '#cbd5e1';
         const gridColor = isDark() ? '#1e293b' : '#f1f5f9';
@@ -315,7 +316,7 @@ document.addEventListener("DOMContentLoaded", () => {
             autosize: true
         };
 
-        // Resolving legend position matrix
+        // # Resolving legend position matrix
         const legPos = legendPosition.value;
         layout.showlegend = legPos !== 'hidden';
         if (layout.showlegend) {
@@ -331,7 +332,7 @@ document.addEventListener("DOMContentLoaded", () => {
         Plotly.newPlot(plotlyCanvas, plotData, layout, config);
     }
 
-    // Export operations
+    // # Executing export operations
     document.getElementById('downloadSvgBtn').addEventListener('click', () => {
         if(traces.length > 0) Plotly.downloadImage(plotlyCanvas, {format: 'svg', width: 1200, height: 800, filename: 'stemkit_figure'});
     });
@@ -339,7 +340,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if(traces.length > 0) Plotly.downloadImage(plotlyCanvas, {format: 'png', width: 2400, height: 1600, filename: 'stemkit_figure_highres'});
     });
 
-    // --- 5. Notification utility ---
+    // # --- 5. Notification utility ---
     function showToast(msg, type) {
         const container = document.getElementById('toastContainer');
         const toast = document.createElement('div');
