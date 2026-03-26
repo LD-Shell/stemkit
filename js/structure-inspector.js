@@ -6,7 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let currentModelData = null;
     let currentExtension = null;
 
-    // Binding interface elements
+    // # Caching interface elements
     const uploadZone = document.getElementById('uploadZone');
     const fileInput = document.getElementById('fileInput');
     const workspace = document.getElementById('workspace');
@@ -19,14 +19,14 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const viewerCanvas = document.getElementById('viewerCanvas');
 
-    // Toggling interface theme
-    document.getElementById('themeToggle').addEventListener('click', () => {
+    // # Toggling interface theme
+    document.querySelectorAll('.themeToggle').forEach(btn => btn.addEventListener('click', () => {
         const isDark = document.documentElement.classList.toggle('dark');
         localStorage.theme = isDark ? 'dark' : 'light';
         updateViewerBackground(isDark);
-    });
+    }));
 
-    // Establishing file upload handlers
+    // # Establishing file upload handlers
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         uploadZone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
     });
@@ -70,7 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
         workspace.classList.remove('hidden');
         workspace.classList.add('flex');
 
-        // I am clearing any existing WebGL context to prevent memory leaks during subsequent uploads
+        // # I am clearing the WebGL context prior to instantiation to prevent memory leaks during subsequent file uploads
         if (viewer) {
             viewer.clear();
         } else {
@@ -79,7 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
-            // I am adding the coordinate data to the 3Dmol viewer object
+            // # I am mapping the coordinate data into the 3Dmol viewer object to visually verify the geometry of the glycine-clay interface
             viewer.addModel(currentModelData, currentExtension);
             
             const numAtoms = viewer.getModel().selectedAtoms({}).length;
@@ -106,13 +106,12 @@ document.addEventListener("DOMContentLoaded", () => {
         let styleObj = {};
         let colorObj = {};
 
-        // I am mapping the chosen color scheme to the 3Dmol API parameters
+        // # I am mapping the chosen color palette to the core 3Dmol parameters
         if (colorScheme === 'element') colorObj = { colorscheme: 'Jmol' };
         else if (colorScheme === 'chain') colorObj = { colorscheme: 'chain' };
         else if (colorScheme === 'residue') colorObj = { colorscheme: 'amino' };
         else if (colorScheme === 'bFactor') colorObj = { colorscheme: 'b' };
 
-        // Applying the primary visual representation
         if (styleType === 'stick') {
             styleObj = { stick: { radius: 0.15, ...colorObj } };
         } else if (styleType === 'sphere') {
@@ -147,7 +146,7 @@ document.addEventListener("DOMContentLoaded", () => {
     surfaceBtn.addEventListener('click', () => {
         if (!viewer) return;
         
-        // I am using surface rendering to inspect the solvent-accessible area of the glycine polymorphs and slab.
+        // # I am generating a van der Waals surface representation to evaluate the solvent-accessible volume of the solvated slab
         if (surfaceID !== null) {
             viewer.removeSurface(surfaceID);
             surfaceID = null;
