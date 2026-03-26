@@ -1,7 +1,7 @@
 // # --- 1. Environment initialization ---
 document.addEventListener("DOMContentLoaded", () => {
     
-    // Binding interface nodes
+    // Caching DOM nodes
     const mathField = document.getElementById('mathField');
     const latexInput = document.getElementById('latexInput');
     const katexPreview = document.getElementById('katexPreview');
@@ -11,18 +11,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const matrixCols = document.getElementById('matrixCols');
     const matrixStyle = document.getElementById('matrixStyle');
     const generateMatrixBtn = document.getElementById('generateMatrixBtn');
-    
     const copyLatexBtn = document.getElementById('copyLatexBtn');
 
-    // Establishing theme preferences
-    document.getElementById('themeToggle').addEventListener('click', () => {
+    // Binding theme preferences
+    document.querySelectorAll('.themeToggle').forEach(btn => btn.addEventListener('click', () => {
         document.documentElement.classList.toggle('dark');
         localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
     });
 
     // # --- 2. Bidirectional data binding ---
     
-    // I am synchronizing the visual editor output to the raw text area
+    // Synchronizing visual editor output to raw text area
     mathField.addEventListener('input', () => {
         const rawLatex = mathField.getValue('latex');
         if (latexInput.value !== rawLatex) {
@@ -31,14 +30,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // I am synchronizing manual raw text edits back to the visual editor
+    // Synchronizing manual raw text edits back to visual editor
     latexInput.addEventListener('input', (e) => {
         const rawLatex = e.target.value;
         mathField.setValue(rawLatex, { suppressChangeNotifications: true });
         compileKaTeX(rawLatex);
     });
 
-    // # --- 3. Syntax compilation and error catching ---
+    // # --- 3. Syntax compilation and error handling ---
     function compileKaTeX(latexString) {
         if (!latexString.trim()) {
             katexPreview.innerHTML = '';
@@ -47,7 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         try {
-            // Passing the string to the KaTeX engine. throwOnError allows us to intercept syntax faults.
+            // I am compiling the string via KaTeX and catching syntax faults to prevent silent failures
             katex.render(latexString, katexPreview, {
                 displayMode: true,
                 throwOnError: true,
@@ -55,7 +54,6 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             updateStatus(true);
         } catch (err) {
-            // When KaTeX faults, I am rendering the error trace directly to the DOM for user debugging
             katexPreview.innerHTML = `<span class="text-red-500 font-mono text-sm">${err.message}</span>`;
             updateStatus(false);
         }
@@ -71,11 +69,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Initialize the starting state
+    // Initializing state
     latexInput.value = mathField.getValue('latex');
     compileKaTeX(latexInput.value);
 
-    // # --- 4. Matrix boilerplate generation ---
+    // # --- 4. Matrix boilerplate generator ---
     generateMatrixBtn.addEventListener('click', () => {
         const rows = parseInt(matrixRows.value) || 3;
         const cols = parseInt(matrixCols.value) || 3;
@@ -83,7 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         let matrixLatex = `\\begin{${style}}\n`;
         
-        // I am iterating through the dimensions to construct the tabular syntax
+        // Iterating through dimensions to construct tabular syntax
         for (let r = 1; r <= rows; r++) {
             let rowContent = [];
             for (let c = 1; c <= cols; c++) {
@@ -94,7 +92,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         matrixLatex += `\\end{${style}}`;
 
-        // Appending the generated matrix to the current operational string
+        // Appending matrix to active operational string
         const currentLatex = latexInput.value.trim();
         const newLatex = currentLatex ? `${currentLatex} = ${matrixLatex}` : matrixLatex;
         
@@ -105,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showToast(`Generated ${rows}x${cols} ${style}.`, 'info');
     });
 
-    // # --- 5. Exportation vectors ---
+    // # --- 5. Export utilities ---
     copyLatexBtn.addEventListener('click', () => {
         const content = latexInput.value;
         if (!content) {
@@ -113,7 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         
-        // I am stripping extraneous MathLive spacing artifacts before pushing to clipboard
+        // Stripping MathLive spacing artifacts before pushing to clipboard
         const cleanedContent = content.replace(/\u200B/g, ''); 
         
         navigator.clipboard.writeText(cleanedContent).then(() => {
@@ -124,7 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // # --- 6. Notification matrix ---
+    // # --- 6. Notification system ---
     function showToast(msg, type) {
         const container = document.getElementById('toastContainer');
         const toast = document.createElement('div');
