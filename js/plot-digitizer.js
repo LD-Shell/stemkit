@@ -550,7 +550,7 @@ plt.show()`;
 <html class="${isDark ? 'dark' : ''}">
 <head>
     <title>Plot Preview | PDFKing</title>
-    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"><\/script>
+    <script src="js/dependencies/plotly.min.js"><\/script>
     <style>
         body { margin:0; padding:20px; font-family:sans-serif; background-color: ${isDark ? '#0f172a' : '#f8fafc'}; color: ${isDark ? '#f1f5f9' : '#0f172a'}; }
         .container { max-width: ${pxW + 40}px; margin: 0 auto; background: ${isDark ? '#1e293b' : '#fff'}; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border: 1px solid ${isDark ? '#334155' : '#e2e8f0'}; }
