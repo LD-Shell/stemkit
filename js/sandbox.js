@@ -1,58 +1,77 @@
-/**
- * STEMKit - Kinetic Sandbox Engine
- * Handles 2D particle kinematics and mouse interaction physics.
- */
-
+// # --- 1. System state and environment ---
 const canvas = document.getElementById('sandboxCanvas');
 const ctx = canvas.getContext('2d');
 
 let particlesArray = [];
-// Detect if user is on mobile to reduce particle count and save battery
+
+// # Evaluating device viewport to optimize particle density and rendering performance
 const isMobile = window.innerWidth < 768; 
 const numberOfParticles = isMobile ? 800 : 2500; 
 
-// Mouse physics state
+// # Parameterizing dynamic mouse physics and interaction states
 const mouse = {
     x: null,
     y: null,
-    radius: 120 // The size of the repulsive force field
+    radius: 150,
+    isPressed: false,
+    blastRadius: 0
 };
 
-// Step 1: Handle Screen Resizing dynamically
+// # --- 2. Event bindings ---
 function setupCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 }
+
 window.addEventListener('resize', () => {
     setupCanvas();
-    init(); // Re-roll particles if screen changes size drastically
+    init(); 
 });
 
-// Step 2: Track Mouse Position
 canvas.addEventListener('mousemove', (event) => {
     mouse.x = event.x;
     mouse.y = event.y;
 });
 
-// Remove mouse force field when it leaves the canvas
 canvas.addEventListener('mouseout', () => {
     mouse.x = null;
     mouse.y = null;
+    mouse.isPressed = false;
 });
 
-// Step 3: The Particle Blueprint
+// # Binding interactive force-state triggers for gamified mechanics
+canvas.addEventListener('mousedown', () => {
+    mouse.isPressed = true;
+});
+
+canvas.addEventListener('mouseup', () => {
+    mouse.isPressed = false;
+    mouse.blastRadius = 450; // # Initializing the expansion shockwave radius
+});
+
+// # --- 3. Particle kinematics blueprint ---
 class Particle {
     constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.size = Math.random() * 2.5 + 1; // Random size between 1 and 3.5
-        this.baseX = this.x; // Remember origin X
-        this.baseY = this.y; // Remember origin Y
-        this.density = (Math.random() * 30) + 1; // Determines "weight" or how fast it moves
         
-        // Pick a color from the STEMKit palette based on random chance
-        const colors = ['#4f46e5', '#10b981', '#0ea5e9', '#8b5cf6'];
-        this.color = colors[Math.floor(Math.random() * colors.length)];
+        // # Integrating momentum vectors for fluid inertia
+        this.vx = 0;
+        this.vy = 0;
+        
+        this.size = Math.random() * 2.5 + 1; 
+        this.baseX = this.x; 
+        this.baseY = this.y; 
+        this.density = (Math.random() * 30) + 1; 
+        
+        // # Parameterizing ambient drift mechanics
+        this.angle = Math.random() * Math.PI * 2;
+        this.orbitSpeed = (Math.random() * 0.02) + 0.005;
+        this.orbitRadius = (Math.random() * 15) + 5;
+        
+        const colors = ['#4f46e5', '#10b981', '#0ea5e9', '#8b5cf6', '#f43f5e'];
+        this.baseColor = colors[Math.floor(Math.random() * colors.length)];
+        this.color = this.baseColor;
     }
 
     draw() {
@@ -64,88 +83,101 @@ class Particle {
     }
 
     update() {
-        // Only run the heavy math if the mouse is actually on the screen
-        if (mouse.x != null) {
-            // Pythagorean theorem to find distance
-            let dx = mouse.x - this.x;
-            let dy = mouse.y - this.y;
-            let distance = Math.sqrt((dx * dx) + (dy * dy));
+        // # I am applying a continuous sine-wave drift to the origin coordinates to simulate ambient fluid flow
+        this.angle += this.orbitSpeed;
+        const dynamicBaseX = this.baseX + Math.cos(this.angle) * this.orbitRadius;
+        const dynamicBaseY = this.baseY + Math.sin(this.angle) * this.orbitRadius;
+
+        let dx = mouse.x - this.x;
+        let dy = mouse.y - this.y;
+        let distance = Math.sqrt((dx * dx) + (dy * dy));
+        
+        // # Applying primary continuous interaction forces
+        if (mouse.x != null && distance < mouse.radius) {
+            let forceDirectionX = dx / distance;
+            let forceDirectionY = dy / distance;
+            let force = (mouse.radius - distance) / mouse.radius;
             
-            // If the particle is inside the mouse's radius, repel it!
-            if (distance < mouse.radius) {
-                // Calculate the unit vector (direction of the push)
-                let forceDirectionX = dx / distance;
-                let forceDirectionY = dy / distance;
-                
-                // Calculate the strength of the push. 
-                // Close to mouse = high force (near 1). Edge of radius = low force (near 0).
-                let force = (mouse.radius - distance) / mouse.radius;
-                
-                // Apply density mass (lighter particles move faster)
-                let directionX = forceDirectionX * force * this.density;
-                let directionY = forceDirectionY * force * this.density;
-                
-                // Move the particle away (subtract the vector)
-                this.x -= directionX;
-                this.y -= directionY;
+            if (mouse.isPressed) {
+                // # Inducing a singularity effect when active (attraction + tight swirl)
+                this.vx += (forceDirectionX + forceDirectionY * 1.5) * force * 1.2;
+                this.vy += (forceDirectionY - forceDirectionX * 1.5) * force * 1.2;
             } else {
-                // Not near mouse? Snap back to original base coordinates using a simple spring logic
-                if (this.x !== this.baseX) {
-                    let dx = this.x - this.baseX;
-                    this.x -= dx / 15; // The 15 is the "stiffness" of the spring
-                }
-                if (this.y !== this.baseY) {
-                    let dy = this.y - this.baseY;
-                    this.y -= dy / 15;
-                }
+                // # Executing standard repulsive boundary with tangential scattering
+                this.vx -= (forceDirectionX - forceDirectionY * 0.5) * force * 0.8;
+                this.vy -= (forceDirectionY + forceDirectionX * 0.5) * force * 0.8;
             }
+        }
+
+        // # Executing the release shockwave expansion physics
+        if (mouse.blastRadius > 0 && distance < mouse.blastRadius) {
+            let forceDirectionX = dx / distance;
+            let forceDirectionY = dy / distance;
+            let force = (mouse.blastRadius - distance) / mouse.blastRadius;
+            
+            // # Injecting massive instantaneous velocity outward
+            this.vx -= forceDirectionX * force * (50 / this.density);
+            this.vy -= forceDirectionY * force * (50 / this.density);
+        }
+
+        // # Applying spring tension to return to ambient equilibrium
+        let springX = (dynamicBaseX - this.x) * 0.02;
+        let springY = (dynamicBaseY - this.y) * 0.02;
+        
+        this.vx += springX;
+        this.vy += springY;
+        
+        // # Applying kinetic friction to stabilize the fluid matrix
+        this.vx *= 0.92;
+        this.vy *= 0.92;
+        
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        // # Rendering dynamic thermal colors based on current kinetic energy
+        let velocitySq = this.vx * this.vx + this.vy * this.vy;
+        if (velocitySq > 30) {
+            this.color = '#ffffff'; 
+        } else if (velocitySq > 12) {
+            this.color = '#fbbf24'; 
         } else {
-             // Mouse is off screen, slowly return everything to base
-             if (this.x !== this.baseX) {
-                let dx = this.x - this.baseX;
-                this.x -= dx / 20;
-            }
-            if (this.y !== this.baseY) {
-                let dy = this.y - this.baseY;
-                this.y -= dy / 20;
-            }
+            this.color = this.baseColor;
         }
     }
 }
 
-// Step 4: System Initialization
+// # --- 4. System compilation and loop execution ---
 function init() {
     particlesArray = [];
     for (let i = 0; i < numberOfParticles; i++) {
-        // Randomly scatter coordinates across the screen
+        // # Populating the initial spatial matrix with randomized vectors
         let x = Math.random() * canvas.width;
         let y = Math.random() * canvas.height;
         particlesArray.push(new Particle(x, y));
     }
 }
 
-// Step 5: The Master Animation Loop
 function animate() {
-    // Clear the previous frame. 
-    // We use clearRect instead of drawing a solid rectangle to support the Dark Mode background beneath it.
+    // # Dissipating the global shockwave state rapidly
+    if (mouse.blastRadius > 0) {
+        mouse.blastRadius -= 25;
+    }
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Update math and redraw every single particle
     for (let i = 0; i < particlesArray.length; i++) {
         particlesArray[i].update();
         particlesArray[i].draw();
     }
     
-    // Request the next frame recursively
     requestAnimationFrame(animate);
 }
 
-// Boot up sequence
+// # Executing initialization sequence
 setupCanvas();
 init();
 animate();
 
-// UI Reset Button Logic
 document.getElementById('btn-reset-particles').addEventListener('click', () => {
-    init(); // Scrambles the particles into new random base positions
+    init(); 
 });
