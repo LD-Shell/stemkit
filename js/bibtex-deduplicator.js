@@ -19,12 +19,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const conflictList = document.getElementById('conflictList');
     const autoResolveBtn = document.getElementById('autoResolveBtn');
 
-    // --- Theme Toggle ---
-    document.getElementById('themeToggle').addEventListener('click', () => {
-        document.documentElement.classList.toggle('dark');
-        localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-    });
-
     // --- File Handling ---
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
