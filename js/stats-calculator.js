@@ -1,10 +1,10 @@
 document.addEventListener("DOMContentLoaded", () => {
     
-    // --- State Management ---
+    // # --- 1. State management ---
     let parsedData = {};
     let variables = [];
 
-    // --- DOM Elements ---
+    // # Caching DOM elements
     const dataInput = document.getElementById('dataInput');
     const fileInput = document.getElementById('fileInput');
     const parseBtn = document.getElementById('parseBtn');
@@ -23,13 +23,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const copyBtn = document.getElementById('copyBtn');
     const theoryContainer = document.getElementById('theoryContainer');
 
-    // --- Theme Toggle ---
-    document.getElementById('themeToggle').addEventListener('click', () => {
+    // # Binding theme toggles
+    document.querySelectorAll('.themeToggle').forEach(btn => btn.addEventListener('click', () => {
         document.documentElement.classList.toggle('dark');
         localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-    });
+    }));
 
-    // --- File Upload Handling ---
+    // # --- 2. Data parsing pipeline ---
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -41,7 +41,6 @@ document.addEventListener("DOMContentLoaded", () => {
         reader.readAsText(file);
     });
 
-    // --- Data Parsing Pipeline ---
     parseBtn.addEventListener('click', parseData);
 
     function parseData() {
@@ -51,6 +50,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        // # I am parsing the raw structure to evaluate analytical variables
         Papa.parse(rawText, {
             header: true,
             dynamicTyping: true,
@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
         runTestBtn.disabled = false;
     }
 
-    // --- Statistical Calculation Engine ---
+    // # --- 3. Statistical calculation engine ---
     runTestBtn.addEventListener('click', () => {
         const type = testType.value;
         const v1 = var1.value;
@@ -130,7 +130,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 1. Independent t-test (Corrected for robust pooled variance)
     function runIndependentTTest(name1, name2, arr1, arr2) {
         const n1 = arr1.length;
         const n2 = arr2.length;
@@ -141,6 +140,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const var1 = jStat.variance(arr1, true); 
         const var2 = jStat.variance(arr2, true);
 
+        // # I am executing an independent t-test utilizing a pooled variance estimator to account for unequal standard deviations
         const pooledVar = ((n1 - 1) * var1 + (n2 - 1) * var2) / (n1 + n2 - 2);
         const standardError = Math.sqrt(pooledVar * (1 / n1 + 1 / n2));
         
@@ -153,13 +153,13 @@ document.addEventListener("DOMContentLoaded", () => {
         pubSummary.value = `An independent-samples t-test was conducted to compare ${name1} and ${name2}. There was a ${pVal < 0.05 ? 'significant' : 'non-significant'} difference in the scores for ${name1} (M=${mean1.toFixed(2)}, SD=${Math.sqrt(var1).toFixed(2)}) and ${name2} (M=${mean2.toFixed(2)}, SD=${Math.sqrt(var2).toFixed(2)}); t(${df}) = ${tScore.toFixed(3)}, p = ${formatPValue(pVal)}.`;
     }
 
-    // 2. Paired T-Test
     function runPairedTTest(name1, name2, arr1, arr2) {
         if (arr1.length !== arr2.length) {
             showToast("Paired t-tests require arrays of equal length.", "error");
             return;
         }
         
+        // # I am computing the differential distribution prior to significance testing
         const diffs = arr1.map((val, i) => val - arr2[i]);
         const meanDiff = jStat.mean(diffs);
         const stdevDiff = jStat.stdev(diffs, true);
@@ -172,7 +172,6 @@ document.addEventListener("DOMContentLoaded", () => {
         pubSummary.value = `A paired-samples t-test was conducted to compare ${name1} and ${name2}. There was a ${pVal < 0.05 ? 'significant' : 'non-significant'} difference in the scores; t(${df}) = ${tScore.toFixed(3)}, p = ${formatPValue(pVal)}.`;
     }
 
-    // 3. One-Way ANOVA
     function runANOVA(name1, name2, arr1, arr2) {
         const fScore = jStat.anovaftest(arr1, arr2);
         const dfBetween = 1; 
@@ -183,7 +182,6 @@ document.addEventListener("DOMContentLoaded", () => {
         pubSummary.value = `A one-way ANOVA was conducted to compare the effect of conditions on the dependent variable. An analysis of variance showed that the effect was ${pVal < 0.05 ? 'significant' : 'not significant'}, F(${dfBetween}, ${dfWithin}) = ${fScore.toFixed(3)}, p = ${formatPValue(pVal)}.`;
     }
 
-    // 4. Pearson Correlation
     function runPearson(name1, name2, arr1, arr2) {
         if (arr1.length !== arr2.length) {
             showToast("Correlations require arrays of equal length.", "error");
@@ -201,7 +199,7 @@ document.addEventListener("DOMContentLoaded", () => {
         pubSummary.value = `A Pearson product-moment correlation was computed to assess the relationship between ${name1} and ${name2}. There was a ${pVal < 0.05 ? 'significant' : 'non-significant'} correlation between the two variables, r(${df}) = ${r.toFixed(3)}, p = ${formatPValue(pVal)}.`;
     }
 
-    // --- Output Rendering Helpers ---
+    // # --- 4. Output formatting ---
     function renderResults(statisticName, statisticValue, pValue) {
         statLabel.innerText = `${statisticName}-Statistic`;
         statValue.innerText = isNaN(statisticValue) ? "Error" : statisticValue.toFixed(4);
@@ -222,7 +220,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return p.toFixed(3);
     }
 
-    // --- Mathematical Theory Injection ---
     function renderTheory(testType) {
         let latexString = "";
         
@@ -254,7 +251,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // --- UI Interactions ---
     copyBtn.addEventListener('click', () => {
         pubSummary.select();
         document.execCommand('copy');
