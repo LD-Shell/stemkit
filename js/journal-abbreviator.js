@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- 1. Internal Dictionary (Partial implementation of common chemistry/physics journals) ---
-    // A complete implementation would load a larger JSON file asynchronously.
+    // # --- 1. Internal dictionary ---
+    // # A complete implementation would load a larger JSON file asynchronously
     const dictionary = {
         "journal of the american chemical society": "J. Am. Chem. Soc.",
         "journal of physical chemistry a": "J. Phys. Chem. A",
@@ -36,16 +36,15 @@ document.addEventListener('DOMContentLoaded', () => {
         "proceedings of the national academy of sciences of the united states of america": "Proc. Natl. Acad. Sci. U.S.A."
     };
 
-    // Pre-compiling a regex pattern from the dictionary keys for fast multi-matching
-    // We sort keys by length descending so that specific titles ("Journal of Physical Chemistry B") 
-    // are matched before generic ones ("Journal of Physical Chemistry").
+    // # I am pre-compiling a regex pattern from the dictionary keys for fast multi-matching
+    // # Sorting keys by length descending ensures specific titles are matched before generic ones
     const sortedKeys = Object.keys(dictionary).sort((a, b) => b.length - a.length);
     
-    // Escaping regex special characters in journal names (like '&')
+    // # I am escaping regex special characters in journal names to prevent parsing faults
     const escapedKeys = sortedKeys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     const searchPattern = new RegExp(`\\b(${escapedKeys.join('|')})\\b`, 'gi');
 
-    // --- 2. Interface Bindings ---
+    // # --- 2. Interface bindings ---
     const dataInput = document.getElementById('dataInput');
     const visualOutput = document.getElementById('visualOutput');
     const rawOutput = document.getElementById('rawOutput');
@@ -55,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const statsLabel = document.getElementById('statsLabel');
     const toastContainer = document.getElementById('toastContainer');
 
-    // --- 3. Event Listeners ---
+    // # --- 3. Event listeners ---
     dataInput.addEventListener('input', processText);
     toggleHighlights.addEventListener('change', processText);
 
@@ -64,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
         processText();
     });
 
-    // --- 4. Processing Engine ---
+    // # --- 4. Processing engine ---
     function escapeHtml(text) {
         const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
         return text.replace(/[&<>"']/g, m => map[m]);
@@ -84,16 +83,16 @@ document.addEventListener('DOMContentLoaded', () => {
         let cleanText = input;
         let htmlText = escapeHtml(input);
 
-        // Executing the replacement pass
         const showHighlights = toggleHighlights.checked;
 
+        // # Executing the replacement pass
         cleanText = cleanText.replace(searchPattern, (match) => {
             changeCount++;
             return dictionary[match.toLowerCase()];
         });
 
         if (showHighlights) {
-            // Processing HTML version separately to inject formatting spans
+            // # I am processing the HTML version separately to inject formatting spans for user visibility
             htmlText = htmlText.replace(searchPattern, (match) => {
                 const replacement = dictionary[match.toLowerCase()];
                 return `<span class="hl-change" title="Original: ${match}">${replacement}</span>`;
@@ -107,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statsLabel.textContent = `${changeCount} Changes`;
     }
 
-    // --- 5. Utilities ---
+    // # --- 5. Utilities ---
     function showToast(message) {
         const toast = document.createElement('div');
         toast.className = 'bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-xl transform transition-all duration-300 translate-y-[-20px] opacity-0';
@@ -145,6 +144,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Initial pass
+    // # Executing initial pass
     processText();
 });
