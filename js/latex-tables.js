@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- 1. Interface Bindings ---
+    // # --- 1. Interface bindings ---
     const dataInput = document.getElementById('dataInput');
     const envSelect = document.getElementById('envSelect');
     const styleSelect = document.getElementById('styleSelect');
@@ -13,13 +13,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCopyCode = document.getElementById('btnCopyCode');
     const toastContainer = document.getElementById('toastContainer');
 
-    // --- 2. Event Listeners ---
-    // Executing full pipeline update on any state change
+    // # --- 2. Event listeners ---
+    // # Executing full pipeline update on state change
     const updateTriggers = [dataInput, envSelect, styleSelect, captionInput, labelInput];
     updateTriggers.forEach(el => el.addEventListener('input', processPipeline));
     alignRadios.forEach(radio => radio.addEventListener('change', processPipeline));
 
-    // Accordion interaction
+    // # Setting up accordion interaction
     document.querySelectorAll('.accordion-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const isExpanded = btn.getAttribute('aria-expanded') === 'true';
@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- 3. Data Parsing Engine ---
+    // # --- 3. Data parsing engine ---
     function parseInputData(rawText) {
         if (!rawText.trim()) return [];
         
@@ -37,10 +37,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let maxCols = 0;
 
         for (let line of lines) {
-            // Checking if empty line to preserve table structure or skip
+            // # Checking if empty line to preserve table structure or skip
             if (line.trim() === '') continue;
 
-            // Resolving standard Excel/Numbers tab-separation. Fallback to comma if no tabs are found.
+            // # I am resolving standard Excel tab-separation and falling back to commas if needed
             const delimiter = line.includes('\t') ? '\t' : (line.includes(',') ? ',' : ' ');
             const row = line.split(delimiter).map(cell => cell.trim());
             
@@ -48,14 +48,14 @@ document.addEventListener('DOMContentLoaded', () => {
             matrix.push(row);
         }
 
-        // Normalizing column widths across the matrix to prevent LaTeX compilation errors
+        // # I am normalizing column widths across the matrix to prevent LaTeX compilation errors
         return matrix.map(row => {
             while (row.length < maxCols) row.push('');
             return row;
         });
     }
 
-    // --- 4. HTML Optical Preview Generation ---
+    // # --- 4. HTML optical preview generation ---
     function renderPreview(matrix) {
         if (matrix.length === 0) {
             tablePreview.innerHTML = '<span class="text-slate-400">Paste data to render preview.</span>';
@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let html = `<table class="preview-table ${style === 'booktabs' ? 'booktabs' : ''}">`;
         
-        // Extracting header row
+        // # Extracting header row
         const headers = matrix[0];
         html += `<thead><tr>`;
         headers.forEach(h => {
@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         html += `</tr></thead><tbody>`;
 
-        // Extracting data rows
+        // # Extracting data rows
         for (let i = 1; i < matrix.length; i++) {
             html += `<tr>`;
             matrix[i].forEach(cell => {
@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tablePreview.innerHTML = html;
     }
 
-    // --- 5. LaTeX Compilation Engine ---
+    // # --- 5. LaTeX compilation engine ---
     function generateLatex(matrix) {
         if (matrix.length === 0) {
             latexOutput.textContent = "Waiting for input matrix...";
@@ -103,13 +103,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const align = Array.from(alignRadios).find(r => r.checked).value;
         const colCount = matrix[0].length;
 
-        // Constructing the column specification string (e.g., |c|c|c| or ccc)
+        // # Constructing the column specification string
         let colSpec = '';
         if (style === 'grid') {
             colSpec = '|' + Array(colCount).fill(align).join('|') + '|';
         } else {
             colSpec = Array(colCount).fill(align).join('');
-            // Optional: for strict booktabs, removing outer padding is standard (@{}ccc@{})
+            // # I am removing outer padding for strict booktabs standard formatting
             if (style === 'booktabs') colSpec = '@{}' + colSpec + '@{}';
         }
 
@@ -121,24 +121,24 @@ document.addEventListener('DOMContentLoaded', () => {
         
         latex += `\\begin{tabular}{${colSpec}}\n`;
 
-        // Applying top structural border
+        // # Applying top structural border
         if (style === 'booktabs') latex += `\\toprule\n`;
         else if (style === 'grid' || style === 'standard') latex += `\\hline\n`;
 
-        // Constructing the header row
+        // # Constructing the header row
         latex += `    ${matrix[0].map(escapeLatex).join(' & ')} \\\\\n`;
 
-        // Applying middle structural border
+        // # Applying middle structural border
         if (style === 'booktabs') latex += `\\midrule\n`;
         else if (style === 'grid' || style === 'standard') latex += `\\hline\n`;
 
-        // Constructing data rows
+        // # Constructing data rows
         for (let i = 1; i < matrix.length; i++) {
             latex += `    ${matrix[i].map(escapeLatex).join(' & ')} \\\\\n`;
             if (style === 'grid') latex += `\\hline\n`;
         }
 
-        // Applying bottom structural border
+        // # Applying bottom structural border
         if (style === 'booktabs') latex += `\\bottomrule\n`;
         else if (style === 'standard') latex += `\\hline\n`;
 
@@ -148,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         latexOutput.textContent = latex;
     }
 
-    // --- 6. Pipeline Execution and Utilities ---
+    // # --- 6. Pipeline execution and utilities ---
     function processPipeline() {
         const rawText = dataInput.value;
         const matrix = parseInputData(rawText);
@@ -156,15 +156,14 @@ document.addEventListener('DOMContentLoaded', () => {
         generateLatex(matrix);
     }
 
-    // Sanitizing raw text for safe HTML rendering
+    // # Sanitizing raw text for safe HTML rendering
     function escapeHtml(text) {
         const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
         return text.replace(/[&<>"']/g, m => map[m]);
     }
 
-    // Sanitizing raw text to prevent LaTeX compilation breaks on reserved characters
+    // # Sanitizing raw text to prevent LaTeX compilation breaks on reserved characters
     function escapeLatex(text) {
-        // Handling primary reserved characters: & % $ # _ { } ~ ^ \
         let sanitized = text.toString();
         sanitized = sanitized.replace(/\\/g, '\\textbackslash{}');
         sanitized = sanitized.replace(/([&%$#_{}])/g, '\\$1');
@@ -173,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return sanitized;
     }
 
-    // Displaying brief visual feedback
+    // # Displaying brief visual feedback
     function showToast(message) {
         const toast = document.createElement('div');
         toast.className = 'bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-xl transform transition-all duration-300 translate-y-[-20px] opacity-0';
@@ -211,6 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Initial render call to handle potential browser caching
+    // # Initializing render call to handle potential browser caching
     processPipeline();
 });
