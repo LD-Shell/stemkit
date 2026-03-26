@@ -1,18 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- 1. Subsystem Architecture ---
-    // The parser state retains the raw matrix to allow instantaneous non-destructive optical rendering updates.
+    // # --- 1. Subsystem architecture ---
+    // # The parser state retains the raw matrix in memory to allow instantaneous non-destructive rendering updates
     const state = {
-        rawData: [],       // 2D Array [row][col]
-        headers: [],       // Extracted metadata strings or generic "Column N"
-        xIndex: 0,         // Current independent variable index
-        activeYIndices: new Set([1]), // Default to rendering the first dependent variable
+        rawData: [],       
+        headers: [],       
+        xIndex: 0,         
+        activeYIndices: new Set([1]), 
         title: "Log Data",
         xAxisLabel: "X",
         yAxisLabel: "Y"
     };
 
-    // --- 2. Interface Bindings ---
+    // # --- 2. Interface bindings ---
     const uploadZone = document.getElementById('uploadZone');
     const dropArea = document.getElementById('dropArea');
     const fileInput = document.getElementById('fileInput');
@@ -30,12 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const plotContainer = document.getElementById('plotContainer');
     const plotLoader = document.getElementById('plotLoader');
 
-    const themeToggleBtn = document.getElementById('themeToggle');
-
-    // Visual configurations
     const COLOR_PALETTE = ['#2563eb', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899'];
 
-    // UI Accordion Logic
     document.querySelectorAll('.accordion-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const isExpanded = btn.getAttribute('aria-expanded') === 'true';
@@ -44,14 +40,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Theme integration mapping for Plotly base layouts
-    themeToggleBtn.addEventListener('click', () => {
+    document.querySelectorAll('.themeToggle').forEach(btn => btn.addEventListener('click', () => {
         document.documentElement.classList.toggle('dark');
         localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-        if (state.rawData.length > 0) renderPlot(); // Force redraw to sync plot background colors
-    });
+        if (state.rawData.length > 0) renderPlot(); 
+    }));
 
-    // --- 3. I/O and Drag-and-Drop Handlers ---
+    // # --- 3. I/O and drop handlers ---
     dropArea.addEventListener('click', () => fileInput.click());
 
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -86,14 +81,14 @@ document.addEventListener('DOMContentLoaded', () => {
         Plotly.purge(plotContainer);
     });
 
-    // --- 4. High-Performance Text Parsing Engine ---
+    // # --- 4. High-performance text parsing engine ---
     function handleFile(file) {
         plotLoader.classList.remove('hidden');
         plotLoader.classList.add('flex');
         uploadZone.classList.add('opacity-0', 'pointer-events-none');
         workspace.classList.remove('hidden');
         
-        // I am utilizing FileReader to process the document entirely client-side
+        // # I am utilizing FileReader to process the massive GROMACS PMF outputs entirely client-side
         const reader = new FileReader();
         
         reader.onload = (e) => {
@@ -115,33 +110,28 @@ document.addEventListener('DOMContentLoaded', () => {
         state.xAxisLabel = "X";
         state.yAxisLabel = "Y";
 
-        // Step 1: Iterate through lines to strip GROMACS / Grace metadata and compile the float matrix
+        // # I am iterating through lines to strip GROMACS metadata and compile the numerical float matrix
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
             if (line === '') continue;
 
-            // Grace format extraction (specifically extracting axis labels from standard GROMACS XVG output)
             if (line.startsWith('@')) {
                 if (line.includes('title ')) state.title = line.split('"')[1] || state.title;
                 if (line.includes('xaxis  label ')) state.xAxisLabel = line.split('"')[1] || state.xAxisLabel;
                 if (line.includes('yaxis  label ')) state.yAxisLabel = line.split('"')[1] || state.yAxisLabel;
-                // Capture specific dataset legends if provided
+                
                 if (line.includes(' s') && line.includes(' legend ')) {
                     const match = line.match(/s(\d+) legend "(.*)"/);
-                    if (match) headers[parseInt(match[1]) + 1] = match[2]; // +1 because col 0 is usually X
+                    if (match) headers[parseInt(match[1]) + 1] = match[2]; 
                 }
                 continue;
             }
 
-            // Ignoring standard comments
             if (line.startsWith('#')) continue;
 
-            // Processing raw numerical data. Handles both comma-separated and space-separated logs.
-            // Using a strict regex split prevents issues with variable spacing.
             const tokens = line.split(/[\s,]+/).filter(Boolean);
             if (tokens.length > 0) {
                 const row = tokens.map(Number);
-                // Sanity check to avoid parsing trailing empty arrays or mismatched rows
                 if (!row.some(isNaN)) {
                     matrix.push(row);
                     if (row.length > colCount) colCount = row.length;
@@ -149,7 +139,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Fill generic headers if none were extracted from metadata
         for (let c = 0; c < colCount; c++) {
             if (!headers[c]) headers[c] = (c === 0) ? state.xAxisLabel : `Dataset ${c}`;
         }
@@ -158,7 +147,6 @@ document.addEventListener('DOMContentLoaded', () => {
         state.headers = headers;
         state.xIndex = 0;
         
-        // Auto-activate all Y columns if there are 3 or fewer, otherwise just activate the first Y
         state.activeYIndices = new Set();
         const maxAutoCols = colCount > 4 ? 2 : colCount;
         for(let i=1; i < maxAutoCols; i++) state.activeYIndices.add(i);
@@ -172,9 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
         plotLoader.classList.add('hidden');
     }
 
-    // --- 5. Sidebar UI Construction ---
+    // # --- 5. User interface mapping ---
     function buildControlsUI(colCount) {
-        // Constructing Independent Variable (X) Dropdown
         xColSelect.innerHTML = '';
         state.headers.forEach((hdr, idx) => {
             const opt = document.createElement('option');
@@ -189,7 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
             renderPlot();
         });
 
-        // Constructing Dependent Variables (Y) Checkboxes
         yColContainer.innerHTML = '';
         for (let i = 0; i < colCount; i++) {
             const div = document.createElement('label');
@@ -229,12 +215,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Optical modification listeners
     [plotLogY, plotMarkers, plotSmoothing].forEach(ctrl => {
         ctrl.addEventListener('input', renderPlot);
     });
 
-    // --- 6. WebGL Plotting Engine ---
+    // # --- 6. WebGL rendering ---
     function renderPlot() {
         if (state.rawData.length === 0 || state.activeYIndices.size === 0) {
             Plotly.purge(plotContainer);
@@ -246,14 +231,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const gridColor = isDark ? '#334155' : '#e2e8f0';
         const bgColor = 'transparent';
 
-        // Extracting the defined X array
         const xData = state.rawData.map(row => row[state.xIndex]);
         const traces = [];
 
         const showMarkers = plotMarkers.checked;
         const smoothing = parseFloat(plotSmoothing.value);
 
-        // Building Plotly traces dynamically for all selected dependent variables
         state.activeYIndices.forEach(yIdx => {
             const yData = state.rawData.map(row => row[yIdx]);
             
@@ -265,7 +248,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 lineConfig.smoothing = smoothing;
             }
 
-            // Using standard scatter. WebGL scattergl can be swapped here if matrices exceed 500k points.
             traces.push({
                 x: xData,
                 y: yData,
@@ -306,7 +288,6 @@ document.addEventListener('DOMContentLoaded', () => {
             toImageButtonOptions: { format: 'png', filename: 'extracted_plot', height: 600, width: 800, scale: 2 }
         };
 
-        // Render instruction payload
         Plotly.react(plotContainer, traces, layout, config);
     }
 });
