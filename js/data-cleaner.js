@@ -9,12 +9,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const uploadZone = document.getElementById('uploadZone');
     const fileInput = document.getElementById('fileInput');
     const workspace = document.getElementById('workspace');
-    
-    const themeToggle = document.getElementById('themeToggle');
-    themeToggle.addEventListener('click', () => {
-        document.documentElement.classList.toggle('dark');
-        localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-    });
 
     // Binding file drop matrices
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
