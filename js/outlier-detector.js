@@ -1,11 +1,11 @@
 document.addEventListener("DOMContentLoaded", () => {
     
-    // --- 1. State initialization ---
+    // # --- 1. State initialization ---
     let rawData = [];
     let headers = [];
     let outlierIndices = new Set();
 
-    // --- 2. Interface bindings ---
+    // # --- 2. Interface bindings ---
     const uploadZone = document.getElementById('uploadZone');
     const fileInput = document.getElementById('fileInput');
     const workspace = document.getElementById('workspace');
@@ -20,12 +20,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const exportCleanBtn = document.getElementById('exportCleanBtn');
     const exportFlaggedBtn = document.getElementById('exportFlaggedBtn');
 
-    document.getElementById('themeToggle').addEventListener('click', () => {
+    document.querySelectorAll('.themeToggle').forEach(btn => btn.addEventListener('click', () => {
         document.documentElement.classList.toggle('dark');
         localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
     });
 
-    // Drag and drop event listeners
+    // # Binding drag and drop events
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         uploadZone.addEventListener(eventName, (e) => { e.preventDefault(); e.stopPropagation(); }, false);
     });
@@ -47,7 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // --- 3. Dynamic parameter text ---
+    // # --- 3. Dynamic parameter text ---
     thresholdSlider.addEventListener('input', (e) => {
         const val = parseFloat(e.target.value).toFixed(1);
         thresholdValue.innerText = val;
@@ -78,7 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // --- 4. Data parsing ---
+    // # --- 4. Data parsing ---
     function handleFile(file) {
         if (!file || !file.name.endsWith('.csv')) {
             showToast('Please upload a valid .csv topology.', 'error');
@@ -123,7 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // --- 5. Anomaly detection logic ---
+    // # --- 5. Anomaly detection logic ---
     scanBtn.addEventListener('click', () => {
         const targetCol = colSelect.value;
         const method = methodSelect.value;
@@ -131,7 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         outlierIndices.clear();
 
-        // I am isolating the numeric vector to prevent coercion faults during variance calculations.
+        // # I am isolating the numeric vector to prevent coercion faults during variance calculations
         const numericVector = [];
         const indexMap = []; 
 
@@ -149,9 +149,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (method === 'zscore') {
-            // Calculating parametric statistics
+            // # I am calculating parametric statistics for normal distributions
             const mean = jStat.mean(numericVector);
-            const stdev = jStat.stdev(numericVector, true); // true = sample standard deviation
+            const stdev = jStat.stdev(numericVector, true); 
 
             numericVector.forEach((val, i) => {
                 const z = Math.abs((val - mean) / stdev);
@@ -160,7 +160,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             });
         } else if (method === 'iqr') {
-            // I am calculating the interquartile range to establish non-parametric fences.
+            // # I am calculating the interquartile range to establish non-parametric fences
             const quartiles = jStat.quartiles(numericVector);
             const q1 = quartiles[0];
             const q3 = quartiles[2];
@@ -190,14 +190,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // --- 6. View construction ---
+    // # --- 6. View construction ---
     function renderArrayView() {
         const thead = document.getElementById('tableHead');
         thead.innerHTML = '<tr>' + headers.map(h => `<th class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700 last:border-0">${h}</th>`).join('') + '</tr>';
         
         const tbody = document.getElementById('tableBody');
         
-        // Limiting view to 200 rows to ensure UI rendering does not lock the main thread.
+        // # I am limiting the view to 200 rows to ensure UI rendering does not lock the main thread
         const previewLimit = Math.min(rawData.length, 200);
         let rowsHtml = '';
 
@@ -221,7 +221,7 @@ document.addEventListener("DOMContentLoaded", () => {
         tbody.innerHTML = rowsHtml;
     }
 
-    // --- 7. Output compilation ---
+    // # --- 7. Output compilation ---
     exportCleanBtn.addEventListener('click', () => {
         const cleanData = rawData.filter((_, i) => !outlierIndices.has(i));
         triggerDownload(cleanData, 'scrubbed_dataset.csv');
@@ -246,7 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showToast(`Exported ${filename}`, 'success');
     }
 
-    // --- 8. Notification utility ---
+    // # --- 8. Notification utility ---
     function showToast(msg, type) {
         const container = document.getElementById('toastContainer');
         const toast = document.createElement('div');
