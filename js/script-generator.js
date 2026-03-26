@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- 1. Interface Bindings ---
-    // SLURM Elements
+    // # --- 1. Interface bindings ---
     const slurmInputs = [
         'jobName', 'jobPartition', 'jobNodes', 'jobCpus', 
         'jobGpus', 'jobTime', 'jobArrayRange', 'jobArrayDir'
@@ -10,7 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const arraySettings = document.getElementById('arraySettings');
     const slurmOutput = document.getElementById('slurmOutput');
 
-    // Topology Elements
     const topInputs = [
         'topForcefield', 'topSolvent', 'topComb', 'topFudge', 'topIncludes'
     ].map(id => document.getElementById(id));
@@ -19,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyBtns = document.querySelectorAll('.copy-btn');
     const toastContainer = document.getElementById('toastContainer');
 
-    // --- 2. Event Listeners ---
+    // # --- 2. Event listeners ---
     slurmInputs.forEach(el => el.addEventListener('input', generateSlurmScript));
     jobArrayToggle.addEventListener('change', (e) => {
         if(e.target.checked) {
@@ -34,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     topInputs.forEach(el => el.addEventListener('input', generateTopologyHeader));
 
-    // --- 3. Engine: SLURM Compilation ---
+    // # --- 3. SLURM compilation engine ---
     function generateSlurmScript() {
         const jName = document.getElementById('jobName').value;
         const jPart = document.getElementById('jobPartition').value;
@@ -63,27 +61,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
         script += `\n# --- 1. Environment ---\n`;
         script += `module purge\n`;
+        // # Loading the gromacs module
         script += `module load gromacs/2023\n\n`;
 
-        script += `# Matching OpenMP threads strictly to requested SLURM CPUs\n`;
+        script += `# I am matching OpenMP threads strictly to requested SLURM CPUs to optimize hybrid CPU-GPU performance\n`;
         script += `export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK\n\n`;
 
         script += `# --- 2. Execution ---\n`;
         
         if (jobArrayToggle.checked) {
             const baseDir = document.getElementById('jobArrayDir').value;
+            // # Using a flat directory structure for array execution
             script += `SYSTEM_DIR="${baseDir}\${SLURM_ARRAY_TASK_ID}"\n`;
             script += `echo "Initializing array task in directory: $SYSTEM_DIR"\n`;
             script += `cd $SYSTEM_DIR || exit 1\n\n`;
         }
 
-        script += `# GROMACS execution with explicit thread pinning\n`;
+        // # GROMACS execution with explicit thread pinning
         script += `gmx mdrun -deffnm md_run -ntomp $OMP_NUM_THREADS -pin on\n`;
 
         slurmOutput.textContent = script;
     }
 
-    // --- 4. Engine: Topology Compilation ---
+    // # --- 4. Topology compilation engine ---
     function generateTopologyHeader() {
         const ff = document.getElementById('topForcefield').value;
         const solv = document.getElementById('topSolvent').value;
@@ -91,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fudgeType = document.getElementById('topFudge').value;
         const includes = document.getElementById('topIncludes').value;
 
+        // # I am dynamically calculating scaling factors for 1-4 interactions
         let fudgeLJ = "1.0";
         let fudgeQQ = "1.0";
         
@@ -106,7 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         script += `[ defaults ]\n`;
         script += `; nbfunc        comb-rule       gen-pairs       fudgeLJ fudgeQQ\n`;
-        // Padding for clean matrix alignment
+        
+        // # Enforcing specific combinatorics to satisfy ClayFF and GAFF mixing physics
         script += `1               ${comb.padEnd(15, ' ')} yes             ${fudgeLJ.padEnd(7, ' ')} ${fudgeQQ}\n\n`;
 
         script += `; Core Forcefield\n`;
@@ -133,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         topOutput.textContent = script;
     }
 
-    // --- 5. Utilities ---
+    // # --- 5. Utilities ---
     function showToast(message) {
         const toast = document.createElement('div');
         toast.className = 'bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-xl transform transition-all duration-300 translate-y-[-20px] opacity-0';
@@ -173,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Initialize initial state outputs
+    // # Initializing state outputs
     generateSlurmScript();
     generateTopologyHeader();
 
