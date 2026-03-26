@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
     
-    // --- 1. State & Environment ---
+    // # --- 1. State and environment ---
     let computedResults = [];
     const dataInput = document.getElementById('dataInput');
     const fileInput = document.getElementById('fileInput');
@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const exportCsvBtn = document.getElementById('exportCsvBtn');
     const theoryContainer = document.getElementById('theoryContainer');
 
-    // Render KaTeX Equations for Methodological Transparency
+    // Rendering KaTeX equations for methodological transparency
     const renderTheory = () => {
         const latex = `
             \\text{Mean: } \\bar{x} = \\frac{\\sum x_i}{n} \\quad 
@@ -24,7 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     renderTheory();
 
-    // --- 2. Data Ingestion ---
+    // # --- 2. Data ingestion ---
     fileInput.onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -33,15 +33,14 @@ document.addEventListener("DOMContentLoaded", () => {
         reader.readAsText(file);
     };
 
-    // --- 3. Statistical Processing ---
+    // # --- 3. Statistical processing ---
     calculateBtn.onclick = () => {
         const rawText = dataInput.value.trim();
         if (!rawText) return showToast("No data detected", "error");
 
-        // We use a Map to group by the First Column (e.g., Time_ps)
         const groupMap = new Map();
         
-        // PapaParse handles the CSV structure, auto-converting strings to numbers
+        // Parsing CSV structure and converting types
         const parsed = Papa.parse(rawText, {
             header: hasHeaders.checked,
             dynamicTyping: true,
@@ -50,13 +49,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const data = parsed.data;
         const fields = parsed.meta.fields || Object.keys(data[0]);
-        const keyField = fields[0]; // Usually 'Time' or 'Condition'
+        const keyField = fields[0]; 
 
+        // I am grouping the raw replicates to construct accurate variance estimates
         data.forEach(row => {
             const groupKey = row[keyField];
             if (groupKey === null || groupKey === undefined) return;
 
-            // Collect all numeric values from the remaining columns in this row
             const values = fields.slice(1)
                 .map(f => row[f])
                 .filter(v => typeof v === 'number' && !isNaN(v));
@@ -65,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
             groupMap.set(groupKey, groupMap.get(groupKey).concat(values));
         });
 
-        // Compute Statistics for each unique Group Key
+        // Computing statistics per group
         computedResults = [];
         groupMap.forEach((vals, key) => {
             if (vals.length === 0) return;
@@ -74,7 +73,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const mean = jStat.mean(vals);
             const sd = n > 1 ? jStat.stdev(vals, true) : 0;
             const sem = sd / Math.sqrt(n);
-            // 95% Confidence Interval (two-tailed)
+            
+            // I am using the inverse Student's t-distribution for accurate 95% CI bounds
             const ci = n > 1 ? jStat.studentt.inv(0.975, n - 1) * sem : 0;
 
             computedResults.push({ key, n, mean, sd, sem, ci });
@@ -84,7 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showToast(`Calculated errors for ${computedResults.length} points.`, "success");
     };
 
-    // --- 4. UI Rendering ---
+    // # --- 4. User interface rendering ---
     function renderTable() {
         resultsBody.innerHTML = computedResults.map(r => `
             <tr class="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
@@ -99,7 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
         exportCsvBtn.disabled = false;
     }
 
-    // --- 5. Export & Utilities ---
+    // # --- 5. Export utilities ---
     exportCsvBtn.onclick = () => {
         const csv = Papa.unparse(computedResults);
         const blob = new Blob([csv], { type: 'text/csv' });
