@@ -1,12 +1,12 @@
 document.addEventListener("DOMContentLoaded", () => {
     
-    // --- 1. State initialization ---
+    // # --- 1. State initialization ---
     let frames = [];
     let atomNames = [];
     let rmsdArray = [];
     let rmsfArray = [];
 
-    // --- 2. Interface bindings ---
+    // # --- 2. Interface bindings ---
     const uploadZone = document.getElementById('uploadZone');
     const fileInput = document.getElementById('fileInput');
     const workspace = document.getElementById('workspace');
@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const rmsdCanvas = document.getElementById('rmsdCanvas');
     const rmsfCanvas = document.getElementById('rmsfCanvas');
 
-    document.getElementById('themeToggle').addEventListener('click', () => {
+    document.querySelectorAll('.themeToggle').forEach(btn => btn.addEventListener('click', () => {
         document.documentElement.classList.toggle('dark');
         localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
         if (rmsdArray.length > 0) renderPlots();
@@ -48,7 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
         Plotly.purge(rmsfCanvas);
     });
 
-    // --- 3. Topology parsing ---
+    // # --- 3. Topology parsing ---
     function handleFile(file) {
         if (!file || !file.name.endsWith('.pdb')) {
             showToast('Validation failed. Requires a standard .pdb trajectory format.', 'error');
@@ -72,7 +72,6 @@ document.addEventListener("DOMContentLoaded", () => {
         let currentFrame = [];
         let isFirstFrame = true;
 
-        // Reading line by line to extract coordinates based on fixed-width PDB specification
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             
@@ -96,7 +95,6 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
         
-        // Catching the final frame if ENDMDL is missing
         if (currentFrame.length > 0) {
             frames.push(currentFrame);
         }
@@ -113,7 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showToast('Trajectory successfully parsed.', 'success');
     }
 
-    // --- 4. Matrix computations ---
+    // # --- 4. Matrix computations ---
     calculateBtn.addEventListener('click', () => {
         const selectionFilter = atomSelection.value;
         const refFrame = frames[0];
@@ -121,7 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
         rmsdArray = [];
         rmsfArray = [];
 
-        // Identifying target atom indices based on filter criteria
+        // # I am constructing the index array dynamically to support heavy-atom isolating logic
         const validIndices = [];
         for (let i = 0; i < refFrame.length; i++) {
             const name = refFrame[i].name;
@@ -141,7 +139,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const N = validIndices.length;
 
-        // I am calculating the RMSD over time relative to the starting topology
+        // # I am utilizing the initial structure as the reference frame for global RMSD convergence
         for (let t = 0; t < frames.length; t++) {
             let sumSqDist = 0;
             const current = frames[t];
@@ -155,7 +153,7 @@ document.addEventListener("DOMContentLoaded", () => {
             rmsdArray.push(Math.sqrt(sumSqDist / N));
         }
 
-        // I am extracting the time-averaged positional vector for RMSF computation
+        // # I am computing the mean positional vector prior to integrating local spatial fluctuations
         const avgPositions = [];
         for (let idx of validIndices) {
             let sumX = 0, sumY = 0, sumZ = 0;
@@ -171,7 +169,6 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        // I am calculating the positional fluctuation for each selected atom
         for (let i = 0; i < validIndices.length; i++) {
             const atomIdx = validIndices[i];
             const avg = avgPositions[i];
@@ -195,7 +192,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showToast('Deviations and fluctuations computed successfully.', 'success');
     });
 
-    // --- 5. Graphical rendering ---
+    // # --- 5. Graphical rendering ---
     function renderPlots() {
         const isDark = document.documentElement.classList.contains('dark');
         const textColor = isDark ? '#cbd5e1' : '#475569';
@@ -239,7 +236,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }, { displayModeBar: false, responsive: true });
     }
 
-    // --- 6. Array exportation ---
+    // # --- 6. Array exportation ---
     exportCsvBtn.addEventListener('click', () => {
         let csvContent = "Time_Frame,RMSD_Angstroms\n";
         for (let t = 0; t < rmsdArray.length; t++) {
@@ -263,7 +260,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showToast("Extracted trajectory arrays to disk.", "success");
     });
 
-    // --- 7. Status utility ---
+    // # --- 7. Status utility ---
     function showToast(msg, type) {
         const container = document.getElementById('toastContainer');
         const toast = document.createElement('div');
