@@ -29,7 +29,7 @@
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "Crossref API Integration", "Batch DOI Resolution", "Instant Output", "100% Client-Side" ]
+            "featureList": [ "Crossref API Integration", "Batch DOI Resolution", "Field Filtering", "Error Retry", "Deduplication", "100% Client-Side" ]
         }
     </script>
     
@@ -52,11 +52,47 @@
     <style>
         @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .toast-enter { animation: slideIn 0.3s forwards; }
+
+        /* Delimiter chips */
+        .delim-chip {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 600;
+            cursor: pointer; user-select: none; transition: all 0.15s ease;
+        }
+
+        /* Field filter grid */
+        .fields-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 4px;
+        }
+        .field-toggle {
+            display: flex; align-items: center; gap: 7px;
+            padding: 5px 8px; border-radius: 6px; cursor: pointer;
+            font-size: 12px; font-weight: 500; user-select: none; transition: background 0.15s;
+        }
+        .field-toggle:hover { background: rgba(0,0,0,0.04); }
+        .dark .field-toggle:hover { background: rgba(255,255,255,0.05); }
+        .field-toggle input[type="checkbox"] {
+            width: 15px; height: 15px; accent-color: #4f46e5; cursor: pointer; flex-shrink: 0;
+        }
+
+        /* Collapsible body */
+        .collapse-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+
+        /* Progress bar */
+        .progress-track { height: 6px; border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; width: 0%; }
+
+        /* Error report */
+        .error-report-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; padding: 0 14px; }
+        .error-report-body.open { max-height: 400px; padding: 10px 14px; overflow-y: auto; }
+        .error-item { display: flex; gap: 10px; padding: 6px 0; font-size: 12px; align-items: flex-start; }
+        .error-doi { font-family: monospace; font-weight: 600; min-width: 0; word-break: break-all; flex: 1; }
     </style>
     <link rel="stylesheet" href="src/output.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
 
+    <!-- ════════ NAVIGATION (identical to original) ════════ -->
     <nav class="sticky top-0 z-50 w-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16 sm:h-20">
@@ -110,53 +146,96 @@
         </div>
     </nav>
 
+    <!-- ════════ MAIN CONTENT ════════ -->
     <main class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
         
         <div class="mb-4">
             <h1 class="text-3xl font-bold mb-2">DOI to BibTeX Fetcher</h1>
-            <p class="text-slate-500 dark:text-slate-400">Generate flawless citations instantly. Input a DOI, and we will securely ping the official registry to retrieve the metadata and append it to your bibliography.</p>
+            <p class="text-slate-500 dark:text-slate-400">Batch-resolve DOIs into formatted BibTeX. Paste one or hundreds — choose your delimiter, filter fields, and export a clean <code class="text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">.bib</code> file.</p>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
             
+            <!-- ──── LEFT COLUMN ──── -->
             <div class="lg:col-span-5 flex flex-col gap-6">
                 
+                <!-- Input card -->
                 <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-                    <h2 class="text-lg font-semibold mb-4">1. Enter Document Object Identifier</h2>
+                    <h2 class="text-lg font-semibold mb-4">1. Enter DOIs</h2>
                     
                     <div class="flex flex-col gap-4">
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">DOI URL or String</label>
-                            <input type="text" id="doiInput" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="e.g. 10.1038/s41586-020-2649-2">
-                            <p class="text-[11px] text-slate-400 mt-2">Supports raw DOIs or full URLs (e.g., https://doi.org/10...)</p>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Paste DOIs (one per line, or use a delimiter below)</label>
+                            <textarea id="doiInput" rows="7" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none resize-y" placeholder="10.1038/s41586-020-2649-2&#10;10.1021/acs.jpcc.9b03054&#10;10.1126/science.288.5468.1029&#10;&#10;Or paste comma-separated:&#10;10.xxxx/abc, 10.yyyy/def, 10.zzzz/ghi"></textarea>
+                            <p class="text-[11px] text-slate-400 mt-2">Supports raw DOIs or full URLs (e.g., https://doi.org/10…). Duplicates are auto-removed.</p>
+                        </div>
+
+                        <!-- Delimiter selector -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">How are your DOIs separated?</label>
+                            <div class="flex flex-wrap gap-2" id="delimRow">
+                                <button class="delim-chip bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700" data-delim="newline">New line</button>
+                                <button class="delim-chip bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700" data-delim="comma">Comma <code class="text-[10px]">,</code></button>
+                                <button class="delim-chip bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700" data-delim="semicolon">Semicolon <code class="text-[10px]">;</code></button>
+                                <button class="delim-chip bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700" data-delim="space">Space</button>
+
+                            </div>
                         </div>
 
                         <button id="fetchBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white w-full py-3 rounded-xl font-bold transition-colors shadow-sm flex items-center justify-center">
-                            <i class="fa-solid fa-cloud-arrow-down mr-2"></i> Fetch Metadata
+                            <i class="fa-solid fa-cloud-arrow-down mr-2"></i> Fetch All
                         </button>
+
+                        <!-- Progress bar -->
+                        <div id="progressWrapper" class="hidden">
+                            <div class="progress-track bg-slate-200 dark:bg-slate-700 w-full">
+                                <div class="progress-fill bg-indigo-600" id="progressFill"></div>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-1.5 font-medium tabular-nums" id="progressText">0 / 0</p>
+                        </div>
                     </div>
                 </div>
 
-                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-5 flex gap-4 text-sm text-blue-800 dark:text-blue-300">
-                    <i class="fa-solid fa-circle-info mt-0.5 text-lg"></i>
-                    <div>
-                        <strong class="block mb-1">How it works</strong>
-                        <p>This tool uses content negotiation to securely request `application/x-bibtex` data directly from the doi.org API. No data is stored on STEMKit servers.</p>
+                <!-- Field filter card -->
+                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+                    <div class="flex justify-between items-center cursor-pointer select-none" id="fieldsTrigger">
+                        <h2 class="text-lg font-semibold">2. Filter BibTeX Fields</h2>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition-transform duration-200" id="fieldsArrow"></i>
+                    </div>
+                    <div class="collapse-body" id="fieldsBody">
+                        <p class="text-[11px] text-slate-400 mt-3 mb-3">Uncheck fields to strip from every entry. Changes apply to existing and future entries.</p>
+                        <div class="fields-grid text-slate-600 dark:text-slate-300" id="fieldsGrid"></div>
+                        <div class="flex gap-2 mt-3">
+                            <button id="selectAllFields" class="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">Select all</button>
+                            <span class="text-slate-300 dark:text-slate-600">|</span>
+                            <button id="deselectOptional" class="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">Essential only</button>
+                        </div>
                     </div>
                 </div>
+
 
             </div>
 
+            <!-- ──── RIGHT COLUMN ──── -->
             <div class="lg:col-span-7 flex flex-col h-full">
                 <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col flex-grow min-h-[500px]">
                     
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-lg font-semibold">2. Accumulated Bibliography</h2>
-                        <span id="entryCount" class="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 px-3 py-1 rounded-full text-xs font-bold">0 Entries</span>
+                    <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+                        <h2 class="text-lg font-semibold">3. Accumulated Bibliography</h2>
+                        <div class="flex items-center gap-2">
+                            <span id="entryCount" class="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 px-3 py-1 rounded-full text-xs font-bold">0 Entries</span>
+                            <span id="failCount" class="hidden bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-3 py-1 rounded-full text-xs font-bold">0 Failed</span>
+                        </div>
+                    </div>
+
+                    <!-- Dedup notice -->
+                    <div id="dedupInfo" class="hidden flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 rounded-lg px-3 py-2 text-xs font-medium mb-3">
+                        <i class="fa-solid fa-clone"></i>
+                        <span id="dedupText"></span>
                     </div>
 
                     <div class="relative flex-grow flex flex-col">
-                        <textarea id="bibOutput" class="w-full flex-grow bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder="Your formatted BibTeX entries will accumulate here..."></textarea>
+                        <textarea id="bibOutput" class="w-full flex-grow bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder="Your formatted BibTeX entries will accumulate here..." readonly></textarea>
                         
                         <div id="loadingOverlay" class="absolute inset-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center hidden">
                             <i class="fa-solid fa-circle-notch fa-spin text-4xl text-indigo-600 dark:text-indigo-500 mb-3"></i>
@@ -164,16 +243,36 @@
                         </div>
                     </div>
 
-                    <div class="mt-4 grid grid-cols-3 gap-3">
-                        <button id="copyBtn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 py-2.5 rounded-lg font-medium transition-colors border border-slate-200 dark:border-slate-700">
-                            <i class="fa-regular fa-copy mr-2"></i> Copy
+                    <div class="mt-4 grid grid-cols-4 gap-3">
+                        <button id="copyBtn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 py-2.5 rounded-lg font-medium transition-colors border border-slate-200 dark:border-slate-700 text-sm">
+                            <i class="fa-regular fa-copy mr-1"></i> Copy
                         </button>
-                        <button id="downloadBtn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 py-2.5 rounded-lg font-medium transition-colors border border-slate-200 dark:border-slate-700">
-                            <i class="fa-solid fa-download mr-2"></i> Save .bib
+                        <button id="downloadBtn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 py-2.5 rounded-lg font-medium transition-colors border border-slate-200 dark:border-slate-700 text-sm">
+                            <i class="fa-solid fa-download mr-1"></i> Save .bib
                         </button>
-                        <button id="clearBtn" class="bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 py-2.5 rounded-lg font-medium transition-colors border border-red-200 dark:border-red-800/50">
-                            <i class="fa-solid fa-trash-can mr-2"></i> Clear
+                        <button id="retryBtn" class="hidden bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-400 py-2.5 rounded-lg font-medium transition-colors border border-amber-200 dark:border-amber-800/50 text-sm">
+                            <i class="fa-solid fa-rotate-right mr-1"></i> Retry
                         </button>
+                        <button id="clearBtn" class="bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 py-2.5 rounded-lg font-medium transition-colors border border-red-200 dark:border-red-800/50 text-sm">
+                            <i class="fa-solid fa-trash-can mr-1"></i> Clear
+                        </button>
+                    </div>
+
+                    <!-- Error report -->
+                    <div id="errorReport" class="hidden mt-4 border border-red-200 dark:border-red-800/50 rounded-xl overflow-hidden">
+                        <div id="errorReportToggle" class="flex justify-between items-center px-4 py-2.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs font-semibold cursor-pointer select-none">
+                            <span><i class="fa-solid fa-triangle-exclamation mr-1.5"></i><span id="errorReportTitle">0 failed</span></span>
+                            <i class="fa-solid fa-chevron-down text-[10px] transition-transform duration-200" id="errorArrow"></i>
+                        </div>
+                        <div class="error-report-body text-slate-700 dark:text-slate-300" id="errorReportBody"></div>
+                    </div>
+
+                    <!-- Stats row -->
+                    <div id="statsRow" class="hidden flex flex-wrap gap-4 pt-3 mt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400">
+                        <span>Fetched: <strong class="text-slate-700 dark:text-slate-200" id="statFetched">0</strong></span>
+                        <span>Failed: <strong class="text-slate-700 dark:text-slate-200" id="statFailed">0</strong></span>
+                        <span>Dupes removed: <strong class="text-slate-700 dark:text-slate-200" id="statDupes">0</strong></span>
+                        <span>Time: <strong class="text-slate-700 dark:text-slate-200" id="statTime">0s</strong></span>
                     </div>
 
                 </div>
@@ -184,6 +283,7 @@
 
     <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
 
+    <!-- ════════ FOOTER (identical to original) ════════ -->
     <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
         <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400">
             <div class="flex items-center gap-2 mb-4 md:mb-0">
@@ -200,8 +300,9 @@
         </div>
     </footer>
 
+    <!-- ════════ SCRIPTS ════════ -->
     <script>
-        // 1. Theme toggle logic (Mobile & Desktop)
+        // Theme toggle logic (Mobile & Desktop) — identical to original
         document.querySelectorAll('.themeToggle').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.documentElement.classList.toggle('dark');
@@ -209,7 +310,7 @@
             });
         });
 
-        // 2. Mobile menu logic
+        // Mobile menu logic — identical to original
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         const mobileMenu = document.getElementById('mobile-menu');
         const menuIcon = document.getElementById('menu-icon');
