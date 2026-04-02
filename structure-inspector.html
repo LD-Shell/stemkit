@@ -3,62 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
     <title>3D Structure Inspector | WebGL Molecular Viewer | STEMKit</title>
     <meta name="title" content="3D Structure Inspector | WebGL Molecular Viewer | STEMKit">
     <meta name="description" content="Visualize molecular dynamics trajectories, PDB structures, and interaction interfaces locally in your browser using hardware-accelerated WebGL.">
-    <meta name="keywords" content="3d molecular viewer, pdb viewer online, 3dmol.js, computational chemistry, STEMKit, gro file viewer, xyz structure">
-    
+    <meta name="keywords" content="3d molecular viewer, pdb viewer online, 3dmol.js, computational chemistry, STEMKit, gro file viewer, xyz structure, sdf viewer, mol2 viewer, cif viewer, mmtf viewer">
     <link rel="canonical" href="https://stemkit.net/structure-inspector.html">
     <meta property="og:url" content="https://stemkit.net/structure-inspector.html">
-    <meta property="twitter:url" content="https://stemkit.net/structure-inspector.html">
-    
     <meta property="og:title" content="3D Structure Inspector | WebGL Molecular Viewer">
-    <meta property="twitter:title" content="3D Structure Inspector | WebGL Molecular Viewer">
-    <meta property="og:description" content="Visualize PDB structures and molecular dynamics trajectories entirely client-side.">
-    <meta property="twitter:description" content="Visualize PDB structures and molecular dynamics trajectories entirely client-side.">
-    
-    <script type="application/ld+json">
-        {
-            "@context": "https://schema.org",
-            "@type": "WebApplication",
-            "name": "STEMKit Structure Inspector",
-            "url": "https://stemkit.net/structure-inspector.html",
-            "description": "Hardware-accelerated WebGL viewer for rendering complex trajectories and coordinate files.",
-            "applicationCategory": "UtilityApplication",
-            "operatingSystem": "All",
-            "browserRequirements": "Requires JavaScript",
-            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "3Dmol.js Integration", "Local File Parsing", "Van der Waals Surface Rendering", "100% Client-Side" ]
-        }
-    </script>
-    
-    <meta name="author" content="STEMKit">
-    <meta name="theme-color" content="#4f46e5">
-
+    <meta property="og:description" content="Visualize PDB, SDF, MOL2, CIF, GRO, XYZ, CUBE, MMTF, and more — entirely client-side.">
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://stemkit.net/assets/og-image.webp">
     <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp">
-
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"WebApplication","name":"STEMKit Structure Inspector","url":"https://stemkit.net/structure-inspector.html","description":"Render trajectories and coordinate files in 12+ molecular formats.","applicationCategory":"UtilityApplication","operatingSystem":"All","browserRequirements":"Requires JavaScript","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+    </script>
+    <meta name="author" content="STEMKit">
+    <meta name="theme-color" content="#4f46e5">
     <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="https://stemkit.net/assets/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="https://stemkit.net/assets/favicon-16x16.png">
     <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="css/all.min.css">
     <script src="js/dependencies/3Dmol-min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
 
     <style>
-        @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .toast-enter { animation: slideIn 0.3s forwards; }
-        
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
-        .dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
+        @keyframes slideIn{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+        .custom-scroll::-webkit-scrollbar{width:6px}
+        .custom-scroll::-webkit-scrollbar-track{background:transparent}
+        .custom-scroll::-webkit-scrollbar-thumb{background-color:#cbd5e1;border-radius:20px}
+        .dark .custom-scroll::-webkit-scrollbar-thumb{background-color:#475569}
+        .toggle-track{position:relative;width:36px;height:20px;border-radius:999px;background:#cbd5e1;transition:background .2s;cursor:pointer;flex-shrink:0}
+        .dark .toggle-track{background:#475569}
+        .toggle-track.active{background:#6366f1}
+        .toggle-track::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+        .toggle-track.active::after{transform:translateX(16px)}
+        #atomInfo{position:absolute;bottom:12px;left:12px;z-index:20;background:rgba(15,23,42,.88);color:#f1f5f9;backdrop-filter:blur(8px);padding:8px 14px;border-radius:10px;font-size:12px;font-family:'Inter',monospace;pointer-events:none;opacity:0;transition:opacity .2s;line-height:1.6;max-width:300px;border:1px solid rgba(255,255,255,.1)}
+        #atomInfo.visible{opacity:1}
+        #measureInfo{position:absolute;top:12px;right:12px;z-index:20;background:rgba(15,23,42,.88);color:#f1f5f9;backdrop-filter:blur(8px);padding:8px 14px;border-radius:10px;font-size:11px;font-family:'Inter',monospace;transition:opacity .2s;line-height:1.6;max-width:240px;border:1px solid rgba(255,255,255,.1)}
+        #measureInfo:empty{display:none}
+        input[type="range"]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:4px;background:#e2e8f0;outline:none}
+        .dark input[type="range"]{background:#334155}
+        input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:#6366f1;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+        input[type="range"]::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:#6366f1;cursor:pointer}
+        .section-label{display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+        .dark .section-label{color:#94a3b8}
+        .sidebar-btn{background:#f1f5f9;border:none;cursor:pointer;padding:6px 0;border-radius:8px;font-size:12px;font-weight:600;color:#475569;transition:all .15s;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+        .dark .sidebar-btn{background:#1e293b;color:#cbd5e1}
+        .sidebar-btn:hover{background:#e0e7ff;color:#4f46e5}
+        .dark .sidebar-btn:hover{background:#312e81;color:#a5b4fc}
+        .sidebar-select{width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font-size:12px;outline:none}
+        .sidebar-select:focus{box-shadow:0 0 0 2px #6366f1;outline:none}
+        .dark .sidebar-select{background:#0f172a;border-color:#334155;color:#e2e8f0}
+        .sidebar-input{width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font-size:12px;outline:none}
+        .dark .sidebar-input{background:#0f172a;border-color:#334155;color:#e2e8f0}
+        .sidebar-input:focus{border-color:#6366f1}
+        .tab-btn{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
+        .tab-btn.active{background:#6366f1;color:#fff}
+        .tab-btn:not(.active){background:#f1f5f9;color:#64748b}
+        .dark .tab-btn:not(.active){background:#1e293b;color:#94a3b8}
+        .mode-badge{position:absolute;top:12px;left:12px;z-index:20;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;backdrop-filter:blur(8px);pointer-events:none;transition:opacity .2s}
+        .mode-badge.measure{background:rgba(245,158,11,.85);color:#fff}
+        .mode-badge.select{background:rgba(99,102,241,.85);color:#fff}
     </style>
-    <link rel="stylesheet" href="src/output.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
 
@@ -66,42 +76,26 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16 sm:h-20">
                 <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                    <div class="bg-indigo-600 text-white p-2 sm:p-2.5 rounded-lg shadow-sm flex items-center justify-center">
-                        <i class="fa-solid fa-flask text-lg sm:text-xl"></i>
-                    </div>
+                    <div class="bg-indigo-600 text-white p-2 sm:p-2.5 rounded-lg shadow-sm flex items-center justify-center"><i class="fa-solid fa-flask text-lg sm:text-xl"></i></div>
                     <span class="text-xl sm:text-2xl font-black tracking-tighter text-slate-900 dark:text-white">STEMKit</span>
                 </a>
-
                 <div class="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600 dark:text-slate-300">
                     <a href="index.html#data-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Data</a>
                     <a href="index.html#comp-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Compute</a>
                     <a href="index.html#pub-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Publish</a>
                     <a href="index.html#focus-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Focus</a>
-                    
                     <div class="h-5 w-px bg-slate-200 dark:bg-slate-700"></div>
-                    
                     <button class="themeToggle p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" aria-label="Toggle dark mode">
-                        <i class="fa-solid fa-moon dark:hidden text-lg"></i>
-                        <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+                        <i class="fa-solid fa-moon dark:hidden text-lg"></i><i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
                     </button>
-                    
-                    <a href="plot-digitizer.html" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg">
-                        <i class="fa-solid fa-crosshairs mr-1"></i> Digitizer Pro
-                    </a>
+                    <a href="plot-digitizer.html" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg"><i class="fa-solid fa-crosshairs mr-1"></i> Digitizer Pro</a>
                 </div>
-
                 <div class="flex items-center gap-2 md:hidden">
-                    <button class="themeToggle p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300">
-                        <i class="fa-solid fa-moon dark:hidden text-lg"></i>
-                        <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
-                    </button>
-                    <button id="mobile-menu-btn" class="text-slate-600 dark:text-slate-300 hover:text-indigo-600 p-2 focus:outline-none">
-                        <i class="fa-solid fa-bars text-2xl" id="menu-icon"></i>
-                    </button>
+                    <button class="themeToggle p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300"><i class="fa-solid fa-moon dark:hidden text-lg"></i><i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i></button>
+                    <button id="mobile-menu-btn" class="text-slate-600 dark:text-slate-300 hover:text-indigo-600 p-2 focus:outline-none"><i class="fa-solid fa-bars text-2xl" id="menu-icon"></i></button>
                 </div>
             </div>
         </div>
-
         <div id="mobile-menu" class="hidden md:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 absolute w-full shadow-xl">
             <div class="px-4 pt-2 pb-6 space-y-2 text-base font-semibold text-slate-600 dark:text-slate-300">
                 <a href="index.html#data-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Data & Stats</a>
@@ -115,123 +109,284 @@
         </div>
     </nav>
 
-    <main class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
-        
-        <section id="uploadZone" class="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-3xl bg-indigo-50/50 dark:bg-indigo-900/10 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer p-12 text-center group">
-            <input type="file" id="fileInput" accept=".pdb,.xyz,.gro" class="hidden" aria-label="Upload molecular structure file">
-            <div class="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl flex items-center justify-center mb-6 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
-                <i class="fa-solid fa-microscope text-4xl"></i>
-            </div>
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex flex-col gap-6">
+
+        <section id="uploadZone" class="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-3xl bg-indigo-50/50 dark:bg-indigo-900/10 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer p-10 text-center group">
+            <input type="file" id="fileInput" accept=".pdb,.xyz,.gro,.sdf,.mol,.mol2,.cif,.mcif,.cdjson,.json,.mmtf,.prmtop,.pqr,.cube,.vasp,.poscar,.contcar,.ent" class="hidden" aria-label="Upload molecular structure file">
+            <div class="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl flex items-center justify-center mb-5 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-microscope text-4xl"></i></div>
             <h1 class="text-3xl font-bold mb-3">3D Structure Inspector</h1>
-            <p class="text-slate-500 dark:text-slate-400 mb-6 max-w-md">Render your PDB or GRO coordinate files using hardware-accelerated WebGL. Verify your simulation geometry before submitting to SLURM.</p>
-            <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-sm">
-                Select Coordinate File
-            </button>
+            <p class="text-slate-500 dark:text-slate-400 mb-4 max-w-md">Render PDB, SDF, MOL2, XYZ, CIF, GRO, CUBE, MMTF, VASP, and more.</p>
+            <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-sm">Select Coordinate File</button>
+            <div class="mt-5 flex items-center gap-2">
+                <span class="text-xs text-slate-400 font-semibold">or</span>
+                <input id="pdbIdInput" type="text" maxlength="6" placeholder="PDB ID (e.g. 4N8T)" class="sidebar-input w-40 text-center text-xs" onclick="event.stopPropagation()">
+                <button id="fetchPdbBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors" onclick="event.stopPropagation()"><i class="fa-solid fa-download mr-1"></i>Fetch</button>
+            </div>
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-3">PDB · SDF · MOL · MOL2 · XYZ · CIF · CDJSON · MMTF · PRMTOP · GRO · PQR · CUBE · VASP</p>
         </section>
 
-        <section id="workspace" class="hidden flex-col lg:flex-row gap-6 w-full h-[700px]">
-            
-            <aside class="w-full lg:w-80 flex flex-col gap-4 bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-y-auto custom-scroll shrink-0">
+        <section id="workspace" class="hidden flex-col lg:flex-row gap-4 w-full" style="min-height:720px">
+
+            <aside id="sidebar" class="w-full lg:w-[310px] flex flex-col gap-3 bg-white dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-y-auto custom-scroll shrink-0" style="max-height:88vh">
+
                 <div>
-                    <h2 id="fileName" class="font-bold text-lg truncate">system.pdb</h2>
-                    <p id="structureMeta" class="text-sm text-slate-500 dark:text-slate-400 mb-4">0 Atoms</p>
-                    <button id="resetBtn" class="text-xs text-red-600 hover:text-red-700 font-medium text-left">
-                        <i class="fa-solid fa-rotate-left mr-1"></i> Close viewer
-                    </button>
+                    <h2 id="fileName" class="font-bold text-base truncate">system.pdb</h2>
+                    <p id="structureMeta" class="text-xs text-slate-500 dark:text-slate-400 mb-0.5">0 Atoms</p>
+                    <p id="formatBadge" class="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold mb-2"></p>
+                    <button id="resetBtn" class="text-[11px] text-red-600 hover:text-red-700 font-medium"><i class="fa-solid fa-rotate-left mr-1"></i>Close viewer</button>
                 </div>
-                
                 <hr class="border-slate-200 dark:border-slate-800">
 
-                <div class="flex flex-col gap-3">
-                    <label class="block text-xs font-bold text-slate-500 uppercase">Rendering style</label>
-                    <select id="styleSelect" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                        <option value="stick">Stick</option>
-                        <option value="sphere">Sphere (van der Waals)</option>
-                        <option value="cross">Cross</option>
-                        <option value="line">Wireframe</option>
-                    </select>
+                <div class="flex gap-1 flex-wrap">
+                    <button class="tab-btn active" data-tab="tabStyle">Style</button>
+                    <button class="tab-btn" data-tab="tabDisplay">Display</button>
+                    <button class="tab-btn" data-tab="tabTools">Tools</button>
+                    <button class="tab-btn" data-tab="tabExport">Export</button>
                 </div>
 
-                <div class="flex flex-col gap-3">
-                    <label class="block text-xs font-bold text-slate-500 uppercase">Color scheme</label>
-                    <select id="colorSelect" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                        <option value="element">By Element</option>
-                        <option value="chain">By Chain</option>
-                        <option value="residue">By Residue</option>
-                        <option value="bFactor">By B-Factor</option>
-                    </select>
+                <div id="tabStyle" class="tab-content flex flex-col gap-3">
+                    <div class="flex flex-col gap-1">
+                        <label class="section-label">Rendering style</label>
+                        <select id="styleSelect" class="sidebar-select">
+                            <option value="stick">Stick</option>
+                            <option value="ballstick">Ball & Stick</option>
+                            <option value="sphere">Sphere (vdW)</option>
+                            <option value="cross">Cross</option>
+                            <option value="line">Wireframe</option>
+                            <option value="cartoon">Cartoon (Protein/NA)</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="section-label">Color scheme</label>
+                        <select id="colorSelect" class="sidebar-select">
+                            <option value="element">By Element (Jmol)</option>
+                            <option value="chain">By Chain</option>
+                            <option value="residue">By Residue</option>
+                            <option value="bFactor">By B-Factor</option>
+                            <option value="spectrum">Spectrum (Rainbow)</option>
+                            <option value="ss">By Secondary Structure</option>
+                            <option value="custom">Custom Color</option>
+                        </select>
+                    </div>
+                    
+                    <div id="perElementColorContainer" class="hidden flex flex-col gap-2 mt-2 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800 max-h-48 overflow-y-auto custom-scroll">
+                        </div>
+
+                    <hr class="border-slate-200 dark:border-slate-800">
+                    <div class="flex flex-col gap-1">
+                        <label class="section-label">Selection styling</label>
+                        <p class="text-[10px] text-slate-400 leading-tight mb-1">Apply a different style to a subset.</p>
+                        <input id="selQuery" type="text" placeholder="e.g. chain:A  resn:SPC  elem:Fe" class="sidebar-input text-[11px]">
+                        <div class="flex gap-1 mt-1">
+                            <select id="selStyle" class="sidebar-select flex-grow text-[11px]">
+                                <option value="stick">Stick</option>
+                                <option value="ballstick">Ball & Stick</option>
+                                <option value="sphere">Sphere</option>
+                                <option value="cartoon">Cartoon</option>
+                                <option value="line">Wireframe</option>
+                                <option value="hidden">Hide</option>
+                            </select>
+                            <button id="applySelStyle" class="sidebar-btn px-3 text-[11px]">Apply</button>
+                        </div>
+                        <button id="clearSelStyles" class="text-[10px] text-red-500 hover:text-red-600 font-medium mt-1 text-left">Clear selection styles</button>
+                    </div>
+                    
+                    <div class="mt-1 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+                        <button class="sel-guide-btn w-full text-left px-3 py-2 bg-slate-50 dark:bg-slate-900 text-[11px] font-bold text-slate-600 dark:text-slate-300 flex justify-between items-center transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
+                            <span>Selection syntax guide</span>
+                            <i class="fa-solid fa-chevron-down transition-transform duration-200"></i>
+                        </button>
+                        <div class="hidden p-3 bg-slate-50 dark:bg-slate-900/50 text-[10px] text-slate-600 dark:text-slate-400 space-y-2 border-t border-slate-200 dark:border-slate-800">
+                            <div class="grid grid-cols-2 gap-x-2 gap-y-1.5">
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">chain:A</span><br>Chain ID</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">resn:GLY</span><br>Residue name</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">resi:1-50</span><br>Residue range</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">elem:Fe</span><br>Element symbol</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">atom:CA</span><br>Atom name</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">ss:h</span><br>Sec. struct (h/s/c)</div>
+                            </div>
+                            <div class="pt-2 mt-1 border-t border-slate-200 dark:border-slate-700">
+                                <p class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Combinations (AND Logic):</p>
+                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400">chain:A resn:HOH elem:O</code>
+                                <p class="mt-1 leading-tight">Selects all oxygen atoms of water molecules in chain A.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="flex flex-col gap-3 mt-4">
-                    <label class="block text-xs font-bold text-slate-500 uppercase">View controls</label>
-                    <button id="centerBtn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
-                        Recenter Coordinates
-                    </button>
-                    <button id="surfaceBtn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
-                        Toggle Solvent Surface
-                    </button>
+                <div id="tabDisplay" class="tab-content hidden flex flex-col gap-3">
+                    <label class="section-label">Overlays</label>
+                    <div class="flex flex-col gap-2.5">
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Atom labels</span><div id="toggleAtomLabels" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Residue labels</span><div id="toggleResLabels" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Show hydrogens</span><div id="toggleHydrogens" class="toggle-track active" role="switch" aria-checked="true" tabindex="0"></div></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Axis indicator</span><div id="toggleAxis" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Spin animation</span><div id="toggleSpin" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Click to inspect</span><div id="toggleClickInspect" class="toggle-track active" role="switch" aria-checked="true" tabindex="0"></div></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Outline</span><div id="toggleOutline" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Fog / depth cue</span><div id="toggleFog" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
+                    </div>
+                    <hr class="border-slate-200 dark:border-slate-800">
+                    <label class="section-label">Solvent surface</label>
+                    <div class="flex items-center gap-1.5">
+                        <button id="surfaceBtn" class="sidebar-btn px-3 text-[11px] whitespace-nowrap">Toggle</button>
+                        <select id="surfaceType" class="sidebar-select text-[11px] flex-grow">
+                            <option value="VDW">Van der Waals</option>
+                            <option value="SAS">Solvent Accessible</option>
+                            <option value="SES">Solvent Excluded</option>
+                            <option value="MS">Molecular</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Opacity</span><input type="range" id="surfaceOpacity" min="0.05" max="1" step="0.05" value="0.6" class="flex-grow"><span id="surfaceOpacityVal" class="text-[10px] text-slate-500 w-7 text-right">0.6</span></div>
+                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Color</span>
+                        <select id="surfaceColorScheme" class="sidebar-select text-[11px] flex-grow">
+                            <option value="white">White</option>
+                            <option value="element">By Element</option>
+                            <option value="chain">By Chain</option>
+                            <option value="bFactor">By B-Factor</option>
+                            <option value="spectrum">Spectrum</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                        <input type="color" id="surfaceCustomColor" value="#ffffff" class="w-6 h-6 rounded cursor-pointer border-0 p-0 hidden">
+                    </div>
+                    <hr class="border-slate-200 dark:border-slate-800">
+                    <label class="section-label">Slab / clipping</label>
+                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Near</span><input type="range" id="slabNear" min="-100" max="0" step="1" value="-100" class="flex-grow"><span id="slabNearVal" class="text-[10px] text-slate-500 w-7 text-right">Off</span></div>
+                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Far</span><input type="range" id="slabFar" min="0" max="100" step="1" value="100" class="flex-grow"><span id="slabFarVal" class="text-[10px] text-slate-500 w-7 text-right">Off</span></div>
+                    <button id="resetSlab" class="text-[10px] text-slate-500 hover:text-indigo-500 font-medium text-left">Reset slab</button>
+                    <hr class="border-slate-200 dark:border-slate-800">
+                    <label class="section-label">Background</label>
+                    <select id="bgSelect" class="sidebar-select">
+                        <option value="theme">Match theme</option>
+                        <option value="black">Black</option>
+                        <option value="white">White</option>
+                        <option value="grey">Grey</option>
+                    </select>
+                    <hr class="border-slate-200 dark:border-slate-800">
+                    <label class="section-label">Camera presets</label>
+                    <button id="centerBtn" class="sidebar-btn text-xs"><i class="fa-solid fa-compress mr-1"></i>Recenter</button>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <button data-axis="xy-pos" class="axis-btn sidebar-btn text-[10px]">XY <span class="opacity-40">+Z</span></button>
+                        <button data-axis="xz-pos" class="axis-btn sidebar-btn text-[10px]">XZ <span class="opacity-40">+Y</span></button>
+                        <button data-axis="yz-pos" class="axis-btn sidebar-btn text-[10px]">YZ <span class="opacity-40">+X</span></button>
+                        <button data-axis="xy-neg" class="axis-btn sidebar-btn text-[10px]">XY <span class="opacity-40">−Z</span></button>
+                        <button data-axis="xz-neg" class="axis-btn sidebar-btn text-[10px]">XZ <span class="opacity-40">−Y</span></button>
+                        <button data-axis="yz-neg" class="axis-btn sidebar-btn text-[10px]">YZ <span class="opacity-40">−X</span></button>
+                    </div>
                 </div>
+
+                <div id="tabTools" class="tab-content hidden flex flex-col gap-3">
+                    <label class="section-label">Distance measurement</label>
+                    <p class="text-[10px] text-slate-400 leading-tight">Click two atoms to measure. Hold Shift for angle (3 atoms).</p>
+                    <div class="flex gap-1.5">
+                        <button id="measureModeBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-ruler mr-1"></i>Measure Mode</button>
+                        <button id="clearMeasures" class="sidebar-btn px-3 text-[11px]">Clear All</button>
+                    </div>
+                    
+                    <hr class="border-slate-200 dark:border-slate-800">
+                    <label class="section-label">Selection & focus</label>
+                    <input id="focusQuery" type="text" placeholder="e.g. chain:A  resn:SPC  resi:1-50" class="sidebar-input text-[11px]">
+                    <div class="flex gap-1.5">
+                        <button id="focusBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-crosshairs mr-1"></i>Zoom to Selection</button>
+                        <button id="isolateBtn" class="sidebar-btn px-3 text-[11px]">Isolate</button>
+                    </div>
+                    <button id="showAllBtn" class="text-[10px] text-slate-500 hover:text-indigo-500 font-medium text-left">Show all atoms</button>
+                    
+                    <div class="mt-2 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+                        <button class="sel-guide-btn w-full text-left px-3 py-2 bg-slate-50 dark:bg-slate-900 text-[11px] font-bold text-slate-600 dark:text-slate-300 flex justify-between items-center transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
+                            <span>Selection syntax guide</span>
+                            <i class="fa-solid fa-chevron-down transition-transform duration-200"></i>
+                        </button>
+                        <div class="hidden p-3 bg-slate-50 dark:bg-slate-900/50 text-[10px] text-slate-600 dark:text-slate-400 space-y-2 border-t border-slate-200 dark:border-slate-800">
+                            <div class="grid grid-cols-2 gap-x-2 gap-y-1.5">
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">chain:A</span><br>Chain ID</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">resn:GLY</span><br>Residue name</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">resi:1-50</span><br>Residue range</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">elem:Fe</span><br>Element symbol</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">atom:CA</span><br>Atom name</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">ss:h</span><br>Sec. struct (h/s/c)</div>
+                            </div>
+                            <div class="pt-2 mt-1 border-t border-slate-200 dark:border-slate-700">
+                                <p class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Combinations (AND Logic):</p>
+                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400">chain:A resn:HOH elem:O</code>
+                                <p class="mt-1 leading-tight">Selects all oxygen atoms of water molecules in chain A.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr class="border-slate-200 dark:border-slate-800">
+                    <div id="trajectoryPanel" class="hidden flex flex-col gap-2">
+                        <label class="section-label">Trajectory / frames</label>
+                        <div class="flex items-center gap-2">
+                            <button id="trajPrev" class="sidebar-btn px-2 text-xs"><i class="fa-solid fa-backward-step"></i></button>
+                            <button id="trajPlay" class="sidebar-btn px-3 text-xs flex-grow"><i class="fa-solid fa-play mr-1"></i>Play</button>
+                            <button id="trajNext" class="sidebar-btn px-2 text-xs"><i class="fa-solid fa-forward-step"></i></button>
+                        </div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Frame</span><input type="range" id="trajSlider" min="0" max="0" step="1" value="0" class="flex-grow"><span id="trajFrame" class="text-[10px] text-slate-500 w-10 text-right">0/0</span></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Speed</span>
+                            <select id="trajSpeed" class="sidebar-select text-[11px] flex-grow">
+                                <option value="200">Slow</option>
+                                <option value="100" selected>Normal</option>
+                                <option value="50">Fast</option>
+                                <option value="20">Very Fast</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="isoPanel" class="hidden flex flex-col gap-2 mt-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                        <label class="section-label" style="color:#8b5cf6"><i class="fa-solid fa-cloud mr-1"></i>Isosurface (Cube data)</label>
+                        <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-14 shrink-0">+ Isoval</span><input type="range" id="isoPosVal" min="0.001" max="0.2" step="0.001" value="0.02" class="flex-grow"><span id="isoPosDisplay" class="text-[10px] text-slate-500 w-10 text-right">0.02</span></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-14 shrink-0">− Isoval</span><input type="range" id="isoNegVal" min="-0.2" max="-0.001" step="0.001" value="-0.02" class="flex-grow"><span id="isoNegDisplay" class="text-[10px] text-slate-500 w-10 text-right">-0.02</span></div>
+                        <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-14 shrink-0">Opacity</span><input type="range" id="isoOpacity" min="0.1" max="1" step="0.05" value="0.7" class="flex-grow"><span id="isoOpacityDisplay" class="text-[10px] text-slate-500 w-7 text-right">0.7</span></div>
+                        <div class="flex gap-1.5">
+                            <button id="applyIso" class="sidebar-btn flex-grow text-[11px]" style="background:#8b5cf6;color:#fff">Render Isosurface</button>
+                            <button id="clearIso" class="sidebar-btn px-3 text-[11px]">Clear</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tabExport" class="tab-content hidden flex flex-col gap-3">
+                    <label class="section-label">Export image (PNG)</label>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] text-slate-500 w-16 shrink-0">Resolution</span>
+                        <select id="exportQuality" class="sidebar-select text-[11px] flex-grow">
+                            <option value="1">1× (Standard)</option>
+                            <option value="2" selected>2× (High)</option>
+                            <option value="4">4× (Print)</option>
+                            <option value="6">6× (Ultra)</option>
+                            <option value="8">8× (Poster)</option>
+                            <option value="10">10× (Extreme)</option>
+                        </select>
+                    </div>
+                    <button id="downloadBtn" class="sidebar-btn text-xs mt-2" style="background:#6366f1;color:#fff"><i class="fa-solid fa-download mr-1"></i>Download PNG</button>
+                </div>
+
             </aside>
 
-            <div class="flex-grow bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm relative overflow-hidden">
+            <div class="flex-grow bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm relative overflow-hidden" style="min-height:500px">
                 <div id="viewerCanvas" class="absolute inset-0 w-full h-full cursor-move"></div>
+                <div id="atomInfo"></div>
+                <div id="measureInfo"></div>
+                <div id="modeBadge" class="mode-badge hidden"></div>
             </div>
 
         </section>
     </main>
 
-    <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
+    <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-10">
         <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400">
-            <div class="flex items-center gap-2 mb-4 md:mb-0">
-                <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
-                <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
-            </div>
-            <div class="text-center md:text-left mb-4 md:mb-0 text-sm font-medium">
-                &copy; 2026 STEMKit. Engineered for Science.
-            </div>
-            <div class="flex gap-6 text-sm font-medium">
-                <a href="#" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
-                <a href="#" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
-            </div>
+            <div class="flex items-center gap-2 mb-3 md:mb-0"><i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i><span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span></div>
+            <div class="text-center md:text-left mb-3 md:mb-0 text-xs font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
+            <div class="flex gap-6 text-xs font-medium"><a href="#" class="hover:text-indigo-500 transition-colors">Privacy Policy</a><a href="#" class="hover:text-indigo-500 transition-colors">Terms of Service</a></div>
         </div>
     </footer>
 
     <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
 
     <script>
-        // 1. Theme toggle logic (Mobile & Desktop)
-        document.querySelectorAll('.themeToggle').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.documentElement.classList.toggle('dark');
-                localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-            });
-        });
-
-        // 2. Mobile menu logic
-        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-        const mobileMenu = document.getElementById('mobile-menu');
-        const menuIcon = document.getElementById('menu-icon');
-
-        if(mobileMenuBtn) {
-            mobileMenuBtn.addEventListener('click', () => {
-                mobileMenu.classList.toggle('hidden');
-                if(mobileMenu.classList.contains('hidden')) {
-                    menuIcon.classList.remove('fa-xmark');
-                    menuIcon.classList.add('fa-bars');
-                } else {
-                    menuIcon.classList.remove('fa-bars');
-                    menuIcon.classList.add('fa-xmark');
-                }
-            });
-
-            document.querySelectorAll('.mobile-link').forEach(link => {
-                link.addEventListener('click', () => {
-                    mobileMenu.classList.add('hidden');
-                    menuIcon.classList.remove('fa-xmark');
-                    menuIcon.classList.add('fa-bars');
-                });
-            });
-        }
+        document.querySelectorAll('.themeToggle').forEach(b=>b.addEventListener('click',()=>{document.documentElement.classList.toggle('dark');localStorage.theme=document.documentElement.classList.contains('dark')?'dark':'light'}));
+        const mmb=document.getElementById('mobile-menu-btn'),mm=document.getElementById('mobile-menu'),mi=document.getElementById('menu-icon');
+        if(mmb){mmb.addEventListener('click',()=>{mm.classList.toggle('hidden');mi.classList.toggle('fa-bars');mi.classList.toggle('fa-xmark')});document.querySelectorAll('.mobile-link').forEach(l=>l.addEventListener('click',()=>{mm.classList.add('hidden');mi.classList.add('fa-bars');mi.classList.remove('fa-xmark')}))}
     </script>
     <script src="js/structure-inspector.js" defer></script>
 </body>
