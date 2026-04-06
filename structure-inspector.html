@@ -4,74 +4,78 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D Structure Inspector | WebGL Molecular Viewer | STEMKit</title>
-    <meta name="title" content="3D Structure Inspector | WebGL Molecular Viewer | STEMKit">
     <meta name="description" content="Visualize molecular dynamics trajectories, PDB structures, and interaction interfaces locally in your browser using hardware-accelerated WebGL.">
-    <meta name="keywords" content="3d molecular viewer, pdb viewer online, 3dmol.js, computational chemistry, STEMKit, gro file viewer, xyz structure, sdf viewer, mol2 viewer, cif viewer, mmtf viewer">
-    <link rel="canonical" href="https://stemkit.net/structure-inspector.html">
-    <meta property="og:url" content="https://stemkit.net/structure-inspector.html">
-    <meta property="og:title" content="3D Structure Inspector | WebGL Molecular Viewer">
-    <meta property="og:description" content="Visualize PDB, SDF, MOL2, CIF, GRO, XYZ, CUBE, MMTF, and more — entirely client-side.">
-    <meta property="og:type" content="website">
-    <meta property="og:image" content="https://stemkit.net/assets/og-image.webp">
-    <meta property="twitter:card" content="summary_large_image">
-    <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"WebApplication","name":"STEMKit Structure Inspector","url":"https://stemkit.net/structure-inspector.html","description":"Render trajectories and coordinate files in 12+ molecular formats.","applicationCategory":"UtilityApplication","operatingSystem":"All","browserRequirements":"Requires JavaScript","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
-    </script>
-    <meta name="author" content="STEMKit">
-    <meta name="theme-color" content="#4f46e5">
     <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
-    <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="css/all.min.css">
     <script src="js/dependencies/3Dmol-min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = { darkMode: 'class' }
-    </script>
-
+    <script>tailwind.config = { darkMode: 'class' }</script>
     <style>
         @keyframes slideIn{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
         .custom-scroll::-webkit-scrollbar{width:6px}
         .custom-scroll::-webkit-scrollbar-track{background:transparent}
         .custom-scroll::-webkit-scrollbar-thumb{background-color:#cbd5e1;border-radius:20px}
         .dark .custom-scroll::-webkit-scrollbar-thumb{background-color:#475569}
+
         .toggle-track{position:relative;width:36px;height:20px;border-radius:999px;background:#cbd5e1;transition:background .2s;cursor:pointer;flex-shrink:0}
         .dark .toggle-track{background:#475569}
         .toggle-track.active{background:#6366f1}
         .toggle-track::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
         .toggle-track.active::after{transform:translateX(16px)}
+
         #atomInfo{position:absolute;bottom:12px;left:12px;z-index:20;background:rgba(15,23,42,.88);color:#f1f5f9;backdrop-filter:blur(8px);padding:8px 14px;border-radius:10px;font-size:12px;font-family:'Inter',monospace;pointer-events:none;opacity:0;transition:opacity .2s;line-height:1.6;max-width:300px;border:1px solid rgba(255,255,255,.1)}
         #atomInfo.visible{opacity:1}
         #measureInfo{position:absolute;top:12px;right:12px;z-index:20;background:rgba(15,23,42,.88);color:#f1f5f9;backdrop-filter:blur(8px);padding:8px 14px;border-radius:10px;font-size:11px;font-family:'Inter',monospace;transition:opacity .2s;line-height:1.6;max-width:240px;border:1px solid rgba(255,255,255,.1)}
         #measureInfo:empty{display:none}
+
         input[type="range"]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:4px;background:#e2e8f0;outline:none}
         .dark input[type="range"]{background:#334155}
         input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:#6366f1;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)}
         input[type="range"]::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:#6366f1;cursor:pointer}
+
         .section-label{display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
         .dark .section-label{color:#94a3b8}
         .sidebar-btn{background:#f1f5f9;border:none;cursor:pointer;padding:6px 0;border-radius:8px;font-size:12px;font-weight:600;color:#475569;transition:all .15s;box-shadow:0 1px 2px rgba(0,0,0,.04)}
         .dark .sidebar-btn{background:#1e293b;color:#cbd5e1}
         .sidebar-btn:hover{background:#e0e7ff;color:#4f46e5}
         .dark .sidebar-btn:hover{background:#312e81;color:#a5b4fc}
-        .sidebar-select{width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font-size:12px;outline:none}
-        .sidebar-select:focus{box-shadow:0 0 0 2px #6366f1;outline:none}
+        .sidebar-select{width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font-size:12px;outline:none;transition:border-color .15s}
+        .sidebar-select:focus{box-shadow:0 0 0 2px rgba(99,102,241,.3);border-color:#6366f1}
         .dark .sidebar-select{background:#0f172a;border-color:#334155;color:#e2e8f0}
-        .sidebar-input{width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font-size:12px;outline:none}
+        .sidebar-input{width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font-size:12px;outline:none;transition:border-color .15s}
         .dark .sidebar-input{background:#0f172a;border-color:#334155;color:#e2e8f0}
-        .sidebar-input:focus{border-color:#6366f1}
+        .sidebar-input:focus{border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.3)}
         .tab-btn{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
         .tab-btn.active{background:#6366f1;color:#fff}
         .tab-btn:not(.active){background:#f1f5f9;color:#64748b}
         .dark .tab-btn:not(.active){background:#1e293b;color:#94a3b8}
         .mode-badge{position:absolute;top:12px;left:12px;z-index:20;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;backdrop-filter:blur(8px);pointer-events:none;transition:opacity .2s}
         .mode-badge.measure{background:rgba(245,158,11,.85);color:#fff}
-        .mode-badge.select{background:rgba(99,102,241,.85);color:#fff}
+
+        .perf-warning{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;font-size:10px;font-weight:600;background:#fef3c7;color:#92400e;border:1px solid #fde68a;animation:fadeIn .2s}
+        .dark .perf-warning{background:rgba(146,64,14,.15);color:#fcd34d;border-color:rgba(253,230,138,.2)}
+
+        .range-group{display:flex;flex-direction:column;gap:4px}
+        .range-row{display:flex;align-items:center;gap:8px}
+        .range-row span.range-label{font-size:10px;color:#64748b;width:40px;flex-shrink:0}
+        .dark .range-row span.range-label{color:#94a3b8}
+        .range-row span.range-val{font-size:10px;color:#64748b;width:48px;text-align:right;font-variant-numeric:tabular-nums}
+        .dark .range-row span.range-val{color:#94a3b8}
+
+        .spatial-mode-card{border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;cursor:pointer;transition:all .15s;background:#fafbfc}
+        .spatial-mode-card:hover{border-color:#a5b4fc;background:#eef2ff}
+        .spatial-mode-card.selected{border-color:#6366f1;background:#eef2ff;box-shadow:0 0 0 2px rgba(99,102,241,.2)}
+        .dark .spatial-mode-card{border-color:#334155;background:#0f172a}
+        .dark .spatial-mode-card:hover{border-color:#6366f1;background:#1e1b4b}
+        .dark .spatial-mode-card.selected{border-color:#818cf8;background:#1e1b4b}
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
 
+    <!-- NAV -->
     <nav class="sticky top-0 z-50 w-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16 sm:h-20">
@@ -111,6 +115,7 @@
 
     <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex flex-col gap-6">
 
+        <!-- UPLOAD ZONE -->
         <section id="uploadZone" class="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-3xl bg-indigo-50/50 dark:bg-indigo-900/10 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer p-10 text-center group">
             <input type="file" id="fileInput" accept=".pdb,.xyz,.gro,.sdf,.mol,.mol2,.cif,.mcif,.cdjson,.json,.mmtf,.prmtop,.pqr,.cube,.vasp,.poscar,.contcar,.ent" class="hidden" aria-label="Upload molecular structure file">
             <div class="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl flex items-center justify-center mb-5 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-microscope text-4xl"></i></div>
@@ -125,14 +130,20 @@
             <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-3">PDB · SDF · MOL · MOL2 · XYZ · CIF · CDJSON · MMTF · PRMTOP · GRO · PQR · CUBE · VASP</p>
         </section>
 
+        <!-- WORKSPACE -->
         <section id="workspace" class="hidden flex-col lg:flex-row gap-4 w-full" style="min-height:720px">
 
-            <aside id="sidebar" class="w-full lg:w-[310px] flex flex-col gap-3 bg-white dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-y-auto custom-scroll shrink-0" style="max-height:88vh">
+            <!-- SIDEBAR -->
+            <aside id="sidebar" class="w-full lg:w-[320px] flex flex-col gap-3 bg-white dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-y-auto custom-scroll shrink-0" style="max-height:88vh">
 
                 <div>
-                    <h2 id="fileName" class="font-bold text-base truncate">system.pdb</h2>
+                    <h2 id="fileName" class="font-bold text-base truncate">structure.pdb</h2>
                     <p id="structureMeta" class="text-xs text-slate-500 dark:text-slate-400 mb-0.5">0 Atoms</p>
                     <p id="formatBadge" class="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold mb-2"></p>
+                    <div id="perfWarning" class="hidden perf-warning mb-2">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span id="perfWarningText">Large structure — labels may cause lag.</span>
+                    </div>
                     <button id="resetBtn" class="text-[11px] text-red-600 hover:text-red-700 font-medium"><i class="fa-solid fa-rotate-left mr-1"></i>Close viewer</button>
                 </div>
                 <hr class="border-slate-200 dark:border-slate-800">
@@ -144,6 +155,7 @@
                     <button class="tab-btn" data-tab="tabExport">Export</button>
                 </div>
 
+                <!-- TAB: Style -->
                 <div id="tabStyle" class="tab-content flex flex-col gap-3">
                     <div class="flex flex-col gap-1">
                         <label class="section-label">Rendering style</label>
@@ -168,15 +180,48 @@
                             <option value="custom">Custom Color</option>
                         </select>
                     </div>
-                    
-                    <div id="perElementColorContainer" class="hidden flex flex-col gap-2 mt-2 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800 max-h-48 overflow-y-auto custom-scroll">
-                        </div>
+                    <div id="perElementColorContainer" class="hidden flex flex-col gap-2 mt-2 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800 max-h-48 overflow-y-auto custom-scroll"></div>
 
                     <hr class="border-slate-200 dark:border-slate-800">
-                    <div class="flex flex-col gap-1">
+                    <div class="flex flex-col gap-2">
                         <label class="section-label">Selection styling</label>
-                        <p class="text-[10px] text-slate-400 leading-tight mb-1">Apply a different style to a subset.</p>
-                        <input id="selQuery" type="text" placeholder="e.g. chain:A  resn:SPC  elem:Fe" class="sidebar-input text-[11px]">
+                        <p class="text-[10px] text-slate-400 leading-tight mb-1">Apply a different style to a subset of atoms.</p>
+
+                        <div class="flex flex-col gap-2 p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800">
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Chain</span>
+                                    <select id="selChain" class="sidebar-select text-[11px]">
+                                        <option value="">All Chains</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Element</span>
+                                    <select id="selElem" class="sidebar-select text-[11px]">
+                                        <option value="">All Elements</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Residue</span>
+                                <select id="selResn" class="sidebar-select text-[11px]">
+                                    <option value="">All Residues</option>
+                                </select>
+                            </div>
+
+                            <!-- Advanced text query (collapsible) -->
+                            <div class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden mt-1">
+                                <button id="selAdvancedToggle" class="w-full text-left px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 flex justify-between items-center hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                                    <span><i class="fa-solid fa-terminal mr-1"></i>Advanced query</span>
+                                    <i class="fa-solid fa-chevron-down text-[8px] transition-transform duration-200" id="selAdvancedIcon"></i>
+                                </button>
+                                <div id="selAdvancedPanel" class="hidden px-2.5 py-2 border-t border-slate-200 dark:border-slate-700">
+                                    <input id="selQuery" type="text" placeholder="e.g. resi:1-50 atom:CA  ss:h" class="sidebar-input text-[11px]">
+                                    <p class="text-[9px] text-slate-400 mt-1">Overrides dropdowns when filled. Uses same syntax as Tools tab.</p>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="flex gap-1 mt-1">
                             <select id="selStyle" class="sidebar-select flex-grow text-[11px]">
                                 <option value="stick">Stick</option>
@@ -190,41 +235,38 @@
                         </div>
                         <button id="clearSelStyles" class="text-[10px] text-red-500 hover:text-red-600 font-medium mt-1 text-left">Clear selection styles</button>
                     </div>
-                    
-                    <div class="mt-1 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
-                        <button class="sel-guide-btn w-full text-left px-3 py-2 bg-slate-50 dark:bg-slate-900 text-[11px] font-bold text-slate-600 dark:text-slate-300 flex justify-between items-center transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
-                            <span>Selection syntax guide</span>
-                            <i class="fa-solid fa-chevron-down transition-transform duration-200"></i>
-                        </button>
-                        <div class="hidden p-3 bg-slate-50 dark:bg-slate-900/50 text-[10px] text-slate-600 dark:text-slate-400 space-y-2 border-t border-slate-200 dark:border-slate-800">
-                            <div class="grid grid-cols-2 gap-x-2 gap-y-1.5">
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">chain:A</span><br>Chain ID</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">resn:GLY</span><br>Residue name</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">resi:1-50</span><br>Residue range</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">elem:Fe</span><br>Element symbol</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">atom:CA</span><br>Atom name</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">ss:h</span><br>Sec. struct (h/s/c)</div>
-                            </div>
-                            <div class="pt-2 mt-1 border-t border-slate-200 dark:border-slate-700">
-                                <p class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Combinations (AND Logic):</p>
-                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400">chain:A resn:HOH elem:O</code>
-                                <p class="mt-1 leading-tight">Selects all oxygen atoms of water molecules in chain A.</p>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
+                <!-- TAB: Display -->
                 <div id="tabDisplay" class="tab-content hidden flex flex-col gap-3">
                     <label class="section-label">Overlays</label>
                     <div class="flex flex-col gap-2.5">
-                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Atom labels</span><div id="toggleAtomLabels" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
-                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Residue labels</span><div id="toggleResLabels" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-xs text-slate-700 dark:text-slate-300">Atom labels</span>
+                                <span id="atomLabelWarn" class="hidden text-[9px] text-amber-600 dark:text-amber-400 font-bold">(slow)</span>
+                            </div>
+                            <div id="toggleAtomLabels" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-xs text-slate-700 dark:text-slate-300">Residue labels</span>
+                                <span id="resLabelWarn" class="hidden text-[9px] text-amber-600 dark:text-amber-400 font-bold">(slow)</span>
+                            </div>
+                            <div id="toggleResLabels" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div>
+                        </div>
+                        <div id="labelLimitRow" class="hidden">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-slate-500 w-20 shrink-0">Label limit</span>
+                                <input type="range" id="labelLimit" min="500" max="10000" step="500" value="2000" class="flex-grow">
+                                <span id="labelLimitVal" class="text-[10px] text-slate-500 w-12 text-right">2,000</span>
+                            </div>
+                        </div>
                         <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Show hydrogens</span><div id="toggleHydrogens" class="toggle-track active" role="switch" aria-checked="true" tabindex="0"></div></div>
                         <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Axis indicator</span><div id="toggleAxis" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
                         <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Spin animation</span><div id="toggleSpin" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
                         <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Click to inspect</span><div id="toggleClickInspect" class="toggle-track active" role="switch" aria-checked="true" tabindex="0"></div></div>
                         <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Outline</span><div id="toggleOutline" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
-                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Fog / depth cue</span><div id="toggleFog" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
                     </div>
                     <hr class="border-slate-200 dark:border-slate-800">
                     <label class="section-label">Solvent surface</label>
@@ -269,93 +311,250 @@
                         <button data-axis="xy-pos" class="axis-btn sidebar-btn text-[10px]">XY <span class="opacity-40">+Z</span></button>
                         <button data-axis="xz-pos" class="axis-btn sidebar-btn text-[10px]">XZ <span class="opacity-40">+Y</span></button>
                         <button data-axis="yz-pos" class="axis-btn sidebar-btn text-[10px]">YZ <span class="opacity-40">+X</span></button>
-                        <button data-axis="xy-neg" class="axis-btn sidebar-btn text-[10px]">XY <span class="opacity-40">−Z</span></button>
-                        <button data-axis="xz-neg" class="axis-btn sidebar-btn text-[10px]">XZ <span class="opacity-40">−Y</span></button>
-                        <button data-axis="yz-neg" class="axis-btn sidebar-btn text-[10px]">YZ <span class="opacity-40">−X</span></button>
+                        <button data-axis="xy-neg" class="axis-btn sidebar-btn text-[10px]">XY <span class="opacity-40">-Z</span></button>
+                        <button data-axis="xz-neg" class="axis-btn sidebar-btn text-[10px]">XZ <span class="opacity-40">-Y</span></button>
+                        <button data-axis="yz-neg" class="axis-btn sidebar-btn text-[10px]">YZ <span class="opacity-40">-X</span></button>
                     </div>
                 </div>
 
+                <!-- TAB: Tools -->
                 <div id="tabTools" class="tab-content hidden flex flex-col gap-3">
                     <label class="section-label">Distance measurement</label>
-                    <p class="text-[10px] text-slate-400 leading-tight">Click two atoms to measure. Hold Shift for angle (3 atoms).</p>
+                    <p class="text-[10px] text-slate-400 leading-tight">Click two atoms to measure distance. Hold Shift for angle (3 atoms).</p>
                     <div class="flex gap-1.5">
                         <button id="measureModeBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-ruler mr-1"></i>Measure Mode</button>
                         <button id="clearMeasures" class="sidebar-btn px-3 text-[11px]">Clear All</button>
                     </div>
-                    
+
                     <hr class="border-slate-200 dark:border-slate-800">
-                    <label class="section-label">Selection & focus</label>
-                    <input id="focusQuery" type="text" placeholder="e.g. chain:A  resn:SPC  resi:1-50" class="sidebar-input text-[11px]">
-                    <div class="flex gap-1.5">
-                        <button id="focusBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-crosshairs mr-1"></i>Zoom to Selection</button>
+                    <label class="section-label">Interactive selection builder</label>
+                    <p class="text-[10px] text-slate-400 leading-tight mb-2">Build a selection to isolate or zoom. Updates live when auto-isolate is on.</p>
+
+                    <div class="flex flex-col gap-2 p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Residue</span>
+                                <select id="buildResn" class="sidebar-select text-[11px] interactive-select">
+                                    <option value="">All Residues</option>
+                                </select>
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Element</span>
+                                <select id="buildElem" class="sidebar-select text-[11px] interactive-select">
+                                    <option value="">All Elements</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Chain</span>
+                            <select id="buildChain" class="sidebar-select text-[11px] interactive-select">
+                                <option value="">All Chains</option>
+                            </select>
+                        </div>
+
+                        <hr class="border-slate-200 dark:border-slate-800 my-1">
+
+                        <!-- SPATIAL SELECTION -->
+                        <div>
+                            <span class="text-[10px] font-semibold text-slate-500 mb-2 block"><i class="fa-solid fa-layer-group mr-1"></i>Spatial region</span>
+                            
+                            <div class="flex gap-1 mb-2">
+                                <select id="spatialAxis" class="sidebar-select text-[11px] w-16">
+                                    <option value="z">Z axis</option>
+                                    <option value="y">Y axis</option>
+                                    <option value="x">X axis</option>
+                                </select>
+                                <select id="spatialMode" class="sidebar-select text-[11px] flex-grow">
+                                    <option value="">No spatial filter</option>
+                                    <option value="range">Range (from → to)</option>
+                                    <option value="center">Center ± width</option>
+                                    <option value="top">Top surface</option>
+                                    <option value="bottom">Bottom surface</option>
+                                </select>
+                            </div>
+
+                            <div id="spatialControls" class="hidden flex flex-col gap-2 mt-1">
+                                <!-- Range mode controls -->
+                                <div id="spatialRangeControls" class="hidden range-group">
+                                    <div class="range-row">
+                                        <span class="range-label">From</span>
+                                        <input type="range" id="spatialFrom" min="0" max="100" step="0.1" value="0" class="flex-grow">
+                                        <span id="spatialFromVal" class="range-val">0.0</span>
+                                    </div>
+                                    <div class="range-row">
+                                        <span class="range-label">To</span>
+                                        <input type="range" id="spatialTo" min="0" max="100" step="0.1" value="100" class="flex-grow">
+                                        <span id="spatialToVal" class="range-val">100.0</span>
+                                    </div>
+                                </div>
+
+                                <!-- Center mode controls -->
+                                <div id="spatialCenterControls" class="hidden range-group">
+                                    <div class="range-row">
+                                        <span class="range-label">Center</span>
+                                        <input type="range" id="spatialCenter" min="0" max="100" step="0.1" value="50" class="flex-grow">
+                                        <span id="spatialCenterVal" class="range-val">50.0</span>
+                                    </div>
+                                    <div class="range-row">
+                                        <span class="range-label">± Width</span>
+                                        <input type="range" id="spatialWidth" min="0.5" max="50" step="0.5" value="5" class="flex-grow">
+                                        <span id="spatialWidthVal" class="range-val">5.0</span>
+                                    </div>
+                                </div>
+
+                                <!-- Surface mode controls -->
+                                <div id="spatialSurfaceControls" class="hidden range-group">
+                                    <div class="range-row">
+                                        <span class="range-label">Depth</span>
+                                        <input type="range" id="spatialDepth" min="0.5" max="30" step="0.5" value="5" class="flex-grow">
+                                        <span id="spatialDepthVal" class="range-val">5.0 Å</span>
+                                    </div>
+                                </div>
+
+                                <!-- Cross-axis width clamp (available for all modes) -->
+                                <div class="flex items-center mt-2">
+                                    <label class="flex items-center gap-1.5 cursor-pointer">
+                                        <input type="checkbox" id="enableCrossAxis" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
+                                        <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">Clamp cross-axes (width)</span>
+                                    </label>
+                                </div>
+
+                                <div id="crossAxisControls" class="hidden range-group mt-1 p-2 bg-white dark:bg-slate-950 rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
+                                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block" id="crossAxisLabel">Perpendicular axes</span>
+                                    <!-- Axis A -->
+                                    <div class="range-row">
+                                        <span class="range-label" id="crossA_label">X from</span>
+                                        <input type="range" id="crossA_from" min="0" max="100" step="0.1" class="flex-grow">
+                                        <span id="crossA_fromVal" class="range-val">0.0</span>
+                                    </div>
+                                    <div class="range-row">
+                                        <span class="range-label" id="crossA_toLabel">X to</span>
+                                        <input type="range" id="crossA_to" min="0" max="100" step="0.1" class="flex-grow">
+                                        <span id="crossA_toVal" class="range-val">100.0</span>
+                                    </div>
+                                    <hr class="border-slate-200 dark:border-slate-700 my-1">
+                                    <!-- Axis B -->
+                                    <div class="range-row">
+                                        <span class="range-label" id="crossB_label">Y from</span>
+                                        <input type="range" id="crossB_from" min="0" max="100" step="0.1" class="flex-grow">
+                                        <span id="crossB_fromVal" class="range-val">0.0</span>
+                                    </div>
+                                    <div class="range-row">
+                                        <span class="range-label" id="crossB_toLabel">Y to</span>
+                                        <input type="range" id="crossB_to" min="0" max="100" step="0.1" class="flex-grow">
+                                        <span id="crossB_toVal" class="range-val">100.0</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="text-[10px] font-semibold text-slate-500">Unit:</span>
+                                    <select id="spatialUnit" class="sidebar-select text-[10px] w-auto py-0.5 px-1 bg-slate-100 dark:bg-slate-800 border-none">
+                                        <option value="A" selected>Å (Ångström)</option>
+                                        <option value="nm">nm (Nanometer)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center mt-1">
+                            <label class="flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="autoUpdateView" checked class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
+                                <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">Auto-isolate on change</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-1.5 mt-2">
+                        <button id="guiIsolateBtn" class="sidebar-btn flex-grow text-[11px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 hover:bg-indigo-200"><i class="fa-solid fa-filter mr-1"></i>Isolate</button>
+                        <button id="guiZoomBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-crosshairs mr-1"></i>Zoom</button>
+                    </div>
+                    <div id="selectionCount" class="text-[10px] text-slate-400 mt-1 hidden"><i class="fa-solid fa-atom mr-1"></i><span id="selCountText">0 atoms selected</span></div>
+                    <button class="reset-view-btn text-[10px] text-slate-500 hover:text-indigo-500 font-medium text-left mt-1 mb-2">Reset view (Show all)</button>
+
+                    <hr class="border-slate-200 dark:border-slate-800">
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="section-label mb-0">Advanced syntax query</label>
+                        <select id="queryUnit" class="sidebar-select w-auto text-[10px] py-0.5 px-1 bg-slate-100 dark:bg-slate-800 border-none outline-none">
+                            <option value="nm">Nanometers (nm)</option>
+                            <option value="A" selected>Ångströms (Å)</option>
+                        </select>
+                    </div>
+
+                    <input id="focusQuery" type="text" placeholder="e.g. z:>4.8 resn:HOH  or  chain:A elem:Fe" class="sidebar-input text-[11px]">
+                    <div class="flex gap-1.5 mt-1">
+                        <button id="focusBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-crosshairs mr-1"></i>Zoom Query</button>
                         <button id="isolateBtn" class="sidebar-btn px-3 text-[11px]">Isolate</button>
                     </div>
-                    <button id="showAllBtn" class="text-[10px] text-slate-500 hover:text-indigo-500 font-medium text-left">Show all atoms</button>
-                    
-                    <div class="mt-2 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+                    <button class="reset-view-btn text-[10px] text-slate-500 hover:text-indigo-500 font-medium text-left mt-1 mb-2">Reset view (Show all)</button>
+
+                    <div class="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
                         <button class="sel-guide-btn w-full text-left px-3 py-2 bg-slate-50 dark:bg-slate-900 text-[11px] font-bold text-slate-600 dark:text-slate-300 flex justify-between items-center transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
-                            <span>Selection syntax guide</span>
+                            <span>Syntax guide & examples</span>
                             <i class="fa-solid fa-chevron-down transition-transform duration-200"></i>
                         </button>
                         <div class="hidden p-3 bg-slate-50 dark:bg-slate-900/50 text-[10px] text-slate-600 dark:text-slate-400 space-y-2 border-t border-slate-200 dark:border-slate-800">
                             <div class="grid grid-cols-2 gap-x-2 gap-y-1.5">
                                 <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">chain:A</span><br>Chain ID</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">resn:GLY</span><br>Residue name</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">resn:HOH</span><br>Residue name</div>
                                 <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">resi:1-50</span><br>Residue range</div>
                                 <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">elem:Fe</span><br>Element symbol</div>
                                 <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">atom:CA</span><br>Atom name</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">ss:h</span><br>Sec. struct (h/s/c)</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">ss:h</span><br>Sec. struct</div>
                             </div>
                             <div class="pt-2 mt-1 border-t border-slate-200 dark:border-slate-700">
-                                <p class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Combinations (AND Logic):</p>
-                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400">chain:A resn:HOH elem:O</code>
-                                <p class="mt-1 leading-tight">Selects all oxygen atoms of water molecules in chain A.</p>
+                                <p class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Spatial filters (Å or nm):</p>
+                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400">z:&gt;4.8 resn:HOH</code>
+                                <p class="mt-1 mb-2 leading-tight">Atoms above z = 4.8 that are water.</p>
+                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400">x:&gt;20 x:&lt;30 y:&gt;20 y:&lt;30</code>
+                                <p class="mt-1 leading-tight">Cross-section patch in XY plane.</p>
                             </div>
-                        </div>
-                    </div>
-                    
-                    <hr class="border-slate-200 dark:border-slate-800">
-                    <div id="trajectoryPanel" class="hidden flex flex-col gap-2">
-                        <label class="section-label">Trajectory / frames</label>
-                        <div class="flex items-center gap-2">
-                            <button id="trajPrev" class="sidebar-btn px-2 text-xs"><i class="fa-solid fa-backward-step"></i></button>
-                            <button id="trajPlay" class="sidebar-btn px-3 text-xs flex-grow"><i class="fa-solid fa-play mr-1"></i>Play</button>
-                            <button id="trajNext" class="sidebar-btn px-2 text-xs"><i class="fa-solid fa-forward-step"></i></button>
-                        </div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Frame</span><input type="range" id="trajSlider" min="0" max="0" step="1" value="0" class="flex-grow"><span id="trajFrame" class="text-[10px] text-slate-500 w-10 text-right">0/0</span></div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Speed</span>
-                            <select id="trajSpeed" class="sidebar-select text-[11px] flex-grow">
-                                <option value="200">Slow</option>
-                                <option value="100" selected>Normal</option>
-                                <option value="50">Fast</option>
-                                <option value="20">Very Fast</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div id="isoPanel" class="hidden flex flex-col gap-2 mt-2 pt-3 border-t border-slate-200 dark:border-slate-800">
-                        <label class="section-label" style="color:#8b5cf6"><i class="fa-solid fa-cloud mr-1"></i>Isosurface (Cube data)</label>
-                        <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-14 shrink-0">+ Isoval</span><input type="range" id="isoPosVal" min="0.001" max="0.2" step="0.001" value="0.02" class="flex-grow"><span id="isoPosDisplay" class="text-[10px] text-slate-500 w-10 text-right">0.02</span></div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-14 shrink-0">− Isoval</span><input type="range" id="isoNegVal" min="-0.2" max="-0.001" step="0.001" value="-0.02" class="flex-grow"><span id="isoNegDisplay" class="text-[10px] text-slate-500 w-10 text-right">-0.02</span></div>
-                        <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-14 shrink-0">Opacity</span><input type="range" id="isoOpacity" min="0.1" max="1" step="0.05" value="0.7" class="flex-grow"><span id="isoOpacityDisplay" class="text-[10px] text-slate-500 w-7 text-right">0.7</span></div>
-                        <div class="flex gap-1.5">
-                            <button id="applyIso" class="sidebar-btn flex-grow text-[11px]" style="background:#8b5cf6;color:#fff">Render Isosurface</button>
-                            <button id="clearIso" class="sidebar-btn px-3 text-[11px]">Clear</button>
                         </div>
                     </div>
                 </div>
 
+                <!-- Trajectory panel (conditional) -->
+                <div id="trajectoryPanel" class="hidden flex flex-col gap-2">
+                    <label class="section-label">Trajectory / frames</label>
+                    <div class="flex items-center gap-2">
+                        <button id="trajPrev" class="sidebar-btn px-2 text-xs"><i class="fa-solid fa-backward-step"></i></button>
+                        <button id="trajPlay" class="sidebar-btn px-3 text-xs flex-grow"><i class="fa-solid fa-play mr-1"></i>Play</button>
+                        <button id="trajNext" class="sidebar-btn px-2 text-xs"><i class="fa-solid fa-forward-step"></i></button>
+                    </div>
+                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Frame</span><input type="range" id="trajSlider" min="0" max="0" step="1" value="0" class="flex-grow"><span id="trajFrame" class="text-[10px] text-slate-500 w-10 text-right">0/0</span></div>
+                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Speed</span>
+                        <select id="trajSpeed" class="sidebar-select text-[11px] flex-grow">
+                            <option value="200">Slow</option>
+                            <option value="100" selected>Normal</option>
+                            <option value="50">Fast</option>
+                            <option value="20">Very Fast</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Isosurface panel (conditional, for cube files) -->
+                <div id="isoPanel" class="hidden flex flex-col gap-2 mt-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                    <label class="section-label" style="color:#8b5cf6"><i class="fa-solid fa-cloud mr-1"></i>Isosurface (Cube data)</label>
+                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-14 shrink-0">+ Isoval</span><input type="range" id="isoPosVal" min="0.001" max="0.2" step="0.001" value="0.02" class="flex-grow"><span id="isoPosDisplay" class="text-[10px] text-slate-500 w-10 text-right">0.02</span></div>
+                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-14 shrink-0">- Isoval</span><input type="range" id="isoNegVal" min="-0.2" max="-0.001" step="0.001" value="-0.02" class="flex-grow"><span id="isoNegDisplay" class="text-[10px] text-slate-500 w-10 text-right">-0.02</span></div>
+                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-14 shrink-0">Opacity</span><input type="range" id="isoOpacity" min="0.1" max="1" step="0.05" value="0.7" class="flex-grow"><span id="isoOpacityDisplay" class="text-[10px] text-slate-500 w-7 text-right">0.7</span></div>
+                    <div class="flex gap-1.5">
+                        <button id="applyIso" class="sidebar-btn flex-grow text-[11px]" style="background:#8b5cf6;color:#fff">Render Isosurface</button>
+                        <button id="clearIso" class="sidebar-btn px-3 text-[11px]">Clear</button>
+                    </div>
+                </div>
+
+                <!-- TAB: Export -->
                 <div id="tabExport" class="tab-content hidden flex flex-col gap-3">
                     <label class="section-label">Export image (PNG)</label>
                     <div class="flex items-center gap-1.5">
                         <span class="text-[10px] text-slate-500 w-16 shrink-0">Resolution</span>
                         <select id="exportQuality" class="sidebar-select text-[11px] flex-grow">
-                            <option value="1">1× (Standard)</option>
-                            <option value="2" selected>2× (High)</option>
-                            <option value="4">4× (Print)</option>
-                            <option value="6">6× (Ultra)</option>
-                            <option value="8">8× (Poster)</option>
-                            <option value="10">10× (Extreme)</option>
+                            <option value="1">1x (Standard)</option>
+                            <option value="2" selected>2x (High)</option>
+                            <option value="4">4x (Print)</option>
+                            <option value="6">6x (Ultra)</option>
+                            <option value="8">8x (Poster)</option>
+                            <option value="10">10x (Extreme)</option>
                         </select>
                     </div>
                     <button id="downloadBtn" class="sidebar-btn text-xs mt-2" style="background:#6366f1;color:#fff"><i class="fa-solid fa-download mr-1"></i>Download PNG</button>
@@ -363,6 +562,7 @@
 
             </aside>
 
+            <!-- VIEWER -->
             <div class="flex-grow bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm relative overflow-hidden" style="min-height:500px">
                 <div id="viewerCanvas" class="absolute inset-0 w-full h-full cursor-move"></div>
                 <div id="atomInfo"></div>
@@ -383,11 +583,6 @@
 
     <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
 
-    <script>
-        document.querySelectorAll('.themeToggle').forEach(b=>b.addEventListener('click',()=>{document.documentElement.classList.toggle('dark');localStorage.theme=document.documentElement.classList.contains('dark')?'dark':'light'}));
-        const mmb=document.getElementById('mobile-menu-btn'),mm=document.getElementById('mobile-menu'),mi=document.getElementById('menu-icon');
-        if(mmb){mmb.addEventListener('click',()=>{mm.classList.toggle('hidden');mi.classList.toggle('fa-bars');mi.classList.toggle('fa-xmark')});document.querySelectorAll('.mobile-link').forEach(l=>l.addEventListener('click',()=>{mm.classList.add('hidden');mi.classList.add('fa-bars');mi.classList.remove('fa-xmark')}))}
-    </script>
-    <script src="js/structure-inspector.js" defer></script>
+    <script src="js/structure-inspector.js"></script>
 </body>
 </html>
