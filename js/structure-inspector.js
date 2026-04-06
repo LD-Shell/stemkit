@@ -9,6 +9,8 @@
     let customElementColors = {};
     let totalAtomCount = 0;
     let systemBounds = { xMin:0, xMax:0, yMin:0, yMax:0, zMin:0, zMax:0 };
+    // Track addStyle overrides so we can re-apply them after base style changes
+    let selectionOverrides = [];
 
     const PERF_LABEL_WARN = 5000;   // show "(slow)" warning
     const PERF_LABEL_BLOCK = 50000; // refuse labels entirely
@@ -143,6 +145,34 @@
         if (axis === 'x') return { min: systemBounds.xMin, max: systemBounds.xMax };
         if (axis === 'y') return { min: systemBounds.yMin, max: systemBounds.yMax };
         return { min: systemBounds.zMin, max: systemBounds.zMax };
+    }
+
+    // ═══════════════════════════════════════════
+    // 4b. STYLE HELPERS (shared by all style applications)
+    // ═══════════════════════════════════════════
+    /**
+     * Apply style to a selection, correctly handling custom per-element colors.
+     * Uses setStyle (replaces) or addStyle (layers on top) based on `method`.
+     */
+    function applyStyledSelection(sel, styleType, method) {
+        const colorMode = colorSelect.value;
+        if (colorMode === 'custom') {
+            // For custom colors, apply per-element
+            for (const [el, col] of Object.entries(customElementColors)) {
+                const combinedSel = Object.assign({}, sel, { elem: el });
+                if (method === 'set') {
+                    viewer.setStyle(combinedSel, buildStyleObj(styleType, { color: col }));
+                } else {
+                    viewer.addStyle(combinedSel, buildStyleObj(styleType, { color: col }));
+                }
+            }
+        } else {
+            if (method === 'set') {
+                viewer.setStyle(sel, buildStyleObj(styleType, getColorObj()));
+            } else {
+                viewer.addStyle(sel, buildStyleObj(styleType, getColorObj()));
+            }
+        }
     }
 
     // ═══════════════════════════════════════════
@@ -471,8 +501,12 @@
         }
 
         if (action === 'isolate') {
+            // FIX: Hide everything first, then apply correct color scheme to matched selection
             viewer.setStyle({}, { hidden: true });
-            viewer.setStyle(selObj, buildStyleObj(styleSelect.value, getColorObj()));
+            applyStyledSelection(selObj, styleSelect.value, 'set');
+
+            // Hide hydrogens if toggled off
+            if (!T.hydrogens) viewer.setStyle({ elem: 'H' }, { hidden: true });
         }
 
         if (action === 'zoom' || action === 'isolate') {
@@ -656,6 +690,9 @@
         const countEl = $('selectionCount');
         if(countEl) countEl.classList.add('hidden');
 
+        // Clear any stored selection overrides
+        selectionOverrides = [];
+
         applyStyles();
         applyBackground();
         setupClickInspect();
@@ -727,13 +764,30 @@
         if (colorMode === 'custom') {
             viewer.setStyle({}, { hidden: true });
             for (const [el, col] of Object.entries(customElementColors)) {
-                viewer.addStyle({elem: el}, buildStyleObj(styleType, {color: col}));
+                viewer.setStyle({elem: el}, buildStyleObj(styleType, {color: col}));
             }
         } else {
             viewer.setStyle({}, buildStyleObj(styleType, getColorObj()));
         }
 
         if(!T.hydrogens) viewer.setStyle({elem:'H'}, {hidden:true});
+
+        // Re-apply any stored selection overrides
+        selectionOverrides.forEach(ov => {
+            if (ov.styleType === 'hidden') {
+                viewer.addStyle(ov.sel, { hidden: true });
+            } else {
+                const ovColorMode = colorSelect.value;
+                if (ovColorMode === 'custom') {
+                    for (const [el, col] of Object.entries(customElementColors)) {
+                        viewer.addStyle(Object.assign({}, ov.sel, { elem: el }), buildStyleObj(ov.styleType, { color: col }));
+                    }
+                } else {
+                    viewer.addStyle(ov.sel, buildStyleObj(ov.styleType, getColorObj()));
+                }
+            }
+        });
+
         viewer.render();
     }
 
@@ -777,20 +831,31 @@
         const sel = buildSelStyleSelection();
         const sType = selStyle.value;
 
+        // Store this override so it persists across base style changes
+        // Make a serializable copy of sel (without predicate for dropdown-built sels)
+        const selCopy = Object.assign({}, sel);
+        // If predicate exists, keep it (from text query)
+        if (sel.predicate) selCopy.predicate = sel.predicate;
+        selectionOverrides.push({ sel: selCopy, styleType: sType });
+
         if (sType === 'hidden') {
             viewer.addStyle(sel, {hidden: true});
-        } else if (colorSelect.value === 'custom') {
-            for (const [el, col] of Object.entries(customElementColors)) {
-                viewer.addStyle({...sel, elem: el}, buildStyleObj(sType, {color: col}));
-            }
         } else {
-            viewer.addStyle(sel, buildStyleObj(sType, getColorObj()));
+            applyStyledSelection(sel, sType, 'add');
         }
+
+        // Hide hydrogens again if needed after addStyle
+        if (!T.hydrogens) viewer.setStyle({ elem: 'H' }, { hidden: true });
+
         viewer.render();
         showToast('Selection style applied.', 'success');
     });
 
-    clearSelStylesBtn.addEventListener('click', () => { applyStyles(); showToast('Selection styles cleared.') });
+    clearSelStylesBtn.addEventListener('click', () => {
+        selectionOverrides = [];
+        applyStyles();
+        showToast('Selection styles cleared.');
+    });
 
     // ═══════════════════════════════════════════
     // 13. LABELS
@@ -1001,6 +1066,7 @@
 
     document.querySelectorAll('.reset-view-btn').forEach(btn => {
         btn.addEventListener('click', () => {
+            selectionOverrides = [];
             applyStyles();
             const countEl = $('selectionCount');
             if(countEl) countEl.classList.add('hidden');
@@ -1018,7 +1084,8 @@
         if(!viewer) return;
         const sel = parseSelString($('focusQuery').value);
         viewer.setStyle({}, {hidden:true});
-        viewer.setStyle(sel, buildStyleObj(styleSelect.value, getColorObj()));
+        applyStyledSelection(sel, styleSelect.value, 'set');
+        if (!T.hydrogens) viewer.setStyle({ elem: 'H' }, { hidden: true });
         viewer.zoomTo(sel); viewer.render();
     });
 
@@ -1148,6 +1215,7 @@
         systemBounds = { xMin:0, xMax:0, yMin:0, yMax:0, zMin:0, zMax:0 };
         surfaceID = null; currentModelData = null; currentExtension = null;
         axisShapes = []; isoShapes = []; measureShapes = []; measureLabels = [];
+        selectionOverrides = [];
         totalAtomCount = 0;
         $('formatBadge').innerText = '';
         atomInfoEl.classList.remove('visible'); atomInfoEl.innerHTML = '';
