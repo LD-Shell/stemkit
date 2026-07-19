@@ -27,13 +27,14 @@
             "description": "Clean messy BibTeX exports, standardize capitalization, and repair brackets.",
             "applicationCategory": "UtilityApplication",
             "operatingSystem": "All",
+            "author": { "@type": "Person", "name": "Olanrewaju M. Daramola" },
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
             "featureList": [ "Syntax Repair", "Title Case Standardization", "Client-Side Processing", "Redundant Field Stripping" ]
         }
     </script>
 
-    <meta name="author" content="STEMKit">
+    <meta name="author" content="Olanrewaju M. Daramola">
     <meta name="theme-color" content="#4f46e5">
 
     <meta property="og:type" content="website">
@@ -59,6 +60,56 @@
         .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
         .dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
     </style>
+
+    <style>
+        /* STEMKit docs / how-to / FAQ — self-contained styles */
+        .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
+        .stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
+        .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;
+                    text-transform:uppercase; letter-spacing:.12em; padding:.3rem .7rem; border-radius:9999px;
+                    background:#eef2ff; color:#4338ca; border:1px solid #e0e7ff; }
+        .dark .stk-chip { background:rgba(67,56,202,.18); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
+        .stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
+        .stk-lead { max-width:48rem; color:#64748b; line-height:1.6; }
+        .dark .stk-lead { color:#94a3b8; }
+        .stk-grid { display:grid; gap:1rem; grid-template-columns:1fr; margin-top:1.5rem; }
+        @media (min-width:768px){ .stk-grid-3{grid-template-columns:repeat(3,1fr);} .stk-grid-2{grid-template-columns:repeat(2,1fr);} }
+        .stk-card { border-radius:1rem; border:1px solid rgba(148,163,184,.25); padding:1.4rem; background:#fff; }
+        .dark .stk-card { background:#0f172a; border-color:rgba(51,65,85,.8); }
+        .stk-step { display:flex; gap:.85rem; align-items:flex-start; }
+        .stk-num { width:2rem; height:2rem; border-radius:9999px; display:inline-flex; align-items:center;
+                   justify-content:center; font-weight:800; font-size:.85rem; flex-shrink:0;
+                   background:#4f46e5; color:#fff; }
+        .stk-step h3 { font-weight:700; font-size:.95rem; margin-bottom:.15rem; }
+        .stk-step p { font-size:.85rem; color:#64748b; line-height:1.5; }
+        .dark .stk-step p { color:#94a3b8; }
+        .stk-note { display:flex; gap:.6rem; align-items:flex-start; font-size:.82rem; line-height:1.55;
+                    background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:.75rem; padding:.9rem 1rem; }
+        .dark .stk-note { background:rgba(120,53,15,.15); border-color:rgba(180,83,9,.4); color:#fcd34d; }
+        .stk-faq { border-bottom:1px solid rgba(148,163,184,.22); }
+        .stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 0; font-weight:600; font-size:.95rem;
+                             display:flex; justify-content:space-between; align-items:center; gap:1rem; }
+        .stk-faq > summary::-webkit-details-marker { display:none; }
+        .stk-faq > summary::after { content:"+"; font-weight:700; color:#6366f1; font-size:1.2rem; line-height:1; }
+        .stk-faq[open] > summary::after { content:"\2212"; }
+        .stk-faq > div { padding:0 0 1.1rem; font-size:.88rem; line-height:1.6; color:#475569; }
+        .dark .stk-faq > div { color:#94a3b8; }
+        .stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem; }
+        .stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600;
+                      color:#4f46e5; text-decoration:none; border:1px solid #e0e7ff; background:#eef2ff;
+                      padding:.4rem .8rem; border-radius:.6rem; }
+        .dark .stk-refs a { color:#a5b4fc; background:rgba(67,56,202,.15); border-color:rgba(99,102,241,.3); }
+        .stk-refs a:hover { text-decoration:underline; }
+        .stk-byline { font-size:.8rem; color:#94a3b8; margin-top:.35rem; }
+        .stk-credit { margin-top:2rem; font-size:.8rem; color:#94a3b8; }
+    </style>
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"HowTo","name":"BibTeX Sanitizer","totalTime":"PT2M","tool":{"@type":"HowToTool","name":"BibTeX Sanitizer"},"step":[{"@type":"HowToStep","position":1,"name":"Paste your raw .bib","text":"Drop in messy exports from Google Scholar, Zotero or Mendeley — or click Load example to see the tool in action."},{"@type":"HowToStep","position":2,"name":"Pick your rules","text":"Toggle title-case protection, page-dash repair and equals-sign alignment, then tick any bloated fields (url, abstract, file…) you want stripped."},{"@type":"HowToStep","position":3,"name":"Review the live output","text":"The sanitized .bib updates instantly on the right, with a running count of entries parsed and fields removed."},{"@type":"HowToStep","position":4,"name":"Copy or download","text":"Use Copy All to grab the result, or Download to save a sanitized.bib file."}]}
+</script>
+    <script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does the sanitizer upload my references?","acceptedAnswer":{"@type":"Answer","text":"No. All parsing and formatting happen in your browser. Nothing is sent anywhere."}},{"@type":"Question","name":"Why did my titles gain an extra pair of braces?","acceptedAnswer":{"@type":"Answer","text":"The ‘Protect title casing’ rule wraps title and booktitle in {{…}} to stop the bibliography style from changing the capitalization. Turn it off if your style should control case, or brace only specific words manually."}},{"@type":"Question","name":"Can it handle nested braces in a value?","acceptedAnswer":{"@type":"Answer","text":"Yes. The parser is brace-aware, so nested groups such as {A study of {NaCl}} are preserved rather than truncated."}},{"@type":"Question","name":"What is the point of the en-dash fix?","acceptedAnswer":{"@type":"Answer","text":"In LaTeX, page ranges use an en-dash, written as two hyphens (100--110). The rule converts single hyphens between page numbers and is safe to run repeatedly."}},{"@type":"Question","name":"Which fields should I strip?","acceptedAnswer":{"@type":"Answer","text":"Fields that do not affect typesetting — such as abstract, url, urldate, file and keywords — are common culprits for bloated .bib files. Keep anything your citation style actually prints."}}]}
+</script>
     <link rel="stylesheet" href="src/output.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
@@ -126,6 +177,7 @@
             <p class="text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
                 Paste raw exports from Google Scholar or reference managers. This utility strips bloated fields, enforces standard indentation, and protects title capitalization.
             </p>
+            <p class="stk-byline">By Olanrewaju M. Daramola · 100% client-side</p>
         </header>
 
         <div id="toastContainer" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
@@ -175,7 +227,10 @@
                 </div>
 
                 <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col flex-grow">
-                    <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2">Raw Input</h2>
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Raw Input</h2>
+                        <button id="btnLoadExample" class="text-xs font-bold text-sky-600 hover:text-sky-500 transition-colors"><i class="fa-solid fa-flask-vial mr-1"></i>Load example</button>
+                    </div>
                     <textarea id="dataInput" class="w-full flex-grow bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-sky-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" spellcheck="false" placeholder="@article{smith2024,&#10;  title={An Analysis of Molecular Dynamics},&#10;  author={Smith, John},&#10;  journal={Journal of Physics},&#10;  pages={100-110},&#10;  url={https://tracking-link.com},&#10;  abstract={Extremely long abstract...}&#10;}"></textarea>
                 </div>
 
@@ -189,9 +244,14 @@
                             <span class="text-sm font-bold text-sky-400 uppercase tracking-wider font-mono">Sanitized .bib</span>
                             <span id="statsLabel" class="text-[10px] text-slate-500 font-mono hidden sm:inline-block">Waiting for input...</span>
                         </div>
-                        <button id="btnCopyCode" class="bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md transform hover:-translate-y-0.5 active:scale-95 flex items-center gap-1">
-                            <i class="fa-regular fa-copy"></i> Copy All
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button id="btnDownload" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1">
+                                <i class="fa-solid fa-download"></i> Download
+                            </button>
+                            <button id="btnCopyCode" class="bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md transform hover:-translate-y-0.5 active:scale-95 flex items-center gap-1">
+                                <i class="fa-regular fa-copy"></i> Copy All
+                            </button>
+                        </div>
                     </div>
                     <div class="flex-grow p-4 overflow-auto custom-scroll relative">
                         <pre><code id="bibOutput" class="text-slate-300 font-mono text-xs leading-relaxed whitespace-pre-wrap select-all">Processed syntax will appear here...</code></pre>
@@ -201,6 +261,53 @@
             </div>
 
         </div>
+
+    <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
+        <div class="stk-wrap">
+            <span class="stk-chip"><i class="fa-solid fa-broom"></i> How-To Guide</span>
+            <h2 class="stk-h2">How to clean and standardize a .bib file</h2>
+            <p class="stk-lead">Reference managers export citations with tracking URLs, giant abstracts and inconsistent formatting. Here is how to sanitize them for a tidy LaTeX bibliography.</p>
+            <div class="stk-grid stk-grid-3">
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Paste your raw .bib</h3><p>Drop in messy exports from Google Scholar, Zotero or Mendeley — or click <strong>Load example</strong> to see the tool in action.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Pick your rules</h3><p>Toggle title-case protection, page-dash repair and equals-sign alignment, then tick any bloated fields (url, abstract, file…) you want stripped.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Review the live output</h3><p>The sanitized .bib updates instantly on the right, with a running count of entries parsed and fields removed.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Copy or download</h3><p>Use <strong>Copy All</strong> to grab the result, or <strong>Download</strong> to save a <code>sanitized.bib</code> file.</p></div></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="stk-section" id="how-it-works" aria-label="How it works">
+        <div class="stk-wrap">
+            <h2 class="stk-h2">How the sanitizer works</h2>
+            
+            <div class="stk-grid stk-grid-2">
+                <div class="stk-card">
+                    <h3 style="font-weight:700;margin-bottom:.4rem;">What each rule does</h3>
+                    <p style="font-size:.88rem;color:#64748b;line-height:1.6;">
+                    <strong>Fix page dashes</strong> turns <code>100-110</code> into the LaTeX en-dash <code>100--110</code> (and leaves already-correct ranges untouched). <strong>Align equals</strong> pads keys so the <code>=</code> signs line up — purely cosmetic. <strong>Strip fields</strong> removes bulky, non-typesetting fields such as <code>abstract</code>, <code>url</code> and <code>file</code>.</p>
+                </div>
+                <div class="stk-card">
+                    <h3 style="font-weight:700;margin-bottom:.4rem;">Brace-aware parsing</h3>
+                    <p style="font-size:.88rem;color:#64748b;line-height:1.6;">The parser tracks brace depth, so a value like <code>title = {A study of {NaCl}}</code> is read correctly instead of being cut off at the first inner brace. <code>@string</code>, <code>@preamble</code> and <code>@comment</code> blocks pass through untouched. Everything runs locally in your browser.</p>
+                </div>
+            </div>
+            <div class="stk-note" style="margin-top:1rem;">
+                <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>
+                <div><strong>A note on “Protect title casing”.</strong> This option wraps the whole title in double braces (<code>{{…}}</code>) so a bibliography style can’t re-case it. That guarantees your capitalization but also <em>forces</em> title-case, which many editors advise against. Best practice is usually to brace only the specific words that need it (acronyms, chemical formulae, proper nouns), e.g. <code>title = {The {THE} operating system}</code>. See the TeX FAQ link below.</div>
+            </div>
+
+        </div>
+    </section>
+
+    <section class="stk-section" id="faq" aria-label="Frequently asked questions">
+        <div class="stk-wrap" style="max-width:52rem;">
+            <h2 class="stk-h2">Frequently asked questions</h2>
+            <div style="margin-top:1rem;">
+                <details class="stk-faq"><summary>Does the sanitizer upload my references?</summary><div>No. All parsing and formatting happen in your browser. Nothing is sent anywhere.</div></details><details class="stk-faq"><summary>Why did my titles gain an extra pair of braces?</summary><div>The ‘Protect title casing’ rule wraps title and booktitle in {{…}} to stop the bibliography style from changing the capitalization. Turn it off if your style should control case, or brace only specific words manually.</div></details><details class="stk-faq"><summary>Can it handle nested braces in a value?</summary><div>Yes. The parser is brace-aware, so nested groups such as {A study of {NaCl}} are preserved rather than truncated.</div></details><details class="stk-faq"><summary>What is the point of the en-dash fix?</summary><div>In LaTeX, page ranges use an en-dash, written as two hyphens (100--110). The rule converts single hyphens between page numbers and is safe to run repeatedly.</div></details><details class="stk-faq"><summary>Which fields should I strip?</summary><div>Fields that do not affect typesetting — such as abstract, url, urldate, file and keywords — are common culprits for bloated .bib files. Keep anything your citation style actually prints.</div></details>
+            </div>
+            <div class="stk-refs">
+                <a href="https://texfaq.org/FAQ-capbibtex" target="_blank" rel="noopener"><i class="fa-solid fa-font"></i> TeX FAQ: capitalization in BibTeX</a><a href="https://www.overleaf.com/learn/latex/Bibliography_management_with_bibtex" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> Overleaf: BibTeX guide</a>
+            </div>
+            <p class="stk-credit">Built and maintained by <strong>Olanrewaju M.&nbsp;Daramola</strong>. Runs entirely in your browser — no data leaves your device.</p>
+        </div>
+    </section>
     </main>
 
     <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
