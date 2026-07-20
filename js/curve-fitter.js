@@ -1,21 +1,50 @@
+/*
+ * STEMKit — Non-Linear Curve Fitter
+ * Uses regression.js for least-squares fitting and Plotly for rendering.
+ * Author: Olanrewaju M. Daramola. Runs 100% client-side.
+ *
+ * Honesty note: exponential, power and logarithmic models are fitted by
+ * LINEARIZING the data (least squares on log/transformed variables), which is
+ * the standard regression.js behaviour. This is not identical to a true
+ * non-linear least-squares fit in the original space and can bias parameters
+ * when data spans several orders of magnitude. R-squared is reported on the
+ * original data. See the reference links on the page.
+ */
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- 1. Interface Bindings ---
-    const dataInput = document.getElementById('dataInput');
-    const modelSelect = document.getElementById('modelSelect');
-    const btnFit = document.getElementById('btnFit');
-    const plotContainer = document.getElementById('plotContainer');
-    const equationOutput = document.getElementById('equationOutput');
-    const r2Value = document.getElementById('r2Value');
+    const dataInput       = document.getElementById('dataInput');
+    const modelSelect     = document.getElementById('modelSelect');
+    const btnFit          = document.getElementById('btnFit');
+    const btnExample      = document.getElementById('btnExample');   // optional
+    const plotContainer   = document.getElementById('plotContainer');
+    const equationOutput  = document.getElementById('equationOutput');
+    const r2Value         = document.getElementById('r2Value');
+    const fitMeta         = document.getElementById('fitMeta');       // optional
     const btnCopyEquation = document.getElementById('btnCopyEquation');
-    const toastContainer = document.getElementById('toastContainer');
+    const toastContainer  = document.getElementById('toastContainer');
 
     let currentEquationString = "";
+    let currentSummary = "";
+
+    // Number of free parameters per model (used for the overfitting guard)
+    const PARAM_COUNT = {
+        linear: 2, exponential: 2, power: 2, logarithmic: 2,
+        polynomial2: 3, polynomial3: 4
+    };
+
+    const EXAMPLE = `0.5\t1.6\n1.0\t2.9\n1.5\t4.4\n2.0\t7.0\n2.5\t10.1\n3.0\t14.8\n3.5\t20.9\n4.0\t29.0`;
 
     // --- 2. Event Listeners ---
     btnFit.addEventListener('click', processRegression);
+    if (btnExample) {
+        btnExample.addEventListener('click', () => {
+            dataInput.value = EXAMPLE;
+            processRegression();
+        });
+    }
 
-    // Theme change observer for Plotly re-render
+    // Re-render on theme change so the plot colours track light/dark mode
     const themeObserver = new MutationObserver(() => {
         if (dataInput.value.trim() !== '') processRegression();
     });
@@ -24,25 +53,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 3. Parsing Engine ---
     function parseInputData(rawText) {
         if (!rawText.trim()) return [];
-        
         const lines = rawText.split('\n');
         const matrix = [];
-
         for (let line of lines) {
             if (line.trim() === '') continue;
-            
-            // Supporting space, tab, or comma separated X/Y columns
             const tokens = line.trim().split(/[\s,]+/).filter(Boolean);
             if (tokens.length >= 2) {
                 const x = parseFloat(tokens[0]);
                 const y = parseFloat(tokens[1]);
-                if (!isNaN(x) && !isNaN(y)) {
-                    matrix.push([x, y]);
-                }
+                if (!isNaN(x) && !isNaN(y)) matrix.push([x, y]);
             }
         }
-        
-        // Sort array by X value to ensure continuous line plotting
         return matrix.sort((a, b) => a[0] - b[0]);
     }
 
@@ -57,7 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const model = modelSelect.value;
         let result;
 
-        // Utilizing regression.js to compute the optimal least-squares fit
         try {
             switch (model) {
                 case 'linear':
@@ -65,18 +85,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     formatEquation(result.equation, 'linear');
                     break;
                 case 'exponential':
-                    // Exponential requires strictly positive Y values due to internal log transformation
-                    if (rawData.some(point => point[1] <= 0)) throw new Error("Exponential models require y > 0");
+                    if (rawData.some(p => p[1] <= 0)) throw new Error("Exponential models require every y > 0");
                     result = regression.exponential(rawData, { precision: 6 });
                     formatEquation(result.equation, 'exponential');
                     break;
                 case 'power':
-                    if (rawData.some(point => point[0] <= 0 || point[1] <= 0)) throw new Error("Power models require x > 0 and y > 0");
+                    if (rawData.some(p => p[0] <= 0 || p[1] <= 0)) throw new Error("Power models require every x > 0 and y > 0");
                     result = regression.power(rawData, { precision: 6 });
                     formatEquation(result.equation, 'power');
                     break;
                 case 'logarithmic':
-                    if (rawData.some(point => point[0] <= 0)) throw new Error("Logarithmic models require x > 0");
+                    if (rawData.some(p => p[0] <= 0)) throw new Error("Logarithmic models require every x > 0");
                     result = regression.logarithmic(rawData, { precision: 6 });
                     formatEquation(result.equation, 'logarithmic');
                     break;
@@ -88,23 +107,60 @@ document.addEventListener('DOMContentLoaded', () => {
                     result = regression.polynomial(rawData, { order: 3, precision: 6 });
                     formatEquation(result.equation, 'polynomial3');
                     break;
+                default:
+                    throw new Error("Unknown model");
             }
         } catch (err) {
             showToast(`Math Error: ${err.message}`);
             return;
         }
 
-        r2Value.textContent = result.r2.toFixed(4);
+        const r2 = (typeof result.r2 === 'number' && isFinite(result.r2)) ? result.r2 : NaN;
+        r2Value.textContent = isNaN(r2) ? '—' : r2.toFixed(4);
+
+        // RMSE on the original data, computed from the model's own predictions
+        let sse = 0, n = 0;
+        rawData.forEach(([x, y]) => {
+            const p = result.predict(x);
+            if (p && isFinite(p[1])) { sse += (y - p[1]) ** 2; n++; }
+        });
+        const rmse = n ? Math.sqrt(sse / n) : NaN;
+
+        updateFitMeta(rawData.length, PARAM_COUNT[model], model, r2, rmse);
         renderPlot(rawData, result);
     }
 
-    // --- 5. Equation Formatter ---
-    // Transforms the raw coefficient arrays into clean, academic typography
+    // --- 5. Fit-quality meta + overfitting guard ---
+    function updateFitMeta(nPoints, nParams, model, r2, rmse) {
+        currentSummary =
+            `R2 = ${isNaN(r2) ? 'n/a' : r2.toFixed(4)}, ` +
+            `RMSE = ${isNaN(rmse) ? 'n/a' : rmse.toPrecision(4)}, n = ${nPoints}`;
+
+        if (!fitMeta) return;
+
+        let warn = "";
+        if (nPoints < nParams) {
+            warn = `Under-determined: ${nPoints} points cannot fix ${nParams} parameters.`;
+        } else if (nPoints === nParams) {
+            warn = `Exact fit: with ${nPoints} points a ${nParams}-parameter model passes through every point, so R² ≈ 1 is not evidence of a good model.`;
+        } else if (nPoints <= nParams + 1) {
+            warn = `Very few points for this model — R² is optimistic. Add more data if you can.`;
+        }
+
+        const rmseTxt  = isNaN(rmse) ? 'n/a' : rmse.toPrecision(4);
+        const linNote  = ['exponential', 'power', 'logarithmic'].includes(model)
+            ? ` &middot; fitted via linearization (log-space least squares)` : '';
+
+        fitMeta.innerHTML =
+            `<span class="font-mono">n = ${nPoints} points &middot; RMSE = ${rmseTxt}${linNote}</span>` +
+            (warn ? `<span class="block mt-1 text-amber-500 dark:text-amber-400"><i class="fa-solid fa-triangle-exclamation mr-1"></i>${warn}</span>` : '');
+    }
+
+    // --- 6. Equation Formatter ---
     function formatEquation(eq, type) {
         let displayHTML = "";
         let copyString = "";
 
-        // Standardize output notation dynamically based on the requested model
         if (type === 'linear') {
             displayHTML = `y = ${eq[0]}x ${eq[1] >= 0 ? '+' : '-'} ${Math.abs(eq[1])}`;
             copyString = displayHTML;
@@ -129,57 +185,42 @@ document.addEventListener('DOMContentLoaded', () => {
         currentEquationString = copyString;
     }
 
-    // --- 6. Plotting Engine ---
+    // --- 7. Plotting Engine ---
     function renderPlot(rawData, resultData) {
         const isDark = document.documentElement.classList.contains('dark');
         const fontColor = isDark ? '#cbd5e1' : '#334155';
         const gridColor = isDark ? '#334155' : '#e2e8f0';
 
-        // Separate X/Y for the raw scatter points
         const rawX = rawData.map(p => p[0]);
         const rawY = rawData.map(p => p[1]);
 
-        // To generate a smooth visual curve, we generate a high-density artificial array 
-        // using the math formula provided by the regression output
         const minX = Math.min(...rawX);
         const maxX = Math.max(...rawX);
         const curveX = [];
         const curveY = [];
-        
+
         const steps = 100;
         const stepSize = (maxX - minX) / steps;
-        
+
         for (let i = 0; i <= steps; i++) {
             const x = minX + (i * stepSize);
-            // We pass the artificial X through the regression object's internal predictor
             const predicted = resultData.predict(x);
-            if (predicted && !isNaN(predicted[1])) {
+            if (predicted && !isNaN(predicted[1]) && isFinite(predicted[1])) {
                 curveX.push(x);
                 curveY.push(predicted[1]);
             }
         }
 
         const rawTrace = {
-            x: rawX,
-            y: rawY,
-            mode: 'markers',
-            type: 'scatter',
-            name: 'Raw Data',
-            marker: { size: 8, color: '#94a3b8' } // Slate color for raw data
+            x: rawX, y: rawY, mode: 'markers', type: 'scatter', name: 'Raw Data',
+            marker: { size: 8, color: '#94a3b8' }
         };
-
         const fitTrace = {
-            x: curveX,
-            y: curveY,
-            mode: 'lines',
-            type: 'scatter',
-            name: 'Fitted Model',
-            line: { color: '#10b981', width: 3 } // Emerald color for the curve
+            x: curveX, y: curveY, mode: 'lines', type: 'scatter', name: 'Fitted Model',
+            line: { color: '#10b981', width: 3 }
         };
-
         const layout = {
-            plot_bgcolor: 'transparent',
-            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent', paper_bgcolor: 'transparent',
             font: { family: 'Inter, system-ui, sans-serif', color: fontColor },
             xaxis: { gridcolor: gridColor, zerolinecolor: gridColor },
             yaxis: { gridcolor: gridColor, zerolinecolor: gridColor },
@@ -187,25 +228,20 @@ document.addEventListener('DOMContentLoaded', () => {
             showlegend: true,
             legend: { orientation: "h", yanchor: "bottom", y: 1.02, xanchor: "right", x: 1 }
         };
-
         const config = { responsive: true, displaylogo: false };
-
         Plotly.react(plotContainer, [rawTrace, fitTrace], layout, config);
     }
 
-    // --- 7. Utilities ---
+    // --- 8. Utilities ---
     function showToast(message) {
         const toast = document.createElement('div');
         toast.className = 'bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-xl transform transition-all duration-300 translate-y-[-20px] opacity-0';
         toast.innerText = message;
-        
         toastContainer.appendChild(toast);
-        
         requestAnimationFrame(() => {
             toast.classList.remove('translate-y-[-20px]', 'opacity-0');
             toast.classList.add('translate-y-0', 'opacity-100');
         });
-
         setTimeout(() => {
             toast.classList.remove('translate-y-0', 'opacity-100');
             toast.classList.add('translate-y-[-20px]', 'opacity-0');
@@ -215,20 +251,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnCopyEquation.addEventListener('click', () => {
         if (!currentEquationString) return;
-
-        navigator.clipboard.writeText(currentEquationString).then(() => {
-            showToast('Mathematical formula copied to clipboard!');
-            
+        const payload = currentSummary
+            ? `${currentEquationString}\n${currentSummary}`
+            : currentEquationString;
+        navigator.clipboard.writeText(payload).then(() => {
+            showToast('Equation and fit statistics copied to clipboard!');
             const originalHTML = btnCopyEquation.innerHTML;
             btnCopyEquation.innerHTML = 'Copied!';
-            
-            setTimeout(() => {
-                btnCopyEquation.innerHTML = originalHTML;
-            }, 2000);
+            setTimeout(() => { btnCopyEquation.innerHTML = originalHTML; }, 2000);
         });
     });
 
     // Render an initial empty plot state so it doesn't look blank
-    renderPlot([[0,0]], { predict: () => [0,0] });
-
+    renderPlot([[0, 0]], { predict: () => [0, 0] });
 });
