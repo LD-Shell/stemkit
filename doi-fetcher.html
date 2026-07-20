@@ -25,6 +25,7 @@
             "name": "STEMKit DOI Fetcher",
             "url": "https://stemkit.net/doi-fetcher.html",
             "description": "Instantly convert DOIs into perfectly formatted BibTeX citations.",
+            "author": { "@type": "Person", "name": "Olanrewaju M. Daramola" },
             "applicationCategory": "UtilityApplication",
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
@@ -33,7 +34,7 @@
         }
     </script>
     
-    <meta name="author" content="STEMKit">
+    <meta name="author" content="Olanrewaju M. Daramola">
     <meta name="theme-color" content="#4f46e5">
 
     <meta property="og:type" content="website">
@@ -88,6 +89,77 @@
         .error-item { display: flex; gap: 10px; padding: 6px 0; font-size: 12px; align-items: flex-start; }
         .error-doi { font-family: monospace; font-weight: 600; min-width: 0; word-break: break-all; flex: 1; }
     </style>
+    <style>
+        /* STEMKit docs / how-to / FAQ — self-contained styles */
+        .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
+        .stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
+        .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;
+                    text-transform:uppercase; letter-spacing:.12em; padding:.3rem .7rem; border-radius:9999px;
+                    background:#eef2ff; color:#4338ca; border:1px solid #e0e7ff; }
+        .dark .stk-chip { background:rgba(67,56,202,.18); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
+        .stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
+        .stk-lead { max-width:48rem; color:#64748b; line-height:1.6; }
+        .dark .stk-lead { color:#94a3b8; }
+        .stk-grid { display:grid; gap:1rem; grid-template-columns:1fr; margin-top:1.5rem; }
+        @media (min-width:768px){ .stk-grid-3{grid-template-columns:repeat(3,1fr);} .stk-grid-2{grid-template-columns:repeat(2,1fr);} }
+        .stk-card { border-radius:1rem; border:1px solid rgba(148,163,184,.25); padding:1.4rem; background:#fff; }
+        .dark .stk-card { background:#0f172a; border-color:rgba(51,65,85,.8); }
+        .stk-step { display:flex; gap:.85rem; align-items:flex-start; }
+        .stk-num { width:2rem; height:2rem; border-radius:9999px; display:inline-flex; align-items:center;
+                   justify-content:center; font-weight:800; font-size:.85rem; flex-shrink:0;
+                   background:#4f46e5; color:#fff; }
+        .stk-step h3 { font-weight:700; font-size:.95rem; margin-bottom:.15rem; }
+        .stk-step p { font-size:.85rem; color:#64748b; line-height:1.5; }
+        .dark .stk-step p { color:#94a3b8; }
+        .stk-note { display:flex; gap:.6rem; align-items:flex-start; font-size:.82rem; line-height:1.55;
+                    background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:.75rem; padding:.9rem 1rem; }
+        .dark .stk-note { background:rgba(120,53,15,.15); border-color:rgba(180,83,9,.4); color:#fcd34d; }
+        .stk-faq { border-bottom:1px solid rgba(148,163,184,.22); }
+        .stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 0; font-weight:600; font-size:.95rem;
+                             display:flex; justify-content:space-between; align-items:center; gap:1rem; }
+        .stk-faq > summary::-webkit-details-marker { display:none; }
+        .stk-faq > summary::after { content:"+"; font-weight:700; color:#6366f1; font-size:1.2rem; line-height:1; }
+        .stk-faq[open] > summary::after { content:"\2212"; }
+        .stk-faq > div { padding:0 0 1.1rem; font-size:.88rem; line-height:1.6; color:#475569; }
+        .dark .stk-faq > div { color:#94a3b8; }
+        .stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem; }
+        .stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600;
+                      color:#4f46e5; text-decoration:none; border:1px solid #e0e7ff; background:#eef2ff;
+                      padding:.4rem .8rem; border-radius:.6rem; }
+        .dark .stk-refs a { color:#a5b4fc; background:rgba(67,56,202,.15); border-color:rgba(99,102,241,.3); }
+        .stk-refs a:hover { text-decoration:underline; }
+        .stk-byline { font-size:.8rem; color:#94a3b8; margin-top:.35rem; }
+        .stk-credit { margin-top:2rem; font-size:.8rem; color:#94a3b8; }
+
+        /* Method & equations (MathML) */
+        .stk-math { overflow-x:auto; padding:1rem 1.1rem; margin:.6rem 0 1rem; border:1px solid rgba(148,163,184,.25);
+                    border-radius:.75rem; background:#f8fafc; font-size:1.15rem; }
+        .dark .stk-math { background:#0f172a; }
+        .stk-math math { color:inherit; }
+        .stk-eqn-label { font-size:.9rem; font-weight:600; color:#475569; margin-top:1.1rem; }
+        .dark .stk-eqn-label { color:#cbd5e1; }
+        .stk-where { font-size:.85rem; color:#64748b; line-height:1.75; margin-top:.5rem; }
+        .dark .stk-where { color:#94a3b8; }
+        .stk-model-list { list-style:none; padding:0; margin:.6rem 0 0; display:grid; gap:.55rem; }
+        .stk-model-list li { font-size:.92rem; display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
+        .stk-model-list b { min-width:9rem; color:#475569; font-weight:600; }
+        .dark .stk-model-list b { color:#cbd5e1; }
+        .stk-refs-h { font-weight:700; font-size:1rem; margin-top:1.9rem; margin-bottom:.5rem; }
+        .stk-refs-list { font-size:.82rem; color:#64748b; line-height:1.75; padding-left:1.2rem; }
+        .dark .stk-refs-list { color:#94a3b8; }
+        .stk-refs-list li { margin-bottom:.45rem; }
+        .stk-refs-list a { color:#4f46e5; text-decoration:none; }
+        .dark .stk-refs-list a { color:#a5b4fc; }
+        .stk-refs-list a:hover { text-decoration:underline; }
+
+    </style>
+
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to turn DOIs into BibTeX", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Paste your DOIs", "text": "One per line, or comma/semicolon/space separated. Bare DOIs and full doi.org URLs both work; duplicates are removed automatically."}, {"@type": "HowToStep", "position": 2, "name": "Choose the delimiter", "text": "Select how your DOIs are separated (or Auto) so they parse correctly."}, {"@type": "HowToStep", "position": 3, "name": "Fetch", "text": "Click Fetch. Entries stream in as they resolve, with a live progress bar and a retry option for any that fail."}, {"@type": "HowToStep", "position": 4, "name": "Filter &amp; export", "text": "Toggle which BibTeX fields to keep, then Copy or Download your references.bib."}]}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does this use a private server?", "acceptedAnswer": {"@type": "Answer", "text": "No STEMKit server is involved. Your browser contacts the public doi.org content-negotiation service directly to resolve each DOI."}}, {"@type": "Question", "name": "Which DOIs are supported?", "acceptedAnswer": {"@type": "Answer", "text": "Any DOI whose registration agency exposes BibTeX via content negotiation &mdash; this covers the great majority of Crossref (journal/conference) and many DataCite (dataset) DOIs."}}, {"@type": "Question", "name": "Why did some DOIs fail?", "acceptedAnswer": {"@type": "Answer", "text": "Common causes are a typo, a DOI whose agency doesn't return BibTeX, or a transient network error. Failed DOIs are listed and can be retried in one click."}}, {"@type": "Question", "name": "Can I remove fields like abstract or url?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The field panel lets you keep only the BibTeX fields you want; filtering is applied to every entry locally."}}, {"@type": "Question", "name": "Are duplicates handled?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Identical DOIs are detected and removed before fetching, and the count is reported."}}]}
+</script>
     <link rel="stylesheet" href="src/output.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
@@ -152,6 +224,7 @@
         <div class="mb-4">
             <h1 class="text-3xl font-bold mb-2">DOI to BibTeX Fetcher</h1>
             <p class="text-slate-500 dark:text-slate-400">Batch-resolve DOIs into formatted BibTeX. Paste one or hundreds — choose your delimiter, filter fields, and export a clean <code class="text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">.bib</code> file.</p>
+            <p class="text-xs text-slate-400 mt-3">By Olanrewaju M. Daramola · Resolves via doi.org</p>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -279,6 +352,34 @@
             </div>
 
         </div>
+    
+    <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
+        <div class="stk-wrap">
+            <span class="stk-chip"><i class="fa-solid fa-barcode"></i> How-To Guide</span>
+            <h2 class="stk-h2">How to turn DOIs into BibTeX</h2>
+            <p class="stk-lead">Paste one or many DOIs, pick how they're separated, and the tool resolves each one to a BibTeX entry and streams the results into a downloadable .bib file.</p>
+            <p class="stk-byline">By Olanrewaju M. Daramola · 100% client-side</p>
+            <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Paste your DOIs</h3><p>One per line, or comma/semicolon/space separated. Bare DOIs and full doi.org URLs both work; duplicates are removed automatically.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Choose the delimiter</h3><p>Select how your DOIs are separated (or Auto) so they parse correctly.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Fetch</h3><p>Click <strong>Fetch</strong>. Entries stream in as they resolve, with a live progress bar and a retry option for any that fail.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Filter &amp; export</h3><p>Toggle which BibTeX fields to keep, then <strong>Copy</strong> or <strong>Download</strong> your <code>references.bib</code>.</p></div></div></div>
+        </div>
+    </section>
+
+    <section class="stk-section" id="how-it-works" aria-label="How it works">
+        <div class="stk-wrap">
+            <h2 class="stk-h2">How resolution works</h2>
+            <div class="stk-grid stk-grid-2"><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">DOI content negotiation</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Each DOI is requested from <code>doi.org</code> with an <code>Accept: application/x-bibtex</code> header. The DOI system routes to the registering agency (Crossref, DataCite, mEDRA) and returns BibTeX &mdash; the same mechanism reference managers use.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Batching, dedup &amp; retry</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">DOIs are de-duplicated, fetched sequentially with a short delay to respect the service, and any failures are collected into a report you can retry in one click. Field filtering is applied locally to the returned entries.</p></div></div>
+            <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>Privacy note: formatting and filtering happen in your browser, but resolving a DOI necessarily sends it to <code>doi.org</code> to retrieve the metadata &mdash; that network step is how DOI resolution works. No account or tracking is involved.</div></div>
+        </div>
+    </section>
+
+    <section class="stk-section" id="faq" aria-label="Frequently asked questions">
+        <div class="stk-wrap" style="max-width:52rem;">
+            <h2 class="stk-h2">Frequently asked questions</h2>
+            <div style="margin-top:1rem;"><details class="stk-faq"><summary>Does this use a private server?</summary><div>No STEMKit server is involved. Your browser contacts the public doi.org content-negotiation service directly to resolve each DOI.</div></details><details class="stk-faq"><summary>Which DOIs are supported?</summary><div>Any DOI whose registration agency exposes BibTeX via content negotiation &mdash; this covers the great majority of Crossref (journal/conference) and many DataCite (dataset) DOIs.</div></details><details class="stk-faq"><summary>Why did some DOIs fail?</summary><div>Common causes are a typo, a DOI whose agency doesn't return BibTeX, or a transient network error. Failed DOIs are listed and can be retried in one click.</div></details><details class="stk-faq"><summary>Can I remove fields like abstract or url?</summary><div>Yes. The field panel lets you keep only the BibTeX fields you want; filtering is applied to every entry locally.</div></details><details class="stk-faq"><summary>Are duplicates handled?</summary><div>Yes. Identical DOIs are detected and removed before fetching, and the count is reported.</div></details></div>
+            <div class="stk-refs"><a href="https://citation.doi.org/docs.html" target="_blank" rel="noopener"><i class="fa-solid fa-code"></i> DOI content negotiation</a><a href="https://www.crossref.org/documentation/retrieve-metadata/content-negotiation/" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> Crossref: content negotiation</a><a href="https://www.doi.org/" target="_blank" rel="noopener"><i class="fa-solid fa-link"></i> DOI system</a></div>
+            <p class="stk-credit">Built and maintained by <strong>Olanrewaju M.&nbsp;Daramola</strong>. Formatting runs in your browser; DOIs are resolved via the public doi.org service.</p>
+        </div>
+    </section>
+
     </main>
 
     <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
