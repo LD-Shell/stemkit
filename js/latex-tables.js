@@ -32,27 +32,71 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnExample) btnExample.addEventListener('click', () => { dataInput.value = EXAMPLE; processPipeline(); });
 
-    // # --- 3. Parsing ---
     function parseInputData(rawText) {
-        if (!rawText.trim()) return [];
-        const lines = rawText.split('\n');
-        const matrix = [];
-        let maxCols = 0;
-        for (let line of lines) {
-            if (line.trim() === '') continue;
-            // Prefer tab, then comma, then whitespace (multi-word cells need tab/comma)
-            const delimiter = line.includes('\t') ? '\t' : (line.includes(',') ? ',' : /\s{1,}/);
-            const row = line.split(delimiter).map(cell => cell.trim());
-            if (row.length > maxCols) maxCols = row.length;
-            matrix.push(row);
+    if (!rawText.trim()) return [];
+
+    // 1. Detect the global delimiter (prefer tab, then comma, then space)
+    const delimiter = rawText.includes('\t') ? '\t' : (rawText.includes(',') ? ',' : ' ');
+
+    const matrix = [];
+    let currentRow = [];
+    let currentCell = '';
+    let insideQuotes = false;
+
+    // 2. Read the text character by character
+    for (let i = 0; i < rawText.length; i++) {
+        const char = rawText[i];
+        const nextChar = rawText[i + 1];
+
+        if (char === '"') {
+            // Excel escapes literal quotes by doubling them ("")
+            if (insideQuotes && nextChar === '"') {
+                currentCell += '"';
+                i++; // Skip the second quote so we don't process it twice
+            } else {
+                // Toggle our state machine: entering or exiting a quoted cell
+                insideQuotes = !insideQuotes;
+            }
+        } else if (char === delimiter && !insideQuotes) {
+            // We hit a delimiter OUTSIDE of quotes -> End of the cell
+            currentRow.push(currentCell.trim());
+            currentCell = '';
+        } else if ((char === '\n' || char === '\r') && !insideQuotes) {
+            // We hit a newline OUTSIDE of quotes -> End of the row
+            if (char === '\r' && nextChar === '\n') i++; // Handle Windows \r\n
+            
+            currentRow.push(currentCell.trim());
+            matrix.push(currentRow);
+            
+            // Reset for the next row
+            currentRow = [];
+            currentCell = '';
+        } else {
+            // Just a normal character (or a newline INSIDE quotes)
+            currentCell += char;
         }
-        // Pad short rows so every row has the same column count
-        return matrix.map(row => {
-            while (row.length < maxCols) row.push('');
-            return row;
-        });
     }
 
+    // 3. Catch the very last cell/row if the text didn't end with a newline
+    if (currentCell !== '' || currentRow.length > 0) {
+        currentRow.push(currentCell.trim());
+        matrix.push(currentRow);
+    }
+
+    // 4. Cleanup: Remove completely empty rows and pad missing columns
+    const cleanMatrix = matrix.filter(row => row.some(cell => cell !== ''));
+    
+    let maxCols = 0;
+    cleanMatrix.forEach(row => {
+        if (row.length > maxCols) maxCols = row.length;
+    });
+
+    return cleanMatrix.map(row => {
+        while (row.length < maxCols) row.push('');
+        return row;
+    });
+    }
+    
     // # --- 4. HTML preview ---
     function renderPreview(matrix) {
         if (matrix.length === 0) {
