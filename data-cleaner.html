@@ -25,6 +25,7 @@
             "name": "STEMKit Data Cleaner",
             "url": "https://stemkit.net/data-cleaner.html",
             "description": "Clean, normalize, and transform raw scientific datasets locally.",
+            "author": { "@type": "Person", "name": "Olanrewaju M. Daramola" },
             "applicationCategory": "UtilityApplication",
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
@@ -33,7 +34,7 @@
         }
     </script>
     
-    <meta name="author" content="STEMKit">
+    <meta name="author" content="Olanrewaju M. Daramola">
     <meta name="theme-color" content="#4f46e5">
 
     <meta property="og:type" content="website">
@@ -61,6 +62,77 @@
         @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .toast-enter { animation: slideIn 0.3s forwards; }
     </style>
+        <style>
+        /* STEMKit docs / how-to / FAQ — self-contained styles */
+        .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
+        .stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
+        .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;
+                    text-transform:uppercase; letter-spacing:.12em; padding:.3rem .7rem; border-radius:9999px;
+                    background:#eef2ff; color:#4338ca; border:1px solid #e0e7ff; }
+        .dark .stk-chip { background:rgba(67,56,202,.18); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
+        .stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
+        .stk-lead { max-width:48rem; color:#64748b; line-height:1.6; }
+        .dark .stk-lead { color:#94a3b8; }
+        .stk-grid { display:grid; gap:1rem; grid-template-columns:1fr; margin-top:1.5rem; }
+        @media (min-width:768px){ .stk-grid-3{grid-template-columns:repeat(3,1fr);} .stk-grid-2{grid-template-columns:repeat(2,1fr);} }
+        .stk-card { border-radius:1rem; border:1px solid rgba(148,163,184,.25); padding:1.4rem; background:#fff; }
+        .dark .stk-card { background:#0f172a; border-color:rgba(51,65,85,.8); }
+        .stk-step { display:flex; gap:.85rem; align-items:flex-start; }
+        .stk-num { width:2rem; height:2rem; border-radius:9999px; display:inline-flex; align-items:center;
+                   justify-content:center; font-weight:800; font-size:.85rem; flex-shrink:0;
+                   background:#4f46e5; color:#fff; }
+        .stk-step h3 { font-weight:700; font-size:.95rem; margin-bottom:.15rem; }
+        .stk-step p { font-size:.85rem; color:#64748b; line-height:1.5; }
+        .dark .stk-step p { color:#94a3b8; }
+        .stk-note { display:flex; gap:.6rem; align-items:flex-start; font-size:.82rem; line-height:1.55;
+                    background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:.75rem; padding:.9rem 1rem; }
+        .dark .stk-note { background:rgba(120,53,15,.15); border-color:rgba(180,83,9,.4); color:#fcd34d; }
+        .stk-faq { border-bottom:1px solid rgba(148,163,184,.22); }
+        .stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 0; font-weight:600; font-size:.95rem;
+                             display:flex; justify-content:space-between; align-items:center; gap:1rem; }
+        .stk-faq > summary::-webkit-details-marker { display:none; }
+        .stk-faq > summary::after { content:"+"; font-weight:700; color:#6366f1; font-size:1.2rem; line-height:1; }
+        .stk-faq[open] > summary::after { content:"\2212"; }
+        .stk-faq > div { padding:0 0 1.1rem; font-size:.88rem; line-height:1.6; color:#475569; }
+        .dark .stk-faq > div { color:#94a3b8; }
+        .stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem; }
+        .stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600;
+                      color:#4f46e5; text-decoration:none; border:1px solid #e0e7ff; background:#eef2ff;
+                      padding:.4rem .8rem; border-radius:.6rem; }
+        .dark .stk-refs a { color:#a5b4fc; background:rgba(67,56,202,.15); border-color:rgba(99,102,241,.3); }
+        .stk-refs a:hover { text-decoration:underline; }
+        .stk-byline { font-size:.8rem; color:#94a3b8; margin-top:.35rem; }
+        .stk-credit { margin-top:2rem; font-size:.8rem; color:#94a3b8; }
+
+        /* Method & equations (MathML) */
+        .stk-math { overflow-x:auto; padding:1rem 1.1rem; margin:.6rem 0 1rem; border:1px solid rgba(148,163,184,.25);
+                    border-radius:.75rem; background:#f8fafc; font-size:1.15rem; }
+        .dark .stk-math { background:#0f172a; }
+        .stk-math math { color:inherit; }
+        .stk-eqn-label { font-size:.9rem; font-weight:600; color:#475569; margin-top:1.1rem; }
+        .dark .stk-eqn-label { color:#cbd5e1; }
+        .stk-where { font-size:.85rem; color:#64748b; line-height:1.75; margin-top:.5rem; }
+        .dark .stk-where { color:#94a3b8; }
+        .stk-model-list { list-style:none; padding:0; margin:.6rem 0 0; display:grid; gap:.55rem; }
+        .stk-model-list li { font-size:.92rem; display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
+        .stk-model-list b { min-width:9rem; color:#475569; font-weight:600; }
+        .dark .stk-model-list b { color:#cbd5e1; }
+        .stk-refs-h { font-weight:700; font-size:1rem; margin-top:1.9rem; margin-bottom:.5rem; }
+        .stk-refs-list { font-size:.82rem; color:#64748b; line-height:1.75; padding-left:1.2rem; }
+        .dark .stk-refs-list { color:#94a3b8; }
+        .stk-refs-list li { margin-bottom:.45rem; }
+        .stk-refs-list a { color:#4f46e5; text-decoration:none; }
+        .dark .stk-refs-list a { color:#a5b4fc; }
+        .stk-refs-list a:hover { text-decoration:underline; }
+
+    </style>
+
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to clean and transform a CSV", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Load your file", "text": "Drag a .csv, .tsv or .txt file onto the drop zone, or click to browse. The delimiter is detected automatically."}, {"@type": "HowToStep", "position": 2, "name": "Pick a column & operation", "text": "Choose a target column (or all numeric columns) and a transformation: drop missing values, remove duplicates, log/ln, absolute value, min–max or Z-score."}, {"@type": "HowToStep", "position": 3, "name": "Execute & inspect", "text": "Click Execute. Live per-column statistics (mean, median, σ, min, max, missing) update so you can sanity-check the result."}, {"@type": "HowToStep", "position": 4, "name": "Export", "text": "Use Revert State to undo everything, or Export to download cleaned_dataset.csv."}]}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my file uploaded to a server?", "acceptedAnswer": {"@type": "Answer", "text": "No. PapaParse reads the file in your browser and all processing stays in memory (RAM). Nothing is transmitted."}}, {"@type": "Question", "name": "Which file types work?", "acceptedAnswer": {"@type": "Answer", "text": "Comma-, tab- or semicolon-delimited text with a header row: .csv, .tsv or .txt. The delimiter is auto-detected."}}, {"@type": "Question", "name": "How is Z-Score calculated?", "acceptedAnswer": {"@type": "Answer", "text": "(value − column mean) / population standard deviation. Non-numeric and missing cells are ignored when computing the statistics."}}, {"@type": "Question", "name": "What does Min–Max do to a constant column?", "acceptedAnswer": {"@type": "Answer", "text": "If every value is identical there is no range to scale, so the column is set to 0."}}, {"@type": "Question", "name": "Why does the preview show only 100 rows?", "acceptedAnswer": {"@type": "Answer", "text": "Only the first 100 rows are rendered to keep the interface responsive; every row is still transformed and included in the export."}}]}
+</script>
     <link rel="stylesheet" href="src/output.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
@@ -156,6 +228,7 @@
                             <option value="minmax">Min-Max Normalization (0-1)</option>
                             <option value="zscore">Z-Score Standardization</option>
                             <option value="abs">Absolute Value</option>
+                            <option value="dedupe">Remove Duplicate Rows</option>
                         </select>
                     </div>
 
@@ -178,6 +251,7 @@
                         <i class="fa-solid fa-rotate-left mr-1"></i> Revert State
                     </button>
                 </div>
+                <div id="colStats" class="hidden flex flex-wrap gap-x-5 gap-y-2 px-4 py-2 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 empty:hidden"></div>
                 <div class="table-container overflow-auto flex-grow relative">
                     <table class="w-full text-left text-sm whitespace-nowrap">
                         <thead id="tableHead" class="bg-slate-100 dark:bg-slate-800 sticky top-0 shadow-sm"></thead>
@@ -187,6 +261,66 @@
             </div>
 
         </section>
+    
+    <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
+        <div class="stk-wrap">
+            <span class="stk-chip"><i class="fa-solid fa-broom"></i> How-To Guide</span>
+            <h2 class="stk-h2">How to clean and transform a CSV</h2>
+            <p class="stk-lead">Load a CSV (or TSV) file, apply column transformations and drop missing rows, then export a tidy dataset — without opening Python, R or a spreadsheet.</p>
+            <p class="stk-byline">By Olanrewaju M. Daramola · 100% client-side</p>
+            <div class="stk-grid stk-grid-2">
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Load your file</h3><p>Drag a <code>.csv</code>, <code>.tsv</code> or <code>.txt</code> file onto the drop zone, or click to browse. The delimiter is detected automatically.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Pick a column & operation</h3><p>Choose a target column (or all numeric columns) and a transformation: drop missing values, remove duplicates, log/ln, absolute value, min–max or Z-score.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Execute & inspect</h3><p>Click <strong>Execute</strong>. Live per-column statistics (mean, median, σ, min, max, missing) update so you can sanity-check the result.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Export</h3><p>Use <strong>Revert State</strong> to undo everything, or <strong>Export</strong> to download <code>cleaned_dataset.csv</code>.</p></div></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="stk-section" id="how-it-works" aria-label="How it works">
+        <div class="stk-wrap">
+            <h2 class="stk-h2">What each transformation does</h2>
+            <div class="stk-grid stk-grid-2">
+                <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Normalisation</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;"><strong>Min–Max</strong> rescales a column to the 0–1 range: <code>(x − min)/(max − min)</code> (a constant column maps to 0). <strong>Z-Score</strong> standardises to mean 0 and standard deviation 1: <code>(x − mean)/σ</code>.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Cleaning & shaping</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;"><strong>Drop Missing Values</strong> removes rows with blanks in the selected column(s). <strong>Remove Duplicate Rows</strong> keeps only the first copy of identical rows. <strong>Log10 / ln</strong> apply only to positive values; <strong>Absolute Value</strong> takes the magnitude.</p></div>
+            </div>
+            <div class="stk-note" style="margin-top:1rem;">
+                <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>
+                <div><strong>Which standard deviation?</strong> Z-Score here uses the <em>population</em> standard deviation (divide by N), matching scikit-learn’s <code>StandardScaler</code>. Tools such as pandas default to the <em>sample</em> standard deviation (divide by N− 1), so values can differ slightly for small datasets.</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="stk-section" id="method" aria-label="Method and equations">
+        <div class="stk-wrap" style="max-width:52rem;">
+            <span class="stk-chip"><i class="fa-solid fa-square-root-variable"></i> Method &amp; Equations</span>
+            <h2 class="stk-h2">The math behind the transforms</h2>
+            <p class="stk-lead">The normalisation and standardisation operations follow standard <strong>feature-scaling</strong> definitions.</p>
+            
+            <p class="stk-eqn-label">Min&ndash;Max normalisation rescales a column to the range [0,&nbsp;1]:</p>
+            <div class="stk-math"><math display="block"><msup><mi>x</mi><mo>′</mo></msup><mo>=</mo><mfrac><mrow><mi>x</mi><mo>−</mo><msub><mi>x</mi><mi>min</mi></msub></mrow><mrow><msub><mi>x</mi><mi>max</mi></msub><mo>−</mo><msub><mi>x</mi><mi>min</mi></msub></mrow></mfrac></math></div>
+            <p class="stk-eqn-label">Z-Score standardisation centres to mean 0 and unit standard deviation:</p>
+            <div class="stk-math"><math display="block"><mi>z</mi><mo>=</mo><mfrac><mrow><mi>x</mi><mo>−</mo><mi>μ</mi></mrow><mi>σ</mi></mfrac><mo>,</mo><mspace width="1.4em"/><mi>μ</mi><mo>=</mo><mfrac><mn>1</mn><mi>N</mi></mfrac><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mrow><mi>N</mi></mrow></munderover><msub><mi>x</mi><mi>i</mi></msub><mo>,</mo><mspace width="1.4em"/><mi>σ</mi><mo>=</mo><msqrt><mrow><mfrac><mn>1</mn><mi>N</mi></mfrac><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mrow><mi>N</mi></mrow></munderover><msup><mrow><mo>(</mo><msub><mi>x</mi><mi>i</mi></msub><mo>−</mo><mi>μ</mi><mo>)</mo></mrow><mn>2</mn></msup></mrow></msqrt></math></div>
+            <p class="stk-where">where <math><mi>x</mi></math> is a cell value, <math><msub><mi>x</mi><mi>min</mi></msub></math>/<math><msub><mi>x</mi><mi>max</mi></msub></math> the column extremes, <math><mi>μ</mi></math> the column mean, <math><mi>σ</mi></math> the <em>population</em> standard deviation (dividing by <math><mi>N</mi></math>), and <math><mi>N</mi></math> the count of numeric values. Non-numeric and missing cells are excluded from the statistics. A constant column (<math><msub><mi>x</mi><mi>max</mi></msub><mo>=</mo><msub><mi>x</mi><mi>min</mi></msub></math>) maps to 0. Log transforms apply only to positive values.</p>
+            <h3 class="stk-refs-h">References &amp; documentation</h3>
+            <ol class="stk-refs-list">
+                
+                <li>Pedregosa, F., et&nbsp;al. (2011). Scikit-learn: Machine learning in Python. <em>JMLR</em>, 12, 2825&ndash;2830. Docs: <a href="https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.StandardScaler.html" target="_blank" rel="noopener">StandardScaler</a> &middot; <a href="https://scikit-learn.org/stable/modules/preprocessing.html" target="_blank" rel="noopener">Preprocessing guide</a>.</li>
+                <li>Heckert, N.&nbsp;A., Filliben, J.&nbsp;J., Croarkin, C., et&nbsp;al. (2002). <em>NIST/SEMATECH e-Handbook of Statistical Methods</em>. <a href="https://www.itl.nist.gov/div898/handbook/" target="_blank" rel="noopener">itl.nist.gov/div898/handbook</a>.</li>
+                <li>Wikipedia: <a href="https://en.wikipedia.org/wiki/Feature_scaling" target="_blank" rel="noopener">Feature scaling</a> &middot; <a href="https://en.wikipedia.org/wiki/Standard_score" target="_blank" rel="noopener">Standard score</a>.</li>
+            </ol>
+        </div>
+    </section>
+
+    <section class="stk-section" id="faq" aria-label="Frequently asked questions">
+        <div class="stk-wrap" style="max-width:52rem;">
+            <h2 class="stk-h2">Frequently asked questions</h2>
+            <div style="margin-top:1rem;">
+                <details class="stk-faq"><summary>Is my file uploaded to a server?</summary><div>No. PapaParse reads the file in your browser and all processing stays in memory (RAM). Nothing is transmitted.</div></details><details class="stk-faq"><summary>Which file types work?</summary><div>Comma-, tab- or semicolon-delimited text with a header row: .csv, .tsv or .txt. The delimiter is auto-detected.</div></details><details class="stk-faq"><summary>How is Z-Score calculated?</summary><div>(value − column mean) / population standard deviation. Non-numeric and missing cells are ignored when computing the statistics.</div></details><details class="stk-faq"><summary>What does Min–Max do to a constant column?</summary><div>If every value is identical there is no range to scale, so the column is set to 0.</div></details><details class="stk-faq"><summary>Why does the preview show only 100 rows?</summary><div>Only the first 100 rows are rendered to keep the interface responsive; every row is still transformed and included in the export.</div></details>
+            </div>
+            <div class="stk-refs">
+                <a href="https://en.wikipedia.org/wiki/Feature_scaling" target="_blank" rel="noopener"><i class="fa-solid fa-ruler"></i> Feature scaling (min–max, standardization)</a><a href="https://en.wikipedia.org/wiki/Standard_score" target="_blank" rel="noopener"><i class="fa-solid fa-chart-simple"></i> Standard score (Z-score)</a><a href="https://www.papaparse.com/" target="_blank" rel="noopener"><i class="fa-solid fa-file-csv"></i> PapaParse CSV library</a>
+            </div>
+            <p class="stk-credit">Built and maintained by <strong>Olanrewaju M.&nbsp;Daramola</strong>. Runs entirely in your browser — no data leaves your device.</p>
+        </div>
+    </section>
+
     </main>
 
     <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
