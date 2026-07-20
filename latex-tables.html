@@ -25,6 +25,7 @@
             "name": "STEMKit LaTeX Table Generator",
             "url": "https://stemkit.net/latex-tables.html",
             "description": "Convert Excel and CSV data into perfectly formatted LaTeX tables natively in the browser.",
+            "author": { "@type": "Person", "name": "Olanrewaju M. Daramola" },
             "applicationCategory": "UtilityApplication",
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
@@ -33,7 +34,7 @@
         }
     </script>
     
-    <meta name="author" content="STEMKit">
+    <meta name="author" content="Olanrewaju M. Daramola">
     <meta name="theme-color" content="#14b8a6">
 
     <meta property="og:type" content="website">
@@ -78,6 +79,77 @@
         @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .toast-enter { animation: slideIn 0.3s forwards; }
     </style>
+    <style>
+        /* STEMKit docs / how-to / FAQ — self-contained styles */
+        .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
+        .stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
+        .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;
+                    text-transform:uppercase; letter-spacing:.12em; padding:.3rem .7rem; border-radius:9999px;
+                    background:#eef2ff; color:#4338ca; border:1px solid #e0e7ff; }
+        .dark .stk-chip { background:rgba(67,56,202,.18); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
+        .stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
+        .stk-lead { max-width:48rem; color:#64748b; line-height:1.6; }
+        .dark .stk-lead { color:#94a3b8; }
+        .stk-grid { display:grid; gap:1rem; grid-template-columns:1fr; margin-top:1.5rem; }
+        @media (min-width:768px){ .stk-grid-3{grid-template-columns:repeat(3,1fr);} .stk-grid-2{grid-template-columns:repeat(2,1fr);} }
+        .stk-card { border-radius:1rem; border:1px solid rgba(148,163,184,.25); padding:1.4rem; background:#fff; }
+        .dark .stk-card { background:#0f172a; border-color:rgba(51,65,85,.8); }
+        .stk-step { display:flex; gap:.85rem; align-items:flex-start; }
+        .stk-num { width:2rem; height:2rem; border-radius:9999px; display:inline-flex; align-items:center;
+                   justify-content:center; font-weight:800; font-size:.85rem; flex-shrink:0;
+                   background:#4f46e5; color:#fff; }
+        .stk-step h3 { font-weight:700; font-size:.95rem; margin-bottom:.15rem; }
+        .stk-step p { font-size:.85rem; color:#64748b; line-height:1.5; }
+        .dark .stk-step p { color:#94a3b8; }
+        .stk-note { display:flex; gap:.6rem; align-items:flex-start; font-size:.82rem; line-height:1.55;
+                    background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:.75rem; padding:.9rem 1rem; }
+        .dark .stk-note { background:rgba(120,53,15,.15); border-color:rgba(180,83,9,.4); color:#fcd34d; }
+        .stk-faq { border-bottom:1px solid rgba(148,163,184,.22); }
+        .stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 0; font-weight:600; font-size:.95rem;
+                             display:flex; justify-content:space-between; align-items:center; gap:1rem; }
+        .stk-faq > summary::-webkit-details-marker { display:none; }
+        .stk-faq > summary::after { content:"+"; font-weight:700; color:#6366f1; font-size:1.2rem; line-height:1; }
+        .stk-faq[open] > summary::after { content:"\2212"; }
+        .stk-faq > div { padding:0 0 1.1rem; font-size:.88rem; line-height:1.6; color:#475569; }
+        .dark .stk-faq > div { color:#94a3b8; }
+        .stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem; }
+        .stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600;
+                      color:#4f46e5; text-decoration:none; border:1px solid #e0e7ff; background:#eef2ff;
+                      padding:.4rem .8rem; border-radius:.6rem; }
+        .dark .stk-refs a { color:#a5b4fc; background:rgba(67,56,202,.15); border-color:rgba(99,102,241,.3); }
+        .stk-refs a:hover { text-decoration:underline; }
+        .stk-byline { font-size:.8rem; color:#94a3b8; margin-top:.35rem; }
+        .stk-credit { margin-top:2rem; font-size:.8rem; color:#94a3b8; }
+
+        /* Method & equations (MathML) */
+        .stk-math { overflow-x:auto; padding:1rem 1.1rem; margin:.6rem 0 1rem; border:1px solid rgba(148,163,184,.25);
+                    border-radius:.75rem; background:#f8fafc; font-size:1.15rem; }
+        .dark .stk-math { background:#0f172a; }
+        .stk-math math { color:inherit; }
+        .stk-eqn-label { font-size:.9rem; font-weight:600; color:#475569; margin-top:1.1rem; }
+        .dark .stk-eqn-label { color:#cbd5e1; }
+        .stk-where { font-size:.85rem; color:#64748b; line-height:1.75; margin-top:.5rem; }
+        .dark .stk-where { color:#94a3b8; }
+        .stk-model-list { list-style:none; padding:0; margin:.6rem 0 0; display:grid; gap:.55rem; }
+        .stk-model-list li { font-size:.92rem; display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
+        .stk-model-list b { min-width:9rem; color:#475569; font-weight:600; }
+        .dark .stk-model-list b { color:#cbd5e1; }
+        .stk-refs-h { font-weight:700; font-size:1rem; margin-top:1.9rem; margin-bottom:.5rem; }
+        .stk-refs-list { font-size:.82rem; color:#64748b; line-height:1.75; padding-left:1.2rem; }
+        .dark .stk-refs-list { color:#94a3b8; }
+        .stk-refs-list li { margin-bottom:.45rem; }
+        .stk-refs-list a { color:#4f46e5; text-decoration:none; }
+        .dark .stk-refs-list a { color:#a5b4fc; }
+        .stk-refs-list a:hover { text-decoration:underline; }
+
+    </style>
+
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to turn a data table into LaTeX", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Paste your data", "text": "Tab- or comma-separated, one row per line. The first row is treated as the header. Click Example to see the format."}, {"@type": "HowToStep", "position": 2, "name": "Choose the style", "text": "Pick an environment (table / table* / sidewaystable), a style (booktabs, standard lines, or full grid) and column alignment."}, {"@type": "HowToStep", "position": 3, "name": "Add caption &amp; label", "text": "Optionally set a caption and a \\label for cross-referencing."}, {"@type": "HowToStep", "position": 4, "name": "Copy or download", "text": "Grab the generated source with Copy or save a .tex file with Download."}]}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my data uploaded?", "acceptedAnswer": {"@type": "Answer", "text": "No. Parsing, preview and LaTeX generation all happen locally in your browser."}}, {"@type": "Question", "name": "Which delimiters are supported?", "acceptedAnswer": {"@type": "Answer", "text": "Tab first, then comma, then whitespace. Tab or comma is recommended so multi-word cells stay intact."}}, {"@type": "Question", "name": "Do I need extra packages?", "acceptedAnswer": {"@type": "Answer", "text": "booktabs style needs \\usepackage{booktabs}; sidewaystable needs \\usepackage{rotating}. The tool adds these as comment reminders."}}, {"@type": "Question", "name": "Are special characters handled?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Reserved LaTeX characters in your cells are escaped so the table compiles cleanly."}}, {"@type": "Question", "name": "Which row is the header?", "acceptedAnswer": {"@type": "Answer", "text": "The first non-empty row. It is placed above the mid-rule / first line."}}]}
+</script>
     <link rel="stylesheet" href="src/output.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
@@ -142,6 +214,7 @@
                 <i class="fa-solid fa-table-cells"></i> Formatting utility
             </div>
             <h1 class="text-4xl font-black mb-2 tracking-tight">Visual LaTeX Tables</h1>
+            <p class="text-xs text-slate-400 mt-1">By Olanrewaju M. Daramola · 100% client-side</p>
             <p class="text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
                 Paste your data matrix directly from Excel or CSV. Configure your typographical parameters below, and instantly copy the compiled LaTeX syntax.
             </p>
@@ -221,6 +294,8 @@
                 <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col flex-grow relative overflow-hidden">
                     <div class="bg-slate-950 px-4 py-3 flex justify-between items-center border-b border-slate-800 shrink-0">
                         <span class="text-sm font-bold text-teal-400 uppercase tracking-wider font-mono">Compiled LaTeX</span>
+                        <button id="btnExample" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all mr-2">Example</button>
+                        <button id="btnDownload" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-all mr-2 flex items-center gap-1"><i class="fa-solid fa-download"></i> .tex</button>
                         <button id="btnCopyCode" class="bg-teal-600 hover:bg-teal-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md transform hover:-translate-y-0.5 active:scale-95 flex items-center gap-1">
                             <i class="fa-regular fa-copy"></i> Copy syntax
                         </button>
@@ -233,6 +308,34 @@
             </div>
 
         </div>
+    
+    <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
+        <div class="stk-wrap">
+            <span class="stk-chip"><i class="fa-solid fa-table"></i> How-To Guide</span>
+            <h2 class="stk-h2">How to turn a data table into LaTeX</h2>
+            <p class="stk-lead">Paste rows from Excel, Numbers or a CSV and get a publication-ready LaTeX table, with a live preview and copy/download.</p>
+            <p class="stk-byline">By Olanrewaju M. Daramola · 100% client-side</p>
+            <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Paste your data</h3><p>Tab- or comma-separated, one row per line. The first row is treated as the header. Click <strong>Example</strong> to see the format.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Choose the style</h3><p>Pick an environment (table / table* / sidewaystable), a style (booktabs, standard lines, or full grid) and column alignment.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Add caption &amp; label</h3><p>Optionally set a caption and a <code>\label</code> for cross-referencing.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Copy or download</h3><p>Grab the generated source with <strong>Copy</strong> or save a <code>.tex</code> file with <strong>Download</strong>.</p></div></div></div>
+        </div>
+    </section>
+
+    <section class="stk-section" id="how-it-works" aria-label="How it works">
+        <div class="stk-wrap">
+            <h2 class="stk-h2">How it works</h2>
+            <div class="stk-grid stk-grid-2"><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Reserved characters are escaped</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Cell contents are LaTeX-escaped so characters like <code>&amp; % $ # _ { } ~ ^ \</code> won't break compilation. A recent fix corrected backslash handling that previously emitted broken <code>\textbackslash\{\}</code>.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Package reminders included</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">When you pick booktabs or a landscape table, the output is prefixed with the exact <code>\usepackage{…}</code> your document needs, as comments, so the snippet compiles as-is.</p></div></div>
+            <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>For multi-word cells, use tab or comma separation. Space separation is only a last resort and will split values like &ldquo;New York&rdquo; into two columns. The booktabs style requires <code>\usepackage{booktabs}</code>; landscape tables require <code>\usepackage{rotating}</code> (both are noted in the output).</div></div>
+        </div>
+    </section>
+
+    <section class="stk-section" id="faq" aria-label="Frequently asked questions">
+        <div class="stk-wrap" style="max-width:52rem;">
+            <h2 class="stk-h2">Frequently asked questions</h2>
+            <div style="margin-top:1rem;"><details class="stk-faq"><summary>Is my data uploaded?</summary><div>No. Parsing, preview and LaTeX generation all happen locally in your browser.</div></details><details class="stk-faq"><summary>Which delimiters are supported?</summary><div>Tab first, then comma, then whitespace. Tab or comma is recommended so multi-word cells stay intact.</div></details><details class="stk-faq"><summary>Do I need extra packages?</summary><div>booktabs style needs \usepackage{booktabs}; sidewaystable needs \usepackage{rotating}. The tool adds these as comment reminders.</div></details><details class="stk-faq"><summary>Are special characters handled?</summary><div>Yes. Reserved LaTeX characters in your cells are escaped so the table compiles cleanly.</div></details><details class="stk-faq"><summary>Which row is the header?</summary><div>The first non-empty row. It is placed above the mid-rule / first line.</div></details></div>
+            <div class="stk-refs"><a href="https://ctan.org/pkg/booktabs" target="_blank" rel="noopener"><i class="fa-solid fa-table"></i> booktabs package (CTAN)</a><a href="https://www.overleaf.com/learn/latex/Tables" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> Overleaf: tables guide</a><a href="https://en.wikibooks.org/wiki/LaTeX/Tables" target="_blank" rel="noopener"><i class="fa-solid fa-book-open"></i> LaTeX Wikibook: tables</a></div>
+            <p class="stk-credit">Built and maintained by <strong>Olanrewaju M.&nbsp;Daramola</strong>. Runs entirely in your browser — no data leaves your device.</p>
+        </div>
+    </section>
+
     </main>
 
     <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
