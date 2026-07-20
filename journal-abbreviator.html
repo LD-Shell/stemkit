@@ -30,7 +30,7 @@
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "CASSI Standard Database", "Live Text Highlighting", "Client-Side Processing" ]
+            "featureList": [ "CASSI Standard Database", "Live Text Highlighting", "Client-Side Processing", "Custom User Abbreviations", "Unrecognised-Title Detection" ]
         }
     </script>
     
@@ -58,6 +58,9 @@
         
         /* Highlight applied changes */
         .hl-change { background-color: rgba(236, 72, 153, 0.2); border-bottom: 2px solid #ec4899; padding: 0 2px; border-radius: 2px; }
+
+        /* Likely journal title that is NOT in the dictionary */
+        .hl-unknown { background-color: rgba(245, 158, 11, 0.15); border-bottom: 2px dotted #f59e0b; padding: 0 2px; border-radius: 2px; cursor: help; }
     </style>
     <style>
         /* STEMKit docs / how-to / FAQ — self-contained styles */
@@ -125,10 +128,10 @@
     </style>
 
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "HowTo", "name": "How to abbreviate journal names", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Paste your references", "text": "Drop a bibliography or .bib file into the input box, or click Example to try a sample."}, {"@type": "HowToStep", "position": 2, "name": "Watch the live output", "text": "Recognised titles are replaced instantly; matches are highlighted so you can verify each change."}, {"@type": "HowToStep", "position": 3, "name": "Toggle highlighting", "text": "Turn highlights off for a clean view, or keep them on to audit exactly what changed (hover to see the original)."}, {"@type": "HowToStep", "position": 4, "name": "Copy the result", "text": "Click Copy Text to grab the abbreviated bibliography."}]}
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to abbreviate journal names", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Paste your references", "text": "Drop a bibliography or .bib file into the input box, or click Example to try a sample."}, {"@type": "HowToStep", "position": 2, "name": "Watch the live output", "text": "Recognised titles are replaced instantly; matches are highlighted in pink, and likely journal titles the dictionary does not know are flagged in amber."}, {"@type": "HowToStep", "position": 3, "name": "Add your own abbreviations", "text": "Open Custom abbreviations and add one rule per line as Full Name = Abbrev. Rules are saved in your browser and override the built-in list."}, {"@type": "HowToStep", "position": 4, "name": "Copy the result", "text": "Click Copy Text to grab the abbreviated bibliography."}]}
 </script>
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my bibliography uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Matching and replacement run entirely in your browser; nothing is sent to a server."}}, {"@type": "Question", "name": "Why wasn't one of my journals abbreviated?", "acceptedAnswer": {"@type": "Answer", "text": "The built-in list is a curated subset, not the full CASSI database. Titles it doesn't recognise are left untouched &mdash; check them against CASSI or the LTWA."}}, {"@type": "Question", "name": "What standard do the abbreviations follow?", "acceptedAnswer": {"@type": "Answer", "text": "CASSI (the CAS Source Index) for chemistry titles, which aligns with ISO&nbsp;4 and the ISSN List of Title Word Abbreviations (LTWA)."}}, {"@type": "Question", "name": "Does it handle titles with an ampersand?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Names such as ACS Applied Materials &amp; Interfaces are matched and highlighted correctly."}}, {"@type": "Question", "name": "Can I see what changed?", "acceptedAnswer": {"@type": "Answer", "text": "Keep Highlight on: each replaced title is marked, and hovering shows the original full name."}}]}
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my bibliography uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Matching and replacement run entirely in your browser; nothing is sent to a server. Custom rules are stored only in your browser's local storage."}}, {"@type": "Question", "name": "Why wasn't one of my journals abbreviated?", "acceptedAnswer": {"@type": "Answer", "text": "The built-in list is a curated subset of about 200 titles, not the full CASSI database. Unrecognised titles are left untouched and flagged in amber so you can verify them against CASSI or the LTWA, or add them as a custom rule."}}, {"@type": "Question", "name": "Can I add my own journal abbreviations?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Open the Custom abbreviations panel and add one rule per line in the form Full Journal Name = Abbrev. Custom rules override the built-in list and are saved in your browser."}}, {"@type": "Question", "name": "What standard do the abbreviations follow?", "acceptedAnswer": {"@type": "Answer", "text": "CASSI (the CAS Source Index) for chemistry titles, which aligns with ISO&nbsp;4 and the ISSN List of Title Word Abbreviations (LTWA)."}}, {"@type": "Question", "name": "Does it handle variant spellings of a title?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Matching tolerates a leading The, an ampersand written as and, missing colons, different dashes, any capitalisation, and titles wrapped across lines in a .bib file."}}, {"@type": "Question", "name": "Can I see what changed?", "acceptedAnswer": {"@type": "Answer", "text": "Keep Highlight on: each replaced title is marked in pink (hover to see the original), and suspected unknown journal titles are marked in amber."}}]}
 </script>
     <link rel="stylesheet" href="src/output.css">
 </head>
@@ -195,7 +198,7 @@
             </div>
             <h1 class="text-4xl font-black mb-2 tracking-tight">Journal Abbreviator</h1>
             <p class="text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
-                Paste your reference list or BibTeX file below. The engine will instantly parse the text and replace full journal titles with their standardized CASSI abbreviations.
+                Paste your reference list or BibTeX file below. The engine will instantly parse the text and replace full journal titles with their standardized CASSI abbreviations. Titles it doesn't recognise are flagged, and you can add your own rules.
             </p>
             <p class="text-xs text-slate-400 mt-3">By Olanrewaju M. Daramola · 100% client-side</p>
         </header>
@@ -213,6 +216,20 @@
                     </div>
                     <textarea id="dataInput" class="w-full flex-grow bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-pink-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" spellcheck="false" placeholder="Paste bibliography here...&#10;&#10;E.g., Smith, J. et al., Journal of the American Chemical Society, 2024."></textarea>
                 </div>
+
+                <details class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 shrink-0">
+                    <summary class="flex justify-between items-center cursor-pointer select-none list-none">
+                        <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                            <i class="fa-solid fa-pen-to-square text-pink-500 mr-1"></i> Custom abbreviations
+                        </span>
+                        <span id="dictLabel" class="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded font-mono"></span>
+                    </summary>
+                    <p class="text-xs text-slate-400 mt-3 mb-2 leading-relaxed">
+                        One rule per line: <code class="text-pink-500">Full Journal Name = Abbrev.</code> &mdash; lines starting with <code>#</code> are ignored.
+                        Custom rules override the built-in list and are saved in this browser only.
+                    </p>
+                    <textarea id="customRules" rows="4" spellcheck="false" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-pink-500 outline-none resize-y custom-scroll" placeholder="# Example:&#10;Journal of Fictional Chemistry = J. Fict. Chem."></textarea>
+                </details>
             </div>
 
             <div class="w-full lg:w-1/2 flex flex-col gap-4">
@@ -248,22 +265,22 @@
             <h2 class="stk-h2">How to abbreviate journal names</h2>
             <p class="stk-lead">Paste a reference list or BibTeX and the tool swaps recognised full journal titles for their standard abbreviations, live as you type.</p>
             <p class="stk-byline">By Olanrewaju M. Daramola · 100% client-side</p>
-            <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Paste your references</h3><p>Drop a bibliography or .bib file into the input box, or click <strong>Example</strong> to try a sample.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Watch the live output</h3><p>Recognised titles are replaced instantly; matches are highlighted so you can verify each change.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Toggle highlighting</h3><p>Turn highlights off for a clean view, or keep them on to audit exactly what changed (hover to see the original).</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Copy the result</h3><p>Click <strong>Copy Text</strong> to grab the abbreviated bibliography.</p></div></div></div>
+            <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Paste your references</h3><p>Drop a bibliography or .bib file into the input box, or click <strong>Example</strong> to try a sample.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Watch the live output</h3><p>Recognised titles are replaced instantly and highlighted in pink; likely journal titles the dictionary <em>doesn't</em> know are flagged in amber so nothing slips through unnoticed.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Add your own rules</h3><p>Open <strong>Custom abbreviations</strong> and add <code>Full Name = Abbrev.</code> lines for niche journals. Rules are saved in your browser and override the built-in list.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Copy the result</h3><p>Click <strong>Copy Text</strong> to grab the abbreviated bibliography.</p></div></div></div>
         </div>
     </section>
 
     <section class="stk-section" id="how-it-works" aria-label="How it works">
         <div class="stk-wrap">
             <h2 class="stk-h2">How the matching works</h2>
-            <div class="stk-grid stk-grid-2"><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Longest-match, word-boundary replacement</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Titles are matched case-insensitively against a curated list, longest entries first, using word boundaries so a full title is preferred over any shorter fragment. Replacement, highlighting and copying all happen in your browser.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">A curated subset &mdash; not the full CASSI</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">The built-in list covers common physical-science journals and is hand-checked. It is <em>not</em> the complete CASSI database, so always confirm unusual titles against the official sources linked below.</p></div></div>
-            <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>Two earlier entries were corrected in this version: <strong>Chemical Communications</strong> now maps to <code>Chem. Commun.</code> and <strong>Chemical Reviews</strong> to <code>Chem. Rev.</code> (previously both were wrong). Abbreviation style follows CASSI for chemistry and ISO&nbsp;4 / the LTWA more generally.</div></div>
+            <div class="stk-grid stk-grid-2"><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Variant-tolerant, longest-match replacement</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Titles are matched case-insensitively against a curated list of ~200 journals, longest entries first, so a full title always beats any shorter fragment. Matching also tolerates a leading <em>The</em>, "&amp;" written as "and", missing colons, hyphen vs. en-dash, and titles wrapped across lines in a .bib file. Everything runs in your browser.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Extensible &mdash; and honest about gaps</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">The built-in list is a hand-checked subset of CASSI, not the full database. Anything that <em>looks</em> like a journal title but isn't recognised is flagged in amber and left untouched &mdash; verify it against the official sources below, or add it yourself in the <strong>Custom abbreviations</strong> panel (the whole built-in list lives in a single, easy-to-edit data file).</p></div></div>
+            <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>Common single-word titles whose abbreviation equals the full name (<strong>Nature</strong>, <strong>Science</strong>, <strong>Small</strong>, <strong>Langmuir</strong>&hellip;) are recognised but never altered or highlighted, so ordinary English words in your text are safe. Abbreviation style follows CASSI for chemistry and ISO&nbsp;4 / the LTWA more generally.</div></div>
         </div>
     </section>
 
     <section class="stk-section" id="faq" aria-label="Frequently asked questions">
         <div class="stk-wrap" style="max-width:52rem;">
             <h2 class="stk-h2">Frequently asked questions</h2>
-            <div style="margin-top:1rem;"><details class="stk-faq"><summary>Is my bibliography uploaded anywhere?</summary><div>No. Matching and replacement run entirely in your browser; nothing is sent to a server.</div></details><details class="stk-faq"><summary>Why wasn't one of my journals abbreviated?</summary><div>The built-in list is a curated subset, not the full CASSI database. Titles it doesn't recognise are left untouched &mdash; check them against CASSI or the LTWA.</div></details><details class="stk-faq"><summary>What standard do the abbreviations follow?</summary><div>CASSI (the CAS Source Index) for chemistry titles, which aligns with ISO&nbsp;4 and the ISSN List of Title Word Abbreviations (LTWA).</div></details><details class="stk-faq"><summary>Does it handle titles with an ampersand?</summary><div>Yes. Names such as <em>ACS Applied Materials &amp; Interfaces</em> are matched and highlighted correctly.</div></details><details class="stk-faq"><summary>Can I see what changed?</summary><div>Keep <em>Highlight</em> on: each replaced title is marked, and hovering shows the original full name.</div></details></div>
+            <div style="margin-top:1rem;"><details class="stk-faq"><summary>Is my bibliography uploaded anywhere?</summary><div>No. Matching and replacement run entirely in your browser; nothing is sent to a server. Custom rules are stored only in your browser's local storage.</div></details><details class="stk-faq"><summary>Why wasn't one of my journals abbreviated?</summary><div>The built-in list is a curated subset of ~200 titles, not the full CASSI database. Unrecognised titles are left untouched and flagged in amber &mdash; check them against CASSI or the LTWA, or add them as a custom rule.</div></details><details class="stk-faq"><summary>Can I add my own journal abbreviations?</summary><div>Yes. Open the <em>Custom abbreviations</em> panel below the input and add one rule per line as <code>Full Journal Name = Abbrev.</code> Custom rules override the built-in list and persist in your browser.</div></details><details class="stk-faq"><summary>What standard do the abbreviations follow?</summary><div>CASSI (the CAS Source Index) for chemistry titles, which aligns with ISO&nbsp;4 and the ISSN List of Title Word Abbreviations (LTWA).</div></details><details class="stk-faq"><summary>Does it handle variant spellings of a title?</summary><div>Yes. A leading <em>The</em>, "&amp;" written as "and" (e.g. <em>ACS Applied Materials and Interfaces</em>), missing colons (<em>Journal of Physics Condensed Matter</em>), different dashes, any capitalisation, and line-wrapped BibTeX titles are all matched.</div></details><details class="stk-faq"><summary>Can I see what changed?</summary><div>Keep <em>Highlight</em> on: each replaced title is marked in pink (hover to see the original), and suspected unknown journals are marked in amber.</div></details></div>
             <div class="stk-refs"><a href="https://cassi.cas.org/" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> CASSI Search Tool</a><a href="https://en.wikipedia.org/wiki/ISO_4" target="_blank" rel="noopener"><i class="fa-solid fa-hashtag"></i> ISO 4 standard</a><a href="https://en.wikipedia.org/wiki/List_of_Title_Word_Abbreviations" target="_blank" rel="noopener"><i class="fa-solid fa-list"></i> LTWA (ISSN)</a></div>
             <p class="stk-credit">Built and maintained by <strong>Olanrewaju M.&nbsp;Daramola</strong>. Runs entirely in your browser — no data leaves your device.</p>
         </div>
@@ -322,6 +339,7 @@
             });
         }
     </script>
+    <script src="js/journal-data.js"></script>
     <script src="js/journal-abbreviator.js"></script>
 </body>
 </html>
