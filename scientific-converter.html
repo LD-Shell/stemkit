@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <title>Scientific Energy Converter | Hartrees, eV, kJ/mol | STEMKit</title>
-    <meta name="title" content="Scientific Energy Converter | Hartrees, eV, kJ/mol | STEMKit">
-    <meta name="description" content="Instantly convert between Hartrees, eV, kcal/mol, kJ/mol, and inverse cm. A precision thermodynamics unit converter for physical chemistry.">
-    <meta name="keywords" content="energy unit converter, hartree to ev, kcal/mol to kj/mol, physical chemistry calculator, thermodynamics converter">
+    <title>Scientific Unit Converter | Energy, Dipole, Charge, Spectroscopy | STEMKit</title>
+    <meta name="title" content="Scientific Unit Converter | Energy, Dipole, Charge, Spectroscopy | STEMKit">
+    <meta name="description" content="Precision unit converter for computational chemistry & physics: Hartree/eV/kJ/mol energy, length, time, force, pressure, dipole moment, charge, polarizability, spectroscopy and temperature. Built on 2018 CODATA and exact SI values with inline references.">
+    <meta name="keywords" content="scientific unit converter, hartree to ev, kcal/mol to kj/mol, debye to atomic units, cm-1 to ev, CODATA converter, polarizability converter, dipole moment converter, computational chemistry calculator">
     
     <link rel="canonical" href="https://stemkit.net/scientific-converter.html">
     <meta property="og:url" content="https://stemkit.net/scientific-converter.html">
@@ -50,8 +50,13 @@
     <link rel="stylesheet" href="css/all.min.css">
     
     <style>
-        .info-group .tooltip { visibility: hidden; opacity: 0; transition: opacity 0.2s ease, visibility 0.2s ease; }
-        .info-group:hover .tooltip { visibility: visible; opacity: 1; }
+        .info-trigger { position: relative; display: inline-flex; }
+        .info-trigger .info-icon { color: #94a3b8; transition: color 0.15s ease; cursor: help; }
+        .info-trigger:hover .info-icon { color: #4f46e5; }
+        .dark .info-trigger .info-icon { color: #64748b; }
+        .dark .info-trigger:hover .info-icon { color: #818cf8; }
+        .info-trigger .tooltip { visibility: hidden; opacity: 0; transition: opacity 0.2s ease, visibility 0.2s ease; }
+        .info-trigger:hover .tooltip { visibility: visible; opacity: 1; }
         
         .custom-scroll::-webkit-scrollbar { height: 6px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -63,7 +68,81 @@
         
         @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .toast-enter { animation: slideIn 0.3s forwards; }
+
+        /* ---- Method & References section (mirrors home.css .stk-* tokens) ---- */
+        .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
+        .stk-wrap { max-width: 64rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
+        .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;
+            text-transform:uppercase; letter-spacing:.12em; padding:.35rem .7rem; border-radius:9999px;
+            background:rgba(99,102,241,.12); color:#4f46e5; border:1px solid rgba(99,102,241,.25); }
+        .dark .stk-chip { background:rgba(99,102,241,.18); color:#a5b4fc; border-color:rgba(129,140,248,.3); }
+        .stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
+        .stk-lead { max-width:48rem; color:#64748b; line-height:1.6; }
+        .dark .stk-lead { color:#94a3b8; }
+        .stk-eqn-label { font-size:.9rem; font-weight:600; color:#475569; margin-top:1.1rem; }
+        .dark .stk-eqn-label { color:#cbd5e1; }
+        .stk-math { overflow-x:auto; padding:1rem 1.1rem; margin:.6rem 0 1rem; border:1px solid rgba(148,163,184,.25);
+            border-radius:.6rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.9rem;
+            background:#f8fafc; color:#0f172a; }
+        .dark .stk-math { background:#0f172a; color:#e2e8f0; }
+        .stk-where { font-size:.85rem; color:#64748b; line-height:1.75; margin-top:.5rem; }
+        .dark .stk-where { color:#94a3b8; }
+        .stk-table { width:100%; border-collapse:collapse; margin-top:1rem; font-size:.85rem; }
+        .stk-table th, .stk-table td { border:1px solid rgba(148,163,184,.3); padding:.55rem .7rem; text-align:left; }
+        .stk-table th { background:#f1f5f9; font-weight:700; }
+        .dark .stk-table th { background:#1e293b; }
+        .stk-refs-h { font-weight:700; font-size:1rem; margin-top:1.9rem; margin-bottom:.5rem; }
+        .stk-refs-list { font-size:.82rem; color:#64748b; line-height:1.75; padding-left:1.2rem; }
+        .dark .stk-refs-list { color:#94a3b8; }
+        .stk-refs-list li { margin-bottom:.55rem; }
+        .stk-refs-list a { color:#4f46e5; text-decoration:none; }
+        .dark .stk-refs-list a { color:#a5b4fc; }
+        .stk-refs-list a:hover { text-decoration:underline; }
+        .stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1.25rem; }
+        .stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600;
+            color:#4f46e5; background:rgba(99,102,241,.1); border:1px solid rgba(99,102,241,.22);
+            padding:.4rem .8rem; border-radius:9999px; text-decoration:none; }
+        .dark .stk-refs a { color:#a5b4fc; background:rgba(99,102,241,.15); border-color:rgba(129,140,248,.3); }
+        .stk-refs a:hover { text-decoration:underline; }
+        .stk-credit { margin-top:2rem; font-size:.8rem; color:#94a3b8; }
+        .stk-faq { border-bottom:1px solid rgba(148,163,184,.22); }
+        .stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 2.5rem 1rem 0; font-weight:600;
+            font-size:.95rem; position:relative; }
+        .stk-faq > summary::-webkit-details-marker { display:none; }
+        .stk-faq > summary::after { content:"+"; position:absolute; right:.25rem; top:1rem; font-weight:700;
+            color:#6366f1; font-size:1.2rem; line-height:1; }
+        .stk-faq[open] > summary::after { content:"\2212"; }
+        .stk-faq > div { padding:0 0 1.1rem; font-size:.88rem; line-height:1.6; color:#475569; }
+        .dark .stk-faq > div { color:#94a3b8; }
+        .hl { color:#4f46e5; font-weight:600; }
+        .dark .hl { color:#818cf8; }
+        .stk-section code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.82em;
+            background:rgba(148,163,184,.16); padding:.1em .35em; border-radius:.3rem; }
+        .doc-tabs { display:flex; flex-wrap:wrap; gap:.4rem; margin:1.25rem 0 1.75rem;
+            border-bottom:1px solid rgba(148,163,184,.25); padding-bottom:.75rem; }
+        .doc-tab { display:inline-flex; align-items:center; gap:.45rem; font-size:.85rem; font-weight:700;
+            padding:.5rem .9rem; border-radius:.6rem; border:1px solid transparent; cursor:pointer;
+            background:transparent; color:#64748b; transition:all .15s; }
+        .doc-tab:hover { background:#f1f5f9; color:#0f172a; }
+        .dark .doc-tab { color:#94a3b8; }
+        .dark .doc-tab:hover { background:#1e293b; color:#f1f5f9; }
+        .doc-tab.active { background:#4f46e5; color:#fff; border-color:#4f46e5; }
+        .doc-tab.active:hover { background:#4338ca; color:#fff; }
+        .doc-pane { display:none; }
+        .doc-pane.active { display:block; animation:docfade .2s ease; }
+        @keyframes docfade { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+        @media (max-width:640px){
+            .stk-section { padding:2rem 0; }
+            .stk-wrap { padding-left:1rem; padding-right:1rem; }
+            .stk-h2 { font-size:1.3rem; }
+            .stk-math { font-size:.9rem; padding:.8rem; }
+            .stk-table { font-size:.78rem; }
+            .stk-table th, .stk-table td { padding:.4rem .5rem; }
+            .doc-tab { font-size:.78rem; padding:.4rem .7rem; }
+            .stk-section code { white-space:normal; word-break:break-word; }
+        }
     </style>
+    <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
@@ -121,6 +200,28 @@
         </div>
     </nav>
 
+    <!--
+      Tailwind safelist. The converter builds color classes at runtime from
+      each category's `color` (e.g. bg-cyan-100, focus:ring-teal-500). Class
+      names that appear only inside JS template literals are invisible to
+      Tailwind's content scanner and would be purged from output.css. This
+      hidden element forces every generatable class to survive the build.
+      Keep the color list in sync with UNIT_DB colors in scientific-converter.js.
+    -->
+    <div class="hidden
+        bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800/50 border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-900/20 text-orange-300 focus:ring-orange-500 hover:text-orange-500 border-orange-400
+        bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/50 border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 text-blue-300 focus:ring-blue-500 hover:text-blue-500 border-blue-400
+        bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-300 focus:ring-emerald-500 hover:text-emerald-500 border-emerald-400
+        bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800/50 border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20 text-purple-300 focus:ring-purple-500 hover:text-purple-500 border-purple-400
+        bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800/50 border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-900/20 text-rose-300 focus:ring-rose-500 hover:text-rose-500 border-rose-400
+        bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800/50 border-cyan-300 dark:border-cyan-700 bg-cyan-50 dark:bg-cyan-900/20 text-cyan-300 focus:ring-cyan-500 hover:text-cyan-500 border-cyan-400
+        bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-300 focus:ring-amber-500 hover:text-amber-500 border-amber-400
+        bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-800/50 border-teal-300 dark:border-teal-700 bg-teal-50 dark:bg-teal-900/20 text-teal-300 focus:ring-teal-500 hover:text-teal-500 border-teal-400
+        bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/50 border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-300 focus:ring-indigo-500 hover:text-indigo-500 border-indigo-400
+        bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800/50 border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 text-red-300 focus:ring-red-500 hover:text-red-500 border-red-400
+        bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-700 dark:text-fuchsia-400 border-fuchsia-200 dark:border-fuchsia-800/50 border-fuchsia-300 dark:border-fuchsia-700 bg-fuchsia-50 dark:bg-fuchsia-900/20 text-fuchsia-300 focus:ring-fuchsia-500 hover:text-fuchsia-500 border-fuchsia-400
+    " aria-hidden="true"></div>
+
     <main class="flex-grow max-w-5xl mx-auto px-6 py-12 w-full flex flex-col items-center">
         
         <header class="mb-8 text-center">
@@ -152,9 +253,27 @@
                 <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="pressure" data-color="rose">
                     <i class="fa-solid fa-compress mr-1 text-rose-500"></i> Pressure
                 </button>
+                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="dipole" data-color="cyan">
+                    <i class="fa-solid fa-magnet mr-1 text-cyan-500"></i> Dipole
+                </button>
+                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="charge" data-color="amber">
+                    <i class="fa-solid fa-bolt-lightning mr-1 text-amber-500"></i> Charge
+                </button>
+                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="polarizability" data-color="teal">
+                    <i class="fa-solid fa-atom mr-1 text-teal-500"></i> Polarizability
+                </button>
+                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="spectroscopy" data-color="indigo">
+                    <i class="fa-solid fa-wave-square mr-1 text-indigo-500"></i> Spectroscopy
+                </button>
+                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="temperature" data-color="red">
+                    <i class="fa-solid fa-temperature-half mr-1 text-red-500"></i> Temperature
+                </button>
+                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="heatcap" data-color="fuchsia">
+                    <i class="fa-solid fa-fire mr-1 text-fuchsia-500"></i> Heat Cap. &amp; Entropy
+                </button>
             </div>
 
-            <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl p-8 relative overflow-hidden w-full">
+            <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl p-8 relative w-full">
                 
                 <div class="flex justify-end mb-6">
                     <button id="btnReset" class="text-xs font-bold text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1">
@@ -162,30 +281,184 @@
                     </button>
                 </div>
 
+                <p id="categoryNote" class="mb-6 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 leading-relaxed w-full"></p>
+
                 <div id="matrixGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
                     </div>
                 
                 <div class="mt-8 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 w-full">
                     <p class="font-bold mb-1"><i class="fa-solid fa-microchip mr-1"></i> Conversion logic</p>
-                    <p>Calculations execute locally utilizing standard CODATA relative reference factors.</p>
+                    <p>All calculations run locally in your browser. Factors are the 2018 CODATA recommended values and exact SI (2019) definitions; hover any unit's <i class="fa-solid fa-circle-info"></i> for its definition and source, or see the full <a href="#method" class="text-indigo-500 hover:underline font-semibold">method &amp; references</a> below.</p>
                 </div>
 
             </div>
         </div>
+        <!-- ================= METHOD & REFERENCES ================= -->
+        <section class="stk-section w-full" id="method" aria-label="Method and references">
+            <div class="stk-wrap">
+                <span class="stk-chip"><i class="fa-solid fa-square-root-variable"></i> Method &amp; References</span>
+                <h2 class="stk-h2">How the factors are defined, and where they come from</h2>
+                <p class="stk-lead">Every conversion in this tool reduces to a single reference constant per category. The numbers are not rounded conveniences &mdash; they are the <strong>2018 CODATA recommended values</strong> and the <strong>exact SI (2019) definitions</strong>. Pick a domain below for the exact relations and the primary source of each constant.</p>
+
+                <div class="doc-tabs" role="tablist">
+                    <button class="doc-tab active" data-doc-tab="energy" role="tab"><i class="fa-solid fa-bolt"></i> Energy</button>
+                    <button class="doc-tab" data-doc-tab="atomic" role="tab"><i class="fa-solid fa-atom"></i> Atomic units</button>
+                    <button class="doc-tab" data-doc-tab="spectro" role="tab"><i class="fa-solid fa-wave-square"></i> Spectroscopy</button>
+                    <button class="doc-tab" data-doc-tab="thermo" role="tab"><i class="fa-solid fa-temperature-half"></i> Thermo</button>
+                </div>
+
+                <!-- ENERGY PANE -->
+                <div class="doc-pane active" data-doc-pane="energy">
+                    <h2 class="stk-h2">Energy: the Hartree as the anchor</h2>
+                    <p class="stk-lead">All energy units are expressed relative to the Hartree, E<sub>h</sub>, the atomic unit of energy. Its SI value is fixed by the Rydberg constant through E<sub>h</sub> = 2R<sub>&infin;</sub>hc.</p>
+                    <p class="stk-eqn-label">The defining chain:</p>
+                    <div class="stk-math">E<sub>h</sub> = 4.359&nbsp;744&nbsp;722&nbsp;2071 &times; 10<sup>-18</sup> J = 27.211&nbsp;386&nbsp;246 eV = 2 Ry<br>1 E<sub>h</sub> &equiv; 2625.4996 kJ/mol = 627.5095 kcal/mol = 219474.63 cm<sup>-1</sup></div>
+                    <p class="stk-where">
+                        <span class="hl">Molar units</span> (kcal/mol, kJ/mol) multiply the per-particle energy by the Avogadro constant <span class="hl">N<sub>A</sub> = 6.022&nbsp;140&nbsp;76&times;10<sup>23</sup> mol<sup>-1</sup></span>, which is <em>exact</em> since the 2019 SI redefinition. The <span class="hl">thermochemical calorie</span> (1 cal = 4.184 J, exact by definition) links kcal/mol to kJ/mol &mdash; this is the calorie used by AMBER and CHARMM, not the 15&deg;C or IT calorie. The <span class="hl">wavenumber</span> relation E = hc&nu;&#771; makes cm<sup>-1</sup> an energy unit in spectroscopy.
+                    </p>
+                    <table class="stk-table">
+                        <thead><tr><th>Unit</th><th>1 E<sub>h</sub> equals</th><th>Basis</th></tr></thead>
+                        <tbody>
+                            <tr><td>eV</td><td>27.211386246</td><td>CODATA 2018 (exact eV since 2019)</td></tr>
+                            <tr><td>kJ/mol</td><td>2625.499639</td><td>CODATA 2018 &times; N<sub>A</sub></td></tr>
+                            <tr><td>kcal/mol</td><td>627.509474</td><td>+ thermochemical calorie (4.184 J)</td></tr>
+                            <tr><td>cm<sup>-1</sup></td><td>219474.6314</td><td>CODATA 2018 hartree&ndash;inverse-metre</td></tr>
+                            <tr><td>K (E/k<sub>B</sub>)</td><td>315775.02</td><td>CODATA 2018 hartree&ndash;kelvin</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- ATOMIC UNITS PANE -->
+                <div class="doc-pane" data-doc-pane="atomic">
+                    <h2 class="stk-h2">Atomic units: length, force, dipole, charge, polarizability</h2>
+                    <p class="stk-lead">Quantum-chemistry codes (Gaussian, ORCA, Psi4, Quantum ESPRESSO) work internally in atomic units, where <span class="hl">&hbar; = m<sub>e</sub> = e = 1</span> and 4&pi;&epsilon;<sub>0</sub> = 1. Converting their output to lab units needs the CODATA values below.</p>
+                    <p class="stk-eqn-label">The atomic units used here:</p>
+                    <div class="stk-math">a<sub>0</sub> (length) = 5.291&nbsp;772&nbsp;109&nbsp;03 &times; 10<sup>-11</sup> m<br>e a<sub>0</sub> (dipole) = 8.478&nbsp;353&nbsp;6255 &times; 10<sup>-30</sup> C&middot;m = 2.541746 D<br>e (charge) = 1.602&nbsp;176&nbsp;634 &times; 10<sup>-19</sup> C&nbsp;(exact)<br>E<sub>h</sub>/a<sub>0</sub> (force) = 8.238&nbsp;723&nbsp;4983 &times; 10<sup>-8</sup> N<br>E<sub>h</sub>/a<sub>0</sub><sup>3</sup> (pressure) = 2.942&nbsp;101&nbsp;5697 &times; 10<sup>13</sup> Pa<br>e<sup>2</sup>a<sub>0</sub><sup>2</sup>/E<sub>h</sub> (polariz.) = 1.648&nbsp;777&nbsp;274&nbsp;36 &times; 10<sup>-41</sup> C<sup>2</sup>m<sup>2</sup>J<sup>-1</sup></div>
+                    <p class="stk-where">
+                        The <span class="hl">debye</span> is fixed exactly by 1 D = 10<sup>-21</sup>/c C&middot;m = 3.335&nbsp;641&times;10<sup>-30</sup> C&middot;m (c is exact), giving 1 e&middot;a<sub>0</sub> = 2.541746 D. Force-field <span class="hl">partial charges</span> are always in units of e, so the charge tab lets you cross-check RESP/CHELPG output against C or statC. <span class="hl">Volume polarizability</span> (&Aring;<sup>3</sup>, the number usually tabulated) follows the Gaussian-CGS convention &alpha;[&Aring;<sup>3</sup>] = &alpha;[a.u.] &times; 0.148185.
+                    </p>
+                </div>
+
+                <!-- SPECTROSCOPY PANE -->
+                <div class="doc-pane" data-doc-pane="spectro">
+                    <h2 class="stk-h2">Spectroscopy: one photon, four ways to write it</h2>
+                    <p class="stk-lead">Wavenumber, frequency, photon energy and wavelength all describe the same excitation. Three of them scale linearly; wavelength is the reciprocal.</p>
+                    <p class="stk-eqn-label">The relations (h and c are exact SI constants):</p>
+                    <div class="stk-math">E = h&nu; = hc&nu;&#771;&nbsp;&nbsp;&nbsp;&nbsp;&lambda; = 1/&nu;&#771; = c/&nu;<br>1 cm<sup>-1</sup> &equiv; 29.9792458 GHz &equiv; 0.1239842 meV &equiv; 1/&lambda;[cm]</div>
+                    <p class="stk-where">
+                        Because <span class="hl">wavelength</span> is inversely proportional to the others, the matrix inverts correctly only when you type into a single field &mdash; the tool normalises to a base wavenumber and reciprocates for &lambda;. Constants used: <span class="hl">c = 299&nbsp;792&nbsp;458 m/s</span> and <span class="hl">h = 6.626&nbsp;070&nbsp;15&times;10<sup>-34</sup> J&middot;s</span>, both exact since 2019. The <span class="hl">cm<sup>-1</sup>&harr;eV</span> factor, 1.239842&times;10<sup>-4</sup>, is the reciprocal of 8065.54 cm<sup>-1</sup>/eV.
+                    </p>
+                </div>
+
+                <!-- THERMO PANE -->
+                <div class="doc-pane" data-doc-pane="thermo">
+                    <h2 class="stk-h2">Temperature, k<sub>B</sub>T, and molar entropy</h2>
+                    <p class="stk-lead">Temperature conversions include the two offset scales (Celsius, Fahrenheit) and the thermal-energy equivalents k<sub>B</sub>T that appear constantly in statistical mechanics and free-energy work.</p>
+                    <p class="stk-eqn-label">Offset scales are affine, not multiplicative:</p>
+                    <div class="stk-math">T[&deg;C] = T[K] &minus; 273.15&nbsp;&nbsp;&nbsp;&nbsp;T[&deg;F] = (T[K] &minus; 273.15)&times;9/5 + 32<br>k<sub>B</sub>T at 300 K = 2.4943 kJ/mol = 0.5961 kcal/mol = 25.85 meV</div>
+                    <p class="stk-where">
+                        The tool converts temperature through kelvin with explicit affine maps, so &deg;C and &deg;F are handled correctly (a plain ratio would be wrong). The <span class="hl">k<sub>B</sub>T</span> rows use <span class="hl">k<sub>B</sub> = 1.380&nbsp;649&times;10<sup>-23</sup> J/K</span> (exact) and, for molar values, the gas constant <span class="hl">R = N<sub>A</sub>k<sub>B</sub> = 8.314&nbsp;462&nbsp;618 J mol<sup>-1</sup> K<sup>-1</sup></span>. In the Heat Capacity tab, the entropy unit (e.u., &ldquo;gibbs&rdquo;) is 1 cal mol<sup>-1</sup> K<sup>-1</sup>, and quantities are also given as dimensionless multiples of R (or k<sub>B</sub> per particle).
+                    </p>
+                </div>
+
+                <h3 class="stk-refs-h">References &amp; data sources</h3>
+                <ol class="stk-refs-list">
+                    <li>Tiesinga, E., Mohr, P.&nbsp;J., Newell, D.&nbsp;B., &amp; Taylor, B.&nbsp;N. (2021). <em>CODATA recommended values of the fundamental physical constants: 2018.</em> Rev. Mod. Phys. <strong>93</strong>, 025010. <a href="https://doi.org/10.1103/RevModPhys.93.025010" target="_blank" rel="noopener">doi:10.1103/RevModPhys.93.025010</a>.</li>
+                    <li>NIST. <em>Fundamental Physical Constants</em> (2018 CODATA adjustment) &mdash; Hartree energy, Bohr radius, atomic units of time, force, pressure, electric dipole moment and polarizability, elementary charge. <a href="https://physics.nist.gov/cuu/Constants/" target="_blank" rel="noopener">physics.nist.gov/cuu/Constants</a>.</li>
+                    <li>NIST. <em>Non-SI units accepted for use with the SI, and units based on fundamental constants</em> (2018 CODATA). <a href="https://physics.nist.gov/cuu/pdf/nonsi_2018.pdf" target="_blank" rel="noopener">nonsi_2018.pdf</a> (a.u. of electric dipole moment = 8.4783536255&times;10<sup>-30</sup> C&middot;m; a.u. of polarizability = 1.64877727436&times;10<sup>-41</sup> C<sup>2</sup>m<sup>2</sup>J<sup>-1</sup>).</li>
+                    <li>BIPM. <em>The International System of Units (SI Brochure), 9th edition</em> (2019). Exact defined values of c, h, e, k<sub>B</sub> and N<sub>A</sub>. <a href="https://www.bipm.org/en/publications/si-brochure" target="_blank" rel="noopener">bipm.org/en/publications/si-brochure</a>.</li>
+                    <li>Thompson, A., &amp; Taylor, B.&nbsp;N. (2008). <em>Guide for the Use of the International System of Units (SI)</em>, NIST Special Publication 811. Definitions of the atmosphere, torr, psi, calorie and other non-SI units. <a href="https://www.nist.gov/pml/special-publication-811" target="_blank" rel="noopener">nist.gov/pml/special-publication-811</a>.</li>
+                    <li>Abraham, M.&nbsp;J., <em>et&nbsp;al.</em> (2015). GROMACS: High performance molecular simulations through multi-level parallelism from laptops to supercomputers. <em>SoftwareX</em> <strong>1&ndash;2</strong>, 19&ndash;25. See also the GROMACS Reference Manual, <em>Definitions and Units</em>. <a href="https://manual.gromacs.org/current/reference-manual/definitions.html" target="_blank" rel="noopener">manual.gromacs.org</a>.</li>
+                    <li>Case, D.&nbsp;A., <em>et&nbsp;al.</em> <em>AMBER Reference Manual</em> (unit system: kcal&middot;mol<sup>-1</sup>, &Aring;, thermochemical calorie). <a href="https://ambermd.org/doc12/Amber.pdf" target="_blank" rel="noopener">ambermd.org</a>.</li>
+                    <li>Debye unit definition: 1 D = 10<sup>-18</sup> statC&middot;cm = (10<sup>-21</sup>/c) C&middot;m &asymp; 3.335641&times;10<sup>-30</sup> C&middot;m. See NIST Molecular Spectroscopy special-units notes. <a href="https://physics.nist.gov/PhysRefData/MolSpec/Triatomic/Html/sec5.html" target="_blank" rel="noopener">physics.nist.gov</a>.</li>
+                </ol>
+
+                <div class="stk-refs">
+                    <a href="https://physics.nist.gov/cuu/Constants/" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> NIST CODATA constants</a>
+                    <a href="https://www.bipm.org/en/publications/si-brochure" target="_blank" rel="noopener"><i class="fa-solid fa-ruler-combined"></i> SI Brochure</a>
+                    <a href="https://manual.gromacs.org/current/reference-manual/definitions.html" target="_blank" rel="noopener"><i class="fa-solid fa-atom"></i> GROMACS units</a>
+                </div>
+                <p class="stk-credit">Conversion factors are the 2018 CODATA / exact SI (2019) values. All computation runs entirely in your browser &mdash; nothing you type leaves your device.</p>
+            </div>
+        </section>
+
+        <!-- ================= FAQ ================= -->
+        <section class="stk-section w-full" id="faq" aria-label="Frequently asked questions">
+            <div class="stk-wrap">
+                <h2 class="stk-h2">Frequently asked questions</h2>
+                <div style="margin-top:1rem;">
+                    <details class="stk-faq"><summary>Which calorie does the kcal/mol use?</summary><div>The thermochemical calorie, 1&nbsp;cal&nbsp;=&nbsp;4.184&nbsp;J exactly. This is the definition used by the AMBER and CHARMM force fields, so energies convert consistently with those programs. It is <em>not</em> the 15&deg;C calorie (4.1855&nbsp;J) or the international-table calorie (4.1868&nbsp;J).</div></details>
+                    <details class="stk-faq"><summary>Why is the Hartree the base unit for energy?</summary><div>Because it is the natural unit that quantum-chemistry codes report, and its SI value is one of the most precisely known conversions (fixed through the Rydberg constant, E<sub>h</sub>&nbsp;=&nbsp;2R<sub>&infin;</sub>hc). Anchoring on it keeps the whole energy matrix internally consistent to the full CODATA precision.</div></details>
+                    <details class="stk-faq"><summary>Why does the wavelength field behave differently in Spectroscopy?</summary><div>Wavenumber, frequency and photon energy are all directly proportional to each other, but wavelength is their reciprocal (&lambda;&nbsp;=&nbsp;1/&nu;&#771;). The tool normalises everything to a base wavenumber and inverts for wavelength, which is exact as long as you type into one field at a time.</div></details>
+                    <details class="stk-faq"><summary>Why can't temperature use a single multiplication factor?</summary><div>Celsius and Fahrenheit are offset (affine) scales, not ratio scales &mdash; 0&nbsp;&deg;C is not zero energy. The converter therefore routes temperature through kelvin with explicit T&nbsp;=&nbsp;K&nbsp;&minus;&nbsp;273.15 and T&nbsp;=&nbsp;(K&minus;273.15)&times;9/5&plus;32 formulas. The k<sub>B</sub>T rows convert the thermal energy at that temperature.</div></details>
+                    <details class="stk-faq"><summary>How precise are these numbers?</summary><div>They are the 2018 CODATA recommended values and exact SI (2019) definitions, carried to the digits shown in each tooltip. Since the 2019 redefinition, c, h, e, k<sub>B</sub> and N<sub>A</sub> are exact, so any conversion depending only on those (e.g. eV&harr;J, charge, bar&harr;Pa) is exact; those depending on measured constants (Bohr radius, Hartree) inherit CODATA's relative uncertainty of order 10<sup>-10</sup>.</div></details>
+                    <details class="stk-faq"><summary>Is a.u. of polarizability the same as the &Aring;<sup>3</sup> I see in tables?</summary><div>Not numerically. Molecular polarizabilities are usually tabulated as a <em>volume</em> in &Aring;<sup>3</sup> (Gaussian-CGS convention), whereas QM codes print the atomic-unit value. The conversion is &alpha;[&Aring;<sup>3</sup>]&nbsp;=&nbsp;&alpha;[a.u.]&times;0.148185. Both are provided so you can move between a calculation and a reference table.</div></details>
+                    <details class="stk-faq"><summary>Is my data sent anywhere?</summary><div>No. Every calculation runs locally in your browser using JavaScript. Nothing you enter is transmitted or stored.</div></details>
+                </div>
+                <p class="stk-credit">Built for reproducible computational chemistry &amp; physics workflows.</p>
+            </div>
+        </section>
+
     </main>
 
-    <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
-        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400">
-            <div class="flex items-center gap-2 mb-4 md:mb-0">
-                <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
-                <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
+ <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="stk-dir mb-12">
+                <div>
+                    <h4><i class="fa-solid fa-chart-pie text-indigo-500 text-xs"></i> Data &amp; Stats</h4>
+                    <ul>
+                        <li><a href="plot-digitizer.html">Plot Digitizer</a></li>
+                        <li><a href="data-cleaner.html">Data Cleaner</a></li>
+                        <li><a href="stats-calculator.html">Stat Calculator</a></li>
+                        <li><a href="error-bar-generator.html">Error Bar Gen</a></li>
+                        <li><a href="outlier-detector.html">Outlier Detector</a></li>
+                        <li><a href="curve-fitter.html">Curve Fitter</a></li>
+                        <li><a href="plot-builder.html">Plot Builder</a></li>
+                        <li><a href="xvg-visualizer.html">XVG Visualizer</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-microchip text-orange-500 text-xs"></i> Compute</h4>
+                    <ul>
+                        <li><a href="rmsd-calculator.html">RMSD &amp; RMSF</a></li>
+                        <li><a href="rdf-generator.html">Radial Dist. Function</a></li>
+                        <li><a href="structure-inspector.html">3D Inspector</a></li>
+                        <li><a href="coordinate-manipulator.html">Coordinate Manipulator</a></li>
+                        <li><a href="scientific-converter.html">Energy Conversions</a></li>
+                        <li><a href="script-generator.html">HPC Script Gen</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-book-open text-teal-500 text-xs"></i> Publish</h4>
+                    <ul>
+                        <li><a href="latex-formatter.html">Equation Formatter</a></li>
+                        <li><a href="latex-tables.html">Visual LaTeX Tables</a></li>
+                        <li><a href="doi-fetcher.html">DOI to BibTeX</a></li>
+                        <li><a href="bibtex-deduplicator.html">BibTeX Deduplicator</a></li>
+                        <li><a href="bibtex-sanitizer.html">BibTeX Sanitizer</a></li>
+                        <li><a href="journal-abbreviator.html">Journal Abbrev</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-headphones text-fuchsia-500 text-xs"></i> Focus &amp; Flow</h4>
+                    <ul>
+                        <li><a href="pomodoro.html">Ambient Pomodoro</a></li>
+                        <li><a href="decision.html">Decision Matrix</a></li>
+                        <li><a href="sandbox.html">Kinetic Sandbox</a></li>
+                        <li><a href="stemdle.html">STEMdle</a></li>
+                    </ul>
+                </div>
             </div>
-            <div class="text-center md:text-left mb-4 md:mb-0 text-sm font-medium">
-                &copy; 2026 STEMKit. Engineered for Science.
-            </div>
-            <div class="flex gap-6 text-sm font-medium">
-                <a href="#" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
-                <a href="#" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+            <div class="border-t border-slate-200 dark:border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400 gap-4">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
+                    <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
+                </div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
+                <div class="flex gap-6 text-sm font-medium">
+                    <a href="#" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
+                    <a href="#" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+                </div>
             </div>
         </div>
     </footer>
