@@ -25,6 +25,7 @@
             "name": "STEMKit Outlier Detector",
             "url": "https://stemkit.net/outlier-detector.html",
             "description": "Detect data anomalies instantly using Z-Score and Interquartile Range (IQR) algorithms.",
+            "author": { "@type": "Person", "name": "Olanrewaju M. Daramola" },
             "applicationCategory": "UtilityApplication",
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
@@ -33,7 +34,7 @@
         }
     </script>
     
-    <meta name="author" content="STEMKit">
+    <meta name="author" content="Olanrewaju M. Daramola">
     <meta name="theme-color" content="#4f46e5">
 
     <meta property="og:type" content="website">
@@ -67,6 +68,78 @@
         .outlier-row { background-color: rgba(239, 68, 68, 0.1); }
         .dark .outlier-row { background-color: rgba(239, 68, 68, 0.15); }
     </style>
+    <style>
+        /* STEMKit docs / how-to / FAQ — self-contained styles */
+        .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
+        .stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
+        .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;
+                    text-transform:uppercase; letter-spacing:.12em; padding:.3rem .7rem; border-radius:9999px;
+                    background:#eef2ff; color:#4338ca; border:1px solid #e0e7ff; }
+        .dark .stk-chip { background:rgba(67,56,202,.18); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
+        .stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
+        .stk-lead { max-width:48rem; color:#64748b; line-height:1.6; }
+        .dark .stk-lead { color:#94a3b8; }
+        .stk-grid { display:grid; gap:1rem; grid-template-columns:1fr; margin-top:1.5rem; }
+        @media (min-width:768px){ .stk-grid-3{grid-template-columns:repeat(3,1fr);} .stk-grid-2{grid-template-columns:repeat(2,1fr);} }
+        .stk-card { border-radius:1rem; border:1px solid rgba(148,163,184,.25); padding:1.4rem; background:#fff; }
+        .dark .stk-card { background:#0f172a; border-color:rgba(51,65,85,.8); }
+        .stk-step { display:flex; gap:.85rem; align-items:flex-start; }
+        .stk-num { width:2rem; height:2rem; border-radius:9999px; display:inline-flex; align-items:center;
+                   justify-content:center; font-weight:800; font-size:.85rem; flex-shrink:0;
+                   background:#4f46e5; color:#fff; }
+        .stk-step h3 { font-weight:700; font-size:.95rem; margin-bottom:.15rem; }
+        .stk-step p { font-size:.85rem; color:#64748b; line-height:1.5; }
+        .dark .stk-step p { color:#94a3b8; }
+        .stk-note { display:flex; gap:.6rem; align-items:flex-start; font-size:.82rem; line-height:1.55;
+                    background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:.75rem; padding:.9rem 1rem; }
+        .dark .stk-note { background:rgba(120,53,15,.15); border-color:rgba(180,83,9,.4); color:#fcd34d; }
+        .stk-faq { border-bottom:1px solid rgba(148,163,184,.22); }
+        .stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 0; font-weight:600; font-size:.95rem;
+                             display:flex; justify-content:space-between; align-items:center; gap:1rem; }
+        .stk-faq > summary::-webkit-details-marker { display:none; }
+        .stk-faq > summary::after { content:"+"; font-weight:700; color:#6366f1; font-size:1.2rem; line-height:1; }
+        .stk-faq[open] > summary::after { content:"\2212"; }
+        .stk-faq > div { padding:0 0 1.1rem; font-size:.88rem; line-height:1.6; color:#475569; }
+        .dark .stk-faq > div { color:#94a3b8; }
+        .stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem; }
+        .stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600;
+                      color:#4f46e5; text-decoration:none; border:1px solid #e0e7ff; background:#eef2ff;
+                      padding:.4rem .8rem; border-radius:.6rem; }
+        .dark .stk-refs a { color:#a5b4fc; background:rgba(67,56,202,.15); border-color:rgba(99,102,241,.3); }
+        .stk-refs a:hover { text-decoration:underline; }
+        .stk-byline { font-size:.8rem; color:#94a3b8; margin-top:.35rem; }
+        .stk-credit { margin-top:2rem; font-size:.8rem; color:#94a3b8; }
+
+        /* Method & equations (MathML) */
+        .stk-math { overflow-x:auto; padding:1rem 1.1rem; margin:.6rem 0 1rem; border:1px solid rgba(148,163,184,.25);
+                    border-radius:.75rem; background:#f8fafc; font-size:1.15rem; }
+        .dark .stk-math { background:#0f172a; }
+        .stk-math math { color:inherit; }
+        .stk-eqn-label { font-size:.9rem; font-weight:600; color:#475569; margin-top:1.1rem; }
+        .dark .stk-eqn-label { color:#cbd5e1; }
+        .stk-where { font-size:.85rem; color:#64748b; line-height:1.75; margin-top:.5rem; }
+        .dark .stk-where { color:#94a3b8; }
+        .stk-model-list { list-style:none; padding:0; margin:.6rem 0 0; display:grid; gap:.55rem; }
+        .stk-model-list li { font-size:.92rem; display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
+        .stk-model-list b { min-width:9rem; color:#475569; font-weight:600; }
+        .dark .stk-model-list b { color:#cbd5e1; }
+        .stk-refs-h { font-weight:700; font-size:1rem; margin-top:1.9rem; margin-bottom:.5rem; }
+        .stk-refs-list { font-size:.82rem; color:#64748b; line-height:1.75; padding-left:1.2rem; }
+        .dark .stk-refs-list { color:#94a3b8; }
+        .stk-refs-list li { margin-bottom:.45rem; }
+        .stk-refs-list a { color:#4f46e5; text-decoration:none; }
+        .dark .stk-refs-list a { color:#a5b4fc; }
+        .stk-refs-list a:hover { text-decoration:underline; }
+
+    </style>
+
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to detect outliers in your data", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Load your data", "text": "Drag in a .csv/.tsv/.txt file (or click to browse). Or click Load example to try a sample with two planted outliers."}, {"@type": "HowToStep", "position": 2, "name": "Pick a column &amp; method", "text": "Choose the numeric column and one of Z-Score, IQR, or the robust Modified Z-Score."}, {"@type": "HowToStep", "position": 3, "name": "Set the threshold", "text": "Adjust the multiplier; the hint explains what the current setting flags. Defaults follow standard practice."}, {"@type": "HowToStep", "position": 4, "name": "Scan &amp; export", "text": "Run the scan to highlight outliers in the table, then export the cleaned dataset or the flagged rows."}]}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my data uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Parsing and detection run locally in your browser via PapaParse and jStat."}}, {"@type": "Question", "name": "Which method should I use?", "acceptedAnswer": {"@type": "Answer", "text": "Z-Score for roughly normal data, IQR for skewed data, and the Modified Z-Score when you want robustness to the outliers themselves (a good general default)."}}, {"@type": "Question", "name": "What thresholds are typical?", "acceptedAnswer": {"@type": "Answer", "text": "k = 3 for Z-Score, k = 1.5 for Tukey's IQR fences, and k = 3.5 for the modified Z-Score (Iglewicz–Hoaglin)."}}, {"@type": "Question", "name": "How many values do I need?", "acceptedAnswer": {"@type": "Answer", "text": "At least four numeric values in the chosen column for a meaningful estimate of spread."}}, {"@type": "Question", "name": "Does 'Export Cleaned' change my original file?", "acceptedAnswer": {"@type": "Answer", "text": "No. It downloads a new CSV with the flagged rows removed; your source file is untouched."}}]}
+</script>
+    <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
@@ -132,6 +205,7 @@
                 <i class="fa-solid fa-bullseye text-4xl"></i>
             </div>
             <h1 class="text-3xl font-bold mb-3">Outlier Detector</h1>
+            <p class="text-xs text-slate-400 mt-1">By Olanrewaju M. Daramola · 100% client-side</p>
             <p class="text-slate-500 dark:text-slate-400 mb-6 max-w-md">Identify and isolate statistical anomalies in your experimental data or MD trajectories locally.</p>
             <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-sm">
                 Select CSV Data
@@ -163,6 +237,7 @@
                             <select id="methodSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
                                 <option value="zscore">Z-Score (Parametric)</option>
                                 <option value="iqr">Interquartile Range (Non-parametric)</option>
+                                <option value="modzscore">Modified Z-Score (Robust, MAD)</option>
                             </select>
                         </div>
                     </div>
@@ -176,6 +251,7 @@
                         <p id="methodHint" class="text-xs text-slate-500 mt-2">Flags values where |Z| > 3.0.</p>
                     </div>
 
+                    <button id="exampleBtn" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline self-start">Load example</button>
                     <button id="scanBtn" class="bg-slate-900 dark:bg-indigo-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-slate-800 dark:hover:bg-indigo-700 transition-colors shadow-sm w-full mt-2">
                         Execute Scan
                     </button>
@@ -204,22 +280,114 @@
             </div>
 
         </section>
+    
+    <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
+        <div class="stk-wrap">
+            <span class="stk-chip"><i class="fa-solid fa-magnifying-glass-chart"></i> How-To Guide</span>
+            <h2 class="stk-h2">How to detect outliers in your data</h2>
+            <p class="stk-lead">Upload a CSV, pick a column and a detection rule, and flag anomalous values &mdash; then export either the cleaned data or just the anomalies.</p>
+            <p class="stk-byline">By Olanrewaju M. Daramola · 100% client-side</p>
+            <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Load your data</h3><p>Drag in a .csv/.tsv/.txt file (or click to browse). Or click <strong>Load example</strong> to try a sample with two planted outliers.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Pick a column &amp; method</h3><p>Choose the numeric column and one of Z-Score, IQR, or the robust Modified Z-Score.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Set the threshold</h3><p>Adjust the multiplier; the hint explains what the current setting flags. Defaults follow standard practice.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Scan &amp; export</h3><p>Run the scan to highlight outliers in the table, then export the cleaned dataset or the flagged rows.</p></div></div></div>
+        </div>
+    </section>
+
+    <section class="stk-section" id="how-it-works" aria-label="How it works">
+        <div class="stk-wrap">
+            <h2 class="stk-h2">How it works</h2>
+            <div class="stk-grid stk-grid-2"><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Three complementary rules</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;"><strong>Z-Score</strong> assumes roughly normal data. <strong>IQR</strong> (Tukey) is non-parametric and good for skew. <strong>Modified Z-Score</strong> uses the median and MAD, so it is robust &mdash; a few extreme values don't hide the rest.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Why robustness matters</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">The mean and standard deviation are themselves distorted by outliers, so a single huge value can mask others. Median/MAD-based detection avoids this, which is why 3.5 on the modified Z-Score is a widely recommended default.</p></div></div>
+            <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>A quick illustration: in the built-in example the classic Z-Score (k=3) flags only the value 250, while the Modified Z-Score (k=3.5) also catches the low value 3 &mdash; because the mean and SD were inflated by 250 itself. The preview highlights up to 200 rows; export always covers the full dataset.</div></div>
+        </div>
+    </section>
+
+    <section class="stk-section" id="method" aria-label="Method and equations">
+        <div class="stk-wrap" style="max-width:52rem;">
+            <span class="stk-chip"><i class="fa-solid fa-square-root-variable"></i> Method &amp; Equations</span>
+            <h2 class="stk-h2">The three detection rules</h2>
+            <p class="stk-lead">Each method flags values in the selected column that lie unusually far from the centre; they differ in how &ldquo;centre&rdquo; and &ldquo;spread&rdquo; are estimated and how robust they are to the very outliers you are hunting.</p>
+            <p class="stk-eqn-label">Z-Score (parametric) &mdash; uses the mean and sample standard deviation:</p>
+            <div class="stk-math"><math display="block"><msub><mi>z</mi><mi>i</mi></msub><mo>=</mo><mfrac><mrow><msub><mi>x</mi><mi>i</mi></msub><mo>−</mo><mover><mi>x</mi><mo>¯</mo></mover></mrow><mi>s</mi></mfrac><mo>,</mo><mspace width="1.2em"/><mtext>flag if</mtext><mspace width="0.4em"/><mo>|</mo><msub><mi>z</mi><mi>i</mi></msub><mo>|</mo><mo>&gt;</mo><mi>k</mi></math></div>
+            <p class="stk-eqn-label">Tukey&rsquo;s IQR fences (non-parametric) &mdash; uses the quartiles:</p>
+            <div class="stk-math"><math display="block"><mtext>flag if</mtext><mspace width="0.4em"/><msub><mi>x</mi><mi>i</mi></msub><mo>&lt;</mo><msub><mi>Q</mi><mn>1</mn></msub><mo>−</mo><mi>k</mi><mo>·</mo><mi>IQR</mi><mspace width="0.6em"/><mtext>or</mtext><mspace width="0.6em"/><msub><mi>x</mi><mi>i</mi></msub><mo>&gt;</mo><msub><mi>Q</mi><mn>3</mn></msub><mo>+</mo><mi>k</mi><mo>·</mo><mi>IQR</mi><mo>,</mo><mspace width="0.8em"/><mi>IQR</mi><mo>=</mo><msub><mi>Q</mi><mn>3</mn></msub><mo>−</mo><msub><mi>Q</mi><mn>1</mn></msub></math></div>
+            <p class="stk-eqn-label">Modified Z-Score (robust) &mdash; uses the median and the median absolute deviation:</p>
+            <div class="stk-math"><math display="block"><msub><mi>M</mi><mi>i</mi></msub><mo>=</mo><mfrac><mrow><mn>0.6745</mn><mo>(</mo><msub><mi>x</mi><mi>i</mi></msub><mo>−</mo><mover><mi>x</mi><mo>̃</mo></mover><mo>)</mo></mrow><mi>MAD</mi></mfrac><mo>,</mo><mspace width="1em"/><mi>MAD</mi><mo>=</mo><munder><mi>median</mi><mrow></mrow></munder><mo>|</mo><msub><mi>x</mi><mi>i</mi></msub><mo>−</mo><mover><mi>x</mi><mo>̃</mo></mover><mo>|</mo></math></div>
+            <p class="stk-where">where <math><mover><mi>x</mi><mo>¯</mo></mover></math> is the mean, <math><mi>s</mi></math> the sample standard deviation, <math><msub><mi>Q</mi><mn>1</mn></msub></math>/<math><msub><mi>Q</mi><mn>3</mn></msub></math> the first/third quartiles, <math><mover><mi>x</mi><mo>̃</mo></mover></math> the median, MAD the median absolute deviation, and <math><mi>k</mi></math> the threshold you set. Typical defaults are <math><mi>k</mi><mo>=</mo><mn>3</mn></math> (Z-Score), <math><mi>k</mi><mo>=</mo><mn>1.5</mn></math> (IQR, Tukey) and <math><mi>k</mi><mo>=</mo><mn>3.5</mn></math> (modified Z-Score, Iglewicz&ndash;Hoaglin). The constant 0.6745 makes the MAD a consistent estimator of the standard deviation for normal data. When more than half the values are identical (MAD&nbsp;=&nbsp;0) the tool falls back to the mean-absolute-deviation form.</p>
+            <h3 class="stk-refs-h">References &amp; documentation</h3>
+            <ol class="stk-refs-list">
+                <li>Tukey, J.&nbsp;W. (1977). <em>Exploratory Data Analysis</em>. Addison-Wesley. (Origin of the IQR &ldquo;fences&rdquo;.)</li>
+                <li>Iglewicz, B., &amp; Hoaglin, D.&nbsp;C. (1993). <em>How to Detect and Handle Outliers</em>. ASQC Quality Press. (Modified Z-score, threshold 3.5.)</li>
+                <li>Heckert, N.&nbsp;A., Filliben, J.&nbsp;J., Croarkin, C., et&nbsp;al. (2002). <em>NIST/SEMATECH e-Handbook of Statistical Methods</em>, &sect;1.3.5 &amp; &sect;7.1.6. <a href="https://www.itl.nist.gov/div898/handbook/" target="_blank" rel="noopener">itl.nist.gov/div898/handbook</a>.</li>
+            </ol>
+        </div>
+    </section>
+
+    <section class="stk-section" id="faq" aria-label="Frequently asked questions">
+        <div class="stk-wrap" style="max-width:52rem;">
+            <h2 class="stk-h2">Frequently asked questions</h2>
+            <div style="margin-top:1rem;"><details class="stk-faq"><summary>Is my data uploaded anywhere?</summary><div>No. Parsing and detection run locally in your browser via PapaParse and jStat.</div></details><details class="stk-faq"><summary>Which method should I use?</summary><div>Z-Score for roughly normal data, IQR for skewed data, and the Modified Z-Score when you want robustness to the outliers themselves (a good general default).</div></details><details class="stk-faq"><summary>What thresholds are typical?</summary><div>k = 3 for Z-Score, k = 1.5 for Tukey's IQR fences, and k = 3.5 for the modified Z-Score (Iglewicz–Hoaglin).</div></details><details class="stk-faq"><summary>How many values do I need?</summary><div>At least four numeric values in the chosen column for a meaningful estimate of spread.</div></details><details class="stk-faq"><summary>Does 'Export Cleaned' change my original file?</summary><div>No. It downloads a new CSV with the flagged rows removed; your source file is untouched.</div></details></div>
+            <div class="stk-refs"><a href="https://www.itl.nist.gov/div898/handbook/" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> NIST e-Handbook</a><a href="https://en.wikipedia.org/wiki/Interquartile_range" target="_blank" rel="noopener"><i class="fa-solid fa-ruler-horizontal"></i> Interquartile range</a><a href="https://en.wikipedia.org/wiki/Median_absolute_deviation" target="_blank" rel="noopener"><i class="fa-solid fa-chart-simple"></i> Median absolute deviation</a></div>
+            <p class="stk-credit">Built and maintained by <strong>Olanrewaju M.&nbsp;Daramola</strong>. Detection runs entirely in your browser — no data leaves your device.</p>
+        </div>
+    </section>
+
     </main>
 
     <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
 
     <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
-        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400">
-            <div class="flex items-center gap-2 mb-4 md:mb-0">
-                <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
-                <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="stk-dir mb-12">
+                <div>
+                    <h4><i class="fa-solid fa-chart-pie text-indigo-500 text-xs"></i> Data &amp; Stats</h4>
+                    <ul>
+                        <li><a href="plot-digitizer.html">Plot Digitizer</a></li>
+                        <li><a href="data-cleaner.html">Data Cleaner</a></li>
+                        <li><a href="stats-calculator.html">Stat Calculator</a></li>
+                        <li><a href="error-bar-generator.html">Error Bar Gen</a></li>
+                        <li><a href="outlier-detector.html">Outlier Detector</a></li>
+                        <li><a href="curve-fitter.html">Curve Fitter</a></li>
+                        <li><a href="plot-builder.html">Plot Builder</a></li>
+                        <li><a href="xvg-visualizer.html">XVG Visualizer</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-microchip text-orange-500 text-xs"></i> Compute</h4>
+                    <ul>
+                        <li><a href="structure-inspector.html">3D Inspector</a></li>
+                        <li><a href="coordinate-manipulator.html">Coordinate Manipulator</a></li>
+                        <li><a href="scientific-converter.html">Energy Conversions</a></li>
+                        <li><a href="script-generator.html">HPC Script Gen</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-book-open text-teal-500 text-xs"></i> Publish</h4>
+                    <ul>
+                        <li><a href="latex-formatter.html">Equation Formatter</a></li>
+                        <li><a href="latex-tables.html">Visual LaTeX Tables</a></li>
+                        <li><a href="doi-fetcher.html">DOI to BibTeX</a></li>
+                        <li><a href="bibtex-deduplicator.html">BibTeX Deduplicator</a></li>
+                        <li><a href="bibtex-sanitizer.html">BibTeX Sanitizer</a></li>
+                        <li><a href="journal-abbreviator.html">Journal Abbrev</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-headphones text-fuchsia-500 text-xs"></i> Focus &amp; Flow</h4>
+                    <ul>
+                        <li><a href="pomodoro.html">Ambient Pomodoro</a></li>
+                        <li><a href="decision.html">Decision Matrix</a></li>
+                        <li><a href="sandbox.html">Kinetic Sandbox</a></li>
+                    </ul>
+                </div>
             </div>
-            <div class="text-center md:text-left mb-4 md:mb-0 text-sm font-medium">
-                &copy; 2026 STEMKit. Engineered for Science.
-            </div>
-            <div class="flex gap-6 text-sm font-medium">
-                <a href="#" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
-                <a href="#" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+            <div class="border-t border-slate-200 dark:border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400 gap-4">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
+                    <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
+                </div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
+                <div class="flex gap-6 text-sm font-medium">
+                    <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
+                    <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+                </div>
             </div>
         </div>
     </footer>
