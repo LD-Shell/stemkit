@@ -1,0 +1,240 @@
+<!doctype html><html><head><meta charset="utf8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>body{font-family:Inter,system-ui,sans-serif;margin:0;background:#f8fafc}
+/* STEMKit home chrome — plain CSS (output.css is JIT-purged, so unused
+   utilities would silently no-op). Reuses the build's exact tokens:
+   indigo #4f46e5/#6366f1, emerald #10b981/#34d399, slate 50..950,
+   radius 2xl 1rem / 3xl 1.5rem, shadows matching shadow-sm..lg. */
+:root { --stk-indigo:#4f46e5; --stk-indigo-700:#4338ca;
+--stk-shadow-sm:0 1px 2px 0 rgb(0 0 0 / .05);
+--stk-shadow-lg:0 10px 15px -3px rgb(0 0 0 / .1),0 4px 6px -4px rgb(0 0 0 / .1); }
+
+.tool-card { transition: all .3s cubic-bezier(.4,0,.2,1); }
+.tool-card:hover { transform: translateY(-6px); box-shadow:0 20px 25px -5px rgba(0,0,0,.1),0 10px 10px -5px rgba(0,0,0,.04); }
+.dark .tool-card:hover { box-shadow:0 20px 25px -5px rgba(0,0,0,.5); }
+
+.hero-bg { background-image:radial-gradient(at 0% 0%,rgba(99,102,241,.08) 0,transparent 50%),radial-gradient(at 100% 0%,rgba(16,185,129,.08) 0,transparent 50%); }
+.dark .hero-bg { background-image:radial-gradient(at 0% 0%,rgba(99,102,241,.15) 0,transparent 50%),radial-gradient(at 100% 0%,rgba(16,185,129,.15) 0,transparent 50%); }
+
+@keyframes stk-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+.animate-float { animation:stk-float 6s ease-in-out infinite; }
+.animate-float-delayed { animation:stk-float 6s ease-in-out 1.5s infinite; }
+.animate-bounce-slow { animation:stk-float 4s ease-in-out .5s infinite; }
+
+html { scroll-behavior:smooth; }
+@media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} .animate-float,.animate-float-delayed,.animate-bounce-slow{animation:none} .tool-card{transition:none} }
+
+.stk-skip { position:absolute; left:-9999px; top:0; z-index:60; background:var(--stk-indigo); color:#fff; padding:.55rem 1rem; border-radius:.5rem; font-weight:700; font-size:.875rem; }
+.stk-skip:focus { left:.75rem; top:.75rem; }
+
+.stk-search-wrap { position:relative; width:100%; max-width:40rem; margin:0 auto; }
+.stk-search-ico { position:absolute; left:1.15rem; top:50%; transform:translateY(-50%); color:#94a3b8; pointer-events:none; }
+.stk-search { width:100%; box-sizing:border-box; padding:1rem 3.5rem 1rem 3rem; font-size:1rem; font-family:inherit;
+      background:#fff; color:#0f172a; border:1px solid #e2e8f0; border-radius:1rem;
+      box-shadow:var(--stk-shadow-sm); outline:none; transition:border-color .2s,box-shadow .2s; }
+.dark .stk-search { background:#0f172a; color:#e2e8f0; border-color:#334155; }
+.stk-search::placeholder { color:#94a3b8; }
+.stk-search:focus { border-color:var(--stk-indigo); box-shadow:0 0 0 3px rgb(79 70 229 / .35); }
+.stk-kbd { position:absolute; right:1rem; top:50%; transform:translateY(-50%); font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+   font-size:.7rem; line-height:1; padding:.25rem .45rem; border-radius:.35rem; color:#94a3b8; background:#f1f5f9; border:1px solid #e2e8f0; }
+.dark .stk-kbd { background:#1e293b; border-color:#334155; }
+
+.stk-chips { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:.5rem; margin-top:1.25rem; }
+.stk-chip { display:inline-flex; align-items:center; gap:.4rem; font-size:.875rem; font-weight:600; font-family:inherit; cursor:pointer;
+    padding:.5rem 1rem; border-radius:9999px; background:#fff; color:#475569; border:1px solid #e2e8f0; transition:all .2s; }
+.dark .stk-chip { background:#0f172a; color:#cbd5e1; border-color:#334155; }
+.stk-chip:hover { border-color:#818cf8; }
+.stk-chip[aria-pressed="true"] { background:var(--stk-indigo); color:#fff; border-color:var(--stk-indigo); }
+.stk-chip[aria-pressed="true"] i { color:#fff !important; }
+
+.stk-trust { display:grid; grid-template-columns:1fr; gap:1rem; }
+@media (min-width:640px){ .stk-trust{grid-template-columns:repeat(3,1fr)} }
+.stk-trust-card { display:flex; align-items:center; gap:1rem; padding:1.25rem; border-radius:1rem; background:#fff; border:1px solid #e2e8f0; }
+.dark .stk-trust-card { background:rgb(30 41 59 / .6); border-color:#334155; }
+.stk-trust-ico { width:2.75rem; height:2.75rem; flex-shrink:0; border-radius:.75rem; display:flex; align-items:center; justify-content:center; font-size:1rem; }
+
+.stk-count { margin-left:auto; font-size:.75rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:500; color:#94a3b8; background:#f1f5f9; padding:.25rem .6rem; border-radius:9999px; }
+.dark .stk-count { background:#1e293b; }
+
+.tool-coming { position:relative; padding:1.5rem; border-radius:1.5rem; background:#f8fafc; border:1px dashed #cbd5e1; opacity:.7; cursor:not-allowed; }
+.dark .tool-coming { background:rgb(30 41 59 / .5); border-color:#334155; }
+.tool-coming .stk-soon { position:absolute; top:1rem; right:1rem; font-size:.625rem; font-weight:900; text-transform:uppercase; padding:.25rem .5rem; border-radius:.35rem; background:#e2e8f0; color:#64748b; }
+.dark .tool-coming .stk-soon { background:#334155; color:#94a3b8; }
+
+mark.stk-hit { background:rgba(99,102,241,.25); color:inherit; border-radius:.2rem; padding:0 .1em; }
+.dark mark.stk-hit { background:rgba(129,140,248,.3); }
+
+.stk-empty { text-align:center; padding:5rem 0; }
+.stk-empty-ico { width:4rem; height:4rem; margin:0 auto 1.25rem; border-radius:1rem; display:flex; align-items:center; justify-content:center; background:#f1f5f9; color:#94a3b8; font-size:1.5rem; }
+.dark .stk-empty-ico { background:#1e293b; }
+.stk-empty-btn { background:var(--stk-indigo); color:#fff; border:none; cursor:pointer; padding:.65rem 1.25rem; border-radius:.75rem; font-weight:700; font-size:.875rem; font-family:inherit; transition:background .2s; }
+.stk-empty-btn:hover { background:var(--stk-indigo-700); }
+
+.stk-dir { display:grid; grid-template-columns:repeat(2,1fr); gap:2rem; }
+@media (min-width:768px){ .stk-dir{grid-template-columns:repeat(4,1fr)} }
+.stk-dir h4 { font-weight:700; font-size:.875rem; margin:0 0 .75rem; display:flex; align-items:center; gap:.5rem; color:#1e293b; }
+.dark .stk-dir h4 { color:#e2e8f0; }
+.stk-dir ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.5rem; }
+.stk-dir a { font-size:.875rem; color:#64748b; text-decoration:none; transition:color .2s; }
+.dark .stk-dir a { color:#94a3b8; }
+.stk-dir a:hover { color:var(--stk-indigo); }
+
+.stk-top { position:fixed; bottom:1.5rem; right:1.5rem; z-index:40; width:3rem; height:3rem; border-radius:9999px; border:none; cursor:pointer;
+   background:var(--stk-indigo); color:#fff; box-shadow:var(--stk-shadow-lg); display:flex; align-items:center; justify-content:center;
+   opacity:0; pointer-events:none; transition:opacity .3s,transform .2s,background .2s; }
+.stk-top:hover { background:var(--stk-indigo-700); transform:translateY(-2px); }
+.stk-top.is-visible { opacity:1; pointer-events:auto; }
+
+.tool-hidden { display:none !important; }
+
+/* ============================================================
+   Why-STEMKit trust strip + testimonials (home page)
+   Dedicated classes: output.css lacks the responsive grid
+   utilities, so these sections are styled here directly.
+   ============================================================ */
+.stk-why-section { border-top:1px solid #e2e8f0; background:#ffffff; }
+.dark .stk-why-section { border-color:#1e293b; background:rgba(15,23,42,.4); }
+.stk-why-wrap { max-width:80rem; margin:0 auto; padding:3.5rem 1.5rem; }
+.stk-why-grid { display:grid; grid-template-columns:1fr; gap:2rem; }
+@media (min-width:640px){ .stk-why-grid { grid-template-columns:repeat(2,1fr); } }
+@media (min-width:1024px){ .stk-why-grid { grid-template-columns:repeat(4,1fr); } }
+.stk-why-item { display:flex; flex-direction:column; align-items:center; text-align:center; gap:.75rem; }
+.stk-why-ico { width:3rem; height:3rem; border-radius:1rem; display:flex; align-items:center; justify-content:center; font-size:1.125rem; }
+.stk-why-ico--indigo  { background:#e0e7ff; color:#4f46e5; }
+.stk-why-ico--emerald { background:#d1fae5; color:#059669; }
+.stk-why-ico--amber   { background:#fef3c7; color:#d97706; }
+.stk-why-ico--fuchsia { background:#fae8ff; color:#c026d3; }
+.dark .stk-why-ico--indigo  { background:rgba(49,46,129,.5); color:#a5b4fc; }
+.dark .stk-why-ico--emerald { background:rgba(6,78,59,.5); color:#6ee7b7; }
+.dark .stk-why-ico--amber   { background:rgba(120,53,15,.5); color:#fcd34d; }
+.dark .stk-why-ico--fuchsia { background:rgba(112,26,117,.5); color:#f0abfc; }
+.stk-why-item h3 { font-weight:700; font-size:1rem; color:#1e293b; margin:0; }
+.dark .stk-why-item h3 { color:#f1f5f9; }
+.stk-why-item p { font-size:.875rem; line-height:1.6; color:#64748b; margin:0; max-width:20rem; }
+.dark .stk-why-item p { color:#94a3b8; }
+
+.stk-quotes-section { border-top:1px solid #e2e8f0; }
+.dark .stk-quotes-section { border-color:#1e293b; }
+.stk-quotes-wrap { max-width:80rem; margin:0 auto; padding:4rem 1.5rem; }
+.stk-quotes-head { text-align:center; margin-bottom:3rem; }
+.stk-quotes-head h2 { font-size:1.875rem; font-weight:900; letter-spacing:-.025em; color:#0f172a; margin:0; }
+.dark .stk-quotes-head h2 { color:#ffffff; }
+.stk-quotes-head p { color:#64748b; margin:.75rem auto 0; max-width:38rem; line-height:1.6; }
+.dark .stk-quotes-head p { color:#94a3b8; }
+.stk-quotes-grid { display:grid; grid-template-columns:1fr; gap:1.5rem; }
+@media (min-width:768px){ .stk-quotes-grid { grid-template-columns:repeat(3,1fr); } }
+.stk-quote { padding:1.75rem; background:#ffffff; border:1px solid #e2e8f0; border-radius:1.5rem;
+   display:flex; flex-direction:column; transition:transform .2s, box-shadow .2s, border-color .2s; }
+.dark .stk-quote { background:#1e293b; border-color:#334155; }
+.stk-quote:hover { transform:translateY(-3px); box-shadow:var(--stk-shadow-lg); border-color:#c7d2fe; }
+.dark .stk-quote:hover { border-color:#4338ca; }
+.stk-quote-stars { color:#fbbf24; font-size:.8rem; margin-bottom:.9rem; letter-spacing:.1em; }
+.stk-quote blockquote { font-size:.9rem; line-height:1.65; color:#475569; margin:0 0 1.25rem; flex-grow:1; }
+.dark .stk-quote blockquote { color:#cbd5e1; }
+.stk-quote figcaption { display:flex; align-items:center; gap:.75rem; margin-top:auto; }
+.stk-quote-avatar { width:2.25rem; height:2.25rem; border-radius:9999px; display:flex; align-items:center; justify-content:center;
+   font-weight:700; font-size:.7rem; flex-shrink:0; }
+.stk-quote-name { font-weight:700; font-size:.85rem; color:#1e293b; }
+.dark .stk-quote-name { color:#f1f5f9; }
+.stk-quote-role { font-size:.72rem; color:#94a3b8; }
+</style></head><body><!-- Why STEMKit: trust strip -->
+    <section aria-label="Why use STEMKit" class="stk-why-section">
+        <div class="stk-why-wrap">
+            <div class="stk-why-grid">
+                <div class="stk-why-item">
+                    <div class="stk-why-ico stk-why-ico--indigo"><i class="fa-solid fa-lock"></i></div>
+                    <h3>Private by design</h3>
+                    <p>Every tool runs entirely in your browser. Your data is never uploaded to a server.</p>
+                </div>
+                <div class="stk-why-item">
+                    <div class="stk-why-ico stk-why-ico--emerald"><i class="fa-solid fa-bolt"></i></div>
+                    <h3>Instant &amp; offline</h3>
+                    <p>No loading queues or round-trips. Tools work even with your network disconnected.</p>
+                </div>
+                <div class="stk-why-item">
+                    <div class="stk-why-ico stk-why-ico--amber"><i class="fa-solid fa-gift"></i></div>
+                    <h3>Free, no sign-up</h3>
+                    <p>All 21 tools are free to use with no account, no ads, and no paywalls.</p>
+                </div>
+                <div class="stk-why-item">
+                    <div class="stk-why-ico stk-why-ico--fuchsia"><i class="fa-solid fa-flask-vial"></i></div>
+                    <h3>Built for research</h3>
+                    <p>Rigorous methods, cited constants, and publication-ready, reproducible output.</p>
+                </div>
+            </div>
+        </div>
+    </section><!-- Testimonials -->
+    <section aria-label="What researchers say" class="stk-quotes-section">
+        <div class="stk-quotes-wrap">
+            <div class="stk-quotes-head">
+                <h2>Loved by researchers and students</h2>
+                <p>From late-night thesis crunches to publication figures, STEMKit fits into real scientific workflows.</p>
+            </div>
+            <div class="stk-quotes-grid">
+                <figure class="stk-quote">
+                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+                    <blockquote>&ldquo;The Plot Digitizer saved me hours pulling numbers out of an old paper's figures. I had a clean CSV in about ten minutes.&rdquo;</blockquote>
+                    <figcaption>
+                        <div class="stk-quote-avatar stk-why-ico--indigo">PhD</div>
+                        <div><div class="stk-quote-name">Materials-science PhD student</div><div class="stk-quote-role">Digitizing literature data</div></div>
+                    </figcaption>
+                </figure>
+                <figure class="stk-quote">
+                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+                    <blockquote>&ldquo;I use the stats calculator to sanity-check results before writing them up — Welch's t-test, effect sizes and assumption checks in one place is exactly right.&rdquo;</blockquote>
+                    <figcaption>
+                        <div class="stk-quote-avatar stk-why-ico--emerald">PD</div>
+                        <div><div class="stk-quote-name">Postdoctoral researcher</div><div class="stk-quote-role">Biosciences</div></div>
+                    </figcaption>
+                </figure>
+                <figure class="stk-quote">
+                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+                    <blockquote>&ldquo;Being able to build a figure and copy the matplotlib code means my plots are reproducible. Everything staying in the browser is a big plus for sensitive data.&rdquo;</blockquote>
+                    <figcaption>
+                        <div class="stk-quote-avatar stk-why-ico--fuchsia">CB</div>
+                        <div><div class="stk-quote-name">Computational biologist</div><div class="stk-quote-role">Figures &amp; reproducibility</div></div>
+                    </figcaption>
+                </figure>
+                <figure class="stk-quote">
+                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+                    <blockquote>&ldquo;The XVG visualizer is the fastest way I've found to eyeball a GROMACS run. I drop in an RMSD file and immediately see if the simulation converged.&rdquo;</blockquote>
+                    <figcaption>
+                        <div class="stk-quote-avatar stk-why-ico--indigo">MD</div>
+                        <div><div class="stk-quote-name">Molecular-dynamics researcher</div><div class="stk-quote-role">Simulation analysis</div></div>
+                    </figcaption>
+                </figure>
+                <figure class="stk-quote">
+                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+                    <blockquote>&ldquo;DOI to BibTeX plus the sanitizer cleaned up a reference list that had been a mess for months. My bibliography finally builds without errors.&rdquo;</blockquote>
+                    <figcaption>
+                        <div class="stk-quote-avatar stk-why-ico--emerald">GR</div>
+                        <div><div class="stk-quote-name">Graduate researcher</div><div class="stk-quote-role">Thesis writing</div></div>
+                    </figcaption>
+                </figure>
+                <figure class="stk-quote">
+                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+                    <blockquote>&ldquo;I teach an undergrad lab and point students straight to the error-bar and curve-fitting tools. No installs, works on Chromebooks, and the methods are sound.&rdquo;</blockquote>
+                    <figcaption>
+                        <div class="stk-quote-avatar stk-why-ico--amber">LI</div>
+                        <div><div class="stk-quote-name">Lab instructor</div><div class="stk-quote-role">Undergraduate teaching</div></div>
+                    </figcaption>
+                </figure>
+                <figure class="stk-quote">
+                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+                    <blockquote>&ldquo;The unit converter with real CODATA constants is a small thing that saves me constantly — Hartree to kcal/mol without second-guessing the factor.&rdquo;</blockquote>
+                    <figcaption>
+                        <div class="stk-quote-avatar stk-why-ico--fuchsia">QC</div>
+                        <div><div class="stk-quote-name">Quantum-chemistry PhD</div><div class="stk-quote-role">Energy calculations</div></div>
+                    </figcaption>
+                </figure>
+                <figure class="stk-quote">
+                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+                    <blockquote>&ldquo;LaTeX tables used to eat an hour of my day. Paste from a spreadsheet, tidy it up, copy the booktabs code — done. It's become part of my paper workflow.&rdquo;</blockquote>
+                    <figcaption>
+                        <div class="stk-quote-avatar stk-why-ico--indigo">AP</div>
+                        <div><div class="stk-quote-name">Applied-physics postdoc</div><div class="stk-quote-role">Manuscript preparation</div></div>
+                    </figcaption>
+                </figure>
+            </div>
+        </div>
+    </section></body></html>
