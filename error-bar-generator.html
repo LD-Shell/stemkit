@@ -6,7 +6,7 @@
     
     <title>Error Bar Generator | Calculate SD, SEM, & CI | STEMKit</title>
     <meta name="title" content="Error Bar Generator | Calculate SD, SEM, & CI | STEMKit">
-    <meta name="description" content="Instantly calculate Mean, Standard Deviation (SD), Standard Error (SEM), and 95% Confidence Intervals (CI) from raw replicate data for your scientific plots.">
+    <meta name="description" content="Compute Mean, SD, SEM, median, IQR and 95% Confidence Intervals from raw replicate data, render a publication-ready error-bar plot (SD/SEM/CI), and export it as PNG or SVG.">
     <meta name="keywords" content="error bar calculator, standard deviation calculator, standard error of the mean, 95% confidence interval, scientific plotting, STEMKit">
     
     <link rel="canonical" href="https://stemkit.net/error-bar-generator.html">
@@ -124,14 +124,102 @@
         .dark .stk-refs-list a { color:#a5b4fc; }
         .stk-refs-list a:hover { text-decoration:underline; }
 
+        /* Error-mode tabs */
+        .errmode-tabs { display:inline-flex; background:#f1f5f9; border-radius:.5rem; padding:2px; gap:2px; }
+        .dark .errmode-tabs { background:#1e293b; }
+        .errmode-tab { font-size:.72rem; font-weight:700; padding:.3rem .7rem; border-radius:.4rem; cursor:pointer;
+            color:#64748b; background:transparent; border:none; transition:all .15s; }
+        .errmode-tab:hover { color:#4f46e5; }
+        .dark .errmode-tab { color:#94a3b8; }
+        .errmode-tab.errmode-active { background:#fff; color:#4f46e5; box-shadow:0 1px 2px rgba(0,0,0,.08); }
+        .dark .errmode-tab.errmode-active { background:#334155; color:#a5b4fc; }
+
+        /* Significance note */
+        .sig-note { margin-top:1rem; padding:.7rem .85rem; border-radius:.6rem; font-size:.8rem; line-height:1.5;
+            display:flex; gap:.5rem; align-items:flex-start; }
+        .sig-note i { margin-top:2px; }
+        .sig-yes { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:#047857; }
+        .dark .sig-yes { background:rgba(16,185,129,.14); border-color:rgba(16,185,129,.35); color:#6ee7b7; }
+        .sig-no { background:rgba(100,116,139,.08); border:1px solid rgba(148,163,184,.3); color:#475569; }
+        .dark .sig-no { background:rgba(30,41,59,.6); border-color:#334155; color:#cbd5e1; }
+        .sig-note strong { font-weight:700; }
+
+        /* KaTeX: hide MathML fallback so a missing stylesheet can't duplicate the formula */
+        #theoryContainer .katex-mathml, .katex .katex-mathml { position:absolute !important;
+            clip:rect(1px,1px,1px,1px) !important; padding:0 !important; border:0 !important;
+            height:1px !important; width:1px !important; overflow:hidden !important; }
+        #theoryContainer .katex-display { margin:.35rem 0; }
+        .mf-block-label { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em;
+            color:#94a3b8; margin-bottom:.15rem; }
+
+        /* Theory variable legend */
+        .mf-defs { margin-top:1.1rem; padding-top:.9rem; border-top:1px solid rgba(148,163,184,.25); }
+        .mf-defs-title { font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:#94a3b8; margin-bottom:.5rem; }
+        .mf-defs dl { display:grid; grid-template-columns:auto 1fr; gap:.4rem .9rem; margin:0; align-items:baseline; }
+        .mf-def { display:contents; }
+        .mf-defs dt { white-space:nowrap; text-align:right; }
+        .mf-defs dt .katex { font-size:1em; }
+        .mf-defs dd { margin:0; font-size:.82rem; color:#64748b; line-height:1.5; }
+        .dark .mf-defs dd { color:#94a3b8; }
+
+        /* Attention pulse on the Calculate button after loading the example */
+        @keyframes runPulse {
+            0%   { box-shadow:0 0 0 0 rgba(99,102,241,.55); }
+            70%  { box-shadow:0 0 0 10px rgba(99,102,241,0); }
+            100% { box-shadow:0 0 0 0 rgba(99,102,241,0); }
+        }
+        .run-pulse { animation: runPulse 1.4s ease-out 1; }
+        @keyframes hintPulse {
+            0%, 100% { box-shadow:0 0 0 0 rgba(99,102,241,0); }
+            50%      { box-shadow:0 0 0 5px rgba(99,102,241,.25); }
+        }
+        #exampleBtn.run-pulse { animation: hintPulse 1.8s ease-in-out 3; }
+
+        /* Sample-data chips (dedicated classes so dark mode can't be purged) */
+        .eb-samples { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin-bottom:1rem; }
+        .eb-samples-label { font-size:.72rem; font-weight:700; color:#64748b; white-space:nowrap; }
+        .dark .eb-samples-label { color:#94a3b8; }
+        .eb-samples-label i { color:#6366f1; margin-right:.15rem; }
+        .eb-chips { display:flex; flex-wrap:wrap; gap:.4rem; }
+        .eb-chip { font-size:.74rem; font-weight:600; padding:.35rem .7rem; border-radius:.5rem; cursor:pointer;
+            color:#4338ca; background:#eef2ff; border:1px solid #c7d2fe; transition:all .15s; }
+        .eb-chip:hover { background:#4f46e5; color:#fff; border-color:#4f46e5; box-shadow:0 2px 8px rgba(79,70,229,.25); transform:translateY(-1px); }
+        .dark .eb-chip { color:#c7d2fe; background:rgba(49,46,129,.4); border-color:#4338ca; }
+        .dark .eb-chip:hover { background:#4f46e5; color:#fff; border-color:#4f46e5; }
+        @keyframes hintPulse2 {
+            0%, 100% { box-shadow:0 0 0 0 rgba(99,102,241,0); }
+            50%      { box-shadow:0 0 0 4px rgba(99,102,241,.22); }
+        }
+        .eb-samples.hint .eb-chip { animation: hintPulse2 1.8s ease-in-out 2; }
+
+        /* Plot customization panel */
+        .plot-customize summary::-webkit-details-marker { display:none; }
+        .cz-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem 1rem; padding:1rem .25rem .25rem; }
+        .cz-field { display:flex; flex-direction:column; gap:.3rem; font-size:.75rem; font-weight:600; color:#64748b; }
+        .dark .cz-field { color:#94a3b8; }
+        .cz-field b { color:#4f46e5; font-weight:700; }
+        .dark .cz-field b { color:#a5b4fc; }
+        .cz-span2 { grid-column:1 / -1; }
+        .cz-input { font-size:.8rem; font-weight:500; padding:.4rem .55rem; border-radius:.5rem; color:#1e293b;
+            background:#f8fafc; border:1px solid #e2e8f0; outline:none; }
+        .cz-input:focus { border-color:#6366f1; box-shadow:0 0 0 2px rgba(99,102,241,.2); }
+        .dark .cz-input { background:#1e293b; border-color:#334155; color:#e2e8f0; }
+        .cz-range { width:100%; accent-color:#6366f1; }
+        .cz-toggles { display:flex; flex-wrap:wrap; gap:.75rem 1.25rem; padding-top:.25rem; }
+        .cz-check { display:flex; align-items:center; gap:.4rem; font-size:.78rem; font-weight:600; color:#475569; cursor:pointer; }
+        .dark .cz-check { color:#cbd5e1; }
+        .cz-check input { accent-color:#6366f1; }
+        @media (max-width:520px){ .cz-grid { grid-template-columns:1fr; } .cz-span2 { grid-column:1; } }
+
     </style>
 
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "HowTo", "name": "How to compute error bars", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Arrange your data", "text": "One group per row: a text label in the first column, then its replicate measurements across the remaining columns. Click Load example to see the layout."}, {"@type": "HowToStep", "position": 2, "name": "Set options", "text": "Tick First column contains text labels if applicable and choose a confidence level (90/95/99%)."}, {"@type": "HowToStep", "position": 3, "name": "Calculate", "text": "Click Calculate Metrics to compute mean, SD, SEM, the t* critical value and the CI half-width per group."}, {"@type": "HowToStep", "position": 4, "name": "Export", "text": "Use Export CSV to download the full table, including CI lower/upper bounds."}]}
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to compute error bars", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Arrange your data", "text": "One group per row: a text label in the first column, then its replicate measurements across the remaining columns. Or click one of the example chips to try sample data."}, {"@type": "HowToStep", "position": 2, "name": "Set options", "text": "Leave First row is a header on Auto-detect (it detects whether the top row names the columns), then choose a confidence level (90/95/99%) and number of decimals."}, {"@type": "HowToStep", "position": 3, "name": "Calculate and plot", "text": "Click Calculate Metrics for the stats table (mean, SD, SEM, median, IQR, CV, t*, CI) and the error-bar plot. Toggle bars between SD, SEM and CI; non-overlapping CIs are flagged as a significance cue."}, {"@type": "HowToStep", "position": 4, "name": "Export", "text": "Download the plot as PNG or SVG, or the full table with CI bounds as CSV."}]}
 </script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my data uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Parsing and all statistics run locally in your browser via PapaParse and jStat."}}, {"@type": "Question", "name": "Which standard deviation is used?", "acceptedAnswer": {"@type": "Answer", "text": "The sample standard deviation (Bessel's correction, dividing by n&minus;1), the usual choice for summarising experimental replicates."}}, {"@type": "Question", "name": "How is the confidence interval computed?", "acceptedAnswer": {"@type": "Answer", "text": "As mean &plusmn; t* &times; SEM, where t* is the two-tailed Student-t critical value for your chosen level with n&minus;1 degrees of freedom."}}, {"@type": "Question", "name": "What data layout is expected?", "acceptedAnswer": {"@type": "Answer", "text": "One group per row: a label in the first column followed by that group's replicate values. Wide (several replicate columns) and long (a single value column) layouts both work."}}, {"@type": "Question", "name": "Why is the CI blank or zero for a group?", "acceptedAnswer": {"@type": "Answer", "text": "A group needs at least two values to estimate variability; single-measurement groups report zero SD/SEM/CI."}}]}
 </script>
+    <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
@@ -193,7 +281,7 @@
         
         <div class="mb-4">
             <h1 class="text-3xl font-bold mb-2">Error Bar Generator</h1>
-            <p class="text-slate-500 dark:text-slate-400">Paste raw experimental replicates or upload a CSV to instantly compute the Mean, Standard Deviation (SD), Standard Error (SEM), and 95% Confidence Interval bounds for your plots.</p>
+            <p class="text-slate-500 dark:text-slate-400">Paste raw experimental replicates or upload a CSV to instantly compute the Mean, SD, SEM, median, IQR and Confidence Interval per group — then render a publication-ready error-bar plot with SD/SEM/CI toggle and export it as PNG or SVG.</p>
             <p class="text-xs text-slate-400 mt-3">By Olanrewaju M. Daramola · 100% client-side</p>
         </div>
 
@@ -213,11 +301,16 @@
                     <textarea id="dataInput" class="w-full flex-grow min-h-[300px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none resize-y whitespace-pre" placeholder="Label&#9;Rep1&#9;Rep2&#9;Rep3&#10;Ctrl&#9;4.5&#9;4.2&#9;4.8&#10;Trt1&#9;6.1&#9;6.5&#9;6.2&#10;Trt2&#9;8.3&#9;8.1&#9;8.9"></textarea>
                     
                     <div class="mt-4">
-                        <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 cursor-pointer mb-4">
-                            <input type="checkbox" id="hasHeaders" class="rounded text-indigo-600 focus:ring-indigo-500" checked>
-                            First column contains text labels
-                        </label>
-                        <div class="flex items-center gap-3 mb-4">
+                        <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 mb-4">
+                            <label for="hasHeaders">First row is a header:</label>
+                            <select id="hasHeaders" class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                <option value="auto" selected>Auto-detect</option>
+                                <option value="yes">Yes</option>
+                                <option value="no">No</option>
+                            </select>
+                            <span class="text-xs text-slate-400" title="A header row names the columns (e.g. Label, Rep1, Rep2). Auto-detect works for most data."><i class="fa-solid fa-circle-question"></i></span>
+                        </div>
+                        <div class="flex items-center gap-3 mb-4 flex-wrap">
                             <label class="text-sm text-slate-600 dark:text-slate-400">Confidence level
                                 <select id="ciLevel" class="ml-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
                                     <option value="0.90">90%</option>
@@ -225,10 +318,28 @@
                                     <option value="0.99">99%</option>
                                 </select>
                             </label>
-                            <button id="exampleBtn" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline ml-auto">Load example</button>
+                            <label class="text-sm text-slate-600 dark:text-slate-400">Decimals
+                                <select id="decimals" class="ml-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4" selected>4</option>
+                                    <option value="6">6</option>
+                                </select>
+                            </label>
                         </div>
-                        <button id="calculateBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white w-full py-3 rounded-xl font-bold transition-colors shadow-sm">
-                            Calculate Metrics
+                        <div class="eb-samples">
+                            <span class="eb-samples-label"><i class="fa-solid fa-flask-vial"></i> Try an example:</span>
+                            <div class="eb-chips">
+                                <button class="eb-chip" data-sample="basic" title="3 groups, clear separation — significance cue fires.">Basic</button>
+                                <button class="eb-chip" data-sample="overlap" title="Groups close &amp; variable — CIs overlap, no significance.">Overlapping CIs</button>
+                                <button class="eb-chip" data-sample="many" title="6 groups (pH series) — palette cycling.">Many groups</button>
+                                <button class="eb-chip" data-sample="ragged" title="Different replicate counts per group.">Ragged n</button>
+                                <button class="eb-chip" data-sample="negative" title="Negative means and a group crossing zero.">Negatives</button>
+                                <button class="eb-chip" data-sample="messy" title="Blank lines and a stray text row — robust parsing.">Messy data</button>
+                            </div>
+                        </div>
+                        <button id="calculateBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white w-full py-3 rounded-xl font-bold transition-all duration-150 shadow-sm hover:shadow-md active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-calculator text-sm"></i> Calculate Metrics
                         </button>
                     </div>
                 </div>
@@ -243,12 +354,93 @@
                 </div>
             </div>
 
-            <div class="lg:col-span-8 flex flex-col h-full">
-                
-                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col flex-grow min-h-[500px] overflow-hidden">
+            <div class="lg:col-span-8 flex flex-col h-full gap-6">
+
+                <!-- PLOT PANEL -->
+                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+                    <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex flex-wrap justify-between items-center gap-3">
+                        <h2 class="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Error Bar Plot</h2>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <div class="errmode-tabs">
+                                <button class="errmode-tab" data-errmode="sd">SD</button>
+                                <button class="errmode-tab" data-errmode="sem">SEM</button>
+                                <button class="errmode-tab errmode-active" data-errmode="ci">CI</button>
+                            </div>
+                            <button id="exportPngBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-colors shadow-sm"><i class="fa-solid fa-image mr-1"></i> PNG</button>
+                            <button id="exportSvgBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-colors shadow-sm"><i class="fa-solid fa-bezier-curve mr-1"></i> SVG</button>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <details class="plot-customize group mb-4">
+                            <summary class="cursor-pointer list-none flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                <span><i class="fa-solid fa-sliders mr-2 text-indigo-500"></i> Customize plot</span>
+                                <i class="fa-solid fa-chevron-down text-slate-400 group-open:rotate-180 transition-transform"></i>
+                            </summary>
+                            <div class="cz-grid">
+                                <label class="cz-field cz-span2"><span>Chart title</span>
+                                    <input id="optTitle" type="text" placeholder="(optional)" class="cz-input">
+                                </label>
+                                <label class="cz-field cz-span2"><span>Y-axis label</span>
+                                    <input id="optYLabel" type="text" placeholder="Auto: Mean ± error" class="cz-input">
+                                </label>
+                                <label class="cz-field"><span>Bar style</span>
+                                    <select id="optBarStyle" class="cz-input">
+                                        <option value="fill">Filled</option>
+                                        <option value="outline">Outline</option>
+                                    </select>
+                                </label>
+                                <label class="cz-field"><span>Color palette</span>
+                                    <select id="optPalette" class="cz-input">
+                                        <option value="default">Default</option>
+                                        <option value="blue">Blues</option>
+                                        <option value="viridis">Viridis</option>
+                                        <option value="warm">Warm</option>
+                                        <option value="gray">Grayscale</option>
+                                    </select>
+                                </label>
+                                <label class="cz-field"><span>Bar width <b id="optBarWidthVal">55</b>%</span>
+                                    <input id="optBarWidth" type="range" min="20" max="95" value="55" class="cz-range">
+                                </label>
+                                <label class="cz-field"><span>Corner radius <b id="optBarRadiusVal">3</b></span>
+                                    <input id="optBarRadius" type="range" min="0" max="16" value="3" class="cz-range">
+                                </label>
+                                <label class="cz-field"><span>Bar opacity <b id="optBarOpacityVal">85</b>%</span>
+                                    <input id="optBarOpacity" type="range" min="20" max="100" value="85" class="cz-range">
+                                </label>
+                                <label class="cz-field"><span>Error cap width <b id="optCapWidthVal">12</b></span>
+                                    <input id="optCapWidth" type="range" min="0" max="30" value="12" class="cz-range">
+                                </label>
+                                <label class="cz-field"><span>Y-axis min</span>
+                                    <input id="optYMin" type="text" placeholder="auto" class="cz-input">
+                                </label>
+                                <label class="cz-field"><span>Y-axis max</span>
+                                    <input id="optYMax" type="text" placeholder="auto" class="cz-input">
+                                </label>
+                                <div class="cz-toggles cz-span2">
+                                    <label class="cz-check"><input id="optGridlines" type="checkbox" checked> Gridlines</label>
+                                    <label class="cz-check"><input id="optShowN" type="checkbox" checked> n counts</label>
+                                    <label class="cz-check"><input id="optShowValues" type="checkbox"> Value labels</label>
+                                    <label class="cz-check"><input id="optShowLegend" type="checkbox"> Legend</label>
+                                </div>
+                                <div class="cz-span2 flex justify-end">
+                                    <button id="resetPlotBtn" class="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-colors"><i class="fa-solid fa-rotate-left mr-1"></i> Reset style</button>
+                                </div>
+                            </div>
+                        </details>
+                        <div id="plotEmpty" class="py-20 text-center text-slate-400 text-sm">
+                            <i class="fa-solid fa-chart-column text-3xl mb-3 opacity-40"></i>
+                            <p>Calculate metrics to render the error-bar plot.</p>
+                        </div>
+                        <div id="plotHost" class="w-full"></div>
+                        <div id="sigNote" class="sig-note" style="display:none;"></div>
+                    </div>
+                </div>
+
+                <!-- TABLE PANEL -->
+                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col flex-grow overflow-hidden">
                     
                     <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex justify-between items-center">
-                        <h2 class="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">2. Computed Statistics</h2>
+                        <h2 class="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Computed Statistics</h2>
                         <button id="exportCsvBtn" class="px-4 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-colors shadow-sm disabled:opacity-50" disabled>
                             <i class="fa-solid fa-download mr-1"></i> Export CSV
                         </button>
@@ -258,18 +450,22 @@
                         <table class="w-full text-left text-sm whitespace-nowrap">
                             <thead class="bg-slate-100 dark:bg-slate-800 sticky top-0 shadow-sm z-10">
                                 <tr>
-                                    <th class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700">Label</th>
-                                    <th class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">N</th>
-                                    <th class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300">Mean</th>
-                                    <th class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300" title="Standard Deviation">SD (±)</th>
-                                    <th class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300" title="Standard Error of the Mean">SEM (±)</th>
-                                    <th class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300" title="Student's t critical value (df = n-1)">t*</th>
-                                    <th id="ciHeader" class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300" title="Confidence interval half-width">95% CI (±)</th>
+                                    <th class="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700">Label</th>
+                                    <th class="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300">N</th>
+                                    <th class="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300">Mean</th>
+                                    <th class="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300" title="Standard Deviation">SD</th>
+                                    <th class="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300" title="Standard Error of the Mean">SEM</th>
+                                    <th class="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300" title="Median">Median</th>
+                                    <th class="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300" title="Interquartile range (Q3 − Q1)">IQR</th>
+                                    <th class="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300" title="Coefficient of variation (SD/mean)">CV</th>
+                                    <th class="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300" title="Minimum / Maximum">Min/Max</th>
+                                    <th class="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300" title="Student's t critical value (df = n-1)">t*</th>
+                                    <th id="ciHeader" class="px-3 py-3 font-semibold text-slate-700 dark:text-slate-300" title="Confidence interval half-width">95% CI (±)</th>
                                 </tr>
                             </thead>
                             <tbody id="resultsBody" class="divide-y divide-slate-100 dark:divide-slate-800/50">
                                 <tr>
-                                    <td colspan="7" class="px-4 py-16 text-center text-slate-400">
+                                    <td colspan="11" class="px-4 py-16 text-center text-slate-400">
                                         Paste data or upload a CSV to view metrics.
                                     </td>
                                 </tr>
@@ -284,6 +480,7 @@
                         </summary>
                         <div class="px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400">
                             <div id="theoryContainer" class="overflow-x-auto py-2"></div>
+                            <div id="theoryDefs"></div>
                         </div>
                     </details>
 
@@ -296,9 +493,9 @@
         <div class="stk-wrap">
             <span class="stk-chip"><i class="fa-solid fa-chart-column"></i> How-To Guide</span>
             <h2 class="stk-h2">How to compute error bars</h2>
-            <p class="stk-lead">Paste replicate measurements (or upload a CSV) with one group per row, and get the mean, SD, SEM and a Student-t confidence interval for each group.</p>
+            <p class="stk-lead">Paste replicate measurements (or upload a CSV) with one group per row, and get the mean, SD, SEM, median, IQR and a Student-t confidence interval per group — plus a publication-ready error-bar plot.</p>
             <p class="stk-byline">By Olanrewaju M. Daramola · 100% client-side</p>
-            <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Arrange your data</h3><p>One group per row: a text label in the first column, then its replicate measurements across the remaining columns. Click <strong>Load example</strong> to see the layout.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Set options</h3><p>Tick <em>First column contains text labels</em> if applicable and choose a confidence level (90/95/99%).</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Calculate</h3><p>Click <strong>Calculate Metrics</strong> to compute mean, SD, SEM, the t* critical value and the CI half-width per group.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Export</h3><p>Use <strong>Export CSV</strong> to download the full table, including CI lower/upper bounds.</p></div></div></div>
+            <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Arrange your data</h3><p>One group per row: a text label in the first column, then its replicate measurements across the remaining columns. Or click an example chip (Basic, Overlapping CIs, Many groups&hellip;) to load sample data.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Set options</h3><p>Leave <em>First row is a header</em> on <strong>Auto-detect</strong> (it figures out whether your top row names the columns), then choose a confidence level (90/95/99%) and the number of decimals.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Calculate &amp; plot</h3><p>Click <strong>Calculate Metrics</strong> for the full stats table and the error-bar plot. Toggle the bars between <strong>SD</strong>, <strong>SEM</strong> and <strong>CI</strong>; non-overlapping CIs are flagged as a significance cue.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Export</h3><p>Download the plot as <strong>PNG</strong> or <strong>SVG</strong> for papers and slides, or the full table (with CI bounds) as <strong>CSV</strong>.</p></div></div></div>
         </div>
     </section>
 
@@ -324,11 +521,16 @@
             <p class="stk-eqn-label">Confidence interval (default 95%; selectable 90/95/99%):</p>
             <div class="stk-math"><math display="block"><mtext>CI</mtext><mo>=</mo><mover><mi>x</mi><mo>¯</mo></mover><mo>±</mo><msub><mi>t</mi><mrow><mi>α</mi><mo>/</mo><mn>2</mn><mo>,</mo><mspace width="0.15em"/><mi>n</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>·</mo><mi>SE</mi></math></div>
             <p class="stk-where">where <math><mover><mi>x</mi><mo>¯</mo></mover></math> is the group mean, <math><mi>s</mi></math> the sample standard deviation, <math><mi>SE</mi></math> the standard error, and <math><msub><mi>t</mi><mrow><mi>α</mi><mo>/</mo><mn>2</mn><mo>,</mo><mi>n</mi><mo>−</mo><mn>1</mn></mrow></msub></math> the two-tailed Student-<em>t</em> critical value with <math><mi>n</mi><mo>−</mo><mn>1</mn></math> degrees of freedom. Groups with <math><mi>n</mi><mo>=</mo><mn>1</mn></math> report zero spread. Use <strong>SD</strong> to show data scatter, <strong>SEM</strong> for the precision of the mean, and the <strong>CI</strong> for inference about the true mean.</p>
+
+            <p class="stk-eqn-label" style="margin-top:1.5rem;">Robust spread statistics (reported alongside the mean-based measures):</p>
+            <p class="stk-where">The <strong>median</strong> (<math><mover><mi>x</mi><mo>~</mo></mover></math>) is the middle value once sorted &mdash; unlike the mean, it is unaffected by a single extreme replicate. The <strong>interquartile range</strong>, <math><mi>IQR</mi><mo>=</mo><msub><mi>Q</mi><mn>3</mn></msub><mo>−</mo><msub><mi>Q</mi><mn>1</mn></msub></math>, measures the spread of the central 50% of the data (quartiles computed by linear interpolation). The <strong>coefficient of variation</strong>, <math><mi>CV</mi><mo>=</mo><mfrac><mi>s</mi><mrow><mo>|</mo><mover><mi>x</mi><mo>¯</mo></mover><mo>|</mo></mrow></mfrac><mo>×</mo><mn>100</mn><mo>%</mo></math>, expresses variability relative to the mean, letting you compare scatter across groups measured on different scales. The <strong>min/max</strong> give the raw range of replicates. Together these let you check whether a group's mean-based error bars might be distorted by skew or outliers &mdash; if the mean and median diverge sharply, prefer the robust measures.</p>
             <h3 class="stk-refs-h">References &amp; documentation</h3>
             <ol class="stk-refs-list">
                 <li>Altman, D.&nbsp;G., &amp; Bland, J.&nbsp;M. (2005). Standard deviations and standard errors. <em>BMJ</em>, 331(7521), 903.</li>
                 <li>Cumming, G., Fidler, F., &amp; Vaux, D.&nbsp;L. (2007). Error bars in experimental biology. <em>Journal of Cell Biology</em>, 177(1), 7&ndash;11.</li>
                 <li>Heckert, N.&nbsp;A., Filliben, J.&nbsp;J., Croarkin, C., et&nbsp;al. (2002). <em>NIST/SEMATECH e-Handbook of Statistical Methods</em>, &sect;7.2. <a href="https://www.itl.nist.gov/div898/handbook/" target="_blank" rel="noopener">itl.nist.gov/div898/handbook</a>.</li>
+                <li>Cumming, G., &amp; Finch, S. (2005). Inference by eye: Confidence intervals and how to read pictures of data. <em>American Psychologist</em>, 60(2), 170&ndash;180. <span style="opacity:.8">(basis for the non-overlapping-CI cue and its caveats)</span></li>
+                <li>Software: <a href="https://jstat.github.io/" target="_blank" rel="noopener">jStat</a> (t-distribution quantiles), <a href="https://www.papaparse.com/" target="_blank" rel="noopener">PapaParse</a> (CSV parsing), and <a href="https://katex.org/" target="_blank" rel="noopener">KaTeX</a> (equation typesetting). Plot rendered as dependency-free SVG.</li>
             </ol>
         </div>
     </section>
@@ -345,17 +547,60 @@
     </main>
 
     <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
-        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400">
-            <div class="flex items-center gap-2 mb-4 md:mb-0">
-                <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
-                <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="stk-dir mb-12">
+                <div>
+                    <h4><i class="fa-solid fa-chart-pie text-indigo-500 text-xs"></i> Data &amp; Stats</h4>
+                    <ul>
+                        <li><a href="plot-digitizer.html">Plot Digitizer</a></li>
+                        <li><a href="data-cleaner.html">Data Cleaner</a></li>
+                        <li><a href="stats-calculator.html">Stat Calculator</a></li>
+                        <li><a href="error-bar-generator.html">Error Bar Gen</a></li>
+                        <li><a href="outlier-detector.html">Outlier Detector</a></li>
+                        <li><a href="curve-fitter.html">Curve Fitter</a></li>
+                        <li><a href="plot-builder.html">Plot Builder</a></li>
+                        <li><a href="xvg-visualizer.html">XVG Visualizer</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-microchip text-orange-500 text-xs"></i> Compute</h4>
+                    <ul>
+                        <li><a href="structure-inspector.html">3D Inspector</a></li>
+                        <li><a href="coordinate-manipulator.html">Coordinate Manipulator</a></li>
+                        <li><a href="scientific-converter.html">Energy Conversions</a></li>
+                        <li><a href="script-generator.html">HPC Script Gen</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-book-open text-teal-500 text-xs"></i> Publish</h4>
+                    <ul>
+                        <li><a href="latex-formatter.html">Equation Formatter</a></li>
+                        <li><a href="latex-tables.html">Visual LaTeX Tables</a></li>
+                        <li><a href="doi-fetcher.html">DOI to BibTeX</a></li>
+                        <li><a href="bibtex-deduplicator.html">BibTeX Deduplicator</a></li>
+                        <li><a href="bibtex-sanitizer.html">BibTeX Sanitizer</a></li>
+                        <li><a href="journal-abbreviator.html">Journal Abbrev</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-headphones text-fuchsia-500 text-xs"></i> Focus &amp; Flow</h4>
+                    <ul>
+                        <li><a href="pomodoro.html">Ambient Pomodoro</a></li>
+                        <li><a href="decision.html">Decision Matrix</a></li>
+                        <li><a href="sandbox.html">Kinetic Sandbox</a></li>
+                    </ul>
+                </div>
             </div>
-            <div class="text-center md:text-left mb-4 md:mb-0 text-sm font-medium">
-                &copy; 2026 STEMKit. Engineered for Science.
-            </div>
-            <div class="flex gap-6 text-sm font-medium">
-                <a href="#" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
-                <a href="#" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+            <div class="border-t border-slate-200 dark:border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400 gap-4">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
+                    <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
+                </div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
+                <div class="flex gap-6 text-sm font-medium">
+                    <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
+                    <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+                </div>
             </div>
         </div>
     </footer>
