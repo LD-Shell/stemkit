@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy & Terms | STEMKit</title>
+    <meta name="description" content="Privacy Policy and Terms of Service for STEMKit.">
+    
+    <script>
+        (function () {
+            try {
+                var t = localStorage.theme;
+                if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                    document.documentElement.classList.remove('light');
+                }
+            } catch (e) {}
+        })();
+    </script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/all.min.css">
+    <link rel="stylesheet" href="src/home.css">
+    <link rel="stylesheet" href="src/output.css">
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <!-- Navbar -->
+    <nav class="sticky top-0 z-50 w-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16 sm:h-20">
+                <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                    <div class="bg-indigo-600 text-white p-2 sm:p-2.5 rounded-lg shadow-sm flex items-center justify-center">
+                        <i class="fa-solid fa-flask text-lg sm:text-xl"></i>
+                    </div>
+                    <span class="text-xl sm:text-2xl font-black tracking-tighter text-slate-900 dark:text-white">STEMKit</span>
+                </a>
+                <div class="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                    <a href="index.html#data-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Data</a>
+                    <a href="index.html#comp-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Compute</a>
+                    <a href="index.html#pub-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Writing & Citations</a>
+                    <a href="index.html#focus-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Focus</a>
+                    <div class="h-5 w-px bg-slate-200 dark:bg-slate-700"></div>
+                    <button class="themeToggle p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" aria-label="Toggle dark mode">
+                        <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                        <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-4xl mx-auto px-6 py-16 w-full">
+        
+        <div class="mb-20">
+            <h1 class="text-4xl md:text-5xl font-black mb-4 tracking-tight">Legal & Privacy</h1>
+            <p class="text-lg text-slate-500 dark:text-slate-400">Because STEMKit runs 100% locally in your browser, our policies are simple: your data is your business.</p>
+        </div>
+
+        <!-- Privacy Section -->
+        <section id="privacy" class="scroll-mt-24">
+            <div class="flex items-center gap-3 mb-10 border-b border-slate-200 dark:border-slate-800 pb-4">
+                <i class="fa-solid fa-shield-halved text-2xl text-emerald-500"></i>
+                <h2 class="text-3xl font-bold">Privacy Policy</h2>
+            </div>
+            
+            <div class="space-y-8 text-slate-600 dark:text-slate-300 leading-relaxed">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">1. Zero Data Collection Architecture</h3>
+                    <p>STEMKit operates strictly on a client-side execution model. Whether you are processing CSV datasets, resolving computational chemistry coordinates, running statistical ANOVA tests, or standardizing BibTeX citations, all algorithms run locally via JavaScript and WebAssembly within your browser's RAM. <strong>We do not upload, transmit, read, or store any of your scientific data, files, or inputs.</strong></p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">2. Local Storage & Cookies</h3>
+                    <p>We do not use tracking cookies, analytics pixels, or third-party marketing scripts. STEMKit utilizes your browser's native `localStorage` strictly for functional UI preferences (e.g., persisting your Dark Mode preference across sessions). This preference data never leaves your device and is never shared.</p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">3. Third-Party Infrastructure & CDNs</h3>
+                    <p>To deliver our tools globally, STEMKit is hosted on standard web infrastructure. When you visit the site, our hosting providers and Content Delivery Networks (CDNs)—used to securely serve open-source libraries like KaTeX, Chart.js, and PapaParse—may log standard, anonymized connection data (such as IP addresses, timestamps, and browser user-agents) required for basic security, DDoS protection, and routing. This is an internet standard and cannot be linked to the data you process inside our tools.</p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">4. GDPR & CCPA Compliance</h3>
+                    <p>Because STEMKit does not collect, store, or process Personally Identifiable Information (PII) or user accounts, we are inherently compliant with the General Data Protection Regulation (GDPR), the California Consumer Privacy Act (CCPA), and similar global privacy frameworks. You have total sovereignty over your data.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Divider to fix spacing -->
+        <hr class="my-24 border-slate-200 dark:border-slate-800">
+
+        <!-- Terms Section -->
+        <section id="terms" class="scroll-mt-24 mb-16">
+            <div class="flex items-center gap-3 mb-10 border-b border-slate-200 dark:border-slate-800 pb-4">
+                <i class="fa-solid fa-scale-balanced text-2xl text-indigo-500"></i>
+                <h2 class="text-3xl font-bold">Terms of Service</h2>
+            </div>
+            
+            <div class="space-y-8 text-slate-600 dark:text-slate-300 leading-relaxed">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">1. Research & Educational Use Only</h3>
+                    <p>While our statistical tools, curve fitters, and mathematical utilities are built upon rigorous, peer-reviewed logic and standard libraries (e.g., using robust Modified Z-Scores or Student's t-distributions), <strong>STEMKit is provided for educational, exploratory, and basic research purposes only.</strong></p>
+                    <p class="mt-2 text-sm italic border-l-4 border-indigo-500 pl-3">Disclaimer: STEMKit must not be used for clinical diagnostics, medical decision-making, structural engineering of load-bearing architecture, or any scenario where computational failure could result in physical harm, loss of life, or severe financial damage.</p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">2. Academic Integrity & Verification</h3>
+                    <p>Users are solely responsible for independently verifying their results before submitting them to peer-reviewed journals, utilizing them in grant proposals, or deploying them in engineering projects. We do not guarantee that the tools will perfectly handle all mathematical edge-cases, extreme floating-point numbers, or uniquely formatted trajectory files.</p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">3. "AS-IS" Software Warranty</h3>
+                    <p>The STEMKit web platform and its associated utilities are provided on an "AS IS" and "AS AVAILABLE" basis without warranties of any kind, either express or implied. To the fullest extent permitted by law, STEMKit disclaims all warranties, including but not limited to implied warranties of merchantability, fitness for a particular purpose, and non-infringement.</p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">4. Limitation of Liability</h3>
+                    <p>In no event shall STEMKit, its developers, contributors, or affiliates be held legally or financially liable for any direct, indirect, incidental, special, or consequential damages arising from the use of (or inability to use) our tools. This explicitly includes, but is not limited to, damages for loss of research data, corrupted simulation trajectories, academic penalties, retracted manuscripts, or halted professional pipelines.</p>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">5. Intellectual Property</h3>
+                    <p>You retain full 100% ownership and copyright of any data, CSVs, code, or images you generate, clean, or process using STEMKit. The underlying UI, web design, tool architecture, and branding remain the intellectual property of STEMKit.</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="stk-dir mb-12">
+                <div>
+                    <h4><i class="fa-solid fa-chart-pie text-indigo-500 text-xs"></i> Data &amp; Stats</h4>
+                    <ul>
+                        <li><a href="plot-digitizer.html">Plot Digitizer</a></li>
+                        <li><a href="data-cleaner.html">Data Cleaner</a></li>
+                        <li><a href="stats-calculator.html">Stat Calculator</a></li>
+                        <li><a href="error-bar-generator.html">Error Bar Gen</a></li>
+                        <li><a href="outlier-detector.html">Outlier Detector</a></li>
+                        <li><a href="curve-fitter.html">Curve Fitter</a></li>
+                        <li><a href="plot-builder.html">Plot Builder</a></li>
+                        <li><a href="xvg-visualizer.html">XVG Visualizer</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-microchip text-orange-500 text-xs"></i> Compute</h4>
+                    <ul>
+                        <li><a href="structure-inspector.html">3D Inspector</a></li>
+                        <li><a href="coordinate-manipulator.html">Coordinate Manipulator</a></li>
+                        <li><a href="scientific-converter.html">Energy Conversions</a></li>
+                        <li><a href="script-generator.html">HPC Script Gen</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-book-open text-teal-500 text-xs"></i> Writing &amp; Citations</h4>
+                    <ul>
+                        <li><a href="latex-formatter.html">Equation Formatter</a></li>
+                        <li><a href="latex-tables.html">Visual LaTeX Tables</a></li>
+                        <li><a href="doi-fetcher.html">DOI to BibTeX</a></li>
+                        <li><a href="bibtex-deduplicator.html">BibTeX Deduplicator</a></li>
+                        <li><a href="bibtex-sanitizer.html">BibTeX Sanitizer</a></li>
+                        <li><a href="journal-abbreviator.html">Journal Abbrev</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-headphones text-fuchsia-500 text-xs"></i> Focus &amp; Flow</h4>
+                    <ul>
+                        <li><a href="pomodoro.html">Ambient Pomodoro</a></li>
+                        <li><a href="decision.html">Decision Matrix</a></li>
+                        <li><a href="sandbox.html">Kinetic Sandbox</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-slate-200 dark:border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400 gap-4">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
+                    <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
+                </div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
+                <div class="flex gap-6 text-sm font-medium">
+                    <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
+                    <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        document.querySelectorAll('.themeToggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const isDark = document.documentElement.classList.toggle('dark');
+                document.documentElement.classList.toggle('light', !isDark);
+                localStorage.theme = isDark ? 'dark' : 'light';
+            });
+        });
+    </script>
+</body>
+</html>
