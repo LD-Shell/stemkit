@@ -121,17 +121,41 @@
         .dark .stk-refs-list a { color:#a5b4fc; }
         .stk-refs-list a:hover { text-decoration:underline; }
 
+        /* Example chips */
+        .cf-samples { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-top:.5rem; }
+        .cf-samples-label { font-size:.68rem; font-weight:700; color:#64748b; white-space:nowrap; }
+        .dark .cf-samples-label { color:#94a3b8; }
+        .cf-samples-label i { color:#10b981; }
+        .cf-chips { display:flex; flex-wrap:wrap; gap:.35rem; }
+        .cf-chip { font-size:.7rem; font-weight:600; padding:.3rem .6rem; border-radius:.45rem; cursor:pointer;
+            color:#047857; background:#ecfdf5; border:1px solid #a7f3d0; transition:all .15s; }
+        .cf-chip:hover { background:#10b981; color:#fff; border-color:#10b981; transform:translateY(-1px); }
+        .dark .cf-chip { color:#6ee7b7; background:rgba(6,78,59,.4); border-color:#065f46; }
+        .dark .cf-chip:hover { background:#10b981; color:#fff; border-color:#10b981; }
+        @keyframes cfHint { 0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0);} 50%{box-shadow:0 0 0 4px rgba(16,185,129,.2);} }
+        .cf-samples.hint .cf-chip { animation: cfHint 1.8s ease-in-out 2; }
+        @keyframes cfPulse { 0%{box-shadow:0 0 0 0 rgba(16,185,129,.5);} 70%{box-shadow:0 0 0 10px rgba(16,185,129,0);} 100%{box-shadow:0 0 0 0 rgba(16,185,129,0);} }
+        .cf-pulse { animation: cfPulse 1.4s ease-out 1; }
+        #cfCodeModal.open { display:flex; }
+        .cf-upload-btn { display:inline-flex; align-items:center; gap:.4rem; font-size:.7rem; font-weight:700;
+            padding:.3rem .65rem; border-radius:.45rem; cursor:pointer; color:#047857; background:#ecfdf5;
+            border:1px solid #a7f3d0; transition:all .15s; }
+        .cf-upload-btn:hover { background:#10b981; color:#fff; border-color:#10b981; }
+        .dark .cf-upload-btn { color:#6ee7b7; background:rgba(6,78,59,.4); border-color:#065f46; }
+        .dark .cf-upload-btn:hover { background:#10b981; color:#fff; }
+
     </style>
 
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "HowTo", "name": "How to fit a curve to your data", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Paste X/Y data", "text": "Enter two columns (X then Y) separated by spaces, tabs or commas — one point per line. Or click Load example data."}, {"@type": "HowToStep", "position": 2, "name": "Choose a model", "text": "Pick linear, polynomial, exponential, power or logarithmic from the dropdown, based on the shape you expect."}, {"@type": "HowToStep", "position": 3, "name": "Compute the fit", "text": "Click Compute Fit. The fitted curve is drawn over your points and the equation appears below."}, {"@type": "HowToStep", "position": 4, "name": "Check the fit quality", "text": "Read R² and RMSE, watch for the overfitting warning, then use Copy Eq to grab the equation and statistics."}]}
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to fit a curve to your data", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Paste X/Y data", "text": "Enter two columns (X then Y) separated by spaces, tabs or commas — one point per line. Or click an example chip (Linear, Exponential, Power&hellip;)."}, {"@type": "HowToStep", "position": 2, "name": "Choose a model", "text": "Pick linear, polynomial, exponential, power or logarithmic from the dropdown, based on the shape you expect."}, {"@type": "HowToStep", "position": 3, "name": "Compute the fit", "text": "Click Compute Fit. The fitted curve is drawn over your points and the equation appears below."}, {"@type": "HowToStep", "position": 4, "name": "Check the fit quality", "text": "Read R² and RMSE, watch for the overfitting warning, then use Copy Eq to grab the equation and statistics."}]}
 </script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my data sent to a server?", "acceptedAnswer": {"@type": "Answer", "text": "No. Parsing, fitting and plotting all happen in your browser using regression.js and Plotly."}}, {"@type": "Question", "name": "Why does my exponential fit look slightly off?", "acceptedAnswer": {"@type": "Answer", "text": "Exponential/power/logarithmic models are fitted by linearisation (least squares in log-space), not true non-linear least squares, so the curve can look biased when data spans many orders of magnitude."}}, {"@type": "Question", "name": "What do R² and RMSE mean?", "acceptedAnswer": {"@type": "Answer", "text": "R² is the fraction of variance the model explains (1 is perfect). RMSE is the root-mean-square residual, in the same units as Y — smaller is better."}}, {"@type": "Question", "name": "Why did I get a warning about too few points?", "acceptedAnswer": {"@type": "Answer", "text": "If you have as many (or fewer) points as the model has parameters, the fit is exact or under-determined and R² is not informative. Add more data."}}, {"@type": "Question", "name": "Which model should I pick?", "acceptedAnswer": {"@type": "Answer", "text": "Match the expected shape: straight line → linear; growth/decay → exponential; curves through the origin → power; diminishing returns → logarithmic; one/two bends → polynomial 2/3."}}]}
 </script>
+    <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
 </head>
-<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300 overflow-x-hidden">
 
     <nav class="sticky top-0 z-50 w-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -201,12 +225,16 @@
 
         <div id="toastContainer" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-        <div class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-260px)] min-h-[600px]">
+        <div class="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-260px)] lg:min-h-[600px]">
             
             <div class="w-full lg:w-[400px] flex flex-col gap-4 shrink-0">
                 
                 <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col flex-grow">
-                    <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2">1. Input X/Y Data</h2>
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">1. Input X/Y Data</h2>
+                        <button id="btnUpload" class="cf-upload-btn"><i class="fa-solid fa-file-arrow-up"></i> Upload file</button>
+                        <input type="file" id="fileInput" accept=".csv,.txt,.dat,.tsv" class="hidden">
+                    </div>
                     <textarea id="dataInput" class="w-full flex-grow bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-emerald-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" placeholder="Paste 2 columns (X and Y)&#10;&#10;0.5   1.2&#10;1.0   2.8&#10;1.5   4.5&#10;2.0   7.1"></textarea>
                 </div>
 
@@ -226,7 +254,16 @@
                         <button id="btnFit" class="w-full bg-slate-800 hover:bg-slate-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl transition-all shadow-md transform hover:-translate-y-0.5 active:scale-95 text-sm">
                             Compute Fit
                         </button>
-                        <button id="btnExample" class="w-full mt-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline">Load example data</button>
+                        <div class="cf-samples">
+                            <span class="cf-samples-label"><i class="fa-solid fa-flask-vial"></i> Examples:</span>
+                            <div class="cf-chips">
+                                <button class="cf-chip" data-sample="linear">Linear</button>
+                                <button class="cf-chip" data-sample="exponential">Exponential</button>
+                                <button class="cf-chip" data-sample="power">Power</button>
+                                <button class="cf-chip" data-sample="logarithmic">Log</button>
+                                <button class="cf-chip" data-sample="polynomial2">Quadratic</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -234,15 +271,16 @@
 
             <div class="flex-grow flex flex-col gap-4">
                 
-                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-2 flex flex-col flex-grow relative">
-                    <div id="plotContainer" class="w-full h-full"></div>
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-2 flex flex-col flex-grow relative min-h-[360px] lg:min-h-0">
+                    <button id="btnPython" class="absolute top-3 right-3 z-10 px-3 py-1.5 bg-white/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-emerald-600 transition-colors shadow-sm backdrop-blur" title="Copy matplotlib code to reproduce this fit"><i class="fa-brands fa-python mr-1"></i> Python</button>
+                    <div id="plotContainer" class="w-full h-full min-h-[320px]"></div>
                 </div>
 
                 <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col shrink-0 relative overflow-hidden">
                     <div class="bg-slate-950 px-4 py-3 flex justify-between items-center border-b border-slate-800">
                         <span class="text-sm font-bold text-emerald-400 uppercase tracking-wider font-mono">Mathematical Model</span>
                         <div class="flex gap-3 items-center">
-                            <span class="text-xs font-mono text-slate-400">R² = <span id="r2Value" class="text-white font-bold">0.0000</span></span>
+                            <span class="text-xs font-mono text-slate-400">R² = <span id="r2Value" class="text-white font-bold">—</span></span>
                             <button id="btnCopyEquation" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 text-[10px] uppercase rounded font-bold transition-colors">
                                 Copy Eq
                             </button>
@@ -331,17 +369,60 @@
     </main>
 
     <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
-        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400">
-            <div class="flex items-center gap-2 mb-4 md:mb-0">
-                <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
-                <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="stk-dir mb-12">
+                <div>
+                    <h4><i class="fa-solid fa-chart-pie text-indigo-500 text-xs"></i> Data &amp; Stats</h4>
+                    <ul>
+                        <li><a href="plot-digitizer.html">Plot Digitizer</a></li>
+                        <li><a href="data-cleaner.html">Data Cleaner</a></li>
+                        <li><a href="stats-calculator.html">Stat Calculator</a></li>
+                        <li><a href="error-bar-generator.html">Error Bar Gen</a></li>
+                        <li><a href="outlier-detector.html">Outlier Detector</a></li>
+                        <li><a href="curve-fitter.html">Curve Fitter</a></li>
+                        <li><a href="plot-builder.html">Plot Builder</a></li>
+                        <li><a href="xvg-visualizer.html">XVG Visualizer</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-microchip text-orange-500 text-xs"></i> Compute</h4>
+                    <ul>
+                        <li><a href="structure-inspector.html">3D Inspector</a></li>
+                        <li><a href="coordinate-manipulator.html">Coordinate Manipulator</a></li>
+                        <li><a href="scientific-converter.html">Energy Conversions</a></li>
+                        <li><a href="script-generator.html">HPC Script Gen</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-book-open text-teal-500 text-xs"></i> Publish</h4>
+                    <ul>
+                        <li><a href="latex-formatter.html">Equation Formatter</a></li>
+                        <li><a href="latex-tables.html">Visual LaTeX Tables</a></li>
+                        <li><a href="doi-fetcher.html">DOI to BibTeX</a></li>
+                        <li><a href="bibtex-deduplicator.html">BibTeX Deduplicator</a></li>
+                        <li><a href="bibtex-sanitizer.html">BibTeX Sanitizer</a></li>
+                        <li><a href="journal-abbreviator.html">Journal Abbrev</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4><i class="fa-solid fa-headphones text-fuchsia-500 text-xs"></i> Focus &amp; Flow</h4>
+                    <ul>
+                        <li><a href="pomodoro.html">Ambient Pomodoro</a></li>
+                        <li><a href="decision.html">Decision Matrix</a></li>
+                        <li><a href="sandbox.html">Kinetic Sandbox</a></li>
+                    </ul>
+                </div>
             </div>
-            <div class="text-center md:text-left mb-4 md:mb-0 text-sm font-medium">
-                &copy; 2026 STEMKit. Engineered for Science.
-            </div>
-            <div class="flex gap-6 text-sm font-medium">
-                <a href="#" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
-                <a href="#" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+            <div class="border-t border-slate-200 dark:border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400 gap-4">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
+                    <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
+                </div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
+                <div class="flex gap-6 text-sm font-medium">
+                    <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
+                    <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+                </div>
             </div>
         </div>
     </footer>
@@ -381,6 +462,20 @@
             });
         }
     </script>
-    <script src="js/curve-fitter.js"></script>
+    <script src="js/curve-fitter.js"></script>    <!-- Python code modal -->
+    <div id="cfCodeModal" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background:rgba(15,23,42,.6);">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+            <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+                <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-brands fa-python text-emerald-500"></i> matplotlib code</h3>
+                <div class="flex items-center gap-2">
+                    <button id="cfCopyCode" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md text-xs font-bold transition-colors"><i class="fa-solid fa-copy mr-1"></i> Copy</button>
+                    <button id="cfCloseCode" class="w-8 h-8 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="p-1 overflow-auto"><pre id="cfCodeBlock" class="text-xs leading-relaxed p-4 font-mono text-slate-800 dark:text-slate-200 whitespace-pre overflow-x-auto"></pre></div>
+            <div class="px-4 py-2.5 border-t border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400">Reproduces the fit and plot. Requires <code>numpy</code> and <code>matplotlib</code>.</div>
+        </div>
+    </div>
+
 </body>
 </html>
