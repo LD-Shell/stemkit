@@ -83,3 +83,54 @@ mark.stk-hit { background:rgba(99,102,241,.25); color:inherit; border-radius:.2r
 .stk-top.is-visible { opacity:1; pointer-events:auto; }
 
 .tool-hidden { display:none !important; }
+
+/* ============================================================
+   Why-STEMKit trust strip + testimonials (home page)
+   Dedicated classes: output.css lacks the responsive grid
+   utilities, so these sections are styled here directly.
+   ============================================================ */
+.stk-why-section { border-top:1px solid #e2e8f0; background:#ffffff; }
+.dark .stk-why-section { border-color:#1e293b; background:rgba(15,23,42,.4); }
+.stk-why-wrap { max-width:80rem; margin:0 auto; padding:3.5rem 1.5rem; }
+.stk-why-grid { display:grid; grid-template-columns:1fr; gap:2rem; }
+@media (min-width:640px){ .stk-why-grid { grid-template-columns:repeat(2,1fr); } }
+@media (min-width:1024px){ .stk-why-grid { grid-template-columns:repeat(4,1fr); } }
+.stk-why-item { display:flex; flex-direction:column; align-items:center; text-align:center; gap:.75rem; }
+.stk-why-ico { width:3rem; height:3rem; border-radius:1rem; display:flex; align-items:center; justify-content:center; font-size:1.125rem; }
+.stk-why-ico--indigo  { background:#e0e7ff; color:#4f46e5; }
+.stk-why-ico--emerald { background:#d1fae5; color:#059669; }
+.stk-why-ico--amber   { background:#fef3c7; color:#d97706; }
+.stk-why-ico--fuchsia { background:#fae8ff; color:#c026d3; }
+.dark .stk-why-ico--indigo  { background:rgba(49,46,129,.5); color:#a5b4fc; }
+.dark .stk-why-ico--emerald { background:rgba(6,78,59,.5); color:#6ee7b7; }
+.dark .stk-why-ico--amber   { background:rgba(120,53,15,.5); color:#fcd34d; }
+.dark .stk-why-ico--fuchsia { background:rgba(112,26,117,.5); color:#f0abfc; }
+.stk-why-item h3 { font-weight:700; font-size:1rem; color:#1e293b; margin:0; }
+.dark .stk-why-item h3 { color:#f1f5f9; }
+.stk-why-item p { font-size:.875rem; line-height:1.6; color:#64748b; margin:0; max-width:20rem; }
+.dark .stk-why-item p { color:#94a3b8; }
+
+.stk-quotes-section { border-top:1px solid #e2e8f0; }
+.dark .stk-quotes-section { border-color:#1e293b; }
+.stk-quotes-wrap { max-width:80rem; margin:0 auto; padding:4rem 1.5rem; }
+.stk-quotes-head { text-align:center; margin-bottom:3rem; }
+.stk-quotes-head h2 { font-size:1.875rem; font-weight:900; letter-spacing:-.025em; color:#0f172a; margin:0; }
+.dark .stk-quotes-head h2 { color:#ffffff; }
+.stk-quotes-head p { color:#64748b; margin:.75rem auto 0; max-width:38rem; line-height:1.6; }
+.dark .stk-quotes-head p { color:#94a3b8; }
+.stk-quotes-grid { display:grid; grid-template-columns:1fr; gap:1.5rem; }
+@media (min-width:768px){ .stk-quotes-grid { grid-template-columns:repeat(3,1fr); } }
+.stk-quote { padding:1.75rem; background:#ffffff; border:1px solid #e2e8f0; border-radius:1.5rem;
+   display:flex; flex-direction:column; transition:transform .2s, box-shadow .2s, border-color .2s; }
+.dark .stk-quote { background:#1e293b; border-color:#334155; }
+.stk-quote:hover { transform:translateY(-3px); box-shadow:var(--stk-shadow-lg); border-color:#c7d2fe; }
+.dark .stk-quote:hover { border-color:#4338ca; }
+.stk-quote-stars { color:#fbbf24; font-size:.8rem; margin-bottom:.9rem; letter-spacing:.1em; }
+.stk-quote blockquote { font-size:.9rem; line-height:1.65; color:#475569; margin:0 0 1.25rem; flex-grow:1; }
+.dark .stk-quote blockquote { color:#cbd5e1; }
+.stk-quote figcaption { display:flex; align-items:center; gap:.75rem; margin-top:auto; }
+.stk-quote-avatar { width:2.25rem; height:2.25rem; border-radius:9999px; display:flex; align-items:center; justify-content:center;
+   font-weight:700; font-size:.7rem; flex-shrink:0; }
+.stk-quote-name { font-weight:700; font-size:.85rem; color:#1e293b; }
+.dark .stk-quote-name { color:#f1f5f9; }
+.stk-quote-role { font-size:.72rem; color:#94a3b8; }
