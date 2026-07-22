@@ -33,13 +33,57 @@ document.addEventListener("DOMContentLoaded", () => {
     const plotlyCanvas = document.getElementById('plotlyCanvas');
     const emptyPlotState = document.getElementById('emptyPlotState');
 
+    // Style-panel controls
+    const fontFamily = document.getElementById('fontFamily');
+    const colorTheme = document.getElementById('colorTheme');
+    const titleSize = document.getElementById('titleSize');
+    const axisSize = document.getElementById('axisSize');
+    const tickSize = document.getElementById('tickSize');
+    const markerSize = document.getElementById('markerSize');
+    const lineWidth = document.getElementById('lineWidth');
+    const gridOpacity = document.getElementById('gridOpacity');
+    const exportWidth = document.getElementById('exportWidth');
+    const exportHeight = document.getElementById('exportHeight');
+    const exportScale = document.getElementById('exportScale');
+
+    // Live-update the little value badges + re-render on any style change
+    [['titleSize','titleSizeVal'],['axisSize','axisSizeVal'],['tickSize','tickSizeVal'],
+     ['markerSize','markerSizeVal'],['lineWidth','lineWidthVal'],['gridOpacity','gridOpacityVal']].forEach(([id,out]) => {
+        const el = document.getElementById(id), o = document.getElementById(out);
+        if (el && o) { const s = () => { o.textContent = el.value; if (traces.length) renderPlot(); }; el.addEventListener('input', s); }
+    });
+    [fontFamily, colorTheme].forEach(el => el && el.addEventListener('change', () => { if (traces.length) renderPlot(); }));
+
+    // Effective theme: 'auto' follows the app, else forced light/dark
+    const effDark = () => colorTheme && colorTheme.value !== 'auto' ? colorTheme.value === 'dark' : isDark();
+
+    // Built-in sample dataset (skips file upload so users can try the tool instantly)
+    const sampleBtn = document.getElementById('loadSampleBtn');
+    if (sampleBtn) sampleBtn.addEventListener('click', () => {
+        const fileId = 'sample_growth.csv';
+        if (dataStore[fileId]) { showToast('Sample already loaded.', 'info'); return; }
+        const rows = [];
+        for (let t = 0; t <= 24; t += 2) {
+            rows.push({
+                time_h: t,
+                control_OD: +(0.05 * Math.exp(0.18 * t) + (Math.random() - 0.5) * 0.05).toFixed(3),
+                treated_OD: +(0.05 * Math.exp(0.11 * t) + (Math.random() - 0.5) * 0.04).toFixed(3)
+            });
+        }
+        dataStore[fileId] = { filename: 'sample_growth.csv', headers: ['time_h', 'control_OD', 'treated_OD'], data: rows };
+        updateFileInventory();
+        datasetContainer.classList.remove('hidden');
+        createNewTrace(fileId);
+        showToast('Sample dataset loaded — bacterial growth curves.', 'success');
+    });
+
     // # Configuring theme logic
     const isDark = () => document.documentElement.classList.contains('dark');
+    // The HTML toggle already flips the .dark class; here we only re-render so the
+    // plot colours track the theme (toggling again would cancel out).
     document.querySelectorAll('.themeToggle').forEach(btn => btn.addEventListener('click', () => {
-        document.documentElement.classList.toggle('dark');
-        localStorage.theme = isDark() ? 'dark' : 'light';
-        if (traces.length > 0) renderPlot();
-    });
+        if (traces.length > 0) setTimeout(renderPlot, 30);
+    }));
 
     // # --- 2. Data ingestion and parsing ---
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -271,22 +315,29 @@ document.addEventListener("DOMContentLoaded", () => {
                 mode: trace.config.mode,
                 type: trace.config.type,
                 name: trace.config.name,
-                marker: { color: trace.config.color, size: 6 },
-                line: { color: trace.config.color, width: 2 }
+                marker: { color: trace.config.color, size: parseInt(markerSize.value, 10) || 6 },
+                line: { color: trace.config.color, width: parseInt(lineWidth.value, 10) || 2 }
             };
         });
 
         // # Interpreting aesthetic controls
-        const textColor = isDark() ? '#cbd5e1' : '#475569';
-        const axisColor = isDark() ? '#475569' : '#cbd5e1';
-        const gridColor = isDark() ? '#1e293b' : '#f1f5f9';
+        const dark = effDark();
+        const textColor = dark ? '#cbd5e1' : '#475569';
+        const axisColor = dark ? '#475569' : '#cbd5e1';
+        const gOp = (parseInt(gridOpacity.value, 10) || 0) / 100;
+        const mix = (hex, a) => { const c = dark ? [30,41,59] : [241,245,249]; const b = hex.match(/\w\w/g).map(h=>parseInt(h,16)); return `rgba(${Math.round(b[0]*a+c[0]*(1-a))},${Math.round(b[1]*a+c[1]*(1-a))},${Math.round(b[2]*a+c[2]*(1-a))},1)`; };
+        const gridColor = dark ? `rgba(30,41,59,${gOp})` : `rgba(148,163,184,${gOp*0.5})`;
+        const fam = fontFamily.value;
+        const tSize = parseInt(titleSize.value, 10) || 18;
+        const aSize = parseInt(axisSize.value, 10) || 14;
+        const kSize = parseInt(tickSize.value, 10) || 12;
         const tickDir = tickStyle.value;
         const boxFrame = showFrame.checked;
 
         const commonAxisConfig = {
             gridcolor: gridColor,
             zerolinecolor: gridColor,
-            tickfont: { color: textColor },
+            tickfont: { color: textColor, size: kSize, family: fam },
             showgrid: false,
             ticks: tickDir,
             tickcolor: axisColor,
@@ -297,21 +348,22 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         const layout = {
-            title: { text: plotTitle.value, font: { color: textColor, family: 'Inter' } },
+            title: { text: plotTitle.value, font: { color: textColor, family: fam, size: tSize } },
             xaxis: {
                 ...commonAxisConfig,
-                title: { text: xAxisLabel.value, font: { color: textColor } },
+                title: { text: xAxisLabel.value, font: { color: textColor, size: aSize, family: fam } },
                 type: xLogScale.checked ? 'log' : 'linear',
                 showgrid: showGridX.checked
             },
             yaxis: {
                 ...commonAxisConfig,
-                title: { text: yAxisLabel.value, font: { color: textColor } },
+                title: { text: yAxisLabel.value, font: { color: textColor, size: aSize, family: fam } },
                 type: yLogScale.checked ? 'log' : 'linear',
                 showgrid: showGridY.checked
             },
             paper_bgcolor: 'transparent',
             plot_bgcolor: 'transparent',
+            font: { family: fam, color: textColor },
             margin: { t: plotTitle.value ? 50 : 30, l: 60, r: boxFrame ? 30 : 20, b: 50 },
             autosize: true
         };
@@ -320,7 +372,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const legPos = legendPosition.value;
         layout.showlegend = legPos !== 'hidden';
         if (layout.showlegend) {
-            layout.legend = { font: { color: textColor }, bgcolor: isDark() ? 'rgba(15,23,42,0.8)' : 'rgba(255,255,255,0.8)', bordercolor: axisColor, borderwidth: 1 };
+            layout.legend = { font: { color: textColor, family: fam }, bgcolor: dark ? 'rgba(15,23,42,0.8)' : 'rgba(255,255,255,0.8)', bordercolor: axisColor, borderwidth: 1 };
             if (legPos === 'top-right') { layout.legend.x = 0.99; layout.legend.y = 0.99; layout.legend.xanchor = 'right'; layout.legend.yanchor = 'top'; }
             else if (legPos === 'top-left') { layout.legend.x = 0.01; layout.legend.y = 0.99; layout.legend.xanchor = 'left'; layout.legend.yanchor = 'top'; }
             else if (legPos === 'bottom-right') { layout.legend.x = 0.99; layout.legend.y = 0.01; layout.legend.xanchor = 'right'; layout.legend.yanchor = 'bottom'; }
@@ -332,12 +384,119 @@ document.addEventListener("DOMContentLoaded", () => {
         Plotly.newPlot(plotlyCanvas, plotData, layout, config);
     }
 
-    // # Executing export operations
+    // # Executing export operations (honour the export-dimension controls)
+    const expDims = () => ({
+        width: parseInt(exportWidth.value, 10) || 1200,
+        height: parseInt(exportHeight.value, 10) || 800,
+        scale: parseInt(exportScale.value, 10) || 2
+    });
     document.getElementById('downloadSvgBtn').addEventListener('click', () => {
-        if(traces.length > 0) Plotly.downloadImage(plotlyCanvas, {format: 'svg', width: 1200, height: 800, filename: 'stemkit_figure'});
+        if (!traces.length) return showToast('Add a trace and render first.', 'error');
+        const { width, height } = expDims();
+        Plotly.downloadImage(plotlyCanvas, { format: 'svg', width, height, filename: 'stemkit_figure' });
     });
     document.getElementById('downloadPngBtn').addEventListener('click', () => {
-        if(traces.length > 0) Plotly.downloadImage(plotlyCanvas, {format: 'png', width: 2400, height: 1600, filename: 'stemkit_figure_highres'});
+        if (!traces.length) return showToast('Add a trace and render first.', 'error');
+        const { width, height, scale } = expDims();
+        Plotly.downloadImage(plotlyCanvas, { format: 'png', width, height, scale, filename: 'stemkit_figure_highres' });
+    });
+
+    // # --- matplotlib code export ---
+    function pyStr(s) { return "'" + String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"; }
+    function generateMatplotlib() {
+        if (!traces.length) return "# Add at least one trace, then click Python again.";
+        const dark = effDark();
+        const fam = fontFamily.value.split(',')[0].replace(/['"]/g, '').trim();
+        const tSize = parseInt(titleSize.value, 10) || 18;
+        const aSize = parseInt(axisSize.value, 10) || 14;
+        const kSize = parseInt(tickSize.value, 10) || 12;
+        const mSize = parseInt(markerSize.value, 10) || 6;
+        const lw = parseInt(lineWidth.value, 10) || 2;
+        const gOp = (parseInt(gridOpacity.value, 10) || 0) / 100;
+        const { width, height, scale } = expDims();
+        const dpi = 100 * scale;
+        const figW = (width / 100).toFixed(2), figH = (height / 100).toFixed(2);
+
+        // unique files used
+        const fileIds = [...new Set(traces.map(t => t.fileId))];
+        const fileVar = {};
+        fileIds.forEach((fid, i) => { fileVar[fid] = fileIds.length === 1 ? 'df' : `df${i + 1}`; });
+
+        let c = `import pandas as pd\nimport matplotlib.pyplot as plt\n\n`;
+        c += `# --- Load your data (point each path at your CSV) ---\n`;
+        fileIds.forEach(fid => {
+            const name = (dataStore[fid] && dataStore[fid].filename) || `${fid}.csv`;
+            c += `${fileVar[fid]} = pd.read_csv(${pyStr(name)})\n`;
+        });
+        c += `\n# --- Style ---\n`;
+        c += `plt.rcParams.update({\n`;
+        c += `    'font.family': ${pyStr(fam)},\n`;
+        c += `    'font.size': ${kSize},\n`;
+        c += `    'axes.titlesize': ${tSize},\n`;
+        c += `    'axes.labelsize': ${aSize},\n`;
+        if (dark) {
+            c += `    'figure.facecolor': '#0f172a', 'axes.facecolor': '#0f172a',\n`;
+            c += `    'axes.edgecolor': '#475569', 'text.color': '#cbd5e1',\n`;
+            c += `    'axes.labelcolor': '#cbd5e1', 'xtick.color': '#cbd5e1', 'ytick.color': '#cbd5e1',\n`;
+        }
+        c += `})\n\n`;
+        c += `fig, ax = plt.subplots(figsize=(${figW}, ${figH}), dpi=${dpi})\n\n`;
+
+        c += `# --- Traces ---\n`;
+        traces.forEach(t => {
+            const v = fileVar[t.fileId];
+            const xc = t.config.xCol, yc = t.config.yCol;
+            const mode = t.config.mode || 'lines';
+            const args = `${v}[${pyStr(xc)}], ${v}[${pyStr(yc)}]`;
+            const label = `label=${pyStr(t.config.name)}`;
+            const col = `color=${pyStr(t.config.color)}`;
+            if (mode === 'markers') {
+                c += `ax.scatter(${args}, ${label}, ${col}, s=${mSize * mSize})\n`;
+            } else if (mode === 'lines+markers') {
+                c += `ax.plot(${args}, ${label}, ${col}, linewidth=${lw}, marker='o', markersize=${mSize})\n`;
+            } else {
+                c += `ax.plot(${args}, ${label}, ${col}, linewidth=${lw})\n`;
+            }
+        });
+
+        c += `\n# --- Axes & labels ---\n`;
+        if (plotTitle.value) c += `ax.set_title(${pyStr(plotTitle.value)})\n`;
+        c += `ax.set_xlabel(${pyStr(xAxisLabel.value || 'x')})\n`;
+        c += `ax.set_ylabel(${pyStr(yAxisLabel.value || 'y')})\n`;
+        if (xLogScale.checked) c += `ax.set_xscale('log')\n`;
+        if (yLogScale.checked) c += `ax.set_yscale('log')\n`;
+        if (showGridX.checked || showGridY.checked) {
+            const axisArg = showGridX.checked && showGridY.checked ? 'both' : (showGridX.checked ? 'x' : 'y');
+            c += `ax.grid(True, axis=${pyStr(axisArg)}, alpha=${gOp.toFixed(2)})\n`;
+        }
+        if (!showFrame.checked) { c += `ax.spines['top'].set_visible(False)\nax.spines['right'].set_visible(False)\n`; }
+        if (tickStyle.value === 'inside') c += `ax.tick_params(direction='in')\n`;
+        else if (tickStyle.value === 'outside') c += `ax.tick_params(direction='out')\n`;
+
+        const legPos = legendPosition.value;
+        if (legPos !== 'hidden') {
+            const loc = legPos === 'top-right' ? 'upper right' : legPos === 'top-left' ? 'upper left'
+                : legPos === 'bottom-right' ? 'lower right' : 'center left';
+            if (legPos === 'outside') c += `ax.legend(loc='center left', bbox_to_anchor=(1.02, 0.5), frameon=True)\n`;
+            else c += `ax.legend(loc=${pyStr(loc)}, frameon=True)\n`;
+        }
+        c += `\nfig.tight_layout()\n`;
+        c += `fig.savefig('figure.png', dpi=${dpi}, bbox_inches='tight')\n`;
+        c += `fig.savefig('figure.svg', bbox_inches='tight')\n`;
+        c += `plt.show()\n`;
+        return c;
+    }
+
+    const codeModal = document.getElementById('codeModal');
+    const codeBlock = document.getElementById('codeBlock');
+    document.getElementById('copyPyBtn').addEventListener('click', () => {
+        codeBlock.textContent = generateMatplotlib();
+        codeModal.classList.add('open');
+    });
+    document.getElementById('closeCodeBtn').addEventListener('click', () => codeModal.classList.remove('open'));
+    codeModal.addEventListener('click', (e) => { if (e.target === codeModal) codeModal.classList.remove('open'); });
+    document.getElementById('copyCodeBtn').addEventListener('click', () => {
+        navigator.clipboard.writeText(codeBlock.textContent).then(() => showToast('matplotlib code copied.', 'success'));
     });
 
     // # --- 5. Notification utility ---
