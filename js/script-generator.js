@@ -1093,6 +1093,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        // Array jobs request --mem PER TASK, so the in-flight total is
+        // multiplied by the number of concurrent tasks. A default left
+        // untouched on a large array can wedge the queue.
+        if (isArray && jMem) {
+            const m = String(jMem).trim().match(/^(\d+(?:\.\d+)?)\s*([GMT])B?$/i);
+            const rm = getStr('jobArrayRange', '').match(/^(\d+)\s*-\s*(\d+)(?::\d+)?(?:%(\d+))?/);
+            if (m && rm) {
+                const per = parseFloat(m[1]);
+                const unit = m[2].toUpperCase();
+                const nTasks = parseInt(rm[2], 10) - parseInt(rm[1], 10) + 1;
+                const cap = rm[3] ? parseInt(rm[3], 10) : nTasks;
+                const concurrent = Math.min(cap, nTasks);
+                warnings.push(
+                    `Array job: <code>--mem=${jMem}</code> is per <em>task</em>. With ${concurrent} task${concurrent > 1 ? 's' : ''} running concurrently that is <strong>${(per * concurrent)}${unit}</strong> in flight. ` +
+                    `Confirm this fits your partition limit — if not, cap concurrency in the array range (e.g. <code>${rm[1]}-${rm[2]}%4</code>).`
+                );
+            } else {
+                warnings.push('Array job: <code>--mem</code> is requested per <em>task</em>, so the in-flight total is multiplied by the number of concurrent tasks. Confirm it fits your partition.');
+            }
+        }
+
         return { header: s, isArray };
     }
 
@@ -1155,7 +1176,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Note: GPU-resident mode (-update gpu) is incompatible with dynamic
         // load balancing and needs constraints = h-bonds.
         if (update) {
-            warnings.push('GPU-resident mode (<code>-update gpu</code>) needs <code>constraints = h-bonds</code> in your .mdp and disables dynamic load balancing. For efficiency, use infrequent coupling and a larger <code>nstcalcenergy</code>.');
+            warnings.push('<strong>Action needed in your .mdp:</strong> <code>-update gpu</code> (GPU-resident mode) <strong>requires <code>constraints = h-bonds</code></strong> (or <code>all-bonds</code>). Without it <code>grompp</code> fails before <code>mdrun</code> ever starts — the error comes from your .mdp, not from this script. GPU-resident mode also disables dynamic load balancing; for efficiency use infrequent T/P coupling and a larger <code>nstcalcenergy</code>.');
         }
 
         return { flags: flags.length ? ' ' + flags.join(' ') : '', warnings };
@@ -1199,6 +1220,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const topol = getStr('gmxTopol', 'topol.top');
         const startConf = getStr('gmxStartConf', 'system.gro');
         const ndx = getStr('gmxIndex', '');
+        // GROMACS executable name. Many HPC modules ship the MPI build as
+        // gmx_mpi, so this is user-settable rather than hardcoded.
+        const gmxBin = (getStr('gmxBinary', 'gmx') || 'gmx').trim() || 'gmx';
+        if (/\s/.test(gmxBin)) {
+            warnings.push(`The GROMACS executable name "<code>${gmxBin}</code>" contains a space. Use just the command name (e.g. <code>gmx</code> or <code>gmx_mpi</code>).`);
+        }
         const ndxFlag = ndx ? ` -n ${ndx}` : '';
         const gpuResult = gmxGpuFlags();
         const gpuFlags = gpuResult.flags;
@@ -1226,6 +1253,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // If GPU-resident mode is on, put the .mdp requirement INTO the script.
+        // UI warnings are lost the moment someone copies the file, and grompp
+        // fails before mdrun runs — users otherwise blame the generated script.
+        if (isChecked('gpuUpdate')) {
+            s += `# ==============================================================\n`;
+            s += `# IMPORTANT - '-update gpu' requires this in EVERY MD .mdp file:\n`;
+            s += `#     constraints = h-bonds      ; (or all-bonds)\n`;
+            s += `# Without it grompp FAILS before mdrun starts. That error comes\n`;
+            s += `# from the .mdp, not from this script.\n`;
+            s += `# ==============================================================\n\n`;
+        }
+
         let prev = null; // previous stage (for -c / -t wiring)
         stages.forEach((st, i) => {
             const tpr = `${st.deffnm}.tpr`;
@@ -1233,7 +1272,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // grompp: -c from previous stage .gro (or initial conf), -r for restraints,
             // -t from previous .cpt for continuation (NPT onward / production).
-            let grompp = `gmx grompp -f ${st.mdp} -p ${topol}${ndxFlag}`;
+            let grompp = `${gmxBin} grompp -f ${st.mdp} -p ${topol}${ndxFlag}`;
             const cSource = prev ? `${prev.deffnm}.gro` : startConf;
             grompp += ` -c ${cSource}`;
             if (st.posres) grompp += ` -r ${cSource}`;   // restraint reference (often == -c)
@@ -1247,8 +1286,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (st.key === 'em') {
                 stageGpu = stageGpu.replace(' -update gpu', '');
             }
-            let mdrun = `gmx mdrun -deffnm ${st.deffnm}${stageGpu} -pin on`;
-            if (st.key !== 'em') {
+            let mdrun = `${gmxBin} mdrun -deffnm ${st.deffnm}${stageGpu} -pin on`;            if (st.key !== 'em') {
                 // -cpi allows a safe restart; harmless if the .cpt is absent.
                 mdrun += ` -cpi ${st.deffnm}.cpt`;
             }
@@ -1634,7 +1672,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const bias = getStr('plumedBias', 'none');
         const useGrid = isChecked('plumedGrid');
         const useRct  = isChecked('plumedRct');
-        const useWalkers = isChecked('plumedWalkers');
+        // Multiple walkers. Two mutually exclusive modes:
+        //   'mpi'  -> WALKERS_MPI (requires a multi-replica launch)
+        //   'disk' -> WALKERS_N/ID/DIR/RSTRIDE (independent jobs sharing a dir)
+        // The legacy checkbox id is still honoured so older saved states work.
+        const walkersMode = (function () {
+            const m = getStr('plumedWalkersMode', '');
+            if (m) return m;
+            return isChecked('plumedWalkers') ? 'mpi' : 'none';
+        })();
+        const useWalkers = walkersMode === 'mpi';
+        // Emit the walker keywords for a given action, honouring the mode.
+        // `allowDisk` is false for OPES, which supports MPI walkers only.
+        const walkerLines = (allowDisk) => {
+            if (walkersMode === 'mpi') return `    WALKERS_MPI\n`;
+            if (walkersMode === 'disk') {
+                if (!allowDisk) return `    WALKERS_MPI\n`;  // OPES: MPI only
+                const wn = getStr('plumedWalkersN', '4').trim() || '4';
+                const wid = getStr('plumedWalkersId', '0').trim() || '0';
+                const wdir = getStr('plumedWalkersDir', '../hills').trim() || '../hills';
+                const wrs = getStr('plumedWalkersRstride', '100').trim() || '100';
+                return `    WALKERS_N=${wn}\n    WALKERS_ID=${wid}\n    WALKERS_DIR=${wdir}\n    WALKERS_RSTRIDE=${wrs}\n`;
+            }
+            return '';
+        };
         const stride = getStr('plumedStride', '500');
         const molinfo = getStr('plumedMolinfo', '');
         const useWhole = isChecked('plumedWhole');
@@ -1772,6 +1833,69 @@ document.addEventListener('DOMContentLoaded', () => {
         const gridBin = biasedCVs.map(c => c.biasValues.bin).join(',');
         const sigmas  = biasedCVs.map(c => c.biasValues.sigma).join(',');
 
+        // -----------------------------------------------------------------
+        // Grid-bounds sanity checks. A wrong GRID_MIN/GRID_MAX does not crash
+        // the run — it silently distorts the free-energy surface — so these
+        // are worth flagging loudly before a long metadynamics job.
+        // -----------------------------------------------------------------
+        // Only meaningful for the metadynamics family (grid + hills).
+        const gridRelevant = ['wt_metad', 'metad', 'pbmetad', 'opes'].includes(bias) && n > 0;
+        if (gridRelevant) {
+            // CVs whose natural range is periodic on [-pi, pi].
+            const PERIODIC_TYPES = ['TORSION', 'TORSIONS', 'PUCKERING', 'DIHEDRAL_CORRELATION',
+                                    'ALPHABETA', 'XYTORSIONS', 'XANGLES', 'ANGLES', 'ANGLE'];
+            // CVs whose natural range is [0, 1]-ish (order parameters).
+            const UNIT_TYPES = ['TETRAHEDRAL', 'LOCAL_Q6', 'LOCAL_Q4', 'LOCAL_Q3',
+                                'FCCUBIC', 'SMAC', 'ATOMIC_SMAC', 'TETRA_RADIAL', 'TETRA_ANGULAR',
+                                'Q6', 'Q4', 'Q3'];
+            const numOrNull = (v) => {
+                const t = String(v ?? '').trim();
+                if (/^-?pi$/i.test(t)) return (t[0] === '-' ? -Math.PI : Math.PI);
+                const n = parseFloat(t);
+                return Number.isFinite(n) ? n : null;
+            };
+            biasedCVs.forEach(c => {
+                const lo = numOrNull(c.biasValues.min);
+                const hi = numOrNull(c.biasValues.max);
+                const sg = numOrNull(c.biasValues.sigma);
+                const nb = numOrNull(c.biasValues.bin);
+                const isPeriodic = PERIODIC_TYPES.includes(c.type);
+                const isUnit     = UNIT_TYPES.includes(c.type);
+
+                if (lo === null || hi === null) {
+                    warnings.push(`Grid bounds for <code>${c.label}</code> are not numeric — check GRID MIN/MAX (use numbers, or <code>-pi</code>/<code>pi</code> for angles).`);
+                    return;
+                }
+                if (hi <= lo) {
+                    warnings.push(`<strong>Grid error:</strong> <code>${c.label}</code> has GRID_MAX (${c.biasValues.max}) ≤ GRID_MIN (${c.biasValues.min}). The run will fail or produce nonsense.`);
+                    return;
+                }
+                // Periodic CV on a clearly non-periodic grid: almost certainly wrong.
+                if (isPeriodic && (lo < -Math.PI - 1e-6 || hi > Math.PI + 1e-6 || (lo >= 0 && hi > 3.2))) {
+                    warnings.push(`<strong>Check grid bounds:</strong> <code>${c.label}</code> (${c.type}) is periodic on <code>-pi..pi</code>, but its grid is ${c.biasValues.min}..${c.biasValues.max}. Metadynamics on a mismatched grid silently distorts the free-energy surface. Set GRID MIN/MAX to <code>-pi</code>/<code>pi</code>.`);
+                }
+                // Order parameter left on the generic 0..10 default.
+                if (isUnit && hi > 2) {
+                    warnings.push(`<strong>Check grid bounds:</strong> <code>${c.label}</code> (${c.type}) normally lies in <code>0..1</code>, but its grid runs to ${c.biasValues.max}. Most of the grid would never be visited.`);
+                }
+                // Untouched generic default on a CV with no type-specific default.
+                if (!isPeriodic && !isUnit &&
+                    String(c.biasValues.min).trim() === '0.0' && String(c.biasValues.max).trim() === '10.0') {
+                    warnings.push(`<code>${c.label}</code> is still using the generic default grid <code>0.0..10.0</code>. Confirm this actually covers the range your CV explores — hills outside the grid are an error in PLUMED.`);
+                }
+                // Grid far too coarse/fine relative to SIGMA.
+                if (sg && nb && sg > 0 && nb > 0) {
+                    const spacing = (hi - lo) / nb;
+                    if (spacing > sg) {
+                        warnings.push(`<code>${c.label}</code>: grid spacing (${spacing.toFixed(4)}) is wider than SIGMA (${sg}). Increase GRID BIN so at least a few bins fall inside one Gaussian, or the bias is poorly resolved.`);
+                    }
+                }
+                if (sg && sg > 0 && (hi - lo) < 4 * sg) {
+                    warnings.push(`<code>${c.label}</code>: the grid spans less than 4×SIGMA. Widen GRID MIN/MAX or reduce SIGMA.`);
+                }
+            });
+        }
+
         const perCV = (method, key) => {
             const v = String(biasVal(method, key) ?? '').trim();
             if (v === '') return '';
@@ -1790,6 +1914,28 @@ document.addEventListener('DOMContentLoaded', () => {
             warnings.push(`A ${n}D grid will allocate massive amounts of RAM and may crash PLUMED. Use PBMETAD or disable the grid.`);
         }
 
+        // ---- Multiple-walkers validation -------------------------------
+        if (walkersMode !== 'none' && n > 0) {
+            if (walkersMode === 'mpi') {
+                warnings.push('<strong><code>WALKERS_MPI</code> only does something in a multi-replica run.</strong> Launch the replicas as one MPI job (e.g. <code>mpirun -np N gmx_mpi mdrun -multidir w0 w1 …</code>, or <code>plumed --multi N</code>). On a single-rank job this silently reduces to one walker, and the run looks fine but shares no bias.');
+            }
+            if (walkersMode === 'disk') {
+                const wn = parseInt(getStr('plumedWalkersN', '4'), 10);
+                const wid = getStr('plumedWalkersId', '0').trim();
+                const widNum = parseInt(wid, 10);
+                if (Number.isFinite(wn) && Number.isFinite(widNum) && widNum >= wn) {
+                    warnings.push(`<strong>Walker id out of range:</strong> <code>WALKERS_ID=${wid}</code> must be between 0 and ${wn - 1} for <code>WALKERS_N=${wn}</code>.`);
+                }
+                if (/^\d+$/.test(wid)) {
+                    warnings.push(`Every walker needs a <strong>different</strong> <code>WALKERS_ID</code>, but this file hardcodes <code>${wid}</code>. Generate one file per walker, or set it from the array index (e.g. <code>WALKERS_ID=\${SLURM_ARRAY_TASK_ID}</code>) and template the file at submit time.`);
+                }
+                warnings.push('All walkers must share the same <code>WALKERS_DIR</code> and it must exist before the run starts (<code>mkdir -p</code> it in the job script).');
+                if (bias === 'opes') {
+                    warnings.push('OPES supports <strong>MPI walkers only</strong> — the shared-directory keywords do not apply, so <code>WALKERS_MPI</code> was emitted instead. Switch to MPI mode, or use METAD/PBMETAD for disk-based walkers.');
+                }
+            }
+        }
+
         if ((bias === 'metad' || bias === 'wt_metad') && n > 0) {
             const wt = (bias === 'wt_metad');
             s += `# --- ${wt ? 'Well-Tempered ' : ''}Metadynamics ---\n`;
@@ -1806,7 +1952,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 s += `    GRID_BIN=${gridBin}\n`;
             }
             if (useRct)     s += `    CALC_RCT RCT_USTRIDE=10\n`;
-            if (useWalkers) s += `    WALKERS_MPI\n`;
+            s += walkerLines(true);
             s += `... METAD\n\n`;
             biasComponents = ['metad.bias'];
             if (useRct) biasComponents.push('metad.rbias', 'metad.rct');
@@ -1826,7 +1972,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 s += `    GRID_MAX=${gridMax}\n`;
                 s += `    GRID_BIN=${gridBin}\n`;
             }
-            if (useWalkers) s += `    WALKERS_MPI\n`;
+            s += walkerLines(true);
             s += `... PBMETAD\n\n`;
             biasComponents = ['pb.bias'];
         } else if (bias === 'opes' && n > 0) {
@@ -1850,7 +1996,7 @@ document.addEventListener('DOMContentLoaded', () => {
             s += `    STATE_WFILE=State.data\n`;
             s += `    STATE_WSTRIDE=${Math.max(parseInt(stride, 10) * 20 || 10000, 10000)}\n`;
             if (n >= 2) s += `    NLIST   # neighbour list over kernels speeds up multi-CV OPES\n`;
-            if (useWalkers) s += `    WALKERS_MPI\n`;
+            s += walkerLines(false);   // OPES supports MPI walkers only
             s += `... OPES_METAD\n\n`;
             biasComponents = ['opes.bias', 'opes.rct', 'opes.zed', 'opes.neff', 'opes.nker'];
         } else if (bias === 'restraint' && n > 0) {
@@ -2538,7 +2684,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const submitInputIds = [
         'jobName','jobPartition','jobNodes','jobCpus','jobTasks','lmpCpus','jobGpus',
         'jobTime','jobMem','jobArrayRange','jobArrayDir','jobMailUser',
-        'gmxTopol','gmxStartConf','gmxIndex','gpuNtmpi',
+        'gmxTopol','gmxStartConf','gmxIndex','gmxBinary','gpuNtmpi',
         'lmpInput','lmpLog'
     ];
     submitInputIds.forEach(id => { const el = $(id); if (el) el.addEventListener('input', generateSubmitScript); });
@@ -2569,6 +2715,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     ['plumedGrid','plumedRct','plumedWalkers'].forEach(id => {
         const el = $(id); if (el) el.addEventListener('change', generatePlumedScript);
+    });
+    // Multiple-walkers mode: show the shared-directory fields only in disk mode.
+    if ($('plumedWalkersMode')) $('plumedWalkersMode').addEventListener('change', (e) => {
+        const w = $('plumedWalkersDisk');
+        if (w) toggleVisibility(w, e.target.value === 'disk');
+        generatePlumedScript();
+    });
+    ['plumedWalkersN','plumedWalkersId','plumedWalkersDir','plumedWalkersRstride'].forEach(id => {
+        const el = $(id); if (el) el.addEventListener('input', generatePlumedScript);
     });
     // WHOLEMOLECULES controls: toggle the sub-panel and regenerate.
     if ($('plumedWhole')) $('plumedWhole').addEventListener('change', (e) => {
@@ -2642,6 +2797,22 @@ document.addEventListener('DOMContentLoaded', () => {
             toast.classList.add('translate-y-[-20px]', 'opacity-0');
             setTimeout(() => toast.remove(), 300);
         }, 2000);
+    }
+
+    // Docked script preview (stacked layout): collapse/expand so the user can
+    // reclaim screen space for the settings without losing the script entirely.
+    if ($('dockToggle')) {
+        $('dockToggle').addEventListener('click', (e) => {
+            const col = $('outputColumn');
+            if (!col) return;
+            const collapsed = col.classList.toggle('dock-collapsed');
+            const btn = e.currentTarget;
+            btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            const icon = btn.querySelector('i');
+            const text = btn.querySelector('.dock-toggle-text');
+            if (icon) icon.className = collapsed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+            if (text) text.textContent = collapsed ? 'Show' : 'Hide';
+        });
     }
 
     document.querySelectorAll('.copy-btn').forEach(btn => {
