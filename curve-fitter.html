@@ -204,7 +204,7 @@
                 <a href="index.html#pub-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Writing & Citations</a>
                 <a href="index.html#focus-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Focus & Flow</a>
                 <div class="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800">
-                    <a href="plot-digitizer.html" class="block text-center bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl shadow-md transition-colors">Digitizer Pro</a>
+                    <a href="plot-digitizer.html" class="block text-center bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl shadow-md transition-colors">Plot Digitizer</a>
                 </div>
             </div>
         </div>
@@ -225,17 +225,22 @@
 
         <div id="toastContainer" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-        <div class="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-260px)] lg:min-h-[600px]">
+        <!-- NEW BULLETPROOF LAYOUT: We force layout stretching by using inline min-height and absolute inset wrappers. -->
+        <div class="flex flex-col lg:flex-row gap-6 items-stretch">
             
             <div class="w-full lg:w-[400px] flex flex-col gap-4 shrink-0">
                 
-                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col flex-grow">
-                    <div class="flex items-center justify-between mb-2">
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col flex-grow" style="min-height: 350px;">
+                    <div class="flex items-center justify-between mb-2 shrink-0">
                         <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">1. Input X/Y Data</h2>
                         <button id="btnUpload" class="cf-upload-btn"><i class="fa-solid fa-file-arrow-up"></i> Upload file</button>
                         <input type="file" id="fileInput" accept=".csv,.txt,.dat,.tsv" class="hidden">
                     </div>
-                    <textarea id="dataInput" class="w-full flex-grow bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-emerald-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" placeholder="Paste 2 columns (X and Y)&#10;&#10;0.5   1.2&#10;1.0   2.8&#10;1.5   4.5&#10;2.0   7.1"></textarea>
+                    
+                    <!-- ABSOLUTE WRAPPER TRICK FOR TEXTAREA -->
+                    <div class="relative flex-grow w-full">
+                        <textarea id="dataInput" class="absolute inset-0 w-full h-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-emerald-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" placeholder="Paste 2 columns (X and Y)&#10;&#10;0.5   1.2&#10;1.0   2.8&#10;1.5   4.5&#10;2.0   7.1"></textarea>
+                    </div>
                 </div>
 
                 <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 shrink-0">
@@ -271,9 +276,13 @@
 
             <div class="flex-grow flex flex-col gap-4">
                 
-                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-2 flex flex-col flex-grow relative min-h-[360px] lg:min-h-0">
+                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-2 flex flex-col flex-grow relative" style="min-height: 500px;">
                     <button id="btnPython" class="absolute top-3 right-3 z-10 px-3 py-1.5 bg-white/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-emerald-600 transition-colors shadow-sm backdrop-blur" title="Copy matplotlib code to reproduce this fit"><i class="fa-brands fa-python mr-1"></i> Python</button>
-                    <div id="plotContainer" class="w-full h-full min-h-[320px]"></div>
+                    
+                    <!-- ABSOLUTE WRAPPER TRICK FOR PLOTLY -->
+                    <div class="relative flex-grow w-full h-full">
+                        <div id="plotContainer" class="absolute inset-0"></div>
+                    </div>
                 </div>
 
                 <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col shrink-0 relative overflow-hidden">
