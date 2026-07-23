@@ -225,22 +225,39 @@
 
         <div id="toastContainer" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-        <!-- NEW BULLETPROOF LAYOUT: We force layout stretching by using inline min-height and absolute inset wrappers. -->
         <div class="flex flex-col lg:flex-row gap-6 items-stretch">
             
             <div class="w-full lg:w-[400px] flex flex-col gap-4 shrink-0">
                 
                 <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col flex-grow" style="min-height: 350px;">
                     <div class="flex items-center justify-between mb-2 shrink-0">
-                        <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">1. Input X/Y Data</h2>
+                        <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">1. Input Data</h2>
                         <button id="btnUpload" class="cf-upload-btn"><i class="fa-solid fa-file-arrow-up"></i> Upload file</button>
                         <input type="file" id="fileInput" accept=".csv,.txt,.dat,.tsv" class="hidden">
                     </div>
                     
-                    <!-- ABSOLUTE WRAPPER TRICK FOR TEXTAREA -->
                     <div class="relative flex-grow w-full">
-                        <textarea id="dataInput" class="absolute inset-0 w-full h-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-emerald-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" placeholder="Paste 2 columns (X and Y)&#10;&#10;0.5   1.2&#10;1.0   2.8&#10;1.5   4.5&#10;2.0   7.1"></textarea>
+                        <textarea id="dataInput" class="absolute inset-0 w-full h-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-emerald-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" placeholder="Paste data columns here...&#10;&#10;Time   Yield   Temp&#10;0.5    1.2     300&#10;1.0    2.8     400&#10;1.5    4.5     500&#10;2.0    7.1     600"></textarea>
                     </div>
+
+                    <!-- Column Mapping & Persistent Data Warnings -->
+                    <div class="mt-3 flex flex-col gap-2 border-t border-slate-100 dark:border-slate-800 pt-3 shrink-0">
+                        <div class="flex items-center justify-between gap-3">
+                            <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Column Mapping</span>
+                            <div class="flex items-center gap-3">
+                                <label class="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 whitespace-nowrap">
+                                    X <input type="number" id="colX" value="1" min="1" class="w-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-center outline-none focus:ring-2 focus:ring-emerald-500 transition-colors">
+                                </label>
+                                <label class="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 whitespace-nowrap">
+                                    Y <input type="number" id="colY" value="2" min="1" class="w-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-center outline-none focus:ring-2 focus:ring-emerald-500 transition-colors">
+                                </label>
+                            </div>
+                        </div>
+                        <!-- Also updated warning colors to strictly match output.css -->
+                        <div id="parseWarnings" class="hidden text-[10px] text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/50 p-2 rounded-lg border border-orange-200 dark:border-orange-800/50 leading-tight">
+                        </div>
+                    </div>
+
                 </div>
 
                 <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 shrink-0">
@@ -279,7 +296,6 @@
                 <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-2 flex flex-col flex-grow relative" style="min-height: 500px;">
                     <button id="btnPython" class="absolute top-3 right-3 z-10 px-3 py-1.5 bg-white/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-emerald-600 transition-colors shadow-sm backdrop-blur" title="Copy matplotlib code to reproduce this fit"><i class="fa-brands fa-python mr-1"></i> Python</button>
                     
-                    <!-- ABSOLUTE WRAPPER TRICK FOR PLOTLY -->
                     <div class="relative flex-grow w-full h-full">
                         <div id="plotContainer" class="absolute inset-0"></div>
                     </div>
@@ -309,10 +325,13 @@
         <div class="stk-wrap">
             <span class="stk-chip"><i class="fa-solid fa-wave-square"></i> How-To Guide</span>
             <h2 class="stk-h2">How to fit a curve to your data</h2>
-            <p class="stk-lead">Paste two columns of numbers, choose a model, and read off the fitted equation, R² and RMSE — all computed locally in your browser.</p>
+            <p class="stk-lead">Paste columns of numbers, choose a model, and read off the fitted equation, R² and RMSE — all computed locally in your browser.</p>
             <p class="stk-byline">By Olanrewaju M. Daramola · 100% client-side</p>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-step"><span class="stk-num">1</span><div><h3>Paste X/Y data</h3><p>Enter two columns (X then Y) separated by spaces, tabs or commas — one point per line. Or click <strong>Load example data</strong>.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Choose a model</h3><p>Pick linear, polynomial, exponential, power or logarithmic from the dropdown, based on the shape you expect.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Compute the fit</h3><p>Click <strong>Compute Fit</strong>. The fitted curve is drawn over your points and the equation appears below.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Check the fit quality</h3><p>Read R² and RMSE, watch for the overfitting warning, then use <strong>Copy Eq</strong> to grab the equation and statistics.</p></div></div>
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Paste Data</h3><p>Enter your data columns separated by spaces, tabs or commas — one point per line. Or click <strong>Load example data</strong>.</p></div></div>
+                <div class="stk-step"><span class="stk-num">2</span><div><h3>Map Columns</h3><p>Tell the tool which columns represent your X (independent) and Y (dependent) variables.</p></div></div>
+                <div class="stk-step"><span class="stk-num">3</span><div><h3>Choose a model</h3><p>Pick linear, polynomial, exponential, power or logarithmic from the dropdown, based on the shape you expect.</p></div></div>
+                <div class="stk-step"><span class="stk-num">4</span><div><h3>Check the fit</h3><p>Click <strong>Compute Fit</strong>. Read R² and RMSE, watch for the overfitting warning, then use <strong>Copy Eq</strong> to grab the equation.</p></div></div>
             </div>
         </div>
     </section>
@@ -471,7 +490,9 @@
             });
         }
     </script>
-    <script src="js/curve-fitter.js"></script>    <!-- Python code modal -->
+    <script src="js/curve-fitter.js"></script>    
+    
+    <!-- Python code modal -->
     <div id="cfCodeModal" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background:rgba(15,23,42,.6);">
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
             <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">

@@ -16,13 +16,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const dataInput       = document.getElementById('dataInput');
     const modelSelect     = document.getElementById('modelSelect');
     const btnFit          = document.getElementById('btnFit');
-    const btnExample      = document.getElementById('btnExample');   // optional
     const plotContainer   = document.getElementById('plotContainer');
     const equationOutput  = document.getElementById('equationOutput');
     const r2Value         = document.getElementById('r2Value');
-    const fitMeta         = document.getElementById('fitMeta');       // optional
+    const fitMeta         = document.getElementById('fitMeta');       
     const btnCopyEquation = document.getElementById('btnCopyEquation');
     const toastContainer  = document.getElementById('toastContainer');
+    
+    // NEW: Column Mapping Bindings
+    const colXInput       = document.getElementById('colX');
+    const colYInput       = document.getElementById('colY');
+    const parseWarnings   = document.getElementById('parseWarnings');
 
     let currentEquationString = "";
     let currentSummary = "";
@@ -33,11 +37,12 @@ document.addEventListener('DOMContentLoaded', () => {
         polynomial2: 3, polynomial3: 4
     };
 
-    const EXAMPLE = `0.5\t1.6\n1.0\t2.9\n1.5\t4.4\n2.0\t7.0\n2.5\t10.1\n3.0\t14.8\n3.5\t20.9\n4.0\t29.0`;
-
     // --- 2. Event Listeners ---
     btnFit.addEventListener('click', processRegression);
-    // Example datasets tuned to each model type (load only — user clicks Compute Fit).
+    colXInput.addEventListener('change', processRegression);
+    colYInput.addEventListener('change', processRegression);
+
+    // Example datasets tuned to each model type
     const SAMPLES = {
         linear:      { model: 'linear',      data: "1\t2.1\n2\t4.3\n3\t5.9\n4\t8.2\n5\t9.8\n6\t12.1\n7\t14.0\n8\t15.9" },
         exponential: { model: 'exponential', data: "0.5\t1.6\n1.0\t2.9\n1.5\t4.4\n2.0\t7.0\n2.5\t10.1\n3.0\t14.8\n3.5\t20.9\n4.0\t29.0" },
@@ -45,20 +50,27 @@ document.addEventListener('DOMContentLoaded', () => {
         logarithmic: { model: 'logarithmic', data: "1\t0.2\n2\t2.1\n3\t3.3\n4\t4.1\n5\t4.8\n6\t5.3\n7\t5.8\n8\t6.2" },
         polynomial2: { model: 'polynomial2', data: "-4\t18.1\n-3\t9.8\n-2\t4.2\n-1\t1.1\n0\t0.2\n1\t1.0\n2\t4.1\n3\t9.2\n4\t16.3" }
     };
+    
     const sampleWrap = document.querySelector('.cf-samples');
     document.querySelectorAll('.cf-chip').forEach(chip => chip.addEventListener('click', () => {
         const s = SAMPLES[chip.getAttribute('data-sample')];
         if (!s) return;
+        
+        // Reset column mapping for standard example data
+        colXInput.value = 1;
+        colYInput.value = 2;
+        
         dataInput.value = s.data;
         modelSelect.value = s.model;
         if (sampleWrap) sampleWrap.classList.remove('hint');
-        // Don't auto-run — nudge the Fit button instead.
+        
         btnFit.classList.add('cf-pulse');
         setTimeout(() => btnFit.classList.remove('cf-pulse'), 1600);
         btnFit.scrollIntoView({ behavior: 'smooth', block: 'center' });
         showToast('Example loaded — press Compute Fit.');
     }));
-    // File upload — reads a CSV/TXT/DAT/TSV into the textarea (same parser handles it).
+    
+    // File upload
     const btnUpload = document.getElementById('btnUpload');
     const fileInput = document.getElementById('fileInput');
     if (btnUpload && fileInput) {
@@ -79,41 +91,85 @@ document.addEventListener('DOMContentLoaded', () => {
             fileInput.value = '';
         });
     }
-    // Hint the example chips while the input is empty.
+
     if (sampleWrap && dataInput && !dataInput.value.trim()) {
         sampleWrap.classList.add('hint');
         dataInput.addEventListener('input', () => sampleWrap.classList.remove('hint'), { once: true });
     }
 
-    // Re-render on theme change so the plot colours track light/dark mode
     const themeObserver = new MutationObserver(() => {
         if (dataInput.value.trim() !== '') processRegression();
     });
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
-    // --- 3. Parsing Engine ---
-    function parseInputData(rawText) {
-        if (!rawText.trim()) return [];
+    // --- 3. UPGRADED Parsing Engine ---
+    function parseInputData(rawText, xIdx, yIdx) {
+        if (!rawText.trim()) return { data: [], warnings: [] };
         const lines = rawText.split('\n');
         const matrix = [];
+        
+        let missingColCount = 0;
+        let nanCount = 0;
+
         for (let line of lines) {
             if (line.trim() === '') continue;
             const tokens = line.trim().split(/[\s,]+/).filter(Boolean);
-            if (tokens.length >= 2) {
-                const x = parseFloat(tokens[0]);
-                const y = parseFloat(tokens[1]);
-                if (!isNaN(x) && !isNaN(y)) matrix.push([x, y]);
+            
+            // Check if the requested columns actually exist on this line
+            if (tokens.length <= Math.max(xIdx, yIdx)) {
+                missingColCount++;
+                continue;
+            }
+
+            const x = parseFloat(tokens[xIdx]);
+            const y = parseFloat(tokens[yIdx]);
+
+            // Only push if both parse correctly
+            if (!isNaN(x) && !isNaN(y)) {
+                matrix.push([x, y]);
+            } else {
+                nanCount++;
             }
         }
-        return matrix.sort((a, b) => a[0] - b[0]);
+
+        const warnings = [];
+        if (missingColCount > 0) warnings.push(`Dropped ${missingColCount} line(s) missing requested columns.`);
+        if (nanCount > 0) warnings.push(`Ignored ${nanCount} line(s) with text headers or invalid numbers.`);
+
+        return { data: matrix.sort((a, b) => a[0] - b[0]), warnings: warnings };
     }
 
     // --- 4. Regression Engine ---
     function processRegression() {
-        const rawData = parseInputData(dataInput.value);
-        if (rawData.length < 2) {
-            showToast("Please provide at least 2 valid data points.");
+        const xIdx = parseInt(colXInput.value, 10) - 1;
+        const yIdx = parseInt(colYInput.value, 10) - 1;
+
+        if (xIdx < 0 || yIdx < 0) {
+            showToast("Column numbers must be 1 or higher.");
             return;
+        }
+
+        const parsed = parseInputData(dataInput.value, xIdx, yIdx);
+        const rawData = parsed.data;
+
+        // Display data parsing warnings persistently if there are any
+        if (parsed.warnings.length > 0 && dataInput.value.trim() !== '') {
+            parseWarnings.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1"></i> ${parsed.warnings.join(' ')}`;
+            parseWarnings.classList.remove('hidden');
+        } else {
+            parseWarnings.classList.add('hidden');
+        }
+
+        if (rawData.length < 2 && dataInput.value.trim() !== '') {
+            showToast(`Found only ${rawData.length} valid points in cols ${xIdx+1} & ${yIdx+1}. Need at least 2.`);
+            renderPlot([[0, 0]], { predict: () => [0, 0] });
+            equationOutput.innerHTML = "Invalid data selection";
+            if(fitMeta) fitMeta.innerHTML = "";
+            r2Value.textContent = "—";
+            lastFit = null;
+            return;
+        } else if (rawData.length < 2) {
+            return; // completely empty input
         }
 
         const model = modelSelect.value;
@@ -159,7 +215,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const r2 = (typeof result.r2 === 'number' && isFinite(result.r2)) ? result.r2 : NaN;
         r2Value.textContent = isNaN(r2) ? '—' : r2.toFixed(4);
 
-        // RMSE on the original data, computed from the model's own predictions
         let sse = 0, n = 0;
         rawData.forEach(([x, y]) => {
             const p = result.predict(x);
