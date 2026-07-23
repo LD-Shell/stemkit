@@ -15,8 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
         mouseY: 0,
         isDragging: false,
         lastTracePoint: null,
-        autoTolerance: 30,
-        eraseRadius: 10
+        eraseRadius: 10,
+        zoomLevel: 1 
     };
 
     // --- 2. Component bindings ---
@@ -46,11 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnAddDataset = document.getElementById('btnAddDataset');
 
     const btnManualMode = document.getElementById('btnManualMode');
-    const btnAutoMode = document.getElementById('btnAutoMode');
     const btnEraseMode = document.getElementById('btnEraseMode');
-    const autoControls = document.getElementById('autoControls');
-    const colorTolerance = document.getElementById('colorTolerance');
-    const toleranceVal = document.getElementById('toleranceVal');
     
     const eraseControls = document.getElementById('eraseControls');
     const eraseRadiusSlider = document.getElementById('eraseRadius');
@@ -68,6 +64,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const pythonCodeBlock = document.getElementById('pythonCodeBlock');
     const closePythonModal = document.getElementById('closePythonModal');
     const copyPythonBtn = document.getElementById('copyPythonBtn');
+
+    // --- NEW: Inject Zoom UI Controls ---
+    const zoomControls = document.createElement('div');
+    zoomControls.className = 'absolute bottom-4 right-4 flex gap-1 bg-white dark:bg-slate-900 p-1.5 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 z-40 items-center';
+    zoomControls.innerHTML = `
+        <button id="btnZoomOut" class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"><i class="fa-solid fa-minus"></i></button>
+        <div class="flex items-center justify-center w-14 text-xs font-black text-slate-700 dark:text-slate-300 font-mono" id="zoomLevelDisplay">100%</div>
+        <button id="btnZoomIn" class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"><i class="fa-solid fa-plus"></i></button>
+    `;
+    canvasContainer.appendChild(zoomControls);
+
+    const btnZoomIn = document.getElementById('btnZoomIn');
+    const btnZoomOut = document.getElementById('btnZoomOut');
+    const zoomLevelDisplay = document.getElementById('zoomLevelDisplay');
+
+    function applyZoom() {
+        canvas.style.maxWidth = 'none'; 
+        canvas.style.width = `${state.image.width * state.zoomLevel}px`;
+        zoomLevelDisplay.innerText = Math.round(state.zoomLevel * 100) + '%';
+    }
+
+    btnZoomIn.addEventListener('click', () => {
+        state.zoomLevel = Math.min(state.zoomLevel + 0.25, 5);
+        applyZoom();
+    });
+
+    btnZoomOut.addEventListener('click', () => {
+        state.zoomLevel = Math.max(state.zoomLevel - 0.25, 0.5);
+        applyZoom();
+    });
 
     // Accordion initialization logic
     document.querySelectorAll('.accordion-btn').forEach(btn => {
@@ -95,6 +121,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 workspace.classList.add('flex');
                 canvas.width = img.width;
                 canvas.height = img.height;
+                
+                state.zoomLevel = 1;
+                applyZoom(); 
+
                 renderDatasetUI();
                 renderViewport();
             };
@@ -103,9 +133,21 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsDataURL(file);
     });
 
-    colorTolerance.addEventListener('input', (e) => {
-        state.autoTolerance = parseInt(e.target.value);
-        toleranceVal.innerText = state.autoTolerance;
+    // Scroll-to-zoom logic
+    canvasContainer.addEventListener('wheel', (e) => {
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault(); 
+            
+            const zoomSensitivity = 0.1;
+            if (e.deltaY < 0) {
+                state.zoomLevel += zoomSensitivity;
+            } else {
+                state.zoomLevel -= zoomSensitivity;
+            }
+            
+            state.zoomLevel = Math.max(0.5, Math.min(state.zoomLevel, 5));
+            applyZoom();
+        }
     });
 
     eraseRadiusSlider.addEventListener('input', (e) => {
@@ -179,6 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function getActiveDataset() { return state.datasets.find(ds => ds.id === state.activeDatasetId); }
 
     function mapScale(px, px1, px2, val1, val2, useLog) {
+        if (px2 === px1) return null;
         if (useLog) {
             if (val1 <= 0 || val2 <= 0) return null;
             const logV1 = Math.log10(val1);
@@ -199,53 +242,37 @@ document.addEventListener('DOMContentLoaded', () => {
         const logicalX = mapScale(px, state.calibration.pxX1, state.calibration.pxX2, logX1, logX2, isLogX.checked);
         const logicalY = mapScale(py, state.calibration.pxY1, state.calibration.pxY2, logY1, logY2, isLogY.checked);
         if (logicalX === null || logicalY === null) return null;
+        
+        if (!Number.isFinite(logicalX) || !Number.isFinite(logicalY)) return null;
         return { x: logicalX, y: logicalY };
+    }
+
+    function formatValue(v) {
+        if (!Number.isFinite(v)) return '';
+        if (v === 0) return '0';
+        const mag = Math.abs(v);
+        if (mag >= 1e-4 && mag < 1e7) {
+            return parseFloat(v.toPrecision(8)).toString();
+        }
+        return v.toExponential(6);
+    }
+
+    function pointsForExport(ds) {
+        return ds.points.slice().sort((a, b) => a.pxX - b.pxX);
     }
 
     function generateCSVString() {
         let csvStr = "Dataset,X,Y\n";
         state.datasets.forEach(ds => {
-            ds.points.forEach(pt => {
-                const xStr = isLogX.checked ? pt.logicalX.toExponential(4) : pt.logicalX.toFixed(4);
-                const yStr = isLogY.checked ? pt.logicalY.toExponential(4) : pt.logicalY.toFixed(4);
-                csvStr += `"${ds.name}",${xStr},${yStr}\n`;
+            const safeName = String(ds.name).replace(/"/g, '""');
+            pointsForExport(ds).forEach(pt => {
+                csvStr += `"${safeName}",${formatValue(pt.logicalX)},${formatValue(pt.logicalY)}\n`;
             });
         });
         return csvStr;
     }
 
-    // --- 5. Data generation, rendering, and erasing engines ---
-    function colorDistance(r1, g1, b1, r2, g2, b2) {
-        return Math.sqrt(Math.pow(r1-r2, 2) + Math.pow(g1-g2, 2) + Math.pow(b1-b2, 2));
-    }
-
-    function executeAutoExtraction(targetX, targetY) {
-        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imgData.data;
-        const width = canvas.width, height = canvas.height;
-        const targetIndex = (targetY * width + targetX) * 4;
-        const tR = data[targetIndex], tG = data[targetIndex + 1], tB = data[targetIndex + 2];
-        const activeDs = getActiveDataset();
-        const extractedPoints = [];
-
-        for (let x = 0; x < width; x += 3) {
-            let ySum = 0, matchCount = 0;
-            for (let y = 0; y < height; y++) {
-                const idx = (y * width + x) * 4;
-                const d = colorDistance(tR, tG, tB, data[idx], data[idx+1], data[idx+2]);
-                if (d <= state.autoTolerance) { ySum += y; matchCount++; }
-            }
-            if (matchCount > 0) {
-                const avgY = Math.round(ySum / matchCount);
-                const logical = computeLogicalCoordinates(x, avgY);
-                if (logical) extractedPoints.push({ pxX: x, pxY: avgY, logicalX: logical.x, logicalY: logical.y });
-            }
-        }
-        activeDs.points = activeDs.points.concat(extractedPoints);
-        renderDatasetUI();
-        renderViewport();
-    }
-
+    // --- 5. Rendering and erasing engines ---
     function erasePoints(px, py) {
         const activeDs = getActiveDataset();
         const originalLength = activeDs.points.length;
@@ -265,23 +292,59 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         if (state.showBackground) ctx.drawImage(state.image, 0, 0);
 
-        ctx.lineWidth = 1; ctx.setLineDash([5, 5]);
-        if (state.calibration.pxX1 !== null) { ctx.strokeStyle = '#ef4444'; ctx.beginPath(); ctx.moveTo(state.calibration.pxX1, 0); ctx.lineTo(state.calibration.pxX1, canvas.height); ctx.stroke(); }
-        if (state.calibration.pxX2 !== null) { ctx.strokeStyle = '#b91c1c'; ctx.beginPath(); ctx.moveTo(state.calibration.pxX2, 0); ctx.lineTo(state.calibration.pxX2, canvas.height); ctx.stroke(); }
-        if (state.calibration.pxY1 !== null) { ctx.strokeStyle = '#3b82f6'; ctx.beginPath(); ctx.moveTo(0, state.calibration.pxY1); ctx.lineTo(canvas.width, state.calibration.pxY1); ctx.stroke(); }
-        if (state.calibration.pxY2 !== null) { ctx.strokeStyle = '#1d4ed8'; ctx.beginPath(); ctx.moveTo(0, state.calibration.pxY2); ctx.lineTo(canvas.width, state.calibration.pxY2); ctx.stroke(); }
+        // Helper function to draw highly readable, compact UI badges
+        const drawBadge = (x, y, text, bgColor) => {
+            ctx.font = "bold 12px Inter, sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            
+            ctx.fillStyle = bgColor;
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(x - 16, y - 10, 32, 20, 4);
+            } else {
+                ctx.fillRect(x - 16, y - 10, 32, 20); 
+            }
+            ctx.fill();
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(text, x, y);
+        };
+
+        ctx.lineWidth = 1.5; 
+        ctx.setLineDash([6, 4]);
+        
+        // Anchor X labels to the top edge, staggered
+        if (state.calibration.pxX1 !== null) { 
+            ctx.strokeStyle = '#ef4444'; ctx.beginPath(); ctx.moveTo(state.calibration.pxX1, 0); ctx.lineTo(state.calibration.pxX1, canvas.height); ctx.stroke(); 
+            drawBadge(state.calibration.pxX1, 20, "X1", '#ef4444');
+        }
+        if (state.calibration.pxX2 !== null) { 
+            ctx.strokeStyle = '#b91c1c'; ctx.beginPath(); ctx.moveTo(state.calibration.pxX2, 0); ctx.lineTo(state.calibration.pxX2, canvas.height); ctx.stroke(); 
+            drawBadge(state.calibration.pxX2, 45, "X2", '#b91c1c');
+        }
+        // Anchor Y labels to the left edge, staggered
+        if (state.calibration.pxY1 !== null) { 
+            ctx.strokeStyle = '#3b82f6'; ctx.beginPath(); ctx.moveTo(0, state.calibration.pxY1); ctx.lineTo(canvas.width, state.calibration.pxY1); ctx.stroke(); 
+            drawBadge(25, state.calibration.pxY1, "Y1", '#3b82f6');
+        }
+        if (state.calibration.pxY2 !== null) { 
+            ctx.strokeStyle = '#1d4ed8'; ctx.beginPath(); ctx.moveTo(0, state.calibration.pxY2); ctx.lineTo(canvas.width, state.calibration.pxY2); ctx.stroke(); 
+            drawBadge(65, state.calibration.pxY2, "Y2", '#1d4ed8');
+        }
         ctx.setLineDash([]);
 
         state.datasets.forEach(ds => {
             if (ds.points.length === 0) return;
             ctx.strokeStyle = ds.color; ctx.fillStyle = ds.color; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.moveTo(ds.points[0].pxX, ds.points[0].pxY);
-            for (let i = 1; i < ds.points.length; i++) ctx.lineTo(ds.points[i].pxX, ds.points[i].pxY);
+            
+            const ordered = pointsForExport(ds);
+            ctx.beginPath(); ctx.moveTo(ordered[0].pxX, ordered[0].pxY);
+            for (let i = 1; i < ordered.length; i++) ctx.lineTo(ordered[i].pxX, ordered[i].pxY);
             ctx.stroke();
             ds.points.forEach(pt => { ctx.beginPath(); ctx.arc(pt.pxX, pt.pxY, 2.5, 0, Math.PI * 2); ctx.fill(); });
         });
 
-        // Integrating the full crosshair and deletion radius into the main viewport
         if (state.mode !== 'idle') {
             ctx.lineWidth = 1;
             if (state.mode === 'erase') {
@@ -291,7 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.stroke();
                 ctx.strokeStyle = '#ef4444';
             } else {
-                ctx.strokeStyle = state.mode.startsWith('digitize') ? getActiveDataset().color : '#f59e0b';
+                ctx.strokeStyle = state.mode.startsWith('digitize') ? ((getActiveDataset() || {}).color || '#f59e0b') : '#f59e0b';
             }
             
             ctx.beginPath();
@@ -319,7 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
         loupeCtx.imageSmoothingEnabled = false; 
         loupeCtx.drawImage(canvas, state.mouseX - 20, state.mouseY - 20, 40, 40, 0, 0, loupe.width, loupe.height);
         
-        // Integrating the centralized tracking crosshair directly into the eraser visualization
         if (state.mode === 'erase') {
             loupeCtx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
             loupeCtx.lineWidth = 1.5;
@@ -330,7 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loupeCtx.strokeStyle = '#ef4444';
             loupeCtx.lineWidth = 1;
         } else {
-            loupeCtx.strokeStyle = state.mode.startsWith('digitize') ? getActiveDataset().color : '#f59e0b';
+            loupeCtx.strokeStyle = state.mode.startsWith('digitize') ? ((getActiveDataset() || {}).color || '#f59e0b') : '#f59e0b';
             loupeCtx.lineWidth = 2;
         }
         
@@ -342,22 +404,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setMode(newMode, activeBtn) {
         state.mode = newMode;
-        document.querySelectorAll('.calib-btn, #btnManualMode, #btnAutoMode, #btnEraseMode').forEach(btn => {
+        document.querySelectorAll('.calib-btn, #btnManualMode, #btnEraseMode').forEach(btn => {
             btn.classList.remove('ring-2', 'ring-indigo-500', 'border-indigo-500', 'border-red-500');
             if(btn.id === 'btnManualMode') btn.className = "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200";
-            if(btn.id === 'btnAutoMode') btn.className = "border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200";
             if(btn.id === 'btnEraseMode') btn.className = "border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-700 dark:text-red-400 font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200";
         });
         
-        autoControls.classList.add('hidden');
         eraseControls.classList.add('hidden');
         
         if (activeBtn) {
             if(activeBtn.id === 'btnManualMode') {
                 activeBtn.className = "border border-indigo-600 bg-indigo-600 text-white font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200 shadow-inner";
-            } else if(activeBtn.id === 'btnAutoMode') {
-                activeBtn.className = "border border-indigo-600 bg-indigo-600 text-white font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200 shadow-inner";
-                autoControls.classList.remove('hidden');
             } else if(activeBtn.id === 'btnEraseMode') {
                 activeBtn.className = "border border-red-600 bg-red-600 text-white font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200 shadow-inner";
                 eraseControls.classList.remove('hidden');
@@ -374,12 +431,51 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCalibY2.addEventListener('click', () => setMode('calibY2', btnCalibY2));
     
     function verifyCalibration() {
-        if (!computeLogicalCoordinates(0, 0)) { alert('Please complete the spatial calibration step before extracting data.'); return false; }
+        const c = state.calibration;
+        const missing = [];
+        if (c.pxX1 === null) missing.push('X1');
+        if (c.pxX2 === null) missing.push('X2');
+        if (c.pxY1 === null) missing.push('Y1');
+        if (c.pxY2 === null) missing.push('Y2');
+        if (missing.length) {
+            alert('Calibration incomplete: still need to place ' + missing.join(', ') +
+                  '.\n\nClick each calibration button, then click that position on the plot.');
+            return false;
+        }
+        if (c.pxX1 === c.pxX2) {
+            alert('X1 and X2 are on the same pixel column. Place them on two different x positions.');
+            return false;
+        }
+        if (c.pxY1 === c.pxY2) {
+            alert('Y1 and Y2 are on the same pixel row. Place them on two different y positions.');
+            return false;
+        }
+        const nums = { X1: valX1.value, X2: valX2.value, Y1: valY1.value, Y2: valY2.value };
+        const badNums = Object.keys(nums).filter(k => isNaN(parseFloat(nums[k])));
+        if (badNums.length) {
+            alert('These axis values are not numbers: ' + badNums.join(', ') + '.');
+            return false;
+        }
+        if (isLogX.checked && (parseFloat(valX1.value) <= 0 || parseFloat(valX2.value) <= 0)) {
+            alert('A logarithmic X axis needs both X values to be greater than zero.');
+            return false;
+        }
+        if (isLogY.checked && (parseFloat(valY1.value) <= 0 || parseFloat(valY2.value) <= 0)) {
+            alert('A logarithmic Y axis needs both Y values to be greater than zero.');
+            return false;
+        }
+        if (parseFloat(valX1.value) === parseFloat(valX2.value)) {
+            alert('X1 and X2 have the same value, so the x scale cannot be determined.');
+            return false;
+        }
+        if (parseFloat(valY1.value) === parseFloat(valY2.value)) {
+            alert('Y1 and Y2 have the same value, so the y scale cannot be determined.');
+            return false;
+        }
         return true;
     }
 
     btnManualMode.addEventListener('click', () => { if(verifyCalibration()) setMode('digitize_manual', btnManualMode); });
-    btnAutoMode.addEventListener('click', () => { if(verifyCalibration()) setMode('digitize_auto', btnAutoMode); });
     btnEraseMode.addEventListener('click', () => setMode('erase', btnEraseMode));
 
     btnUndo.addEventListener('click', () => {
@@ -401,7 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const d = Math.sqrt(Math.pow(state.mouseX - state.lastTracePoint.x, 2) + Math.pow(state.mouseY - state.lastTracePoint.y, 2));
                 if (d >= 8) {
                     const logical = computeLogicalCoordinates(state.mouseX, state.mouseY);
-                    if (logical) getActiveDataset().points.push({ pxX: state.mouseX, pxY: state.mouseY, logicalX: logical.x, logicalY: logical.y });
+                    if (logical && getActiveDataset()) getActiveDataset().points.push({ pxX: state.mouseX, pxY: state.mouseY, logicalX: logical.x, logicalY: logical.y });
                     state.lastTracePoint = {x: state.mouseX, y: state.mouseY};
                     renderDatasetUI();
                 }
@@ -425,13 +521,9 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (state.mode === 'digitize_manual') {
             state.isDragging = true;
             const logical = computeLogicalCoordinates(px, py);
-            if (logical) getActiveDataset().points.push({ pxX: px, pxY: py, logicalX: logical.x, logicalY: logical.y });
+            if (logical && getActiveDataset()) getActiveDataset().points.push({ pxX: px, pxY: py, logicalX: logical.x, logicalY: logical.y });
             state.lastTracePoint = {x: px, y: py};
             renderDatasetUI();
-        }
-        else if (state.mode === 'digitize_auto') {
-            if (!state.showBackground) { alert("Please toggle the background image visibility on to use the color-based sweep algorithm."); return; }
-            executeAutoExtraction(px, py); setMode('idle', null);
         }
         else if (state.mode === 'erase') {
             state.isDragging = true;
@@ -449,6 +541,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
         a.download = filename; a.click(); URL.revokeObjectURL(a.href);
     });
+
+    function pyStr(v) {
+        return String(v == null ? '' : v)
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'")
+            .replace(/\r?\n/g, ' ');
+    }
+
+    function pyIdent(v) {
+        const id = String(v == null ? '' : v).replace(/[^A-Za-z0-9_]/g, '_');
+        return /^[A-Za-z_]/.test(id) ? id : ('ds_' + id);
+    }
 
     // --- 6. Advanced Python script generator & internal Plotly preview module ---
     btnGeneratePython.addEventListener('click', () => {
@@ -473,9 +577,9 @@ plt.rcParams['legend.frameon'] = False
 
 # --- 2. Data ingestion ---
 try:
-    df = pd.read_csv('${filename}', skipinitialspace=True)
+    df = pd.read_csv('${pyStr(filename)}', skipinitialspace=True)
 except FileNotFoundError:
-    print("Error: ${filename} not found in the working directory.")
+    print("Error: ${pyStr(filename)} not found in the working directory.")
     exit()
 
 # --- 3. Rendering architecture ---
@@ -488,22 +592,22 @@ except FileNotFoundError:
             pyCode += `if ${activeDatasets.length} == 1: axes = [axes]\n\n`;
             
             activeDatasets.forEach((ds, i) => {
-                pyCode += `subset_${ds.id} = df[df['Dataset'] == '${ds.name}']\n`;
-                pyCode += `axes[${i}].plot(subset_${ds.id}['X'], subset_${ds.id}['Y'], label='${ds.name}', color='${ds.color}', linewidth=2)\n`;
+                pyCode += `subset_${pyIdent(ds.id)} = df[df['Dataset'] == '${pyStr(ds.name)}']\n`;
+                pyCode += `axes[${i}].plot(subset_${pyIdent(ds.id)}['X'], subset_${pyIdent(ds.id)}['Y'], label='${pyStr(ds.name)}', color='${pyStr(ds.color)}', linewidth=2)\n`;
                 if (isLogX.checked) pyCode += `axes[${i}].set_xscale('log')\n`;
                 if (isLogY.checked) pyCode += `axes[${i}].set_yscale('log')\n`;
                 if (showGrid === 'True') pyCode += `axes[${i}].grid(True, linestyle='--', alpha=0.6)\n`;
                 pyCode += `axes[${i}].legend(loc='best')\n\n`;
             });
-            pyCode += `axes[-1].set_xlabel('${xLab}')\n`;
-            pyCode += `fig.supylabel('${yLab}')\n`;
+            pyCode += `axes[-1].set_xlabel('${pyStr(xLab)}')\n`;
+            pyCode += `fig.supylabel('${pyStr(yLab)}')\n`;
         } else {
             pyCode += `fig, ax = plt.subplots(figsize=(${fW}, ${fH}))\n\n`;
             activeDatasets.forEach(ds => {
-                pyCode += `subset_${ds.id} = df[df['Dataset'] == '${ds.name}']\n`;
-                pyCode += `ax.plot(subset_${ds.id}['X'], subset_${ds.id}['Y'], label='${ds.name}', color='${ds.color}', linewidth=2)\n`;
+                pyCode += `subset_${pyIdent(ds.id)} = df[df['Dataset'] == '${pyStr(ds.name)}']\n`;
+                pyCode += `ax.plot(subset_${pyIdent(ds.id)}['X'], subset_${pyIdent(ds.id)}['Y'], label='${pyStr(ds.name)}', color='${pyStr(ds.color)}', linewidth=2)\n`;
             });
-            pyCode += `\nax.set_xlabel('${xLab}')\nax.set_ylabel('${yLab}')\n`;
+            pyCode += `\nax.set_xlabel('${pyStr(xLab)}')\nax.set_ylabel('${pyStr(yLab)}')\n`;
             if (isLogX.checked) pyCode += `ax.set_xscale('log')\n`;
             if (isLogY.checked) pyCode += `ax.set_yscale('log')\n`;
             if (showGrid === 'True') pyCode += `ax.grid(True, linestyle='--', alpha=0.6)\n`;
@@ -549,8 +653,8 @@ plt.show()`;
         let htmlTemplate = `<!DOCTYPE html>
 <html class="${isDark ? 'dark' : ''}">
 <head>
-    <title>Plot Preview | PDFKing</title>
-    <script src="js/dependencies/plotly.min.js"><\/script>
+    <title>Plot Preview | STEMKit</title>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"><\/script>
     <style>
         body { margin:0; padding:20px; font-family:sans-serif; background-color: ${isDark ? '#0f172a' : '#f8fafc'}; color: ${isDark ? '#f1f5f9' : '#0f172a'}; }
         .container { max-width: ${pxW + 40}px; margin: 0 auto; background: ${isDark ? '#1e293b' : '#fff'}; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border: 1px solid ${isDark ? '#334155' : '#e2e8f0'}; }
@@ -572,9 +676,11 @@ plt.show()`;
             margin: { t: 40, r: 40, b: 60, l: 60 },
             showlegend: true
         };
-        const datasets = ${JSON.stringify(activeDatasets.map(ds => ({
-            name: ds.name, color: ds.color, x: ds.points.map(p => p.logicalX), y: ds.points.map(p => p.logicalY)
-        })))};
+        const datasets = ${JSON.stringify(activeDatasets.map(ds => {
+            const pts = pointsForExport(ds);
+            return { name: ds.name, color: ds.color,
+                     x: pts.map(p => p.logicalX), y: pts.map(p => p.logicalY) };
+        }))};
         
         const container = document.getElementById('plotsContainer');
         `;
@@ -612,7 +718,12 @@ plt.show()`;
 </body>
 </html>`;
 
-        const blob = new Blob([htmlTemplate], { type: 'text/html' });
-        window.open(URL.createObjectURL(blob), '_blank');
+        const previewWindow = window.open('', '_blank');
+        if (previewWindow) {
+            previewWindow.document.write(htmlTemplate);
+            previewWindow.document.close();
+        } else {
+            alert("Popup blocked! Please allow popups to see the preview.");
+        }
     });
 });
