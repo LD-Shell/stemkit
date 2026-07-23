@@ -1,39 +1,60 @@
 <!DOCTYPE html>
-<html lang="en" class="light">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
+
+    <script>
+        // Applied before first paint so the theme never flashes.
+        (function () {
+            try {
+                var stored = localStorage.theme;
+                var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (stored === 'dark' || (!stored && prefersDark)) {
+                    document.documentElement.classList.add('dark');
+                }
+            } catch (e) {}
+        })();
+    </script>
+
     <title>Ambient Pomodoro | Deep Work Timer | STEMKit</title>
     <meta name="title" content="Ambient Pomodoro | Deep Work Timer | STEMKit">
-    <meta name="description" content="A professional, distraction-free Pomodoro timer featuring integrated ambient soundscapes like rain and cafe chatter for maximum deep work focus.">
+    <meta name="description" content="A distraction-free Pomodoro timer with a built-in ambient mixer — rain, cafe chatter and brown noise — plus custom intervals and background-tab accuracy.">
     <meta name="keywords" content="pomodoro timer, deep work, ambient noise, study timer, productivity tool, focus timer">
-    
+
     <link rel="canonical" href="https://stemkit.net/pomodoro.html">
     <meta property="og:url" content="https://stemkit.net/pomodoro.html">
     <meta property="twitter:url" content="https://stemkit.net/pomodoro.html">
-    
+
     <meta property="og:title" content="Ambient Pomodoro | Deep Work Timer">
     <meta property="twitter:title" content="Ambient Pomodoro | Deep Work Timer">
     <meta property="og:description" content="Distraction-free focus timer with built-in ambient soundscapes.">
     <meta property="twitter:description" content="Distraction-free focus timer with built-in ambient soundscapes.">
-    
+
     <script type="application/ld+json">
-        {
-            "@context": "https://schema.org",
-            "@type": "WebApplication",
-            "name": "STEMKit Ambient Pomodoro",
-            "url": "https://stemkit.net/pomodoro.html",
-            "description": "Distraction-free focus timer with built-in ambient soundscapes.",
-            "applicationCategory": "ProductivityApplication",
-            "operatingSystem": "All",
-            "browserRequirements": "Requires JavaScript",
-            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "Integrated Audio Mixer", "Background Tab Support", "Custom Intervals", "100% Client-Side" ]
-        }
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "STEMKit Ambient Pomodoro",
+        "url": "https://stemkit.net/pomodoro.html",
+        "description": "Distraction-free focus timer with built-in ambient soundscapes.",
+        "applicationCategory": "ProductivityApplication",
+        "operatingSystem": "All",
+        "author": { "@type": "Person", "name": "Olanrewaju M. Daramola" },
+        "browserRequirements": "Requires JavaScript",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "featureList": [ "Integrated Audio Mixer", "Background Tab Support", "Custom Intervals", "100% Client-Side" ]
+    }
     </script>
-    
-    <meta name="author" content="STEMKit">
+
+    <script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does the timer keep running if I switch tabs?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The countdown is anchored to an absolute finish time rather than counting ticks, so browser throttling of inactive tabs does not cause drift. The remaining time also appears in the tab title."}}, {"@type": "Question", "name": "Is my data uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Everything runs in your browser. Your intervals are stored in this browser’s local storage and nothing about your sessions is sent to a server."}}, {"@type": "Question", "name": "How long should a focus session be?", "acceptedAnswer": {"@type": "Answer", "text": "25 minutes is the classic default and suits interruptible work. For debugging, reading papers, or writing, 45–50 minutes often works better because complex problems take time to load into working memory. Change it under Intervals."}}, {"@type": "Question", "name": "Why does the audio not start immediately?", "acceptedAnswer": {"@type": "Answer", "text": "Browsers block audio until you interact with the page, and each channel only downloads when you first raise its slider. If a slider is greyed out, that recording failed to load."}}, {"@type": "Question", "name": "Will I get a notification when the session ends?", "acceptedAnswer": {"@type": "Answer", "text": "A chime always plays. If you grant notification permission on first start, you will also get a desktop notification — but only while the tab is in the background, so a focused tab is never interrupted twice."}}, {"@type": "Question", "name": "Are there keyboard shortcuts?", "acceptedAnswer": {"@type": "Answer", "text": "Yes: Space starts and pauses, R resets the current session, and S skips to the next one. Arrow keys move between the Focus, Short and Long tabs."}}]}
+</script>
+
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to use the Ambient Pomodoro timer", "totalTime": "PT30M", "step": [{"@type": "HowToStep", "position": 1, "name": "Pick one task first", "text": "Decide what you are working on before you press start, so the session is not spent choosing."}, {"@type": "HowToStep", "position": 2, "name": "Set your interval", "text": "Open Intervals to change the focus and break lengths. Defaults are 25 minutes focus and 5 minutes break, with a long break every four sessions."}, {"@type": "HowToStep", "position": 3, "name": "Raise a soundscape", "text": "Move any mixer slider above zero. Rain, cafe and brown noise layer freely and audio only downloads when used."}, {"@type": "HowToStep", "position": 4, "name": "Work until the chime", "text": "Press Start or hit Space. The dial and the tab title both track the countdown while you work."}]}
+</script>
+    <meta name="author" content="Olanrewaju M. Daramola">
     <meta name="theme-color" content="#4f46e5">
 
     <meta property="og:type" content="website">
@@ -45,28 +66,359 @@
     <link rel="icon" type="image/png" sizes="32x32" href="https://stemkit.net/assets/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="https://stemkit.net/assets/favicon-16x16.png">
     <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
-    
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/all.min.css">
-    
+
     <style>
-        /* Custom range slider styling for a pro feel */
-        input[type=range] { -webkit-appearance: none; background: transparent; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #4f46e5; cursor: pointer; margin-top: -6px; }
-        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #cbd5e1; border-radius: 2px; }
-        .dark input[type=range]::-webkit-slider-runnable-track { background: #334155; }
+        /* ------------------------------------------------------------------
+           Everything below is either (a) a utility your compiled Tailwind
+           build does not include, or (b) styling that has no utility
+           equivalent. Scoped with pm- prefixes so it cannot collide with
+           the rest of the site.
+           ------------------------------------------------------------------ */
+
+        :root {
+            --pm-ring: 300px;                    /* dial diameter, desktop */
+            /* Inherit the site palette from home.css rather than restating it. */
+            --pm-accent: var(--stk-indigo, #4f46e5);
+            --pm-accent-dark: var(--stk-indigo-700, #4338ca);
+            --pm-accent-soft: rgb(79 70 229 / .35);   /* matches .stk-search:focus */
+            --pm-emerald: #10b981;
+            --pm-emerald-dark: #059669;
+        }
+
+        /* --- utilities missing from the compiled build --- */
+        .pm-underline { text-decoration: underline; text-underline-offset: 2px; }
+        .pm-num { font-variant-numeric: tabular-nums; }
+
+        /* Your compiled build stops at pt-4; both of these are used here and
+           pt-8 is already used elsewhere on the site. Safe to add globally. */
+        .pt-6 { padding-top: 1.5rem; }
+        .pt-8 { padding-top: 2rem; }
+
+        /* --- the dial --- */
+        .pm-dial {
+            position: relative;
+            width: var(--pm-ring);
+            height: var(--pm-ring);
+            margin: 0 auto;
+        }
+        .pm-dial svg {
+            width: 100%; height: 100%;
+            transform: rotate(-90deg);          /* 12 o'clock start */
+            overflow: visible;
+        }
+        .pm-track { stroke: #e2e8f0; }
+        .dark .pm-track { stroke: #1e293b; }
+
+        .pm-progress {
+            stroke: var(--pm-accent);
+            transition: stroke-dashoffset 0.3s linear, stroke 0.4s ease;
+        }
+        /* Mode recolours the ring — breaks read as green, focus as indigo. */
+        .pm-dial[data-mode="short"] .pm-progress,
+        .pm-dial[data-mode="long"] .pm-progress { stroke: var(--pm-emerald); }
+
+        .pm-dial-face {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 0.375rem;
+        }
+
+        /* Time readout. clamp() keeps it optically centred at every width
+           without needing a pile of responsive text utilities. */
+        .pm-time {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-variant-numeric: tabular-nums;
+            font-weight: 900;
+            font-size: clamp(3.25rem, 13vw, 4.5rem);
+            line-height: 1;
+            letter-spacing: -0.04em;
+            color: #1e293b;
+        }
+        .dark .pm-time { color: #fff; }
+
+        .pm-eyebrow {
+            font-size: 0.6875rem; font-weight: 900;
+            text-transform: uppercase; letter-spacing: 0.18em;
+            color: #94a3b8;
+        }
+
+        /* Running state: a slow pulse on the eyebrow only. Enough signal
+           that the clock is live, quiet enough to ignore while working. */
+        .pm-dial[data-running="true"] .pm-eyebrow { animation: pm-breathe 3.4s ease-in-out infinite; }
+        @keyframes pm-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+        /* --- cycle dots --- */
+        .pm-dots { display: flex; gap: 0.375rem; margin-top: 0.25rem; }
+        .pm-dot {
+            width: 6px; height: 6px; border-radius: 9999px;
+            background: #cbd5e1; transition: background 0.3s ease, transform 0.3s ease;
+        }
+        .dark .pm-dot { background: #334155; }
+        .pm-dot[data-on="true"] { background: var(--pm-accent); transform: scale(1.25); }
+        .dark .pm-dot[data-on="true"] { background: #818cf8; }
+
+        /* --- controls --- */
+        .pm-ctl {
+            width: 3.25rem; height: 3.25rem;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 1rem;
+            background: #f1f5f9; color: #475569;
+            transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+        }
+        .pm-ctl:hover { background: #e2e8f0; transform: translateY(-2px); }
+        .dark .pm-ctl { background: #1e293b; color: #cbd5e1; }
+        .dark .pm-ctl:hover { background: #334155; }
+
+        .pm-primary {
+            min-width: 9.5rem; height: 3.25rem;
+            border-radius: 1rem;
+            font-weight: 900; font-size: 1.0625rem; letter-spacing: -0.01em;
+            color: #fff; background: var(--pm-accent);
+            box-shadow: 0 10px 22px -10px rgb(79 70 229 / .75);
+            transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .pm-primary:hover { background: var(--pm-accent-dark); transform: translateY(-2px); }
+        .pm-primary[data-running="true"] {
+            background: var(--pm-emerald);
+            box-shadow: 0 10px 22px -10px rgba(16, 185, 129, 0.75);
+        }
+        .pm-primary[data-running="true"]:hover { background: var(--pm-emerald-dark); }
+
+        /* --- mode switcher: sliding pill --- */
+        .pm-modes {
+            position: relative;
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 0.25rem; padding: 0.3125rem;
+            background: #f1f5f9; border-radius: 9999px;
+        }
+        .dark .pm-modes { background: #1e293b; }
+        .pm-modes::before {
+            content: ''; position: absolute;
+            top: 0.3125rem; bottom: 0.3125rem;
+            width: calc((100% - 0.625rem - 0.5rem) / 3);
+            border-radius: 9999px; background: #fff;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+            transform: translateX(calc(var(--pm-i, 0) * (100% + 0.25rem)));
+            transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+            left: 0.3125rem;
+        }
+        .dark .pm-modes::before { background: #475569; box-shadow: none; }
+
+        .pm-mode {
+            position: relative; z-index: 1;
+            padding: 0.5rem 0.25rem;
+            border-radius: 9999px;
+            font-size: 0.8125rem; font-weight: 700;
+            color: #64748b;
+            transition: color 0.2s ease;
+            white-space: nowrap;
+        }
+        .pm-mode:hover { color: #334155; }
+        .dark .pm-mode:hover { color: #e2e8f0; }
+        .pm-mode[aria-selected="true"] { color: var(--pm-accent); }
+        .dark .pm-mode[aria-selected="true"] { color: #fff; }
+
+        /* --- mixer --- */
+        .pm-row {
+            display: grid;
+            grid-template-columns: 2rem 1fr 2.75rem;
+            align-items: center; gap: 0.875rem;
+        }
+        .pm-row-icon { text-align: center; color: #94a3b8; transition: color 0.25s ease; }
+        .pm-row[data-active="true"] .pm-row-icon { color: var(--pm-accent); }
+        .dark .pm-row[data-active="true"] .pm-row-icon { color: #818cf8; }
+        .pm-row-val {
+            text-align: right; font-size: 0.6875rem; font-weight: 700;
+            font-variant-numeric: tabular-nums; color: #94a3b8;
+        }
+        .pm-row[data-failed="true"] { opacity: 0.4; }
+
+        /* Sliders: filled portion uses a gradient driven by --pm-fill,
+           set from JS so the track shows the level. */
+        .pm-slider {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 18px; background: transparent; cursor: pointer;
+        }
+        .pm-slider::-webkit-slider-runnable-track {
+            height: 5px; border-radius: 9999px;
+            background: linear-gradient(to right,
+                var(--pm-accent) 0%, var(--pm-accent) var(--pm-fill, 0%),
+                #e2e8f0 var(--pm-fill, 0%), #e2e8f0 100%);
+        }
+        .dark .pm-slider::-webkit-slider-runnable-track {
+            background: linear-gradient(to right,
+                #6366f1 0%, #6366f1 var(--pm-fill, 0%),
+                #334155 var(--pm-fill, 0%), #334155 100%);
+        }
+        .pm-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 15px; height: 15px; margin-top: -5px;
+            border-radius: 9999px; background: #fff;
+            border: 2px solid var(--pm-accent);
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+            transition: transform 0.15s ease;
+        }
+        .pm-slider:hover::-webkit-slider-thumb { transform: scale(1.18); }
+        .pm-slider::-moz-range-track {
+            height: 5px; border-radius: 9999px; background: #e2e8f0;
+        }
+        .dark .pm-slider::-moz-range-track { background: #334155; }
+        .pm-slider::-moz-range-progress {
+            height: 5px; border-radius: 9999px; background: var(--pm-accent);
+        }
+        .pm-slider::-moz-range-thumb {
+            width: 15px; height: 15px; border-radius: 9999px;
+            background: #fff; border: 2px solid var(--pm-accent);
+        }
+        .pm-slider:disabled { cursor: not-allowed; }
+
+        /* --- settings inputs --- */
+        .pm-field {
+            width: 100%; padding: 0.5rem 0.75rem;
+            border: 1px solid #e2e8f0; border-radius: 0.75rem;
+            background: #f8fafc; font-size: 0.875rem; font-weight: 600;
+            font-variant-numeric: tabular-nums; color: inherit;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .dark .pm-field { background: #1e293b; border-color: #334155; }
+        .pm-field:focus {
+            outline: none; border-color: var(--pm-accent);
+            box-shadow: 0 0 0 3px var(--pm-accent-soft);   /* same ring as .stk-search */
+        }
+        .pm-label {
+            display: block; margin-bottom: 0.375rem;
+            font-size: 0.6875rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.06em;
+            color: #64748b;
+        }
+        .dark .pm-label { color: #94a3b8; }
+
+        /* --- prose section --- */
+        .pm-prose h2 {
+            font-size: 1.375rem; font-weight: 900; letter-spacing: -0.02em;
+            color: #0f172a; margin-bottom: 0.75rem;
+        }
+        .dark .pm-prose h2 { color: #fff; }
+        .pm-prose p, .pm-prose li { color: #475569; line-height: 1.75; }
+        .dark .pm-prose p, .dark .pm-prose li { color: #cbd5e1; }
+        .pm-prose p { margin-bottom: 1.5rem; }
+        .pm-prose ul { padding-left: 1.125rem; margin-bottom: 1.5rem; }
+        .pm-prose li { list-style: disc; margin-bottom: 0.5rem; }
+        .pm-prose strong { color: #1e293b; font-weight: 700; }
+        .dark .pm-prose strong { color: #f1f5f9; }
+        .pm-prose section { margin-bottom: 2.5rem; }
+
+        /* home.css has .stk-kbd, but it is position:absolute for the search
+           field. This is the inline equivalent, same colours and metrics. */
+        .pm-kbd {
+            display: inline-block;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.7rem; line-height: 1;
+            padding: 0.25rem 0.45rem; border-radius: 0.35rem;
+            color: #94a3b8; background: #f1f5f9; border: 1px solid #e2e8f0;
+        }
+        .dark .pm-kbd { background: #1e293b; border-color: #334155; }
+
+        :focus-visible { outline: 2px solid var(--pm-accent); outline-offset: 2px; }
+
+        @media (max-width: 480px) {
+            :root { --pm-ring: 244px; }
+            .pm-ctl { width: 3rem; height: 3rem; }
+            .pm-primary { min-width: 8rem; height: 3rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .pm-progress, .pm-modes::before, .pm-dot,
+            .pm-ctl, .pm-primary, .pm-slider::-webkit-slider-thumb {
+                transition: none;
+            }
+            .pm-dial[data-running="true"] .pm-eyebrow { animation: none; }
+        }
     </style>
+
+    <style>
+        /* STEMKit docs / how-to / FAQ — self-contained styles */
+        .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
+        .stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
+        .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;
+                    text-transform:uppercase; letter-spacing:.12em; padding:.3rem .7rem; border-radius:9999px;
+                    background:#eef2ff; color:#4338ca; border:1px solid #e0e7ff; }
+        .dark .stk-chip { background:rgba(67,56,202,.18); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
+        .stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
+        .stk-lead { max-width:48rem; color:#64748b; line-height:1.6; }
+        .dark .stk-lead { color:#94a3b8; }
+        .stk-grid { display:grid; gap:1rem; grid-template-columns:1fr; margin-top:1.5rem; }
+        @media (min-width:768px){ .stk-grid-3{grid-template-columns:repeat(3,1fr);} .stk-grid-2{grid-template-columns:repeat(2,1fr);} }
+        .stk-card { border-radius:1rem; border:1px solid rgba(148,163,184,.25); padding:1.4rem; background:#fff; }
+        .dark .stk-card { background:#0f172a; border-color:rgba(51,65,85,.8); }
+        .stk-step { display:flex; gap:.85rem; align-items:flex-start; }
+        .stk-num { width:2rem; height:2rem; border-radius:9999px; display:inline-flex; align-items:center;
+                   justify-content:center; font-weight:800; font-size:.85rem; flex-shrink:0;
+                   background:#4f46e5; color:#fff; }
+        .stk-step h3 { font-weight:700; font-size:.95rem; margin-bottom:.15rem; }
+        .stk-step p { font-size:.85rem; color:#64748b; line-height:1.5; }
+        .dark .stk-step p { color:#94a3b8; }
+        .stk-note { display:flex; gap:.6rem; align-items:flex-start; font-size:.82rem; line-height:1.55;
+                    background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:.75rem; padding:.9rem 1rem; }
+        .dark .stk-note { background:rgba(120,53,15,.15); border-color:rgba(180,83,9,.4); color:#fcd34d; }
+        .stk-faq { border-bottom:1px solid rgba(148,163,184,.22); }
+        .stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 0; font-weight:600; font-size:.95rem;
+                             display:flex; justify-content:space-between; align-items:center; gap:1rem; }
+        .stk-faq > summary::-webkit-details-marker { display:none; }
+        .stk-faq > summary::after { content:"+"; font-weight:700; color:#6366f1; font-size:1.2rem; line-height:1; }
+        .stk-faq[open] > summary::after { content:"\2212"; }
+        .stk-faq > div { padding:0 0 1.1rem; font-size:.88rem; line-height:1.6; color:#475569; }
+        .dark .stk-faq > div { color:#94a3b8; }
+        .stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem; }
+        .stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600;
+                      color:#4f46e5; text-decoration:none; border:1px solid #e0e7ff; background:#eef2ff;
+                      padding:.4rem .8rem; border-radius:.6rem; }
+        .dark .stk-refs a { color:#a5b4fc; background:rgba(67,56,202,.15); border-color:rgba(99,102,241,.3); }
+        .stk-refs a:hover { text-decoration:underline; }
+        .stk-byline { font-size:.8rem; color:#94a3b8; margin-top:.35rem; }
+        .stk-credit { margin-top:2rem; font-size:.8rem; color:#94a3b8; }
+
+        /* Method & equations (MathML) */
+        .stk-math { overflow-x:auto; padding:1rem 1.1rem; margin:.6rem 0 1rem; border:1px solid rgba(148,163,184,.25);
+                    border-radius:.75rem; background:#f8fafc; font-size:1.15rem; }
+        .dark .stk-math { background:#0f172a; }
+        .stk-math math { color:inherit; }
+        .stk-eqn-label { font-size:.9rem; font-weight:600; color:#475569; margin-top:1.1rem; }
+        .dark .stk-eqn-label { color:#cbd5e1; }
+        .stk-where { font-size:.85rem; color:#64748b; line-height:1.75; margin-top:.5rem; }
+        .dark .stk-where { color:#94a3b8; }
+        .stk-model-list { list-style:none; padding:0; margin:.6rem 0 0; display:grid; gap:.55rem; }
+        .stk-model-list li { font-size:.92rem; display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
+        .stk-model-list b { min-width:9rem; color:#475569; font-weight:600; }
+        .dark .stk-model-list b { color:#cbd5e1; }
+        .stk-refs-h { font-weight:700; font-size:1rem; margin-top:1.9rem; margin-bottom:.5rem; }
+        .stk-refs-list { font-size:.82rem; color:#64748b; line-height:1.75; padding-left:1.2rem; }
+        .dark .stk-refs-list { color:#94a3b8; }
+        .stk-refs-list li { margin-bottom:.45rem; }
+        .stk-refs-list a { color:#4f46e5; text-decoration:none; }
+        .dark .stk-refs-list a { color:#a5b4fc; }
+        .stk-refs-list a:hover { text-decoration:underline; }
+    </style>
+
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
+
+    <a href="#time-display" class="stk-skip">Skip to timer</a>
 
     <nav class="sticky top-0 z-50 w-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16 sm:h-20">
                 <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
                     <div class="bg-indigo-600 text-white p-2 sm:p-2.5 rounded-lg shadow-sm flex items-center justify-center">
-                        <i class="fa-solid fa-flask text-lg sm:text-xl"></i>
+                        <i class="fa-solid fa-flask text-lg sm:text-xl" aria-hidden="true"></i>
                     </div>
                     <span class="text-xl sm:text-2xl font-black tracking-tighter text-slate-900 dark:text-white">STEMKit</span>
                 </a>
@@ -74,28 +426,28 @@
                 <div class="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600 dark:text-slate-300">
                     <a href="index.html#data-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Data</a>
                     <a href="index.html#comp-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Compute</a>
-                    <a href="index.html#pub-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Writing & Citations</a>
+                    <a href="index.html#pub-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Writing &amp; Citations</a>
                     <a href="index.html#focus-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Focus</a>
-                    
+
                     <div class="h-5 w-px bg-slate-200 dark:bg-slate-700"></div>
-                    
+
                     <button class="themeToggle p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" aria-label="Toggle dark mode">
-                        <i class="fa-solid fa-moon dark:hidden text-lg"></i>
-                        <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+                        <i class="fa-solid fa-moon dark:hidden text-lg" aria-hidden="true"></i>
+                        <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg" aria-hidden="true"></i>
                     </button>
-                    
+
                     <a href="plot-digitizer.html" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg">
-                        <i class="fa-solid fa-crosshairs mr-1"></i> Digitizer Pro
+                        <i class="fa-solid fa-crosshairs mr-1" aria-hidden="true"></i> Digitizer Pro
                     </a>
                 </div>
 
                 <div class="flex items-center gap-2 md:hidden">
-                    <button class="themeToggle p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300">
-                        <i class="fa-solid fa-moon dark:hidden text-lg"></i>
-                        <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+                    <button class="themeToggle p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300" aria-label="Toggle dark mode">
+                        <i class="fa-solid fa-moon dark:hidden text-lg" aria-hidden="true"></i>
+                        <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg" aria-hidden="true"></i>
                     </button>
-                    <button id="mobile-menu-btn" class="text-slate-600 dark:text-slate-300 hover:text-indigo-600 p-2 focus:outline-none">
-                        <i class="fa-solid fa-bars text-2xl" id="menu-icon"></i>
+                    <button id="mobile-menu-btn" class="text-slate-600 dark:text-slate-300 hover:text-indigo-600 p-2 focus:outline-none" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
+                        <i class="fa-solid fa-bars text-2xl" id="menu-icon" aria-hidden="true"></i>
                     </button>
                 </div>
             </div>
@@ -103,10 +455,10 @@
 
         <div id="mobile-menu" class="hidden md:hidden bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 absolute w-full shadow-xl">
             <div class="px-4 pt-2 pb-6 space-y-2 text-base font-semibold text-slate-600 dark:text-slate-300">
-                <a href="index.html#data-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Data & Stats</a>
+                <a href="index.html#data-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Data &amp; Stats</a>
                 <a href="index.html#comp-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Compute</a>
-                <a href="index.html#pub-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Writing & Citations</a>
-                <a href="index.html#focus-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Focus & Flow</a>
+                <a href="index.html#pub-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Writing &amp; Citations</a>
+                <a href="index.html#focus-tools" class="mobile-link block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors">Focus &amp; Flow</a>
                 <div class="pt-4 mt-2 border-t border-slate-100 dark:border-slate-800">
                     <a href="plot-digitizer.html" class="block text-center bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl shadow-md transition-colors">Digitizer Pro</a>
                 </div>
@@ -114,57 +466,185 @@
         </div>
     </nav>
 
-    <main class="flex-grow flex items-center justify-center px-6 py-12">
-        <div class="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-8 sm:p-12 relative overflow-hidden">
-            
-            <div class="flex justify-center gap-2 mb-10 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-full">
-                <button id="btn-mode-pomodoro" class="mode-btn flex-1 py-2 px-4 rounded-full text-sm font-bold bg-white dark:bg-slate-700 shadow-sm text-indigo-600 dark:text-indigo-400 transition-all">Focus</button>
-                <button id="btn-mode-short" class="mode-btn flex-1 py-2 px-4 rounded-full text-sm font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all">Short Break</button>
-                <button id="btn-mode-long" class="mode-btn flex-1 py-2 px-4 rounded-full text-sm font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-all">Long Break</button>
-            </div>
+    <main class="max-w-6xl mx-auto px-6 py-12 w-full flex-grow">
 
-            <div class="text-center mb-10 relative">
-                <h1 id="time-display" class="text-7xl sm:text-8xl font-black tracking-tighter text-slate-800 dark:text-white font-mono drop-shadow-sm">25:00</h1>
-            </div>
-
-            <div class="flex justify-center gap-4 mb-12">
-                <button id="btn-toggle" class="bg-indigo-600 hover:bg-indigo-700 text-white w-32 py-4 rounded-2xl font-black text-lg shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
-                    START
-                </button>
-                <button id="btn-reset" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 p-4 rounded-2xl font-bold shadow-sm transition-all" aria-label="Reset Timer">
-                    <i class="fa-solid fa-rotate-right text-xl"></i>
-                </button>
-            </div>
-
-            <hr class="border-slate-200 dark:border-slate-800 mb-8">
-
-            <h3 class="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
-                <i class="fa-solid fa-sliders"></i> Ambient Mixer
-            </h3>
-            
-            <div class="space-y-6">
-                <div class="flex items-center gap-4">
-                    <div class="w-8 text-center text-slate-400"><i class="fa-solid fa-cloud-rain text-lg"></i></div>
-                    <input type="range" id="vol-rain" min="0" max="1" step="0.01" value="0" class="w-full">
-                </div>
-                <div class="flex items-center gap-4">
-                    <div class="w-8 text-center text-slate-400"><i class="fa-solid fa-mug-hot text-lg"></i></div>
-                    <input type="range" id="vol-cafe" min="0" max="1" step="0.01" value="0" class="w-full">
-                </div>
-                <div class="flex items-center gap-4">
-                    <div class="w-8 text-center text-slate-400"><i class="fa-solid fa-wave-square text-lg"></i></div>
-                    <input type="range" id="vol-noise" min="0" max="1" step="0.01" value="0" class="w-full">
-                </div>
-            </div>
-
+        <div class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-black mb-4 tracking-tight">Ambient Pomodoro</h1>
+            <p class="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">Set an interval, raise a soundscape, and work until the chime. The countdown is anchored to a real clock time, so it stays accurate in a background tab.</p>
+            <p class="text-xs text-slate-400 mt-3">By Olanrewaju M. Daramola · Cirillo intervals · 100% client-side</p>
         </div>
+
+        <div class="w-full max-w-md mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-8 relative">
+
+            <div id="mode-switch" class="pm-modes mb-8" role="tablist" aria-label="Session type">
+                <button id="btn-mode-pomodoro" role="tab" aria-selected="true" class="pm-mode">Focus</button>
+                <button id="btn-mode-short" role="tab" aria-selected="false" class="pm-mode">Short</button>
+                <button id="btn-mode-long" role="tab" aria-selected="false" class="pm-mode">Long</button>
+            </div>
+
+            <div id="dial" class="pm-dial mb-8" data-mode="pomodoro" data-running="false">
+                <svg viewBox="0 0 320 320" aria-hidden="true">
+                    <circle class="pm-track" cx="160" cy="160" r="146" fill="none" stroke-width="10" />
+                    <circle id="progress-ring" class="pm-progress" cx="160" cy="160" r="146"
+                            fill="none" stroke-width="10" stroke-linecap="round" />
+                </svg>
+                <div class="pm-dial-face">
+                    <p id="session-label" class="pm-eyebrow">Focus</p>
+                    <p id="time-display" class="pm-time" role="timer" aria-live="polite" aria-atomic="true">25:00</p>
+                    <div id="cycle-dots" class="pm-dots" role="img"></div>
+                </div>
+            </div>
+
+            <div class="flex justify-center items-center gap-3 mb-6">
+                <button id="btn-reset" class="pm-ctl" aria-label="Reset the current session">
+                    <i class="fa-solid fa-rotate-right text-lg" aria-hidden="true"></i>
+                </button>
+                <button id="btn-toggle" class="pm-primary" data-running="false" aria-pressed="false">Start</button>
+                <button id="btn-skip" class="pm-ctl" aria-label="Skip to the next session">
+                    <i class="fa-solid fa-forward-step text-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <p class="text-center text-xs text-slate-400 mb-8">
+                <span class="pm-kbd">Space</span> start ·
+                <span class="pm-kbd">R</span> reset ·
+                <span class="pm-kbd">S</span> skip
+            </p>
+
+            <div class="border-t border-slate-200 dark:border-slate-800 pt-6">
+
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders" aria-hidden="true"></i> Ambient mixer
+                    </h2>
+                    <button id="btn-settings" aria-expanded="false" aria-controls="settings-panel"
+                            class="text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1.5">
+                        <i class="fa-solid fa-gear" aria-hidden="true"></i> Intervals
+                    </button>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="pm-row" data-track="rain">
+                        <span class="pm-row-icon"><i class="fa-solid fa-cloud-rain" aria-hidden="true"></i></span>
+                        <input type="range" id="vol-rain" class="pm-slider" min="0" max="1" step="0.01" value="0" aria-label="Rain volume">
+                        <span class="pm-row-val" id="val-rain">0%</span>
+                    </div>
+                    <div class="pm-row" data-track="cafe">
+                        <span class="pm-row-icon"><i class="fa-solid fa-mug-hot" aria-hidden="true"></i></span>
+                        <input type="range" id="vol-cafe" class="pm-slider" min="0" max="1" step="0.01" value="0" aria-label="Cafe chatter volume">
+                        <span class="pm-row-val" id="val-cafe">0%</span>
+                    </div>
+                    <div class="pm-row" data-track="noise">
+                        <span class="pm-row-icon"><i class="fa-solid fa-wave-square" aria-hidden="true"></i></span>
+                        <input type="range" id="vol-noise" class="pm-slider" min="0" max="1" step="0.01" value="0" aria-label="Brown noise volume">
+                        <span class="pm-row-val" id="val-noise">0%</span>
+                    </div>
+                </div>
+
+                <p class="text-xs text-slate-400 mt-6">
+                    Recordings used under Creative Commons —
+                    <a href="#faq" class="pm-underline hover:text-indigo-600 transition-colors">see credits</a>.
+                </p>
+
+                <div id="settings-panel" class="hidden mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="set-pomodoro" class="pm-label">Focus (min)</label>
+                            <input type="number" id="set-pomodoro" class="pm-field" min="1" max="180" value="25">
+                        </div>
+                        <div>
+                            <label for="set-short" class="pm-label">Short (min)</label>
+                            <input type="number" id="set-short" class="pm-field" min="1" max="60" value="5">
+                        </div>
+                        <div>
+                            <label for="set-long" class="pm-label">Long (min)</label>
+                            <input type="number" id="set-long" class="pm-field" min="1" max="120" value="15">
+                        </div>
+                        <div>
+                            <label for="set-cycles" class="pm-label">Per long break</label>
+                            <input type="number" id="set-cycles" class="pm-field" min="2" max="12" value="4">
+                        </div>
+                    </div>
+                    <label class="flex items-center gap-3 text-sm font-semibold text-slate-600 dark:text-slate-300 cursor-pointer">
+                        <input type="checkbox" id="set-autostart" checked class="w-4 h-4 rounded accent-indigo-600">
+                        Start the next session automatically
+                    </label>
+                    <p class="text-xs text-slate-400 mt-4">Applies to the next session. Saved in this browser.</p>
+                </div>
+            </div>
+        </div>
+
     </main>
+
+    <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
+        <div class="stk-wrap">
+            <span class="stk-chip"><i class="fa-solid fa-stopwatch"></i> How-To Guide</span>
+            <h2 class="stk-h2">How to use the Ambient Pomodoro</h2>
+            <p class="stk-lead">The technique works by making the unit of work fixed and the decision of what to work on happen once, in advance. Here is the workflow.</p>
+            <p class="stk-byline">By Olanrewaju M. Daramola · 100% client-side</p>
+            <div class="stk-grid stk-grid-2">
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Pick one task first</h3><p>Decide what you are working on <em>before</em> you press start. Choosing mid-session is itself a context switch &mdash; the one this method exists to remove.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Set your interval</h3><p>Open <strong>Intervals</strong> to change the focus and break lengths. Defaults are 25/5 with a long break every four sessions. Settings are saved in this browser.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Raise a soundscape</h3><p>Move any mixer slider above zero. Channels layer freely, and audio only downloads once you actually use it.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Work until the chime</h3><p>Press <strong>Start</strong>, or hit <kbd>Space</kbd>. The dial and the tab title both track the countdown, so you can leave the tab and still see the time remaining.</p></div></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="stk-section" id="how-it-works" aria-label="How it works">
+        <div class="stk-wrap">
+            <h2 class="stk-h2">How the timer and mixer work</h2>
+            <div class="stk-grid stk-grid-2">
+                <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Absolute-time countdown</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Browsers throttle timers in inactive tabs, so a naive tick-by-tick countdown drifts badly in the background. This timer records the <strong>absolute finish timestamp</strong> when you press start and derives the remaining time from the system clock on every frame. Switching tabs, sleeping the display, or leaving it running for an hour does not accumulate error.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Layered ambient mixer</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Rain and cafe are looped field recordings that load lazily &mdash; nothing is fetched until you raise that channel. Brown noise is <strong>synthesised live</strong> in the Web Audio API from a filtered random walk, so it costs no bandwidth and has no audible loop point. All three mix independently.</p></div>
+            </div>
+            <div class="stk-note" style="margin-top:1rem;">
+                <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>
+                <div><strong>Sound tip.</strong> Intelligible speech competes for the same language processing you use when reading or writing, which is why conversation is more disruptive than equivalently loud non-speech noise. The cafe recording is not in English, which helps &mdash; but if you catch yourself following a conversation, lower it or switch to rain.</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="stk-section" id="method" aria-label="Method and background">
+        <div class="stk-wrap" style="max-width:52rem;">
+            <span class="stk-chip"><i class="fa-solid fa-brain"></i> Method &amp; Background</span>
+            <h2 class="stk-h2">Choosing your intervals</h2>
+            <p class="stk-lead">The 25/5 split comes from Francesco Cirillo&rsquo;s original method, developed as a university student in the late 1980s and named after a tomato-shaped kitchen timer. It is a starting point, not a law.</p>
+
+            <p class="stk-eqn-label">Session structure</p>
+            <ul class="stk-model-list">
+                <li><b>Focus</b> <span>a fixed block of single-task work, ended only by the chime</span></li>
+                <li><b>Short break</b> <span>follows each focus block; step away from the screen</span></li>
+                <li><b>Long break</b> <span>replaces the short break every <em>n</em> sessions (default 4)</span></li>
+            </ul>
+
+            <p class="stk-where" style="margin-top:1.1rem;">Shorter intervals suit shallow, interruptible work &mdash; email, admin, code review. Longer intervals of 45&ndash;50 minutes usually serve deep technical work better, because complex problems take several minutes to load into working memory and a break at minute 25 can discard that. If you routinely feel cut off mid-thought, lengthen the focus block rather than pushing through and ignoring the chime; a timer you override stops functioning as a commitment.</p>
+
+            <h3 class="stk-refs-h">References &amp; documentation</h3>
+            <ol class="stk-refs-list">
+                <li>Cirillo, F. (2018). <em>The Pomodoro Technique: The Life-Changing Time-Management System</em>. Virgin Books.</li>
+                <li>Ariga, A., &amp; Lleras, A. (2011). Brief and rare mental &ldquo;breaks&rdquo; keep you focused: Deactivation and reactivation of task goals preempt vigilance decrements. <em>Cognition</em>, 118(3), 439&ndash;443.</li>
+                <li>Salam&eacute;, P., &amp; Baddeley, A. (1982). Disruption of short-term memory by unattended speech: Implications for the structure of working memory. <em>Journal of Verbal Learning and Verbal Behavior</em>, 21(2), 150&ndash;164.</li>
+                <li>MDN: <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API" target="_blank" rel="noopener">Web Audio API</a> &middot; <a href="https://developer.mozilla.org/en-US/docs/Web/API/Page_Visibility_API" target="_blank" rel="noopener">Page Visibility API</a>.</li>
+            </ol>
+        </div>
+    </section>
+
+    <section class="stk-section" id="faq" aria-label="Frequently asked questions">
+        <div class="stk-wrap" style="max-width:52rem;">
+            <h2 class="stk-h2">Frequently asked questions</h2>
+            <div style="margin-top:1rem;">
+                <details class="stk-faq"><summary>Does the timer keep running if I switch tabs?</summary><div>Yes. The countdown is anchored to an absolute finish time rather than counting ticks, so browser throttling of inactive tabs does not cause drift. The remaining time also appears in the tab title.</div></details><details class="stk-faq"><summary>Is my data uploaded anywhere?</summary><div>No. Everything runs in your browser. Your intervals are stored in this browser&rsquo;s local storage and nothing about your sessions is sent to a server.</div></details><details class="stk-faq"><summary>How long should a focus session be?</summary><div>25 minutes is the classic default and suits interruptible work. For debugging, reading papers, or writing, 45&ndash;50 minutes often works better because complex problems take time to load into working memory. Change it under Intervals.</div></details><details class="stk-faq"><summary>Why does the audio not start immediately?</summary><div>Browsers block audio until you interact with the page, and each channel only downloads when you first raise its slider. If a slider is greyed out, that recording failed to load.</div></details><details class="stk-faq"><summary>Will I get a notification when the session ends?</summary><div>A chime always plays. If you grant notification permission on first start, you will also get a desktop notification &mdash; but only while the tab is in the background, so a focused tab is never interrupted twice.</div></details><details class="stk-faq"><summary>Are there keyboard shortcuts?</summary><div>Yes: <kbd>Space</kbd> starts and pauses, <kbd>R</kbd> resets the current session, and <kbd>S</kbd> skips to the next one. Arrow keys move between the Focus, Short and Long tabs.</div></details>
+            </div>
+            <div class="stk-refs">
+                <a href="https://freesound.org/people/Snoopy20111/sounds/399072/" target="_blank" rel="noopener"><i class="fa-solid fa-cloud-rain"></i> Rain_Loop.wav by Snoopy20111 (CC0 1.0)</a><a href="https://freesound.org/people/Tomlija/sounds/99632/" target="_blank" rel="noopener"><i class="fa-solid fa-mug-hot"></i> small cafe ambience.wav by Tomlija (CC BY 3.0)</a>
+            </div>
+            <p class="stk-credit">Rain is <a href="http://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0 1.0</a>; cafe is <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>, trimmed and looped for this page. Brown noise is generated in your browser and uses no recording. Built and maintained by <strong>Olanrewaju M.&nbsp;Daramola</strong>. Runs entirely in your browser — no data leaves your device.</p>
+        </div>
+    </section>
+
 
     <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
         <div class="max-w-7xl mx-auto px-6">
             <div class="stk-dir mb-12">
                 <div>
-                    <h4><i class="fa-solid fa-chart-pie text-indigo-500 text-xs"></i> Data &amp; Stats</h4>
+                    <h4><i class="fa-solid fa-chart-pie text-indigo-500 text-xs" aria-hidden="true"></i> Data &amp; Stats</h4>
                     <ul>
                         <li><a href="plot-digitizer.html">Plot Digitizer</a></li>
                         <li><a href="data-cleaner.html">Data Cleaner</a></li>
@@ -177,7 +657,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-microchip text-orange-500 text-xs"></i> Compute</h4>
+                    <h4><i class="fa-solid fa-microchip text-orange-500 text-xs" aria-hidden="true"></i> Compute</h4>
                     <ul>
                         <li><a href="structure-inspector.html">3D Inspector</a></li>
                         <li><a href="coordinate-manipulator.html">Coordinate Manipulator</a></li>
@@ -186,7 +666,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-book-open text-teal-500 text-xs"></i> Writing &amp; Citations</h4>
+                    <h4><i class="fa-solid fa-book-open text-teal-500 text-xs" aria-hidden="true"></i> Writing &amp; Citations</h4>
                     <ul>
                         <li><a href="latex-formatter.html">Equation Formatter</a></li>
                         <li><a href="latex-tables.html">Visual LaTeX Tables</a></li>
@@ -197,7 +677,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-headphones text-fuchsia-500 text-xs"></i> Focus &amp; Flow</h4>
+                    <h4><i class="fa-solid fa-headphones text-fuchsia-500 text-xs" aria-hidden="true"></i> Focus &amp; Flow</h4>
                     <ul>
                         <li><a href="pomodoro.html">Ambient Pomodoro</a></li>
                         <li><a href="decision.html">Decision Matrix</a></li>
@@ -207,7 +687,7 @@
             </div>
             <div class="border-t border-slate-200 dark:border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400 gap-4">
                 <div class="flex items-center gap-2">
-                    <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
+                    <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700" aria-hidden="true"></i>
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                 </div>
                 <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
@@ -220,38 +700,29 @@
     </footer>
 
     <script>
-        // 1. Theme toggle logic (Mobile & Desktop)
         document.querySelectorAll('.themeToggle').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.documentElement.classList.toggle('dark');
-                localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+                try {
+                    localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+                } catch (e) {}
             });
         });
 
-        // 2. Mobile menu logic
         const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         const mobileMenu = document.getElementById('mobile-menu');
         const menuIcon = document.getElementById('menu-icon');
 
-        if(mobileMenuBtn) {
-            mobileMenuBtn.addEventListener('click', () => {
-                mobileMenu.classList.toggle('hidden');
-                if(mobileMenu.classList.contains('hidden')) {
-                    menuIcon.classList.remove('fa-xmark');
-                    menuIcon.classList.add('fa-bars');
-                } else {
-                    menuIcon.classList.remove('fa-bars');
-                    menuIcon.classList.add('fa-xmark');
-                }
-            });
-
-            document.querySelectorAll('.mobile-link').forEach(link => {
-                link.addEventListener('click', () => {
-                    mobileMenu.classList.add('hidden');
-                    menuIcon.classList.remove('fa-xmark');
-                    menuIcon.classList.add('fa-bars');
-                });
-            });
+        if (mobileMenuBtn) {
+            const setMenu = open => {
+                mobileMenu.classList.toggle('hidden', !open);
+                menuIcon.classList.toggle('fa-bars', !open);
+                menuIcon.classList.toggle('fa-xmark', open);
+                mobileMenuBtn.setAttribute('aria-expanded', String(open));
+                mobileMenuBtn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+            };
+            mobileMenuBtn.addEventListener('click', () => setMenu(mobileMenu.classList.contains('hidden')));
+            document.querySelectorAll('.mobile-link').forEach(l => l.addEventListener('click', () => setMenu(false)));
         }
     </script>
     <script src="js/pomodoro.js"></script>
