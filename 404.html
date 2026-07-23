@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Page Not Found (404) | STEMKit</title>
+    <meta name="title" content="Page Not Found (404) | STEMKit">
+    <meta name="description" content="That page does not exist on STEMKit. Browse the full set of free, browser-based tools for data analysis, computation, writing and citations.">
+
+    <!-- A 404 must never be indexed, and search engines should not follow a dead URL. -->
+    <meta name="robots" content="noindex, follow">
+
+    <meta name="author" content="Olanrewaju M. Daramola">
+    <meta name="theme-color" content="#f43f5e">
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Page Not Found (404) | STEMKit">
+    <meta property="og:description" content="That page does not exist on STEMKit. Browse the full set of free, browser-based science tools.">
+    <meta property="og:url" content="https://stemkit.net/404.html">
+    <meta property="og:image" content="https://stemkit.net/assets/og-image.webp">
+
+    <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="https://stemkit.net/assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="https://stemkit.net/assets/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/all.min.css">
+    <link rel="stylesheet" href="/src/home.css">
+    <link rel="stylesheet" href="/src/output.css">
+
+    <script>
+        // Apply the saved theme before first paint so there is no flash of the
+        // wrong colour scheme when arriving from another STEMKit page.
+        (function () {
+            try {
+                var t = localStorage.theme;
+                if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                }
+            } catch (e) { /* private mode: fall back to light */ }
+        })();
+    </script>
+
+    <style>
+        /* Self-contained fallbacks so the page still reads correctly even if the
+           compiled stylesheet fails to load (which is plausible on a 404 that
+           was reached via an odd path). */
+        body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+        .nf-code {
+            font-size: clamp(4.5rem, 18vw, 9rem);
+            font-weight: 900;
+            line-height: .9;
+            letter-spacing: -.04em;
+            background: linear-gradient(135deg, #f43f5e 0%, #6366f1 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .nf-path {
+            font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: .8rem;
+            background: #fff1f2; color: #be123c;
+            border: 1px solid #fecdd3; border-radius: .375rem;
+            padding: .15em .5em;
+            word-break: break-all;
+        }
+        .dark .nf-path {
+            background: rgba(190,18,60,.15); color: #fda4af; border-color: rgba(244,63,94,.3);
+        }
+        .nf-card {
+            display: flex; align-items: center; gap: .75rem;
+            padding: .75rem .9rem;
+            border: 1px solid rgba(148,163,184,.3);
+            border-radius: .75rem;
+            text-decoration: none;
+            transition: border-color .15s, transform .15s, background-color .15s;
+        }
+        .nf-card:hover { border-color: #f43f5e; transform: translateY(-1px); background: rgba(244,63,94,.04); }
+        .dark .nf-card:hover { background: rgba(244,63,94,.1); }
+        .nf-card i { color: #f43f5e; width: 1.1rem; text-align: center; }
+        .nf-grid { display: grid; grid-template-columns: 1fr; gap: .6rem; }
+        @media (min-width: 640px) { .nf-grid { grid-template-columns: 1fr 1fr; } }
+        #nfSuggestions:empty { display: none; }
+    </style>
+</head>
+
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
+
+    <nav class="sticky top-0 z-50 w-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16 sm:h-20">
+                <a href="/index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                    <div class="bg-indigo-600 text-white p-2 sm:p-2.5 rounded-lg shadow-sm flex items-center justify-center">
+                        <i class="fa-solid fa-flask text-lg sm:text-xl"></i>
+                    </div>
+                    <span class="text-xl sm:text-2xl font-black tracking-tighter text-slate-900 dark:text-white">STEMKit</span>
+                </a>
+
+                <div class="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600 dark:text-slate-300">
+                    <a href="/index.html#data-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Data</a>
+                    <a href="/index.html#comp-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Compute</a>
+                    <a href="/index.html#pub-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Writing &amp; Citations</a>
+                    <a href="/index.html#focus-tools" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">Focus</a>
+
+                    <div class="h-5 w-px bg-slate-200 dark:bg-slate-700"></div>
+
+                    <button class="themeToggle p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" aria-label="Toggle dark mode">
+                        <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                        <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+                    </button>
+                </div>
+
+                <button class="themeToggle md:hidden p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" aria-label="Toggle dark mode">
+                    <i class="fa-solid fa-moon dark:hidden text-lg"></i>
+                    <i class="fa-solid fa-sun hidden dark:block text-yellow-400 text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow max-w-3xl w-full mx-auto px-4 sm:px-6 py-12 sm:py-20">
+
+        <div class="text-center">
+            <p class="nf-code" aria-hidden="true">404</p>
+            <h1 class="text-2xl sm:text-3xl font-black tracking-tight mt-2">This page doesn't exist</h1>
+            <p class="text-slate-600 dark:text-slate-400 mt-3 text-sm sm:text-base leading-relaxed">
+                The link may be out of date, or the address may have a typo.
+                Nothing you were working on is lost &mdash; every STEMKit tool runs entirely in your browser.
+            </p>
+            <p id="nfRequested" class="mt-4 text-xs text-slate-500 dark:text-slate-500 hidden">
+                You asked for <span class="nf-path" id="nfPath"></span>
+            </p>
+        </div>
+
+        <!-- Filled in by the script below when the URL resembles a known tool. -->
+        <div id="nfSuggestions" class="mt-10"></div>
+
+        <div class="mt-10">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
+                <i class="fa-solid fa-compass mr-1"></i>Popular tools
+            </h2>
+            <div class="nf-grid" id="nfPopular"></div>
+        </div>
+
+        <div class="mt-10 flex flex-wrap gap-3 justify-center">
+            <a href="/index.html" class="bg-rose-500 hover:bg-rose-600 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm flex items-center gap-2">
+                <i class="fa-solid fa-house"></i> All tools
+            </a>
+            <button type="button" id="nfBack" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 px-5 py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
+                <i class="fa-solid fa-arrow-left"></i> Go back
+            </button>
+        </div>
+
+    </main>
+
+    <footer class="border-t border-slate-200 dark:border-slate-800 mt-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4 text-slate-500 dark:text-slate-400">
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
+                <div class="flex gap-6 text-sm font-medium">
+                    <a href="/privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
+                    <a href="/privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        (function () {
+            'use strict';
+
+            // Theme toggle (same behaviour as the rest of the site).
+            document.querySelectorAll('.themeToggle').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    document.documentElement.classList.toggle('dark');
+                    try {
+                        localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+                    } catch (e) { /* ignore */ }
+                });
+            });
+
+            // "Go back" only helps if there is history from this site; otherwise
+            // send the user to the index rather than leaving a dead button.
+            var backBtn = document.getElementById('nfBack');
+            if (backBtn) {
+                backBtn.addEventListener('click', function () {
+                    if (history.length > 1) { history.back(); }
+                    else { window.location.href = '/index.html'; }
+                });
+            }
+
+            // ---- Tool catalogue -------------------------------------------
+            // name, file, icon, and search keywords used for the suggestions.
+            var TOOLS = [
+                { f: 'script-generator.html',      n: 'MD Workflow Generator',   i: 'fa-terminal',        k: 'slurm gromacs lammps plumed script batch hpc job md workflow submit sbatch metadynamics' },
+                { f: 'structure-inspector.html',   n: 'Structure Inspector',     i: 'fa-cubes',           k: 'structure pdb molecule viewer inspect 3d atoms' },
+                { f: 'coordinate-manipulator.html',n: 'Coordinate Manipulator',  i: 'fa-arrows-up-down-left-right', k: 'coordinate xyz translate rotate manipulate atoms geometry' },
+                { f: 'rmsd-calculator.html',       n: 'RMSD Calculator',         i: 'fa-ruler',           k: 'rmsd root mean square deviation align structure' },
+                { f: 'rdf-generator.html',         n: 'RDF Generator',           i: 'fa-chart-area',      k: 'rdf radial distribution function pair correlation' },
+                { f: 'xvg-visualizer.html',        n: 'XVG Visualizer',          i: 'fa-chart-line',      k: 'xvg gromacs plot grace visualise output' },
+                { f: 'plot-builder.html',          n: 'Plot Builder',            i: 'fa-chart-column',    k: 'plot graph chart builder figure axis' },
+                { f: 'plot-digitizer.html',        n: 'Plot Digitizer',          i: 'fa-crosshairs',      k: 'digitize plot extract data points graph image' },
+                { f: 'curve-fitter.html',          n: 'Curve Fitter',            i: 'fa-bezier-curve',    k: 'curve fit regression nonlinear least squares' },
+                { f: 'stats-calculator.html',      n: 'Stats Calculator',        i: 'fa-square-root-variable', k: 'statistics stats mean median ttest anova significance' },
+                { f: 'outlier-detector.html',      n: 'Outlier Detector',        i: 'fa-magnifying-glass-chart', k: 'outlier anomaly grubbs dixon detect data' },
+                { f: 'data-cleaner.html',          n: 'Data Cleaner',            i: 'fa-broom',           k: 'clean data csv tidy missing duplicate' },
+                { f: 'error-bar-generator.html',   n: 'Error Bar Generator',     i: 'fa-grip-lines-vertical', k: 'error bar uncertainty std deviation sem' },
+                { f: 'scientific-converter.html',  n: 'Scientific Converter',    i: 'fa-right-left',      k: 'convert unit conversion si scientific notation' },
+                { f: 'latex-formatter.html',       n: 'LaTeX Formatter',         i: 'fa-code',            k: 'latex format equation tex math beautify' },
+                { f: 'latex-tables.html',          n: 'LaTeX Tables',            i: 'fa-table',           k: 'latex table tabular booktabs csv convert' },
+                { f: 'bibtex-sanitizer.html',      n: 'BibTeX Sanitizer',        i: 'fa-wand-magic-sparkles', k: 'bibtex sanitize clean bibliography reference fix' },
+                { f: 'bibtex-deduplicator.html',   n: 'BibTeX Deduplicator',     i: 'fa-clone',           k: 'bibtex duplicate dedupe bibliography merge references' },
+                { f: 'doi-fetcher.html',           n: 'DOI Fetcher',             i: 'fa-link',            k: 'doi fetch citation metadata crossref reference' },
+                { f: 'journal-abbreviator.html',   n: 'Journal Abbreviator',     i: 'fa-book',            k: 'journal abbreviation iso4 title abbreviate' },
+                { f: 'pomodoro.html',              n: 'Pomodoro Timer',          i: 'fa-clock',           k: 'pomodoro timer focus study break productivity' },
+                { f: 'decision.html',              n: 'Decision Helper',         i: 'fa-scale-balanced',  k: 'decision choose compare weigh options' },
+                { f: 'stemdle.html',               n: 'STEMdle',                 i: 'fa-puzzle-piece',    k: 'stemdle game puzzle word science daily' },
+                { f: 'sandbox.html',               n: 'Sandbox',                 i: 'fa-flask-vial',      k: 'sandbox scratch experiment playground' }
+            ];
+
+            var POPULAR = ['script-generator.html','structure-inspector.html','plot-builder.html',
+                           'stats-calculator.html','bibtex-sanitizer.html','xvg-visualizer.html'];
+
+            function cardHTML(t) {
+                return '<a class="nf-card" href="/' + t.f + '">' +
+                       '<i class="fa-solid ' + t.i + '"></i>' +
+                       '<span class="text-sm font-semibold">' + t.n + '</span></a>';
+            }
+
+            // Populate the popular list.
+            var popEl = document.getElementById('nfPopular');
+            if (popEl) {
+                popEl.innerHTML = POPULAR.map(function (f) {
+                    var t = TOOLS.filter(function (x) { return x.f === f; })[0];
+                    return t ? cardHTML(t) : '';
+                }).join('');
+            }
+
+            // ---- Suggest the closest tool for the requested path -----------
+            // Scores each tool by how many tokens from the URL appear in its
+            // filename or keywords. Cheap, dependency-free, and good enough to
+            // rescue a mistyped or renamed link.
+            var path = '';
+            try { path = decodeURIComponent(window.location.pathname || ''); } catch (e) { path = window.location.pathname || ''; }
+
+            var pathEl = document.getElementById('nfPath');
+            var reqEl  = document.getElementById('nfRequested');
+            if (pathEl && reqEl && path && path !== '/' && path !== '/404.html') {
+                pathEl.textContent = path.length > 80 ? path.slice(0, 80) + '\u2026' : path;
+                reqEl.classList.remove('hidden');
+            }
+
+            var slug = path.toLowerCase()
+                           .replace(/^.*\//, '')          // filename only
+                           .replace(/\.[a-z0-9]+$/, '')   // drop extension
+                           .replace(/[^a-z0-9]+/g, ' ')   // tokenise
+                           .trim();
+
+            if (slug) {
+                var tokens = slug.split(/\s+/).filter(function (w) { return w.length > 2; });
+                var scored = TOOLS.map(function (t) {
+                    var hay = (t.f + ' ' + t.n + ' ' + t.k).toLowerCase();
+                    var score = 0;
+                    tokens.forEach(function (w) {
+                        if (hay.indexOf(w) !== -1) score += w.length;   // longer matches count more
+                    });
+                    // Exact-ish filename match is a strong signal.
+                    if (t.f.toLowerCase().indexOf(slug.replace(/\s+/g, '-')) !== -1) score += 20;
+                    return { t: t, s: score };
+                }).filter(function (x) { return x.s >= 6; })   // threshold: avoid weak coincidental matches
+                  .sort(function (a, b) { return b.s - a.s; })
+                  .slice(0, 3);
+
+                if (scored.length) {
+                    var box = document.getElementById('nfSuggestions');
+                    box.innerHTML =
+                        '<h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">' +
+                        '<i class="fa-solid fa-lightbulb mr-1"></i>Were you looking for this?</h2>' +
+                        '<div class="nf-grid">' + scored.map(function (x) { return cardHTML(x.t); }).join('') + '</div>';
+                }
+            }
+        })();
+    </script>
+
+</body>
+</html>
