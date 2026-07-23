@@ -29,8 +29,16 @@
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "Color Sweeping Data Extraction", "Local Image Processing", "Python Script Generation", "CSV Export" ]
+            "featureList": [ "Two-Point Axis Calibration", "Linear and Logarithmic Axes", "Magnifier-Assisted Manual Tracing", "Multiple Datasets", "Local Image Processing", "Python Script Generation", "CSV Export" ]
         }
+    </script>
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"HowTo","name":"How to extract data from a published plot","totalTime":"PT5M","step":[{"@type":"HowToStep","position":1,"name":"Upload the figure","text":"Load a raster image of the plot. Use the highest resolution available, because pixel size sets the floor on achievable precision."},{"@type":"HowToStep","position":2,"name":"Calibrate both axes","text":"Click each calibration button, click that position on the image, and type the value it represents. Place the two marks on each axis as far apart as possible, and tick Log for logarithmic axes."},{"@type":"HowToStep","position":3,"name":"Trace the curve","text":"Select Manual mode, then click individual points or hold and drag along the curve. Use the magnifier to land on the centre of the line. Add one dataset per series."},{"@type":"HowToStep","position":4,"name":"Clean up and export","text":"Erase stray points or undo the last one, then export a CSV, generate a Matplotlib script, or open the interactive preview to verify the extraction."}]}
+    </script>
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How accurate is digitized data?","acceptedAnswer":{"@type":"Answer","text":"With a high-resolution figure, well-separated calibration marks and careful clicking, agreement with the underlying values is typically within about a percent. Accuracy is bounded by the image itself: pixel size, line thickness and axis span set a floor. Treat digitized values as estimates, state in your methods that they were extracted from a figure, and cite the original."}},{"@type":"Question","name":"Where should I put the calibration points?","acceptedAnswer":{"@type":"Answer","text":"As far apart as the axis allows, on positions whose values you know exactly, normally the first and last labelled tick. The error in every extracted point scales inversely with the pixel distance between the two marks, so marks placed near each other magnify every later click."}},{"@type":"Question","name":"Why was my logarithmic axis rejected?","acceptedAnswer":{"@type":"Answer","text":"A logarithmic mapping interpolates in log base 10 space, which is undefined for zero or negative numbers, so both calibration values on that axis must be strictly greater than zero. An axis that crosses zero is not logarithmic."}},{"@type":"Question","name":"How many points should I trace?","acceptedAnswer":{"@type":"Answer","text":"Enough to capture the shape, not the whole line. Place points densely where the curve bends, turns or peaks, and sparsely along straight runs, since a smooth section is reconstructed well from its endpoints. Holding and dragging lays down a trail automatically as you follow the curve."}},{"@type":"Question","name":"Can I trace several curves from one figure?","acceptedAnswer":{"@type":"Answer","text":"Yes. Add a dataset per series, give each a name and colour, and select the right one before tracing. Names carry through to the CSV Dataset column and become legend entries in the generated Matplotlib script."}},{"@type":"Question","name":"Does the order I click in matter?","acceptedAnswer":{"@type":"Answer","text":"Not for the output. Points are sorted by x when exported and drawn, so tracing right-to-left or filling a gap still yields an ordered series. It matters only for Undo, which removes the most recently added point."}},{"@type":"Question","name":"Is my figure uploaded anywhere?","acceptedAnswer":{"@type":"Answer","text":"No. The image is read locally by your browser and drawn to a canvas. Nothing is transmitted, stored or logged, so unpublished or confidential figures are safe to work with."}}]}
     </script>
     
     <meta name="author" content="STEMKit">
@@ -67,6 +75,172 @@
         .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
         .dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
     </style>
+
+    <style>
+
+        /* STEMKit docs / how-to / FAQ — self-contained styles (shared look with other tools) */
+        .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
+        .stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
+        .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;
+                    text-transform:uppercase; letter-spacing:.12em; padding:.3rem .7rem; border-radius:9999px;
+                    background:#ffe4e6; color:#be123c; border:1px solid #fecdd3; }
+        .dark .stk-chip { background:rgba(190,18,60,.18); color:#fda4af; border-color:rgba(244,63,94,.3); }
+        .stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
+        .stk-lead { max-width:48rem; color:#64748b; line-height:1.6; }
+        .dark .stk-lead { color:#94a3b8; }
+        .stk-grid { display:grid; gap:1rem; grid-template-columns:1fr; margin-top:1.5rem; }
+        @media (min-width:768px){ .stk-grid-3{grid-template-columns:repeat(3,1fr);} .stk-grid-2{grid-template-columns:repeat(2,1fr);} }
+        .stk-card { border-radius:1rem; border:1px solid rgba(148,163,184,.25); padding:1.4rem; background:#fff; }
+        .dark .stk-card { background:#0f172a; border-color:rgba(51,65,85,.8); }
+        .stk-step { display:flex; gap:.85rem; align-items:flex-start; }
+        .stk-num { width:2rem; height:2rem; border-radius:9999px; display:inline-flex; align-items:center;
+                   justify-content:center; font-weight:800; font-size:.85rem; flex-shrink:0;
+                   background:#f43f5e; color:#fff; }
+        .stk-step h3 { font-weight:700; font-size:.95rem; margin-bottom:.15rem; }
+        .stk-step p { font-size:.85rem; color:#64748b; line-height:1.5; }
+        .dark .stk-step p { color:#94a3b8; }
+        .stk-note { display:flex; gap:.6rem; align-items:flex-start; font-size:.82rem; line-height:1.55;
+                    background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:.75rem; padding:.9rem 1rem; }
+        .dark .stk-note { background:rgba(120,53,15,.15); border-color:rgba(180,83,9,.4); color:#fcd34d; }
+        .stk-faq { border-bottom:1px solid rgba(148,163,184,.22); }
+        .stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 2.5rem 1rem 0; font-weight:600; font-size:.95rem;
+                             position:relative; line-height:1.5; }
+        .stk-faq > summary::-webkit-details-marker { display:none; }
+        .stk-faq > summary::after { content:"+"; font-weight:700; color:#f43f5e; font-size:1.2rem; line-height:1;
+                                    position:absolute; right:0; top:1rem; }
+        .stk-faq[open] > summary::after { content:"\2212"; }
+        .plumed-help { position:relative; display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px;
+            border-radius:9999px; background:#fecdd3; color:#be123c; font-size:10px; font-weight:800;
+            cursor:help; user-select:none; flex-shrink:0; line-height:1; }
+        .dark .plumed-help { background:rgba(190,18,60,.35); color:#fda4af; }
+        .plumed-help:hover { background:#fda4af; }
+        /* Floating tooltip (appended to <body>, so it can never be clipped by a
+           scrolling panel). Positioned with fixed coords by JS. */
+        #plumedTooltip {
+            position:fixed; z-index:9999; width:260px; max-width:80vw;
+            background:#0f172a; color:#f1f5f9;
+            font-size:13px; font-weight:400; line-height:1.5; text-align:left; letter-spacing:0;
+            padding:.65rem .75rem; border-radius:.55rem; border:1px solid rgba(148,163,184,.35);
+            box-shadow:0 12px 30px rgba(0,0,0,.4); white-space:normal; text-transform:none;
+            opacity:0; visibility:hidden; transition:opacity .12s ease; pointer-events:none;
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+        #plumedTooltip.show { opacity:1; visibility:visible; }
+        .dark #plumedTooltip { background:#1e293b; border-color:rgba(51,65,85,.9); }
+        /* -----------------------------------------------------------------
+           PLUMED CV-builder cards: self-contained sizing so the dynamically
+           generated cards render correctly even if the Tailwind utility layer
+           is unavailable. Scoped to the builder containers only.
+        ------------------------------------------------------------------ */
+        #plumedCVList label, #plumedBiasParams label { font-size:9px; line-height:1.3; font-weight:700; }
+        #plumedCVList label { color:#94a3b8; }
+        #plumedCVList input[type="text"],
+        #plumedCVList select,
+        #plumedCVList textarea,
+        #plumedBiasParams input[type="text"] {
+            font-size:11px; line-height:1.3; padding:4px 6px; margin-top:2px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+        #plumedCVList p, #plumedBiasParams p { font-size:9px; line-height:1.35; }
+        #plumedCVList .plumed-cv-typelabel { font-size:10px; font-weight:800; text-transform:uppercase; }
+        #plumedCVList .plumed-cv-example { font-size:10px; line-height:1.45; }
+        #plumedCVList .plumed-cv-example code { font-size:9.5px; }
+        #plumedCVDesc .plumed-cv-example { font-size:11px; line-height:1.5; }
+        #plumedCVDesc .plumed-cv-gate, #plumedCVList .plumed-cv-gate { display:inline-block; font-size:10px; line-height:1.4; color:#b45309; }
+        .dark #plumedCVDesc .plumed-cv-gate, .dark #plumedCVList .plumed-cv-gate { color:#fbbf24; }
+        /* Bias-redundant CV fields: visible but disabled ("blacked out"). */
+        #plumedCVList .plumed-field-off { opacity:.45; }
+        #plumedCVList .plumed-field-off input,
+        #plumedCVList .plumed-field-off select {
+            background:#e2e8f0 !important; color:#94a3b8 !important; cursor:not-allowed;
+            text-decoration:line-through; }
+        .dark #plumedCVList .plumed-field-off input,
+        .dark #plumedCVList .plumed-field-off select {
+            background:#1e293b !important; color:#64748b !important; }
+        #plumedCVList .plumed-field-off label { text-decoration:line-through; }
+        #plumedCVDesc a.plumed-doclink, #plumedCVList a.plumed-doclink {
+            color:#be123c; font-weight:600; text-decoration:none; }
+        #plumedCVDesc a.plumed-doclink:hover, #plumedCVList a.plumed-doclink:hover { text-decoration:underline; }
+        .dark #plumedCVDesc a.plumed-doclink, .dark #plumedCVList a.plumed-doclink { color:#fda4af; }
+        .stk-faq > div { padding:0 0 1.1rem; font-size:.88rem; line-height:1.6; color:#475569; }
+        .dark .stk-faq > div { color:#94a3b8; }
+        .stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem; }
+        .stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600;
+                      color:#be123c; text-decoration:none; border:1px solid #fecdd3; background:#ffe4e6;
+                      padding:.4rem .8rem; border-radius:.6rem; }
+        .dark .stk-refs a { color:#fda4af; background:rgba(190,18,60,.15); border-color:rgba(244,63,94,.3); }
+        .stk-refs a:hover { text-decoration:underline; }
+        .stk-byline { font-size:.8rem; color:#94a3b8; margin-top:.35rem; }
+        .stk-credit { margin-top:2rem; font-size:.8rem; color:#94a3b8; }
+
+        .stk-math { overflow-x:auto; padding:1rem 1.1rem; margin:.6rem 0 1rem; border:1px solid rgba(148,163,184,.25);
+                    border-radius:.75rem; background:#f8fafc; font-size:1.1rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+        .dark .stk-math { background:#0f172a; }
+        .stk-eqn-label { font-size:.9rem; font-weight:600; color:#475569; margin-top:1.1rem; }
+        .dark .stk-eqn-label { color:#cbd5e1; }
+        .stk-where { font-size:.85rem; color:#64748b; line-height:1.75; margin-top:.5rem; }
+        .dark .stk-where { color:#94a3b8; }
+        .stk-refs-h { font-weight:700; font-size:1rem; margin-top:1.9rem; margin-bottom:.5rem; }
+        .stk-refs-list { font-size:.82rem; color:#64748b; line-height:1.75; padding-left:1.2rem; }
+        .dark .stk-refs-list { color:#94a3b8; }
+        .stk-refs-list li { margin-bottom:.45rem; }
+        .stk-refs-list a { color:#be123c; text-decoration:none; }
+        .dark .stk-refs-list a { color:#fda4af; }
+        .stk-refs-list a:hover { text-decoration:underline; }
+
+        /* Consistent inline code across all documentation */
+        .stk-section code, .stk-faq code, .stk-note code, .stk-where code, .stk-lead code,
+        .stk-step p code, .stk-refs-list code, .stk-table code, .stk-card code {
+            font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.85em; background: #fff1f2; color: #be123c;
+            border: 1px solid #fecdd3; border-radius: 0.3rem; padding: 0.05em 0.35em;
+            white-space: nowrap; }
+        .dark .stk-section code, .dark .stk-faq code, .dark .stk-note code, .dark .stk-where code,
+        .dark .stk-lead code, .dark .stk-step p code, .dark .stk-refs-list code,
+        .dark .stk-table code, .dark .stk-card code {
+            background: rgba(190,18,60,.15); color: #fda4af; border-color: rgba(244,63,94,.3); }
+        /* code inside note keeps the note's warm tone */
+        .stk-note code { background: rgba(180,83,9,.1); color: #92400e; border-color: rgba(180,83,9,.25); }
+        .dark .stk-note code { background: rgba(180,83,9,.2); color: #fcd34d; border-color: rgba(180,83,9,.4); }
+
+        /* Theme-colour highlight instead of heavy bold */
+        .hl { color:#e11d48; font-weight:600; }
+        .dark .hl { color:#fb7185; }
+
+        /* Documentation tabs */
+        .doc-tabs { display:flex; flex-wrap:wrap; gap:.4rem; margin:1.25rem 0 1.75rem; border-bottom:1px solid rgba(148,163,184,.25); padding-bottom:.75rem; }
+        .doc-tab { display:inline-flex; align-items:center; gap:.45rem; font-size:.85rem; font-weight:700;
+                   padding:.5rem .95rem; border-radius:.6rem; cursor:pointer; border:1px solid transparent;
+                   color:#64748b; background:transparent; transition:all .15s ease; }
+        .doc-tab:hover { background:#f1f5f9; color:#0f172a; }
+        .dark .doc-tab { color:#94a3b8; }
+        .dark .doc-tab:hover { background:#1e293b; color:#f1f5f9; }
+        .doc-tab.active { background:#e11d48; color:#fff; border-color:#e11d48; }
+        .doc-tab.active:hover { background:#be123c; color:#fff; }
+        .doc-pane { display:none; }
+        .doc-pane.active { display:block; animation:docfade .2s ease; }
+        @keyframes docfade { from { opacity:0; transform:translateY(4px);} to { opacity:1; transform:none; } }
+
+        /* Mobile responsiveness for documentation */
+        @media (max-width: 640px) {
+            .stk-section { padding: 2rem 0; }
+            .stk-wrap { padding-left: 1rem; padding-right: 1rem; }
+            .stk-h2 { font-size: 1.3rem; }
+            .stk-math { font-size: 0.9rem; padding: 0.8rem; }
+            .stk-table { font-size: 0.78rem; }
+            .stk-table th, .stk-table td { padding: 0.4rem 0.5rem; }
+            .doc-tab { font-size: 0.78rem; padding: 0.4rem 0.7rem; }
+            .doc-tabs { gap: 0.3rem; }
+            .stk-grid-2, .stk-grid-3 { grid-template-columns: 1fr; }
+            .stk-section code { white-space: normal; word-break: break-word; }
+        }
+
+        /* Reference table for the force-field parameter mapping */
+        .stk-table { width:100%; border-collapse:collapse; margin-top:1rem; font-size:.85rem; }
+        .stk-table th, .stk-table td { border:1px solid rgba(148,163,184,.3); padding:.55rem .7rem; text-align:left; }
+        .stk-table th { background:#f1f5f9; font-weight:700; }
+        .dark .stk-table th { background:#1e293b; }
+        .stk-table code { font-size:.8rem; }
+        </style>
+
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
 </head>
@@ -96,7 +270,7 @@
                     </button>
                     
                     <a href="plot-digitizer.html" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg">
-                        <i class="fa-solid fa-crosshairs mr-1"></i> Digitizer Pro
+                        <i class="fa-solid fa-crosshairs mr-1"></i> Plot Digitizer
                     </a>
                 </div>
 
@@ -152,7 +326,7 @@
 
             <section id="workspace" class="hidden w-full flex-col lg:flex-row gap-4 h-full relative">
                 
-                <div id="canvasContainer" class="flex-grow bg-slate-200 dark:bg-slate-800 rounded-3xl overflow-hidden relative flex items-center justify-center border border-slate-300 dark:border-slate-700 shadow-inner p-4">
+                <div id="canvasContainer" class="flex-grow bg-slate-200 dark:bg-slate-800 rounded-3xl overflow-auto relative flex items-center justify-center border border-slate-300 dark:border-slate-700 shadow-inner p-4">
                     <canvas id="plotCanvas" class="max-w-full max-h-full object-contain drop-shadow-2xl"></canvas>
                     <canvas id="loupeCanvas" width="120" height="120" class="absolute pointer-events-none border-2 border-indigo-500 rounded-full shadow-xl hidden bg-white dark:bg-slate-900 z-50"></canvas>
                 </div>
@@ -185,7 +359,7 @@
                                 <ol class="list-decimal pl-4 text-xs text-slate-600 dark:text-slate-400 space-y-1 mt-2">
                                     <li><strong>Calibrate:</strong> Click "Set X1", then click the known point on the X-axis. Type its value. Repeat for X2, Y1, Y2.</li>
                                     <li><strong>Add datasets:</strong> Use the "+" button to create distinct curves. Pick colors to match the literature plot.</li>
-                                    <li><strong>Extract:</strong> Use <em>Manual</em> to click points, or hold/drag. Use <em>Auto-extract</em> to click a colored line for instant tracing.</li>
+                                    <li><strong>Extract:</strong> Use <em>Manual</em> to click individual points, or hold and drag along the curve to trace it continuously.</li>
                                     <li><strong>Clean up:</strong> Select <em>Erase</em> to brush over and remove erroneous points from the active dataset.</li>
                                 </ol>
                             </div>
@@ -230,18 +404,9 @@
                                 </div>
                                 <div id="datasetList" class="flex flex-col gap-1.5 max-h-24 overflow-y-auto mb-3 pr-1 custom-scroll"></div>
                                 
-                                <div class="grid grid-cols-3 gap-2 mb-2">
+                                <div class="grid grid-cols-2 gap-2 mb-2">
                                     <button id="btnManualMode" class="border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200"><i class="fa-solid fa-pen-nib mr-1"></i> Manual</button>
-                                    <button id="btnAutoMode" class="border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Auto</button>
                                     <button id="btnEraseMode" class="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-700 dark:text-red-400 font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200"><i class="fa-solid fa-eraser mr-1"></i> Erase</button>
-                                </div>
-                                
-                                <div id="autoControls" class="hidden flex-col gap-1 mt-2 p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-100 dark:border-indigo-800">
-                                    <div class="flex justify-between text-[10px] font-bold text-indigo-800 dark:text-indigo-300">
-                                        <span>Color tolerance sweep</span>
-                                        <span id="toleranceVal">30</span>
-                                    </div>
-                                    <input type="range" id="colorTolerance" min="5" max="100" value="30" class="w-full accent-indigo-600 dark:accent-indigo-400">
                                 </div>
                                 
                                 <div id="eraseControls" class="hidden flex-col gap-1 mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-800">
@@ -323,6 +488,82 @@
             </section>
 
         </main>
+
+        <!-- ================= HOW TO USE ================= -->
+        <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
+            <div class="stk-wrap">
+                <span class="stk-chip"><i class="fa-solid fa-crosshairs"></i> How-To Guide</span>
+                <h2 class="stk-h2">How to extract data from a published plot</h2>
+                <p class="stk-lead">Upload a figure, tell the tool where two known values sit on each axis, then trace the curve. You get a CSV of real coordinates plus a ready-to-run Matplotlib script.</p>
+                <p class="stk-byline">By Olanrewaju M. Daramola &middot; 100% client-side</p>
+                <div class="stk-grid stk-grid-2">
+                    <div class="stk-step"><span class="stk-num">1</span><div><h3>Upload the figure</h3><p>Drop in a PNG, JPG or any raster image of the plot. Use the highest resolution you can find &mdash; a screenshot of a PDF at full zoom beats a thumbnail, because every pixel of the original is a pixel of precision you keep.</p></div></div>
+                    <div class="stk-step"><span class="stk-num">2</span><div><h3>Calibrate both axes</h3><p>Click <strong>X1</strong>, then click that position on the image, and type the value it represents. Repeat for <strong>X2</strong>, <strong>Y1</strong> and <strong>Y2</strong>. Pick two points that are <em>far apart</em> on each axis &mdash; usually the first and last labelled gridline. Tick <strong>Log</strong> if an axis is logarithmic.</p></div></div>
+                    <div class="stk-step"><span class="stk-num">3</span><div><h3>Trace the curve</h3><p>Select <strong>Manual</strong>, then either click individual points or hold and drag along the curve to lay down a trail. The magnifier follows your cursor so you can land on the line rather than near it. Add a dataset for each series and give it a name and colour.</p></div></div>
+                    <div class="stk-step"><span class="stk-num">4</span><div><h3>Clean up and export</h3><p>Use <strong>Erase</strong> to brush away stray points, or <strong>Undo</strong> to drop the last one. Then export the CSV, generate a Matplotlib script, or open the interactive preview to check the extracted series before you use it.</p></div></div>
+                </div>
+                <div class="stk-note" style="margin-top:1.4rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>Toggle the background image off at any point to see only your extracted points. It is the quickest way to spot a stray click or a gap in a trace.</div></div>
+            </div>
+        </section>
+
+        <!-- ================= HOW IT WORKS ================= -->
+        <section class="stk-section" id="how-it-works" aria-label="How it works">
+            <div class="stk-wrap">
+                <h2 class="stk-h2">What the digitizer does &mdash; and what limits it</h2>
+                <div class="stk-grid stk-grid-2">
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Two-point affine calibration</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Each axis is mapped from pixels to data by a straight line through your two calibration marks. On a log axis the same interpolation is done in log<sub>10</sub> space and then exponentiated, which is why both log values must be strictly positive.</p></div>
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">You place every point</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Coordinates come from where you click, so every point in your dataset is one you saw on the curve. Where a series doubles back on itself or crosses another, you decide which branch to follow rather than leaving it to a threshold.</p></div>
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Exports stay consistent</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">The CSV, the Matplotlib script and the interactive preview all sort points by <em>x</em> and use the same values, so the curve you see on screen is the curve you get in the file &mdash; even if you traced right-to-left or patched a gap in the middle.</p></div>
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Everything stays local</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">The image never leaves your machine. It is read with the browser's <code>FileReader</code> and drawn to a canvas &mdash; nothing is uploaded, so unpublished figures and confidential data are safe to work with.</p></div>
+                </div>
+                <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-triangle-exclamation" style="margin-top:.15rem;"></i><div>Digitized data is an <em>estimate</em> of the original, never a substitute for it. Where the authors have published their numbers, or you can request them, use those instead. If you do digitize, say so in your methods and cite the source figure.</div></div>
+            </div>
+        </section>
+
+        <!-- ================= METHOD & REFERENCES ================= -->
+        <section class="stk-section" id="method" aria-label="Method">
+            <div class="stk-wrap">
+                <span class="stk-chip"><i class="fa-solid fa-square-root-variable"></i> Method</span>
+                <h2 class="stk-h2">The mapping, and where the error comes from</h2>
+                <p class="stk-lead">Both axes use the same two-point interpolation. Understanding it tells you exactly how to keep your extraction accurate.</p>
+
+                <div class="stk-math">
+                    <div class="stk-eqn-label">Linear axis</div>
+                    <p style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9rem;">value = v<sub>1</sub> + (p &minus; p<sub>1</sub>) &times; (v<sub>2</sub> &minus; v<sub>1</sub>) / (p<sub>2</sub> &minus; p<sub>1</sub>)</p>
+                    <div class="stk-eqn-label" style="margin-top:.9rem;">Logarithmic axis</div>
+                    <p style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9rem;">value = 10<sup>&thinsp;log<sub>10</sub>v<sub>1</sub> + (p &minus; p<sub>1</sub>)(log<sub>10</sub>v<sub>2</sub> &minus; log<sub>10</sub>v<sub>1</sub>) / (p<sub>2</sub> &minus; p<sub>1</sub>)</sup></p>
+                    <p class="stk-where"><strong>where</strong> <em>p</em> is the pixel coordinate of your point, <em>p</em><sub>1</sub>&thinsp;/&thinsp;<em>p</em><sub>2</sub> are the pixel positions of your two calibration marks, and <em>v</em><sub>1</sub>&thinsp;/&thinsp;<em>v</em><sub>2</sub> are the data values you typed for them.</p>
+                </div>
+
+                <h3 style="font-weight:700;margin:1.6rem 0 .6rem;">Where the error actually comes from</h3>
+                <div class="stk-grid stk-grid-3">
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Calibration span</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Error scales with 1&thinsp;/&thinsp;(p<sub>2</sub>&minus;p<sub>1</sub>). Two marks a few pixels apart amplify every subsequent click; marks at opposite ends of the axis divide the error down. This is the single biggest lever you control.</p></div>
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Image resolution</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">One screen pixel is the floor on precision. A 400&nbsp;px-wide figure spanning 0&ndash;100 gives you no better than &plusmn;0.25 per pixel, before any human error. Start from the largest version of the figure available.</p></div>
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Line thickness</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">A curve drawn 3&nbsp;px thick is ambiguous by &plusmn;1.5&nbsp;px wherever you click on it. Aim consistently for the centre of the stroke; the magnifier exists to make that possible.</p></div>
+                </div>
+
+                <div class="stk-note" style="margin-top:1.2rem;"><i class="fa-solid fa-lightbulb" style="margin-top:.15rem;"></i><div><strong>Sanity check your calibration.</strong> After calibrating, hover over a gridline whose value you already know and see whether the readout matches. If it does not, one of your four marks or values is wrong &mdash; and every point you trace afterwards will inherit that error.</div></div>
+</div>
+        </section>
+
+        <!-- ================= FAQ ================= -->
+        <section class="stk-section" id="faq" aria-label="Frequently asked questions">
+            <div class="stk-wrap">
+                <h2 class="stk-h2">Frequently asked questions</h2>
+                <div style="margin-top:1rem;">
+                    <details class="stk-faq"><summary>How accurate is digitized data?</summary><div>With a high-resolution figure, well-separated calibration marks and careful clicking, agreement with the underlying values is typically within a percent or so &mdash; published reliability studies of digitizing tools report high agreement between independent extractors. But accuracy is bounded by the image itself: pixel size, line thickness and axis span all set a floor you cannot beat. Treat digitized values as good estimates, state in your methods that they were extracted from a figure, and cite the original.</div></details>
+                    <details class="stk-faq"><summary>Where should I put the calibration points?</summary><div>As far apart as the axis allows, on positions whose values you know exactly &mdash; normally the first and last labelled tick. The error in every extracted point scales inversely with the pixel distance between your two marks, so two marks near each other magnify every later click. Placing both on the same pixel is rejected outright, because the scale would be undefined.</div></details>
+                    <details class="stk-faq"><summary>Why was my log axis rejected?</summary><div>A logarithmic mapping interpolates in log<sub>10</sub> space, which is undefined for zero or negative numbers. Both calibration values on that axis must therefore be strictly greater than zero. If your axis genuinely crosses zero it is not logarithmic &mdash; it is probably linear, or a symlog scale, which this two-point mapping does not model.</div></details>
+                    <details class="stk-faq"><summary>How many points should I trace?</summary><div>Enough to capture the shape, not the whole line. Place points densely where the curve bends, turns or peaks, and sparsely along straight runs &mdash; a smooth section is reconstructed perfectly well from its endpoints. Holding and dragging lays down a trail automatically as you follow the curve, which is usually the fastest way to cover a long sweep.</div></details>
+                    <details class="stk-faq"><summary>Can I trace several curves from one figure?</summary><div>Yes. Add a dataset per series with <strong>+ Add</strong>, give each a name and colour, and make sure the right one is selected before you trace &mdash; points always go to the active dataset. Names are carried through to the CSV's <code>Dataset</code> column and become the legend entries in the generated Matplotlib script.</div></details>
+                    <details class="stk-faq"><summary>Does the order I click in matter?</summary><div>Not for the output. Points are sorted by <em>x</em> when exported and when drawn, so tracing right-to-left or going back to fill a gap still yields a properly ordered series. It does matter for <strong>Undo</strong>, which removes the most recently added point rather than the right-most one.</div></details>
+                    <details class="stk-faq"><summary>Why does my CSV show values like 2.3e-5?</summary><div>Because the value is genuinely that small. Values are written with significant digits rather than a fixed number of decimals, so small magnitudes survive the round trip &mdash; a fixed four-decimal format would have written that number as <code>0.0000</code> and destroyed it. Very large and very small magnitudes use exponential notation, which <code>pandas.read_csv</code> and every spreadsheet read without special handling.</div></details>
+                    <details class="stk-faq"><summary>What do the generated Python script and preview give me?</summary><div>The script loads your exported CSV with pandas and rebuilds the figure in Matplotlib &mdash; one axes with all series, or stacked subplots &mdash; carrying over your labels, colours, log scales, grid and figure size. The preview does the same thing instantly with Plotly in a new tab, so you can check the extraction before writing any files. Save the CSV first: the script reads it by the filename you chose.</div></details>
+                    <details class="stk-faq"><summary>Is my figure uploaded anywhere?</summary><div>No. The image is read locally by your browser and drawn to a canvas. Nothing is transmitted, stored or logged, so it is safe to digitize unpublished figures, confidential results or anything under embargo.</div></details>
+                </div>
+            </div>
+        </section>
+
         
         <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
         <div class="max-w-7xl mx-auto px-6">
