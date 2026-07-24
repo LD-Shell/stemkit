@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D Structure Inspector | WebGL Molecular Viewer | STEMKit</title>
-    <meta name="description" content="Visualize molecular dynamics trajectories, PDB structures, and interaction interfaces locally in your browser using hardware-accelerated WebGL.">
+    <meta name="description" content="Free browser-based 3D molecular viewer. Load PDB, GRO, XYZ, CIF, MOL2 or CUBE files, select atoms by chain, residue, element or distance, measure bonds and angles, and export publication-quality images, all rendered locally with WebGL.">
     <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/all.min.css">
@@ -68,10 +68,117 @@
         .spatial-mode-card{border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;cursor:pointer;transition:all .15s;background:#fafbfc}
         .spatial-mode-card:hover{border-color:#a5b4fc;background:#eef2ff}
         .spatial-mode-card.selected{border-color:#6366f1;background:#eef2ff;box-shadow:0 0 0 2px rgba(99,102,241,.2)}
+
+        /* Busy overlay for unavoidable synchronous work (surface meshing) */
+        #busyOverlay{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
+            background:rgba(15,23,42,.55);backdrop-filter:blur(2px)}
+        /* The id selector above outranks the .hidden utility class, so the
+           hidden state needs id+class specificity or the overlay can never be
+           dismissed and sits over the viewer reading "Working…" forever. */
+        #busyOverlay.hidden{display:none}
+        #busyOverlay .busy-card{display:flex;align-items:center;gap:.7rem;background:rgba(15,23,42,.94);
+            color:#e2e8f0;padding:.85rem 1.2rem;border-radius:.8rem;font-size:.8rem;font-weight:600;
+            border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+        .busy-spin{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.25);
+            border-top-color:#818cf8;animation:busySpin .7s linear infinite;flex-shrink:0}
+        @keyframes busySpin{to{transform:rotate(360deg)}}
+
+        /* Label build progress */
+        #labelProgress{position:absolute;bottom:12px;right:12px;z-index:25;background:rgba(67,56,202,.92);
+            color:#e0e7ff;padding:5px 11px;border-radius:8px;font-size:10px;font-weight:700;
+            font-variant-numeric:tabular-nums;pointer-events:none;border:1px solid rgba(255,255,255,.15)}
+
+        /* Measurement readout rows */
+        .measure-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+        .measure-del{background:none;border:none;color:#fca5a5;cursor:pointer;font-size:13px;
+            line-height:1;padding:0 2px;flex-shrink:0}
+        .measure-del:hover{color:#ef4444}
         .dark .spatial-mode-card{border-color:#334155;background:#0f172a}
         .dark .spatial-mode-card:hover{border-color:#6366f1;background:#1e1b4b}
         .dark .spatial-mode-card.selected{border-color:#818cf8;background:#1e1b4b}
     </style>
+
+    <style>
+        /* STEMKit docs / how-to / FAQ | self-contained styles */
+        .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
+        .stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
+        .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;
+                    text-transform:uppercase; letter-spacing:.12em; padding:.3rem .7rem; border-radius:9999px;
+                    background:#eef2ff; color:#4338ca; border:1px solid #e0e7ff; }
+        .dark .stk-chip { background:rgba(67,56,202,.18); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
+        .stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
+        .stk-lead { max-width:48rem; color:#64748b; line-height:1.6; }
+        .dark .stk-lead { color:#94a3b8; }
+        .stk-grid { display:grid; gap:1rem; grid-template-columns:1fr; margin-top:1.5rem; }
+        @media (min-width:768px){ .stk-grid-3{grid-template-columns:repeat(3,1fr);} .stk-grid-2{grid-template-columns:repeat(2,1fr);} }
+        .stk-card { border-radius:1rem; border:1px solid rgba(148,163,184,.25); padding:1.4rem; background:#fff; }
+        .dark .stk-card { background:#0f172a; border-color:rgba(51,65,85,.8); }
+        .stk-card h3 { font-weight:700; margin-bottom:.4rem; }
+        .stk-card p { font-size:.88rem; color:#64748b; line-height:1.6; }
+        .dark .stk-card p { color:#94a3b8; }
+        .stk-step { display:flex; gap:.85rem; align-items:flex-start; }
+        .stk-num { width:2rem; height:2rem; border-radius:9999px; display:inline-flex; align-items:center;
+                   justify-content:center; font-weight:800; font-size:.85rem; flex-shrink:0;
+                   background:#4f46e5; color:#fff; }
+        .stk-step h3 { font-weight:700; font-size:.95rem; margin-bottom:.15rem; }
+        .stk-step p { font-size:.85rem; color:#64748b; line-height:1.5; }
+        .dark .stk-step p { color:#94a3b8; }
+        .stk-note { display:flex; gap:.6rem; align-items:flex-start; font-size:.82rem; line-height:1.55;
+                    background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:.75rem; padding:.9rem 1rem; }
+        .dark .stk-note { background:rgba(120,53,15,.15); border-color:rgba(180,83,9,.4); color:#fcd34d; }
+        .stk-faq { border-bottom:1px solid rgba(148,163,184,.22); }
+        .stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 0; font-weight:600; font-size:.95rem;
+                             display:flex; justify-content:space-between; align-items:center; gap:1rem; }
+        .stk-faq > summary::-webkit-details-marker { display:none; }
+        .stk-faq > summary::after { content:"+"; font-weight:700; color:#6366f1; font-size:1.2rem; line-height:1; }
+        .stk-faq[open] > summary::after { content:"\2212"; }
+        .stk-faq > div { padding:0 0 1.1rem; font-size:.88rem; line-height:1.6; color:#475569; }
+        .dark .stk-faq > div { color:#94a3b8; }
+        .stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem; }
+        .stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600;
+                      color:#4f46e5; text-decoration:none; border:1px solid #e0e7ff; background:#eef2ff;
+                      padding:.4rem .8rem; border-radius:.6rem; }
+        .dark .stk-refs a { color:#a5b4fc; background:rgba(67,56,202,.15); border-color:rgba(99,102,241,.3); }
+        .stk-refs a:hover { text-decoration:underline; }
+        .stk-byline { font-size:.8rem; color:#94a3b8; margin-top:.35rem; }
+        .stk-credit { margin-top:2rem; font-size:.8rem; color:#94a3b8; }
+        .stk-refs-h { font-weight:700; font-size:1rem; margin-top:1.9rem; margin-bottom:.5rem; }
+        .stk-refs-list { font-size:.82rem; color:#64748b; line-height:1.75; padding-left:1.2rem; }
+        .dark .stk-refs-list { color:#94a3b8; }
+        .stk-refs-list li { margin-bottom:.45rem; }
+        .stk-refs-list a { color:#4f46e5; text-decoration:none; }
+        .dark .stk-refs-list a { color:#a5b4fc; }
+        .stk-refs-list a:hover { text-decoration:underline; }
+
+        /* Syntax reference table */
+        .stk-syntax { width:100%; border-collapse:collapse; font-size:.85rem; margin-top:.75rem; }
+        .stk-syntax th { text-align:left; font-size:.7rem; text-transform:uppercase; letter-spacing:.08em;
+                         color:#64748b; padding:.5rem .6rem; border-bottom:2px solid rgba(148,163,184,.3); }
+        .dark .stk-syntax th { color:#94a3b8; }
+        .stk-syntax td { padding:.55rem .6rem; border-bottom:1px solid rgba(148,163,184,.18); vertical-align:top; }
+        .stk-syntax td:first-child { white-space:nowrap; }
+        .stk-syntax code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.82rem;
+                           font-weight:700; color:#4338ca; background:#eef2ff; padding:.15rem .4rem;
+                           border-radius:.35rem; border:1px solid #e0e7ff; }
+        .dark .stk-syntax code { color:#a5b4fc; background:rgba(67,56,202,.18); border-color:rgba(99,102,241,.3); }
+        .stk-syntax p { color:#64748b; line-height:1.5; }
+        .dark .stk-syntax p { color:#94a3b8; }
+        .stk-kbd { display:inline-block; font-family:ui-monospace,monospace; font-size:.72rem; font-weight:700;
+                   padding:.15rem .45rem; border-radius:.35rem; background:#f1f5f9; color:#475569;
+                   border:1px solid #cbd5e1; border-bottom-width:2px; }
+        .dark .stk-kbd { background:#1e293b; color:#cbd5e1; border-color:#475569; }
+
+        /* Clickable query example chips */
+        .query-example { cursor:pointer; transition:all .15s; }
+        .query-example:hover { background:#6366f1 !important; color:#fff !important; border-color:#6366f1 !important; }
+    </style>
+
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to inspect a molecular structure in 3D", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Load a structure", "text": "Drag in a PDB, GRO, XYZ, CIF, MOL2 or CUBE coordinate file, or enter a four-character PDB ID to fetch it from RCSB."}, {"@type": "HowToStep", "position": 2, "name": "Pick a representation", "text": "Choose cartoon, stick, ball-and-stick, sphere, cross or wireframe, then colour by element, chain, residue, B-factor or secondary structure."}, {"@type": "HowToStep", "position": 3, "name": "Narrow the selection", "text": "Filter by chain, residue and element, add a within-distance radius for binding pockets, or slice along an axis with the spatial sliders, then Isolate or Highlight."}, {"@type": "HowToStep", "position": 4, "name": "Measure and export", "text": "Enable measure mode and click two atoms for a distance or three for an angle, then export a high-resolution PNG or save the selection as a PDB fragment."}]}
+</script>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my structure uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Files are read with the browser's FileReader and rendered by 3Dmol.js on your own GPU. The only network request is the optional PDB ID fetch, which asks RCSB for that one public entry."}}, {"@type": "Question", "name": "Which file formats are supported?", "acceptedAnswer": {"@type": "Answer", "text": "PDB, ENT, CIF/mmCIF, SDF, MOL, MOL2, XYZ, GRO, PQR, PRMTOP, MMTF, CDJSON, CUBE and VASP/POSCAR/CONTCAR. Multi-frame files load as a trajectory with a frame slider."}}, {"@type": "Question", "name": "Why does the cartoon style show nothing?", "acceptedAnswer": {"@type": "Answer", "text": "Cartoon rendering needs backbone connectivity and secondary-structure information, which only protein and nucleic-acid formats carry. Use stick or ball-and-stick for small molecules and bare XYZ files."}}, {"@type": "Question", "name": "Why are my labels capped or disabled?", "acceptedAnswer": {"@type": "Answer", "text": "Each label is an individual sprite and costs far more than an atom. Above 5,000 atoms the tool warns and exposes a cap; above 50,000 it disables labels to stop the tab freezing."}}, {"@type": "Question", "name": "My high-resolution export came out smaller than I asked for.", "acceptedAnswer": {"@type": "Answer", "text": "WebGL contexts have a maximum texture size, commonly 4096, 8192 or 16384 pixels. Requests beyond that limit would black out the canvas, so exports are clamped to the largest safe size."}}, {"@type": "Question", "name": "What is the difference between Isolate and Highlight?", "acceptedAnswer": {"@type": "Answer", "text": "Isolate hides everything outside the selection for a clean figure. Highlight keeps the rest of the structure as a faint wireframe so the selection stays in context."}}, {"@type": "Question", "name": "Which surface type should I use?", "acceptedAnswer": {"@type": "Answer", "text": "Van der Waals is fastest and shows atomic radii. Solvent-accessible traces a rolling probe centre and is used for buried-area calculations. Solvent-excluded hugs the molecule tightly and looks best in figures but costs the most."}}, {"@type": "Question", "name": "Can I script the same selections elsewhere?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The query box compiles to a 3Dmol AtomSelectionSpec object, so chain:A resn:HEM is simply {chain:'A', resn:'HEM'} in the library's API."}}, {"@type": "Question", "name": "Turning on labels used to freeze the tab. What changed?", "acceptedAnswer": {"@type": "Answer", "text": "Labels are built in small slices spread across animation frames instead of one blocking loop, so the browser keeps painting and shows a live progress count. They are scoped to the current selection by default, and when a scope exceeds the limit the atoms nearest the centre of the view are kept."}}, {"@type": "Question", "name": "How do I make a clean measurement figure?", "acceptedAnswer": {"@type": "Answer", "text": "Enable Figure mode in the Tools tab. Everything except the measured atoms drops to a faint wireframe, thin stick, cartoon or hidden at an opacity you control, while the picked atoms keep full representation. Measurement appearance controls line colour, thickness, dash, marker size, label size and colour, decimals and units."}}, {"@type": "Question", "name": "Can I get the measurement numbers out as data?", "acceptedAnswer": {"@type": "Answer", "text": "Copy data puts every measurement on the clipboard as tab-separated text with type, atoms, value and unit columns, which pastes directly into a spreadsheet."}}, {"@type": "Question", "name": "Why does building a surface still pause the viewer?", "acceptedAnswer": {"@type": "Answer", "text": "Surface meshing is a single synchronous call inside 3Dmol.js and cannot be sliced across frames. The tool paints a busy indicator and starts work on the next frame so you get feedback, refuses above 100,000 atoms, and can scope the surface to your current selection."}}]}
+</script>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
 </head>
@@ -144,7 +251,7 @@
                     <p id="formatBadge" class="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold mb-2"></p>
                     <div id="perfWarning" class="hidden perf-warning mb-2">
                         <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span id="perfWarningText">Large structure — labels may cause lag.</span>
+                        <span id="perfWarningText">Large structure, labels may cause lag.</span>
                     </div>
                     <button id="resetBtn" class="text-[11px] text-red-600 hover:text-red-700 font-medium"><i class="fa-solid fa-rotate-left mr-1"></i>Close viewer</button>
                 </div>
@@ -230,11 +337,17 @@
                                 <option value="ballstick">Ball & Stick</option>
                                 <option value="sphere">Sphere</option>
                                 <option value="cartoon">Cartoon</option>
+                                <option value="cartoontube">Cartoon (Tube/Trace)</option>
                                 <option value="line">Wireframe</option>
                                 <option value="hidden">Hide</option>
                             </select>
                             <button id="applySelStyle" class="sidebar-btn px-3 text-[11px]">Apply</button>
                         </div>
+                        <label class="flex items-center gap-1.5 cursor-pointer mt-1">
+                            <input type="checkbox" id="selStyleUseColor" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
+                            <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">Override colour</span>
+                            <input type="color" id="selStyleColor" value="#f59e0b" class="hidden w-6 h-6 rounded cursor-pointer border-0 p-0">
+                        </label>
                         <button id="clearSelStyles" class="text-[10px] text-red-500 hover:text-red-600 font-medium mt-1 text-left">Clear selection styles</button>
                     </div>
                 </div>
@@ -257,12 +370,25 @@
                             </div>
                             <div id="toggleResLabels" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div>
                         </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-slate-500 w-20 shrink-0">Label scope</span>
+                            <select id="labelScope" class="sidebar-select text-[11px] flex-grow">
+                                <option value="selection" selected>Current selection</option>
+                                <option value="visible">Visible atoms</option>
+                                <option value="all">Everything</option>
+                            </select>
+                        </div>
+                        <p class="text-[9px] text-slate-400 leading-tight -mt-1">Scoping to a selection is what keeps labels usable on big systems. Over the limit, the atoms nearest the camera win.</p>
                         <div id="labelLimitRow" class="hidden">
                             <div class="flex items-center gap-2">
                                 <span class="text-[10px] text-slate-500 w-20 shrink-0">Label limit</span>
-                                <input type="range" id="labelLimit" min="500" max="10000" step="500" value="2000" class="flex-grow">
-                                <span id="labelLimitVal" class="text-[10px] text-slate-500 w-12 text-right">2,000</span>
+                                <input type="range" id="labelLimit" min="100" max="10000" step="100" value="1500" class="flex-grow">
+                                <span id="labelLimitVal" class="text-[10px] text-slate-500 w-12 text-right">1,500</span>
                             </div>
+                            <label class="flex items-center gap-1.5 cursor-pointer mt-1">
+                                <input type="checkbox" id="labelForce" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
+                                <span class="text-[10px] font-bold text-amber-600 dark:text-amber-400">Allow labels above 50k atoms (risky)</span>
+                            </label>
                         </div>
                         <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Show hydrogens</span><div id="toggleHydrogens" class="toggle-track active" role="switch" aria-checked="true" tabindex="0"></div></div>
                         <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Axis indicator</span><div id="toggleAxis" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
@@ -281,6 +407,10 @@
                             <option value="MS">Molecular</option>
                         </select>
                     </div>
+                    <label class="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" id="surfaceSelOnly" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
+                        <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">Only current selection</span>
+                    </label>
                     <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Opacity</span><input type="range" id="surfaceOpacity" min="0.05" max="1" step="0.05" value="0.6" class="flex-grow"><span id="surfaceOpacityVal" class="text-[10px] text-slate-500 w-7 text-right">0.6</span></div>
                     <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Color</span>
                         <select id="surfaceColorScheme" class="sidebar-select text-[11px] flex-grow">
@@ -322,10 +452,100 @@
                 <!-- TAB: Tools -->
                 <div id="tabTools" class="tab-content hidden flex flex-col gap-3">
                     <label class="section-label">Distance measurement</label>
-                    <p class="text-[10px] text-slate-400 leading-tight">Click two atoms to measure distance. Hold Shift for angle (3 atoms).</p>
+                    <p class="text-[10px] text-slate-400 leading-tight">Click two atoms to measure a distance, or enable angle mode and pick three.</p>
                     <div class="flex gap-1.5">
                         <button id="measureModeBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-ruler mr-1"></i>Measure Mode</button>
                         <button id="clearMeasures" class="sidebar-btn px-3 text-[11px]">Clear All</button>
+                    </div>
+                    <label class="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" id="measureMode3" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
+                        <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">Angle mode (pick 3 atoms)</span>
+                    </label>
+
+                    <div class="flex gap-1.5">
+                        <button id="measureZoomBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-magnifying-glass-plus mr-1"></i>Zoom to picks</button>
+                        <button id="measureCopyBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-clipboard mr-1"></i>Copy data</button>
+                    </div>
+
+                    <!-- FIGURE MODE -->
+                    <div class="p-3 bg-amber-50/60 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-900/40 flex flex-col gap-2">
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" id="measureFocusToggle" class="rounded border-slate-300 text-amber-600 focus:ring-amber-600">
+                            <span class="text-[11px] font-bold text-amber-800 dark:text-amber-300"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Figure mode</span>
+                        </label>
+                        <p class="text-[9px] text-slate-500 dark:text-slate-400 leading-tight -mt-1">Fades everything except the atoms you measured, so the geometry reads clearly in a paper.</p>
+
+                        <div id="measureFocusPanel" class="hidden flex flex-col gap-2 pt-1">
+                            <label class="flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="measureFocusRes" checked class="rounded border-slate-300 text-amber-600 focus:ring-amber-600">
+                                <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-300">Keep whole residues in focus</span>
+                            </label>
+
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[10px] text-slate-500 w-14 shrink-0">Context</span>
+                                <select id="measureContextStyle" class="sidebar-select text-[10px] flex-grow">
+                                    <option value="wire" selected>Wireframe</option>
+                                    <option value="stick">Thin stick</option>
+                                    <option value="cartoon">Cartoon</option>
+                                    <option value="hide">Hide entirely</option>
+                                </select>
+                                <input type="color" id="measureContextColor" value="#94a3b8" class="w-6 h-6 rounded cursor-pointer border-0 p-0 shrink-0" title="Context colour">
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-slate-500 w-14 shrink-0">Fade</span>
+                                <input type="range" id="measureContextOpacity" min="0.03" max="1" step="0.01" value="0.15" class="flex-grow">
+                                <span id="measureContextOpacityVal" class="text-[10px] text-slate-500 w-8 text-right">0.15</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- APPEARANCE -->
+                    <div class="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+                        <button class="sel-guide-btn w-full text-left px-3 py-2 bg-slate-50 dark:bg-slate-900 text-[11px] font-bold text-slate-600 dark:text-slate-300 flex justify-between items-center transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
+                            <span><i class="fa-solid fa-palette mr-1"></i>Measurement appearance</span>
+                            <i class="fa-solid fa-chevron-down transition-transform duration-200"></i>
+                        </button>
+                        <div class="hidden p-3 bg-slate-50 dark:bg-slate-900/50 flex flex-col gap-2 border-t border-slate-200 dark:border-slate-800">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-slate-500 w-14 shrink-0">Line</span>
+                                <input type="color" id="measureLineColor" value="#facc15" class="w-6 h-6 rounded cursor-pointer border-0 p-0 shrink-0">
+                                <input type="range" id="measureLineWidth" min="0.01" max="0.3" step="0.01" value="0.04" class="flex-grow">
+                                <span id="measureLineWidthVal" class="text-[10px] text-slate-500 w-8 text-right">0.04</span>
+                            </div>
+                            <label class="flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="measureDashed" checked class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
+                                <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-300">Dashed line</span>
+                            </label>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-slate-500 w-14 shrink-0">Markers</span>
+                                <input type="range" id="measureMarkerSize" min="0" max="1.2" step="0.05" value="0.4" class="flex-grow">
+                                <span id="measureMarkerSizeVal" class="text-[10px] text-slate-500 w-8 text-right">0.40</span>
+                            </div>
+                            <hr class="border-slate-200 dark:border-slate-800">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-slate-500 w-14 shrink-0">Label</span>
+                                <input type="color" id="measureLabelColor" value="#fef08a" class="w-6 h-6 rounded cursor-pointer border-0 p-0 shrink-0">
+                                <input type="range" id="measureLabelSize" min="8" max="28" step="1" value="11" class="flex-grow">
+                                <span id="measureLabelSizeVal" class="text-[10px] text-slate-500 w-8 text-right">11</span>
+                            </div>
+                            <label class="flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="measureLabelBg" checked class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
+                                <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-300">Label background</span>
+                            </label>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[10px] text-slate-500 w-14 shrink-0">Decimals</span>
+                                <select id="measureDecimals" class="sidebar-select text-[10px] flex-grow">
+                                    <option value="0">0</option>
+                                    <option value="1">1</option>
+                                    <option value="2" selected>2</option>
+                                    <option value="3">3</option>
+                                </select>
+                                <label class="flex items-center gap-1 cursor-pointer shrink-0">
+                                    <input type="checkbox" id="measureShowUnit" checked class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
+                                    <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-300">Units</span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
 
                     <hr class="border-slate-200 dark:border-slate-800">
@@ -347,12 +567,36 @@
                                 </select>
                             </div>
                         </div>
-                        <div>
-                            <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Chain</span>
-                            <select id="buildChain" class="sidebar-select text-[11px] interactive-select">
-                                <option value="">All Chains</option>
-                            </select>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Chain</span>
+                                <select id="buildChain" class="sidebar-select text-[11px] interactive-select">
+                                    <option value="">All Chains</option>
+                                </select>
+                            </div>
+                            <div>
+                                <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Residue ID</span>
+                                <input id="buildResi" type="text" placeholder="e.g. 1-50" class="sidebar-input text-[11px]">
+                            </div>
                         </div>
+
+                        <div class="flex flex-wrap gap-x-3 gap-y-1">
+                            <label class="flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="buildNot" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
+                                <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">Invert (NOT)</span>
+                            </label>
+                            <label class="flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" id="buildByres" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
+                                <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">Whole residues</span>
+                            </label>
+                        </div>
+
+                        <div id="buildWithinRow" class="range-row">
+                            <span class="range-label">Within</span>
+                            <input type="range" id="buildWithin" min="0" max="20" step="0.5" value="0" class="flex-grow">
+                            <span id="buildWithinVal" class="range-val">off</span>
+                        </div>
+                        <p class="text-[9px] text-slate-400 leading-tight -mt-1">Expands to every atom within this distance of the selection above | ideal for binding pockets.</p>
 
                         <hr class="border-slate-200 dark:border-slate-800 my-1">
 
@@ -468,6 +712,7 @@
 
                     <div class="flex gap-1.5 mt-2">
                         <button id="guiIsolateBtn" class="sidebar-btn flex-grow text-[11px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 hover:bg-indigo-200"><i class="fa-solid fa-filter mr-1"></i>Isolate</button>
+                        <button id="guiHighlightBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-highlighter mr-1"></i>Highlight</button>
                         <button id="guiZoomBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-crosshairs mr-1"></i>Zoom</button>
                     </div>
                     <div id="selectionCount" class="text-[10px] text-slate-400 mt-1 hidden"><i class="fa-solid fa-atom mr-1"></i><span id="selCountText">0 atoms selected</span></div>
@@ -486,6 +731,7 @@
                     <div class="flex gap-1.5 mt-1">
                         <button id="focusBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-crosshairs mr-1"></i>Zoom Query</button>
                         <button id="isolateBtn" class="sidebar-btn px-3 text-[11px]">Isolate</button>
+                        <button id="exportSelBtn" class="sidebar-btn px-3 text-[11px]" title="Save the current selection as a PDB file"><i class="fa-solid fa-file-export"></i></button>
                     </div>
                     <button class="reset-view-btn text-[10px] text-slate-500 hover:text-indigo-500 font-medium text-left mt-1 mb-2">Reset view (Show all)</button>
 
@@ -495,20 +741,45 @@
                             <i class="fa-solid fa-chevron-down transition-transform duration-200"></i>
                         </button>
                         <div class="hidden p-3 bg-slate-50 dark:bg-slate-900/50 text-[10px] text-slate-600 dark:text-slate-400 space-y-2 border-t border-slate-200 dark:border-slate-800">
+                            <p class="text-[9px] text-slate-400 mb-1">Click any example to load it into the query box. Tokens are combined with AND.</p>
                             <div class="grid grid-cols-2 gap-x-2 gap-y-1.5">
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">chain:A</span><br>Chain ID</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">resn:HOH</span><br>Residue name</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">resi:1-50</span><br>Residue range</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">elem:Fe</span><br>Element symbol</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">atom:CA</span><br>Atom name</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded">ss:h</span><br>Sec. struct</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">chain:A</span><br>Chain ID</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">resn:HOH</span><br>Residue name</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">resi:1-50</span><br>Residue range</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">elem:Fe</span><br>Element symbol</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">atom:CA</span><br>Atom name</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">ss:h</span><br>Sec. struct</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">b:&gt;30</span><br>B-factor filter</div>
+                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">serial:1-99</span><br>Serial range</div>
+                            </div>
+                            <div class="pt-2 mt-1 border-t border-slate-200 dark:border-slate-700">
+                                <p class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Named groups:</p>
+                                <div class="grid grid-cols-2 gap-x-2 gap-y-1.5">
+                                    <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">protein:1</span><br>Amino acids</div>
+                                    <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">nucleic:1</span><br>DNA / RNA</div>
+                                    <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">solvent:1</span><br>Water</div>
+                                    <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">ion:1</span><br>Common ions</div>
+                                    <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">backbone:1</span><br>N, CA, C, O</div>
+                                    <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">sidechain:1</span><br>Non-backbone</div>
+                                </div>
+                            </div>
+                            <div class="pt-2 mt-1 border-t border-slate-200 dark:border-slate-700">
+                                <p class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Logic &amp; distance:</p>
+                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 query-example" data-query="within:5,resn:HEM">within:5,resn:HEM</code>
+                                <p class="mt-1 mb-2 leading-tight">Everything within 5 Å of the haem group, a binding pocket.</p>
+                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 query-example" data-query="not:solvent:1">not:solvent:1</code>
+                                <p class="mt-1 mb-2 leading-tight">Strip the water. Prefix any token with <b>not:</b> or <b>!</b> to invert it.</p>
+                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 query-example" data-query="or:chain:A|chain:B">or:chain:A|chain:B</code>
+                                <p class="mt-1 mb-2 leading-tight">Union of clauses separated by <b>|</b>.</p>
+                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 query-example" data-query="within:5,chain:A not:chain:A byres:1">within:5,chain:A not:chain:A byres:1</code>
+                                <p class="mt-1 leading-tight">The interface: whole residues near chain A but not part of it.</p>
                             </div>
                             <div class="pt-2 mt-1 border-t border-slate-200 dark:border-slate-700">
                                 <p class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Spatial filters (Å or nm):</p>
-                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400">z:&gt;4.8 resn:HOH</code>
+                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 query-example" data-query="z:&gt;4.8 resn:HOH">z:&gt;4.8 resn:HOH</code>
                                 <p class="mt-1 mb-2 leading-tight">Atoms above z = 4.8 that are water.</p>
-                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400">x:&gt;20 x:&lt;30 y:&gt;20 y:&lt;30</code>
-                                <p class="mt-1 leading-tight">Cross-section patch in XY plane.</p>
+                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 query-example" data-query="x:20-30 y:20-30">x:20-30 y:20-30</code>
+                                <p class="mt-1 leading-tight">Cross-section patch in the XY plane.</p>
                             </div>
                         </div>
                     </div>
@@ -559,7 +830,9 @@
                             <option value="10">10x (Extreme)</option>
                         </select>
                     </div>
+                    <p id="exportNote" class="text-[10px] text-slate-400 leading-tight"></p>
                     <button id="downloadBtn" class="sidebar-btn text-xs mt-2" style="background:#6366f1;color:#fff"><i class="fa-solid fa-download mr-1"></i>Download PNG</button>
+                    <p class="text-[9px] text-slate-400 leading-tight mt-1">Very large multipliers are clamped automatically to your GPU's maximum texture size, so exports can't crash the viewer.</p>
                 </div>
 
             </aside>
@@ -570,9 +843,159 @@
                 <div id="atomInfo"></div>
                 <div id="measureInfo"></div>
                 <div id="modeBadge" class="mode-badge hidden"></div>
+                <div id="labelProgress" class="hidden"></div>
+                <div id="busyOverlay" class="hidden">
+                    <div class="busy-card"><span class="busy-spin"></span><span id="busyText">Working…</span></div>
+                </div>
             </div>
 
         </section>
+
+    <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
+        <div class="stk-wrap">
+            <span class="stk-chip"><i class="fa-solid fa-microscope"></i> How-To Guide</span>
+            <h2 class="stk-h2">How to inspect a molecular structure</h2>
+            <p class="stk-lead">Load a coordinate file, choose how it should be drawn, then carve out the part you actually care about, all rendered locally by your GPU, with no upload step.</p>
+            <div class="stk-grid stk-grid-2">
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Load a structure</h3><p>Drag in a <strong>PDB, GRO, XYZ, CIF, MOL2, CUBE</strong> or other coordinate file, or type a four-character <strong>PDB ID</strong> to pull it straight from RCSB.</p></div></div>
+                <div class="stk-step"><span class="stk-num">2</span><div><h3>Pick a representation</h3><p>Choose cartoon for proteins, stick or ball-and-stick for small molecules, sphere for packing. Colour by element, chain, B-factor, secondary structure, or set every element by hand.</p></div></div>
+                <div class="stk-step"><span class="stk-num">3</span><div><h3>Narrow the selection</h3><p>Use the builder dropdowns for chain, residue and element, add a <strong>within</strong> radius for binding pockets, or slice along an axis with the spatial sliders. <strong>Isolate</strong> hides everything else; <strong>Highlight</strong> keeps the context as a faint wireframe.</p></div></div>
+                <div class="stk-step"><span class="stk-num">4</span><div><h3>Measure and export</h3><p>Click two atoms for a distance or three for an angle, switch on <strong>Figure mode</strong> to fade the surrounding structure, restyle the lines and labels to taste, then save a high-resolution PNG or copy the numbers as a table.</p></div></div>
+            </div>
+            <div class="stk-note" style="margin-top:1.5rem;">
+                <i class="fa-solid fa-keyboard" style="margin-top:.15rem;"></i>
+                <div><strong>Keyboard shortcuts.</strong> <span class="stk-kbd">R</span> recentre &middot; <span class="stk-kbd">M</span> measure mode &middot; <span class="stk-kbd">H</span> hydrogens &middot; <span class="stk-kbd">L</span> labels &middot; <span class="stk-kbd">S</span> spin &middot; <span class="stk-kbd">Esc</span> cancel. Shortcuts are ignored while you are typing in a field.</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="stk-section" id="how-it-works" aria-label="How it works">
+        <div class="stk-wrap">
+            <h2 class="stk-h2">How the viewer works</h2>
+            <div class="stk-grid stk-grid-3">
+                <div class="stk-card">
+                    <h3>WebGL rendering</h3>
+                    <p>Geometry is built and rasterised by <strong>3Dmol.js</strong> on your graphics card. Because the whole scene lives in GPU memory, rotation and zoom stay smooth on structures with hundreds of thousands of atoms, but every style change has to rebuild that geometry, which is why very large systems take a moment to re-draw.</p>
+                </div>
+                <div class="stk-card">
+                    <h3>Selections are JSON, not strings</h3>
+                    <p>3Dmol filters atoms with plain JavaScript objects such as <code>{chain:'A', resn:'HEM'}</code>. The query box compiles your text into exactly that shape, so anything you type here maps directly onto the library's own API, useful if you later script the same selection yourself.</p>
+                </div>
+                <div class="stk-card">
+                    <h3>Neighbour search</h3>
+                    <p>Distance queries (<code>within:</code>) index the target atoms into a uniform grid first, then test only the cells that could fall inside the radius. That keeps a pocket selection near-instant instead of comparing every atom against every other atom.</p>
+                </div>
+            </div>
+            <div class="stk-grid stk-grid-2" style="margin-top:1rem;">
+                <div class="stk-card">
+                    <h3>Labels are built across frames</h3>
+                    <p>Placing thousands of labels in one synchronous loop is what freezes a tab, nothing paints until the last one is done. Labels here are added in slices of about 150 per animation frame, with a progress readout, so the viewer stays interactive and you can watch them fill in. Starting a new label pass cancels the one in flight rather than queueing a second.</p>
+                </div>
+                <div class="stk-card">
+                    <h3>Scope beats capping</h3>
+                    <p>A cap alone still labels whichever atoms happen to come first in the file, which is rarely what you are looking at. Set <strong>Label scope</strong> to <em>Current selection</em> to label only what you isolated; when a scope still exceeds the limit, the atoms nearest the centre of the view are kept in preference to the rest.</p>
+                </div>
+            </div>
+            <div class="stk-note" style="margin-top:1rem;">
+                <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>
+                <div><strong>Labels are the usual bottleneck.</strong> Each label is a separate textured sprite, so tens of thousands of them will stall the browser long before the atoms themselves do. Labels are capped by default, warned about above 5,000 atoms, and disabled entirely above 50,000, raise the cap only when you have isolated a small region.</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="stk-section" id="selection-syntax" aria-label="Selection syntax reference">
+        <div class="stk-wrap" style="max-width:56rem;">
+            <span class="stk-chip"><i class="fa-solid fa-terminal"></i> Selection Syntax</span>
+            <h2 class="stk-h2">The selection language</h2>
+            <p class="stk-lead">Every token is <code>key:value</code>, separated by spaces. Tokens are combined with <strong>AND</strong>, <code>chain:A elem:Fe</code> means iron atoms in chain A. Prefix any token with <code>not:</code> (or <code>!</code>) to invert just that token.</p>
+
+            <h3 class="stk-refs-h">Atom attributes</h3>
+            <table class="stk-syntax">
+                <thead><tr><th>Token</th><th>Selects</th></tr></thead>
+                <tbody>
+                    <tr><td><code>chain:A</code></td><td><p>Chain identifier as written in the file.</p></td></tr>
+                    <tr><td><code>resn:HOH</code></td><td><p>Residue name. Accepts comma lists: <code>resn:ALA,GLY</code>.</p></td></tr>
+                    <tr><td><code>resi:1-50</code></td><td><p>Residue number: a single value, a comma list, or an inclusive range.</p></td></tr>
+                    <tr><td><code>elem:Fe</code></td><td><p>Element symbol, case sensitive as stored in the file.</p></td></tr>
+                    <tr><td><code>atom:CA</code></td><td><p>Atom name | more specific than element (<code>CA</code> is the alpha carbon).</p></td></tr>
+                    <tr><td><code>ss:h</code></td><td><p>Secondary structure: <code>h</code> helix, <code>s</code> sheet, <code>c</code> coil.</p></td></tr>
+                    <tr><td><code>b:&gt;30</code></td><td><p>B-factor. Supports <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code> and ranges like <code>b:20-50</code>.</p></td></tr>
+                    <tr><td><code>serial:1-99</code></td><td><p>Atom serial number range.</p></td></tr>
+                </tbody>
+            </table>
+
+            <h3 class="stk-refs-h">Named groups</h3>
+            <table class="stk-syntax">
+                <thead><tr><th>Token</th><th>Selects</th></tr></thead>
+                <tbody>
+                    <tr><td><code>protein:1</code></td><td><p>Standard amino-acid residues.</p></td></tr>
+                    <tr><td><code>nucleic:1</code></td><td><p>DNA and RNA residues.</p></td></tr>
+                    <tr><td><code>solvent:1</code></td><td><p>Water under its common names (HOH, WAT, SOL, TIP3&hellip;).</p></td></tr>
+                    <tr><td><code>ion:1</code></td><td><p>Frequently seen monatomic ions.</p></td></tr>
+                    <tr><td><code>backbone:1</code></td><td><p>Protein backbone atoms N, CA, C, O.</p></td></tr>
+                    <tr><td><code>sidechain:1</code></td><td><p>Amino-acid atoms that are not backbone.</p></td></tr>
+                    <tr><td><code>hetero:1</code></td><td><p>Atoms flagged as HETATM | ligands, cofactors, solvent.</p></td></tr>
+                </tbody>
+            </table>
+
+            <h3 class="stk-refs-h">Geometry and logic</h3>
+            <table class="stk-syntax">
+                <thead><tr><th>Token</th><th>Selects</th></tr></thead>
+                <tbody>
+                    <tr><td><code>x:&gt;4.8</code></td><td><p>Cartesian coordinate filter on <code>x</code>, <code>y</code> or <code>z</code>. Ranges work too: <code>z:10-20</code>. Values follow the unit dropdown (&Aring; or nm).</p></td></tr>
+                    <tr><td><code>within:5,chain:A</code></td><td><p>Every atom within 5 &Aring; of anything matching the inner selection. The radius comes first, then a comma, then a nested query.</p></td></tr>
+                    <tr><td><code>not:resn:HOH</code></td><td><p>Inverts the token that follows. <code>!resn:HOH</code> is equivalent.</p></td></tr>
+                    <tr><td><code>or:chain:A|chain:B</code></td><td><p>Union of the pipe-separated clauses.</p></td></tr>
+                    <tr><td><code>byres:1</code></td><td><p>Expands the result so that any residue with one selected atom is selected entirely.</p></td></tr>
+                </tbody>
+            </table>
+
+            <h3 class="stk-refs-h">Worked examples</h3>
+            <table class="stk-syntax">
+                <thead><tr><th>Query</th><th>Meaning</th></tr></thead>
+                <tbody>
+                    <tr><td><code>within:5,resn:HEM byres:1</code></td><td><p>The complete residues lining the haem pocket, the standard way to picture a binding site.</p></td></tr>
+                    <tr><td><code>within:5,chain:A not:chain:A byres:1</code></td><td><p>The protein&ndash;protein interface: residues close to chain A that belong to a different chain.</p></td></tr>
+                    <tr><td><code>protein:1 not:solvent:1 b:&gt;60</code></td><td><p>The most mobile parts of the protein | often loops and termini.</p></td></tr>
+                    <tr><td><code>ss:h chain:A</code></td><td><p>Helices of chain A only.</p></td></tr>
+                    <tr><td><code>z:&gt;30 not:solvent:1</code></td><td><p>The upper leaflet of a membrane system with water stripped out.</p></td></tr>
+                </tbody>
+            </table>
+
+            <h3 class="stk-refs-h">References &amp; documentation</h3>
+            <ol class="stk-refs-list">
+                <li>Rego, N., &amp; Koes, D. (2015). 3Dmol.js: molecular visualization with WebGL. <em>Bioinformatics</em>, 31(8), 1322&ndash;1324. <a href="https://doi.org/10.1093/bioinformatics/btu829" target="_blank" rel="noopener">doi:10.1093/bioinformatics/btu829</a></li>
+                <li>3Dmol.js API, <a href="https://3dmol.csb.pitt.edu/doc/AtomSelectionSpec.html" target="_blank" rel="noopener">AtomSelectionSpec reference</a> (University of Pittsburgh).</li>
+                <li>Berman, H.&nbsp;M., et&nbsp;al. (2000). The Protein Data Bank. <em>Nucleic Acids Research</em>, 28(1), 235&ndash;242. <a href="https://www.rcsb.org/" target="_blank" rel="noopener">rcsb.org</a></li>
+                <li>Wikipedia: <a href="https://en.wikipedia.org/wiki/Accessible_surface_area" target="_blank" rel="noopener">Accessible surface area</a> &middot; <a href="https://en.wikipedia.org/wiki/Debye%E2%80%93Waller_factor" target="_blank" rel="noopener">B-factor</a>.</li>
+            </ol>
+        </div>
+    </section>
+
+    <section class="stk-section" id="faq" aria-label="Frequently asked questions">
+        <div class="stk-wrap" style="max-width:52rem;">
+            <h2 class="stk-h2">Frequently asked questions</h2>
+            <div style="margin-top:1rem;">
+                <details class="stk-faq"><summary>Is my structure uploaded anywhere?</summary><div>No. Files are read with the browser's FileReader and rendered by 3Dmol.js on your own GPU. The only network request the tool ever makes is the optional PDB ID fetch, which asks RCSB for that one public entry.</div></details>
+                <details class="stk-faq"><summary>Which file formats are supported?</summary><div>PDB, ENT, CIF/mmCIF, SDF, MOL, MOL2, XYZ, GRO, PQR, PRMTOP, MMTF, CDJSON, CUBE and VASP/POSCAR/CONTCAR. Multi-frame files load as a trajectory and expose the frame slider automatically.</div></details>
+                <details class="stk-faq"><summary>Why does the cartoon style show nothing?</summary><div>Cartoon rendering needs backbone connectivity and secondary-structure information, which only protein and nucleic-acid formats carry. A bare XYZ file or a small organic molecule has no backbone to trace, use stick or ball-and-stick instead.</div></details>
+                <details class="stk-faq"><summary>Why are my labels capped or disabled?</summary><div>Every label is an individual sprite, so they cost far more than the atoms do. Above 5,000 atoms the tool warns you and exposes a cap; above 50,000 it refuses labels outright to stop the tab freezing. Isolate a smaller region first, then label it.</div></details>
+                <details class="stk-faq"><summary>My high-resolution export came out smaller than I asked for.</summary><div>WebGL contexts have a maximum texture size, commonly 4,096, 8,192 or 16,384 pixels depending on the GPU. Requesting a multiplier beyond that limit would black out the canvas, so the export is clamped to the largest safe size and the panel tells you what you actually got.</div></details>
+                <details class="stk-faq"><summary>What is the difference between Isolate and Highlight?</summary><div>Isolate hides everything outside the selection, giving you a clean figure. Highlight keeps the rest of the structure as a faint wireframe so the selection stays in context, usually the better choice when you are explaining where something sits.</div></details>
+                <details class="stk-faq"><summary>Which surface type should I use?</summary><div>Van der Waals is fastest and shows atomic radii. Solvent-accessible traces the centre of a rolling probe and is what most buried-area calculations use. Solvent-excluded (Connolly) hugs the molecule more tightly and looks best in figures, but costs the most to compute.</div></details>
+                <details class="stk-faq"><summary>Turning on labels used to freeze the tab. What changed?</summary><div>Labels are now built in small slices spread across animation frames instead of one blocking loop, so the browser keeps painting and you get a live progress count. They are also scoped (by default to your current selection) and when a scope exceeds the limit the atoms nearest the centre of the view are kept. Above 50,000 atoms labels stay off unless you explicitly opt in, and even then the same chunking applies.</div></details>
+                <details class="stk-faq"><summary>How do I make a clean measurement figure?</summary><div>Take your measurements, then enable <strong>Figure mode</strong> in the Tools tab. Everything except the measured atoms drops to a faint wireframe (or thin stick, cartoon, or hidden entirely) at an opacity you control, while the picked atoms keep the full representation. Open <em>Measurement appearance</em> to set the line colour, thickness and dash, marker size, label size and colour, decimal places and whether units are shown. Use <em>Zoom to picks</em> to frame the shot, then export at 4&times; or higher.</div></details>
+                <details class="stk-faq"><summary>Can I get the measurement numbers out as data?</summary><div>Yes, <strong>Copy data</strong> puts every measurement on the clipboard as tab-separated text with type, atoms, value and unit columns, which pastes straight into a spreadsheet. Individual measurements can be removed with the &times; beside each row in the readout.</div></details>
+                <details class="stk-faq"><summary>Why does building a surface still pause the viewer?</summary><div>Surface meshing happens inside a single synchronous call in 3Dmol.js, so unlike labels it cannot be sliced across frames. What the tool does instead is paint a busy indicator first and start the work on the next frame, so you get feedback rather than a dead tab, and it refuses outright above 100,000 atoms. Scope the surface to your selection with <em>Only current selection</em> to keep it fast.</div></details>
+                <details class="stk-faq"><summary>Can I script the same selections elsewhere?</summary><div>Yes, the query box compiles to a 3Dmol AtomSelectionSpec object, so a query like <code>chain:A resn:HEM</code> is simply <code>{chain:'A', resn:'HEM'}</code> in the library's own API. Open the console and call <code>app.select('within:5,resn:HEM')</code> to get the matching atoms back as an array.</div></details>
+            </div>
+            <div class="stk-refs">
+                <a href="https://3dmol.csb.pitt.edu/doc/AtomSelectionSpec.html" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> AtomSelectionSpec reference</a><a href="https://doi.org/10.1093/bioinformatics/btu829" target="_blank" rel="noopener"><i class="fa-solid fa-quote-right"></i> Cite 3Dmol.js</a><a href="https://www.rcsb.org/" target="_blank" rel="noopener"><i class="fa-solid fa-database"></i> RCSB Protein Data Bank</a>
+            </div>
+            <p class="stk-credit">Runs entirely in your browser, no data leaves your device. Rendering by <a href="https://3dmol.csb.pitt.edu/" target="_blank" rel="noopener" style="color:#4f46e5;text-decoration:none;">3Dmol.js</a> (Rego &amp; Koes, 2015).</p>
+        </div>
+    </section>
+
     </main>
 
     <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
@@ -625,7 +1048,7 @@
                     <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                 </div>
-                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-indigo-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
                 <div class="flex gap-6 text-sm font-medium">
                     <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
                     <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
