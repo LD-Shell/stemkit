@@ -53,25 +53,10 @@
     <link rel="stylesheet" href="css/dependencies/katex.min.css">
     <script defer src="js/dependencies/katex.min.js"></script>
     <script defer src="js/dependencies/mathlive.min.js"></script>
-    <style>
-        @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .toast-enter { animation: slideIn 0.3s forwards; }
-        
-        /* Modifying the MathLive component shadow DOM variables for theme compliance */
-        math-field {
-            --contains-highlight-backround: transparent;
-            font-size: 1.5rem;
-            width: 100%;
-            border-radius: 0.5rem;
-            padding: 1rem;
-        }
-        .dark math-field {
-            --text-color: #f1f5f9;
-            --keyboard-background: #0f172a;
-        }
-    </style>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
+    <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tools/latex-formatter.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
 
@@ -143,7 +128,7 @@
                     <h2 class="text-lg font-semibold mb-4">1. Visual Equation Builder</h2>
                     
                     <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex-grow flex items-center justify-center min-h-[150px] shadow-inner mb-4">
-                        <math-field id="mathField" class="bg-transparent outline-none">H = \sum_{i=1}^{N} \frac{p_i^2}{2m} + V(q_1, \dots, q_N)</math-field>
+                        <math-field id="mathField" class="bg-transparent outline-none">H = \sum_{i=1}^{N} \frac{p_i^2}{2m} + V(q_1, \ldots, q_N)</math-field>
                     </div>
 
                     <p class="text-xs text-slate-500 mb-2"><i class="fa-solid fa-keyboard mr-1"></i> You can type standard LaTeX commands (e.g., \alpha) directly into the box, or click to open the virtual math keyboard.</p>
@@ -258,7 +243,7 @@
                     <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                 </div>
-                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-indigo-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
                 <div class="flex gap-6 text-sm font-medium">
                     <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
                     <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
@@ -302,6 +287,6 @@
             });
         }
     </script>
-    <script src="js/latex-formatter.js" defer></script>
+    <script type="module" src="js/latex-formatter.js"></script>
 </body>
 </html>
