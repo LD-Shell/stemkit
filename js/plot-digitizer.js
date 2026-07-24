@@ -1,729 +1,726 @@
-document.addEventListener('DOMContentLoaded', () => {
-    
-    // --- 1. State machine and dynamic structures ---
-    const PALETTE = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
-    let datasetCounter = 1;
+/**
+ * Plot Digitizer | UI layer.
+ *
+ * Pixel-to-data mapping, calibration validation, point management, CSV
+ * generation, and Python escaping live in @stemkit/core. This file handles
+ * canvas rendering, pointer input, and the zoom/loupe interaction.
+ */
+import {
+  toDataCoordinates,
+  validateCalibrationForm,
+  pixelResolution,
+  erasePoints as coreErasePoints,
+  sortPoints,
+  formatValue,
+  generateCSV,
+  pythonString,
+  pythonIdentifier
+} from '../src/core/digitizer.js';
 
-    const state = {
-        mode: 'idle', 
-        image: null,
-        showBackground: true,
-        calibration: { pxX1: null, pxX2: null, pxY1: null, pxY2: null },
-        datasets: [{ id: 'ds_1', name: 'Series 1', color: PALETTE[0], points: [] }],
-        activeDatasetId: 'ds_1',
-        mouseX: 0,
-        mouseY: 0,
-        isDragging: false,
-        lastTracePoint: null,
-        eraseRadius: 10,
-        zoomLevel: 1 
+document.addEventListener('DOMContentLoaded', () => {
+
+  // --- 1. State ---
+  const PALETTE = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
+  let datasetCounter = 1;
+
+  const state = {
+    mode: 'idle',
+    image: null,
+    showBackground: true,
+    calibration: { pxX1: null, pxX2: null, pxY1: null, pxY2: null },
+    datasets: [{ id: 'ds_1', name: 'Series 1', color: PALETTE[0], points: [] }],
+    activeDatasetId: 'ds_1',
+    mouseX: 0,
+    mouseY: 0,
+    isDragging: false,
+    lastTracePoint: null,
+    eraseRadius: 10,
+    zoomLevel: 1
+  };
+
+  // --- 2. Bindings ---
+  const uploadZone = document.getElementById('uploadZone');
+  const fileInput = document.getElementById('fileInput');
+  const workspace = document.getElementById('workspace');
+
+  const canvas = document.getElementById('plotCanvas');
+  const ctx = canvas.getContext('2d');
+  const loupe = document.getElementById('loupeCanvas');
+  const loupeCtx = loupe ? loupe.getContext('2d') : null;
+
+  const valX1 = document.getElementById('valX1');
+  const valX2 = document.getElementById('valX2');
+  const valY1 = document.getElementById('valY1');
+  const valY2 = document.getElementById('valY2');
+  const isLogX = document.getElementById('isLogX');
+  const isLogY = document.getElementById('isLogY');
+
+  const datasetList = document.getElementById('datasetList');
+  const btnAddDataset = document.getElementById('btnAddDataset');
+  const btnManualMode = document.getElementById('btnManualMode');
+  const btnEraseMode = document.getElementById('btnEraseMode');
+  const eraseControls = document.getElementById('eraseControls');
+  const eraseRadiusSlider = document.getElementById('eraseRadius');
+  const eraseRadiusVal = document.getElementById('eraseRadiusVal');
+  const btnUndo = document.getElementById('btnUndo');
+  const toggleBackground = document.getElementById('toggleBackground');
+  const eyeIcon = document.getElementById('eyeIcon');
+  const csvFilename = document.getElementById('csvFilename');
+  const exportCsvBtn = document.getElementById('exportCsvBtn');
+  const btnZoomIn = document.getElementById('btnZoomIn');
+  const btnZoomOut = document.getElementById('btnZoomOut');
+  const zoomLevelDisplay = document.getElementById('zoomLevel');
+  const resolutionNote = document.getElementById('resolutionNote');
+
+  const btnGeneratePython = document.getElementById('btnGeneratePython');
+  const pythonModal = document.getElementById('pythonModal');
+  const pythonCodeBlock = document.getElementById('pythonCodeBlock');
+  const closePythonModal = document.getElementById('closePythonModal');
+  const copyPythonBtn = document.getElementById('copyPythonBtn');
+
+  const getActiveDataset = () =>
+    state.datasets.find(ds => ds.id === state.activeDatasetId);
+
+  /** Assemble the numeric calibration the core expects from the form. */
+  function currentCalibration() {
+    return {
+      ...state.calibration,
+      valX1: valX1.value, valX2: valX2.value,
+      valY1: valY1.value, valY2: valY2.value,
+      logX: isLogX.checked, logY: isLogY.checked
+    };
+  }
+
+  // --- 3. Zoom ---
+  function applyZoom() {
+    if (!state.image) return;
+    canvas.style.maxWidth = 'none';
+    canvas.style.width = `${state.image.width * state.zoomLevel}px`;
+    if (zoomLevelDisplay) {
+      zoomLevelDisplay.innerText = `${Math.round(state.zoomLevel * 100)}%`;
+    }
+  }
+
+  if (btnZoomIn) btnZoomIn.addEventListener('click', () => {
+    state.zoomLevel = Math.min(state.zoomLevel + 0.25, 5);
+    applyZoom();
+  });
+  if (btnZoomOut) btnZoomOut.addEventListener('click', () => {
+    state.zoomLevel = Math.max(state.zoomLevel - 0.25, 0.5);
+    applyZoom();
+  });
+
+  // Ctrl/Cmd + wheel zooms the figure. The modifier is required so plain
+  // scrolling still pans a large image rather than surprising the user.
+  const canvasContainer = document.getElementById('canvasContainer');
+  if (canvasContainer) canvasContainer.addEventListener('wheel', (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    const step = e.deltaY < 0 ? 0.1 : -0.1;
+    state.zoomLevel = Math.min(5, Math.max(0.5, state.zoomLevel + step));
+    applyZoom();
+  }, { passive: false });
+
+  document.querySelectorAll('.accordion-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const expanded = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', !expanded);
+      const target = document.getElementById(btn.getAttribute('data-target'));
+      if (target) target.classList.toggle('expanded');
+    });
+  });
+
+  // --- 4. Image intake ---
+  uploadZone.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        state.image = img;
+        canvas.width = img.width;
+        canvas.height = img.height;
+        uploadZone.classList.add('hidden');
+        workspace.classList.remove('hidden');
+        workspace.classList.add('flex');
+        applyZoom();
+        renderViewport();
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // --- 5. Calibration and mode ---
+  const CALIB_BUTTONS = {
+    btnCalibX1: 'pxX1', btnCalibX2: 'pxX2',
+    btnCalibY1: 'pxY1', btnCalibY2: 'pxY2'
+  };
+
+  Object.entries(CALIB_BUTTONS).forEach(([id, key]) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', () => setMode(`calib:${key}`, btn));
+  });
+
+  if (btnManualMode) btnManualMode.addEventListener('click', () => {
+    if (!requireCalibration()) return;
+    setMode('digitize', btnManualMode);
+  });
+
+  if (btnEraseMode) btnEraseMode.addEventListener('click', () => {
+    setMode(state.mode === 'erase' ? 'idle' : 'erase', btnEraseMode);
+  });
+
+  if (eraseRadiusSlider) eraseRadiusSlider.addEventListener('input', (e) => {
+    state.eraseRadius = parseInt(e.target.value, 10) || 10;
+    if (eraseRadiusVal) eraseRadiusVal.innerText = state.eraseRadius;
+    renderViewport();
+  });
+
+  function setMode(newMode, activeBtn) {
+    state.mode = newMode;
+    document.querySelectorAll('[data-modebtn]').forEach(b =>
+      b.classList.toggle('active', b === activeBtn));
+    if (eraseControls) {
+      eraseControls.classList.toggle('hidden', newMode !== 'erase');
+    }
+    canvas.style.cursor = newMode === 'idle' ? 'default' : 'crosshair';
+    renderViewport();
+  }
+
+  /** Validate the calibration through the core and report any problem. */
+  function requireCalibration() {
+    const r = validateCalibrationForm(currentCalibration());
+    if (!r.valid) {
+      showToast(r.errors.join(' '), 'error');
+      return false;
+    }
+    if (r.warnings.length && resolutionNote) {
+      resolutionNote.textContent = r.warnings.join(' ');
+      resolutionNote.classList.remove('hidden');
+    }
+    updateResolutionNote(r.calibration);
+    return true;
+  }
+
+  /**
+   * Report the data-space uncertainty of a one-pixel click error.
+   *
+   * The precision of a digitised point is set by the resolution of the figure,
+   * not by the number of decimals the export happens to print, so this is
+   * shown rather than left implicit.
+   */
+  function updateResolutionNote(calibration) {
+    if (!resolutionNote) return;
+    const res = pixelResolution(calibration);
+    if (!res) return;
+    resolutionNote.textContent =
+      `One pixel ≈ ${formatValue(res.dx)} in x, ${formatValue(res.dy)} in y. ` +
+      `Digitised values are no more precise than this.`;
+    resolutionNote.classList.remove('hidden');
+  }
+
+  // --- 6. Datasets ---
+  if (btnAddDataset) btnAddDataset.addEventListener('click', () => {
+    datasetCounter++;
+    const id = `ds_${datasetCounter}`;
+    state.datasets.push({
+      id,
+      name: `Series ${datasetCounter}`,
+      color: PALETTE[(datasetCounter - 1) % PALETTE.length],
+      points: []
+    });
+    state.activeDatasetId = id;
+    renderDatasetUI();
+    renderViewport();
+  });
+
+  function renderDatasetUI() {
+    if (!datasetList) return;
+    datasetList.innerHTML = '';
+
+    state.datasets.forEach(ds => {
+      const active = ds.id === state.activeDatasetId;
+      const row = document.createElement('div');
+      row.className =
+        'flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ' +
+        (active
+          ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-300 dark:border-indigo-700'
+          : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800');
+
+      const swatch = document.createElement('span');
+      swatch.className = 'w-3 h-3 rounded-full shrink-0';
+      swatch.style.backgroundColor = ds.color;
+
+      const name = document.createElement('input');
+      name.type = 'text';
+      name.value = ds.name;
+      name.className = 'flex-1 bg-transparent text-xs font-bold outline-none';
+      name.addEventListener('click', e => e.stopPropagation());
+      name.addEventListener('input', e => { ds.name = e.target.value; });
+
+      const count = document.createElement('span');
+      count.className = 'text-[10px] text-slate-400 font-mono';
+      count.textContent = `${ds.points.length} pts`;
+
+      row.append(swatch, name, count);
+      row.addEventListener('click', () => {
+        state.activeDatasetId = ds.id;
+        renderDatasetUI();
+        renderViewport();
+      });
+      datasetList.appendChild(row);
+    });
+  }
+
+  if (btnUndo) btnUndo.addEventListener('click', () => {
+    const ds = getActiveDataset();
+    if (ds && ds.points.length) {
+      ds.points.pop();
+      renderDatasetUI();
+      renderViewport();
+    }
+  });
+
+  if (toggleBackground) toggleBackground.addEventListener('click', () => {
+    state.showBackground = !state.showBackground;
+    if (eyeIcon) {
+      eyeIcon.className = state.showBackground
+        ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+    }
+    renderViewport();
+  });
+
+  // --- 7. Pointer handling ---
+  function canvasCoords(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (canvas.height / rect.height)
+    };
+  }
+
+  canvas.addEventListener('mousemove', (e) => {
+    const p = canvasCoords(e);
+    state.mouseX = p.x;
+    state.mouseY = p.y;
+
+    if (state.isDragging && state.mode === 'erase') {
+      applyErase(p.x, p.y);
+    }
+    updateLoupe(e);
+    renderViewport();
+  });
+
+  canvas.addEventListener('mousedown', (e) => {
+    const p = canvasCoords(e);
+    state.isDragging = true;
+
+    if (state.mode.startsWith('calib:')) {
+      const key = state.mode.split(':')[1];
+      state.calibration[key] = (key === 'pxX1' || key === 'pxX2') ? p.x : p.y;
+      setMode('idle', null);
+      const check = validateCalibrationForm(currentCalibration());
+      if (check.valid) updateResolutionNote(check.calibration);
+      return;
+    }
+
+    if (state.mode === 'digitize') {
+      const ds = getActiveDataset();
+      if (ds) {
+        ds.points.push({ pxX: p.x, pxY: p.y });
+        renderDatasetUI();
+      }
+      return;
+    }
+
+    if (state.mode === 'erase') applyErase(p.x, p.y);
+  });
+
+  canvas.addEventListener('mouseup', () => {
+    state.isDragging = false;
+    state.lastTracePoint = null;
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    state.isDragging = false;
+    state.lastTracePoint = null;
+    if (loupe) loupe.classList.add('hidden');
+  });
+
+  function applyErase(px, py) {
+    const ds = getActiveDataset();
+    if (!ds) return;
+    const r = coreErasePoints(ds.points, px, py, state.eraseRadius);
+    if (r.removed > 0) {
+      ds.points = r.points;
+      renderDatasetUI();
+      renderViewport();
+    }
+  }
+
+  // --- 8. Canvas rendering ---
+  function renderViewport() {
+    if (!state.image) return;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (state.showBackground) ctx.drawImage(state.image, 0, 0);
+
+    const drawBadge = (x, y, text, bg) => {
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = bg;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x - 16, y - 10, 32, 20, 4);
+      else ctx.rect(x - 16, y - 10, 32, 20);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(text, x, y);
     };
 
-    // --- 2. Component bindings ---
-    const uploadZone = document.getElementById('uploadZone');
-    const fileInput = document.getElementById('fileInput');
-    const workspace = document.getElementById('workspace');
-    const canvasContainer = document.getElementById('canvasContainer');
-    
-    const canvas = document.getElementById('plotCanvas');
-    const ctx = canvas.getContext('2d');
-    const loupe = document.getElementById('loupeCanvas');
-    const loupeCtx = loupe.getContext('2d');
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
 
-    const btnCalibX1 = document.getElementById('btnCalibX1');
-    const btnCalibX2 = document.getElementById('btnCalibX2');
-    const btnCalibY1 = document.getElementById('btnCalibY1');
-    const btnCalibY2 = document.getElementById('btnCalibY2');
-    
-    const valX1 = document.getElementById('valX1');
-    const valX2 = document.getElementById('valX2');
-    const valY1 = document.getElementById('valY1');
-    const valY2 = document.getElementById('valY2');
-    const isLogX = document.getElementById('isLogX');
-    const isLogY = document.getElementById('isLogY');
-    
-    const datasetList = document.getElementById('datasetList');
-    const btnAddDataset = document.getElementById('btnAddDataset');
+    const marks = [
+      ['pxX1', '#ef4444', 'X1', 20, true],
+      ['pxX2', '#b91c1c', 'X2', 45, true],
+      ['pxY1', '#3b82f6', 'Y1', 25, false],
+      ['pxY2', '#1d4ed8', 'Y2', 65, false]
+    ];
 
-    const btnManualMode = document.getElementById('btnManualMode');
-    const btnEraseMode = document.getElementById('btnEraseMode');
-    
-    const eraseControls = document.getElementById('eraseControls');
-    const eraseRadiusSlider = document.getElementById('eraseRadius');
-    const eraseRadiusVal = document.getElementById('eraseRadiusVal');
+    for (const [key, colour, label, offset, vertical] of marks) {
+      const v = state.calibration[key];
+      if (v === null || v === undefined) continue;
+      ctx.strokeStyle = colour;
+      ctx.beginPath();
+      if (vertical) {
+        ctx.moveTo(v, 0);
+        ctx.lineTo(v, canvas.height);
+      } else {
+        ctx.moveTo(0, v);
+        ctx.lineTo(canvas.width, v);
+      }
+      ctx.stroke();
+      if (vertical) drawBadge(v, offset, label, colour);
+      else drawBadge(offset, v, label, colour);
+    }
+    ctx.setLineDash([]);
 
-    const btnUndo = document.getElementById('btnUndo');
-    const toggleBackground = document.getElementById('toggleBackground');
-    const eyeIcon = document.getElementById('eyeIcon');
-    const csvFilename = document.getElementById('csvFilename');
-    const exportCsvBtn = document.getElementById('exportCsvBtn');
+    for (const ds of state.datasets) {
+      if (ds.points.length === 0) continue;
+      ctx.strokeStyle = ds.color;
+      ctx.fillStyle = ds.color;
+      ctx.lineWidth = 2;
 
-    const btnGeneratePython = document.getElementById('btnGeneratePython');
-    const btnPreviewPlot = document.getElementById('btnPreviewPlot');
-    const pythonModal = document.getElementById('pythonModal');
-    const pythonCodeBlock = document.getElementById('pythonCodeBlock');
-    const closePythonModal = document.getElementById('closePythonModal');
-    const copyPythonBtn = document.getElementById('copyPythonBtn');
+      const ordered = sortPoints(ds.points);
+      ctx.beginPath();
+      ctx.moveTo(ordered[0].pxX, ordered[0].pxY);
+      for (let i = 1; i < ordered.length; i++) {
+        ctx.lineTo(ordered[i].pxX, ordered[i].pxY);
+      }
+      ctx.stroke();
 
-    // --- NEW: Inject Zoom UI Controls ---
-    const zoomControls = document.createElement('div');
-    zoomControls.className = 'absolute bottom-4 right-4 flex gap-1 bg-white dark:bg-slate-900 p-1.5 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 z-40 items-center';
-    zoomControls.innerHTML = `
-        <button id="btnZoomOut" class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"><i class="fa-solid fa-minus"></i></button>
-        <div class="flex items-center justify-center w-14 text-xs font-black text-slate-700 dark:text-slate-300 font-mono" id="zoomLevelDisplay">100%</div>
-        <button id="btnZoomIn" class="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-50 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"><i class="fa-solid fa-plus"></i></button>
-    `;
-    canvasContainer.appendChild(zoomControls);
-
-    const btnZoomIn = document.getElementById('btnZoomIn');
-    const btnZoomOut = document.getElementById('btnZoomOut');
-    const zoomLevelDisplay = document.getElementById('zoomLevelDisplay');
-
-    function applyZoom() {
-        canvas.style.maxWidth = 'none'; 
-        canvas.style.width = `${state.image.width * state.zoomLevel}px`;
-        zoomLevelDisplay.innerText = Math.round(state.zoomLevel * 100) + '%';
+      for (const pt of ds.points) {
+        ctx.beginPath();
+        ctx.arc(pt.pxX, pt.pxY, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
-    btnZoomIn.addEventListener('click', () => {
-        state.zoomLevel = Math.min(state.zoomLevel + 0.25, 5);
-        applyZoom();
-    });
+    if (state.mode !== 'idle') {
+      ctx.lineWidth = 1;
+      if (state.mode === 'erase') {
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+        ctx.beginPath();
+        ctx.arc(state.mouseX, state.mouseY, state.eraseRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = '#ef4444';
+      } else {
+        ctx.strokeStyle = state.mode === 'digitize'
+          ? ((getActiveDataset() || {}).color || '#f59e0b')
+          : '#f59e0b';
+      }
+      ctx.beginPath();
+      ctx.moveTo(state.mouseX, 0);
+      ctx.lineTo(state.mouseX, canvas.height);
+      ctx.moveTo(0, state.mouseY);
+      ctx.lineTo(canvas.width, state.mouseY);
+      ctx.stroke();
+    }
+  }
 
-    btnZoomOut.addEventListener('click', () => {
-        state.zoomLevel = Math.max(state.zoomLevel - 0.25, 0.5);
-        applyZoom();
-    });
+  function updateLoupe(evt) {
+    if (!loupe || !loupeCtx) return;
+    if (state.mode === 'idle') {
+      loupe.classList.add('hidden');
+      canvas.classList.remove('loupe-active');
+      return;
+    }
+    loupe.classList.remove('hidden');
+    canvas.classList.add('loupe-active');
 
-    // Accordion initialization logic
-    document.querySelectorAll('.accordion-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const isExpanded = btn.getAttribute('aria-expanded') === 'true';
-            btn.setAttribute('aria-expanded', !isExpanded);
-            const target = document.getElementById(btn.getAttribute('data-target'));
-            target.classList.toggle('expanded');
-        });
-    });
+    const zoom = 6;
+    const size = loupe.width;
+    const half = size / (2 * zoom);
 
-    // --- 3. I/O handling ---
-    uploadZone.addEventListener('click', () => fileInput.click());
+    loupeCtx.imageSmoothingEnabled = false;
+    loupeCtx.clearRect(0, 0, size, size);
+    loupeCtx.drawImage(
+      canvas,
+      state.mouseX - half, state.mouseY - half, half * 2, half * 2,
+      0, 0, size, size
+    );
+    loupeCtx.strokeStyle = '#ef4444';
+    loupeCtx.lineWidth = 1;
+    loupeCtx.beginPath();
+    loupeCtx.moveTo(size / 2, 0);
+    loupeCtx.lineTo(size / 2, size);
+    loupeCtx.moveTo(0, size / 2);
+    loupeCtx.lineTo(size, size / 2);
+    loupeCtx.stroke();
 
-    fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file || !file.type.startsWith('image/')) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const img = new Image();
-            img.onload = () => {
-                state.image = img;
-                uploadZone.classList.add('hidden');
-                workspace.classList.remove('hidden');
-                workspace.classList.add('flex');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                
-                state.zoomLevel = 1;
-                applyZoom(); 
+    if (evt && evt.clientX !== undefined) {
+      loupe.style.left = `${evt.clientX + 20}px`;
+      loupe.style.top = `${evt.clientY + 20}px`;
+    }
+  }
 
-                renderDatasetUI();
-                renderViewport();
-            };
-            img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
-    });
+  // --- 9. Export ---
+  /** Digitise every dataset through the core, ready for export. */
+  function digitisedDatasets() {
+    const check = validateCalibrationForm(currentCalibration());
+    if (!check.valid) return null;
 
-    // Scroll-to-zoom logic
-    canvasContainer.addEventListener('wheel', (e) => {
-        if (e.ctrlKey || e.metaKey) {
-            e.preventDefault(); 
-            
-            const zoomSensitivity = 0.1;
-            if (e.deltaY < 0) {
-                state.zoomLevel += zoomSensitivity;
-            } else {
-                state.zoomLevel -= zoomSensitivity;
-            }
-            
-            state.zoomLevel = Math.max(0.5, Math.min(state.zoomLevel, 5));
-            applyZoom();
-        }
-    });
+    return state.datasets.map(ds => ({
+      ...ds,
+      points: ds.points
+        .map(pt => {
+          const d = toDataCoordinates(pt.pxX, pt.pxY, check.calibration);
+          return d ? { ...pt, logicalX: d.x, logicalY: d.y } : null;
+        })
+        .filter(Boolean)
+    }));
+  }
 
-    eraseRadiusSlider.addEventListener('input', (e) => {
-        state.eraseRadius = parseInt(e.target.value);
-        eraseRadiusVal.innerText = state.eraseRadius;
-        updateLoupe({ clientX: state.mouseX, clientY: state.mouseY, type: 'artificial' });
-    });
+  if (exportCsvBtn) exportCsvBtn.addEventListener('click', () => {
+    if (!requireCalibration()) return;
+    const datasets = digitisedDatasets();
+    if (!datasets) return;
 
-    toggleBackground.addEventListener('change', (e) => {
-        state.showBackground = e.target.checked;
-        eyeIcon.className = state.showBackground ? 'fa-solid fa-eye text-slate-600 dark:text-slate-400' : 'fa-solid fa-eye-slash text-slate-400 dark:text-slate-600';
-        renderViewport();
-    });
+    const csv = generateCSV(datasets);
+    const name = (csvFilename.value.trim() || 'extracted_data') + '.csv';
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  });
 
-    // --- 4. Subsystem mapping and dataset UI ---
-    function renderDatasetUI() {
-        datasetList.innerHTML = '';
-        state.datasets.forEach(ds => {
-            const div = document.createElement('div');
-            const isActive = ds.id === state.activeDatasetId;
-            div.className = `dataset-btn flex justify-between items-center px-2 py-1.5 rounded-lg border cursor-pointer transition-colors ${isActive ? 'active' : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`;
-            
-            div.innerHTML = `
-                <div class="flex items-center gap-2 flex-grow">
-                    <input type="color" class="ds-color-picker w-5 h-5 cursor-pointer bg-transparent border-0" value="${ds.color}" data-id="${ds.id}">
-                    <input type="text" class="ds-name-input text-xs bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 focus:ring-0 focus:outline-none px-1 py-0.5 rounded transition-colors ${isActive ? 'text-indigo-900 dark:text-indigo-300 font-bold' : 'text-slate-700 dark:text-slate-300'}" value="${ds.name}" data-id="${ds.id}" style="width: 120px;" title="Click to rename">
-                    <span class="text-[10px] text-slate-400 font-mono">(${ds.points.length})</span>
-                </div>
-                <button class="delete-ds text-slate-400 hover:text-red-500 px-2 py-1 rounded transition-colors"><i class="fa-solid fa-trash-can text-xs pointer-events-none"></i></button>
-            `;
+  // --- 10. Python export ---
+  const btnPreviewPlot = document.getElementById('btnPreviewPlot');
+  if (btnPreviewPlot) btnPreviewPlot.addEventListener('click', () => {
+    if (!requireCalibration()) return;
 
-            div.addEventListener('click', (e) => {
-                if (e.target.classList.contains('ds-color-picker') || e.target.classList.contains('ds-name-input')) return;
-                if (e.target.closest('.delete-ds')) {
-                    if (state.datasets.length === 1) return; 
-                    state.datasets = state.datasets.filter(d => d.id !== ds.id);
-                    if (state.activeDatasetId === ds.id) state.activeDatasetId = state.datasets[0].id;
-                    renderDatasetUI();
-                    renderViewport();
-                    return;
-                }
-                state.activeDatasetId = ds.id;
-                renderDatasetUI();
-            });
-            datasetList.appendChild(div);
-        });
-
-        document.querySelectorAll('.ds-color-picker').forEach(picker => {
-            picker.addEventListener('input', (e) => {
-                const dataset = state.datasets.find(d => d.id === e.target.getAttribute('data-id'));
-                if (dataset) { dataset.color = e.target.value; renderViewport(); }
-            });
-        });
-        document.querySelectorAll('.ds-name-input').forEach(input => {
-            input.addEventListener('change', (e) => {
-                const dataset = state.datasets.find(d => d.id === e.target.getAttribute('data-id'));
-                if (dataset) dataset.name = e.target.value;
-            });
-        });
+    const sets = (digitisedDatasets() || []).filter(ds => ds.points.length > 0);
+    if (sets.length === 0) {
+      showToast('Add some points before previewing.', 'error');
+      return;
     }
 
-    btnAddDataset.addEventListener('click', () => {
-        datasetCounter++;
-        const color = PALETTE[(datasetCounter - 1) % PALETTE.length];
-        const newDs = { id: `ds_${datasetCounter}`, name: `Series ${datasetCounter}`, color: color, points: [] };
-        state.datasets.push(newDs);
-        state.activeDatasetId = newDs.id;
-        renderDatasetUI();
-    });
+    const get = (id, fb) => {
+      const el = document.getElementById(id);
+      return el ? (el.value || fb) : fb;
+    };
+    const checked = (id) => {
+      const el = document.getElementById(id);
+      return el ? el.checked : false;
+    };
 
-    function getActiveDataset() { return state.datasets.find(ds => ds.id === state.activeDatasetId); }
+    const isDark = document.documentElement.classList.contains('dark');
+    const fW = Number(get('pyFigWidth', 8)) * 100;
+    const showGrid = checked('pyShowGrid');
+    const transparent = checked('pyBgTrans');
 
-    function mapScale(px, px1, px2, val1, val2, useLog) {
-        if (px2 === px1) return null;
-        if (useLog) {
-            if (val1 <= 0 || val2 <= 0) return null;
-            const logV1 = Math.log10(val1);
-            const logV2 = Math.log10(val2);
-            return Math.pow(10, logV1 + ((px - px1) * (logV2 - logV1)) / (px2 - px1));
-        }
-        return val1 + ((px - px1) * (val2 - val1)) / (px2 - px1);
+    const traces = sets.map(ds => ({
+      name: ds.name,
+      x: ds.points.map(p => p.logicalX),
+      y: ds.points.map(p => p.logicalY),
+      mode: 'lines+markers',
+      marker: { color: ds.color }
+    }));
+
+    const layout = {
+      plot_bgcolor: isDark ? '#1e293b' : (transparent ? 'transparent' : '#ffffff'),
+      paper_bgcolor: 'transparent',
+      font: { color: isDark ? '#cbd5e1' : '#334155' },
+      xaxis: {
+        title: get('pyXLabel', 'X'),
+        type: isLogX && isLogX.checked ? 'log' : 'linear',
+        showgrid: showGrid, gridcolor: isDark ? '#334155' : '#e2e8f0'
+      },
+      yaxis: {
+        title: get('pyYLabel', 'Y'),
+        type: isLogY && isLogY.checked ? 'log' : 'linear',
+        showgrid: showGrid, gridcolor: isDark ? '#334155' : '#e2e8f0'
+      },
+      margin: { t: 40, r: 40, b: 60, l: 60 },
+      showlegend: true
+    };
+
+    // Rendered in a popup so the digitising canvas keeps its state.
+    const win = window.open('', '_blank');
+    if (!win) {
+      showToast('Popup blocked, allow popups for this site to see the preview.', 'error');
+      return;
+    }
+    win.document.write(
+      '<!DOCTYPE html><html' + (isDark ? ' class="dark"' : '') + '><head>' +
+      '<title>Plot Preview | STEMKit</title>' +
+      '<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"><\/script>' +
+      '<style>body{margin:0;padding:20px;font-family:sans-serif;background:' +
+      (isDark ? '#0f172a' : '#f8fafc') + ';color:' + (isDark ? '#f1f5f9' : '#0f172a') +
+      '}.container{max-width:' + (fW + 40) + 'px;margin:0 auto;background:' +
+      (isDark ? '#1e293b' : '#fff') + ';padding:20px;border-radius:12px;' +
+      'border:1px solid ' + (isDark ? '#334155' : '#e2e8f0') + '}</style></head><body>' +
+      '<div class="container"><h2 style="margin-top:0">Interactive Render Preview</h2>' +
+      '<div id="plot"></div></div><script>' +
+      'Plotly.newPlot("plot",' + JSON.stringify(traces) + ',' + JSON.stringify(layout) + ');' +
+      '<\/script></body></html>'
+    );
+    win.document.close();
+  });
+
+  if (btnGeneratePython) btnGeneratePython.addEventListener('click', () => {
+    if (!requireCalibration()) return;
+    pythonCodeBlock.textContent = buildPythonScript();
+    pythonModal.classList.add('open');
+  });
+
+  function buildPythonScript() {
+    const get = (id, fallback) => {
+      const el = document.getElementById(id);
+      return el ? (el.value || fallback) : fallback;
+    };
+    const checked = (id) => {
+      const el = document.getElementById(id);
+      return el ? el.checked : false;
+    };
+
+    const xLab = get('pyXLabel', 'X');
+    const yLab = get('pyYLabel', 'Y');
+    const fW = get('pyFigWidth', 8);
+    const fH = get('pyFigHeight', 6);
+    const layout = get('pyPlotLayout', 'single');
+    const showGrid = checked('pyShowGrid');
+    const filename = (csvFilename.value.trim() || 'extracted_data') + '.csv';
+
+    const active = state.datasets.filter(ds => ds.points.length > 0);
+
+    let c = 'import pandas as pd\nimport matplotlib.pyplot as plt\n\n';
+    c += "# --- 1. Environment configuration ---\n";
+    c += "plt.rcParams['axes.labelsize'] = 14\n";
+    c += "plt.rcParams['xtick.labelsize'] = 12\n";
+    c += "plt.rcParams['ytick.labelsize'] = 12\n";
+    c += "plt.rcParams['legend.fontsize'] = 12\n";
+    c += "plt.rcParams['legend.frameon'] = False\n\n";
+    c += '# --- 2. Data ingestion ---\n';
+    c += 'try:\n';
+    c += `    df = pd.read_csv('${pythonString(filename)}', skipinitialspace=True)\n`;
+    c += 'except FileNotFoundError:\n';
+    c += `    print("Error: ${pythonString(filename)} not found in the working directory.")\n`;
+    c += '    exit()\n\n';
+    c += '# --- 3. Rendering ---\n';
+
+    if (layout === 'subplots' && active.length > 0) {
+      c += `fig, axes = plt.subplots(nrows=${active.length}, ncols=1, ` +
+           `figsize=(${fW}, ${fH}), sharex=True)\n`;
+      c += `if ${active.length} == 1: axes = [axes]\n\n`;
+
+      active.forEach((ds, i) => {
+        const v = pythonIdentifier(ds.id);
+        c += `subset_${v} = df[df['Dataset'] == '${pythonString(ds.name)}']\n`;
+        c += `axes[${i}].plot(subset_${v}['X'], subset_${v}['Y'], ` +
+             `label='${pythonString(ds.name)}', color='${pythonString(ds.color)}', linewidth=2)\n`;
+        if (isLogX.checked) c += `axes[${i}].set_xscale('log')\n`;
+        if (isLogY.checked) c += `axes[${i}].set_yscale('log')\n`;
+        if (showGrid) c += `axes[${i}].grid(True, linestyle='--', alpha=0.6)\n`;
+        c += `axes[${i}].legend(loc='best')\n\n`;
+      });
+      c += `axes[-1].set_xlabel('${pythonString(xLab)}')\n`;
+      c += `fig.text(0.04, 0.5, '${pythonString(yLab)}', va='center', rotation='vertical')\n`;
+    } else {
+      c += `fig, ax = plt.subplots(figsize=(${fW}, ${fH}))\n\n`;
+      for (const ds of active) {
+        const v = pythonIdentifier(ds.id);
+        c += `subset_${v} = df[df['Dataset'] == '${pythonString(ds.name)}']\n`;
+        c += `ax.plot(subset_${v}['X'], subset_${v}['Y'], ` +
+             `label='${pythonString(ds.name)}', color='${pythonString(ds.color)}', linewidth=2)\n`;
+      }
+      c += '\n';
+      if (isLogX.checked) c += "ax.set_xscale('log')\n";
+      if (isLogY.checked) c += "ax.set_yscale('log')\n";
+      if (showGrid) c += "ax.grid(True, linestyle='--', alpha=0.6)\n";
+      c += `ax.set_xlabel('${pythonString(xLab)}')\n`;
+      c += `ax.set_ylabel('${pythonString(yLab)}')\n`;
+      c += "ax.legend(loc='best')\n";
+      c += "ax.spines['top'].set_visible(False)\nax.spines['right'].set_visible(False)\n";
     }
 
-    function computeLogicalCoordinates(px, py) {
-        const logX1 = parseFloat(valX1.value), logX2 = parseFloat(valX2.value);
-        const logY1 = parseFloat(valY1.value), logY2 = parseFloat(valY2.value);
+    c += '\nfig.tight_layout()\n';
+    // The transparent-background checkbox only matters at save time, so it is
+    // applied here rather than to the figure itself.
+    const bgTrans = checked('pyBgTrans');
+    c += `fig.savefig('digitized_plot.png', dpi=300, bbox_inches='tight'` +
+         `${bgTrans ? ', transparent=True' : ''})\nplt.show()\n`;
+    return c;
+  }
 
-        if (isNaN(logX1) || isNaN(logX2) || isNaN(logY1) || isNaN(logY2) ||
-            state.calibration.pxX1 === null || state.calibration.pxX2 === null ||
-            state.calibration.pxY1 === null || state.calibration.pxY2 === null) return null;
+  if (closePythonModal) closePythonModal.addEventListener('click', () =>
+    pythonModal.classList.remove('open'));
+  if (pythonModal) pythonModal.addEventListener('click', (e) => {
+    if (e.target === pythonModal) pythonModal.classList.remove('open');
+  });
+  if (copyPythonBtn) copyPythonBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(pythonCodeBlock.textContent);
+  });
 
-        const logicalX = mapScale(px, state.calibration.pxX1, state.calibration.pxX2, logX1, logX2, isLogX.checked);
-        const logicalY = mapScale(py, state.calibration.pxY1, state.calibration.pxY2, logY1, logY2, isLogY.checked);
-        if (logicalX === null || logicalY === null) return null;
-        
-        if (!Number.isFinite(logicalX) || !Number.isFinite(logicalY)) return null;
-        return { x: logicalX, y: logicalY };
-    }
+  // --- 11. Initial render ---
+  renderDatasetUI();
 
-    function formatValue(v) {
-        if (!Number.isFinite(v)) return '';
-        if (v === 0) return '0';
-        const mag = Math.abs(v);
-        if (mag >= 1e-4 && mag < 1e7) {
-            return parseFloat(v.toPrecision(8)).toString();
-        }
-        return v.toExponential(6);
-    }
+  /**
+   * Styled notification, matching the other tools.
+   *
+   * This replaces the native `alert()` this file used to call: a blocking
+   * browser dialog interrupts the work and looks nothing like the rest of the
+   * app, which matters most here because calibration warnings fire while the
+   * user is mid-click on the figure.
+   */
+  function showToast(msg, type) {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const toast = document.createElement('div');
+    const colors = type === 'success'
+      ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400'
+      : type === 'error'
+        ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400'
+        : 'bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400';
+    toast.className =
+      `px-4 py-3 rounded-xl border shadow-lg toast-enter text-sm font-medium transition-all max-w-md ${colors}`;
+    toast.innerText = msg;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
+  }
 
-    function pointsForExport(ds) {
-        return ds.points.slice().sort((a, b) => a.pxX - b.pxX);
-    }
-
-    function generateCSVString() {
-        let csvStr = "Dataset,X,Y\n";
-        state.datasets.forEach(ds => {
-            const safeName = String(ds.name).replace(/"/g, '""');
-            pointsForExport(ds).forEach(pt => {
-                csvStr += `"${safeName}",${formatValue(pt.logicalX)},${formatValue(pt.logicalY)}\n`;
-            });
-        });
-        return csvStr;
-    }
-
-    // --- 5. Rendering and erasing engines ---
-    function erasePoints(px, py) {
-        const activeDs = getActiveDataset();
-        const originalLength = activeDs.points.length;
-        activeDs.points = activeDs.points.filter(pt => {
-            const dist = Math.sqrt(Math.pow(pt.pxX - px, 2) + Math.pow(pt.pxY - py, 2));
-            return dist > state.eraseRadius;
-        });
-        if (activeDs.points.length !== originalLength) {
-            renderDatasetUI();
-            renderViewport();
-        }
-    }
-
-    function renderViewport() {
-        if (!state.image) return;
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        if (state.showBackground) ctx.drawImage(state.image, 0, 0);
-
-        // Helper function to draw highly readable, compact UI badges
-        const drawBadge = (x, y, text, bgColor) => {
-            ctx.font = "bold 12px Inter, sans-serif";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            
-            ctx.fillStyle = bgColor;
-            ctx.beginPath();
-            if (ctx.roundRect) {
-                ctx.roundRect(x - 16, y - 10, 32, 20, 4);
-            } else {
-                ctx.fillRect(x - 16, y - 10, 32, 20); 
-            }
-            ctx.fill();
-            
-            ctx.fillStyle = '#ffffff';
-            ctx.fillText(text, x, y);
-        };
-
-        ctx.lineWidth = 1.5; 
-        ctx.setLineDash([6, 4]);
-        
-        // Anchor X labels to the top edge, staggered
-        if (state.calibration.pxX1 !== null) { 
-            ctx.strokeStyle = '#ef4444'; ctx.beginPath(); ctx.moveTo(state.calibration.pxX1, 0); ctx.lineTo(state.calibration.pxX1, canvas.height); ctx.stroke(); 
-            drawBadge(state.calibration.pxX1, 20, "X1", '#ef4444');
-        }
-        if (state.calibration.pxX2 !== null) { 
-            ctx.strokeStyle = '#b91c1c'; ctx.beginPath(); ctx.moveTo(state.calibration.pxX2, 0); ctx.lineTo(state.calibration.pxX2, canvas.height); ctx.stroke(); 
-            drawBadge(state.calibration.pxX2, 45, "X2", '#b91c1c');
-        }
-        // Anchor Y labels to the left edge, staggered
-        if (state.calibration.pxY1 !== null) { 
-            ctx.strokeStyle = '#3b82f6'; ctx.beginPath(); ctx.moveTo(0, state.calibration.pxY1); ctx.lineTo(canvas.width, state.calibration.pxY1); ctx.stroke(); 
-            drawBadge(25, state.calibration.pxY1, "Y1", '#3b82f6');
-        }
-        if (state.calibration.pxY2 !== null) { 
-            ctx.strokeStyle = '#1d4ed8'; ctx.beginPath(); ctx.moveTo(0, state.calibration.pxY2); ctx.lineTo(canvas.width, state.calibration.pxY2); ctx.stroke(); 
-            drawBadge(65, state.calibration.pxY2, "Y2", '#1d4ed8');
-        }
-        ctx.setLineDash([]);
-
-        state.datasets.forEach(ds => {
-            if (ds.points.length === 0) return;
-            ctx.strokeStyle = ds.color; ctx.fillStyle = ds.color; ctx.lineWidth = 2;
-            
-            const ordered = pointsForExport(ds);
-            ctx.beginPath(); ctx.moveTo(ordered[0].pxX, ordered[0].pxY);
-            for (let i = 1; i < ordered.length; i++) ctx.lineTo(ordered[i].pxX, ordered[i].pxY);
-            ctx.stroke();
-            ds.points.forEach(pt => { ctx.beginPath(); ctx.arc(pt.pxX, pt.pxY, 2.5, 0, Math.PI * 2); ctx.fill(); });
-        });
-
-        if (state.mode !== 'idle') {
-            ctx.lineWidth = 1;
-            if (state.mode === 'erase') {
-                ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
-                ctx.beginPath();
-                ctx.arc(state.mouseX, state.mouseY, state.eraseRadius, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.strokeStyle = '#ef4444';
-            } else {
-                ctx.strokeStyle = state.mode.startsWith('digitize') ? ((getActiveDataset() || {}).color || '#f59e0b') : '#f59e0b';
-            }
-            
-            ctx.beginPath();
-            ctx.moveTo(state.mouseX, 0); ctx.lineTo(state.mouseX, canvas.height);
-            ctx.moveTo(0, state.mouseY); ctx.lineTo(canvas.width, state.mouseY);
-            ctx.stroke();
-        }
-    }
-
-    function updateLoupe(evt) {
-        if (state.mode === 'idle') { loupe.classList.add('hidden'); canvas.classList.remove('loupe-active'); return; }
-        if (evt.type === 'artificial') return; 
-
-        loupe.classList.remove('hidden'); canvas.classList.add('loupe-active');
-        const rect = canvasContainer.getBoundingClientRect();
-        const clientX = evt.clientX || rect.left + state.mouseX * (rect.width / canvas.width);
-        const clientY = evt.clientY || rect.top + state.mouseY * (rect.height / canvas.height);
-        
-        loupe.style.left = `${(clientX - rect.left) + 15}px`;
-        loupe.style.top = `${(clientY - rect.top) - 135}px`;
-
-        loupeCtx.clearRect(0, 0, loupe.width, loupe.height);
-        loupeCtx.fillStyle = '#ffffff'; loupeCtx.fillRect(0, 0, loupe.width, loupe.height);
-        
-        loupeCtx.imageSmoothingEnabled = false; 
-        loupeCtx.drawImage(canvas, state.mouseX - 20, state.mouseY - 20, 40, 40, 0, 0, loupe.width, loupe.height);
-        
-        if (state.mode === 'erase') {
-            loupeCtx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
-            loupeCtx.lineWidth = 1.5;
-            loupeCtx.beginPath();
-            loupeCtx.arc(loupe.width / 2, loupe.height / 2, state.eraseRadius * 3, 0, Math.PI * 2);
-            loupeCtx.stroke();
-            
-            loupeCtx.strokeStyle = '#ef4444';
-            loupeCtx.lineWidth = 1;
-        } else {
-            loupeCtx.strokeStyle = state.mode.startsWith('digitize') ? ((getActiveDataset() || {}).color || '#f59e0b') : '#f59e0b';
-            loupeCtx.lineWidth = 2;
-        }
-        
-        loupeCtx.beginPath();
-        loupeCtx.moveTo(loupe.width / 2, 0); loupeCtx.lineTo(loupe.width / 2, loupe.height);
-        loupeCtx.moveTo(0, loupe.height / 2); loupeCtx.lineTo(loupe.width, loupe.height / 2);
-        loupeCtx.stroke();
-    }
-
-    function setMode(newMode, activeBtn) {
-        state.mode = newMode;
-        document.querySelectorAll('.calib-btn, #btnManualMode, #btnEraseMode').forEach(btn => {
-            btn.classList.remove('ring-2', 'ring-indigo-500', 'border-indigo-500', 'border-red-500');
-            if(btn.id === 'btnManualMode') btn.className = "border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200";
-            if(btn.id === 'btnEraseMode') btn.className = "border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-700 dark:text-red-400 font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200";
-        });
-        
-        eraseControls.classList.add('hidden');
-        
-        if (activeBtn) {
-            if(activeBtn.id === 'btnManualMode') {
-                activeBtn.className = "border border-indigo-600 bg-indigo-600 text-white font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200 shadow-inner";
-            } else if(activeBtn.id === 'btnEraseMode') {
-                activeBtn.className = "border border-red-600 bg-red-600 text-white font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200 shadow-inner";
-                eraseControls.classList.remove('hidden');
-            } else {
-                activeBtn.classList.add('border-indigo-500', 'ring-2', 'ring-indigo-200');
-            }
-        }
-        renderViewport();
-    }
-
-    btnCalibX1.addEventListener('click', () => setMode('calibX1', btnCalibX1));
-    btnCalibX2.addEventListener('click', () => setMode('calibX2', btnCalibX2));
-    btnCalibY1.addEventListener('click', () => setMode('calibY1', btnCalibY1));
-    btnCalibY2.addEventListener('click', () => setMode('calibY2', btnCalibY2));
-    
-    function verifyCalibration() {
-        const c = state.calibration;
-        const missing = [];
-        if (c.pxX1 === null) missing.push('X1');
-        if (c.pxX2 === null) missing.push('X2');
-        if (c.pxY1 === null) missing.push('Y1');
-        if (c.pxY2 === null) missing.push('Y2');
-        if (missing.length) {
-            alert('Calibration incomplete: still need to place ' + missing.join(', ') +
-                  '.\n\nClick each calibration button, then click that position on the plot.');
-            return false;
-        }
-        if (c.pxX1 === c.pxX2) {
-            alert('X1 and X2 are on the same pixel column. Place them on two different x positions.');
-            return false;
-        }
-        if (c.pxY1 === c.pxY2) {
-            alert('Y1 and Y2 are on the same pixel row. Place them on two different y positions.');
-            return false;
-        }
-        const nums = { X1: valX1.value, X2: valX2.value, Y1: valY1.value, Y2: valY2.value };
-        const badNums = Object.keys(nums).filter(k => isNaN(parseFloat(nums[k])));
-        if (badNums.length) {
-            alert('These axis values are not numbers: ' + badNums.join(', ') + '.');
-            return false;
-        }
-        if (isLogX.checked && (parseFloat(valX1.value) <= 0 || parseFloat(valX2.value) <= 0)) {
-            alert('A logarithmic X axis needs both X values to be greater than zero.');
-            return false;
-        }
-        if (isLogY.checked && (parseFloat(valY1.value) <= 0 || parseFloat(valY2.value) <= 0)) {
-            alert('A logarithmic Y axis needs both Y values to be greater than zero.');
-            return false;
-        }
-        if (parseFloat(valX1.value) === parseFloat(valX2.value)) {
-            alert('X1 and X2 have the same value, so the x scale cannot be determined.');
-            return false;
-        }
-        if (parseFloat(valY1.value) === parseFloat(valY2.value)) {
-            alert('Y1 and Y2 have the same value, so the y scale cannot be determined.');
-            return false;
-        }
-        return true;
-    }
-
-    btnManualMode.addEventListener('click', () => { if(verifyCalibration()) setMode('digitize_manual', btnManualMode); });
-    btnEraseMode.addEventListener('click', () => setMode('erase', btnEraseMode));
-
-    btnUndo.addEventListener('click', () => {
-        const activeDs = getActiveDataset();
-        if (activeDs && activeDs.points.length > 0) {
-            activeDs.points.pop();
-            renderDatasetUI();
-            renderViewport();
-        }
-    });
-
-    canvas.addEventListener('mousemove', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        state.mouseX = Math.round((e.clientX - rect.left) * (canvas.width / rect.width));
-        state.mouseY = Math.round((e.clientY - rect.top) * (canvas.height / rect.height));
-        
-        if (state.mode === 'digitize_manual' && state.isDragging) {
-            if (state.lastTracePoint) {
-                const d = Math.sqrt(Math.pow(state.mouseX - state.lastTracePoint.x, 2) + Math.pow(state.mouseY - state.lastTracePoint.y, 2));
-                if (d >= 8) {
-                    const logical = computeLogicalCoordinates(state.mouseX, state.mouseY);
-                    if (logical && getActiveDataset()) getActiveDataset().points.push({ pxX: state.mouseX, pxY: state.mouseY, logicalX: logical.x, logicalY: logical.y });
-                    state.lastTracePoint = {x: state.mouseX, y: state.mouseY};
-                    renderDatasetUI();
-                }
-            } else state.lastTracePoint = {x: state.mouseX, y: state.mouseY};
-        } else if (state.mode === 'erase' && state.isDragging) {
-            erasePoints(state.mouseX, state.mouseY);
-        }
-        
-        renderViewport(); updateLoupe(e);
-    });
-
-    canvas.addEventListener('mousedown', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const px = Math.round((e.clientX - rect.left) * (canvas.width / rect.width));
-        const py = Math.round((e.clientY - rect.top) * (canvas.height / rect.height));
-        
-        if (state.mode === 'calibX1') { state.calibration.pxX1 = px; setMode('idle', null); }
-        else if (state.mode === 'calibX2') { state.calibration.pxX2 = px; setMode('idle', null); }
-        else if (state.mode === 'calibY1') { state.calibration.pxY1 = py; setMode('idle', null); }
-        else if (state.mode === 'calibY2') { state.calibration.pxY2 = py; setMode('idle', null); }
-        else if (state.mode === 'digitize_manual') {
-            state.isDragging = true;
-            const logical = computeLogicalCoordinates(px, py);
-            if (logical && getActiveDataset()) getActiveDataset().points.push({ pxX: px, pxY: py, logicalX: logical.x, logicalY: logical.y });
-            state.lastTracePoint = {x: px, y: py};
-            renderDatasetUI();
-        }
-        else if (state.mode === 'erase') {
-            state.isDragging = true;
-            erasePoints(px, py);
-        }
-        updateLoupe(e);
-    });
-
-    canvas.addEventListener('mouseup', () => { state.isDragging = false; state.lastTracePoint = null; });
-    canvas.addEventListener('mouseleave', () => { state.isDragging = false; state.lastTracePoint = null; loupe.classList.add('hidden'); });
-
-    exportCsvBtn.addEventListener('click', () => {
-        const filename = (csvFilename.value.trim() || 'extracted_data') + '.csv';
-        const blob = new Blob([generateCSVString()], { type: 'text/csv' });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-        a.download = filename; a.click(); URL.revokeObjectURL(a.href);
-    });
-
-    function pyStr(v) {
-        return String(v == null ? '' : v)
-            .replace(/\\/g, '\\\\')
-            .replace(/'/g, "\\'")
-            .replace(/\r?\n/g, ' ');
-    }
-
-    function pyIdent(v) {
-        const id = String(v == null ? '' : v).replace(/[^A-Za-z0-9_]/g, '_');
-        return /^[A-Za-z_]/.test(id) ? id : ('ds_' + id);
-    }
-
-    // --- 6. Advanced Python script generator & internal Plotly preview module ---
-    btnGeneratePython.addEventListener('click', () => {
-        const xLab = document.getElementById('pyXLabel').value;
-        const yLab = document.getElementById('pyYLabel').value;
-        const fW = document.getElementById('pyFigWidth').value || 8;
-        const fH = document.getElementById('pyFigHeight').value || 6;
-        const layoutMode = document.getElementById('pyPlotLayout').value;
-        const bgTrans = document.getElementById('pyBgTrans').checked ? 'True' : 'False';
-        const showGrid = document.getElementById('pyShowGrid').checked ? 'True' : 'False';
-        const filename = (csvFilename.value.trim() || 'extracted_data') + '.csv';
-
-        let pyCode = `import pandas as pd
-import matplotlib.pyplot as plt
-
-# --- 1. Environment configuration ---
-plt.rcParams['axes.labelsize'] = 14
-plt.rcParams['xtick.labelsize'] = 12
-plt.rcParams['ytick.labelsize'] = 12
-plt.rcParams['legend.fontsize'] = 12
-plt.rcParams['legend.frameon'] = False
-
-# --- 2. Data ingestion ---
-try:
-    df = pd.read_csv('${pyStr(filename)}', skipinitialspace=True)
-except FileNotFoundError:
-    print("Error: ${pyStr(filename)} not found in the working directory.")
-    exit()
-
-# --- 3. Rendering architecture ---
-`;
-        
-        const activeDatasets = state.datasets.filter(ds => ds.points.length > 0);
-
-        if (layoutMode === 'subplots') {
-            pyCode += `fig, axes = plt.subplots(nrows=${activeDatasets.length}, ncols=1, figsize=(${fW}, ${fH}), sharex=True)\n`;
-            pyCode += `if ${activeDatasets.length} == 1: axes = [axes]\n\n`;
-            
-            activeDatasets.forEach((ds, i) => {
-                pyCode += `subset_${pyIdent(ds.id)} = df[df['Dataset'] == '${pyStr(ds.name)}']\n`;
-                pyCode += `axes[${i}].plot(subset_${pyIdent(ds.id)}['X'], subset_${pyIdent(ds.id)}['Y'], label='${pyStr(ds.name)}', color='${pyStr(ds.color)}', linewidth=2)\n`;
-                if (isLogX.checked) pyCode += `axes[${i}].set_xscale('log')\n`;
-                if (isLogY.checked) pyCode += `axes[${i}].set_yscale('log')\n`;
-                if (showGrid === 'True') pyCode += `axes[${i}].grid(True, linestyle='--', alpha=0.6)\n`;
-                pyCode += `axes[${i}].legend(loc='best')\n\n`;
-            });
-            pyCode += `axes[-1].set_xlabel('${pyStr(xLab)}')\n`;
-            pyCode += `fig.supylabel('${pyStr(yLab)}')\n`;
-        } else {
-            pyCode += `fig, ax = plt.subplots(figsize=(${fW}, ${fH}))\n\n`;
-            activeDatasets.forEach(ds => {
-                pyCode += `subset_${pyIdent(ds.id)} = df[df['Dataset'] == '${pyStr(ds.name)}']\n`;
-                pyCode += `ax.plot(subset_${pyIdent(ds.id)}['X'], subset_${pyIdent(ds.id)}['Y'], label='${pyStr(ds.name)}', color='${pyStr(ds.color)}', linewidth=2)\n`;
-            });
-            pyCode += `\nax.set_xlabel('${pyStr(xLab)}')\nax.set_ylabel('${pyStr(yLab)}')\n`;
-            if (isLogX.checked) pyCode += `ax.set_xscale('log')\n`;
-            if (isLogY.checked) pyCode += `ax.set_yscale('log')\n`;
-            if (showGrid === 'True') pyCode += `ax.grid(True, linestyle='--', alpha=0.6)\n`;
-            pyCode += `ax.legend(loc='best')\n`;
-        }
-
-        pyCode += `\n# --- 4. Output ---
-${bgTrans === 'True' ? "fig.patch.set_alpha(0.0)\nfor ax_obj in fig.axes: ax_obj.patch.set_alpha(0.0)\n" : ""}
-plt.tight_layout()
-plt.savefig('reconstructed_plot.png', dpi=300, transparent=${bgTrans})
-plt.show()`;
-
-        pythonCodeBlock.textContent = pyCode;
-        pythonModal.classList.remove('hidden');
-        pythonModal.classList.add('flex');
-    });
-
-    closePythonModal.addEventListener('click', () => {
-        pythonModal.classList.add('hidden');
-        pythonModal.classList.remove('flex');
-    });
-
-    copyPythonBtn.addEventListener('click', () => {
-        navigator.clipboard.writeText(pythonCodeBlock.textContent);
-        copyPythonBtn.textContent = 'Copied!';
-        setTimeout(() => copyPythonBtn.textContent = 'Copy code', 2000);
-    });
-
-    btnPreviewPlot.addEventListener('click', () => {
-        const xLab = document.getElementById('pyXLabel').value;
-        const yLab = document.getElementById('pyYLabel').value;
-        const fW = document.getElementById('pyFigWidth').value || 8;
-        const fH = document.getElementById('pyFigHeight').value || 6;
-        const layoutMode = document.getElementById('pyPlotLayout').value;
-        const showGrid = document.getElementById('pyShowGrid').checked;
-        const isDark = document.documentElement.classList.contains('dark');
-        
-        const pxW = fW * 100;
-        const pxH = fH * 100;
-        
-        const activeDatasets = state.datasets.filter(ds => ds.points.length > 0);
-        
-        let htmlTemplate = `<!DOCTYPE html>
-<html class="${isDark ? 'dark' : ''}">
-<head>
-    <title>Plot Preview | STEMKit</title>
-    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"><\/script>
-    <style>
-        body { margin:0; padding:20px; font-family:sans-serif; background-color: ${isDark ? '#0f172a' : '#f8fafc'}; color: ${isDark ? '#f1f5f9' : '#0f172a'}; }
-        .container { max-width: ${pxW + 40}px; margin: 0 auto; background: ${isDark ? '#1e293b' : '#fff'}; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); border: 1px solid ${isDark ? '#334155' : '#e2e8f0'}; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2 style="margin-top:0;">Interactive Render Preview</h2>
-        <div id="plotsContainer"></div>
-    </div>
-    <script>
-        const isDark = ${isDark};
-        const commonLayout = {
-            plot_bgcolor: isDark ? '#1e293b' : '${document.getElementById('pyBgTrans').checked ? 'transparent' : '#ffffff'}',
-            paper_bgcolor: 'transparent',
-            font: { color: isDark ? '#cbd5e1' : '#334155' },
-            xaxis: { title: '${xLab}', type: '${isLogX.checked ? 'log' : 'linear'}', showgrid: ${showGrid}, gridcolor: isDark ? '#334155' : '#e2e8f0' },
-            yaxis: { title: '${yLab}', type: '${isLogY.checked ? 'log' : 'linear'}', showgrid: ${showGrid}, gridcolor: isDark ? '#334155' : '#e2e8f0' },
-            margin: { t: 40, r: 40, b: 60, l: 60 },
-            showlegend: true
-        };
-        const datasets = ${JSON.stringify(activeDatasets.map(ds => {
-            const pts = pointsForExport(ds);
-            return { name: ds.name, color: ds.color,
-                     x: pts.map(p => p.logicalX), y: pts.map(p => p.logicalY) };
-        }))};
-        
-        const container = document.getElementById('plotsContainer');
-        `;
-
-        if (layoutMode === 'subplots') {
-            htmlTemplate += `
-            datasets.forEach((ds, index) => {
-                const div = document.createElement('div');
-                div.id = 'plot_' + index;
-                div.style.width = '100%';
-                div.style.height = '${pxH / activeDatasets.length}px';
-                container.appendChild(div);
-                
-                const layout = Object.assign({}, commonLayout);
-                if(index < datasets.length - 1) layout.xaxis = Object.assign({}, layout.xaxis, {title: ''});
-                
-                Plotly.newPlot(div.id, [{ x: ds.x, y: ds.y, mode: 'lines+markers', name: ds.name, line: { color: ds.color, width: 2 }, marker: { size: 4 } }], layout, {responsive: true});
-            });
-            `;
-        } else {
-            htmlTemplate += `
-            const div = document.createElement('div');
-            div.id = 'mainPlot';
-            div.style.width = '100%';
-            div.style.height = '${pxH}px';
-            container.appendChild(div);
-            
-            const traces = datasets.map(ds => ({ x: ds.x, y: ds.y, mode: 'lines+markers', name: ds.name, line: { color: ds.color, width: 2 }, marker: { size: 4 } }));
-            Plotly.newPlot('mainPlot', traces, commonLayout, {responsive: true});
-            `;
-        }
-
-        htmlTemplate += `
-    <\/script>
-</body>
-</html>`;
-
-        const previewWindow = window.open('', '_blank');
-        if (previewWindow) {
-            previewWindow.document.write(htmlTemplate);
-            previewWindow.document.close();
-        } else {
-            alert("Popup blocked! Please allow popups to see the preview.");
-        }
-    });
 });

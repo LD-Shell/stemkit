@@ -6,7 +6,7 @@
     
     <title>Statistical Calculator | Welch t-test, ANOVA, Effect Sizes | STEMKit</title>
     <meta name="title" content="Statistical Calculator | Welch t-test, ANOVA, Effect Sizes | STEMKit">
-    <meta name="description" content="Run Welch's & Student's t-tests, one-way ANOVA (k groups), Pearson correlation, and Mann–Whitney / Wilcoxon tests in your browser. Reports effect sizes, 95% confidence intervals, normality & Levene assumption checks, and APA-style summaries — no data leaves your device.">
+    <meta name="description" content="Run Welch's & Student's t-tests, one-way ANOVA (k groups), Pearson correlation, and Mann–Whitney / Wilcoxon tests in your browser. Reports effect sizes, 95% confidence intervals, normality & Levene assumption checks, and APA-style summaries, no data leaves your device.">
     <meta name="keywords" content="statistical calculator, welch t-test, ANOVA calculator, effect size, cohen's d, confidence interval, levene test, mann-whitney, wilcoxon, p-value calculator, APA summary, client-side statistics">
     
     <link rel="canonical" href="https://stemkit.net/stats-calculator.html">
@@ -53,131 +53,10 @@
     <script src="js/dependencies/papaparse.min.js"></script>
     <script src="js/dependencies/jstat.min.js"></script>
 
-    <style>
-        @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .toast-enter { animation: slideIn 0.3s forwards; }
-
-        /* Safety net: hide KaTeX's MathML accessibility layer so a missing/partial
-           katex.min.css can never show a duplicated, garbled copy of the formula. */
-        #theoryContainer .katex-mathml,
-        .katex .katex-mathml { position:absolute !important; clip:rect(1px,1px,1px,1px) !important;
-            padding:0 !important; border:0 !important; height:1px !important; width:1px !important; overflow:hidden !important; }
-        #theoryContainer .katex-display { margin:.35rem 0; }
-
-        /* Variable legend under each formula */
-        .mf-defs { margin-top:1.25rem; padding-top:1rem; border-top:1px solid rgba(148,163,184,.25); }
-        .mf-defs-title { font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em;
-            color:#94a3b8; margin-bottom:.6rem; }
-        .mf-defs dl { display:grid; grid-template-columns:auto 1fr; gap:.45rem .9rem; margin:0; align-items:baseline; }
-        .mf-def { display:contents; }
-        .mf-defs dt { white-space:nowrap; text-align:right; }
-        .mf-defs dt .katex { font-size:1em; }
-        .mf-defs dd { margin:0; font-size:.82rem; color:#64748b; line-height:1.5; }
-        .dark .mf-defs dd { color:#94a3b8; }
-
-        /* Confidence-interval + assumption-check boxes (explicit dark mode, purge-proof) */
-        .ci-box { font-size:.75rem; font-weight:500; line-height:1.5; padding:.5rem .75rem; margin-bottom:.75rem;
-            border-radius:.5rem; color:#475569; background:rgba(238,242,255,.6); border:1px solid #e0e7ff; }
-        .dark .ci-box { color:#c7d2fe; background:rgba(49,46,129,.25); border-color:rgba(67,56,202,.4); }
-        .assume-box { font-size:.75rem; line-height:1.55; padding:.75rem; margin-bottom:1rem; border-radius:.5rem;
-            color:#334155; background:#f8fafc; border:1px solid #e2e8f0; }
-        .dark .assume-box { color:#e2e8f0; background:#1e293b; border-color:#334155; }
-        .assume-box .assume-title { font-weight:700; margin-bottom:.5rem; display:flex; align-items:center; gap:.5rem; color:#1e293b; }
-        .dark .assume-box .assume-title { color:#f1f5f9; }
-        .assume-box .assume-rows { display:flex; flex-direction:column; gap:.375rem; }
-        .assume-box .assume-row { display:flex; align-items:flex-start; gap:.5rem; }
-        .assume-box .assume-none { color:#64748b; }
-        .dark .assume-box .assume-none { color:#94a3b8; }
-        .assume-box .assume-foot { margin-top:.5rem; padding-top:.5rem; border-top:1px solid #e2e8f0;
-            font-size:.68rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:#64748b; }
-        .dark .assume-box .assume-foot { border-top-color:#334155; color:#94a3b8; }
-        .assume-box .ico-warn { color:#f59e0b; margin-top:1px; }
-        .assume-box .ico-ok { color:#10b981; margin-top:1px; }
-        .assume-box .assume-title i { color:#6366f1; }
-        .dark .assume-box .assume-title i { color:#818cf8; }
-
-        /* ---- Tutorial banner chips ---- */
-        .tut-group { display:flex; align-items:center; gap:1rem; padding:.6rem 0; border-top:1px solid rgba(148,163,184,.18); }
-        .tut-group:first-child { border-top:none; padding-top:0; }
-        .tut-heading { flex:0 0 8.5rem; font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:#94a3b8; }
-        .tut-chips { display:flex; flex-wrap:wrap; gap:.5rem; }
-        .tut-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.82rem; font-weight:600;
-            padding:.5rem .85rem; border-radius:.6rem; cursor:pointer; transition:all .15s;
-            background:#fff; color:#4f46e5; border:1px solid rgba(99,102,241,.3); }
-        .tut-chip:hover { background:#4f46e5; color:#fff; border-color:#4f46e5; box-shadow:0 2px 8px rgba(79,70,229,.25); transform:translateY(-1px); }
-        .dark .tut-chip { background:rgba(15,23,42,.6); color:#a5b4fc; border-color:rgba(129,140,248,.35); }
-        .dark .tut-chip:hover { background:#4f46e5; color:#fff; border-color:#4f46e5; }
-        @media (max-width:640px){
-            .tut-group { flex-direction:column; align-items:flex-start; gap:.5rem; }
-            .tut-heading { flex:none; }
-        }
-
-        /* Brief attention pulse on the Run button after a sample is loaded */
-        @keyframes runPulse {
-            0%   { box-shadow:0 0 0 0 rgba(99,102,241,.55); }
-            70%  { box-shadow:0 0 0 10px rgba(99,102,241,0); }
-            100% { box-shadow:0 0 0 0 rgba(99,102,241,0); }
-        }
-        .run-pulse { animation: runPulse 1.4s ease-out 1; }
-
-        /* ---- Method & References section ---- */
-        .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
-        .stk-wrap { max-width: 64rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
-        .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;
-            text-transform:uppercase; letter-spacing:.12em; padding:.35rem .7rem; border-radius:9999px;
-            background:rgba(99,102,241,.12); color:#4f46e5; border:1px solid rgba(99,102,241,.25); }
-        .dark .stk-chip { background:rgba(99,102,241,.18); color:#a5b4fc; border-color:rgba(129,140,248,.3); }
-        .stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
-        .stk-lead { max-width:48rem; color:#64748b; line-height:1.6; }
-        .dark .stk-lead { color:#94a3b8; }
-        .stk-where { font-size:.85rem; color:#64748b; line-height:1.75; margin-top:.5rem; }
-        .dark .stk-where { color:#94a3b8; }
-        .stk-table { width:100%; border-collapse:collapse; margin-top:1rem; font-size:.85rem; }
-        .stk-table th, .stk-table td { border:1px solid rgba(148,163,184,.3); padding:.55rem .7rem; text-align:left; vertical-align:top; }
-        .stk-table th { background:#f1f5f9; font-weight:700; }
-        .dark .stk-table th { background:#1e293b; }
-        .stk-refs-h { font-weight:700; font-size:1rem; margin-top:1.9rem; margin-bottom:.5rem; }
-        .stk-refs-list { font-size:.82rem; color:#64748b; line-height:1.75; padding-left:1.2rem; }
-        .dark .stk-refs-list { color:#94a3b8; }
-        .stk-refs-list li { margin-bottom:.55rem; }
-        .stk-refs-list a { color:#4f46e5; text-decoration:none; }
-        .dark .stk-refs-list a { color:#a5b4fc; }
-        .stk-refs-list a:hover { text-decoration:underline; }
-        .stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1.25rem; }
-        .stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600;
-            color:#4f46e5; background:rgba(99,102,241,.1); border:1px solid rgba(99,102,241,.22);
-            padding:.4rem .8rem; border-radius:9999px; text-decoration:none; }
-        .dark .stk-refs a { color:#a5b4fc; background:rgba(99,102,241,.15); border-color:rgba(129,140,248,.3); }
-        .stk-refs a:hover { text-decoration:underline; }
-        .stk-credit { margin-top:2rem; font-size:.8rem; color:#94a3b8; }
-        .stk-faq { border-bottom:1px solid rgba(148,163,184,.22); }
-        .stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 2.5rem 1rem 0; font-weight:600; font-size:.95rem; position:relative; }
-        .stk-faq > summary::-webkit-details-marker { display:none; }
-        .stk-faq > summary::after { content:"+"; position:absolute; right:.25rem; top:1rem; font-weight:700; color:#6366f1; font-size:1.2rem; line-height:1; }
-        .stk-faq[open] > summary::after { content:"\2212"; }
-        .stk-faq > div { padding:0 0 1.1rem; font-size:.88rem; line-height:1.6; color:#475569; }
-        .dark .stk-faq > div { color:#94a3b8; }
-        .hl { color:#4f46e5; font-weight:600; }
-        .dark .hl { color:#818cf8; }
-        .stk-section code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.82em; background:rgba(148,163,184,.16); padding:.1em .35em; border-radius:.3rem; }
-        .doc-tabs { display:flex; flex-wrap:wrap; gap:.4rem; margin:1.25rem 0 1.75rem; border-bottom:1px solid rgba(148,163,184,.25); padding-bottom:.75rem; }
-        .doc-tab { display:inline-flex; align-items:center; gap:.45rem; font-size:.85rem; font-weight:700; padding:.5rem .9rem; border-radius:.6rem; border:1px solid transparent; cursor:pointer; background:transparent; color:#64748b; transition:all .15s; }
-        .doc-tab:hover { background:#f1f5f9; color:#0f172a; }
-        .dark .doc-tab { color:#94a3b8; }
-        .dark .doc-tab:hover { background:#1e293b; color:#f1f5f9; }
-        .doc-tab.active { background:#4f46e5; color:#fff; border-color:#4f46e5; }
-        .doc-pane { display:none; }
-        .doc-pane.active { display:block; animation:docfade .2s ease; }
-        @keyframes docfade { from { opacity:0; transform:translateY(4px);} to { opacity:1; transform:none; } }
-        @media (max-width:640px){
-            .stk-section{padding:2rem 0;} .stk-wrap{padding-left:1rem;padding-right:1rem;}
-            .stk-h2{font-size:1.3rem;} .stk-table{font-size:.78rem;}
-            .stk-table th,.stk-table td{padding:.4rem .5rem;} .doc-tab{font-size:.78rem;padding:.4rem .7rem;}
-            .stk-section code{white-space:normal;word-break:break-word;}
-        }
-    </style>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
+    <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tools/stats-calculator.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
 
@@ -250,27 +129,27 @@
                 <div class="bg-indigo-600 text-white p-2 rounded-lg shrink-0"><i class="fa-solid fa-graduation-cap"></i></div>
                 <div>
                     <h2 class="text-base font-bold text-slate-900 dark:text-white">New here? Try a worked example</h2>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">Each button loads real data and picks the matching test — just press <strong>Run Analysis</strong> to see the result. Explore how the output changes across tests and formats.</p>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Each button loads real data and picks the matching test | just press <strong>Run Analysis</strong> to see the result. Explore how the output changes across tests and formats.</p>
                 </div>
             </div>
             <div class="flex flex-col gap-3">
                 <div class="tut-group">
                     <span class="tut-heading">t-tests</span>
                     <div class="tut-chips">
-                        <button class="tut-chip" data-sample="welch" title="Control vs Treatment — a clear, significant difference."><i class="fa-solid fa-flask-vial"></i> Two groups</button>
+                        <button class="tut-chip" data-sample="welch" title="Control vs Treatment, a clear, significant difference."><i class="fa-solid fa-flask-vial"></i> Two groups</button>
                         <button class="tut-chip" data-sample="paired" title="Repeated measures on the same subjects."><i class="fa-solid fa-arrows-left-right"></i> Before / after</button>
                     </div>
                 </div>
                 <div class="tut-group">
                     <span class="tut-heading">ANOVA</span>
                     <div class="tut-chips">
-                        <button class="tut-chip" data-sample="anova" title="Placebo / LowDose / HighDose — increasing means."><i class="fa-solid fa-layer-group"></i> Three groups</button>
+                        <button class="tut-chip" data-sample="anova" title="Placebo / LowDose / HighDose | increasing means."><i class="fa-solid fa-layer-group"></i> Three groups</button>
                     </div>
                 </div>
                 <div class="tut-group">
                     <span class="tut-heading">Correlation</span>
                     <div class="tut-chips">
-                        <button class="tut-chip" data-sample="pearson" title="Height vs weight — strong positive relationship."><i class="fa-solid fa-chart-line"></i> Pearson</button>
+                        <button class="tut-chip" data-sample="pearson" title="Height vs weight, strong positive relationship."><i class="fa-solid fa-chart-line"></i> Pearson</button>
                     </div>
                 </div>
                 <div class="tut-group">
@@ -286,7 +165,7 @@
         <div class="mb-4 flex items-start justify-between gap-4">
             <div>
                 <h1 class="text-3xl font-bold mb-2">Statistical Test Calculator</h1>
-                <p class="text-slate-500 dark:text-slate-400">Paste from Excel or upload a CSV. Both <strong>wide</strong> (one column per group) and <strong>long/tidy</strong> (a value column plus a group-label column) layouts are supported — the format is auto-detected, and you can override it below.</p>
+                <p class="text-slate-500 dark:text-slate-400">Paste from Excel or upload a CSV. Both <strong>wide</strong> (one column per group) and <strong>long/tidy</strong> (a value column plus a group-label column) layouts are supported, the format is auto-detected, and you can override it below.</p>
             </div>
             <button id="tutorialReopen" class="shrink-0 items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 px-3 py-2 rounded-lg transition-colors" style="display:none;">
                 <i class="fa-solid fa-graduation-cap"></i> Examples
@@ -346,8 +225,8 @@
                             <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Test Type</label>
                             <select id="testType" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
                                 <optgroup label="Parametric">
-                                    <option value="ttest_welch">Independent t-test — Welch (unequal variances)</option>
-                                    <option value="ttest_ind">Independent t-test — Student (pooled)</option>
+                                    <option value="ttest_welch">Independent t-test | Welch (unequal variances)</option>
+                                    <option value="ttest_ind">Independent t-test | Student (pooled)</option>
                                     <option value="ttest_pair">Paired t-test</option>
                                     <option value="anova">One-Way ANOVA (k groups)</option>
                                     <option value="pearson">Pearson Correlation</option>
@@ -477,7 +356,7 @@
                             <tr><td>Mann–Whitney / Wilcoxon</td><td>rank-biserial r / z⁄√n</td><td>same r benchmarks</td></tr>
                         </tbody>
                     </table>
-                    <p class="stk-where">The <span class="hl">95% CI for the mean difference</span> uses the same standard error and df as the test. The CI for Pearson's r uses the <span class="hl">Fisher z-transformation</span>, which stabilises the variance of r before building a symmetric interval and transforming back. Benchmarks (Cohen) are conventions, not laws — interpret them against your field's typical effects.</p>
+                    <p class="stk-where">The <span class="hl">95% CI for the mean difference</span> uses the same standard error and df as the test. The CI for Pearson's r uses the <span class="hl">Fisher z-transformation</span>, which stabilises the variance of r before building a symmetric interval and transforming back. Benchmarks (Cohen) are conventions, not laws, interpret them against your field's typical effects.</p>
                 </div>
 
                 <!-- ASSUMPTIONS -->
@@ -513,7 +392,7 @@
                     <li>Levene, H. (1960). Robust tests for equality of variances. In <em>Contributions to Probability and Statistics</em> (pp. 278–292). Stanford Univ. Press. Brown, M.&nbsp;B., &amp; Forsythe, A.&nbsp;B. (1974), <em>JASA</em>, 69, 364–367 (median-centred variant).</li>
                     <li>Mann, H.&nbsp;B., &amp; Whitney, D.&nbsp;R. (1947). On a test of whether one of two random variables is stochastically larger than the other. <em>Annals of Mathematical Statistics</em>, 18(1), 50–60. Wilcoxon, F. (1945). Individual comparisons by ranking methods. <em>Biometrics Bulletin</em>, 1(6), 80–83.</li>
                     <li>American Psychological Association (2020). <em>Publication Manual of the APA</em> (7th ed.). (Statistical reporting conventions.)</li>
-                    <li>jStat — JavaScript statistical library (distribution CDFs and inverse CDFs). <a href="https://jstat.github.io/" target="_blank" rel="noopener">jstat.github.io</a>. Formulas typeset with <a href="https://katex.org/" target="_blank" rel="noopener">KaTeX</a>.</li>
+                    <li>jStat, JavaScript statistical library (distribution CDFs and inverse CDFs). <a href="https://jstat.github.io/" target="_blank" rel="noopener">jstat.github.io</a>. Formulas typeset with <a href="https://katex.org/" target="_blank" rel="noopener">KaTeX</a>.</li>
                 </ol>
 
                 <div class="stk-refs">
@@ -521,7 +400,7 @@
                     <a href="https://doi.org/10.1093/biomet/34.1-2.28" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> Welch (1947)</a>
                     <a href="https://www.papaparse.com/" target="_blank" rel="noopener"><i class="fa-solid fa-file-csv"></i> PapaParse</a>
                 </div>
-                <p class="stk-credit">All computation runs entirely in your browser — your data never leaves your device. Results are a rigorous starting point; for regulatory or high-stakes analyses, confirm in a validated package (R, SciPy, SAS).</p>
+                <p class="stk-credit">All computation runs entirely in your browser, your data never leaves your device. Results are a rigorous starting point; for regulatory or high-stakes analyses, confirm in a validated package (R, SciPy, SAS).</p>
             </div>
         </section>
 
@@ -532,10 +411,10 @@
                 <div style="margin-top:1rem;">
                     <details class="stk-faq"><summary>Why is Welch's t-test the default instead of the classic Student's t-test?</summary><div>Because the equal-variance assumption behind the pooled Student's t-test is often violated in real data, and when it is, the pooled test's error rates are wrong. Welch's t-test does not assume equal variances, controls the Type&nbsp;I error rate well across a wide range of conditions, and loses very little power when variances happen to be equal. It's the modern recommended default; the pooled version is still offered for when you've confirmed equal variances.</div></details>
                     <details class="stk-faq"><summary>What changed from a "p-value only" tool?</summary><div>Three things reviewers now expect: an <strong>effect size</strong> for every test (Cohen's d, η²/ω², r/r², or a rank-biserial correlation), a <strong>95% confidence interval</strong> where one is standard, and automatic <strong>assumption checks</strong> (normality and equality of variance) that recommend a non-parametric test when needed. The ANOVA is also a genuine k-group analysis rather than a two-column comparison.</div></details>
-                    <details class="stk-faq"><summary>What data layouts are supported — wide or long?</summary><div>Both. <strong>Wide</strong> format puts each group in its own column (e.g. columns <code>GroupA</code>, <code>GroupB</code>, <code>GroupC</code>). <strong>Long / tidy</strong> format — the default export from R, pandas and most statistical software — puts all the numbers in one <code>value</code> column and the group labels in another (e.g. <code>value</code>, <code>group</code>). The tool auto-detects which you've pasted; if the guess is wrong, use the Format dropdown to force Wide or Long, and in Long mode pick which column holds the values and which holds the group labels.</div></details>
-                    <details class="stk-faq"><summary>How do I run an ANOVA on more than two groups?</summary><div>Choose "One-Way ANOVA" and the group selector switches to a multi-select — hold Ctrl/Cmd (or Shift) to pick every column that represents a group. Each selected column is treated as one independent group, and the F-test uses df = (k−1, N−k). In long format, every level of your group column automatically becomes a selectable group.</div></details>
+                    <details class="stk-faq"><summary>What data layouts are supported | wide or long?</summary><div>Both. <strong>Wide</strong> format puts each group in its own column (e.g. columns <code>GroupA</code>, <code>GroupB</code>, <code>GroupC</code>). <strong>Long / tidy</strong> format, the default export from R, pandas and most statistical software, puts all the numbers in one <code>value</code> column and the group labels in another (e.g. <code>value</code>, <code>group</code>). The tool auto-detects which you've pasted; if the guess is wrong, use the Format dropdown to force Wide or Long, and in Long mode pick which column holds the values and which holds the group labels.</div></details>
+                    <details class="stk-faq"><summary>How do I run an ANOVA on more than two groups?</summary><div>Choose "One-Way ANOVA" and the group selector switches to a multi-select, hold Ctrl/Cmd (or Shift) to pick every column that represents a group. Each selected column is treated as one independent group, and the F-test uses df = (k−1, N−k). In long format, every level of your group column automatically becomes a selectable group.</div></details>
                     <details class="stk-faq"><summary>When should I trust the non-parametric tests instead?</summary><div>When the normality check flags a departure (especially with small samples), or when your data are ordinal or have heavy outliers. Mann–Whitney U replaces the independent t-test; Wilcoxon signed-rank replaces the paired t-test. Both test distributional shift via ranks and make no normality assumption. Here they use a normal approximation, which is accurate for moderate-to-large n; for very small samples, confirm against exact tables.</div></details>
-                    <details class="stk-faq"><summary>Why are my p-values reported without a leading zero?</summary><div>That's APA style — probabilities that can't exceed 1 are written as p = .032, not 0.032. Values below .001 are shown as "&lt; .001" because the exact figure isn't meaningfully precise at that scale.</div></details>
+                    <details class="stk-faq"><summary>Why are my p-values reported without a leading zero?</summary><div>That's APA style, probabilities that can't exceed 1 are written as p = .032, not 0.032. Values below .001 are shown as "&lt; .001" because the exact figure isn't meaningfully precise at that scale.</div></details>
                     <details class="stk-faq"><summary>Is my data sent anywhere?</summary><div>No. Parsing (PapaParse) and all statistics run locally in your browser. Nothing you paste or upload is transmitted or stored.</div></details>
                 </div>
                 <p class="stk-credit">Built for reproducible, defensible statistical reporting.</p>
@@ -592,7 +471,7 @@
                     <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                 </div>
-                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-indigo-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
                 <div class="flex gap-6 text-sm font-medium">
                     <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
                     <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
@@ -638,6 +517,6 @@
             });
         }
     </script>
-    <script src="js/stats-calculator.js" defer></script>
+    <script type="module" src="js/stats-calculator.js"></script>
 </body>
 </html>

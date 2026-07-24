@@ -1,3 +1,11 @@
+/**
+ * DOI to BibTeX | UI layer.
+ *
+ * DOI-list parsing and BibTeX field filtering live in @stemkit/core; this file
+ * handles fetching and DOM wiring only.
+ */
+import { filterBibtexFields } from '../src/core/bibtex.js';
+
 document.addEventListener("DOMContentLoaded", () => {
 
     // ═══════════════════════════════════════════
@@ -183,39 +191,21 @@ document.addEventListener("DOMContentLoaded", () => {
     // 7. BIBTEX FIELD FILTERING
     // ═══════════════════════════════════════════
 
+    /**
+     * Keep only the fields the user has ticked.
+     *
+     * Delegates to the core so this shares the tested implementation. The
+     * previous local copy scanned line by line, which silently did nothing
+     * when a provider returned the whole entry on one line, as the DOI
+     * content-negotiation service often does.
+     */
     function filterBibtex(bib) {
-        const lines = bib.split("\n");
-        const filtered = [];
-        let skipping = false;
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const fieldMatch = line.match(/^\s*(\w+)\s*=/);
-
-            if (fieldMatch) {
-                const fieldName = fieldMatch[1].toLowerCase();
-                if (enabledFields.has(fieldName)) {
-                    skipping = false;
-                    filtered.push(line);
-                } else {
-                    skipping = true;
-                }
-            } else if (skipping) {
-                if (line.trim() === "}" || line.trim() === "") {
-                    skipping = false;
-                    filtered.push(line);
-                }
-            } else {
-                filtered.push(line);
-            }
-        }
-
-        return filtered.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+        return filterBibtexFields(bib, enabledFields);
     }
 
 
     // ═══════════════════════════════════════════
-    // 8. OUTPUT — Full rebuild (field filter changes)
+    // 8. OUTPUT, Full rebuild (field filter changes)
     // ═══════════════════════════════════════════
 
     function rebuildOutput() {
@@ -225,7 +215,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ═══════════════════════════════════════════
-    // 9. OUTPUT — Stream-append a single entry
+    // 9. OUTPUT, Stream-append a single entry
     // ═══════════════════════════════════════════
 
     function streamAppendEntry(rawBib) {
@@ -265,11 +255,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ═══════════════════════════════════════════
-    // 11. MAIN BATCH FETCH — STREAMING PIPELINE
+    // 11. MAIN BATCH FETCH | STREAMING PIPELINE
     //
     //  Each result streams into the textarea the
     //  instant it arrives. No spinner blocks the
-    //  output — the user watches entries populate
+    //  output, the user watches entries populate
     //  in real time while the progress bar and
     //  current-DOI label update live.
     // ═══════════════════════════════════════════
@@ -315,7 +305,7 @@ document.addEventListener("DOMContentLoaded", () => {
             dedupInfo.classList.add("hidden");
         }
 
-        // Lock UI — but do NOT show the blocking spinner overlay
+        // Lock UI, but do NOT show the blocking spinner overlay
         isFetching = true;
         fetchBtn.disabled = true;
         loadingOverlay.classList.add("hidden");
@@ -328,7 +318,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Show progress bar
         progressWrapper.classList.remove("hidden");
         progressFill.style.width = "0%";
-        progressText.textContent = `0 / ${dois.length} — starting…`;
+        progressText.textContent = `0 / ${dois.length}, starting…`;
 
         // Clear input early so the field is ready for more DOIs
         if (!isRetry) doiInput.value = "";
@@ -338,7 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const doi = dois[i];
 
             // Live: show which DOI is currently being fetched
-            progressText.textContent = `${i + 1} / ${dois.length} — ${truncate(doi, 40)}`;
+            progressText.textContent = `${i + 1} / ${dois.length}, ${truncate(doi, 40)}`;
 
             try {
                 const bib = await fetchSingleDOI(doi);
@@ -366,7 +356,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // ── Batch complete ──
         const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-        progressText.textContent = `${dois.length} / ${dois.length} — done in ${elapsed}s`;
+        progressText.textContent = `${dois.length} / ${dois.length}, done in ${elapsed}s`;
 
         // Final failure UI
         if (failedDOIs.length > 0) {

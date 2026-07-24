@@ -1,302 +1,303 @@
+/**
+ * Journal Abbreviator | UI layer.
+ *
+ * The dictionary engine, matching, and unknown-title detection live in
+ * @stemkit/core; this file handles DOM wiring and highlighted rendering.
+ */
+import {
+  buildEngine,
+  parseCustomRules,
+  processText,
+  segmentText,
+  findUnknownTitles
+} from '../src/core/journals.js';
+import { loadIso4, deriveRulesForUnknowns } from '../src/core/iso4.js';
+
 document.addEventListener('DOMContentLoaded', () => {
 
-    // =========================================================================
-    // 1. Matching engine
-    // -------------------------------------------------------------------------
-    // The dictionary lives in js/journal-data.js (window.STEMKIT_JOURNALS) as
-    // simple ["Full Name", "Abbrev."] pairs — edit that file to add journals.
-    // Users can also add rules at runtime via the "Custom abbreviations" panel
-    // (persisted in localStorage, custom rules override built-ins).
-    //
-    // From each name the engine derives ONE canonical key and ONE regex
-    // fragment that tolerate: a leading "The", "&" vs "and", optional colons/
-    // commas, hyphen vs en/em dash, and any whitespace (including line wraps).
-    // =========================================================================
+  // --- 1. Interface bindings ---
+  const dataInput = document.getElementById('dataInput');
+  const visualOutput = document.getElementById('visualOutput');
+  const rawOutput = document.getElementById('rawOutput');
+  const btnClear = document.getElementById('btnClear');
+  const btnCopyText = document.getElementById('btnCopyText');
+  const btnExample = document.getElementById('btnExample');
+  const toggleHighlights = document.getElementById('toggleHighlights');
+  const customRules = document.getElementById('customRules');
+  const dictLabel = document.getElementById('dictLabel');
+  const statsLabel = document.getElementById('statsLabel');
+  const toastContainer = document.getElementById('toastContainer');
 
-    const CUSTOM_STORE_KEY = 'stemkit-journal-custom-rules';
+  // Chosen to exercise the awkward cases: a lowercase journal name, one with a
+  // colon in the title, a "The ..." prefix, and a journal absent from the
+  // dictionary so the unmatched path is visible too.
+  const EXAMPLE = [
+    'Smith, J.; Doe, A. Journal of the American Chemical Society 2024, 146, 1122.',
+    'Lee, K. et al. Physical Review Letters 2023, 130, 045501.',
+    'Patel, R. Chemical Communications 2022, 58, 8890.',
+    'Nguyen, T. energy & environmental science 2021, 14, 4561.',
+    'Garcia, M. The Journal of Chemical Physics 2020, 153, 044302.',
+    'Zhou, L. Journal of Physics: Condensed Matter 2019, 31, 275901.',
+    'Okafor, C. Journal of Imaginary Results 2018, 3, 12.'
+  ].join('\n');
 
-    // Canonical form used to look up a matched string in the dictionary.
-    function normKey(s) {
-        return s.toLowerCase()
-            .replace(/&/g, ' and ')
-            .replace(/[\u2013\u2014-]/g, ' ')   // dashes -> space
-            .replace(/[:,.]/g, ' ')             // punctuation -> space
-            .replace(/\s+/g, ' ')
-            .trim()
-            .replace(/^the /, '');
-    }
+  let engine = null;
 
-    // Regex fragment for one journal name (leading "The" is handled globally).
-    function toPatternPart(name) {
-        const canonical = name.replace(/^the\s+/i, '');
-        return canonical
-            .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-            .replace(/\s*[-\u2013\u2014]\s*/g, '\x01')
-            .replace(/\s*&\s*/g, '\x02')
-            .replace(/[:,]/g, '\x03')
-            .replace(/\s+/g, '\\s+')
-            .replace(/\x01/g, '(?:\\s*[-\\u2013\\u2014]\\s*|\\s+)')
-            .replace(/\x02/g, '\\s+(?:&|and)\\s+')
-            .replace(/\x03/g, '[:,]?');
-    }
+  // Tier two: the ISO 4 word list. Optional, the tool works without it, just
+  // limited to titles the dictionary already knows.
+  let iso4Engine = null;
+  let iso4Stats = null;
+  let iso4Status = 'idle';   // idle | loading | ready | absent | error
 
-    // "Full Journal Name = Abbrev." per line; '#' starts a comment line.
-    function parseCustomRules(text) {
-        const rules = [];
-        (text || '').split(/\r?\n/).forEach(line => {
-            const t = line.trim();
-            if (!t || t.startsWith('#')) return;
-            const i = t.indexOf('=');
-            if (i < 1) return;
-            const name = t.slice(0, i).trim();
-            const abbr = t.slice(i + 1).trim();
-            if (name && abbr) rules.push([name, abbr]);
-        });
-        return rules;
-    }
+  /** Where the LTWA export is expected to live, relative to the page. */
+  const LTWA_PATH = 'abbr/abbreviation.csv';
 
-    let lookup = {};            // normKey -> abbreviation
-    let searchPattern = null;   // compiled regex over all names
-    let builtinCount = 0;
-    let customCount = 0;
-
-    function rebuildEngine(customText) {
-        const builtin = Array.isArray(window.STEMKIT_JOURNALS) ? window.STEMKIT_JOURNALS : [];
-        const custom = parseCustomRules(customText);
-
-        lookup = {};
-        const displayNames = new Map();   // normKey -> display name (dedup)
-
-        // Custom rules are added last so they override built-in entries.
-        [...builtin, ...custom].forEach(([name, abbr]) => {
-            if (!name || !abbr) return;
-            const key = normKey(name);
-            if (!key) return;
-            lookup[key] = abbr;
-            displayNames.set(key, name);
-        });
-
-        builtinCount = builtin.length;
-        customCount = custom.length;
-
-        // Longest names first so full titles beat any embedded shorter title.
-        const parts = [...displayNames.values()]
-            .sort((a, b) => b.length - a.length)
-            .map(toPatternPart);
-
-        searchPattern = parts.length
-            ? new RegExp(`\\b(?:the\\s+)?(?:${parts.join('|')})\\b`, 'gi')
-            : null;
-    }
-
-    // Heuristic: flag likely journal titles the dictionary does NOT know, so
-    // nothing silently slips through ("N Unknown" in the stats badge).
-    const SUSPECT_TITLE = new RegExp(
-        '\\b(?:(?:International|European|American|Annual|Canadian|Australian|Applied|Russian|Chinese|Japanese)\\s+)?' +
-        '(?:Journal|Proceedings|Transactions|Annals|Reviews?)\\s+(?:of|in|on)\\s+(?:the\\s+)?' +
-        '[A-Z][\\w&-]*(?:\\s+(?:(?:of|and|in|for|the)\\s+)?[A-Z][\\w&-]*){0,6}',
-        'g'
-    );
-
-    // =========================================================================
-    // 2. Interface bindings
-    // =========================================================================
-    const dataInput = document.getElementById('dataInput');
-    const visualOutput = document.getElementById('visualOutput');
-    const rawOutput = document.getElementById('rawOutput');
-    const btnClear = document.getElementById('btnClear');
-    const btnCopyText = document.getElementById('btnCopyText');
-    const btnExample = document.getElementById('btnExample');       // optional
-    const toggleHighlights = document.getElementById('toggleHighlights');
-    const statsLabel = document.getElementById('statsLabel');
-    const toastContainer = document.getElementById('toastContainer');
-    const customRules = document.getElementById('customRules');     // optional
-    const dictLabel = document.getElementById('dictLabel');         // optional
-
-    const EXAMPLE = [
-        "Smith, J.; Doe, A. Journal of the American Chemical Society 2024, 146, 1122.",
-        "Lee, K. et al. Physical Review Letters 2023, 130, 045501.",
-        "Patel, R. Chemical Communications 2022, 58, 8890.",
-        "Nguyen, T. energy & environmental science 2021, 14, 4561.",
-        "Garcia, M. The Journal of Chemical Physics 2020, 153, 044302.",
-        "Zhou, L. Journal of Physics: Condensed Matter 2019, 31, 275901.",
-        "Okafor, C. Journal of Imaginary Results 2018, 3, 12."
-    ].join("\n");
-
-    // =========================================================================
-    // 3. Event listeners
-    // =========================================================================
-    dataInput.addEventListener('input', processText);
-    toggleHighlights.addEventListener('change', processText);
-
-    btnClear.addEventListener('click', () => {
-        dataInput.value = '';
-        processText();
-    });
-
-    if (btnExample) {
-        btnExample.addEventListener('click', () => {
-            dataInput.value = EXAMPLE;
-            processText();
-        });
-    }
-
-    if (customRules) {
-        // Restore saved rules, rebuild (debounced) on edit.
-        try {
-            const saved = localStorage.getItem(CUSTOM_STORE_KEY);
-            if (saved) customRules.value = saved;
-        } catch (e) { /* storage unavailable — run without persistence */ }
-
-        let debounce = null;
-        customRules.addEventListener('input', () => {
-            clearTimeout(debounce);
-            debounce = setTimeout(() => {
-                try { localStorage.setItem(CUSTOM_STORE_KEY, customRules.value); } catch (e) {}
-                rebuildEngine(customRules.value);
-                updateDictLabel();
-                processText();
-            }, 250);
-        });
-    }
-
-    // =========================================================================
-    // 4. Processing engine
-    // =========================================================================
-    function escapeHtml(text) {
-        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-        return text.replace(/[&<>"']/g, m => map[m]);
-    }
-
-    // Render an unmatched segment, optionally flagging suspected unknown titles.
-    function renderPlainSegment(text, flagUnknown) {
-        if (!flagUnknown) return { html: escapeHtml(text), unknown: 0 };
-        let html = '';
-        let last = 0;
-        let unknown = 0;
-        let m;
-        SUSPECT_TITLE.lastIndex = 0;
-        while ((m = SUSPECT_TITLE.exec(text)) !== null) {
-            html += escapeHtml(text.slice(last, m.index));
-            html += `<span class="hl-unknown" title="Not in the dictionary — verify against CASSI, or add it as a custom rule">${escapeHtml(m[0])}</span>`;
-            unknown++;
-            last = m.index + m[0].length;
-        }
-        html += escapeHtml(text.slice(last));
-        return { html, unknown };
-    }
-
-    // Single pass over the RAW text: builds the plain-text result and the
-    // highlighted HTML together, escaping only AFTER matching — so names
-    // containing "&" (e.g. "ACS Applied Materials & Interfaces") work.
-    function processText() {
-        const input = dataInput.value;
-
-        if (!input.trim()) {
-            visualOutput.textContent = "Waiting for input...";
-            rawOutput.value = "";
-            statsLabel.textContent = "0 Changes";
-            return;
-        }
-
-        const showHighlights = toggleHighlights.checked;
-        let changeCount = 0;
-        let unknownCount = 0;
-        let clean = "";
-        const html = [];
-        let lastIndex = 0;
-        let m;
-
-        if (searchPattern) {
-            searchPattern.lastIndex = 0;
-            while ((m = searchPattern.exec(input)) !== null) {
-                const matchStr = m[0];
-                const before = input.slice(lastIndex, m.index);
-                const replacement = lookup[normKey(matchStr)];
-
-                const seg = renderPlainSegment(before, showHighlights);
-                html.push(seg.html);
-                unknownCount += seg.unknown;
-                clean += before;
-
-                if (replacement === undefined ||
-                    replacement.toLowerCase() === matchStr.toLowerCase()) {
-                    // Identity entries (Nature, Small, ...) or lookup miss:
-                    // leave the text exactly as written, count nothing.
-                    clean += matchStr;
-                    html.push(escapeHtml(matchStr));
-                } else {
-                    clean += replacement;
-                    html.push(
-                        showHighlights
-                            ? `<span class="hl-change" title="Original: ${escapeHtml(matchStr)}">${escapeHtml(replacement)}</span>`
-                            : escapeHtml(replacement)
-                    );
-                    changeCount++;
-                }
-
-                lastIndex = m.index + matchStr.length;
-                if (matchStr.length === 0) searchPattern.lastIndex++; // safety
-            }
-        }
-
-        const tail = input.slice(lastIndex);
-        const tailSeg = renderPlainSegment(tail, showHighlights);
-        clean += tail;
-        html.push(tailSeg.html);
-        unknownCount += tailSeg.unknown;
-
-        visualOutput.innerHTML = html.join("");
-        rawOutput.value = clean;
-        statsLabel.textContent =
-            `${changeCount} ${changeCount === 1 ? "Change" : "Changes"}` +
-            (unknownCount ? ` · ${unknownCount} Unknown` : "");
-    }
-
-    function updateDictLabel() {
-        if (!dictLabel) return;
-        dictLabel.textContent = `${builtinCount} built-in` +
-            (customCount ? ` · ${customCount} custom` : '');
-    }
-
-    // =========================================================================
-    // 5. Utilities
-    // =========================================================================
-    function showToast(message) {
-        const toast = document.createElement('div');
-        toast.className = 'bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-xl transform transition-all duration-300 translate-y-[-20px] opacity-0';
-        toast.innerText = message;
-        toastContainer.appendChild(toast);
-        requestAnimationFrame(() => {
-            toast.classList.remove('translate-y-[-20px]', 'opacity-0');
-            toast.classList.add('translate-y-0', 'opacity-100');
-        });
-        setTimeout(() => {
-            toast.classList.remove('translate-y-0', 'opacity-100');
-            toast.classList.add('translate-y-[-20px]', 'opacity-0');
-            setTimeout(() => toast.remove(), 300);
-        }, 2000);
-    }
-
-    btnCopyText.addEventListener('click', () => {
-        const text = rawOutput.value;
-        if (!text) return;
-        navigator.clipboard.writeText(text).then(() => {
-            showToast('Abbreviated text copied to clipboard!');
-            const originalHTML = btnCopyText.innerHTML;
-            btnCopyText.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
-            btnCopyText.classList.replace('bg-pink-600', 'bg-emerald-600');
-            setTimeout(() => {
-                btnCopyText.innerHTML = originalHTML;
-                btnCopyText.classList.replace('bg-emerald-600', 'bg-pink-600');
-            }, 2000);
-        });
-    });
-
-    // =========================================================================
-    // Initial build + pass
-    // =========================================================================
-    rebuildEngine(customRules ? customRules.value : '');
+  /**
+   * Load the LTWA once, in the background.
+   *
+   * The export is a couple of megabytes, so this deliberately does not block
+   * first paint: the dictionary tier renders immediately and the page
+   * re-renders if and when the word list arrives.
+   */
+  async function loadIso4Engine() {
+    if (iso4Status !== 'idle') return;
+    iso4Status = 'loading';
     updateDictLabel();
-    processText();
+    try {
+      const res = await fetch(LTWA_PATH);
+      if (!res.ok) {
+        iso4Status = res.status === 404 ? 'absent' : 'error';
+        updateDictLabel();
+        return;
+      }
+      const text = await res.text();
+      const { engine: e, stats } = loadIso4(text);
+      if (!stats.indexed) {
+        iso4Status = 'error';
+        updateDictLabel();
+        return;
+      }
+      iso4Engine = e;
+      iso4Stats = stats;
+      iso4Status = 'ready';
+      updateDictLabel();
+      render();
+      showToast(`ISO 4 word list loaded, ${stats.indexed.toLocaleString()} rules.`);
+    } catch (err) {
+      console.error(err);
+      iso4Status = 'error';
+      updateDictLabel();
+    }
+  }
+
+  // --- 2. Engine construction ---
+  function rebuildEngine() {
+    // The built-in dictionary is installed as a global by js/journal-data.js.
+    const builtin = Array.isArray(window.STEMKIT_JOURNALS)
+      ? window.STEMKIT_JOURNALS
+      : [];
+    const custom = parseCustomRules(customRules ? customRules.value : '');
+
+    engine = buildEngine(builtin, custom);
+
+    updateDictLabel();
+  }
+
+  /** Report both tiers, so it is clear which one produced a result. */
+  function updateDictLabel() {
+    if (!dictLabel || !engine) return;
+    let label =
+      `${engine.builtinCount} built-in` +
+      (engine.customCount ? ` + ${engine.customCount} custom` : '') +
+      ` (${engine.entryCount} unique)`;
+
+    if (iso4Status === 'ready' && iso4Stats) {
+      label += ` · ISO 4: ${iso4Stats.indexed.toLocaleString()} word rules`;
+    } else if (iso4Status === 'loading') {
+      label += ' · loading ISO 4 word list…';
+    } else if (iso4Status === 'error') {
+      label += ' · ISO 4 word list could not be read';
+    }
+    dictLabel.textContent = label;
+  }
+
+  // --- 3. Event listeners ---
+  if (dataInput) dataInput.addEventListener('input', render);
+
+  // Custom rules persist across sessions, so a user's house style survives a
+  // reload. Storage may be unavailable (private mode, disabled), in which case
+  // the tool still works, it just does not remember between visits.
+  const CUSTOM_STORE_KEY = 'stemkit-journal-custom-rules';
+  if (customRules) {
+    try {
+      const saved = localStorage.getItem(CUSTOM_STORE_KEY);
+      if (saved) {
+        customRules.value = saved;
+        rebuildEngine();
+      }
+    } catch (e) { /* storage unavailable | run without persistence */ }
+
+    let debounce = null;
+    customRules.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => {
+        try { localStorage.setItem(CUSTOM_STORE_KEY, customRules.value); } catch (e) {}
+        rebuildEngine();
+        render();
+      }, 250);
+    });
+  }
+  if (toggleHighlights) toggleHighlights.addEventListener('change', render);
+
+  document.querySelectorAll('.accordion-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const expanded = btn.getAttribute('aria-expanded') === 'true';
+      btn.setAttribute('aria-expanded', !expanded);
+      const target = document.getElementById(btn.getAttribute('data-target'));
+      if (target) target.classList.toggle('expanded');
+    });
+  });
+
+  if (btnExample) btnExample.addEventListener('click', () => {
+    dataInput.value = EXAMPLE;
+    render();
+  });
+
+  if (btnClear) btnClear.addEventListener('click', () => {
+    dataInput.value = '';
+    render();
+  });
+
+  // --- 4. Rendering ---
+
+  /**
+   * Engine to use for this pass.
+   *
+   * The dictionary is authoritative, so it runs first. Anything it did not
+   * recognise is put through ISO 4, and the results are folded back in as
+   * ordinary rules, that way replacement, highlighting and counting all stay
+   * in one code path instead of being duplicated per tier.
+   */
+  function activeEngine(text) {
+    if (!iso4Engine || !engine) return engine;
+
+    const unknowns = findUnknownTitles(text, engine);
+    if (!unknowns.length) return engine;
+
+    const derived = deriveRulesForUnknowns(unknowns, iso4Engine);
+    if (!derived.length) return engine;
+
+    const builtin = Array.isArray(window.STEMKIT_JOURNALS)
+      ? window.STEMKIT_JOURNALS
+      : [];
+    const custom = parseCustomRules(customRules ? customRules.value : '');
+    return buildEngine(builtin, [...custom, ...derived]);
+  }
+
+  function render() {
+    if (!engine) rebuildEngine();
+    const text = dataInput ? dataInput.value : '';
+
+    if (!text.trim()) {
+      if (visualOutput) {
+        visualOutput.innerHTML =
+          '<span class="text-slate-400">Paste a reference list to abbreviate.</span>';
+      }
+      if (rawOutput) rawOutput.textContent = '';
+      if (statsLabel) statsLabel.textContent = '';
+      return;
+    }
+
+    const eng = activeEngine(text);
+    const result = processText(text, eng);
+    if (rawOutput) rawOutput.textContent = result.text;
+
+    const highlight = toggleHighlights ? toggleHighlights.checked : true;
+    if (visualOutput) {
+      visualOutput.innerHTML = highlight
+        ? renderHighlighted(text, eng)
+        : escapeHtml(result.text);
+    }
+
+    if (statsLabel) {
+      // Recognised counts every dictionary hit; changed counts only the ones
+      // that actually rewrote the text, since some journals are not
+      // abbreviated at all.
+      const changed = result.replacements.filter(r => r.changed).length;
+      const unknown = result.unknown.length;
+      statsLabel.textContent =
+        `${changed} abbreviated · ${result.replacements.length} recognised` +
+        (unknown ? ` · ${unknown} unknown` : '');
+    }
+  }
+
+  /** Build highlighted HTML from the core's segments. */
+  function renderHighlighted(text, eng) {
+    const segments = segmentText(text, eng || engine);
+    const parts = [];
+
+    for (const seg of segments) {
+      if (seg.type === 'text') {
+        parts.push(markUnknown(seg.value));
+        continue;
+      }
+      const cls = seg.changed
+        ? 'ja-hit'
+        : 'ja-hit ja-hit-identity';
+      parts.push(
+        `<mark class="${cls}" title="${escapeHtml(seg.original)}">` +
+        `${escapeHtml(seg.value)}</mark>`
+      );
+    }
+    return parts.join('');
+  }
+
+  /** Flag journal-like titles the dictionary does not know. */
+  function markUnknown(chunk) {
+    const unknown = findUnknownTitles(chunk, engine);
+    if (unknown.length === 0) return escapeHtml(chunk);
+
+    let html = escapeHtml(chunk);
+    for (const title of unknown) {
+      const escaped = escapeHtml(title);
+      html = html.split(escaped).join(
+        `<mark class="ja-unknown" title="Not in the dictionary">${escaped}</mark>`
+      );
+    }
+    return html;
+  }
+
+  // --- 5. Copy ---
+  if (btnCopyText) btnCopyText.addEventListener('click', () => {
+    const text = rawOutput ? rawOutput.textContent : '';
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => showToast('Abbreviated text copied.'));
+  });
+
+  // --- 6. Utilities ---
+  function escapeHtml(text) {
+    return String(text ?? '').replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
+  }
+
+  function showToast(message) {
+    if (!toastContainer) return;
+    const toast = document.createElement('div');
+    toast.className =
+      'bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-xl ' +
+      'transition-opacity duration-300';
+    toast.innerText = message;
+    toastContainer.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 300);
+    }, 2000);
+  }
+
+  rebuildEngine();
+  render();
+
+  // Kick off the optional ISO 4 tier; the dictionary already works.
+  loadIso4Engine();
+
 });
