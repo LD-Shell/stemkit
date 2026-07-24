@@ -50,7 +50,7 @@ function saveSettings() {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
     } catch {
-        // Private browsing — run without persistence.
+        // Private browsing | run without persistence.
     }
 }
 
@@ -151,7 +151,7 @@ function getTrack(name) {
             }
             if (row) row.dataset.failed = 'true';
             const readout = document.getElementById(`val-${name}`);
-            if (readout) readout.textContent = '—';
+            if (readout) readout.textContent = ', ';
         });
         audioTracks[name] = el;
     }
@@ -172,7 +172,7 @@ function setTrackVolume(name, raw) {
     }
 }
 
-// Brown noise is pure math — no file, no bandwidth, no audible loop point.
+// Brown noise is pure math, no file, no bandwidth, no audible loop point.
 function setNoiseVolume(raw) {
     const vol = parseFloat(raw);
     paintChannel('noise', vol);
@@ -255,7 +255,7 @@ function updateDisplay(seconds) {
     const timeString = `${mins}:${secs}`;
 
     displayEl.textContent = timeString;
-    document.title = `${timeString} — ${MODE_LABELS[currentMode]} | STEMKit`;
+    document.title = `${timeString}, ${MODE_LABELS[currentMode]} | STEMKit`;
 
     const total = durationFor(currentMode);
     const fraction = total > 0 ? safe / total : 0;
@@ -423,7 +423,7 @@ Object.entries(inputs).forEach(([key, el]) => {
     });
 });
 
-// Permission is requested on first start, not page load — an unprompted
+// Permission is requested on first start, not page load, an unprompted
 // dialog is the fastest way to get denied permanently.
 btnToggle.addEventListener('click', function askOnce() {
     if ('Notification' in window && Notification.permission === 'default') {

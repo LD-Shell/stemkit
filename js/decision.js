@@ -1,5 +1,5 @@
 /*
- * STEMKit — Weighted Decision Matrix
+ * STEMKit | Weighted Decision Matrix
  * Method: Simple Additive Weighting (SAW), also called the Weighted Sum Model.
  * Each option's score = Sum over criteria of (rating x weight).
  * Author: Olanrewaju M. Daramola. Runs 100% client-side.
@@ -64,7 +64,7 @@ btnGenerate.addEventListener('click', () => {
 
     matrixWrapper.classList.remove('hidden');
     resultsContainer.innerHTML =
-        `<h3 class="text-xl font-medium text-slate-500 dark:text-slate-400">Matrix generated &mdash; fill in the scores, then calculate.</h3>`;
+        `<h3 class="text-xl font-medium text-slate-500 dark:text-slate-400">Matrix generated, fill in the scores, then calculate.</h3>`;
     matrixWrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 });
 

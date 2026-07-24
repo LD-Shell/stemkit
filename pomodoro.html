@@ -19,7 +19,7 @@
 
     <title>Ambient Pomodoro | Deep Work Timer | STEMKit</title>
     <meta name="title" content="Ambient Pomodoro | Deep Work Timer | STEMKit">
-    <meta name="description" content="A distraction-free Pomodoro timer with a built-in ambient mixer — rain, cafe chatter and brown noise — plus custom intervals and background-tab accuracy.">
+    <meta name="description" content="A distraction-free Pomodoro timer with a built-in ambient mixer (rain, cafe chatter and brown noise) plus custom intervals and background-tab accuracy.">
     <meta name="keywords" content="pomodoro timer, deep work, ambient noise, study timer, productivity tool, focus timer">
 
     <link rel="canonical" href="https://stemkit.net/pomodoro.html">
@@ -48,7 +48,7 @@
     </script>
 
     <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does the timer keep running if I switch tabs?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The countdown is anchored to an absolute finish time rather than counting ticks, so browser throttling of inactive tabs does not cause drift. The remaining time also appears in the tab title."}}, {"@type": "Question", "name": "Is my data uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Everything runs in your browser. Your intervals are stored in this browser’s local storage and nothing about your sessions is sent to a server."}}, {"@type": "Question", "name": "How long should a focus session be?", "acceptedAnswer": {"@type": "Answer", "text": "25 minutes is the classic default and suits interruptible work. For debugging, reading papers, or writing, 45–50 minutes often works better because complex problems take time to load into working memory. Change it under Intervals."}}, {"@type": "Question", "name": "Why does the audio not start immediately?", "acceptedAnswer": {"@type": "Answer", "text": "Browsers block audio until you interact with the page, and each channel only downloads when you first raise its slider. If a slider is greyed out, that recording failed to load."}}, {"@type": "Question", "name": "Will I get a notification when the session ends?", "acceptedAnswer": {"@type": "Answer", "text": "A chime always plays. If you grant notification permission on first start, you will also get a desktop notification — but only while the tab is in the background, so a focused tab is never interrupted twice."}}, {"@type": "Question", "name": "Are there keyboard shortcuts?", "acceptedAnswer": {"@type": "Answer", "text": "Yes: Space starts and pauses, R resets the current session, and S skips to the next one. Arrow keys move between the Focus, Short and Long tabs."}}]}
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does the timer keep running if I switch tabs?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The countdown is anchored to an absolute finish time rather than counting ticks, so browser throttling of inactive tabs does not cause drift. The remaining time also appears in the tab title."}}, {"@type": "Question", "name": "Is my data uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Everything runs in your browser. Your intervals are stored in this browser’s local storage and nothing about your sessions is sent to a server."}}, {"@type": "Question", "name": "How long should a focus session be?", "acceptedAnswer": {"@type": "Answer", "text": "25 minutes is the classic default and suits interruptible work. For debugging, reading papers, or writing, 45–50 minutes often works better because complex problems take time to load into working memory. Change it under Intervals."}}, {"@type": "Question", "name": "Why does the audio not start immediately?", "acceptedAnswer": {"@type": "Answer", "text": "Browsers block audio until you interact with the page, and each channel only downloads when you first raise its slider. If a slider is greyed out, that recording failed to load."}}, {"@type": "Question", "name": "Will I get a notification when the session ends?", "acceptedAnswer": {"@type": "Answer", "text": "A chime always plays. If you grant notification permission on first start, you will also get a desktop notification, but only while the tab is in the background, so a focused tab is never interrupted twice."}}, {"@type": "Question", "name": "Are there keyboard shortcuts?", "acceptedAnswer": {"@type": "Answer", "text": "Yes: Space starts and pauses, R resets the current session, and S skips to the next one. Arrow keys move between the Focus, Short and Long tabs."}}]}
 </script>
 
 <script type="application/ld+json">
@@ -118,7 +118,7 @@
             stroke: var(--pm-accent);
             transition: stroke-dashoffset 0.3s linear, stroke 0.4s ease;
         }
-        /* Mode recolours the ring — breaks read as green, focus as indigo. */
+        /* Mode recolours the ring, breaks read as green, focus as indigo. */
         .pm-dial[data-mode="short"] .pm-progress,
         .pm-dial[data-mode="long"] .pm-progress { stroke: var(--pm-emerald); }
 
@@ -343,7 +343,7 @@
     </style>
 
     <style>
-        /* STEMKit docs / how-to / FAQ — self-contained styles */
+        /* STEMKit docs / how-to / FAQ | self-contained styles */
         .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
         .stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
         .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;
@@ -471,7 +471,7 @@
         <div class="text-center mb-12">
             <h1 class="text-4xl md:text-5xl font-black mb-4 tracking-tight">Ambient Pomodoro</h1>
             <p class="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">Set an interval, raise a soundscape, and work until the chime. The countdown is anchored to a real clock time, so it stays accurate in a background tab.</p>
-            <p class="text-xs text-slate-400 mt-3">By Olanrewaju M. Daramola · Cirillo intervals · 100% client-side</p>
+            <p class="text-xs text-slate-400 mt-3">Cirillo intervals · 100% client-side</p>
         </div>
 
         <div class="w-full max-w-md mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-8 relative">
@@ -542,8 +542,7 @@
                 </div>
 
                 <p class="text-xs text-slate-400 mt-6">
-                    Recordings used under Creative Commons —
-                    <a href="#faq" class="pm-underline hover:text-indigo-600 transition-colors">see credits</a>.
+                    Recordings used under Creative Commons |                     <a href="#faq" class="pm-underline hover:text-indigo-600 transition-colors">see credits</a>.
                 </p>
 
                 <div id="settings-panel" class="hidden mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
@@ -581,9 +580,8 @@
             <span class="stk-chip"><i class="fa-solid fa-stopwatch"></i> How-To Guide</span>
             <h2 class="stk-h2">How to use the Ambient Pomodoro</h2>
             <p class="stk-lead">The technique works by making the unit of work fixed and the decision of what to work on happen once, in advance. Here is the workflow.</p>
-            <p class="stk-byline">By Olanrewaju M. Daramola · 100% client-side</p>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-step"><span class="stk-num">1</span><div><h3>Pick one task first</h3><p>Decide what you are working on <em>before</em> you press start. Choosing mid-session is itself a context switch &mdash; the one this method exists to remove.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Set your interval</h3><p>Open <strong>Intervals</strong> to change the focus and break lengths. Defaults are 25/5 with a long break every four sessions. Settings are saved in this browser.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Raise a soundscape</h3><p>Move any mixer slider above zero. Channels layer freely, and audio only downloads once you actually use it.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Work until the chime</h3><p>Press <strong>Start</strong>, or hit <kbd>Space</kbd>. The dial and the tab title both track the countdown, so you can leave the tab and still see the time remaining.</p></div></div>
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Pick one task first</h3><p>Decide what you are working on <em>before</em> you press start. Choosing mid-session is itself a context switch, the one this method exists to remove.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Set your interval</h3><p>Open <strong>Intervals</strong> to change the focus and break lengths. Defaults are 25/5 with a long break every four sessions. Settings are saved in this browser.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Raise a soundscape</h3><p>Move any mixer slider above zero. Channels layer freely, and audio only downloads once you actually use it.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Work until the chime</h3><p>Press <strong>Start</strong>, or hit <kbd>Space</kbd>. The dial and the tab title both track the countdown, so you can leave the tab and still see the time remaining.</p></div></div>
             </div>
         </div>
     </section>
@@ -592,11 +590,11 @@
         <div class="stk-wrap">
             <h2 class="stk-h2">How the timer and mixer work</h2>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Absolute-time countdown</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Browsers throttle timers in inactive tabs, so a naive tick-by-tick countdown drifts badly in the background. This timer records the <strong>absolute finish timestamp</strong> when you press start and derives the remaining time from the system clock on every frame. Switching tabs, sleeping the display, or leaving it running for an hour does not accumulate error.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Layered ambient mixer</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Rain and cafe are looped field recordings that load lazily &mdash; nothing is fetched until you raise that channel. Brown noise is <strong>synthesised live</strong> in the Web Audio API from a filtered random walk, so it costs no bandwidth and has no audible loop point. All three mix independently.</p></div>
+                <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Absolute-time countdown</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Browsers throttle timers in inactive tabs, so a naive tick-by-tick countdown drifts badly in the background. This timer records the <strong>absolute finish timestamp</strong> when you press start and derives the remaining time from the system clock on every frame. Switching tabs, sleeping the display, or leaving it running for an hour does not accumulate error.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Layered ambient mixer</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Rain and cafe are looped field recordings that load lazily, nothing is fetched until you raise that channel. Brown noise is <strong>synthesised live</strong> in the Web Audio API from a filtered random walk, so it costs no bandwidth and has no audible loop point. All three mix independently.</p></div>
             </div>
             <div class="stk-note" style="margin-top:1rem;">
                 <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>
-                <div><strong>Sound tip.</strong> Intelligible speech competes for the same language processing you use when reading or writing, which is why conversation is more disruptive than equivalently loud non-speech noise. The cafe recording is not in English, which helps &mdash; but if you catch yourself following a conversation, lower it or switch to rain.</div>
+                <div><strong>Sound tip.</strong> Intelligible speech competes for the same language processing you use when reading or writing, which is why conversation is more disruptive than equivalently loud non-speech noise. The cafe recording is not in English, which helps, but if you catch yourself following a conversation, lower it or switch to rain.</div>
             </div>
         </div>
     </section>
@@ -614,7 +612,7 @@
                 <li><b>Long break</b> <span>replaces the short break every <em>n</em> sessions (default 4)</span></li>
             </ul>
 
-            <p class="stk-where" style="margin-top:1.1rem;">Shorter intervals suit shallow, interruptible work &mdash; email, admin, code review. Longer intervals of 45&ndash;50 minutes usually serve deep technical work better, because complex problems take several minutes to load into working memory and a break at minute 25 can discard that. If you routinely feel cut off mid-thought, lengthen the focus block rather than pushing through and ignoring the chime; a timer you override stops functioning as a commitment.</p>
+            <p class="stk-where" style="margin-top:1.1rem;">Shorter intervals suit shallow, interruptible work, email, admin, code review. Longer intervals of 45&ndash;50 minutes usually serve deep technical work better, because complex problems take several minutes to load into working memory and a break at minute 25 can discard that. If you routinely feel cut off mid-thought, lengthen the focus block rather than pushing through and ignoring the chime; a timer you override stops functioning as a commitment.</p>
 
             <h3 class="stk-refs-h">References &amp; documentation</h3>
             <ol class="stk-refs-list">
@@ -630,12 +628,12 @@
         <div class="stk-wrap" style="max-width:52rem;">
             <h2 class="stk-h2">Frequently asked questions</h2>
             <div style="margin-top:1rem;">
-                <details class="stk-faq"><summary>Does the timer keep running if I switch tabs?</summary><div>Yes. The countdown is anchored to an absolute finish time rather than counting ticks, so browser throttling of inactive tabs does not cause drift. The remaining time also appears in the tab title.</div></details><details class="stk-faq"><summary>Is my data uploaded anywhere?</summary><div>No. Everything runs in your browser. Your intervals are stored in this browser&rsquo;s local storage and nothing about your sessions is sent to a server.</div></details><details class="stk-faq"><summary>How long should a focus session be?</summary><div>25 minutes is the classic default and suits interruptible work. For debugging, reading papers, or writing, 45&ndash;50 minutes often works better because complex problems take time to load into working memory. Change it under Intervals.</div></details><details class="stk-faq"><summary>Why does the audio not start immediately?</summary><div>Browsers block audio until you interact with the page, and each channel only downloads when you first raise its slider. If a slider is greyed out, that recording failed to load.</div></details><details class="stk-faq"><summary>Will I get a notification when the session ends?</summary><div>A chime always plays. If you grant notification permission on first start, you will also get a desktop notification &mdash; but only while the tab is in the background, so a focused tab is never interrupted twice.</div></details><details class="stk-faq"><summary>Are there keyboard shortcuts?</summary><div>Yes: <kbd>Space</kbd> starts and pauses, <kbd>R</kbd> resets the current session, and <kbd>S</kbd> skips to the next one. Arrow keys move between the Focus, Short and Long tabs.</div></details>
+                <details class="stk-faq"><summary>Does the timer keep running if I switch tabs?</summary><div>Yes. The countdown is anchored to an absolute finish time rather than counting ticks, so browser throttling of inactive tabs does not cause drift. The remaining time also appears in the tab title.</div></details><details class="stk-faq"><summary>Is my data uploaded anywhere?</summary><div>No. Everything runs in your browser. Your intervals are stored in this browser&rsquo;s local storage and nothing about your sessions is sent to a server.</div></details><details class="stk-faq"><summary>How long should a focus session be?</summary><div>25 minutes is the classic default and suits interruptible work. For debugging, reading papers, or writing, 45&ndash;50 minutes often works better because complex problems take time to load into working memory. Change it under Intervals.</div></details><details class="stk-faq"><summary>Why does the audio not start immediately?</summary><div>Browsers block audio until you interact with the page, and each channel only downloads when you first raise its slider. If a slider is greyed out, that recording failed to load.</div></details><details class="stk-faq"><summary>Will I get a notification when the session ends?</summary><div>A chime always plays. If you grant notification permission on first start, you will also get a desktop notification, but only while the tab is in the background, so a focused tab is never interrupted twice.</div></details><details class="stk-faq"><summary>Are there keyboard shortcuts?</summary><div>Yes: <kbd>Space</kbd> starts and pauses, <kbd>R</kbd> resets the current session, and <kbd>S</kbd> skips to the next one. Arrow keys move between the Focus, Short and Long tabs.</div></details>
             </div>
             <div class="stk-refs">
                 <a href="https://freesound.org/people/Snoopy20111/sounds/399072/" target="_blank" rel="noopener"><i class="fa-solid fa-cloud-rain"></i> Rain_Loop.wav by Snoopy20111 (CC0 1.0)</a><a href="https://freesound.org/people/Tomlija/sounds/99632/" target="_blank" rel="noopener"><i class="fa-solid fa-mug-hot"></i> small cafe ambience.wav by Tomlija (CC BY 3.0)</a>
             </div>
-            <p class="stk-credit">Rain is <a href="http://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0 1.0</a>; cafe is <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>, trimmed and looped for this page. Brown noise is generated in your browser and uses no recording. Built and maintained by <strong>Olanrewaju M.&nbsp;Daramola</strong>. Runs entirely in your browser — no data leaves your device.</p>
+            <p class="stk-credit">Rain is <a href="http://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0 1.0</a>; cafe is <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>, trimmed and looped for this page. Brown noise is generated in your browser and uses no recording. Runs entirely in your browser, no data leaves your device.</p>
         </div>
     </section>
 
@@ -690,7 +688,7 @@
                     <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700" aria-hidden="true"></i>
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                 </div>
-                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-indigo-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
                 <div class="flex gap-6 text-sm font-medium">
                     <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
                     <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
