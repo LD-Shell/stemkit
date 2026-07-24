@@ -196,9 +196,9 @@
     </nav>
 
     <div class="flex-grow w-full flex flex-col relative" style="height: calc(100vh - 80px);">
-        <main class="flex-grow max-w-[1600px] mx-auto px-4 py-6 w-full flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-120px)]">
+        <main class="stk-shell flex-grow max-w-[1600px] mx-auto px-4 py-6 w-full flex flex-col lg:flex-row gap-6">
             
-            <aside class="w-full lg:w-[450px] flex flex-col gap-6 lg:overflow-y-auto lg:pr-2 pb-8 scrollbar-hide flex-shrink-0">
+            <aside class="stk-shell-pane w-full lg:w-[450px] flex flex-col gap-6 lg:pr-2 pb-8 scrollbar-hide flex-shrink-0">
                 
                 <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
                     <h2 class="text-base font-bold mb-3 flex items-center justify-between">
@@ -348,7 +348,7 @@
 
             </aside>
 
-            <section class="flex-grow flex flex-col bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden h-[70vh] lg:h-full">
+            <section class="stk-shell-main flex-grow flex flex-col bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden h-[70vh] lg:h-full">
                 
                 <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex justify-between items-center z-10 flex-shrink-0">
                     <h2 class="text-sm font-bold text-slate-700 dark:text-slate-300">Plot viewport</h2>
@@ -382,7 +382,7 @@
             <p class="stk-lead">Combine one or more CSV datasets into a single publication-quality plot, style every detail, then export as PNG/SVG or copy the matplotlib code to reproduce it in Python.</p>
             <div class="stk-grid stk-grid-2" style="margin-top:1.5rem;">
                 <div class="stk-step"><span class="stk-num">1</span><div><h3>Add data</h3><p>Drop one or more CSV files (each needs a header row and at least two columns), or click <strong>Load sample dataset</strong> to try it instantly.</p></div></div>
-                <div class="stk-step"><span class="stk-num">2</span><div><h3>Define traces</h3><p>Each trace maps a file's X column against a Y column. Add multiple traces — even from different files — to overlay them, and set each one's name, colour and style.</p></div></div>
+                <div class="stk-step"><span class="stk-num">2</span><div><h3>Define traces</h3><p>Each trace maps a file's X column against a Y column. Add multiple traces (even from different files) to overlay them, and set each one's name, colour and style.</p></div></div>
                 <div class="stk-step"><span class="stk-num">3</span><div><h3>Style it</h3><p>Set titles and axis labels, toggle log scales, gridlines and the boxed frame, then fine-tune typography, marker/line sizes and the legend in <em>Typography &amp; style</em>.</p></div></div>
                 <div class="stk-step"><span class="stk-num">4</span><div><h3>Export or reproduce</h3><p>Set export width/height/scale, then download <strong>PNG</strong> or <strong>SVG</strong>. Or click <strong>Python</strong> to copy runnable matplotlib code that recreates the figure from your data.</p></div></div>
             </div>
@@ -394,9 +394,9 @@
             <p class="stk-lead">A few conventions that make scientific figures clearer and more honest.</p>
             <div style="margin-top:1.25rem; display:flex; flex-direction:column; gap:1rem; max-width:52rem;">
                 <div><h3 style="font-weight:700;margin-bottom:.3rem;">Label your axes with units</h3><p style="color:#64748b;line-height:1.6;">An axis without units is ambiguous. Write the quantity and its unit, e.g. <em>Time (s)</em> or <em>Concentration (mM)</em>. The X/Y label fields feed both the on-screen plot and the exported matplotlib code.</p></div>
-                <div><h3 style="font-weight:700;margin-bottom:.3rem;">Use log scales deliberately</h3><p style="color:#64748b;line-height:1.6;">A log axis linearises exponential or power-law data and shows several orders of magnitude at once — but it can flatter noisy data. Use it when the process is multiplicative, and say so in the caption.</p></div>
+                <div><h3 style="font-weight:700;margin-bottom:.3rem;">Use log scales deliberately</h3><p style="color:#64748b;line-height:1.6;">A log axis linearises exponential or power-law data and shows several orders of magnitude at once, but it can flatter noisy data. Use it when the process is multiplicative, and say so in the caption.</p></div>
                 <div><h3 style="font-weight:700;margin-bottom:.3rem;">Colours that survive greyscale &amp; colour-blindness</h3><p style="color:#64748b;line-height:1.6;">Around 8% of men have some colour-vision deficiency, and many journals print in greyscale. Prefer palettes that vary in lightness as well as hue, and distinguish traces by line style or markers too, not colour alone.</p></div>
-                <div><h3 style="font-weight:700;margin-bottom:.3rem;">Reproducibility</h3><p style="color:#64748b;line-height:1.6;">The <strong>Python</strong> export means a figure isn't a dead end: the generated matplotlib script regenerates the plot from the same CSV, so you can version-control it alongside your analysis. Everything runs in your browser — no data leaves your machine.</p></div>
+                <div><h3 style="font-weight:700;margin-bottom:.3rem;">Reproducibility</h3><p style="color:#64748b;line-height:1.6;">The <strong>Python</strong> export means a figure isn't a dead end: the generated matplotlib script regenerates the plot from the same CSV, so you can version-control it alongside your analysis. Everything runs in your browser, no data leaves your machine.</p></div>
             </div>
         </section>
 
@@ -462,7 +462,7 @@
                     <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                 </div>
-                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-indigo-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
                 <div class="flex gap-6 text-sm font-medium">
                     <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
                     <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>

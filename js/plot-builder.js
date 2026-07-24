@@ -74,7 +74,7 @@ document.addEventListener("DOMContentLoaded", () => {
         updateFileInventory();
         datasetContainer.classList.remove('hidden');
         createNewTrace(fileId);
-        showToast('Sample dataset loaded — bacterial growth curves.', 'success');
+        showToast('Sample dataset loaded, bacterial growth curves.', 'success');
     });
 
     // # Configuring theme logic
