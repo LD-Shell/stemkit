@@ -23,7 +23,7 @@ to the bottom of the viewport as a sticky preview instead.
 @media (min-width: 1024px) {
 #builderLayout {
     /* Never shorter than 32rem, never taller than the viewport
-    minus the page chrome — avoids a crushed pane on 768px-tall
+    minus the page chrome, avoids a crushed pane on 768px-tall
     laptops while still filling large displays. */
     height: clamp(32rem, calc(100vh - 16rem), 100vh);
     min-height: 32rem;
@@ -125,7 +125,7 @@ the explicit height set above. */
 #outputColumn.dock-collapsed > div:not(.hidden) { flex: 0 0 auto; min-height: 0; }
 }
 
-/* STEMKit docs / how-to / FAQ — self-contained styles (shared look with other tools) */
+/* STEMKit docs / how-to / FAQ, self-contained styles (shared look with other tools) */
 .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
 .stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
 .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;

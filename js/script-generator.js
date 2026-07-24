@@ -1,5 +1,5 @@
 /*
- * STEMKit — HPC Script Generator (SLURM + GROMACS/LAMMPS)
+ * STEMKit, HPC Script Generator (SLURM + GROMACS/LAMMPS)
  * Author: Olanrewaju M. Daramola
  *
  * Client-side only. Generates SLURM batch scripts, a staged GROMACS workflow
@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
         D_0: 'The d_0 offset of the switching function (nm).',
         SWITCH: 'Full switching-function definition, e.g. {RATIONAL R_0=0.3 NN=6 MM=12}. Overrides R_0/NN/MM.',
         SPECIES: 'The atoms whose local order parameter is computed (each atom is compared with its neighbours).',
-        D_MAX: 'Distance beyond which the switching function is exactly zero. Setting it lets PLUMED use linked cells for neighbour search — a large speedup. Choose it a little above where the switch has decayed to ~0.',
+        D_MAX: 'Distance beyond which the switching function is exactly zero. Setting it lets PLUMED use linked cells for neighbour search, a large speedup. Choose it a little above where the switch has decayed to ~0.',
         MEAN: 'Output the mean of the per-atom values as a single scalar CV.',
         VMEAN: 'Output the norm of the mean per-atom vector.',
         __raw: 'Everything after the label. Write any valid PLUMED action, e.g. COORDINATION GROUPA=1-10 GROUPB=20-40 R_0=0.3.',
@@ -197,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const PLUMED_PREREQS = {
         wholemolecules: {
             label: 'WHOLEMOLECULES',
-            note: 'requires a WHOLEMOLECULES line (before this CV) so PLUMED reconstructs whole chains across periodic boundaries — otherwise the CV is wrong for codes like GROMACS. Not needed if you use TYPE=DRMSD.'
+            note: 'requires a WHOLEMOLECULES line (before this CV) so PLUMED reconstructs whole chains across periodic boundaries, otherwise the CV is wrong for codes like GROMACS. Not needed if you use TYPE=DRMSD.'
         }
     };
 
@@ -298,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { k: 'D_0', label: 'D_0 (nm)', type: 'num', def: '0.0' },
                 { k: 'NN', label: 'NN', type: 'num', def: '6' },
                 { k: 'MM', label: 'MM (0 = 2*NN)', type: 'num', def: '0' },
-                { k: 'D_MAX', label: 'D_MAX (nm)', type: 'num', def: '', help: 'Distance beyond which the switch is exactly zero. Setting it makes PLUMED use fast linked cells — an alternative to a neighbour list. Leave blank if you use NLIST instead.' },
+                { k: 'D_MAX', label: 'D_MAX (nm)', type: 'num', def: '', help: 'Distance beyond which the switch is exactly zero. Setting it makes PLUMED use fast linked cells, an alternative to a neighbour list. Leave blank if you use NLIST instead.' },
                 { k: 'NLIST', label: 'NLIST (neighbour list)', type: 'flag', def: false },
                 { k: 'NL_CUTOFF', label: 'NL_CUTOFF (nm)', type: 'num', def: '' },
                 { k: 'NL_STRIDE', label: 'NL_STRIDE (steps)', type: 'num', def: '' }
@@ -461,7 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
             compStyle: 'dot', reductions: ['LESS_THAN', 'MIN', 'ALT_MIN', 'LOWEST', 'HIGHEST'],
             desc: 'Alpha-helical content: counts six-residue segments whose configuration resembles an idealised alpha helix (bare label = number of segments). Needs MOLINFO.',
             fields: [
-                { k: 'RESIDUES', label: 'RESIDUES', type: 'text', def: 'all', required: true, help: 'Residues that could form the structure — "all" or a list. Requires a MOLINFO reference structure.' },
+                { k: 'RESIDUES', label: 'RESIDUES', type: 'text', def: 'all', required: true, help: 'Residues that could form the structure, "all" or a list. Requires a MOLINFO reference structure.' },
                 { k: 'TYPE', label: 'TYPE', type: 'select', def: 'DRMSD', options: ['DRMSD', 'OPTIMAL', 'SIMPLE'], help: 'How the RMSD to the ideal element is measured. DRMSD needs no WHOLEMOLECULES; OPTIMAL/SIMPLE do.' },
                 { k: 'R_0', label: 'R_0 (nm)', type: 'num', def: '0.08', required: true, help: 'r_0 of the switching function. The reference value used in the original paper was 0.08 nm.' },
                 { k: 'D_0', label: 'D_0 (nm)', type: 'num', def: '0.0' },
@@ -477,14 +477,14 @@ document.addEventListener('DOMContentLoaded', () => {
             compStyle: 'dot', reductions: ['LESS_THAN', 'MIN', 'ALT_MIN', 'LOWEST', 'HIGHEST'],
             desc: 'Antiparallel beta-sheet content: counts six-residue segments resembling an idealised antiparallel beta sheet (bare label = number of segments). Needs MOLINFO.',
             fields: [
-                { k: 'RESIDUES', label: 'RESIDUES', type: 'text', def: 'all', required: true, help: 'Residues that could form the sheet — "all" or a list. Requires a MOLINFO reference structure.' },
+                { k: 'RESIDUES', label: 'RESIDUES', type: 'text', def: 'all', required: true, help: 'Residues that could form the sheet, "all" or a list. Requires a MOLINFO reference structure.' },
                 { k: 'TYPE', label: 'TYPE', type: 'select', def: 'DRMSD', options: ['DRMSD', 'OPTIMAL', 'SIMPLE'], help: 'RMSD metric. DRMSD needs no WHOLEMOLECULES; OPTIMAL/SIMPLE do.' },
                 { k: 'R_0', label: 'R_0 (nm)', type: 'num', def: '0.08', required: true, help: 'r_0 of the switching function (paper value 0.08 nm).' },
                 { k: 'D_0', label: 'D_0 (nm)', type: 'num', def: '0.0' },
                 { k: 'NN', label: 'NN', type: 'num', def: '8' },
                 { k: 'MM', label: 'MM', type: 'num', def: '12' },
                 { k: 'STYLE', label: 'STYLE', type: 'select', def: 'all', options: ['all', 'inter', 'intra'], help: 'all: any geometry; inter: only two-chain sheets; intra: only single-chain sheets.' },
-                { k: 'STRANDS_CUTOFF', label: 'STRANDS_CUTOFF (nm)', type: 'num', def: '1', help: 'Skip the RMSD when the two strands are further apart than this — a large speedup, but only valid with LESS_THAN.' },
+                { k: 'STRANDS_CUTOFF', label: 'STRANDS_CUTOFF (nm)', type: 'num', def: '1', help: 'Skip the RMSD when the two strands are further apart than this, a large speedup, but only valid with LESS_THAN.' },
                 { k: 'NOPBC', label: 'NOPBC', type: 'flag', def: false }
             ]
         },
@@ -495,14 +495,14 @@ document.addEventListener('DOMContentLoaded', () => {
             compStyle: 'dot', reductions: ['LESS_THAN', 'MIN', 'ALT_MIN', 'LOWEST', 'HIGHEST'],
             desc: 'Parallel beta-sheet content: counts six-residue segments resembling an idealised parallel beta sheet (bare label = number of segments). Needs MOLINFO.',
             fields: [
-                { k: 'RESIDUES', label: 'RESIDUES', type: 'text', def: 'all', required: true, help: 'Residues that could form the sheet — "all" or a list. Requires a MOLINFO reference structure.' },
+                { k: 'RESIDUES', label: 'RESIDUES', type: 'text', def: 'all', required: true, help: 'Residues that could form the sheet, "all" or a list. Requires a MOLINFO reference structure.' },
                 { k: 'TYPE', label: 'TYPE', type: 'select', def: 'DRMSD', options: ['DRMSD', 'OPTIMAL', 'SIMPLE'], help: 'RMSD metric. DRMSD needs no WHOLEMOLECULES; OPTIMAL/SIMPLE do.' },
                 { k: 'R_0', label: 'R_0 (nm)', type: 'num', def: '0.08', required: true, help: 'r_0 of the switching function (paper value 0.08 nm).' },
                 { k: 'D_0', label: 'D_0 (nm)', type: 'num', def: '0.0' },
                 { k: 'NN', label: 'NN', type: 'num', def: '8' },
                 { k: 'MM', label: 'MM', type: 'num', def: '12' },
                 { k: 'STYLE', label: 'STYLE', type: 'select', def: 'all', options: ['all', 'inter', 'intra'], help: 'all: any geometry; inter: only two-chain sheets; intra: only single-chain sheets.' },
-                { k: 'STRANDS_CUTOFF', label: 'STRANDS_CUTOFF (nm)', type: 'num', def: '1', help: 'Skip the RMSD when the two strands are further apart than this — a large speedup, but only valid with LESS_THAN.' },
+                { k: 'STRANDS_CUTOFF', label: 'STRANDS_CUTOFF (nm)', type: 'num', def: '1', help: 'Skip the RMSD when the two strands are further apart than this, a large speedup, but only valid with LESS_THAN.' },
                 { k: 'NOPBC', label: 'NOPBC', type: 'flag', def: false }
             ]
         },
@@ -514,19 +514,19 @@ document.addEventListener('DOMContentLoaded', () => {
             ]
         },
         Q6: {
-            cat: 'order', desc: 'Steinhardt Q6 bond-orientational order parameter — the standard descriptor for crystalline vs liquid local structure.',
+            cat: 'order', desc: 'Steinhardt Q6 bond-orientational order parameter, the standard descriptor for crystalline vs liquid local structure.',
             switchSpeed: true,
             fields: [
                 { k: 'SPECIES', label: 'SPECIES', type: 'atoms', def: '1-64', required: true, help: 'The atoms whose local environment (order parameter) is computed. Use SPECIESA/SPECIESB via CUSTOM for two-group variants.' },
                 { k: 'R_0', label: 'R_0 (nm)', type: 'num', def: '0.25', required: true },
                 { k: 'D_0', label: 'D_0 (nm)', type: 'num', def: '0.0', help: 'Offset of the switching function; the switch begins to decay at D_0.' },
-                { k: 'D_MAX', label: 'D_MAX (nm)', type: 'num', def: '0.5', help: 'Distance beyond which the switch is exactly zero. Setting it enables linked-cell neighbour search — a large speedup. Set it a bit above where the switch has decayed to ~0.' },
+                { k: 'D_MAX', label: 'D_MAX (nm)', type: 'num', def: '0.5', help: 'Distance beyond which the switch is exactly zero. Setting it enables linked-cell neighbour search, a large speedup. Set it a bit above where the switch has decayed to ~0.' },
                 { k: 'MEAN', label: 'MEAN', type: 'flag', def: true, help: 'Output the mean of the per-atom Q6 values (a single scalar CV).' },
                 { k: 'VMEAN', label: 'VMEAN', type: 'flag', def: false, help: 'Output the norm of the mean Steinhardt vector.' }
             ]
         },
         Q4: {
-            cat: 'order', desc: 'Steinhardt Q4 bond-orientational order parameter — distinguishes cubic/FCC-like local order.',
+            cat: 'order', desc: 'Steinhardt Q4 bond-orientational order parameter, distinguishes cubic/FCC-like local order.',
             switchSpeed: true,
             fields: [
                 { k: 'SPECIES', label: 'SPECIES', type: 'atoms', def: '1-64', required: true },
@@ -577,7 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { k: 'D_0', label: 'D_0 (nm)', type: 'num', def: '0.0' },
                 { k: 'NN', label: 'NN', type: 'num', def: '6' },
                 { k: 'MM', label: 'MM (0 = 2*NN)', type: 'num', def: '0' },
-                { k: 'D_MAX', label: 'D_MAX (nm)', type: 'num', def: '0.6', help: 'Distance beyond which the switch is exactly zero; enables linked-cell neighbour search — a large speedup.' },
+                { k: 'D_MAX', label: 'D_MAX (nm)', type: 'num', def: '0.6', help: 'Distance beyond which the switch is exactly zero; enables linked-cell neighbour search, a large speedup.' },
                 { k: 'NL_CUTOFF', label: 'NL_CUTOFF (nm)', type: 'num', def: '' },
                 { k: 'NL_STRIDE', label: 'NL_STRIDE (steps)', type: 'num', def: '' }
             ]
@@ -604,7 +604,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fields: [
                 { k: 'SPECIES', label: 'SPECIES', type: 'atoms', def: '1-64', required: true },
                 { k: 'CUTOFF', label: 'CUTOFF (nm)', type: 'num', def: '0.5', required: true },
-                { k: 'NOPBC', label: 'NOPBC', type: 'flag', def: false, help: 'Ignore periodic boundary conditions — can speed up a localised selection.' }
+                { k: 'NOPBC', label: 'NOPBC', type: 'flag', def: false, help: 'Ignore periodic boundary conditions, can speed up a localised selection.' }
             ]
         },
         TETRA_ANGULAR: {
@@ -770,7 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         INPLANEDISTANCES: {
             cat: 'geometry', act: 'INPLANEDISTANCES', compStyle: 'underscore',
-            desc: 'Perpendicular distances between a group of atoms and an axis (defined by two atoms) — i.e. distances within the plane perpendicular to that axis.',
+            desc: 'Perpendicular distances between a group of atoms and an axis (defined by two atoms), i.e. distances within the plane perpendicular to that axis.',
             fields: [
                 { k: 'VECTORSTART', label: 'VECTORSTART', type: 'atoms', def: '1', required: true, help: 'First atom defining the axis.' },
                 { k: 'VECTOREND', label: 'VECTOREND', type: 'atoms', def: '2', required: true, help: 'Second atom defining the axis.' },
@@ -788,7 +788,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         CONSTANT: {
             cat: 'custom', act: 'CONSTANT', noBias: true,
-            desc: 'Return one or more constant values (with or without derivatives). Not biased itself — use it as a fixed reference/target inside a CUSTOM/MATHEVAL combination, e.g. diff: CUSTOM ARG=cv,ref FUNC=x-y.',
+            desc: 'Return one or more constant values (with or without derivatives). Not biased itself, use it as a fixed reference/target inside a CUSTOM/MATHEVAL combination, e.g. diff: CUSTOM ARG=cv,ref FUNC=x-y.',
             fields: [
                 { k: 'VALUE', label: 'VALUE (single)', type: 'text', def: '', help: 'A single constant, referenced by the bare label. Leave blank if you use VALUES instead.' },
                 { k: 'VALUES', label: 'VALUES (comma list)', type: 'text', def: '1.0,2.0', help: 'A list of constants, referenced as label.v-0, label.v-1, ... Leave blank if you use VALUE instead.' },
@@ -814,7 +814,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ]
         },
         CUSTOM: {
-            cat: 'custom', desc: 'Write any PLUMED action line yourself — the label is added automatically. Use this for CVs not in the catalogue, MATHEVAL/CUSTOM combinations, or advanced options.',
+            cat: 'custom', desc: 'Write any PLUMED action line yourself, the label is added automatically. Use this for CVs not in the catalogue, MATHEVAL/CUSTOM combinations, or advanced options.',
             isCustom: true,
             fields: [
                 { k: '__raw', label: 'Full action (after the label)', type: 'text', def: 'DISTANCE ATOMS=1,2', required: true,
@@ -837,24 +837,24 @@ document.addEventListener('DOMContentLoaded', () => {
         ANGLE: 'Follow the bend of a three-atom motif, e.g. a hydrogen-bond donor–H–acceptor angle.',
         TORSION: 'Bias a backbone φ/ψ dihedral to sample different protein conformations.',
         DIHEDRAL_CORRELATION: 'Measure how correlated two adjacent backbone dihedrals are along a chain.',
-        DIHCOR: 'Summed similarity of consecutive dihedral pairs — a compact descriptor of local chain order.',
+        DIHCOR: 'Summed similarity of consecutive dihedral pairs, a compact descriptor of local chain order.',
         COORDINATION: 'Count water molecules in the first hydration shell of an ion to follow (de)solvation.',
         CONTACTMAP: 'Track many native contacts at once to follow folding/unfolding.',
         COORDINATIONNUMBER_ADV: 'Per-atom coordination number of interfacial waters to detect ordering near a clay slab.',
         COORDINATION_MOMENTS: 'Higher moments of the neighbour-distance distribution to distinguish liquid vs ordered shells.',
-        COORD_ANGLES: 'Distribution of bond angles in the first shell — sensitive to local packing geometry.',
+        COORD_ANGLES: 'Distribution of bond angles in the first shell, sensitive to local packing geometry.',
         GYRATION: 'Follow the compactness (radius of gyration) of a polymer or peptide during collapse.',
         TETRA_RADIAL: 'Detect ice-like tetrahedral ordering of water near a surface from radial geometry.',
         TETRA_ANGULAR: 'Angular tetrahedral order of water to distinguish liquid from ice-like layers.',
         TETRAHEDRAL: 'Shell-averaged tetrahedrality to monitor disruption of ordered water at an interface.',
         PLANES: 'Orientational order of planar molecules (e.g. aromatic rings) via their plane normals.',
         RMSD: 'Distance from a folded reference structure to drive folding/unfolding.',
-        DRMSD: 'Distance-based RMSD that avoids alignment — useful for flexible or periodic systems.',
+        DRMSD: 'Distance-based RMSD that avoids alignment, useful for flexible or periodic systems.',
         PCARMSD: 'Project motion onto PCA eigenvectors to bias along dominant collective modes.',
         PATHMSD: 'Progress (s) and distance (z) along a predefined transition path between two states.',
         PROPERTYMAP: 'Map the system onto arbitrary reference properties for path-like sampling.',
         Q6: 'Sixth-order Steinhardt parameter to distinguish crystalline from liquid local order during nucleation.',
-        Q4: 'Fourth-order Steinhardt parameter — sensitive to cubic/FCC-like local order.',
+        Q4: 'Fourth-order Steinhardt parameter, sensitive to cubic/FCC-like local order.',
         Q3: 'Third-order Steinhardt parameter for local bond-orientational order.',
         COORDINATIONNUMBER: 'Classic per-atom coordination number for density/neighbour analysis.',
         LOCAL_Q6: 'Local Q6 (averaged with neighbours) to identify solid-like nuclei without system-size artifacts.',
@@ -864,11 +864,11 @@ document.addEventListener('DOMContentLoaded', () => {
         ATOMIC_SMAC: 'Atomic variant of SMAC for ordered vs disordered atomic environments.',
         FCCUBIC: 'Measure FCC-like local structure to count solid-like atoms at a solid–liquid interface.',
         POSITION: 'Track an atom or centre along a chosen axis (e.g. permeation through a channel).',
-        PROJECTION_ON_AXIS: 'Project a position onto a defined axis — e.g. depth of a ligand along a pore.',
+        PROJECTION_ON_AXIS: 'Project a position onto a defined axis, e.g. depth of a ligand along a pore.',
         PLANE: 'Represent a planar group orientation via its normal vector.',
         CELL: 'Follow simulation-cell components under variable-cell (e.g. NPT phase transitions).',
         VOLUME: 'Bias the box volume to explore density changes or pressure-driven transitions.',
-        DIPOLE: 'Track the dipole moment of a group — e.g. reorientation of water in a field.',
+        DIPOLE: 'Track the dipole moment of a group, e.g. reorientation of water in a field.',
         ENERGY: 'Use total potential energy as a CV for multithermal/energy-based sampling.',
         DHENERGY: 'Debye–Hückel electrostatic interaction energy between two groups in implicit solvent.',
         GHBFIX: 'Tuned hydrogen-bond interaction energy for RNA/AMBER-style corrections.',
@@ -879,11 +879,11 @@ document.addEventListener('DOMContentLoaded', () => {
         ALPHARMSD: 'Count α-helical segments to bias helix formation/melting in a peptide.',
         ANTIBETARMSD: 'Count antiparallel β-sheet segments to study β-hairpin formation.',
         PARABETARMSD: 'Count parallel β-sheet segments to study sheet assembly.',
-        ANGLES: 'Distribution of many bond angles at once — e.g. counting near-tetrahedral angles in a shell.',
+        ANGLES: 'Distribution of many bond angles at once, e.g. counting near-tetrahedral angles in a shell.',
         TORSIONS: 'Count how many of a set of torsions fall in a target range (e.g. helical φ/ψ).',
-        XANGLES: 'Angle of atom-pair vectors to a Cartesian axis — orientational order relative to a surface normal.',
-        XYTORSIONS: 'Torsion of atom-pair vectors around a Cartesian axis — anisotropic orientational order.',
-        ALPHABETA: 'Similarity of a set of dihedrals to reference values — a soft "how native" descriptor.',
+        XANGLES: 'Angle of atom-pair vectors to a Cartesian axis, orientational order relative to a surface normal.',
+        XYTORSIONS: 'Torsion of atom-pair vectors around a Cartesian axis, anisotropic orientational order.',
+        ALPHABETA: 'Similarity of a set of dihedrals to reference values, a soft "how native" descriptor.',
         INPLANEDISTANCES: 'Count atoms inside a cylinder around an axis, e.g. waters in a pore cross-section.',
         CONSTANT: 'Provide a fixed target value to subtract inside a CUSTOM combination (e.g. diff: CUSTOM ARG=cv,ref FUNC=x-y).',
         MASS: 'Expose atom masses for use inside a CUSTOM/MATHEVAL expression.',
@@ -897,7 +897,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Note: SIGMA is no longer defined globally for metadynamics methods.
     // It is configured per-CV dynamically within the CV cards to respect individual thermal fluctuations.
     const PLUMED_BIAS_CATEGORIES = {
-        'none':    'None — track only',
+        'none':    'None, track only',
         'metad':   'Metadynamics family',
         'restraint':'Restraints & walls'
     };
@@ -924,12 +924,12 @@ document.addEventListener('DOMContentLoaded', () => {
         ]},
         opes: { cat: 'metad', label: 'OPES (probability enhanced)', module: 'opes', params: [
             { k: 'PACE', label: 'PACE', def: '500', help: 'How often (steps) a kernel is deposited.' },
-            { k: 'BARRIER', label: 'BARRIER', def: '30', help: 'The largest free-energy barrier (energy units) you expect to cross. The single most important OPES setting — it also sets BIASFACTOR, EPSILON and KERNEL_CUTOFF to sensible values. Set it a bit above your estimated barrier.' },
+            { k: 'BARRIER', label: 'BARRIER', def: '30', help: 'The largest free-energy barrier (energy units) you expect to cross. The single most important OPES setting, it also sets BIASFACTOR, EPSILON and KERNEL_CUTOFF to sensible values. Set it a bit above your estimated barrier.' },
             { k: 'TEMP', label: 'TEMP (K)', def: '300', help: 'System temperature. If your MD code passes it to PLUMED you can leave the emitted default.' },
             { k: 'SIGMA', label: 'SIGMA', def: 'ADAPTIVE', help: 'Initial kernel widths. Leave as ADAPTIVE (recommended) to let OPES estimate them from the fluctuations; or give one value per biased CV to fix them.' }
         ]},
         restraint: { cat: 'restraint', label: 'Harmonic RESTRAINT (umbrella)', params: [
-            { k: 'AT', label: 'AT', def: '0.0', perCV: true, help: 'The centre of the restraint for each CV — the value it is pulled toward.' },
+            { k: 'AT', label: 'AT', def: '0.0', perCV: true, help: 'The centre of the restraint for each CV, the value it is pulled toward.' },
             { k: 'KAPPA', label: 'KAPPA', def: '200', perCV: true, help: 'Harmonic force constant per CV (energy per CV-unit²). Larger = stiffer restraint.' },
             { k: 'SLOPE', label: 'SLOPE', def: '', perCV: true, help: 'Optional linear term per CV (energy per CV-unit); adds a constant force. Leave blank for a pure harmonic restraint.' }
         ]},
@@ -956,9 +956,9 @@ document.addEventListener('DOMContentLoaded', () => {
             { k: 'OFFSET', label: 'OFFSET', def: '0', perCV: true, help: 'Offset added to the wall position.' }
         ]},
         abmd: { cat: 'restraint', label: 'ABMD (ratchet)', params: [
-            { k: 'TO', label: 'TO', def: '0.0', perCV: true, help: 'Target value per CV the ratchet moves toward. The restraint only tightens as the CV approaches TO — it never pushes backward.' },
+            { k: 'TO', label: 'TO', def: '0.0', perCV: true, help: 'Target value per CV the ratchet moves toward. The restraint only tightens as the CV approaches TO, it never pushes backward.' },
             { k: 'KAPPA', label: 'KAPPA', def: '50', perCV: true, help: 'Force constant per CV of the moving (ratchet) restraint.' },
-            { k: 'NOISE', label: 'NOISE', def: '', perCV: true, help: 'Optional white-noise intensity per CV — effectively adds a temperature to the ABMD so it can occasionally relax backward. Leave blank for a strict ratchet.' }
+            { k: 'NOISE', label: 'NOISE', def: '', perCV: true, help: 'Optional white-noise intensity per CV, effectively adds a temperature to the ABMD so it can occasionally relax backward. Leave blank for a strict ratchet.' }
         ]}
     };
 
@@ -1064,7 +1064,7 @@ document.addEventListener('DOMContentLoaded', () => {
             s += `#SBATCH --time=${jTime}\n`;
         } else {
             s += `#SBATCH --time=24:00:00\n`;
-            warnings.push('Wall time looks malformed — expected <code>D-HH:MM:SS</code>, <code>HH:MM:SS</code>, or minutes. Substituted <code>24:00:00</code>.');
+            warnings.push('Wall time looks malformed | expected <code>D-HH:MM:SS</code>, <code>HH:MM:SS</code>, or minutes. Substituted <code>24:00:00</code>.');
         }
 
         const isArray = isChecked('jobArrayToggle');
@@ -1074,7 +1074,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 s += `#SBATCH --array=${r}\n`;
             } else {
                 s += `#SBATCH --array=1-5\n`;
-                warnings.push('Array range looks malformed — expected e.g. <code>1-10</code>, <code>1-100:2</code>. Substituted <code>1-5</code>.');
+                warnings.push('Array range looks malformed | expected e.g. <code>1-10</code>, <code>1-100:2</code>. Substituted <code>1-5</code>.');
             }
             s += `#SBATCH --output=logs/%x_%A_%a.out\n`;
             s += `#SBATCH --error=logs/%x_%A_%a.err\n`;
@@ -1107,7 +1107,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const concurrent = Math.min(cap, nTasks);
                 warnings.push(
                     `Array job: <code>--mem=${jMem}</code> is per <em>task</em>. With ${concurrent} task${concurrent > 1 ? 's' : ''} running concurrently that is <strong>${(per * concurrent)}${unit}</strong> in flight. ` +
-                    `Confirm this fits your partition limit — if not, cap concurrency in the array range (e.g. <code>${rm[1]}-${rm[2]}%4</code>).`
+                    `Confirm this fits your partition limit, if not, cap concurrency in the array range (e.g. <code>${rm[1]}-${rm[2]}%4</code>).`
                 );
             } else {
                 warnings.push('Array job: <code>--mem</code> is requested per <em>task</em>, so the in-flight total is multiplied by the number of concurrent tasks. Confirm it fits your partition.');
@@ -1176,7 +1176,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Note: GPU-resident mode (-update gpu) is incompatible with dynamic
         // load balancing and needs constraints = h-bonds.
         if (update) {
-            warnings.push('<strong>Action needed in your .mdp:</strong> <code>-update gpu</code> (GPU-resident mode) <strong>requires <code>constraints = h-bonds</code></strong> (or <code>all-bonds</code>). Without it <code>grompp</code> fails before <code>mdrun</code> ever starts — the error comes from your .mdp, not from this script. GPU-resident mode also disables dynamic load balancing; for efficiency use infrequent T/P coupling and a larger <code>nstcalcenergy</code>.');
+            warnings.push('<strong>Action needed in your .mdp:</strong> <code>-update gpu</code> (GPU-resident mode) <strong>requires <code>constraints = h-bonds</code></strong> (or <code>all-bonds</code>). Without it <code>grompp</code> fails before <code>mdrun</code> ever starts, the error comes from your .mdp, not from this script. GPU-resident mode also disables dynamic load balancing; for efficiency use infrequent T/P coupling and a larger <code>nstcalcenergy</code>.');
         }
 
         return { flags: flags.length ? ' ' + flags.join(' ') : '', warnings };
@@ -1239,7 +1239,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const stages = GMX_STAGES.map(readStage).filter(st => st.enabled);
 
         if (!stages.length) {
-            s += `# (No workflow stages enabled — enable EM/NVT/NPT/Production on the left.)\n`;
+            s += `# (No workflow stages enabled, enable EM/NVT/NPT/Production on the left.)\n`;
             out.textContent = s;
             setWarnings($('slurmWarnings'), warnings);
             return;
@@ -1249,13 +1249,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // but warn if production has restraints (unusual).
         stages.forEach(st => {
             if (st.key === 'prod' && st.posres) {
-                warnings.push('Production stage has position restraints enabled — unusual; restraints are normally released for production.');
+                warnings.push('Production stage has position restraints enabled, unusual; restraints are normally released for production.');
             }
         });
 
         // If GPU-resident mode is on, put the .mdp requirement INTO the script.
         // UI warnings are lost the moment someone copies the file, and grompp
-        // fails before mdrun runs — users otherwise blame the generated script.
+        // fails before mdrun runs, users otherwise blame the generated script.
         if (isChecked('gpuUpdate')) {
             s += `# ==============================================================\n`;
             s += `# IMPORTANT - '-update gpu' requires this in EVERY MD .mdp file:\n`;
@@ -1626,7 +1626,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!def) return;
         if (def.isCustom) {
             if (!inst.values.__raw || !inst.values.__raw.trim()) {
-                warnings.push(`Custom CV (${inst.label}) is empty — type a PLUMED action.`);
+                warnings.push(`Custom CV (${inst.label}) is empty, type a PLUMED action.`);
             }
             return;
         }
@@ -1642,7 +1642,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasValue  = inst.values.VALUE  && String(inst.values.VALUE).trim() !== '';
             const hasValues = inst.values.VALUES && String(inst.values.VALUES).trim() !== '';
             if (hasValue && hasValues) {
-                warnings.push(`CONSTANT (${inst.label}) sets both <code>VALUE</code> and <code>VALUES</code> — use one or the other, not both.`);
+                warnings.push(`CONSTANT (${inst.label}) sets both <code>VALUE</code> and <code>VALUES</code>, use one or the other, not both.`);
             } else if (!hasValue && !hasValues) {
                 warnings.push(`CONSTANT (${inst.label}) needs a <code>VALUE</code> (single) or <code>VALUES</code> (list).`);
             }
@@ -1657,7 +1657,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         if (def.switchSpeed && (!inst.values.D_MAX || String(inst.values.D_MAX).trim() === '')) {
-            warnings.push(`${inst.type} (${inst.label}) has no <code>D_MAX</code>. Setting it enables linked-cell neighbour search &mdash; a large speedup for order parameters.`);
+            warnings.push(`${inst.type} (${inst.label}) has no <code>D_MAX</code>. Setting it enables linked-cell neighbour search, a large speedup for order parameters.`);
         }
     }
 
@@ -1738,13 +1738,13 @@ document.addEventListener('DOMContentLoaded', () => {
             let wmLine = '';
             if (wholeResidues) {
                 wmLine = `WHOLEMOLECULES RESIDUES=all MOLTYPE=protein`;
-                if (!molinfo) warnings.push('<code>WHOLEMOLECULES RESIDUES=all</code> needs a MOLINFO reference structure — set one above.');
+                if (!molinfo) warnings.push('<code>WHOLEMOLECULES RESIDUES=all</code> needs a MOLINFO reference structure | set one above.');
             } else {
                 const ents = wholeEntities.split(/[\n,]+/).map(e => e.trim()).filter(Boolean);
                 if (ents.length) {
                     wmLine = 'WHOLEMOLECULES ' + ents.map((e, i) => `ENTITY${i}=${e}`).join(' ');
                 } else {
-                    warnings.push('<code>WHOLEMOLECULES</code> is enabled but no entities are listed — add an atom range (e.g. 1-100) or switch to RESIDUES=all.');
+                    warnings.push('<code>WHOLEMOLECULES</code> is enabled but no entities are listed, add an atom range (e.g. 1-100) or switch to RESIDUES=all.');
                 }
             }
             if (wmLine) {
@@ -1782,7 +1782,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         // The selected bias method may itself live in a non-core module (e.g.
-        // OPES lives in the opes module) — but only if it is actually emitted
+        // OPES lives in the opes module), but only if it is actually emitted
         // (a bias with no biased CVs produces nothing). n is computed further
         // below, so count biased CVs locally here.
         const biasDef = PLUMED_BIAS_DEFS[bias];
@@ -1802,7 +1802,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (usedPrereqs.size) {
             usedPrereqs.forEach(p => {
                 // If the prerequisite is WHOLEMOLECULES and the user has already
-                // enabled emission of it, the requirement is satisfied — no warning.
+                // enabled emission of it, the requirement is satisfied, no warning.
                 if (p === 'wholemolecules' && useWhole) return;
                 warnings.push(`One or more CVs ${PLUMED_PREREQS[p].note}` +
                     (p === 'wholemolecules' ? ' Enable “Rebuild whole molecules (WHOLEMOLECULES)” above to emit it.' : ''));
@@ -1835,7 +1835,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // -----------------------------------------------------------------
         // Grid-bounds sanity checks. A wrong GRID_MIN/GRID_MAX does not crash
-        // the run — it silently distorts the free-energy surface — so these
+        // the run (it silently distorts the free-energy surface) so these
         // are worth flagging loudly before a long metadynamics job.
         // -----------------------------------------------------------------
         // Only meaningful for the metadynamics family (grid + hills).
@@ -1863,7 +1863,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isUnit     = UNIT_TYPES.includes(c.type);
 
                 if (lo === null || hi === null) {
-                    warnings.push(`Grid bounds for <code>${c.label}</code> are not numeric — check GRID MIN/MAX (use numbers, or <code>-pi</code>/<code>pi</code> for angles).`);
+                    warnings.push(`Grid bounds for <code>${c.label}</code> are not numeric, check GRID MIN/MAX (use numbers, or <code>-pi</code>/<code>pi</code> for angles).`);
                     return;
                 }
                 if (hi <= lo) {
@@ -1881,7 +1881,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Untouched generic default on a CV with no type-specific default.
                 if (!isPeriodic && !isUnit &&
                     String(c.biasValues.min).trim() === '0.0' && String(c.biasValues.max).trim() === '10.0') {
-                    warnings.push(`<code>${c.label}</code> is still using the generic default grid <code>0.0..10.0</code>. Confirm this actually covers the range your CV explores — hills outside the grid are an error in PLUMED.`);
+                    warnings.push(`<code>${c.label}</code> is still using the generic default grid <code>0.0..10.0</code>. Confirm this actually covers the range your CV explores, hills outside the grid are an error in PLUMED.`);
                 }
                 // Grid far too coarse/fine relative to SIGMA.
                 if (sg && nb && sg > 0 && nb > 0) {
@@ -1931,7 +1931,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 warnings.push('All walkers must share the same <code>WALKERS_DIR</code> and it must exist before the run starts (<code>mkdir -p</code> it in the job script).');
                 if (bias === 'opes') {
-                    warnings.push('OPES supports <strong>MPI walkers only</strong> — the shared-directory keywords do not apply, so <code>WALKERS_MPI</code> was emitted instead. Switch to MPI mode, or use METAD/PBMETAD for disk-based walkers.');
+                    warnings.push('OPES supports <strong>MPI walkers only</strong>, the shared-directory keywords do not apply, so <code>WALKERS_MPI</code> was emitted instead. Switch to MPI mode, or use METAD/PBMETAD for disk-based walkers.');
                 }
             }
         }
@@ -2029,7 +2029,7 @@ document.addEventListener('DOMContentLoaded', () => {
             biasComponents = ['abmd.bias'];
         }
 
-        // 3) PRINT — Must explicitly expand multi-component variables
+        // 3) PRINT, Must explicitly expand multi-component variables
         s += `# --- Output ---\n`;
         let printList = [];
         
@@ -2129,7 +2129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (bmod) {
             const mn = document.createElement('p');
             mn.className = 'text-[9px] leading-snug mb-2 px-1.5 py-1 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40';
-            mn.innerHTML = `<i class="fa-solid fa-cube mr-1"></i>Requires the <strong>${bmod.name}</strong> module — not in a stock PLUMED build. <span class="plumed-help" tabindex="0" data-tip="${bmod.hint.replace(/"/g,'&quot;')}">?</span>`;
+            mn.innerHTML = `<i class="fa-solid fa-cube mr-1"></i>Requires the <strong>${bmod.name}</strong> module, not in a stock PLUMED build. <span class="plumed-help" tabindex="0" data-tip="${bmod.hint.replace(/"/g,'&quot;')}">?</span>`;
             host.appendChild(mn);
         }
 
@@ -2338,7 +2338,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mod) {
                 const mn = document.createElement('p');
                 mn.className = 'text-[9px] leading-snug mb-1.5 px-1.5 py-1 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40';
-                mn.innerHTML = `<i class="fa-solid fa-cube mr-1"></i>Requires the <strong>${mod.name}</strong> module — not in a stock PLUMED build. <span class="plumed-help" tabindex="0" data-tip="${mod.hint.replace(/"/g,'&quot;')}">?</span>`;
+                mn.innerHTML = `<i class="fa-solid fa-cube mr-1"></i>Requires the <strong>${mod.name}</strong> module, not in a stock PLUMED build. <span class="plumed-help" tabindex="0" data-tip="${mod.hint.replace(/"/g,'&quot;')}">?</span>`;
                 card.appendChild(mn);
             }
             const prq = def.prereq && PLUMED_PREREQS[def.prereq];
@@ -2365,7 +2365,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const renderField = (f, host) => {
                 const off = disabledSet.has(f.k);
                 if (off) disCount++;
-                const dTip = off ? ` data-tip="Managed by ${escapeHtml(biasName)} — this parameter doesn't apply here and is left out of the output."` : '';
+                const dTip = off ? ` data-tip="Managed by ${escapeHtml(biasName)}, this parameter doesn't apply here and is left out of the output."` : '';
                 const wrap = document.createElement('div');
                 if (off) wrap.classList.add('plumed-field-off');
                 const dis = off ? 'disabled' : '';
@@ -2408,7 +2408,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (disCount) {
                 const hn = document.createElement('p');
                 hn.className = 'text-[9px] text-slate-400 italic mt-1.5 leading-snug';
-                hn.innerHTML = `<i class="fa-solid fa-ban mr-1"></i>${disCount} field${disCount > 1 ? 's' : ''} greyed out — managed by the selected bias method and left out of the output.`;
+                hn.innerHTML = `<i class="fa-solid fa-ban mr-1"></i>${disCount} field${disCount > 1 ? 's' : ''} greyed out, managed by the selected bias method and left out of the output.`;
                 card.appendChild(hn);
             }
 
@@ -2436,7 +2436,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <select data-cv-bias="${inst.id}" data-field="comp"
                                 class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">${opts}</select>`;
                 } else if (isScalarCV(inst)) {
-                    compControl = `<p class="text-[10px] text-slate-400 italic mt-0.5">Scalar CV — bias uses the bare label <code>${inst.label}</code> (no component).</p>`;
+                    compControl = `<p class="text-[10px] text-slate-400 italic mt-0.5">Scalar CV, bias uses the bare label <code>${inst.label}</code> (no component).</p>`;
                 } else {
                     compControl = `<input type="text" data-cv-bias="${inst.id}" data-field="comp" value="${inst.biasValues.comp || ''}" placeholder="e.g. .sss" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">`;
                 }
