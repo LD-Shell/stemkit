@@ -50,82 +50,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/all.min.css">
     
-    <style>
-        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
-        .dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
-        
-        /* Highlight applied changes */
-        .hl-change { background-color: rgba(236, 72, 153, 0.2); border-bottom: 2px solid #ec4899; padding: 0 2px; border-radius: 2px; }
-
-        /* Likely journal title that is NOT in the dictionary */
-        .hl-unknown { background-color: rgba(245, 158, 11, 0.15); border-bottom: 2px dotted #f59e0b; padding: 0 2px; border-radius: 2px; cursor: help; }
-    </style>
-    <style>
-        /* STEMKit docs / how-to / FAQ — self-contained styles */
-        .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
-        .stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
-        .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;
-                    text-transform:uppercase; letter-spacing:.12em; padding:.3rem .7rem; border-radius:9999px;
-                    background:#eef2ff; color:#4338ca; border:1px solid #e0e7ff; }
-        .dark .stk-chip { background:rgba(67,56,202,.18); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
-        .stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
-        .stk-lead { max-width:48rem; color:#64748b; line-height:1.6; }
-        .dark .stk-lead { color:#94a3b8; }
-        .stk-grid { display:grid; gap:1rem; grid-template-columns:1fr; margin-top:1.5rem; }
-        @media (min-width:768px){ .stk-grid-3{grid-template-columns:repeat(3,1fr);} .stk-grid-2{grid-template-columns:repeat(2,1fr);} }
-        .stk-card { border-radius:1rem; border:1px solid rgba(148,163,184,.25); padding:1.4rem; background:#fff; }
-        .dark .stk-card { background:#0f172a; border-color:rgba(51,65,85,.8); }
-        .stk-step { display:flex; gap:.85rem; align-items:flex-start; }
-        .stk-num { width:2rem; height:2rem; border-radius:9999px; display:inline-flex; align-items:center;
-                   justify-content:center; font-weight:800; font-size:.85rem; flex-shrink:0;
-                   background:#4f46e5; color:#fff; }
-        .stk-step h3 { font-weight:700; font-size:.95rem; margin-bottom:.15rem; }
-        .stk-step p { font-size:.85rem; color:#64748b; line-height:1.5; }
-        .dark .stk-step p { color:#94a3b8; }
-        .stk-note { display:flex; gap:.6rem; align-items:flex-start; font-size:.82rem; line-height:1.55;
-                    background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:.75rem; padding:.9rem 1rem; }
-        .dark .stk-note { background:rgba(120,53,15,.15); border-color:rgba(180,83,9,.4); color:#fcd34d; }
-        .stk-faq { border-bottom:1px solid rgba(148,163,184,.22); }
-        .stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 0; font-weight:600; font-size:.95rem;
-                             display:flex; justify-content:space-between; align-items:center; gap:1rem; }
-        .stk-faq > summary::-webkit-details-marker { display:none; }
-        .stk-faq > summary::after { content:"+"; font-weight:700; color:#6366f1; font-size:1.2rem; line-height:1; }
-        .stk-faq[open] > summary::after { content:"\2212"; }
-        .stk-faq > div { padding:0 0 1.1rem; font-size:.88rem; line-height:1.6; color:#475569; }
-        .dark .stk-faq > div { color:#94a3b8; }
-        .stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem; }
-        .stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600;
-                      color:#4f46e5; text-decoration:none; border:1px solid #e0e7ff; background:#eef2ff;
-                      padding:.4rem .8rem; border-radius:.6rem; }
-        .dark .stk-refs a { color:#a5b4fc; background:rgba(67,56,202,.15); border-color:rgba(99,102,241,.3); }
-        .stk-refs a:hover { text-decoration:underline; }
-        .stk-byline { font-size:.8rem; color:#94a3b8; margin-top:.35rem; }
-        .stk-credit { margin-top:2rem; font-size:.8rem; color:#94a3b8; }
-
-        /* Method & equations (MathML) */
-        .stk-math { overflow-x:auto; padding:1rem 1.1rem; margin:.6rem 0 1rem; border:1px solid rgba(148,163,184,.25);
-                    border-radius:.75rem; background:#f8fafc; font-size:1.15rem; }
-        .dark .stk-math { background:#0f172a; }
-        .stk-math math { color:inherit; }
-        .stk-eqn-label { font-size:.9rem; font-weight:600; color:#475569; margin-top:1.1rem; }
-        .dark .stk-eqn-label { color:#cbd5e1; }
-        .stk-where { font-size:.85rem; color:#64748b; line-height:1.75; margin-top:.5rem; }
-        .dark .stk-where { color:#94a3b8; }
-        .stk-model-list { list-style:none; padding:0; margin:.6rem 0 0; display:grid; gap:.55rem; }
-        .stk-model-list li { font-size:.92rem; display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
-        .stk-model-list b { min-width:9rem; color:#475569; font-weight:600; }
-        .dark .stk-model-list b { color:#cbd5e1; }
-        .stk-refs-h { font-weight:700; font-size:1rem; margin-top:1.9rem; margin-bottom:.5rem; }
-        .stk-refs-list { font-size:.82rem; color:#64748b; line-height:1.75; padding-left:1.2rem; }
-        .dark .stk-refs-list { color:#94a3b8; }
-        .stk-refs-list li { margin-bottom:.45rem; }
-        .stk-refs-list a { color:#4f46e5; text-decoration:none; }
-        .dark .stk-refs-list a { color:#a5b4fc; }
-        .stk-refs-list a:hover { text-decoration:underline; }
-
-    </style>
 
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "HowTo", "name": "How to abbreviate journal names", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Paste your references", "text": "Drop a bibliography or .bib file into the input box, or click Example to try a sample."}, {"@type": "HowToStep", "position": 2, "name": "Watch the live output", "text": "Recognised titles are replaced instantly; matches are highlighted in pink, and likely journal titles the dictionary does not know are flagged in amber."}, {"@type": "HowToStep", "position": 3, "name": "Add your own abbreviations", "text": "Open Custom abbreviations and add one rule per line as Full Name = Abbrev. Rules are saved in your browser and override the built-in list."}, {"@type": "HowToStep", "position": 4, "name": "Copy the result", "text": "Click Copy Text to grab the abbreviated bibliography."}]}
@@ -135,6 +59,8 @@
 </script>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
+    <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tools/journal-abbreviator.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
 
@@ -201,10 +127,10 @@
             <p class="text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
                 Paste your reference list or BibTeX file below. The engine will instantly parse the text and replace full journal titles with their standardized CASSI abbreviations. Titles it doesn't recognise are flagged, and you can add your own rules.
             </p>
-            <p class="text-xs text-slate-400 mt-3">By Olanrewaju M. Daramola · 100% client-side</p>
+            <p class="text-xs text-slate-400 mt-3">100% client-side</p>
         </header>
 
-        <div id="toastContainer" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
+        <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
 
         <div class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-260px)] min-h-[500px]">
             
@@ -226,7 +152,7 @@
                         <span id="dictLabel" class="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded font-mono"></span>
                     </summary>
                     <p class="text-xs text-slate-400 mt-3 mb-2 leading-relaxed">
-                        One rule per line: <code class="text-pink-500">Full Journal Name = Abbrev.</code> &mdash; lines starting with <code>#</code> are ignored.
+                        One rule per line: <code class="text-pink-500">Full Journal Name = Abbrev.</code>, lines starting with <code>#</code> are ignored.
                         Custom rules override the built-in list and are saved in this browser only.
                     </p>
                     <textarea id="customRules" rows="4" spellcheck="false" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-pink-500 outline-none resize-y custom-scroll" placeholder="# Example:&#10;Journal of Fictional Chemistry = J. Fict. Chem."></textarea>
@@ -265,7 +191,6 @@
             <span class="stk-chip"><i class="fa-solid fa-spell-check"></i> How-To Guide</span>
             <h2 class="stk-h2">How to abbreviate journal names</h2>
             <p class="stk-lead">Paste a reference list or BibTeX and the tool swaps recognised full journal titles for their standard abbreviations, live as you type.</p>
-            <p class="stk-byline">By Olanrewaju M. Daramola · 100% client-side</p>
             <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Paste your references</h3><p>Drop a bibliography or .bib file into the input box, or click <strong>Example</strong> to try a sample.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Watch the live output</h3><p>Recognised titles are replaced instantly and highlighted in pink; likely journal titles the dictionary <em>doesn't</em> know are flagged in amber so nothing slips through unnoticed.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Add your own rules</h3><p>Open <strong>Custom abbreviations</strong> and add <code>Full Name = Abbrev.</code> lines for niche journals. Rules are saved in your browser and override the built-in list.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Copy the result</h3><p>Click <strong>Copy Text</strong> to grab the abbreviated bibliography.</p></div></div></div>
         </div>
     </section>
@@ -273,7 +198,7 @@
     <section class="stk-section" id="how-it-works" aria-label="How it works">
         <div class="stk-wrap">
             <h2 class="stk-h2">How the matching works</h2>
-            <div class="stk-grid stk-grid-2"><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Variant-tolerant, longest-match replacement</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Titles are matched case-insensitively against a curated list of ~200 journals, longest entries first, so a full title always beats any shorter fragment. Matching also tolerates a leading <em>The</em>, "&amp;" written as "and", missing colons, hyphen vs. en-dash, and titles wrapped across lines in a .bib file. Everything runs in your browser.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Extensible &mdash; and honest about gaps</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">The built-in list is a hand-checked subset of CASSI, not the full database. Anything that <em>looks</em> like a journal title but isn't recognised is flagged in amber and left untouched &mdash; verify it against the official sources below, or add it yourself in the <strong>Custom abbreviations</strong> panel (the whole built-in list lives in a single, easy-to-edit data file).</p></div></div>
+            <div class="stk-grid stk-grid-2"><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Variant-tolerant, longest-match replacement</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Titles are matched case-insensitively against a curated list of ~200 journals, longest entries first, so a full title always beats any shorter fragment. Matching also tolerates a leading <em>The</em>, "&amp;" written as "and", missing colons, hyphen vs. en-dash, and titles wrapped across lines in a .bib file. Everything runs in your browser.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Extensible, and honest about gaps</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">The built-in list is a hand-checked subset of CASSI, not the full database. Anything that <em>looks</em> like a journal title but isn't recognised is flagged in amber and left untouched, verify it against the official sources below, or add it yourself in the <strong>Custom abbreviations</strong> panel (the whole built-in list lives in a single, easy-to-edit data file).</p></div></div>
             <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>Common single-word titles whose abbreviation equals the full name (<strong>Nature</strong>, <strong>Science</strong>, <strong>Small</strong>, <strong>Langmuir</strong>&hellip;) are recognised but never altered or highlighted, so ordinary English words in your text are safe. Abbreviation style follows CASSI for chemistry and ISO&nbsp;4 / the LTWA more generally.</div></div>
         </div>
     </section>
@@ -281,9 +206,9 @@
     <section class="stk-section" id="faq" aria-label="Frequently asked questions">
         <div class="stk-wrap" style="max-width:52rem;">
             <h2 class="stk-h2">Frequently asked questions</h2>
-            <div style="margin-top:1rem;"><details class="stk-faq"><summary>Is my bibliography uploaded anywhere?</summary><div>No. Matching and replacement run entirely in your browser; nothing is sent to a server. Custom rules are stored only in your browser's local storage.</div></details><details class="stk-faq"><summary>Why wasn't one of my journals abbreviated?</summary><div>The built-in list is a curated subset of ~200 titles, not the full CASSI database. Unrecognised titles are left untouched and flagged in amber &mdash; check them against CASSI or the LTWA, or add them as a custom rule.</div></details><details class="stk-faq"><summary>Can I add my own journal abbreviations?</summary><div>Yes. Open the <em>Custom abbreviations</em> panel below the input and add one rule per line as <code>Full Journal Name = Abbrev.</code> Custom rules override the built-in list and persist in your browser.</div></details><details class="stk-faq"><summary>What standard do the abbreviations follow?</summary><div>CASSI (the CAS Source Index) for chemistry titles, which aligns with ISO&nbsp;4 and the ISSN List of Title Word Abbreviations (LTWA).</div></details><details class="stk-faq"><summary>Does it handle variant spellings of a title?</summary><div>Yes. A leading <em>The</em>, "&amp;" written as "and" (e.g. <em>ACS Applied Materials and Interfaces</em>), missing colons (<em>Journal of Physics Condensed Matter</em>), different dashes, any capitalisation, and line-wrapped BibTeX titles are all matched.</div></details><details class="stk-faq"><summary>Can I see what changed?</summary><div>Keep <em>Highlight</em> on: each replaced title is marked in pink (hover to see the original), and suspected unknown journals are marked in amber.</div></details></div>
+            <div style="margin-top:1rem;"><details class="stk-faq"><summary>Is my bibliography uploaded anywhere?</summary><div>No. Matching and replacement run entirely in your browser; nothing is sent to a server. Custom rules are stored only in your browser's local storage.</div></details><details class="stk-faq"><summary>Why wasn't one of my journals abbreviated?</summary><div>The built-in list is a curated subset of ~200 titles, not the full CASSI database. Unrecognised titles are left untouched and flagged in amber, check them against CASSI or the LTWA, or add them as a custom rule.</div></details><details class="stk-faq"><summary>Can I add my own journal abbreviations?</summary><div>Yes. Open the <em>Custom abbreviations</em> panel below the input and add one rule per line as <code>Full Journal Name = Abbrev.</code> Custom rules override the built-in list and persist in your browser.</div></details><details class="stk-faq"><summary>What standard do the abbreviations follow?</summary><div>CASSI (the CAS Source Index) for chemistry titles, which aligns with ISO&nbsp;4 and the ISSN List of Title Word Abbreviations (LTWA).</div></details><details class="stk-faq"><summary>Does it handle variant spellings of a title?</summary><div>Yes. A leading <em>The</em>, "&amp;" written as "and" (e.g. <em>ACS Applied Materials and Interfaces</em>), missing colons (<em>Journal of Physics Condensed Matter</em>), different dashes, any capitalisation, and line-wrapped BibTeX titles are all matched.</div></details><details class="stk-faq"><summary>Can I see what changed?</summary><div>Keep <em>Highlight</em> on: each replaced title is marked in pink (hover to see the original), and suspected unknown journals are marked in amber.</div></details></div>
             <div class="stk-refs"><a href="https://cassi.cas.org/" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> CASSI Search Tool</a><a href="https://en.wikipedia.org/wiki/ISO_4" target="_blank" rel="noopener"><i class="fa-solid fa-hashtag"></i> ISO 4 standard</a><a href="https://en.wikipedia.org/wiki/List_of_Title_Word_Abbreviations" target="_blank" rel="noopener"><i class="fa-solid fa-list"></i> LTWA (ISSN)</a></div>
-            <p class="stk-credit">Built and maintained by <strong>Olanrewaju M.&nbsp;Daramola</strong>. Runs entirely in your browser — no data leaves your device.</p>
+            <p class="stk-credit">Runs entirely in your browser, no data leaves your device.</p>
         </div>
     </section>
 
@@ -339,7 +264,7 @@
                     <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                 </div>
-                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-indigo-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
                 <div class="flex gap-6 text-sm font-medium">
                     <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
                     <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
@@ -384,6 +309,6 @@
         }
     </script>
     <script src="js/journal-data.js"></script>
-    <script src="js/journal-abbreviator.js"></script>
+    <script type="module" src="js/journal-abbreviator.js"></script>
 </body>
 </html>

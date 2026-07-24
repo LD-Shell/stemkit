@@ -1,11 +1,11 @@
 // =============================================================================
-// STEMKit Journal Abbreviator — dictionary
+// STEMKit Journal Abbreviator | dictionary
 // =============================================================================
 // This file is the ONLY place you need to touch to add or fix a journal.
 //
 // Each entry is a pair:  ["Full Journal Name", "Standard Abbreviation"]
 //
-// You do NOT need to add variants — the engine automatically tolerates:
+// You do NOT need to add variants, the engine automatically tolerates:
 //   * a leading "The"                 (The Journal of Chemical Physics)
 //   * "&" vs "and"                    (Energy & Environmental Science)
 //   * missing/extra colons and commas (Journal of Physics Condensed Matter)
