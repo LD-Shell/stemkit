@@ -1,0 +1,55 @@
+/*
+ * scientific-converter -- tool-specific styles.
+ *
+ * Extracted from the inline <style> block in scientific-converter.html. Shared
+ * documentation styles live in src/stemkit-docs.css; Tailwind utilities are
+ * generated into src/output.css and must not be hand-edited.
+ */
+
+.info-trigger { position: relative; display: inline-flex; }
+.info-trigger .info-icon { color: #94a3b8; transition: color 0.15s ease; cursor: help; }
+.info-trigger:hover .info-icon { color: #4f46e5; }
+.dark .info-trigger .info-icon { color: #64748b; }
+.dark .info-trigger:hover .info-icon { color: #818cf8; }
+.info-trigger .tooltip { visibility: hidden; opacity: 0; transition: opacity 0.2s ease, visibility 0.2s ease; }
+.info-trigger:hover .tooltip { visibility: visible; opacity: 1; }
+.custom-scroll::-webkit-scrollbar { height: 6px; }
+.custom-scroll::-webkit-scrollbar-track { background: transparent; }
+.custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+.dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
+.tab-active { background-color: var(--tw-bg-opacity, #f3f4f6); font-weight: 700; }
+from { transform: translateY(100%); opacity: 0; }
+to { transform: translateY(0); opacity: 1; }
+.toast-enter { animation: slideIn 0.3s forwards; }
+.hl { color:#4f46e5; font-weight:600; }
+.dark .hl { color:#818cf8; }
+.doc-tabs { display:flex; flex-wrap:wrap; gap:.4rem; margin:1.25rem 0 1.75rem; border-bottom:1px solid rgba(148,163,184,.25); padding-bottom:.75rem; }
+.doc-tab { display:inline-flex; align-items:center; gap:.45rem; font-size:.85rem; font-weight:700; padding:.5rem .9rem; border-radius:.6rem; border:1px solid transparent; cursor:pointer; background:transparent; color:#64748b; transition:all .15s; }
+.doc-tab:hover { background:#f1f5f9; color:#0f172a; }
+.dark .doc-tab { color:#94a3b8; }
+.dark .doc-tab:hover { background:#1e293b; color:#f1f5f9; }
+.doc-tab.active { background:#4f46e5; color:#fff; border-color:#4f46e5; }
+.doc-tab.active:hover { background:#4338ca; color:#fff; }
+.doc-pane { display:none; }
+.doc-pane.active { display:block; animation:docfade .2s ease; }
+
+@keyframes slideIn {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes docfade {
+  from { opacity:0; transform:translateY(4px); }
+  to { opacity:1; transform:none; }
+}
+
+@media (max-width:640px) {
+  .stk-section { padding:2rem 0; }
+  .stk-wrap { padding-left:1rem; padding-right:1rem; }
+  .stk-h2 { font-size:1.3rem; }
+  .stk-math { font-size:.9rem; padding:.8rem; }
+  .stk-table { font-size:.78rem; }
+  .stk-table th, .stk-table td { padding:.4rem .5rem; }
+  .doc-tab { font-size:.78rem; padding:.4rem .7rem; }
+  .stk-section code { white-space:normal; word-break:break-word; }
+}

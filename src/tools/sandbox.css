@@ -1,0 +1,13 @@
+/*
+ * sandbox -- tool-specific styles.
+ *
+ * Extracted from the inline <style> block in sandbox.html. Shared
+ * documentation styles live in src/stemkit-docs.css; Tailwind utilities are
+ * generated into src/output.css and must not be hand-edited.
+ */
+
+.tool-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.tool-card:hover { transform: translateY(-6px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+.dark .tool-card:hover { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+.hero-bg { background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.08) 0px, transparent 50%); }
+.dark .hero-bg { background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.15) 0px, transparent 50%); }

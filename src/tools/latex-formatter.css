@@ -1,0 +1,18 @@
+/*
+ * latex-formatter -- tool-specific styles.
+ *
+ * Extracted from the inline <style> block in latex-formatter.html. Shared
+ * documentation styles live in src/stemkit-docs.css; Tailwind utilities are
+ * generated into src/output.css and must not be hand-edited.
+ */
+
+from { transform: translateY(100%); opacity: 0; }
+to { transform: translateY(0); opacity: 1; }
+.toast-enter { animation: slideIn 0.3s forwards; }
+math-field { --contains-highlight-backround: transparent; font-size: 1.5rem; width: 100%; border-radius: 0.5rem; padding: 1rem; }
+.dark math-field { --text-color: #f1f5f9; --keyboard-background: #0f172a; }
+
+@keyframes slideIn {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

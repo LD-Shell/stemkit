@@ -1,0 +1,57 @@
+/*
+ * curve-fitter -- tool-specific styles.
+ *
+ * Extracted from the inline <style> block in curve-fitter.html. Shared
+ * documentation styles live in src/stemkit-docs.css; Tailwind utilities are
+ * generated into src/output.css and must not be hand-edited.
+ */
+
+.custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.custom-scroll::-webkit-scrollbar-track { background: transparent; }
+.custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+.dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
+.cf-samples { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-top:.5rem; }
+.cf-samples-label { font-size:.68rem; font-weight:700; color:#64748b; white-space:nowrap; }
+.dark .cf-samples-label { color:#94a3b8; }
+.cf-samples-label i { color:#10b981; }
+.cf-chips { display:flex; flex-wrap:wrap; gap:.35rem; }
+.cf-chip { font-size:.7rem; font-weight:600; padding:.3rem .6rem; border-radius:.45rem; cursor:pointer; color:#047857; background:#ecfdf5; border:1px solid #a7f3d0; transition:all .15s; }
+.cf-chip:hover { background:#10b981; color:#fff; border-color:#10b981; transform:translateY(-1px); }
+.dark .cf-chip { color:#6ee7b7; background:rgba(6,78,59,.4); border-color:#065f46; }
+.dark .cf-chip:hover { background:#10b981; color:#fff; border-color:#10b981; }
+0%,100% { box-shadow:0 0 0 0 rgba(16,185,129,0); }
+50% { box-shadow:0 0 0 4px rgba(16,185,129,.2); }
+.cf-samples.hint .cf-chip { animation: cfHint 1.8s ease-in-out 2; }
+0% { box-shadow:0 0 0 0 rgba(16,185,129,.5); }
+70% { box-shadow:0 0 0 10px rgba(16,185,129,0); }
+100% { box-shadow:0 0 0 0 rgba(16,185,129,0); }
+.cf-pulse { animation: cfPulse 1.4s ease-out 1; }
+#cfCodeModal.open { display:flex; }
+.cf-upload-btn { display:inline-flex; align-items:center; gap:.4rem; font-size:.7rem; font-weight:700; padding:.3rem .65rem; border-radius:.45rem; cursor:pointer; color:#047857; background:#ecfdf5; border:1px solid #a7f3d0; transition:all .15s; }
+.cf-upload-btn:hover { background:#10b981; color:#fff; border-color:#10b981; }
+.dark .cf-upload-btn { color:#6ee7b7; background:rgba(6,78,59,.4); border-color:#065f46; }
+.dark .cf-upload-btn:hover { background:#10b981; color:#fff; }
+
+@media (min-width:768px) {
+  .stk-grid-3 { grid-template-columns:repeat(3,1fr); }
+  .stk-grid-2 { grid-template-columns:repeat(2,1fr); }
+}
+
+@keyframes cfHint {
+  0%,100% { box-shadow:0 0 0 0 rgba(16,185,129,0); }
+  50% { box-shadow:0 0 0 4px rgba(16,185,129,.2); }
+}
+
+@keyframes cfPulse {
+  0% { box-shadow:0 0 0 0 rgba(16,185,129,.5); }
+  70% { box-shadow:0 0 0 10px rgba(16,185,129,0); }
+  100% { box-shadow:0 0 0 0 rgba(16,185,129,0); }
+}
+
+/* Symbol definitions beneath a rendered formula, matching the other tools. */
+.mf-defs { margin-top:1rem; padding-top:.85rem; border-top:1px solid rgba(148,163,184,.25); }
+.mf-defs-title { font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:#94a3b8; margin-bottom:.45rem; }
+.mf-defs dl { display:grid; grid-template-columns:auto 1fr; gap:.35rem .8rem; margin:0; align-items:baseline; }
+.mf-def { display:contents; }
+.mf-defs dt { white-space:nowrap; text-align:right; }
+.mf-defs dd { margin:0; font-size:.75rem; color:#64748b; line-height:1.5; }

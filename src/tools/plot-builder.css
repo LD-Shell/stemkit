@@ -1,0 +1,36 @@
+/*
+ * plot-builder -- tool-specific styles.
+ *
+ * Extracted from the inline <style> block in plot-builder.html. Shared
+ * documentation styles live in src/stemkit-docs.css; Tailwind utilities are
+ * generated into src/output.css and must not be hand-edited.
+ */
+
+from { transform: translateY(100%); opacity: 0; }
+to { transform: translateY(0); opacity: 1; }
+.toast-enter { animation: slideIn 0.3s forwards; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.pb-lbl { display:flex; flex-direction:column; gap:.2rem; font-size:.68rem; font-weight:600; color:#64748b; min-width:0; }
+.dark .pb-lbl { color:#94a3b8; }
+.pb-lbl b { color:#4f46e5; font-weight:700; }
+.dark .pb-lbl b { color:#a5b4fc; }
+.pb-input { font-size:.75rem; font-weight:500; padding:.3rem .45rem; border-radius:.45rem; color:#1e293b; background:#f8fafc; border:1px solid #e2e8f0; outline:none; }
+.pb-input:focus { border-color:#6366f1; }
+.dark .pb-input { background:#0f172a; border-color:#334155; color:#e2e8f0; }
+.pb-range { width:100%; accent-color:#6366f1; }
+#codeModal.open { display:flex; }
+.pb-sample-btn { display:inline-flex; align-items:center; gap:.4rem; font-size:.72rem; font-weight:700; padding:.35rem .7rem; border-radius:.5rem; cursor:pointer; color:#4338ca; background:#eef2ff; border:1px solid #c7d2fe; transition:all .15s; }
+.pb-sample-btn:hover { background:#4f46e5; color:#fff; border-color:#4f46e5; }
+.dark .pb-sample-btn { color:#c7d2fe; background:rgba(49,46,129,.4); border-color:#4338ca; }
+.dark .pb-sample-btn:hover { background:#4f46e5; color:#fff; }
+
+@keyframes slideIn {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@media (min-width:768px) {
+  .stk-grid-3 { grid-template-columns:repeat(3,1fr); }
+  .stk-grid-2 { grid-template-columns:repeat(2,1fr); }
+}

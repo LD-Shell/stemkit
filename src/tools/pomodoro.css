@@ -1,0 +1,104 @@
+/*
+ * pomodoro -- tool-specific styles.
+ *
+ * Extracted from the inline <style> block in pomodoro.html. Shared
+ * documentation styles live in src/stemkit-docs.css; Tailwind utilities are
+ * generated into src/output.css and must not be hand-edited.
+ */
+
+:root { --pm-ring: 300px; --pm-accent: var(--stk-indigo, #4f46e5); --pm-accent-dark: var(--stk-indigo-700, #4338ca); --pm-accent-soft: rgb(79 70 229 / .35); --pm-emerald: #10b981; --pm-emerald-dark: #059669; }
+.pm-underline { text-decoration: underline; text-underline-offset: 2px; }
+.pm-num { font-variant-numeric: tabular-nums; }
+.pt-6 { padding-top: 1.5rem; }
+.pt-8 { padding-top: 2rem; }
+.pm-dial { position: relative; width: var(--pm-ring); height: var(--pm-ring); margin: 0 auto; }
+.pm-dial svg { width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+.pm-track { stroke: #e2e8f0; }
+.dark .pm-track { stroke: #1e293b; }
+.pm-progress { stroke: var(--pm-accent); transition: stroke-dashoffset 0.3s linear, stroke 0.4s ease; }
+.pm-dial[data-mode="short"] .pm-progress, .pm-dial[data-mode="long"] .pm-progress { stroke: var(--pm-emerald); }
+.pm-dial-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.375rem; }
+.pm-time { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; font-weight: 900; font-size: clamp(3.25rem, 13vw, 4.5rem); line-height: 1; letter-spacing: -0.04em; color: #1e293b; }
+.dark .pm-time { color: #fff; }
+.pm-eyebrow { font-size: 0.6875rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.18em; color: #94a3b8; }
+.pm-dial[data-running="true"] .pm-eyebrow { animation: pm-breathe 3.4s ease-in-out infinite; }
+0%, 100% { opacity: 1; }
+50% { opacity: 0.45; }
+.pm-dots { display: flex; gap: 0.375rem; margin-top: 0.25rem; }
+.pm-dot { width: 6px; height: 6px; border-radius: 9999px; background: #cbd5e1; transition: background 0.3s ease, transform 0.3s ease; }
+.dark .pm-dot { background: #334155; }
+.pm-dot[data-on="true"] { background: var(--pm-accent); transform: scale(1.25); }
+.dark .pm-dot[data-on="true"] { background: #818cf8; }
+.pm-ctl { width: 3.25rem; height: 3.25rem; display: flex; align-items: center; justify-content: center; border-radius: 1rem; background: #f1f5f9; color: #475569; transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease; }
+.pm-ctl:hover { background: #e2e8f0; transform: translateY(-2px); }
+.dark .pm-ctl { background: #1e293b; color: #cbd5e1; }
+.dark .pm-ctl:hover { background: #334155; }
+.pm-primary { min-width: 9.5rem; height: 3.25rem; border-radius: 1rem; font-weight: 900; font-size: 1.0625rem; letter-spacing: -0.01em; color: #fff; background: var(--pm-accent); box-shadow: 0 10px 22px -10px rgb(79 70 229 / .75); transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease; }
+.pm-primary:hover { background: var(--pm-accent-dark); transform: translateY(-2px); }
+.pm-primary[data-running="true"] { background: var(--pm-emerald); box-shadow: 0 10px 22px -10px rgba(16, 185, 129, 0.75); }
+.pm-primary[data-running="true"]:hover { background: var(--pm-emerald-dark); }
+.pm-modes { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25rem; padding: 0.3125rem; background: #f1f5f9; border-radius: 9999px; }
+.dark .pm-modes { background: #1e293b; }
+.pm-modes::before { content: ''; position: absolute; top: 0.3125rem; bottom: 0.3125rem; width: calc((100% - 0.625rem - 0.5rem) / 3); border-radius: 9999px; background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); transform: translateX(calc(var(--pm-i, 0) * (100% + 0.25rem))); transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1); left: 0.3125rem; }
+.dark .pm-modes::before { background: #475569; box-shadow: none; }
+.pm-mode { position: relative; z-index: 1; padding: 0.5rem 0.25rem; border-radius: 9999px; font-size: 0.8125rem; font-weight: 700; color: #64748b; transition: color 0.2s ease; white-space: nowrap; }
+.pm-mode:hover { color: #334155; }
+.dark .pm-mode:hover { color: #e2e8f0; }
+.pm-mode[aria-selected="true"] { color: var(--pm-accent); }
+.dark .pm-mode[aria-selected="true"] { color: #fff; }
+.pm-row { display: grid; grid-template-columns: 2rem 1fr 2.75rem; align-items: center; gap: 0.875rem; }
+.pm-row-icon { text-align: center; color: #94a3b8; transition: color 0.25s ease; }
+.pm-row[data-active="true"] .pm-row-icon { color: var(--pm-accent); }
+.dark .pm-row[data-active="true"] .pm-row-icon { color: #818cf8; }
+.pm-row-val { text-align: right; font-size: 0.6875rem; font-weight: 700; font-variant-numeric: tabular-nums; color: #94a3b8; }
+.pm-row[data-failed="true"] { opacity: 0.4; }
+.pm-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; background: transparent; cursor: pointer; }
+.pm-slider::-webkit-slider-runnable-track { height: 5px; border-radius: 9999px; background: linear-gradient(to right, var(--pm-accent) 0%, var(--pm-accent) var(--pm-fill, 0%), #e2e8f0 var(--pm-fill, 0%), #e2e8f0 100%); }
+.dark .pm-slider::-webkit-slider-runnable-track { background: linear-gradient(to right, #6366f1 0%, #6366f1 var(--pm-fill, 0%), #334155 var(--pm-fill, 0%), #334155 100%); }
+.pm-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 15px; height: 15px; margin-top: -5px; border-radius: 9999px; background: #fff; border: 2px solid var(--pm-accent); box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25); transition: transform 0.15s ease; }
+.pm-slider:hover::-webkit-slider-thumb { transform: scale(1.18); }
+.pm-slider::-moz-range-track { height: 5px; border-radius: 9999px; background: #e2e8f0; }
+.dark .pm-slider::-moz-range-track { background: #334155; }
+.pm-slider::-moz-range-progress { height: 5px; border-radius: 9999px; background: var(--pm-accent); }
+.pm-slider::-moz-range-thumb { width: 15px; height: 15px; border-radius: 9999px; background: #fff; border: 2px solid var(--pm-accent); }
+.pm-slider:disabled { cursor: not-allowed; }
+.pm-field { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #e2e8f0; border-radius: 0.75rem; background: #f8fafc; font-size: 0.875rem; font-weight: 600; font-variant-numeric: tabular-nums; color: inherit; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.dark .pm-field { background: #1e293b; border-color: #334155; }
+.pm-field:focus { outline: none; border-color: var(--pm-accent); box-shadow: 0 0 0 3px var(--pm-accent-soft); }
+.pm-label { display: block; margin-bottom: 0.375rem; font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; }
+.dark .pm-label { color: #94a3b8; }
+.pm-prose h2 { font-size: 1.375rem; font-weight: 900; letter-spacing: -0.02em; color: #0f172a; margin-bottom: 0.75rem; }
+.dark .pm-prose h2 { color: #fff; }
+.pm-prose p, .pm-prose li { color: #475569; line-height: 1.75; }
+.dark .pm-prose p, .dark .pm-prose li { color: #cbd5e1; }
+.pm-prose p { margin-bottom: 1.5rem; }
+.pm-prose ul { padding-left: 1.125rem; margin-bottom: 1.5rem; }
+.pm-prose li { list-style: disc; margin-bottom: 0.5rem; }
+.pm-prose strong { color: #1e293b; font-weight: 700; }
+.dark .pm-prose strong { color: #f1f5f9; }
+.pm-prose section { margin-bottom: 2.5rem; }
+.pm-kbd { display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.7rem; line-height: 1; padding: 0.25rem 0.45rem; border-radius: 0.35rem; color: #94a3b8; background: #f1f5f9; border: 1px solid #e2e8f0; }
+.dark .pm-kbd { background: #1e293b; border-color: #334155; }
+:focus-visible { outline: 2px solid var(--pm-accent); outline-offset: 2px; }
+.pm-progress, .pm-modes::before, .pm-dot, .pm-ctl, .pm-primary, .pm-slider::-webkit-slider-thumb { transition: none; }
+
+@keyframes pm-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (max-width: 480px) {
+  :root { --pm-ring: 244px; }
+  .pm-ctl { width: 3rem; height: 3rem; }
+  .pm-primary { min-width: 8rem; height: 3rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-progress, .pm-modes::before, .pm-dot, .pm-ctl, .pm-primary, .pm-slider::-webkit-slider-thumb { transition: none; }
+  .pm-dial[data-running="true"] .pm-eyebrow { animation: none; }
+}
+
+@media (min-width:768px) {
+  .stk-grid-3 { grid-template-columns:repeat(3,1fr); }
+  .stk-grid-2 { grid-template-columns:repeat(2,1fr); }
+}

@@ -1,4 +1,4 @@
-/* STEMKit home chrome — plain CSS (output.css is JIT-purged, so unused
+/* STEMKit home chrome, plain CSS (output.css is JIT-purged, so unused
    utilities would silently no-op). Reuses the build's exact tokens:
    indigo #4f46e5/#6366f1, emerald #10b981/#34d399, slate 50..950,
    radius 2xl 1rem / 3xl 1.5rem, shadows matching shadow-sm..lg. */
@@ -32,9 +32,15 @@ html { scroll-behavior:smooth; }
 .dark .stk-search { background:#0f172a; color:#e2e8f0; border-color:#334155; }
 .stk-search::placeholder { color:#94a3b8; }
 .stk-search:focus { border-color:var(--stk-indigo); box-shadow:0 0 0 3px rgb(79 70 229 / .35); }
-.stk-kbd { position:absolute; right:1rem; top:50%; transform:translateY(-50%); font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+/* The hint parked inside the home-page search box.
+   Scoped to that element on purpose: as a bare `.stk-kbd` this rule also
+   matched the inline keyboard badges in every tool's documentation, and
+   because home.css loads after those pages' own styles it won, turning a row
+   of shortcut keys into a stack of absolutely positioned badges sitting on top
+   of one another, so only the last one was visible. */
+#searchHint { position:absolute; right:1rem; top:50%; transform:translateY(-50%); font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
    font-size:.7rem; line-height:1; padding:.25rem .45rem; border-radius:.35rem; color:#94a3b8; background:#f1f5f9; border:1px solid #e2e8f0; }
-.dark .stk-kbd { background:#1e293b; border-color:#334155; }
+.dark #searchHint { background:#1e293b; border-color:#334155; }
 
 .stk-chips { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:.5rem; margin-top:1.25rem; }
 .stk-chip { display:inline-flex; align-items:center; gap:.4rem; font-size:.875rem; font-weight:600; font-family:inherit; cursor:pointer;
