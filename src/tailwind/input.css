@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+   Hand-written rules
+   ---------------------------------------------------------------------------
+   Kept in the Tailwind source rather than appended to the build output, so a
+   rebuild cannot silently drop them. Everything above this point is generated.
+--------------------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------
+   Arbitrary-value utilities
+   ---------------------------------------------------------------------------
+   These pages use Tailwind arbitrary values such as h-[calc(100vh-80px)].
+   Those are generated on demand by the JIT compiler, but this build is a
+   pre-compiled stylesheet and the pages do not load the Tailwind CDN, so the
+   classes resolved to nothing.
+
+   The visible symptom was a collapsed <main>: with no height, a child using
+   `absolute inset-0` (the upload overlay on several tools) escaped its
+   container and painted over the documentation below it.
+
+   Written out longhand here so the layout no longer depends on a compiler
+   step. Note that `calc()` needs whitespace around the operator to be valid
+   CSS, even though Tailwind's bracket syntax omits it.
+--------------------------------------------------------------------------- */
+
+.h-\[65vh\] { height: 65vh; }
+.h-\[70vh\] { height: 70vh; }
+.h-\[calc\(100vh-80px\)\] { height: calc(100vh - 80px); }
+
+.max-h-\[85vh\] { max-height: 85vh; }
+
+.min-h-\[2\.2em\] { min-height: 2.2em; }
+.min-h-\[240px\] { min-height: 240px; }
+.min-h-\[520px\] { min-height: 520px; }
+.min-h-\[560px\] { min-height: 560px; }
+
+.text-\[8px\] { font-size: 8px; }
+.text-\[9px\] { font-size: 9px; }
+
+.active\:scale-\[0\.98\]:active { transform: scale(0.98); }
+
+@media (min-width: 1024px) {
+  .lg\:h-\[calc\(100vh-120px\)\] { height: calc(100vh - 120px); }
+  .lg\:h-\[calc\(100vh-16rem\)\] { height: calc(100vh - 16rem); }
+  .lg\:min-h-\[640px\] { min-height: 640px; }
+  .lg\:w-\[320px\] { width: 320px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Viewer shell
+   ---------------------------------------------------------------------------
+   Layout for the tools with a settings panel beside a viewport: the shell
+   fills the space under the nav, the side panel scrolls on its own, and the
+   thing being viewed stays put.
+
+   These are plain class names on purpose. The equivalent Tailwind arbitrary
+   values (`lg:h-[calc(100vh-120px)]`) need escaped parentheses in the selector
+   (`.lg\:h-\[calc\(100vh-120px\)\]`) which not every CSS parser handles, and
+   when it fails the shell loses its height, collapses, and the documentation
+   below it is drawn over the panel.
+--------------------------------------------------------------------------- */
+
+@media (min-width: 1024px) {
+  .stk-shell {
+    height: calc(100vh - 120px);
+    min-height: 560px;
+    overflow: hidden;
+  }
+  .stk-shell-pane {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    min-height: 0;      /* let a flex child actually shrink and scroll */
+  }
+  .stk-shell-main {
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+/* Shell variants for tools whose viewport starts directly under the nav.
+   Deliberately outside any media query: the markup these replaced used
+   unprefixed utilities, so the height applied at every width. Scoping them to
+   desktop leaves narrow screens with no height at all, which collapses the
+   container and lets an `absolute inset-0` upload overlay escape it. */
+
+/* Fixed height, for a tool holding a viewport in view (a plot, a canvas). */
+.stk-shell-tall {
+  height: calc(100vh - 80px);
+  min-height: 520px;
+}
+
+/* Default split between the Structure View and the Data Buffer Preview.
+   A concrete height on the preview is what lets it scroll internally and
+   leaves the rest of the shell to the viewer; the drag handle overrides this
+   with an inline height. Written as a named class rather than a Tailwind
+   arbitrary value (`h-[240px]`) because this build has no JIT step, so every
+   such class has to be authored by hand, and one that is merely a substring
+   of another (`min-h-[240px]`) is easy to believe is present when it is not. */
+.stk-preview-pane { height: 240px; }
