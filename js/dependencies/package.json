@@ -1,0 +1,4 @@
+{
+  "//": "The vendored bundles are UMD (CommonJS-compatible). The repository root declares \"type\": \"module\", which would otherwise make Node parse these .js files as ES modules -- the UMD factory then takes its browser branch and fails with \"Cannot set properties of undefined (setting 'jStat')\". Scoping CommonJS to this directory lets createRequire load them correctly.",
+  "type": "commonjs"
+}
