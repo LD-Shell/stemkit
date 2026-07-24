@@ -55,7 +55,7 @@ def update_footers():
                     <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                 </div>
-                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-indigo-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
                 <div class="flex gap-6 text-sm font-medium">
                     <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
                     <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
