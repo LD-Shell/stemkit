@@ -6,7 +6,7 @@
     
     <title>Coordinate Manipulator | PDB & GRO Trajectories | STEMKit</title>
     <meta name="title" content="Coordinate Manipulator | PDB & GRO Trajectories | STEMKit">
-    <meta name="description" content="Apply rigid-body translation vectors, calculate bounding boxes, and convert coordinate formats for PDB, GRO, and XYZ files entirely in your browser.">
+    <meta name="description" content="Translate, rotate and centre molecular structures on their centre of mass, edit GROMACS box vectors, and convert between PDB, GRO and XYZ with automatic Å/nm handling, all in your browser.">
     <meta name="keywords" content="coordinate manipulator, pdb translation, gro file editor, computational chemistry, center of mass pdb, xyz converter">
     
     <link rel="canonical" href="https://stemkit.net/coordinate-manipulator.html">
@@ -24,13 +24,13 @@
             "@type": "WebApplication",
             "name": "STEMKit Coordinate Manipulator",
             "url": "https://stemkit.net/coordinate-manipulator.html",
-            "description": "Apply translation vectors and calculate bounding boxes for PDB or GRO formats.",
+            "description": "Translate, rotate and centre molecular structures, compute centre of mass, edit simulation box vectors and convert between PDB, GRO and XYZ, entirely in the browser.",
             "applicationCategory": "UtilityApplication",
             "operatingSystem": "All",
             "author": { "@type": "Person", "name": "Olanrewaju M. Daramola" },
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "PDB/GRO/XYZ Parsing", "Vector Translation", "Format Conversion", "Client-Side Privacy" ]
+            "featureList": [ "PDB/GRO/XYZ Parsing", "Vector Translation", "3D Rotation", "Centre of Mass Alignment", "Editable Simulation Box", "Format Conversion", "Client-Side Privacy" ]
         }
     </script>
     <meta name="author" content="Olanrewaju M. Daramola">
@@ -46,84 +46,24 @@
     <link rel="icon" type="image/png" sizes="16x16" href="https://stemkit.net/assets/favicon-16x16.png">
     <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
     
+    <script src="js/dependencies/3Dmol-min.js"></script>
     <link rel="stylesheet" href="css/all.min.css">
     
-    <style>
-        .tool-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .tool-card:hover { transform: translateY(-6px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
-        .dark .tool-card:hover { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
-        
-        .hero-bg {
-            background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 50%),
-                              radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
-        }
-        .dark .hero-bg {
-            background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-                              radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.15) 0px, transparent 50%);
-        }
-        
-        .accordion-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; max-height: 0; opacity: 0; overflow: hidden; }
-        .accordion-content.expanded { max-height: 800px; opacity: 1; overflow: visible; }
-        .accordion-icon { transition: transform 0.3s ease; }
-        .accordion-btn[aria-expanded="true"] .accordion-icon { transform: rotate(180deg); }
-        
-        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
-        .dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
-    </style>
 
-    <style>
-        /* STEMKit docs / how-to / FAQ — self-contained styles */
-        .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
-        .stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
-        .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;
-                    text-transform:uppercase; letter-spacing:.12em; padding:.3rem .7rem; border-radius:9999px;
-                    background:#eef2ff; color:#4338ca; border:1px solid #e0e7ff; }
-        .dark .stk-chip { background:rgba(67,56,202,.18); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
-        .stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
-        .stk-lead { max-width:48rem; color:#64748b; line-height:1.6; }
-        .dark .stk-lead { color:#94a3b8; }
-        .stk-grid { display:grid; gap:1rem; grid-template-columns:1fr; margin-top:1.5rem; }
-        @media (min-width:768px){ .stk-grid-3{grid-template-columns:repeat(3,1fr);} .stk-grid-2{grid-template-columns:repeat(2,1fr);} }
-        .stk-card { border-radius:1rem; border:1px solid rgba(148,163,184,.25); padding:1.4rem; background:#fff; }
-        .dark .stk-card { background:#0f172a; border-color:rgba(51,65,85,.8); }
-        .stk-step { display:flex; gap:.85rem; align-items:flex-start; }
-        .stk-num { width:2rem; height:2rem; border-radius:9999px; display:inline-flex; align-items:center;
-                   justify-content:center; font-weight:800; font-size:.85rem; flex-shrink:0;
-                   background:#4f46e5; color:#fff; }
-        .stk-step h3 { font-weight:700; font-size:.95rem; margin-bottom:.15rem; }
-        .stk-step p { font-size:.85rem; color:#64748b; line-height:1.5; }
-        .dark .stk-step p { color:#94a3b8; }
-        .stk-note { display:flex; gap:.6rem; align-items:flex-start; font-size:.82rem; line-height:1.55;
-                    background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:.75rem; padding:.9rem 1rem; }
-        .dark .stk-note { background:rgba(120,53,15,.15); border-color:rgba(180,83,9,.4); color:#fcd34d; }
-        .stk-faq { border-bottom:1px solid rgba(148,163,184,.22); }
-        .stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 0; font-weight:600; font-size:.95rem;
-                             display:flex; justify-content:space-between; align-items:center; gap:1rem; }
-        .stk-faq > summary::-webkit-details-marker { display:none; }
-        .stk-faq > summary::after { content:"+"; font-weight:700; color:#6366f1; font-size:1.2rem; line-height:1; }
-        .stk-faq[open] > summary::after { content:"\2212"; }
-        .stk-faq > div { padding:0 0 1.1rem; font-size:.88rem; line-height:1.6; color:#475569; }
-        .dark .stk-faq > div { color:#94a3b8; }
-        .stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem; }
-        .stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600;
-                      color:#4f46e5; text-decoration:none; border:1px solid #e0e7ff; background:#eef2ff;
-                      padding:.4rem .8rem; border-radius:.6rem; }
-        .dark .stk-refs a { color:#a5b4fc; background:rgba(67,56,202,.15); border-color:rgba(99,102,241,.3); }
-        .stk-refs a:hover { text-decoration:underline; }
-        .stk-byline { font-size:.8rem; color:#94a3b8; margin-top:.35rem; }
-        .stk-credit { margin-top:2rem; font-size:.8rem; color:#94a3b8; }
-    </style>
 
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"HowTo","name":"Coordinate Manipulator","totalTime":"PT2M","tool":{"@type":"HowToTool","name":"Coordinate Manipulator"},"step":[{"@type":"HowToStep","position":1,"name":"Load a structure","text":"Drag &amp; drop — or click to browse — a .pdb, .gro or .xyz file. Parsing starts automatically."},{"@type":"HowToStep","position":2,"name":"Inspect the system","text":"Read off the atom count, geometric centre and bounding box, all shown in the file’s native units (Å for PDB/XYZ, nm for GRO)."},{"@type":"HowToStep","position":3,"name":"Transform","text":"Enter a translation vector and click Apply Vector, or press Align Origin to move the geometric centre to (0, 0, 0)."},{"@type":"HowToStep","position":4,"name":"Export","text":"Choose an output format and click Download. Coordinates are converted to the correct units for the target format automatically."}]}
+{"@context":"https://schema.org","@type":"HowTo","name":"Coordinate Manipulator","totalTime":"PT2M","tool":{"@type":"HowToTool","name":"Coordinate Manipulator"},"step":[{"@type":"HowToStep","position":1,"name":"Load a structure","text":"Drag &amp; drop (or click to browse) a .pdb, .gro or .xyz file. Parsing starts automatically."},{"@type":"HowToStep","position":2,"name":"Inspect the system","text":"Read off the atom count, geometric centre and bounding box, all shown in the file’s native units (Å for PDB/XYZ, nm for GRO)."},{"@type":"HowToStep","position":3,"name":"Transform","text":"Enter a translation vector and click Apply Vector, or press Align Origin to move the geometric centre to (0, 0, 0)."},{"@type":"HowToStep","position":4,"name":"Export","text":"Choose an output format and click Download. Coordinates are converted to the correct units for the target format automatically."}]}
 </script>
     <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Which units does each format use?","acceptedAnswer":{"@type":"Answer","text":"PDB and XYZ are in ångström; GROMACS .gro is in nanometres (1 nm = 10 Å). When you export to a different format, coordinates are converted automatically."}},{"@type":"Question","name":"Is the ‘Geometric Centre’ the centre of mass?","acceptedAnswer":{"@type":"Answer","text":"No. It is the arithmetic mean of the atomic coordinates (a geometric centroid). A true centre of mass would weight each atom by its atomic mass."}},{"@type":"Question","name":"Does translation distort my molecule?","acceptedAnswer":{"@type":"Answer","text":"No. Rigid-body translation and centring shift every atom by the same vector, so all internal distances and angles are preserved."}},{"@type":"Question","name":"Can I convert a GRO file to PDB?","acceptedAnswer":{"@type":"Answer","text":"Yes. Load the .gro and choose PDB (or XYZ) as the output format; the tool converts nm to Å during export."}},{"@type":"Question","name":"Is my structure file uploaded anywhere?","acceptedAnswer":{"@type":"Answer","text":"No. Files are read and processed entirely in your browser and are never transmitted to a server."}}]}
 </script>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
+    <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tools/coordinate-manipulator.css">
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Which units does each format use?", "acceptedAnswer": {"@type": "Answer", "text": "PDB and XYZ are in \u00e5ngstr\u00f6m; GROMACS .gro is in nanometres (1 nm = 10 \u00c5). When you export to a different format, coordinates are converted automatically, and every input label shows the unit currently in use."}}, {"@type": "Question", "name": "What is the difference between geometric centre and centre of mass?", "acceptedAnswer": {"@type": "Answer", "text": "The geometric centre is the plain arithmetic mean of the coordinates \u2014 every atom counts equally. The centre of mass weights each atom by its standard atomic weight, so it sits closer to the heavy atoms. Use centre of mass when setting up a simulation; the two can differ by several \u00e5ngstr\u00f6m in an asymmetric molecule."}}, {"@type": "Question", "name": "Which atomic weights are used?", "acceptedAnswer": {"@type": "Answer", "text": "IUPAC standard atomic weights covering hydrogen through the common heavy elements. If an element cannot be identified from the file the tool falls back to carbon and tells you which symbols were unrecognised, so a mass-weighted result is never silently wrong."}}, {"@type": "Question", "name": "How does the tool know CA is calcium and not an alpha carbon?", "acceptedAnswer": {"@type": "Answer", "text": "It checks the PDB element column first, which is authoritative when present. Failing that it reads the atom name, using the residue name to break ties: CA inside a residue named CA is calcium, while CA in ALA is the alpha carbon."}}, {"@type": "Question", "name": "In what order are rotations applied?", "acceptedAnswer": {"@type": "Answer", "text": "Intrinsic Z-Y-X \u2014 yaw about Z, then pitch about Y, then roll about X, equivalent to R = Rz\u00b7Ry\u00b7Rx acting on a column vector. Because rotations do not commute, apply one axis at a time if you need an exact orientation."}}, {"@type": "Question", "name": "Does rotation or translation distort my molecule?", "acceptedAnswer": {"@type": "Answer", "text": "No. Both are rigid-body operations: every internal distance and angle is preserved exactly. Only the position and orientation of the structure as a whole change."}}, {"@type": "Question", "name": "Can I set my own simulation box?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The Simulation Box panel lets you type Lx, Ly and Lz in nanometres, or press Fit to Molecule to derive them from the bounding box with a padding percentage. If the source file carried a box \u2014 a .gro box line or a PDB CRYST1 record \u2014 it is loaded as the starting point. The tool warns you when the box is smaller than the molecule."}}, {"@type": "Question", "name": "Why does the preview stop after 500 lines?", "acceptedAnswer": {"@type": "Answer", "text": "Rendering a large system's full text into the page would freeze the browser. Only the first 500 lines are drawn; Download and Copy always give you the complete file, however large."}}, {"@type": "Question", "name": "Are velocities preserved in GRO files?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. If the input .gro carries velocity columns they are kept, rotated along with the coordinates, and written back out. Velocities are direction vectors, so translating the structure correctly leaves them unchanged."}}, {"@type": "Question", "name": "Can I convert a GRO file to PDB?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Load the .gro and choose PDB (or XYZ) as the output format; the tool converts nm to \u00c5 during export and writes the box as a CRYST1 record."}}, {"@type": "Question", "name": "Is my structure file uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Files are read and processed entirely in your browser and are never transmitted to a server."}}]}
+</script>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
 
@@ -180,7 +120,7 @@
         </div>
     </nav>
 
-    <main class="flex-grow w-full flex flex-col relative" style="min-height: calc(100vh - 80px);">
+    <main class="stk-shell-tall flex-grow w-full flex flex-col relative">
         
         <section id="uploadZone" class="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-slate-950 transition-opacity duration-300">
             <div class="w-full max-w-4xl flex flex-col items-center justify-center border-2 border-dashed border-purple-300 dark:border-purple-700 rounded-3xl bg-purple-50/50 dark:bg-purple-900/10 cursor-pointer p-20 text-center group transition-colors hover:bg-purple-50 dark:hover:bg-purple-900/20" id="dropArea">
@@ -192,7 +132,6 @@
                 <p class="text-slate-500 dark:text-slate-400 mb-2 max-w-lg leading-relaxed">
                     Parse topologies instantly. Apply rigid-body translation vectors, compute system dimensions, and convert output formats entirely in your browser.
                 </p>
-                <p class="stk-byline">By Olanrewaju M. Daramola</p>
                 <p class="text-xs font-bold text-slate-400 dark:text-slate-500 mb-8 uppercase tracking-wider">Supported formats: .pdb, .gro, .xyz</p>
                 <button class="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3.5 rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2">
                     <i class="fa-solid fa-file-import"></i> Initialize Topology
@@ -200,13 +139,13 @@
             </div>
         </section>
 
-        <section id="workspace" class="hidden w-full flex-grow flex flex-col lg:flex-row p-4 gap-4 pb-12">
+        <section id="workspace" class="stk-shell hidden w-full flex-grow flex flex-col lg:flex-row p-4 gap-4 pb-12">
             
-            <div class="w-full lg:w-[420px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden shadow-sm shrink-0">
+            <div class="stk-shell-main w-full lg:w-[420px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden shadow-sm shrink-0">
                 
                 <div class="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-between items-center">
                     <div>
-                        <h2 class="text-md font-black tracking-tight flex items-center gap-2">
+                        <h2 class="text-base font-black tracking-tight flex items-center gap-2">
                             <i class="fa-solid fa-layer-group text-purple-500"></i> Transformation Engine
                         </h2>
                         <p id="systemFormatLabel" class="text-[10px] text-slate-500 font-mono mt-1 uppercase">Awaiting structure...</p>
@@ -233,10 +172,29 @@
                                     <span class="text-[10px] font-bold text-slate-400 block uppercase">Geometric Center</span>
                                     <span id="statGeoCenter" class="font-mono text-slate-700 dark:text-slate-300">0.0, 0.0, 0.0</span>
                                 </div>
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-400 block uppercase">Centre of Mass</span>
+                                    <span id="statMassCenter" class="font-mono text-slate-700 dark:text-slate-300">0.0, 0.0, 0.0</span>
+                                </div>
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-400 block uppercase">Molecular Weight</span>
+                                    <span id="statMolWeight" class="font-mono text-slate-700 dark:text-slate-300">, </span>
+                                        <button id="btnMassDetail" type="button" class="ml-1 text-[10px] font-bold text-purple-600 dark:text-purple-400 hover:underline align-middle">how?</button>
+                                </div>
                                 <div class="col-span-2">
                                     <span class="text-[10px] font-bold text-slate-400 block uppercase">Bounding Box (XYZ)</span>
                                     <span id="statBoundingBox" class="font-mono text-slate-700 dark:text-slate-300">0.0 × 0.0 × 0.0</span>
                                 </div>
+                            <details id="massDetail" class="col-span-2 mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">
+                                <summary class="cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 hover:text-purple-500">How the mass was calculated</summary>
+                                <div class="mt-2 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
+                                    <p class="mb-2">Sum of standard atomic weights over every atom present in the file, including solvent and ions. Natural-isotope averages, not monoisotopic masses; no charge correction.</p>
+                                    <div id="massTable" class="overflow-x-auto"></div>
+                                    <p id="massAssumptions" class="mt-2 text-amber-700 dark:text-amber-400"></p>
+                                    <button id="btnMassDownload" type="button" class="mt-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all">Download working (.csv)</button>
+                                </div>
+                            </details>
+
                             </div>
                         </div>
                     </div>
@@ -246,20 +204,27 @@
                             <span class="text-xs font-bold text-purple-900 dark:text-purple-300 uppercase tracking-wider">Rigid-Body Translation</span>
                         </div>
                         <div class="p-4">
-                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mb-3">Input vector components. Units match the parsed input file (.pdb = Å, .gro = nm).</p>
+                            <p id="transUnitNote" class="text-[10px] text-slate-500 dark:text-slate-400 mb-3">Input vector components. Units match the parsed input file (.pdb = Å, .gro = nm).</p>
                             <div class="grid grid-cols-3 gap-2 mb-3">
                                 <div>
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Delta X</span>
+                                    <span id="labelTransX" class="text-[10px] font-bold text-slate-500 uppercase">Delta X</span>
                                     <input type="number" id="transX" value="0.000" step="0.1" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
                                 </div>
                                 <div>
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Delta Y</span>
+                                    <span id="labelTransY" class="text-[10px] font-bold text-slate-500 uppercase">Delta Y</span>
                                     <input type="number" id="transY" value="0.000" step="0.1" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
                                 </div>
                                 <div>
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Delta Z</span>
+                                    <span id="labelTransZ" class="text-[10px] font-bold text-slate-500 uppercase">Delta Z</span>
                                     <input type="number" id="transZ" value="0.000" step="0.1" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
                                 </div>
+                            </div>
+                            <div class="mb-3">
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">Centre using</span>
+                                <select id="centerMode" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs outline-none mt-0.5">
+                                    <option value="geometric">Geometric centre (centroid)</option>
+                                    <option value="mass">Centre of mass (mass-weighted)</option>
+                                </select>
                             </div>
                             <div class="flex gap-2">
                                 <button id="btnCenterSys" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 rounded-lg text-xs transition-colors shadow-sm">
@@ -269,6 +234,84 @@
                                     Apply Vector
                                 </button>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- ROTATION -->
+                    <div class="border border-sky-200 dark:border-sky-800 rounded-xl overflow-hidden bg-sky-50/30 dark:bg-sky-900/10">
+                        <div class="px-4 py-3 border-b border-sky-100 dark:border-sky-800/50 flex justify-between items-center">
+                            <span class="text-xs font-bold text-sky-900 dark:text-sky-300 uppercase tracking-wider">3D Rotation</span>
+                            <span class="text-[9px] font-mono text-sky-700 dark:text-sky-400">degrees</span>
+                        </div>
+                        <div class="p-4">
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mb-3">Applied as intrinsic Z&#8209;Y&#8209;X (yaw, then pitch, then roll) about the pivot below. Rigid rotation, bond lengths and angles are preserved.</p>
+                            <div class="grid grid-cols-3 gap-2 mb-3">
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Rot X (&#176;)</span>
+                                    <input type="number" id="rotX" value="0" step="5" min="-360" max="360" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
+                                </div>
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Rot Y (&#176;)</span>
+                                    <input type="number" id="rotY" value="0" step="5" min="-360" max="360" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
+                                </div>
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Rot Z (&#176;)</span>
+                                    <input type="number" id="rotZ" value="0" step="5" min="-360" max="360" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <span class="text-[10px] font-bold text-slate-500 uppercase">Rotate about</span>
+                                <select id="rotPivot" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs outline-none mt-0.5">
+                                    <option value="geometric">Geometric centre</option>
+                                    <option value="mass">Centre of mass</option>
+                                    <option value="origin">Origin (0, 0, 0)</option>
+                                </select>
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="btnUndo" type="button" title="Nothing to undo" class="opacity-40 cursor-not-allowed bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 font-bold py-2 px-3 rounded-lg text-xs transition-all mr-2 flex items-center gap-1.5"><i class="fa-solid fa-rotate-left"></i> Undo</button>
+                        <button id="btnRedo" type="button" title="Nothing to redo" class="opacity-40 cursor-not-allowed bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 font-bold py-2 px-3 rounded-lg text-xs transition-all mr-2 flex items-center gap-1.5"><i class="fa-solid fa-rotate-right"></i> Redo</button>
+                                <button id="btnResetRot" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 rounded-lg text-xs transition-colors shadow-sm">
+                                    <i class="fa-solid fa-rotate-left mr-1"></i> Reset Angles
+                                </button>
+                                <button id="btnApplyRot" class="flex-1 bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 rounded-lg text-xs transition-colors shadow-sm">
+                                    Apply Rotation
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SIMULATION BOX -->
+                    <div id="boxPanel" class="border border-emerald-200 dark:border-emerald-800 rounded-xl overflow-hidden bg-emerald-50/30 dark:bg-emerald-900/10 transition-opacity">
+                        <div class="px-4 py-3 border-b border-emerald-100 dark:border-emerald-800/50 flex justify-between items-center">
+                            <span class="text-xs font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider">Simulation Box</span>
+                            <span class="text-[9px] font-mono text-emerald-700 dark:text-emerald-400">GRO &middot; <span id="boxUnitLabel">nm</span></span>
+                        </div>
+                        <div class="p-4">
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mb-3">Box vectors written to <code>.gro</code> output (and as <code>CRYST1</code> in PDB). GROMACS always expects nanometres here, whatever the source file used.</p>
+                            <div class="grid grid-cols-3 gap-2 mb-3">
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Lx (nm)</span>
+                                    <input type="number" id="boxLx" value="0.00000" step="0.1" min="0" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
+                                </div>
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Ly (nm)</span>
+                                    <input type="number" id="boxLy" value="0.00000" step="0.1" min="0" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
+                                </div>
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Lz (nm)</span>
+                                    <input type="number" id="boxLz" value="0.00000" step="0.1" min="0" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
+                                </div>
+                            </div>
+                            <div class="flex items-end gap-2 mb-2">
+                                <div class="flex-1">
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Padding (%)</span>
+                                    <input type="number" id="boxPad" value="10" step="5" min="0" max="200" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
+                                </div>
+                                <button id="btnBoxFromBounds" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs transition-colors shadow-sm">
+                                    <i class="fa-solid fa-cube mr-1"></i> Fit to Molecule
+                                </button>
+                            </div>
+                            <p id="boxSource" class="text-[10px] text-slate-500 dark:text-slate-400 font-mono"></p>
                         </div>
                     </div>
 
@@ -290,6 +333,15 @@
                         </div>
                     </div>
                     <p id="exportUnitNote" class="text-[10px] text-slate-500 dark:text-slate-400 font-mono"></p>
+                    <div class="mb-4 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                        <div class="bg-slate-50 dark:bg-slate-950 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
+                            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Equivalent GROMACS command</span>
+                            <button id="btnCopyEditconf" class="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 hover:underline">Copy</button>
+                        </div>
+                        <pre class="p-3 overflow-x-auto text-[11px] leading-relaxed bg-white dark:bg-slate-900"><code id="editconfOut" class="font-mono text-slate-700 dark:text-slate-300">Load a structure to see the equivalent command.</code></pre>
+                        <div id="editconfNotes" class="px-3 pb-3 text-[10px] leading-relaxed text-amber-700 dark:text-amber-400"></div>
+                    </div>
+
                     <button id="btnDownload" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl transition-all duration-200 transform hover:-translate-y-1 hover:shadow-lg active:scale-95 shadow-md text-sm flex justify-center items-center">
                         <i class="fa-solid fa-download mr-2 text-lg"></i> Download Coordinates
                     </button>
@@ -297,9 +349,50 @@
 
             </div>
 
-            <div class="flex-grow bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col relative overflow-hidden">
+            <div class="stk-shell-main flex-grow flex flex-col gap-4 min-w-0">
+
+            <div class="flex-grow bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col relative overflow-hidden min-h-[240px]">
+                <div class="bg-white dark:bg-slate-950 px-4 py-3 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 shrink-0">
+                    <div class="flex flex-col">
+                        <span class="text-sm font-bold text-purple-500 dark:text-purple-400 uppercase tracking-wider font-mono">Structure View</span>
+                        <span id="viewerNote" class="text-[10px] text-slate-400 font-mono">Updates after every transformation</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <label class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 cursor-pointer select-none mr-1" title="Outline the simulation cell">
+                            <input type="checkbox" id="showBox" checked class="accent-purple-500"> Box
+                        </label>
+                        <select id="viewerStyle" class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none">
+                            <option value="stick">Sticks</option>
+                            <option value="sphere">Spheres</option>
+                            <option value="ballstick" selected>Ball &amp; stick</option>
+                            <option value="line">Wireframe</option>
+                        </select>
+                        <button id="btnViewerReset" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1 rounded-lg text-xs font-bold transition-all" title="Recentre the view">
+                            <i class="fa-solid fa-crosshairs"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="viewerCanvas" class="flex-grow relative w-full"></div>
+                <p id="viewerFallback" class="hidden absolute inset-0 flex items-center justify-center text-center text-xs text-slate-500 px-6"></p>
+            </div>
+
+            <div id="viewSplit" role="separator" aria-orientation="horizontal" tabindex="0"
+                 aria-label="Drag to resize the structure view. Arrow keys adjust, double-click resets."
+                 title="Drag to resize · double-click to reset"
+                 class="hidden lg:flex shrink-0 h-5 -my-1 items-center justify-center cursor-row-resize group select-none focus:outline-none">
+                <span class="flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm text-slate-400 group-hover:text-purple-500 group-hover:border-purple-400 group-focus:text-purple-500 group-focus:border-purple-400 transition-colors">
+                    <i class="fa-solid fa-grip-lines text-[10px]"></i>
+                    <span class="text-[10px] font-bold uppercase tracking-wider">Drag to resize</span>
+                </span>
+            </div>
+
+            <div id="previewPanel" class="stk-preview-pane bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col relative overflow-hidden shrink-0">
                 <div class="bg-slate-950 px-4 py-3 flex justify-between items-center border-b border-slate-800 shrink-0">
-                    <span class="text-sm font-bold text-purple-400 uppercase tracking-wider font-mono">Data Buffer Preview</span>
+                    <div class="flex flex-col">
+                        <span class="text-sm font-bold text-purple-400 uppercase tracking-wider font-mono">Data Buffer Preview</span>
+                        <span id="previewNote" class="text-[10px] text-slate-500 font-mono"></span>
+                    </div>
+                    <button id="btnShowAll" class="hidden bg-slate-700 hover:bg-slate-600 text-white border border-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-all mr-2"></button>
                     <button id="btnCopyBuffer" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1">
                         <i class="fa-regular fa-copy"></i> Copy Buffer
                     </button>
@@ -309,6 +402,8 @@
                 </div>
             </div>
 
+            </div>
+
         </section>
     </main>
 
@@ -316,9 +411,9 @@
         <div class="stk-wrap">
             <span class="stk-chip"><i class="fa-solid fa-cubes"></i> How-To Guide</span>
             <h2 class="stk-h2">How to translate and convert molecular coordinates</h2>
-            <p class="stk-lead">Shift a structure by a vector, centre it on the origin, or convert between PDB, GRO and XYZ — with correct unit handling — without installing anything.</p>
+            <p class="stk-lead">Shift a structure by a vector, centre it on the origin, or convert between PDB, GRO and XYZ (with correct unit handling) without installing anything.</p>
             <div class="stk-grid stk-grid-3">
-                <div class="stk-step"><span class="stk-num">1</span><div><h3>Load a structure</h3><p>Drag &amp; drop — or click to browse — a <code>.pdb</code>, <code>.gro</code> or <code>.xyz</code> file. Parsing starts automatically.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Inspect the system</h3><p>Read off the atom count, geometric centre and bounding box, all shown in the file’s native units (Å for PDB/XYZ, nm for GRO).</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Transform</h3><p>Enter a translation vector and click <strong>Apply Vector</strong>, or press <strong>Align Origin</strong> to move the geometric centre to (0, 0, 0).</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Export</h3><p>Choose an output format and click <strong>Download</strong>. Coordinates are converted to the correct units for the target format automatically.</p></div></div>
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Load a structure</h3><p>Drag &amp; drop (or click to browse) a <code>.pdb</code>, <code>.gro</code> or <code>.xyz</code> file. Parsing starts automatically.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Inspect the system</h3><p>Read off the atom count, geometric centre and bounding box, all shown in the file’s native units (Å for PDB/XYZ, nm for GRO).</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Transform</h3><p>Apply a translation vector, rotate about any axis in degrees, or press <strong>Align Origin</strong> to move either the geometric centre or the true centre of mass to (0,&nbsp;0,&nbsp;0).</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Export</h3><p>Choose an output format and click <strong>Download</strong>. Coordinates are converted to the correct units for the target format automatically.</p></div></div>
             </div>
         </div>
     </section>
@@ -330,12 +425,25 @@
             <div class="stk-grid stk-grid-2">
                 <div class="stk-card">
                     <h3 style="font-weight:700;margin-bottom:.4rem;">Units are handled for you</h3>
-                    <p style="font-size:.88rem;color:#64748b;line-height:1.6;">PDB and XYZ files store coordinates in <strong>ångström (Å)</strong>; GROMACS <code>.gro</code> files use <strong>nanometres (nm)</strong>, where 1&nbsp;nm&nbsp;=&nbsp;10&nbsp;Å. The tool keeps atoms in the source unit for display and translation, then converts on export — so a <code>.gro</code> loaded in nm is written out as a valid <code>.pdb</code> in Å.</p>
+                    <p style="font-size:.88rem;color:#64748b;line-height:1.6;">PDB and XYZ files store coordinates in <strong>&aring;ngstr&ouml;m (&Aring;)</strong>; GROMACS <code>.gro</code> files use <strong>nanometres (nm)</strong>, where 1&nbsp;nm&nbsp;=&nbsp;10&nbsp;&Aring;. The tool keeps atoms in the source unit for display and transforms, then converts on export, so a <code>.gro</code> loaded in nm is written out as a valid <code>.pdb</code> in &Aring;. Every input label updates to show the unit currently in force, so there is nothing to remember.</p>
+                </div>
+                <div class="stk-card">
+                    <h3 style="font-weight:700;margin-bottom:.4rem;">Geometric centre vs centre of mass</h3>
+                    <p style="font-size:.88rem;color:#64748b;line-height:1.6;">The <strong>geometric centre</strong> is the unweighted mean of the coordinates, every atom counts equally. The <strong>centre of mass</strong> weights each atom by its standard atomic weight, so heavy atoms pull it toward them. For a water molecule the two differ by roughly 0.28&nbsp;&Aring;. Both are shown live, and either can be moved to the origin.</p>
                 </div>
                 <div class="stk-card">
                     <h3 style="font-weight:700;margin-bottom:.4rem;">Rigid-body operations</h3>
-                    <p style="font-size:.88rem;color:#64748b;line-height:1.6;">Translation and centring add a constant vector to every atom, so bond lengths and angles are unchanged. Note that <strong>Geometric Centre</strong> is the unweighted mean of the coordinates (a centroid), not the mass-weighted centre of mass. All processing is local to your browser.</p>
+                    <p style="font-size:.88rem;color:#64748b;line-height:1.6;">Translation adds a constant vector to every atom. Rotation applies an orthogonal matrix about a pivot you choose. Both are <em>rigid</em>: all bond lengths and angles are preserved, verified here to within floating-point precision. Velocities in a <code>.gro</code> file are rotated with the structure but never translated, since a velocity is a direction rather than a position.</p>
                 </div>
+                <div class="stk-card">
+                    <h3 style="font-weight:700;margin-bottom:.4rem;">Big files stay responsive</h3>
+                    <p style="font-size:.88rem;color:#64748b;line-height:1.6;">Painting a solvated system into the page would mean laying out millions of lines of text, which locks the tab. The preview therefore formats and shows only the first 500 lines, while <strong>Download</strong> and <strong>Copy</strong> always produce the complete file. A 200,000-atom system redraws its preview in about 25&nbsp;ms.</p>
+                </div>
+            </div>
+
+            <div class="stk-note" style="margin-top:1rem;">
+                <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>
+                <div><strong>On rotation order.</strong> Angles are applied as intrinsic Z&#8209;Y&#8209;X (yaw, then pitch, then roll) matching <code>R = Rz(&gamma;)&middot;Ry(&beta;)&middot;Rx(&alpha;)</code>. Rotations do not commute, so 90&deg; about X then 90&deg; about Y differs from the reverse order. For a precise orientation, apply one axis at a time.</div>
             </div>
 
         </div>
@@ -345,12 +453,12 @@
         <div class="stk-wrap" style="max-width:52rem;">
             <h2 class="stk-h2">Frequently asked questions</h2>
             <div style="margin-top:1rem;">
-                <details class="stk-faq"><summary>Which units does each format use?</summary><div>PDB and XYZ are in ångström; GROMACS .gro is in nanometres (1 nm = 10 Å). When you export to a different format, coordinates are converted automatically.</div></details><details class="stk-faq"><summary>Is the ‘Geometric Centre’ the centre of mass?</summary><div>No. It is the arithmetic mean of the atomic coordinates (a geometric centroid). A true centre of mass would weight each atom by its atomic mass.</div></details><details class="stk-faq"><summary>Does translation distort my molecule?</summary><div>No. Rigid-body translation and centring shift every atom by the same vector, so all internal distances and angles are preserved.</div></details><details class="stk-faq"><summary>Can I convert a GRO file to PDB?</summary><div>Yes. Load the .gro and choose PDB (or XYZ) as the output format; the tool converts nm to Å during export.</div></details><details class="stk-faq"><summary>Is my structure file uploaded anywhere?</summary><div>No. Files are read and processed entirely in your browser and are never transmitted to a server.</div></details>
+                <details class="stk-faq"><summary>Which units does each format use?</summary><div>PDB and XYZ are in ångström; GROMACS .gro is in nanometres (1 nm = 10 Å). When you export to a different format, coordinates are converted automatically, and every input label shows the unit currently in use.</div></details><details class="stk-faq"><summary>What is the difference between geometric centre and centre of mass?</summary><div>The geometric centre is the plain arithmetic mean of the coordinates, every atom counts equally. The centre of mass weights each atom by its standard atomic weight, so it sits closer to the heavy atoms. Use centre of mass when setting up a simulation; the two can differ by several ångström in an asymmetric molecule.</div></details><details class="stk-faq"><summary>Which atomic weights are used?</summary><div>IUPAC standard atomic weights covering hydrogen through the common heavy elements. If an element cannot be identified from the file the tool falls back to carbon and tells you which symbols were unrecognised, so a mass-weighted result is never silently wrong.</div></details><details class="stk-faq"><summary>How does the tool know CA is calcium and not an alpha carbon?</summary><div>It checks the PDB element column first, which is authoritative when present. Failing that it reads the atom name, using the residue name to break ties: CA inside a residue named CA is calcium, while CA in ALA is the alpha carbon.</div></details><details class="stk-faq"><summary>In what order are rotations applied?</summary><div>Intrinsic Z-Y-X, yaw about Z, then pitch about Y, then roll about X, equivalent to R = Rz·Ry·Rx acting on a column vector. Because rotations do not commute, apply one axis at a time if you need an exact orientation.</div></details><details class="stk-faq"><summary>Does rotation or translation distort my molecule?</summary><div>No. Both are rigid-body operations: every internal distance and angle is preserved exactly. Only the position and orientation of the structure as a whole change.</div></details><details class="stk-faq"><summary>Can I set my own simulation box?</summary><div>Yes. The Simulation Box panel lets you type Lx, Ly and Lz in nanometres, or press Fit to Molecule to derive them from the bounding box with a padding percentage. If the source file carried a box (a .gro box line or a PDB CRYST1 record) it is loaded as the starting point. The tool warns you when the box is smaller than the molecule.</div></details><details class="stk-faq"><summary>Why does the preview stop after 500 lines?</summary><div>Rendering a large system's full text into the page would freeze the browser. Only the first 500 lines are drawn; Download and Copy always give you the complete file, however large.</div></details><details class="stk-faq"><summary>Are velocities preserved in GRO files?</summary><div>Yes. If the input .gro carries velocity columns they are kept, rotated along with the coordinates, and written back out. Velocities are direction vectors, so translating the structure correctly leaves them unchanged.</div></details><details class="stk-faq"><summary>Can I convert a GRO file to PDB?</summary><div>Yes. Load the .gro and choose PDB (or XYZ) as the output format; the tool converts nm to Å during export and writes the box as a CRYST1 record.</div></details><details class="stk-faq"><summary>Is my structure file uploaded anywhere?</summary><div>No. Files are read and processed entirely in your browser and are never transmitted to a server.</div></details>
             </div>
             <div class="stk-refs">
-                <a href="https://www.wwpdb.org/documentation/file-format" target="_blank" rel="noopener"><i class="fa-solid fa-cube"></i> wwPDB: PDB file format</a><a href="https://manual.gromacs.org/current/reference-manual/file-formats.html" target="_blank" rel="noopener"><i class="fa-solid fa-atom"></i> GROMACS: .gro format</a>
+                <a href="https://www.wwpdb.org/documentation/file-format" target="_blank" rel="noopener"><i class="fa-solid fa-cube"></i> wwPDB: PDB file format</a><a href="https://manual.gromacs.org/current/reference-manual/file-formats.html" target="_blank" rel="noopener"><i class="fa-solid fa-atom"></i> GROMACS: .gro format</a><a href="https://www.ciaaw.org/atomic-weights.htm" target="_blank" rel="noopener"><i class="fa-solid fa-weight-hanging"></i> CIAAW: standard atomic weights</a><a href="https://en.wikipedia.org/wiki/Rotation_matrix" target="_blank" rel="noopener"><i class="fa-solid fa-rotate"></i> Rotation matrices</a>
             </div>
-            <p class="stk-credit">Built and maintained by <strong>Olanrewaju M.&nbsp;Daramola</strong>. Runs entirely in your browser — no data leaves your device.</p>
+            <p class="stk-credit">Runs entirely in your browser, no data leaves your device.</p>
         </div>
     </section>
 
@@ -405,7 +513,7 @@
                     <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                 </div>
-                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Engineered for Science.</div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-indigo-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
                 <div class="flex gap-6 text-sm font-medium">
                     <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
                     <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
@@ -414,7 +522,7 @@
         </div>
     </footer>
 
-    <div id="toastContainer" class="fixed top-5 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
 
     <script>
         // 1. Theme toggle logic (Mobile & Desktop)
@@ -451,6 +559,6 @@
             });
         }
     </script>
-    <script src="js/coordinate-manipulator.js"></script>
+    <script type="module" src="js/coordinate-manipulator.js"></script>
 </body>
 </html>
