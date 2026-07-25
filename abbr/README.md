@@ -4,15 +4,12 @@
 Abbreviations**, the data behind ISO 4. The Journal Abbreviator loads it at
 runtime to abbreviate titles the built-in dictionary does not know.
 
-Source: <https://portal.issn.org/ltwa>. The ISSN International Centre publishes
-it under its own terms, so check those before redistributing this repository,
-and re-download periodically — the list is revised roughly annually.
+Source: <https://portal.issn.org/ltwa>.
 
 ## How the two tiers fit together
 
 1. **Dictionary** — `js/journal-data.js` maps ~200 whole journal titles to
-   whole abbreviations. Exact and authoritative, but only covers titles someone
-   has entered.
+   whole abbreviations. Exact and authoritative, but only covers titles entered.
 2. **ISO 4** — this file maps individual title *words* (mostly stems) to
    abbreviations, so any title can be abbreviated by rule.
 
