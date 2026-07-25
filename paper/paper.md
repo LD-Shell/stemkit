@@ -55,8 +55,8 @@ reproducibility; data privacy
 
 | Nr | Code metadata description | Metadata |
 | --- | --- | --- |
-| C1 | Current code version | v0.1.0 |
-| C2 | Permanent link to code/repository used for this code version | <https://github.com/LD-Shell/stemkit> ; archived release `v0.1.0`: <https://doi.org/10.5281/zenodo.21543113> (concept DOI `10.5281/zenodo.21543112` resolves to the current release) |
+| C1 | Current code version | v0.1.1 |
+| C2 | Permanent link to code/repository used for this code version | <https://github.com/LD-Shell/stemkit> ; archived release `v0.1.1`: <https://doi.org/10.5281/zenodo.21544868> (concept DOI `10.5281/zenodo.21543112` resolves to the current release) |
 | C3 | Legal code license | MIT License |
 | C4 | Code versioning system used | git |
 | C5 | Software code languages, tools and services used | JavaScript (ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS; GitHub Actions |
