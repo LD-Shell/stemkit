@@ -160,7 +160,7 @@ npm test                # full suite
 npm run test:coverage   # with coverage
 ```
 
-The suite comprises 1075 tests across all 16 domain modules (`src/core` also holds the aggregate
+The suite comprises 1077 tests across all 16 domain modules (`src/core` also holds the aggregate
 export and the injection layer, which carry no domain logic). Numerical results are validated against
 independent references rather than against the implementation itself:
 
@@ -198,7 +198,7 @@ for metalloproteins. The resolution here is checked against 40 real atom names.
 One caveat is inherited rather than fixed: `regression.js` fits exponential,
 power, and logarithmic models by **linearisation**, minimising error in log
 space rather than the original units, and weights that fit by y. For a clean
-doubling series it returns a growth rate of 0.69022 where unweighted log-OLS
+perturbed doubling series it returns 0.690216 where unweighted log-OLS
 gives ln 2 = 0.69315. Neither is wrong, but they answer different questions.
 `fitCurve` sets a `linearised` flag so callers can surface it; for
 publication-grade nonlinear fits, use Levenberg–Marquardt on untransformed data.
