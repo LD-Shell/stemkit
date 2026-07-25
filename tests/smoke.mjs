@@ -1,15 +1,14 @@
 /**
  * End-to-end smoke test.
  *
- * Exercises one representative path through every core module against a real
- * install, catching the class of problem a unit test cannot: a broken barrel
- * export, a mis-scoped `type` field, or a vendored bundle that fails to load.
- *
- * Run after copying the files into your repository:
+ * Exercises one representative path per core module against a real install,
+ * catching the class of problem a unit test cannot: a broken barrel export, a
+ * mis-scoped `type` field, or a vendored bundle that fails to load.
  *
  *   node tests/smoke.mjs
  *
- * Expected output: 12 OK, 0 ERR.
+ * Prints one OK line per module checked, then a summary count. Every module is
+ * covered except `iso4`, which postdates this file.
  */
 
 import { createRequire } from 'module';
