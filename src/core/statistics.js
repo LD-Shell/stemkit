@@ -95,6 +95,26 @@ export function median(a) {
 export function skewness(a) {
   if (!Array.isArray(a) || a.length < 3) return NaN;
   const n = a.length;
+  const g = momentSkewness(a);
+  if (!Number.isFinite(g)) return g;
+  if (g === 0) return 0;
+  return (Math.sqrt(n * (n - 1)) / (n - 2)) * g;
+}
+
+/**
+ * Biased skewness: the moment ratio sqrt(b1) = m3 / m2^(3/2).
+ *
+ * This is the quantity the D'Agostino-Pearson transformations are defined on,
+ * and what `scipy.stats.skew(..., bias=True)` returns. It is deliberately not
+ * exported: `skewness()` is the statistic to report, this is the one to feed
+ * into a transform whose constants were derived for it.
+ *
+ * @param {number[]} a - Array of at least three values.
+ * @returns {number} m3 / m2^(3/2); 0 for a zero-variance sample, NaN when n < 3.
+ */
+function momentSkewness(a) {
+  if (!Array.isArray(a) || a.length < 3) return NaN;
+  const n = a.length;
   const m = mean(a);
 
   // Population standard deviation (n denominator).
@@ -105,8 +125,7 @@ export function skewness(a) {
 
   let g1 = 0;
   for (const x of a) g1 += Math.pow((x - m) / sPop, 3);
-  g1 /= n;
-  return (Math.sqrt(n * (n - 1)) / (n - 2)) * g1;
+  return g1 / n;
 }
 
 /**
@@ -321,7 +340,12 @@ export function dagostinoNormality(a) {
     return { K2: NaN, p: NaN, ok: null, note: 'zero variance: normality not testable' };
   }
 
-  const b1 = skewness(a);
+  // The transformations below are defined on the biased moment ratios
+  // sqrt(b1) = m3 / m2^(3/2) and b2 = m4 / m2^2. skewness() reports the
+  // sample-size-adjusted G1 instead, which is the right statistic to publish
+  // but the wrong one to feed in here: it inflates K2 at small n and diverges
+  // from scipy.stats.normaltest. kurtosis() is already the biased estimator.
+  const b1 = momentSkewness(a);
   const b2 = kurtosis(a) + 3;
 
   // Skewness component (D'Agostino 1970).

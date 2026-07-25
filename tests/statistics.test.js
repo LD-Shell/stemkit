@@ -416,10 +416,28 @@ describe('wilcoxonSignedRank', () => {
 describe('assumption checks', () => {
   test("D'Agostino K-squared matches scipy normaltest", () => {
     const r = dagostinoNormality(A);
-    // Small residual: scipy uses a marginally different kurtosis transform.
-    expect(r.K2).toBeCloseTo(1.9719420051794323, 3);
-    expect(r.p).toBeCloseTo(0.3730767924710829, 4);
+    // Full double precision. An earlier version fed the sample-size-adjusted
+    // G1 into the skewness transform, which disagreed with scipy in the fourth
+    // decimal; the tolerance had been loosened to 3 places and the residual
+    // blamed on scipy. The reference value was right, the implementation was
+    // not. Do not loosen this again.
+    expect(r.K2).toBeCloseTo(1.9719420051794323, 12);
+    expect(r.p).toBeCloseTo(0.3730767924710829, 12);
     expect(r.ok).toBe(true);
+  });
+
+  test('K-squared uses the biased moment ratio, not adjusted G1', () => {
+    // n = 10 is where the two conventions diverge most sharply: passing G1
+    // here gives K2 = 0.4521 against scipy's 0.3724, a 21% error.
+    const r = dagostinoNormality([2, 4, 4, 5, 7, 9, 3, 8, 6, 5]);
+    expect(r.K2).toBeCloseTo(0.37244118363359957, 12);
+    expect(r.p).toBeCloseTo(0.8300904636205573, 12);
+  });
+
+  test('skewness still reports adjusted G1, matching scipy bias=false', () => {
+    // The public statistic and the transform input are deliberately different.
+    expect(skewness([2, 4, 4, 5, 7, 9, 3, 8, 6, 5]))
+      .toBeCloseTo(0.29502298870375565, 12);
   });
 
   test('declines to test samples smaller than eight', () => {
