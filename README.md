@@ -25,8 +25,9 @@ Alongside them are three workflow helpers that are not research tools and are
 not part of the scholarly contribution: a Pomodoro timer, a decision matrix,
 and a kinetics sandbox.
 
-**`@stemkit/core`** | the computation behind them, as 18 DOM-free ES modules:
-parsing, statistics, molecular geometry, unit conversion, curve fitting, script
+**`@stemkit/core`** | the computation behind them, as 16 DOM-free domain
+modules plus an aggregate export and a dependency-injection layer: parsing,
+statistics, molecular geometry, unit conversion, curve fitting, script
 generation. Importable and scriptable independently of the pages.
 See [`src/core/README.md`](src/core/README.md).
 
@@ -63,7 +64,8 @@ npm run check:links            # internal and external links
 npm run build:css              # after editing src/tailwind/input.css
 ```
 
-`docs/SETUP.md` covers deployment and layout.
+`docs/SETUP.md` covers deployment and layout. `CHANGELOG.md` records the fixes
+that change reported output.
 
 ## Documentation
 
@@ -72,13 +74,16 @@ npm run build:css              # after editing src/tailwind/input.css
 | [`src/core/README.md`](src/core/README.md) | the library API |
 | [`docs/SETUP.md`](docs/SETUP.md) | deployment and repository layout |
 | [`docs/COVERAGE.md`](docs/COVERAGE.md) | how to read the coverage report |
+| [`docs/CSS.md`](docs/CSS.md) | stylesheet structure and where rules belong |
+| [`CHANGELOG.md`](CHANGELOG.md) | changes, including those that alter output |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | how to contribute, and where code belongs |
 | [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) | vendored libraries and their licences |
-| [`paper/paper.md`](paper/paper.md) | the JOSS submission |
+| [`paper/`](paper/) | the SoftwareX manuscript, in LaTeX and Markdown |
 
 ## Citing
 
-See [`paper/paper.md`](paper/paper.md) and `.zenodo.json`.
+See [`paper/paper.md`](paper/paper.md) and `.zenodo.json`. A citable archive
+DOI is minted through Zenodo on release.
 
 ## Licence
 
