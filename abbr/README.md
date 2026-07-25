@@ -9,8 +9,7 @@ Source: <https://portal.issn.org/ltwa>.
 ## How the two tiers fit together
 
 1. **Dictionary** — `js/journal-data.js` maps ~200 whole journal titles to
-   whole abbreviations. Exact and authoritative, but only covers titles someone
-   has entered.
+   whole abbreviations. Exact and authoritative, but only covers titles entered.
 2. **ISO 4** — this file maps individual title *words* (mostly stems) to
    abbreviations, so any title can be abbreviated by rule.
 
