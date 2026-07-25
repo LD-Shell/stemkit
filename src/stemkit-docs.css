@@ -2,15 +2,12 @@
  * STEMKit shared documentation styles.
  *
  * These rules style the "How to use", FAQ, and reference sections that every
- * tool page carries. They were previously inlined into each page as a <style>
- * block, which had drifted into eight different versions across 21 pages --
- * a chip on one page no longer matched the chip on another.
- *
- * This file is the single source of truth. Where versions disagreed, the most
- * complete rule was retained, so no page loses styling.
+ * tool page carries. This file is their single definition; earlier versions
+ * were inlined per page as a <style> block and had drifted apart, so a chip on
+ * one page no longer matched the chip on another.
  *
  * Do NOT put these in src/output.css: that file is generated Tailwind build
- * output and is overwritten whenever the CSS is rebuilt.
+ * output and is overwritten whenever the CSS is rebuilt. See docs/CSS.md.
  */
 
 .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
