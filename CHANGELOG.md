@@ -12,6 +12,19 @@ earlier version are worth re-checking.
 - `[output]` **Skewness and kurtosis used the sample SD, not the population SD.**
   Deflated skewness by `((n-1)/n)^(3/2)`, about 15% at n = 10. Both moments feed
   D'Agostino-Pearson, so every normality p-value was affected.
+- `[output]` **Adjusted G1 was fed into the D'Agostino-Pearson transform.** The
+  transforms are defined on the biased moment ratios `sqrt(b1) = m3/m2^(3/2)` and
+  `b2 = m4/m2^2`. `skewness()` returns the sample-size-adjusted G1, and that was
+  passed in. At n = 10 this gave K2 = 0.4521 against scipy's 0.3724, a 21% error.
+  `dagostinoNormality()` now uses an internal unadjusted moment; `skewness()`
+  still reports G1, which is the right statistic to publish and matches
+  `scipy.stats.skew(bias=False)`. K2 now matches `scipy.stats.normaltest` to 12
+  significant figures for 8 <= n <= 47.
+
+  The test asserting this had its tolerance loosened to 3 decimal places and the
+  residual attributed to "a marginally different kurtosis transform" in scipy.
+  The reference value was scipy's, and correct. Tightened to 12 places with two
+  regression tests at the n where the conventions diverge most.
 - `[output]` **Upper tails computed as `1 - cdf(x)`, which cancels to zero.**
   ANOVA at F = 377.545, df 2 and 21, reported p = 0 instead of 3.46e-17. Now uses
   the complementary incomplete beta and gamma; an asymptotic expansion takes over
@@ -43,6 +56,10 @@ earlier version are worth re-checking.
   number of its longest-lived isotope; elements without a standard weight are
   omitted, so their atoms report as unidentified rather than get a fabricated
   mass.
+
+- `[output]` **Piconewton and newton factors truncated to 7 digits.** `1.660539`
+  where the CODATA-derived value is `1.66053906717`. Every other factor in the
+  table carries 12 to 13 digits.
 
 ### Fixed: bugs
 
@@ -81,6 +98,10 @@ asserted it.
 - **Exponential weights by y,** the standard log-transform bias correction, which
   keeps it closer to a direct non-linear fit. For exponential and power,
   parameter pairs fitting ~29% and ~36% better on the original scale do exist.
+  Note that on an *exactly* exponential series the weighting is irrelevant: the
+  log-space residuals are zero and every variant recovers ln 2. The divergence
+  needs perturbed data. On `[[1,2.0],[2,4.1],[3,8.2],[4,16.1],[5,32.3]]` the
+  weighted fit gives 0.690216 against 0.693167 unweighted.
 - **Untransformable points are not dropped.** `validateForModel` refuses the
   dataset and names the requirement: exponential needs every y > 0, power every
   x > 0 and y > 0, logarithmic only x > 0.
@@ -123,6 +144,13 @@ asserted it.
 - PNG exports match on-screen sharpness.
 - Measurement labels no longer stack on redraw.
 - Custom abbreviation rules persist across sessions.
+
+### Docs
+
+- `vendor.js` claimed a resolution failure "cannot be guarded with try/catch".
+  True of a static `import`; `await import()` rejects catchably. Scoped, with the
+  reason injection is still preferred (the bundles must be available
+  synchronously).
 
 ### Known issues
 
