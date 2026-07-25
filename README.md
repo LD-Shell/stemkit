@@ -27,7 +27,7 @@ Use the library:
 
 ```bash
 npm install
-npm test                        # 1075 tests, 16 modules
+npm test                        # 1077 tests, 16 modules
 node tests/smoke.mjs            # end-to-end against a real install
 ```
 
@@ -42,7 +42,7 @@ console.log(columnStats(matrix.map(r => r[1])));
 
 | Script | Does |
 |---|---|
-| `npm test` | Jest, 1075 tests |
+| `npm test` | Jest, 1077 tests |
 | `npm run test:coverage` | coverage report (see `docs/COVERAGE.md`) |
 | `npm run check:links` | internal and external link check |
 | `npm run check:links:internal` | internal only, no network |
@@ -75,11 +75,12 @@ produced by clicking is hard to regenerate six months later. Moving the
 computation into an importable library makes the same code path scriptable,
 version-pinnable and testable.
 
-It also surfaced three defects that had shipped:
+It also surfaced defects that had shipped:
 
 - wavelength conversion returned a plausible but wrong number
 - skewness used the sample, not population, standard deviation
 - virtual sites in water inflated system mass by 67%
+- adjusted G1 fed into the D'Agostino-Pearson transform, 21% error in K2 at n = 10
 
 Each now has a regression test. Full list in [`CHANGELOG.md`](CHANGELOG.md).
 
