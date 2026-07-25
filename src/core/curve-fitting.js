@@ -14,7 +14,7 @@
  * units, so the result is not the maximum-likelihood fit under additive
  * Gaussian noise. regression.js additionally *weights* the log-space fit by y,
  * which shifts estimates slightly relative to an unweighted log-OLS: for a
- * clean doubling series it returns a growth rate of 0.69022 where plain
+ * perturbed doubling series it returns 0.690216 where plain
  * log-OLS gives ln 2 = 0.69315. Neither is wrong, but they answer different
  * questions, and the difference is large enough to matter when a rate constant
  * is being reported. For publication-grade nonlinear fits, a

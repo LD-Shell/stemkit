@@ -15,8 +15,10 @@
  *     bindings, because the file has no `export` statements.
  *   - `import { createRequire } from 'module'` resolves under Node but is a
  *     hard *resolution* failure in a browser ("Failed to resolve module
- *     specifier 'module'"). Resolution happens before execution, so it cannot
- *     be guarded with try/catch.
+ *     specifier 'module'"). A *static* import resolves before any code runs, so
+ *     it cannot be guarded with try/catch. The dynamic form
+ *     `await import('module')` does reject catchably, but the vendored
+ *     libraries have to be available synchronously, so injection is preferred.
  *
  * Rather than branch on the environment inside every core module, which would
  * make the core untestable in one of the two targets, the core declares the
