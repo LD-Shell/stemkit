@@ -40,7 +40,7 @@ Coverage on the numerical modules, not the total. `statistics.js`,
 regression would change a published number, and those are the figures to check
 if the total moves.
 
-`iso4.js` is the lowest-covered domain module — about 88% of statements, 80% of
-branches and 90% of functions — and unlike the two files above that is a real
-gap rather than an artefact. It is also the newest module and the one the smoke
+`iso4.js` is the lowest-covered domain module, at about 88% of statements, 80% of
+branches and 90% of functions. Unlike the two files above, that is a real gap
+rather than an artefact. It is also the newest module and the one the smoke
 test does not yet exercise.
