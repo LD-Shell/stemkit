@@ -1,9 +1,9 @@
 # Setup
 
-STEMKit is a static site with a tested JavaScript library underneath it. There
-is no build step for the pages; only the Tailwind utilities are generated.
+Static site plus a Node library. No build step for the pages; only the Tailwind
+utilities are generated.
 
-## Run the site
+## Serve
 
 ```bash
 git clone https://github.com/LD-Shell/stemkit.git
@@ -11,88 +11,89 @@ cd stemkit
 python3 -m http.server 8000
 ```
 
-Open `http://localhost:8000/`.
+Open <http://localhost:8000/>.
 
-The module name is `http.server`: one word, with a dot, not `https`. Use
-`python3` explicitly, since plain `python` is still Python 2 on many systems.
-Pick a port above 1024; anything below needs root.
+- Module name is `http.server`. One word, with a dot. Not `https`.
+- Use `python3`. Plain `python` is still Python 2 on many systems.
+- Port above 1024, or you need root.
 
-**Opening the HTML files directly does not work.** Fourteen of the tools load
-their code as ES modules, and browsers block those under `file://`. The page
-renders but every button is dead, with a CORS error in the console and nothing
-visible on the page itself. Serving over HTTP fixes it.
+**`file://` does not work.** Fourteen tools load their code as ES modules, which
+browsers block outside HTTP. The page renders, every button is dead, and the
+console shows a CORS error. Serve over HTTP.
 
-## Run the tests
+## Test
 
 ```bash
 npm install
-npm test               # 1075 tests across 16 modules
-npm run test:coverage
-node tests/smoke.mjs   # end-to-end checks against a real install
+npm test               # 1075 tests, 16 modules
+npm run test:coverage  # see docs/COVERAGE.md
+node tests/smoke.mjs   # end-to-end against a real install
 ```
 
-The smoke test exercises one path per module against the real install, catching
-problems a unit test cannot: a broken aggregate export, a misconfigured module
-type, or a vendored bundle that fails to load. It currently covers 15 of the 16
-domain modules; `iso4` was split out of `journals` after the smoke test was
-written and has no case yet.
-
-`docs/COVERAGE.md` explains the two entries in the coverage table that look like
-gaps and are not.
+The smoke test catches what unit tests cannot: a broken aggregate export, a
+mis-scoped `type` field, a vendored bundle that fails to load. It covers 15 of
+16 modules; `iso4` postdates it and has no case yet.
 
 ## Layout
 
 ```
 stemkit/
 ├── *.html                  18 research tools, 3 workflow utilities,
-│                            plus index, privacy and 404
+│                           plus index, privacy and 404
 ├── src/
-│   ├── core/               the tested library: 16 domain modules, no DOM
-│   │                       dependency, plus index.js and vendor.js
-│   ├── tools/              per-tool stylesheets
-│   ├── stemkit-docs.css    shared documentation styles
-│   ├── output.css          compiled Tailwind: generated, do not hand-edit
-│   ├── home.css            landing-page styles
+│   ├── core/               the library: 16 domain modules, no DOM,
+│   │                       plus index.js (barrel) and vendor.js (DI)
+│   ├── tools/              per-tool stylesheets, 20 files
+│   ├── stemkit-docs.css    shared .stk-* components
+│   ├── output.css          generated Tailwind. Do not hand-edit.
+│   ├── home.css            landing page
 │   └── script-generator.css
 ├── js/
-│   ├── *.js                one script per tool
-│   ├── *-slurm.js          adapters for the partially converted tools
+│   ├── *.js                one script per tool, DOM wiring only
+│   ├── *-slurm.js          adapters for partially converted tools
 │   │   *-selection.js
-│   └── dependencies/       vendored third-party bundles (UMD)
-├── tests/                  Jest suites plus the smoke test
-├── abbr/                   ISSN LTWA word list for ISO 4 abbreviation
+│   └── dependencies/       vendored UMD bundles
+├── tests/                  Jest suites plus smoke.mjs
+├── abbr/                   ISSN LTWA word list for ISO 4
 ├── docs/                   setup, stylesheets, coverage
-├── paper/                  SoftwareX manuscript (LaTeX and Markdown)
+├── paper/                  manuscript, LaTeX and Markdown
 ├── css/, assets/, sound/   fonts, icons, audio
 └── package.json            @stemkit/core
 ```
 
-## Deploying
+## Deploy
 
-The site is static. Copy the directory to any web host, or push to GitHub Pages;
-`CNAME` already points at `stemkit.net`.
+Static. Copy the directory to any host, or push to GitHub Pages. `CNAME` points
+at `stemkit.net`.
 
-`tests/`, `docs/`, `paper/`, `package.json` and `node_modules/` are not needed in
-production, though they are harmless if deployed.
+Not needed in production, harmless if deployed: `tests/`, `docs/`, `paper/`,
+`package.json`, `node_modules/`.
 
-## Two files that look unimportant and are not
+## Gotchas
 
 **`js/dependencies/package.json`** contains one line: `"type": "commonjs"`.
 
-The root `package.json` declares `"type": "module"`, which tells Node to parse
-every `.js` file beneath it as an ES module, including the vendored UMD
-bundles. When that happens the UMD factory takes its browser branch and fails
-with `Cannot set properties of undefined (setting 'jStat')`. Without this file
-every Node example in the README breaks on the first import.
+Root `package.json` declares `"type": "module"`, which makes Node parse every
+`.js` file below it as an ES module, vendored UMD bundles included. The UMD
+factory then takes its browser branch and fails with:
 
-**`src/output.css`** is compiled Tailwind output. Hand-written rules added there
-survive only until the next `npm run build:css`. Component styles belong in
-`src/stemkit-docs.css` or `src/tools/<tool>.css`; see `docs/CSS.md`.
+```
+Cannot set properties of undefined (setting 'jStat')
+```
+
+Delete that file and every Node example in the README breaks on first import.
+
+**`src/output.css`** is generated. Rules added by hand survive until the next
+`npm run build:css`. Component styles go in `src/stemkit-docs.css` or
+`src/tools/<tool>.css`. See `docs/CSS.md`.
 
 ## Conversion state
 
-Fourteen tools have their computation in `src/core/` and their styles in
-`src/tools/`. Two more are partially converted through adapters
-(`js/*-slurm.js`, `js/*-selection.js`). The remainder still hold their logic and
-styles inline. `CONTRIBUTING.md` describes where new code belongs; `CHANGELOG.md`
-records what changed, including the fixes that alter reported output.
+| State | Count | Notes |
+|---|---|---|
+| Computation in `src/core/`, styles in `src/tools/` | 14 | fully converted |
+| Partially converted via adapters | 2 | `js/*-slurm.js`, `js/*-selection.js` |
+| Logic and styles still inline | rest | |
+
+`CONTRIBUTING.md` covers where new code belongs. `CHANGELOG.md` records what
+changed, including fixes that alter reported output.
