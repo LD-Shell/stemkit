@@ -62,7 +62,7 @@ const assert = (cond, msg) => {
   if (!cond) throw new Error(msg);
 };
 
-console.log('STEMKit core — end-to-end smoke test\n');
+console.log('STEMKit core: end-to-end smoke test\n');
 
 check('xvg-parser', () => {
   const r = parseXvg(generateSampleXvg());
@@ -86,7 +86,7 @@ check('structure', () => {
   assert(Math.abs(s.totalMass - 12.011) < 1e-6, 'carbon mass wrong');
 });
 
-check('structure — metalloprotein element inference', () => {
+check('structure: metalloprotein element inference', () => {
   const pdb = 'HETATM    1 FE   HEM A   1      10.000  10.000  10.000  1.00 30.00          FE\nEND';
   const s = structureStats(parsePDB(pdb).atoms);
   assert(s.elements.Fe === 1, 'heme iron not identified as Fe');
@@ -107,7 +107,7 @@ check('units', () => {
   assert(Math.abs(convert(1, 'energy', 'hartree', 'ev') - 27.211386245988) < 1e-9, 'Eh to eV');
 });
 
-check('bibtex — survives a Zotero-style @string block', () => {
+check('bibtex: survives a Zotero-style @string block', () => {
   const src = '@string{n = "Nature"}\n' +
               '@article{a, title={T}, doi={10.1/x}, year={2020}}\n' +
               '@article{b, title={T}, year={2020}}';
