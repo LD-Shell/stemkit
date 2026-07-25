@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+message: If you use this software, please cite it using these metadata.
+title: "STEMKit: A client-side toolkit for computational chemistry and scientific data analysis"
+abstract: >-
+  STEMKit is a suite of browser-based tools for computational chemistry and
+  scientific data analysis, built on @stemkit/core, a JavaScript library of
+  parsing and numerical routines with no dependency on the document object
+  model. All computation executes in the user's own browser: no data is
+  transmitted, no account is required, and nothing is installed. The same
+  modules also execute under Node.js, so an analysis explored interactively can
+  be captured as a version-pinned script and placed under continuous
+  integration.
+type: software
+authors:
+  - family-names: Daramola
+    given-names: Olanrewaju M.
+    orcid: "https://orcid.org/0009-0006-3327-2047"
+    affiliation: Independent Researcher
+    email: lanrelangmuir@gmail.com
+version: v0.1.0
+date-released: "2026-07-25"
+doi: 10.5281/zenodo.21543112
+license: MIT
+url: "https://stemkit.net"
+repository-code: "https://github.com/LD-Shell/stemkit"
+keywords:
+  - computational chemistry
+  - molecular dynamics
+  - GROMACS
+  - PLUMED
+  - client-side computation
+  - reproducibility
+  - data privacy
+  - JavaScript
