@@ -6,12 +6,12 @@ version may need re-checking.
 
 ## Unreleased
 
-### Fixed — numerical correctness
+### Fixed: numerical correctness
 
 - **[output change] Standardised moments used the wrong denominator.** Skewness
   and kurtosis are defined against the population standard deviation; the
   implementation used the Bessel-corrected sample value, deflating skewness by
-  `((n-1)/n)^(3/2)` — about 15% at n = 10. Both moments feed the
+  `((n-1)/n)^(3/2)`, about 15% at n = 10. Both moments feed the
   D'Agostino–Pearson statistic, so every normality p-value the tools reported
   was affected.
 - **[output change] Upper-tail probabilities underflowed to zero.** Tails were
@@ -28,7 +28,7 @@ version may need re-checking.
 - **[output change] Unidentified atoms borrowed carbon's mass.** `atomicMass`
   returned a 12.011 default for anything it could not identify. The common case
   was badly wrong: TIP4P and TIP5P water carry a massless charge site, so every
-  water in a solvated system was reported at 30.03 Da instead of 18.015 — a 67%
+  water in a solvated system was reported at 30.03 Da instead of 18.015, a 67%
   overstatement, or 120 kDa of mass that does not exist across 10,000 waters.
   Three outcomes are now distinct: a recognised element returns its standard
   atomic weight, a recognised virtual site (`MW`, `LP`, `DUM`, `MCH3`, `MNH3`
@@ -68,7 +68,7 @@ version may need re-checking.
 - **Coordinate Manipulator accepted files but never loaded them.** The UI layer
   targeted a DOM that does not exist.
 
-### Fixed — documentation of the fitting models
+### Fixed: documentation of the fitting models
 
 An earlier description of the vendored regression.js fits was wrong, and the
 error had reached the in-app formula panel, the exported Python, and two tests
@@ -76,7 +76,7 @@ that asserted it:
 
 - **Logarithmic is not a log-space fit.** `y = a + b·ln x` is linear in its
   parameters, so regressing y on ln x is ordinary least squares on untransformed
-  y — transforming the predictor introduces no bias in the response. Verified
+  y: transforming the predictor introduces no bias in the response. Verified
   numerically: no nearby parameter pair fits the original scale better. It has
   been removed from `LINEARISED_MODELS`.
 - **Power regresses ln y on ln x, unweighted,** so its residuals really are in
@@ -92,8 +92,8 @@ that asserted it:
 ### Added
 
 - **ISO 4 journal abbreviation, in two tiers.** `journals` maps a complete
-  title to its complete abbreviation — exact, but only for titles someone has
-  entered. `iso4` applies the ISSN List of Title Word Abbreviations word by
+  title to its complete abbreviation, which is exact but covers only titles
+  someone has entered. `iso4` applies the ISSN List of Title Word Abbreviations word by
   word, so any title can be abbreviated. Tier 1 runs first and tier 2 handles
   whatever it does not recognise.
 - **Molecular weight now shows its working.** A "how?" link opens a breakdown:
