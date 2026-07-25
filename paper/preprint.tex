@@ -18,13 +18,19 @@
 
 %% For including figures, graphicx.sty has been loaded in elsarticle.cls.
 
+\usepackage[T1]{fontenc}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{booktabs}
+%% [H] pins the metadata table below its own headings; a plain [!h] is
+%% downgraded to [!ht] and floats above them.
+\usepackage{float}
 \usepackage{siunitx}
 \usepackage{xcolor}
 \usepackage{listings}
 \usepackage{hyperref}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc}
 %% Long \texttt{} strings such as file paths and package names cannot hyphenate
 %% and would otherwise overflow the margin; this permits breaks inside them.
 \usepackage[htt]{hyphenat}
@@ -109,15 +115,16 @@ scientific data analysis}
 %% Text of abstract: ca. 100 words
 STEMKit is a suite of 18 browser-based tools for computational chemistry and
 scientific data analysis, built on \texttt{@stemkit/core}, a JavaScript library
-of parsing and numerical routines carrying no dependency on the document object
-model. All computation executes inside the user's own browser: no data is
-transmitted, no account is required, and nothing is installed, so the tools
-remain usable for unpublished or confidential material. The identical modules
-also execute under Node.js, so an analysis explored interactively can be
-captured as a version-pinned script and placed under continuous integration.
-Sixteen domain modules are covered by 1075 tests validated against SciPy,
-NumPy,
-and physical invariants rather than against the implementation itself.
+of parsing and numerical routines with no DOM dependency. All computation runs
+inside the user's own browser: nothing is transmitted, no account is required
+and nothing is installed, so the tools stay usable for unpublished or
+confidential data. The same modules run under Node.js, so an interactive
+analysis can be captured as a version-pinned script. The 16 domain modules carry
+1077 tests validated against SciPy, NumPy
+and physical invariants rather than against the implementation itself. That
+validation exposed four defects that had been altering reported results, among
+them $p$-values floored at zero and the mass of haem iron taken as fluorine's.
+All four are corrected and covered by regression tests.
 \end{abstract}
 
 \begin{keyword}
@@ -135,7 +142,8 @@ Computational chemistry \sep Molecular dynamics \sep Client-side computation
 
 \section*{Current code version}
 
-\begin{table}[!h]
+\begin{table}[H]
+\centering
 \begin{tabular}{|l|p{4.4cm}|p{6.3cm}|}
 \hline
 \textbf{Nr.} & \textbf{Code metadata description} & \textbf{Metadata} \\
@@ -143,8 +151,10 @@ Computational chemistry \sep Molecular dynamics \sep Client-side computation
 C1 & Current code version & v0.1.0 \\
 \hline
 C2 & Permanent link to code/repository used for this code version &
-\url{https://doi.org/10.5281/zenodo.21543112} (archived release \texttt{v0.1.0});
-repository at \url{https://github.com/LD-Shell/stemkit} \\
+\url{https://github.com/LD-Shell/stemkit} \newline
+Archived release \texttt{v0.1.0}:
+\url{https://doi.org/10.5281/zenodo.21543113} (the concept DOI
+\texttt{10.5281/zenodo.21543112} resolves to the current release) \\
 \hline
 C3 & Legal code license & MIT License \\
 \hline
@@ -221,44 +231,49 @@ even when every step was recorded at the time.
 
 \subsection{The client-side position}
 
-Modern browsers provide a capable computational environment. The
-\texttt{FileReader} API grants access to local files without transmission, and
-JavaScript engines execute numerical code fast enough for the data volumes
-involved. ECMAScript modules make it possible to organise that code properly,
+The browser is a capable computational environment. \texttt{FileReader} grants
+access to local files without transmission, and the engines are fast enough for
+the volumes involved: the parser sustains roughly \num{7e5} rows per second,
+reading a two-million-row, \SI{53}{\mega\byte} \texttt{.xvg} in
+\SI{2.9}{\second}, and parses a million-atom PDB and returns its centre of mass
+in \SI{1.3}{\second}. The ceiling is memory rather than arithmetic, since
+\texttt{FileReader} materialises the file as a string; a few hundred megabytes is
+practical, beyond which streaming would be required. ECMAScript modules make it possible to organise that code properly,
 instead of accumulating scripts.
 
 STEMKit is built around these constraints. No server participates in the
 computation, so there is nothing to which data could be transmitted and users
-are not asked to take a privacy policy on trust. The reproducibility property
+are not asked to take a privacy policy on trust. Every asset is vendored in the
+repository: there is no content-delivery network, no analytics and no telemetry,
+so not even a request log is generated elsewhere, and a local clone runs with the
+network disconnected. The reproducibility property
 derives from a separate architectural decision: the numerical core is extracted
 into modules with no dependency on the browser, so the identical code that
 executes behind the interface also executes under Node.js.
 
 \subsection{Experimental setting}
 
-The software is used in two ways, which share one implementation.
-Interactively, the user opens a tool page at \url{https://stemkit.net} (or a
-local clone) and selects a local file (a GROMACS \texttt{.xvg} series, a PDB
-or \texttt{.gro} structure, a CSV of replicate measurements) and reads the
-result in the page. The file is read through \texttt{FileReader}; it is never
-uploaded. Programmatically, the same routines are imported from
-\texttt{@stemkit/core} in a Node.js script, which is the path taken once an
-exploratory analysis is to be fixed, version-pinned and re-run. Every tool that
+The software is used in two ways sharing one implementation. Interactively, the
+user opens a tool page at \url{https://stemkit.net} (or a local clone), selects
+a local file and reads the result in the page; the file is read through
+\texttt{FileReader} and never uploaded. Programmatically, the same routines are
+imported from \texttt{@stemkit/core} in a Node.js script, the path taken once an
+analysis is to be fixed, version-pinned and re-run. Every tool that
 produces a figure additionally emits a standalone matplotlib script that
 regenerates that figure from the original data file, so an interactive result
 can be reproduced offline without the browser.
 
 Related work is cited where the corresponding functionality is described in
-Section~\ref{sec:description}: GROMACS~\cite{abraham2015} and
-LAMMPS~\cite{thompson2022} for the trajectory and job-script formats,
-PLUMED~\cite{tribello2014} for collective-variable output,
-MDAnalysis~\cite{michaudagrawal2011} as the reference framework for trajectory
-analysis, SciPy~\cite{virtanen2020} and NumPy~\cite{harris2020} as the
-validation references for the numerics, and the primary statistical
-literature~\cite{welch1947,dagostino1971,brown1974,holm1979,iglewicz1993,grubbs1969}
-for the implemented tests. Conversion factors follow CODATA
-2018~\cite{tiesinga2021}, and the numerical treatment of tail probabilities
-follows standard practice for the incomplete beta and gamma
+Section~\ref{sec:description}: GROMACS~\cite{abraham2015},
+LAMMPS~\cite{thompson2022} and PLUMED~\cite{tribello2014} for the file formats,
+MDAnalysis~\cite{michaudagrawal2011} as the reference framework,
+3Dmol.js~\cite{rego2015}, whose atom-selection syntax the \texttt{selection}
+module mirrors, SciPy~\cite{virtanen2020} and NumPy~\cite{harris2020} for
+validation, the
+primary statistical
+literature~\cite{welch1947,dagostino1973,brown1974,holm1979,iglewicz1993,grubbs1969}
+for the implemented tests, CODATA 2018~\cite{tiesinga2021} for conversion
+factors, and standard practice for the incomplete beta and gamma
 functions~\cite{press2007}.
 
 % ---------------------------------------------------------------------------
@@ -282,41 +297,54 @@ thereafter. Computational logic entangled with DOM manipulation cannot be
 tested without a browser, cannot be reused across tools, and cannot be invoked
 from a script.
 
-The refactoring applied the \emph{strangler fig} pattern: for each tool, the
+The refactoring applied the \emph{strangler fig} pattern: for each tool the
 mathematical and parsing logic was extracted into a pure module beneath
-\texttt{src/core/}, a test suite was written against the extracted module, and
-the original file was then reduced to DOM wiring that imports the new
-functions. The user-visible interface is unchanged; the computation beneath it
-is now independently addressable. Figure~\ref{fig:architecture} shows the
+\texttt{src/core/}, a test suite written against it, and the original file
+reduced to DOM wiring importing the new functions. The interface is unchanged;
+the computation beneath it is now independently addressable. Figure~\ref{fig:architecture} shows the
 resulting layering and Table~\ref{tab:modules} enumerates the modules.
 
 \begin{figure}[htbp]
 \centering
-\small
-\begin{tabular}{c}
-\begin{tabular}{@{}c@{\hspace{1.2em}}c@{}}
-\fbox{\parbox[t]{0.43\textwidth}{\centering \textbf{Browser host}\\[2pt]
-21 static HTML/CSS pages\\ DOM wiring only; \texttt{FileReader} input\\
-UMD bundles loaded by \texttt{<script>}}} &
-\fbox{\parbox[t]{0.43\textwidth}{\centering \textbf{Node.js host}\\[2pt]
-user analysis scripts\\ 1075-test Jest suite; smoke test\\
-UMD bundles via \texttt{createRequire}}} \\
-\end{tabular} \\[6pt]
-$\downarrow$ \hspace{0.4\textwidth} $\downarrow$ \\[6pt]
-\fbox{\parbox{0.9\textwidth}{\centering \textbf{\texttt{@stemkit/core}}\\[2pt]
-16 DOM-free domain modules, aggregated by \texttt{src/core/index.js}}} \\[6pt]
-$\downarrow$ \\[6pt]
-\fbox{\parbox{0.9\textwidth}{\centering \textbf{Vendor injection layer}\\[2pt]
-\texttt{registerVendor()} (Node.js) $\;\cdot\;$
-\texttt{registerFromGlobals()} (browser)}} \\[6pt]
-$\downarrow$ \\[6pt]
-\fbox{\parbox{0.9\textwidth}{\centering \textbf{Vendored UMD bundles}\\[2pt]
-jStat $\;\cdot\;$ Papa Parse $\;\cdot\;$ regression.js $\;\cdot\;$
-bibtex-parse-js}} \\
-\end{tabular}
-\caption{Architecture of STEMKit. Both hosts execute the identical core
-modules; the only environment-specific code is the registration call that
-supplies the vendored libraries.}
+\begin{tikzpicture}[
+  font=\small,
+  box/.style   = {draw, rounded corners=2pt, align=center, inner sep=5pt,
+                  text width=0.42\textwidth},
+  wide/.style  = {box, text width=0.88\textwidth},
+  lbl/.style   = {font=\footnotesize\itshape, text=black!60},
+  flow/.style  = {-{Stealth[length=2mm]}, thick, black!55},
+  node distance = 7mm and 6mm
+]
+\node[box] (browser) {\textbf{Browser host}\\[1pt]
+  \footnotesize 21 static HTML/CSS pages\\
+  \footnotesize DOM wiring only; \texttt{FileReader} input\\
+  \footnotesize UMD bundles via \texttt{<script>}};
+\node[box, right=of browser] (node) {\textbf{Node.js host}\\[1pt]
+  \footnotesize analysis scripts, CI\\
+  \footnotesize 1077-test Jest suite; smoke test\\
+  \footnotesize UMD bundles via \texttt{createRequire}};
+
+\node[wide, below=of $(browser.south)!0.5!(node.south)$, yshift=-1mm] (core)
+  {\textbf{\texttt{@stemkit/core}}\\[1pt]
+   \footnotesize 16 DOM-free domain modules, aggregated by \texttt{src/core/index.js}};
+\node[wide, below=of core] (inject)
+  {\textbf{Vendor injection layer}\\[1pt]
+   \footnotesize \texttt{registerVendor()} (Node.js) $\cdot$
+   \texttt{registerFromGlobals()} (browser)};
+\node[wide, below=of inject] (vendor)
+  {\textbf{Vendored UMD bundles}\\[1pt]
+   \footnotesize jStat $\cdot$ Papa Parse $\cdot$ regression.js $\cdot$ bibtex-parse-js};
+
+\draw[flow] (browser.south) -- ++(0,-3mm) -| ([xshift=-8mm]core.north);
+\draw[flow] (node.south)    -- ++(0,-3mm) -| ([xshift=8mm]core.north);
+\draw[flow] (core)   -- (inject);
+\draw[flow] (inject) -- (vendor);
+
+\node[lbl, right=1mm of core.east, anchor=west, text width=0pt] {};
+\end{tikzpicture}
+\caption{Architecture of STEMKit. Both hosts execute the identical core modules;
+the only environment-specific code is the registration call that supplies the
+vendored libraries.}
 \label{fig:architecture}
 \end{figure}
 
@@ -332,7 +360,7 @@ by injection; modules marked \emph{none} operate without any third-party code.}
 \midrule
 \texttt{bibtex} & Reference deduplication, sanitising & 102 & bibtex-parse-js \\
 \texttt{structure} & Molecular geometry, PDB/GRO/XYZ & 100 & none \\
-\texttt{statistics} & Inferential statistics & 82 & jStat \\
+\texttt{statistics} & Inferential statistics & 84 & jStat \\
 \texttt{curve-fitting} & Least-squares regression & 77 & regression.js \\
 \texttt{xvg-parser} & GROMACS/PLUMED trajectory data & 77 & none \\
 \texttt{units} & Physical unit conversion & 73 & none \\
@@ -347,23 +375,21 @@ by injection; modules marked \emph{none} operate without any third-party code.}
 \texttt{digitizer} & Figure digitisation & 49 & none \\
 \texttt{iso4} & ISO 4 word-level abbreviation (LTWA) & 44 & none \\
 \midrule
-\textbf{Total} & & \textbf{1075} & \\
+\textbf{Total} & & \textbf{1077} & \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Four third-party libraries are vendored within the repository: jStat for
-statistical distributions, Papa Parse for delimited-text parsing, regression.js
-for curve fitting, and bibtex-parse-js for reference parsing. Each is
-distributed as a Universal Module Definition (UMD) bundle, which detects its
-host at run time and either assigns \texttt{module.exports} under CommonJS or
-attaches a global to \texttt{window} in a browser. Neither path is reachable
-from a plain ECMAScript module: a UMD file contains no \texttt{export}
-statements, so a direct import yields no bindings, while
-\texttt{import \{ createRequire \} from 'module'}, the conventional Node.js
-workaround, constitutes a hard \emph{resolution} failure in a browser, which
-occurs before any code executes and therefore cannot be intercepted by
-\texttt{try}/\texttt{catch}. Rather than branch on the execution environment
+Four third-party libraries are vendored in the repository: jStat, Papa Parse,
+regression.js and bibtex-parse-js. Each ships as a Universal Module Definition
+(UMD) bundle, which detects its host at run time and either assigns
+\texttt{module.exports} under CommonJS or attaches a global to \texttt{window}.
+Neither path is reachable from a plain ECMAScript module: a UMD file has no
+\texttt{export} statements, so a direct import yields no bindings, while
+\texttt{import \{ createRequire \} from 'module'} is a hard \emph{resolution}
+failure in a browser, occurring before any code runs and so uncatchable. The
+dynamic \texttt{await import()} does reject catchably, but injection was preferred
+because the bundles must be available synchronously. Rather than branch on the execution environment
 inside every module, which would render the core untestable in one of its two
 targets, the library declares the libraries it requires and each host registers
 them at initialisation (Section~\ref{sec:snippets}). Modules request their
@@ -371,14 +397,9 @@ dependencies lazily, at the point of use rather than at import time, so
 importing any module never fails merely because an unrelated library has not yet
 been registered.
 
-One consequence merits explicit note, as it is a common failure mode. A
-repository declaring \texttt{"type": "module"} instructs Node.js to parse every
-\texttt{.js} file beneath it as an ECMAScript module, including the vendored UMD
-bundles; under that interpretation the UMD factory takes its browser branch and
-fails. Scoping \texttt{"type": "commonjs"} to the dependency directory alone
-restores correct behaviour.
 
-The test suite comprises 1075 tests across the 16 domain modules, with 93.9\%
+
+The test suite comprises 1077 tests across the 16 domain modules, with 93.9\%
 statement and 97.6\% line coverage of \texttt{src/core/}. Its governing
 principle is that numerical results are validated against \emph{independent}
 references rather than against the implementation under test, since a test
@@ -400,37 +421,70 @@ declaration, or a vendored bundle that fails to load.
 \subsection{Software functionalities}
 \label{sec:functionalities}
 
+Table~\ref{tab:tools} maps each tool to the modules it calls; the subsections
+below describe the numerics grouped by domain.
+
+\begin{table}[htbp]
+\centering
+\caption{The 18 research tools and the core modules behind them. Three further
+pages (Pomodoro timer, decision matrix, kinetics sandbox) are workflow aids and
+are excluded.}
+\label{tab:tools}
+\footnotesize
+\begin{tabular}{@{}p{3.3cm}p{2.7cm}p{6.6cm}@{}}
+\toprule
+\textbf{Tool} & \textbf{Module(s)} & \textbf{Purpose} \\
+\midrule
+XVG visualiser & \texttt{xvg-parser} & Plot GROMACS/PLUMED series with recovered axis metadata \\
+Structure inspector & \texttt{structure}, \texttt{selection} & Geometry, mass breakdown, atom selection, 3D view \\
+Coordinate manipulator & \texttt{structure} & Translate, rotate, re-box; PDB/GRO/XYZ interconversion \\
+MD workflow generator & \texttt{slurm}, \texttt{plumed} & SLURM scripts for GROMACS and LAMMPS; PLUMED input \\
+Statistics calculator & \texttt{statistics} & t-tests, ANOVA, correlation, non-parametric tests, assumption checks \\
+Error-bar generator & \texttt{error-bars} & Group summaries, error bars, significance annotation \\
+Outlier detector & \texttt{outliers} & Tukey fences, modified $Z$-score, Grubbs' test \\
+Curve fitter & \texttt{curve-fitting} & Least-squares fits with model-adequacy warnings \\
+Plot digitiser & \texttt{digitizer} & Pixel-to-data recovery with log-axis and uncertainty handling \\
+Plot builder & \texttt{statistics} & Publication figures with matplotlib script export \\
+Data cleaner & \texttt{data-cleaning} & Delimited-text repair, type inference, reshaping \\
+Scientific converter & \texttt{units} & 64 units in ten categories, CODATA-sourced \\
+BibTeX sanitiser & \texttt{bibtex} & Field normalisation and escaping \\
+BibTeX deduplicator & \texttt{bibtex} & Union-find over normalised DOIs and titles \\
+DOI to BibTeX & \texttt{bibtex} & Crossref lookup with field filtering \\
+Journal abbreviator & \texttt{journals}, \texttt{iso4} & Whole-title dictionary, then ISO 4 word-level fallback \\
+LaTeX table builder & \texttt{latex} & LaTeX and Markdown tables with correct escaping \\
+Equation editor & \texttt{latex} & Formula entry and LaTeX output \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
 \subsubsection{Trajectory and collective-variable data}
 
-GROMACS writes analysis output in the Grace format, a plain-text convention in
-which lines beginning with \texttt{\#} are comments, lines beginning with
-\texttt{@} are formatting directives, and all remaining non-empty lines are
-whitespace-delimited numeric records. The directives carry the plot title, axis
-labels and per-series legends. Discarding them, as a naive parser that
-skips all non-numeric lines would, loses precisely the metadata that identifies
-which column contains which observable. The \texttt{xvg-parser} module recovers
-this metadata alongside the numeric matrix. Malformed records are counted and
-reported, not silently discarded, so a truncated trajectory is visible to the
-user instead of quietly shortening the analysis. Two further details of the
+GROMACS writes analysis output in the Grace format, in which \texttt{@}
+directives carry the plot title, axis labels and per-series legends alongside the
+numeric records. A parser that skips all non-numeric lines discards precisely the
+metadata identifying which column holds which observable; \texttt{xvg-parser}
+recovers it with the matrix. Malformed records are counted and reported rather
+than silently dropped, so a truncated trajectory is visible instead of quietly
+shortening the analysis. Two further details of the
 format are handled explicitly: the Grace multi-set separator \texttt{\&} is
 treated as a delimiter rather than parsed as data, and records containing
 \texttt{NaN} or \texttt{Infinity} are rejected whole, since one non-finite entry
 would otherwise contaminate every downstream statistic.
 
-PLUMED~\cite{tribello2014} writes \texttt{COLVAR} files whose header lines begin
-with \texttt{\#!} and carry field names and metadata. Although the convention
-differs from Grace, the comment character coincides, and the same parser
-therefore handles both formats without modification. This is verified by an
-explicit test rather than left to assumption.
+PLUMED~\cite{tribello2014} writes \texttt{COLVAR} files whose \texttt{\#!}
+headers follow a different convention but share Grace's comment character, so the
+same parser handles both without modification. An explicit test verifies this
+rather than leaving it to assumption.
 
 \subsubsection{Structure files and molecular geometry}
 
 The \texttt{structure} module parses the three coordinate formats in routine use
-for classical simulation: PDB and GROMACS \texttt{.gro}, both fixed-column
-formats in which fields are located by character position, and XYZ, which is
-whitespace-delimited. Fixed-column parsing is essential rather than pedantic: a
-residue name may legitimately be blank, and a whitespace-splitting parser would
-silently shift every subsequent field on such a line. Unit handling is explicit
+for classical simulation: PDB and GROMACS \texttt{.gro}, both fixed-column, and
+whitespace-delimited XYZ. Fixed-column parsing is essential rather than pedantic:
+a residue name may legitimately be blank, and a whitespace-splitting parser would
+silently shift every subsequent field on that line. Unit handling is explicit
 throughout: PDB and XYZ express coordinates in \si{\angstrom}, \texttt{.gro}
 uses nanometres, and every parse result carries its unit. Silently mixing the
 two is the most direct route to a structure that is wrong by a factor of ten.
@@ -478,13 +532,11 @@ t-tests, the paired t-test, one-way ANOVA, Pearson correlation, the
 Mann--Whitney $U$ test and the Wilcoxon signed-rank test. Welch's test is the
 default for independent samples, as it does not assume equal variances and loses
 negligible power when they are in fact equal. Every parametric test reports an
-effect size and, where standard, a confidence interval. Assumptions are checked
-and surfaced rather than presumed: normality by the D'Agostino--Pearson $K^2$
-omnibus test~\cite{dagostino1971}, and homogeneity of variance by the
-median-centred Brown--Forsythe variant of Levene's test~\cite{brown1974}, chosen
-for its markedly greater robustness to non-normality than the original
-mean-centred formulation. Where an assumption fails, a non-parametric
-alternative is recommended. Table~\ref{tab:methods} maps each computed quantity
+effect size and, where standard, a confidence interval. Assumptions are checked and surfaced rather than presumed: normality by the
+D'Agostino--Pearson $K^2$ omnibus test~\cite{dagostino1973}, homogeneity of
+variance by the median-centred Brown--Forsythe variant of Levene's
+test~\cite{brown1974}, chosen for its greater robustness to non-normality. Where
+an assumption fails, a non-parametric alternative is recommended. Table~\ref{tab:methods} maps each computed quantity
 to its numerical method and validation reference.
 
 \begin{table}[htbp]
@@ -515,7 +567,8 @@ Wilcoxon $W$ &
   Signed-rank, zeros discarded &
   \texttt{scipy.stats.wilcoxon} \\
 D'Agostino--Pearson $K^2$ &
-  Skewness and kurtosis transforms &
+  $\sqrt{b_1}$~\cite{dagostino1970} and
+  $b_2$~\cite{anscombe1983} transforms &
   \texttt{scipy.stats.normaltest} \\
 Levene $W$ &
   Brown--Forsythe (median-centred) &
@@ -548,20 +601,20 @@ used in the test suite ($F = 377.545$ on $2$ and $21$ degrees of freedom), the
 naive form returns $p = 0$, whereas
 \begin{equation}
   p = I_{\frac{d_2}{d_2 + d_1 F}}\!\left(\tfrac{d_2}{2}, \tfrac{d_1}{2}\right)
-    = \num{3.4611747382914e-17},
+        = \num{3.4611747382894255e-17},
 \end{equation}
-agreeing with SciPy to twelve significant figures. A continuous test statistic
-cannot produce $p = 0$; when that value appears in published output it indicates
-a numerical fault in the software, not an unusually strong effect. The same
-treatment is applied to the Student $t$, $\chi^2$ and normal tails. Beyond
-$|z| \approx 8$ the vendored \texttt{erfc} implementation underflows, and a
-documented asymptotic expansion takes over so that a $p$-value is reported as
-\num{1.5e-23} rather than as zero.
+reproducing \texttt{scipy.stats.f.sf} to full double precision. A continuous test statistic cannot
+produce $p = 0$, so that value in published output indicates a numerical fault
+rather than an unusually strong effect. The same treatment is applied to the
+Student $t$, $\chi^2$ and normal tails. Beyond $|z| = 8$ the vendored
+\texttt{erfc} underflows and a documented asymptotic expansion takes over,
+accurate to \num{3.5e-6} relative at the switchover and \num{1.6e-10} by
+$z = 30$; at $z = 38$ it returns \num{5.8e-316}, where
+\texttt{2*scipy.stats.norm.sf(38)} has already underflowed. Its own floor lies
+near $z = 38.5$, and that bound rather than any general principle is what limits
+how small a reported $p$ can be.
 
-The \texttt{outliers} module provides Tukey fences, the Iglewicz--Hoaglin
-modified $Z$-score~\cite{iglewicz1993} and Grubbs' test~\cite{grubbs1969};
-\texttt{curve-fitting} performs least-squares fitting with model-adequacy
-warnings. One inherited limitation is documented rather than fixed, and it
+One limitation of \texttt{curve-fitting} is documented rather than fixed, and it
 applies to two of the three transformed models rather than to all of them. The
 vendored regression.js library fits the \emph{power} model by regressing
 $\ln y$ on $\ln x$ unweighted, so the residuals minimised are those in
@@ -572,11 +625,17 @@ bias and keeps the result closer to a direct non-linear fit. The
 \emph{logarithmic} model carries none of this bias: it regresses $y$ on
 $\ln x$, so only the predictor is transformed and the residuals minimised are
 those in $y$, exactly as for any model linear in its parameters. Where the bias
-does apply it is material: for a clean doubling series the weighted
-exponential fit returns a growth rate of $\num{0.69022}$ where unweighted
-log-space least squares gives $\ln 2 = \num{0.69315}$. Neither value is
-incorrect, since they answer different questions, but the difference is large
-enough to matter when a rate constant is reported. \texttt{fitCurve} therefore
+does apply it is material. On an exactly doubling series the distinction
+vanishes, since the log-space residuals are identically zero and every
+least-squares variant recovers $\ln 2$; it appears only once the data are
+perturbed. For the series $(1,2.0)$, $(2,4.1)$, $(3,8.2)$, $(4,16.1)$,
+$(5,32.3)$ the
+weighted fit returns a growth rate of $\num{0.690216}$ against
+$\num{0.693167}$ for unweighted log-space least squares, with
+$\ln 2 = \num{0.693147}$ as the generating value: a difference of
+\SI{0.4}{\percent} in the rate constant. Neither value is incorrect, since they
+answer different questions, but the gap matters when a rate constant is
+reported. \texttt{fitCurve} therefore
 exposes a \texttt{linearised} flag, true for the exponential and power models
 only, so callers may surface the distinction; users requiring publication-grade
 non-linear fits are directed to Levenberg--Marquardt optimisation on
@@ -587,47 +646,42 @@ than having the offending points silently dropped.
 
 \subsubsection{Digitisation, unit conversion and authoring utilities}
 
-Recovering numerical values from a published figure requires a two-point affine
-calibration per axis. On a logarithmic axis the interpolation must be performed
-in logarithmic space,
+Recovering values from a published figure requires a two-point affine
+calibration per axis. On a logarithmic axis the interpolation must be done in
+logarithmic space,
 \begin{equation}
   v(p) = 10^{\,\log_{10} v_1
               + \dfrac{(p - p_1)\left(\log_{10} v_2 - \log_{10} v_1\right)}
                       {p_2 - p_1}},
 \end{equation}
-because a decade occupies a constant pixel distance there. Treating a
-logarithmic axis linearly is the most frequent source of error in figure
-digitisation, and it produces values that are plausible rather than obviously
-wrong. The module additionally reports the data-space uncertainty corresponding
-to a one-pixel positioning error, since the precision of a digitised point is
-set by the resolution of the figure and not by the number of decimal places the
-export happens to print.
+because a decade occupies a constant pixel distance. Treating a logarithmic axis
+linearly is the commonest error in figure digitisation, and it yields values
+that are plausible rather than obviously wrong. The module also reports the data-space uncertainty of a one-pixel positioning
+error, since a digitised point's precision is set by the figure's resolution,
+not by the decimal places the export prints.
 
-Sixty-four units across ten categories are supported, each defined by its ratio
-to a category base unit, so conversion reduces to
-$x_{\mathrm{to}} = x_{\mathrm{from}} \cdot
-f_{\mathrm{to}} / f_{\mathrm{from}}$. This keeps the table linear rather than
-quadratic in the number of units and renders every entry independently
-checkable against its cited source; factors are CODATA 2018
-values~\cite{tiesinga2021}, each verified against \texttt{scipy.constants}
-during testing. Temperature is handled separately, since the Celsius and
-Fahrenheit scales are affine rather than multiplicative.
+Sixty-four units across ten categories are each defined by their ratio to a
+category base unit, so conversion reduces to $x_{\mathrm{to}} =
+x_{\mathrm{from}} \cdot f_{\mathrm{to}} / f_{\mathrm{from}}$. The table is
+therefore linear rather than quadratic in the number of units, and every entry
+is independently checkable against its source: factors are CODATA 2018
+values~\cite{tiesinga2021}, validated against \texttt{scipy.constants} from
+SciPy 1.17.1, which ships the 2022 adjustment; the two agree to a relative
+\num{1e-10}, far below the tolerance of any conversion the tools perform. Temperature is handled separately, being affine rather than
+multiplicative.
 
-Composing a scheduler script correctly requires knowledge that is
-engine-specific and easily misapplied, and two aspects dominate the resulting
-waste of allocation. First, the resource model differs by engine: GROMACS is
-threaded and requires one MPI rank per node with many CPUs per task, whereas
-LAMMPS~\cite{thompson2022} is MPI-parallel and requires many ranks per node.
-Emitting the wrong shape either idles most of a node or oversubscribes it.
+Two aspects of scheduler scripts dominate wasted allocation. First, the resource
+model differs by engine: GROMACS is threaded and wants one MPI rank per node
+with many CPUs per task, whereas LAMMPS~\cite{thompson2022} is MPI-parallel and
+wants many ranks per node. The wrong shape either idles most of a node or
+oversubscribes it.
 Second, and less widely appreciated, the SLURM \texttt{-{}-mem} directive in an
 array job specifies memory \emph{per task}, not per job: a request of 32~GB
-across a hundred-task array asks the scheduler for 3.2~TB concurrently. The
-generator computes the true in-flight total and reports it. Generated scripts
-include checkpoint-resume logic, so a requeued job continues from its last
-checkpoint rather than silently restarting from $t = 0$, a failure mode that
-consumes an entire allocation while appearing to succeed. Warnings are returned
-as structured objects rather than formatted strings, leaving presentation to the
-caller. The remaining modules support manuscript preparation: LaTeX and Markdown
+across a hundred-task array asks the scheduler for 3.2~TB concurrently. The generator computes the true in-flight
+total and reports it. Generated scripts resume from the last checkpoint rather
+than silently restarting from $t = 0$, a failure mode that consumes an entire
+allocation while appearing to succeed. Warnings are returned as structured
+objects, leaving presentation to the caller. The remaining modules support manuscript preparation: LaTeX and Markdown
 table generation with correct escaping, ISO-4 journal title abbreviation, and
 BibTeX deduplication by union-find over normalised DOIs and titles.
 
@@ -635,15 +689,16 @@ BibTeX deduplication by union-find over normalised DOIs and titles.
 \label{sec:defects}
 
 Separating computation from presentation subjected the numerical code to
-independent verification for the first time, and three defects were identified
+independent verification for the first time, and four defects were identified
 that had propagated into reported output. First, skewness and kurtosis are
 defined against the \emph{population} standard deviation,
 \begin{equation}
   G_1 = \frac{\sqrt{n(n-1)}}{n-2}
         \cdot \frac{1}{n}\sum_{i=1}^{n}
         \left(\frac{x_i - \bar{x}}{\sigma_{\mathrm{pop}}}\right)^{\!3},
-  \qquad
+    \qquad
   \sigma_{\mathrm{pop}} = \sqrt{\frac{1}{n}\sum_i (x_i - \bar{x})^2},
+  \label{eq:skew}
 \end{equation}
 whereas the original implementation used the Bessel-corrected sample standard
 deviation, deflating skewness by a factor of $\left((n-1)/n\right)^{3/2}$,
@@ -654,6 +709,29 @@ floored at zero for strong effects. Third, haem iron was assigned the mass of
 fluorine (18.998~Da rather than 55.845~Da), selenomethionine selenium the mass
 of sulfur, and numeric-prefixed hydrogens no mass at all, so molecular weights
 and centres of mass computed for metalloproteins were correspondingly wrong.
+Fourth, the D'Agostino--Pearson transformations are defined on the biased moment
+ratios $\sqrt{b_1} = m_3/m_2^{3/2}$ and $b_2 = m_4/m_2^2$, but the
+sample-size-adjusted $G_1$ of Eq.~\ref{eq:skew} was passed into the skewness
+transform instead. The adjustment inflates $\sqrt{b_1}$ by exactly $\sqrt{n(n-1)}/(n-2)$: a factor
+of $1.247$ at $n = 8$, $1.186$ at $n = 10$ and $1.039$ at $n = 40$. The error
+therefore vanishes on symmetric data and grows with skew. Because that factor
+exceeds unity for every $n$, the inflated statistic is always the larger and the
+reported $p$ always the smaller, so the bias is systematically anti-conservative
+rather than merely noisy: the verdict at $\alpha = 0.05$ can only ever move from
+retaining normality to rejecting it, which is precisely the branch that redirects
+a user from Welch's test to Mann--Whitney. This defect is the instructive one, because an independent
+reference was already in place and already disagreed. The residual had been absorbed by loosening the assertion to three decimal
+places and blaming SciPy's kurtosis transform; that transform is identical, and
+the fixture was nearly symmetric ($g_1 = -0.0063$), so the inflation multiplied
+approximately zero. The reference value was correct and
+the implementation was not. $K^2$ now reproduces
+\texttt{scipy.stats.normaltest} to twelve significant figures across
+$8 \leq n \leq 1000$, the full range over which the $S_U$ approximation is
+tabulated~\cite{dagostino1973} and the provenance of the module's $n \geq 8$
+guard, while \texttt{skewness()} continues to report $G_1$, the
+appropriate statistic to publish and the one matching
+\texttt{scipy.stats.skew(bias=False)}.
+
 Each defect is corrected and covered by a regression test. Users who generated
 figures with earlier versions of these tools should re-check any reported
 skewness, normality $p$-value, or metalloprotein mass.
@@ -767,52 +845,43 @@ const { script, warnings } = generateScript({
 warnings.forEach(w => console.warn(`[${w.level}] ${w.message}`));
 \end{lstlisting}
 
-The same four steps performed through the browser produce identical numbers,
-because they call the same functions; the difference is only that the browser
-supplies the file through \texttt{FileReader} and renders the result. Where a
-step produces a figure, the tool also emits a matplotlib script that regenerates
-it from the original data file.
+The same four steps through the browser produce identical numbers, since they
+call the same functions. Where a step produces a figure, the tool also emits a
+matplotlib script that regenerates it from the original data.
 
 % ---------------------------------------------------------------------------
 \section{Impact}
 \label{sec:impact}
 
-The most direct effect of the architecture is on work that cannot currently be
-done at all with server-based tools. Analyses of unpublished results, of
-material under a confidentiality agreement, and of data held under an
-institutional policy that forbids third-party upload are all outside the reach
-of a web service, and are frequently outside the reach of local scripting too
-where the workstation is managed and package installation is blocked. Because no
-data leaves the browser, these constraints are satisfied structurally rather
-than contractually: there is no server to receive the data and consequently no
-retention policy to evaluate. For researchers in that position the relevant
-comparison is not with a faster tool but with performing the calculation by
-hand.
+The architecture's most direct effect is on work that server-based tools cannot
+do at all. Where upload is prohibited, the relevant comparison is not with a
+faster tool but with doing the calculation by hand.
 
-For research questions already being pursued, the improvement is in
-reproducibility and in the reliability of the numbers. Extracting the
-computation into modules that run unchanged under Node.js means that an analysis
-first explored by clicking can be captured as a script, version-pinned and
-placed under continuous integration without being rewritten in another
-language, which is the step at which reproducibility is most often lost. The emitted
-matplotlib scripts close the same loop for figures. Independently of that, the
-validation strategy raises the floor: every reported statistic is checked
-against SciPy or NumPy rather than against the authors' expectations, and the
-test suite is intended to be run by users evaluating the software, not solely by
-its maintainer, since a library whose numerical claims cannot be checked by its
-users offers reproducibility only in principle.
+For research questions already being pursued, the gain is in reproducibility and
+in the reliability of the numbers. An analysis first explored by clicking can be
+captured as a script and version-pinned without being rewritten in another
+language, which is the step at which reproducibility is most often lost, and the
+emitted matplotlib scripts close the same loop for figures. Every reported
+statistic is checked against SciPy or NumPy rather than against the author's own
+expectations, and the suite is meant to be run by users evaluating the software:
+a library whose numerical claims cannot be checked offers reproducibility only in
+principle.
 
 The defects found during extraction (Section~\ref{sec:defects}) carry a wider
-lesson, and are the most useful outcome of this work. All three had survived in
-software that ran without error and produced plausible numbers. None would have
-been caught by testing the code against expectations derived from the same
+lesson, and are the most useful outcome of this work. All four had survived in
+software that ran without error and produced plausible numbers. Three would not
+have been caught by testing the code against expectations derived from the same
 source; each surfaced only when results were compared with an independent
-implementation. A 15\% error in a reported skewness is not visible by
-inspection, and neither is a $p$-value floored at zero, which looks like a very
-strong result. Authors of scientific software, particularly of the small,
-in-house analysis code that is rarely reviewed, would be well advised to
-check their numerics against an independent implementation before reporting
-output.
+implementation. The fourth is the more uncomfortable case, because the
+independent comparison had already been made and had already disagreed: the
+tolerance was widened until the test passed and the residual was explained away.
+An independent reference is necessary but not sufficient. A disagreement with
+one must be treated as a defect until shown otherwise, and a loosened tolerance
+is where that demonstration usually fails to happen. None of these errors is
+visible by inspection; a $p$-value floored at zero looks like a very strong
+result. Authors of small, rarely reviewed in-house analysis code would be well
+advised to check their numerics against an independent implementation before
+reporting output.
 
 In daily practice, the change is the removal of a setup step from tasks that
 previously carried one. Checking whether an RMSD has converged, or whether a
@@ -822,12 +891,8 @@ environment is available. The tools are also usable in teaching and in shared
 computing environments where installation is not an option, since a URL is the
 only prerequisite.
 
-STEMKit is released under the MIT licence, hosted at
-\url{https://stemkit.net}, developed in the open at
-\url{https://github.com/LD-Shell/stemkit} and archived on
-Zenodo~\cite{stemkit2026} under the persistent identifier
-\url{https://doi.org/10.5281/zenodo.21543112}, which resolves to the current
-release. The first archived release is contemporaneous with this manuscript, so
+STEMKit is MIT-licensed, hosted at \url{https://stemkit.net} and archived on
+Zenodo~\cite{stemkit2026}. The first archived release is contemporaneous with this manuscript, so
 adoption data (downloads, unique users, citing publications) does not yet
 exist. The arguments above are accordingly claims about what the design makes
 possible, not evidence of uptake, and should be read as such. The software is
@@ -845,20 +910,27 @@ on a tested, dependency-injected JavaScript core of 16 modules. The architecture
 addresses three constraints simultaneously that existing tooling addresses only
 in pairs: it requires no installation, transmits no data and remains scriptable.
 
-The privacy property is structural rather than contractual, because computation
-occurs entirely within the browser and there is no server to receive data. The
-reproducibility property follows from the separation of computation from
-presentation: the identical modules that execute behind the browser interface
-execute under Node.js, so an interactive analysis may be captured as a
-version-pinned script without rewriting. The 1075-test suite validates every
-numerical result against an independent reference, and the three defects that
-this strategy exposed (deflated standardised moments, tail probabilities
-floored at zero, and misassigned elements in metalloproteins) are documented,
-corrected and covered by regression tests. Future work will extend format
+Both properties are structural rather than contractual: computation occurs
+entirely within the browser, and the modules behind the interface are the ones
+that run under Node.js. The 1077-test suite validates every numerical result
+against an independent reference, and the four defects that this strategy
+exposed (deflated standardised moments, tail probabilities floored
+at zero, misassigned elements in metalloproteins, and an adjusted moment fed
+into a transform defined on the unadjusted one) are documented, corrected and
+covered by regression tests. Future work will extend format
 coverage in the trajectory and structure modules and replace the two log-space
 fits with a Levenberg--Marquardt implementation on untransformed data.
 
 % ---------------------------------------------------------------------------
+\section*{Declaration of generative AI use}
+
+Claude (Anthropic) was used in preparing this manuscript: restructuring an
+earlier draft into the present template, correcting reported figures against the
+test suite, drafting and revising prose, and reviewing the numerical claims. The
+software itself, the numerical methods, and the verification of every figure and
+statement reported here are the author's own. The tool is not an author and bears
+no responsibility for the content.
+
 \section*{Acknowledgements}
 
 I thank the maintainers of jStat, Papa Parse, regression.js, Plotly, KaTeX and
@@ -933,11 +1005,24 @@ B.~L. Welch,
 \newblock \emph{Biometrika} \textbf{34}(1--2), 28--35 (1947).
 \newblock \url{https://doi.org/10.1093/biomet/34.1-2.28}
 
-\bibitem{dagostino1971}
+\bibitem{dagostino1970}
 R.~B. D'Agostino,
-\newblock An omnibus test of normality for moderate and large size samples,
-\newblock \emph{Biometrika} \textbf{58}(2), 341--348 (1971).
-\newblock \url{https://doi.org/10.1093/biomet/58.2.341}
+\newblock Transformation to normality of the null distribution of $g_1$,
+\newblock \emph{Biometrika} \textbf{57}(3), 679--681 (1970).
+\newblock \url{https://doi.org/10.1093/biomet/57.3.679}
+
+\bibitem{dagostino1973}
+R.~B. D'Agostino and E.~S. Pearson,
+\newblock Tests for departure from normality. Empirical results for the
+  distributions of $b_2$ and $\sqrt{b_1}$,
+\newblock \emph{Biometrika} \textbf{60}(3), 613--622 (1973).
+\newblock \url{https://doi.org/10.1093/biomet/60.3.613}
+
+\bibitem{anscombe1983}
+F.~J. Anscombe and W.~J. Glynn,
+\newblock Distribution of the kurtosis statistic $b_2$ for normal samples,
+\newblock \emph{Biometrika} \textbf{70}(1), 227--234 (1983).
+\newblock \url{https://doi.org/10.1093/biomet/70.1.227}
 
 \bibitem{brown1974}
 M.~B. Brown and A.~B. Forsythe,
@@ -965,6 +1050,12 @@ F.~E. Grubbs,
 W.~H. Press, S.~A. Teukolsky, W.~T. Vetterling, and B.~P. Flannery,
 \newblock \emph{Numerical Recipes: The Art of Scientific Computing},
 \newblock 3rd ed., Cambridge University Press, Cambridge (2007).
+
+\bibitem{rego2015}
+N.~Rego and D.~Koes,
+\newblock 3Dmol.js: molecular visualization with WebGL,
+\newblock \emph{Bioinformatics} \textbf{31}(8), 1322--1324 (2015).
+\newblock \url{https://doi.org/10.1093/bioinformatics/btu829}
 
 \bibitem{stemkit2026}
 O.~M. Daramola,

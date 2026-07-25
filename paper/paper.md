@@ -34,16 +34,17 @@ Corresponding author: lanrelangmuir@gmail.com
 ## Abstract
 
 STEMKit is a suite of 18 browser-based tools for computational chemistry and
-scientific data analysis, built on `@stemkit/core`, a JavaScript library of
-parsing and numerical routines carrying no dependency on the document object
-model. All computation executes inside the user's own browser: no data is
-transmitted, no account is required, and nothing is installed, so the tools
-remain usable for unpublished or confidential material. The identical modules
-also execute under Node.js, so an analysis explored interactively can be
-captured as a version-pinned script and placed under continuous integration.
-Sixteen domain modules are covered by 1075 tests validated against SciPy,
-NumPy,
-and physical invariants rather than against the implementation itself.
+scientific data analysis, built on `@stemkit/core`, a JavaScript library
+of parsing and numerical routines with no DOM dependency. All computation runs
+inside the user's own browser: nothing is transmitted, no account is required
+and nothing is installed, so the tools stay usable for unpublished or
+confidential data. The same modules run under Node.js, so an interactive
+analysis can be captured as a version-pinned script. The 16 domain modules carry
+1077 tests validated against SciPy, NumPy
+and physical invariants rather than against the implementation itself. That
+validation exposed four defects that had been altering reported results, among
+them *p*-values floored at zero and the mass of haem iron taken as fluorine's.
+All four are corrected and covered by regression tests.
 
 ## Keywords
 
@@ -55,7 +56,7 @@ reproducibility; data privacy
 | Nr | Code metadata description | Metadata |
 | --- | --- | --- |
 | C1 | Current code version | v0.1.0 |
-| C2 | Permanent link to code/repository used for this code version | <https://doi.org/10.5281/zenodo.21543112> (archived release `v0.1.0`); repository at <https://github.com/LD-Shell/stemkit> |
+| C2 | Permanent link to code/repository used for this code version | <https://github.com/LD-Shell/stemkit> ; archived release `v0.1.0`: <https://doi.org/10.5281/zenodo.21543113> (concept DOI `10.5281/zenodo.21543112` resolves to the current release) |
 | C3 | Legal code license | MIT License |
 | C4 | Code versioning system used | git |
 | C5 | Software code languages, tools and services used | JavaScript (ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS; GitHub Actions |
@@ -109,14 +110,22 @@ every step was recorded at the time.
 ### 1.2 The client-side position
 
 Modern browsers provide a capable computational environment. The `FileReader`
-API grants access to local files without transmission, and JavaScript engines
-execute numerical code fast enough for the data volumes involved. ECMAScript
+API grants access to local files without transmission, and JavaScript engines are
+fast enough for the data volumes involved: under Node.js the parser sustains
+roughly 700,000 rows per second, reading a two-million-row, 53 MB `.xvg` in
+2.9 s, and parses a million-atom PDB and returns its centre of mass in 1.3 s. The
+ceiling is memory rather than arithmetic, since `FileReader` materialises the
+whole file as a string; inputs of a few hundred megabytes are practical, and
+beyond that a streaming reader would be required. ECMAScript
 modules make it possible to organise that code properly, instead of accumulating
 scripts.
 
 STEMKit is built around these constraints. No server participates in the
 computation, so there is nothing to which data could be transmitted and users
-are not asked to take a privacy policy on trust. The reproducibility property
+are not asked to take a privacy policy on trust. Every asset is vendored in the
+repository: no content-delivery network, no analytics, no telemetry, so not even
+a request log is generated elsewhere, and a local clone runs with the network
+disconnected. The reproducibility property
 derives from a separate architectural decision: the numerical core is extracted
 into modules with no dependency on the browser, so the identical code that
 executes behind the interface also executes under Node.js.
@@ -138,9 +147,10 @@ Related work is cited where the corresponding functionality is described in
 Section 2: GROMACS [@abraham2015] and LAMMPS [@thompson2022] for the trajectory
 and job-script formats, PLUMED [@tribello2014] for collective-variable output,
 MDAnalysis [@michaud-agrawal2011mdanalysis] as the reference framework for
-trajectory analysis, SciPy [@virtanen2020] and NumPy [@harris2020] as the
+trajectory analysis, 3Dmol.js [@rego2015], whose atom-selection syntax the
+`selection` module mirrors, SciPy [@virtanen2020] and NumPy [@harris2020] as the
 validation references for the numerics, and the primary statistical literature
-[@welch1947; @dagostino1971; @brown1974; @holm1979; @iglewicz1993; @grubbs1969]
+[@welch1947; @dagostino1973; @brown1974; @holm1979; @iglewicz1993; @grubbs1969]
 for the implemented tests. Conversion factors follow CODATA 2018
 [@tiesinga2021], and the numerical treatment of tail probabilities follows
 standard practice for the incomplete beta and gamma functions [@press2007].
@@ -174,7 +184,7 @@ enumerates the modules.
 ┌───────────────────────────────┐   ┌───────────────────────────────┐
 │        Browser host           │   │         Node.js host          │
 │  21 static HTML/CSS pages     │   │  user analysis scripts        │
-│  DOM wiring only;             │   │  1075-test Jest suite;        │
+│  DOM wiring only;             │   │  1077-test Jest suite;        │
 │  FileReader input             │   │  smoke test                   │
 │  UMD bundles via <script>     │   │  UMD bundles: createRequire   │
 └───────────────┬───────────────┘   └───────────────┬───────────────┘
@@ -210,7 +220,7 @@ injection; modules marked *none* operate without any third-party code.
 | --- | --- | ---: | --- |
 | `bibtex` | Reference deduplication, sanitising | 102 | bibtex-parse-js |
 | `structure` | Molecular geometry, PDB/GRO/XYZ | 100 | none |
-| `statistics` | Inferential statistics | 82 | jStat |
+| `statistics` | Inferential statistics | 84 | jStat |
 | `curve-fitting` | Least-squares regression | 77 | regression.js |
 | `xvg-parser` | GROMACS/PLUMED trajectory data | 77 | none |
 | `units` | Physical unit conversion | 73 | none |
@@ -224,7 +234,7 @@ injection; modules marked *none* operate without any third-party code.
 | `outliers` | Anomaly detection | 51 | jStat |
 | `digitizer` | Figure digitisation | 49 | none |
 | `iso4` | ISO 4 word-level abbreviation (LTWA) | 44 | none |
-| **Total** | | **1075** | |
+| **Total** | | **1077** | |
 
 Four third-party libraries are vendored within the repository: jStat for
 statistical distributions, Papa Parse for delimited-text parsing, regression.js
@@ -235,8 +245,10 @@ a global to `window` in a browser. Neither path is reachable from a plain
 ECMAScript module: a UMD file contains no `export` statements, so a direct
 import yields no bindings, while `import { createRequire } from 'module'`, the conventional Node.js
 workaround, constitutes a hard *resolution* failure in a
-browser, which occurs before any code executes and therefore cannot be
-intercepted by `try`/`catch`. Rather than branch on the execution environment
+browser. A static import resolves before any code executes, so the failure
+cannot be caught; the dynamic form `await import()` does reject catchably, but
+injection was preferred because the vendored libraries must be available
+synchronously. Rather than branch on the execution environment
 inside every module, which would render the core untestable in one of its two
 targets, the library declares the libraries it requires and each host registers
 them at initialisation (Section 2.3). Modules request their dependencies lazily,
@@ -250,7 +262,7 @@ under that interpretation the UMD factory takes its browser branch and fails.
 Scoping `"type": "commonjs"` to the dependency directory alone restores correct
 behaviour.
 
-The test suite comprises 1075 tests across the 16 domain modules, with 93.9%
+The test suite comprises 1077 tests across the 16 domain modules, with 93.9%
 statement and 97.6% line coverage of `src/core/`. Its governing
 principle is that numerical results are validated against *independent*
 references rather than against the implementation under test, since a test
@@ -270,37 +282,61 @@ that fails to load.
 
 ### 2.2 Software functionalities
 
+Table 2 maps each tool to the modules it calls; the subsections below describe
+the numerics grouped by domain.
+
+**Table 2.** The 18 research tools and the core modules behind them. Three
+further pages (Pomodoro timer, decision matrix, kinetics sandbox) are workflow
+aids and are excluded.
+
+| Tool | Module(s) | Purpose |
+| --- | --- | --- |
+| XVG visualiser | `xvg-parser` | Plot GROMACS/PLUMED series with recovered axis metadata |
+| Structure inspector | `structure`, `selection` | Geometry, mass breakdown, atom selection, 3D view |
+| Coordinate manipulator | `structure` | Translate, rotate, re-box; PDB/GRO/XYZ interconversion |
+| MD workflow generator | `slurm`, `plumed` | SLURM scripts for GROMACS and LAMMPS; PLUMED input |
+| Statistics calculator | `statistics` | t-tests, ANOVA, correlation, non-parametric tests, assumption checks |
+| Error-bar generator | `error-bars` | Group summaries, error bars, significance annotation |
+| Outlier detector | `outliers` | Tukey fences, modified $Z$-score, Grubbs' test |
+| Curve fitter | `curve-fitting` | Least-squares fits with model-adequacy warnings |
+| Plot digitiser | `digitizer` | Pixel-to-data recovery with log-axis and uncertainty handling |
+| Plot builder | `statistics` | Publication figures with matplotlib script export |
+| Data cleaner | `data-cleaning` | Delimited-text repair, type inference, reshaping |
+| Scientific converter | `units` | 64 units in ten categories, CODATA-sourced |
+| BibTeX sanitiser | `bibtex` | Field normalisation and escaping |
+| BibTeX deduplicator | `bibtex` | Union-find over normalised DOIs and titles |
+| DOI to BibTeX | `bibtex` | Crossref lookup with field filtering |
+| Journal abbreviator | `journals`, `iso4` | Whole-title dictionary, then ISO 4 word-level fallback |
+| LaTeX table builder | `latex` | LaTeX and Markdown tables with correct escaping |
+| Equation editor | `latex` | Formula entry and LaTeX output |
+
+
 #### 2.2.1 Trajectory and collective-variable data
 
-GROMACS writes analysis output in the Grace format, a plain-text convention in
-which lines beginning with `#` are comments, lines beginning with `@` are
-formatting directives, and all remaining non-empty lines are whitespace-
-delimited numeric records. The directives carry the plot title, axis labels and
-per-series legends. Discarding them, as a naive parser that skips all
-non-numeric lines would, loses precisely the metadata that identifies which
-column contains which observable. The `xvg-parser` module recovers this metadata
-alongside the numeric matrix. Malformed records are counted and reported, not
-silently discarded, so a truncated trajectory is visible to the user instead of
-quietly shortening the analysis. Two further details of the format are handled
+GROMACS writes analysis output in the Grace format, in which `@` directives carry
+the plot title, axis labels and per-series legends alongside the numeric records.
+A parser that skips all non-numeric lines discards precisely the metadata
+identifying which column holds which observable; `xvg-parser` recovers it with
+the matrix. Malformed records are counted and reported rather than silently
+dropped, so a truncated trajectory is visible instead of quietly shortening the
+analysis. Two further details of the format are handled
 explicitly: the Grace multi-set separator `&` is treated as a delimiter rather
 than parsed as data, and records containing `NaN` or `Infinity` are rejected
 whole, since one non-finite entry would otherwise contaminate every downstream
 statistic.
 
-PLUMED [@tribello2014] writes `COLVAR` files whose header lines begin with `#!`
-and carry field names and metadata. Although the convention differs from Grace,
-the comment character coincides, and the same parser therefore handles both
-formats without modification. This is verified by an explicit test rather than
-left to assumption.
+PLUMED [@tribello2014] writes `COLVAR` files whose `#!` headers follow a
+different convention but share Grace's comment character, so the same parser
+handles both without modification. An explicit test verifies this rather than
+leaving it to assumption.
 
 #### 2.2.2 Structure files and molecular geometry
 
 The `structure` module parses the three coordinate formats in routine use for
-classical simulation: PDB and GROMACS `.gro`, both fixed-column formats in which
-fields are located by character position, and XYZ, which is whitespace-
-delimited. Fixed-column parsing is essential rather than pedantic: a residue
-name may legitimately be blank, and a whitespace-splitting parser would silently
-shift every subsequent field on such a line. Unit handling is explicit
+classical simulation: PDB and GROMACS `.gro`, both fixed-column, and
+whitespace-delimited XYZ. Fixed-column parsing is essential rather than pedantic:
+a residue name may legitimately be blank, and a whitespace-splitting parser would
+silently shift every subsequent field on that line. Unit handling is explicit
 throughout: PDB and XYZ express coordinates in ångström, `.gro` uses nanometres,
 and every parse result carries its unit. Silently mixing the two is the most
 direct route to a structure that is wrong by a factor of ten.
@@ -349,13 +385,13 @@ samples, as it does not assume equal variances and loses negligible power when
 they are in fact equal. Every parametric test reports an effect size and, where
 standard, a confidence interval. Assumptions are checked and surfaced rather
 than presumed: normality by the D'Agostino–Pearson $K^2$ omnibus test
-[@dagostino1971], and homogeneity of variance by the median-centred
+[@dagostino1973], and homogeneity of variance by the median-centred
 Brown–Forsythe variant of Levene's test [@brown1974], chosen for its markedly
 greater robustness to non-normality than the original mean-centred formulation.
-Where an assumption fails, a non-parametric alternative is recommended. Table 2
+Where an assumption fails, a non-parametric alternative is recommended. Table 3
 maps each computed quantity to its numerical method and validation reference.
 
-**Table 2.** Numerical methods and validation references.
+**Table 3.** Numerical methods and validation references.
 
 | Quantity | Method | Validated against |
 | --- | --- | --- |
@@ -365,7 +401,7 @@ maps each computed quantity to its numerical method and validation reference.
 | Pearson $r$, CI | Fisher $z$ transform | `scipy.stats.pearsonr` |
 | Mann–Whitney $U$ | Tie-corrected normal approximation | `scipy.stats.mannwhitneyu` |
 | Wilcoxon $W$ | Signed-rank, zeros discarded | `scipy.stats.wilcoxon` |
-| D'Agostino–Pearson $K^2$ | Skewness and kurtosis transforms | `scipy.stats.normaltest` |
+| D'Agostino–Pearson $K^2$ | $\sqrt{b_1}$ [@dagostino1970] and $b_2$ [@anscombe1983] transforms | `scipy.stats.normaltest` |
 | Levene $W$ | Brown–Forsythe (median-centred) | `scipy.stats.levene` |
 | Quantiles | Linear interpolation (type 7) | `numpy.percentile` |
 | Multiple comparisons | Holm–Bonferroni [@holm1979] | Independent implementation |
@@ -383,22 +419,22 @@ form returns $p = 0$, whereas
 
 $$
 p = I_{\frac{d_2}{d_2 + d_1 F}}\!\left(\tfrac{d_2}{2}, \tfrac{d_1}{2}\right)
-  = 3.4611747382914 \times 10^{-17},
+  = 3.4611747382894255 \times 10^{-17},
 $$
 
-agreeing with SciPy to twelve significant figures. A continuous test statistic
-cannot produce $p = 0$; when that value appears in published output it indicates
-a numerical fault in the software, not an unusually strong effect. The same
-treatment is applied to the Student $t$, $\chi^2$ and normal tails. Beyond
-$|z| \approx 8$ the vendored `erfc` implementation underflows, and a documented
-asymptotic expansion takes over so that a $p$-value is reported as
-$1.5 \times 10^{-23}$ rather than as zero.
+reproducing `scipy.stats.f.sf` to full double precision. A continuous test statistic cannot
+produce $p = 0$, so that value in published output indicates a numerical fault
+rather than an unusually strong effect. The same treatment is applied to the
+Student $t$, $\chi^2$ and normal tails. Beyond $|z| = 8$ the vendored `erfc`
+underflows and a documented asymptotic expansion takes over, accurate to
+$3.5 \times 10^{-6}$ relative at the switchover and $1.6 \times 10^{-10}$ by
+$z = 30$; at $z = 38$ it returns $5.8 \times 10^{-316}$, where
+`2*scipy.stats.norm.sf(38)` has already underflowed. Its own floor lies near
+$z = 38.5$, and that bound rather than any general principle is what limits how
+small a reported $p$ can be.
 
-The `outliers` module provides Tukey fences, the Iglewicz–Hoaglin modified
-$Z$-score [@iglewicz1993] and Grubbs' test [@grubbs1969]; `curve-fitting`
-performs least-squares fitting with model-adequacy warnings. One inherited
-limitation is documented rather than fixed, and it applies to two of the three
-transformed models rather than to all of them. The vendored regression.js
+One limitation of `curve-fitting` is documented rather than fixed, and it applies
+to two of the three transformed models rather than to all of them. The vendored regression.js
 library fits the *power* model by regressing $\ln y$ on $\ln x$ unweighted, so
 the residuals minimised are those in logarithmic space and small $y$ values
 carry more influence than a direct fit would give them. The *exponential* model
@@ -407,11 +443,15 @@ correction for log-transform bias and keeps the result closer to a direct
 non-linear fit. The *logarithmic* model carries none of this bias: it regresses
 $y$ on $\ln x$, so only the predictor is transformed and the residuals
 minimised are those in $y$, exactly as for any model linear in its parameters.
-Where the bias does apply it is material: for a clean doubling series the
-weighted exponential fit returns a growth rate of 0.69022 where unweighted
-log-space least squares gives $\ln 2 = 0.69315$. Neither value is incorrect,
-since they answer different questions, but the difference is large enough to
-matter when a rate constant is reported. `fitCurve` therefore exposes a
+Where the bias does apply it is material. On an exactly doubling series the
+distinction vanishes, since the log-space residuals are identically zero and
+every least-squares variant recovers $\ln 2$; it appears only once the data are
+perturbed. For the series (1, 2.0), (2, 4.1), (3, 8.2), (4, 16.1), (5, 32.3) the
+weighted fit returns 0.690216 against 0.693167 for unweighted log-space least
+squares, with $\ln 2 = 0.693147$ as the generating value: a difference of 0.4% in
+the rate constant. Neither value is incorrect,
+since they answer different questions, but the gap matters when a rate constant
+is reported. `fitCurve` therefore exposes a
 `linearised` flag, true for the exponential and power models only, so callers
 may surface the distinction; users requiring publication-grade non-linear fits
 are directed to Levenberg–Marquardt optimisation on untransformed data. A
@@ -443,8 +483,9 @@ to a category base unit, so conversion reduces to
 $x_{\mathrm{to}} = x_{\mathrm{from}} \cdot f_{\mathrm{to}} / f_{\mathrm{from}}$.
 This keeps the table linear rather than quadratic in the number of units and
 renders every entry independently checkable against its cited source; factors
-are CODATA 2018 values [@tiesinga2021], each verified against `scipy.constants`
-during testing. Temperature is handled separately, since the Celsius and
+are CODATA 2018 values [@tiesinga2021], validated against `scipy.constants` from
+SciPy 1.17.1, which ships the 2022 adjustment; the two agree to a relative
+$10^{-10}$, far below the tolerance of any conversion the tools perform. Temperature is handled separately, since the Celsius and
 Fahrenheit scales are affine rather than multiplicative.
 
 Composing a scheduler script correctly requires knowledge that is
@@ -469,7 +510,7 @@ BibTeX deduplication by union-find over normalised DOIs and titles.
 #### 2.2.5 Defects exposed by extraction
 
 Separating computation from presentation subjected the numerical code to
-independent verification for the first time, and three defects were identified
+independent verification for the first time, and four defects were identified
 that had propagated into reported output. First, skewness and kurtosis are
 defined against the *population* standard deviation,
 
@@ -489,7 +530,28 @@ upper-tail probabilities were computed by subtraction and floored at zero for
 strong effects. Third, haem iron was assigned the mass of fluorine (18.998 Da
 rather than 55.845 Da), selenomethionine selenium the mass of sulfur, and
 numeric-prefixed hydrogens no mass at all, so molecular weights and centres of
-mass computed for metalloproteins were correspondingly wrong. Each defect is
+mass computed for metalloproteins were correspondingly wrong. Fourth, the D'Agostino–Pearson transformations are defined on the biased moment
+ratios $\sqrt{b_1} = m_3/m_2^{3/2}$ and $b_2 = m_4/m_2^2$, but the
+sample-size-adjusted $G_1$ above was passed into the skewness transform instead.
+The adjustment inflates $\sqrt{b_1}$ by exactly $\sqrt{n(n-1)}/(n-2)$: a factor
+of 1.247 at $n = 8$, 1.186 at $n = 10$ and 1.039 at $n = 40$. The error therefore
+vanishes on symmetric data and grows with skew. Because that factor exceeds unity
+for every $n$, the inflated statistic is always the larger and the reported $p$
+always the smaller, so the bias is systematically anti-conservative rather than
+merely noisy: the verdict at $\alpha = 0.05$ can only ever move from retaining
+normality to rejecting it, which is precisely the branch that redirects a user
+from Welch's test to Mann-Whitney. This defect is instructive because an independent reference was already
+in place and already disagreed: the discrepancy had been absorbed by loosening
+the assertion to three decimal places and attributing the residual to a
+difference in SciPy's kurtosis transform. The reference was correct and the
+implementation was not. $K^2$ now agrees with SciPy to twelve significant
+figures across $8 \leq n \leq 1000$, the full range over which the $S_U$
+approximation is tabulated [@dagostino1973] and the provenance of the module's
+$n \geq 8$ guard, while `skewness()` continues to report $G_1$,
+which is the right statistic to publish and matches
+`scipy.stats.skew(bias=False)`.
+
+Each defect is
 corrected and covered by a regression test. Users who generated figures with
 earlier versions of these tools should re-check any reported skewness, normality
 $p$-value, or metalloprotein mass.
@@ -605,24 +667,15 @@ warnings.forEach(w => console.warn(`[${w.level}] ${w.message}`));
 
 **Listing 5.** Generating a GROMACS submission script with resource warnings.
 
-The same four steps performed through the browser produce identical numbers,
-because they call the same functions; the difference is only that the browser
-supplies the file through `FileReader` and renders the result. Where a step
-produces a figure, the tool also emits a matplotlib script that regenerates it
-from the original data file.
+The same four steps through the browser produce identical numbers, since they
+call the same functions. Where a step produces a figure, the tool also emits a
+matplotlib script that regenerates it from the original data.
 
 ## 4. Impact
 
-The most direct effect of the architecture is on work that cannot currently be
-done at all with server-based tools. Analyses of unpublished results, of
-material under a confidentiality agreement, and of data held under an
-institutional policy that forbids third-party upload are all outside the reach
-of a web service, and are frequently outside the reach of local scripting too
-where the workstation is managed and package installation is blocked. Because no
-data leaves the browser, these constraints are satisfied structurally rather
-than contractually: there is no server to receive the data and consequently no
-retention policy to evaluate. For researchers in that position the relevant
-comparison is not with a faster tool but with performing the calculation by hand.
+The architecture's most direct effect is on work that server-based tools cannot
+do at all. Where upload is prohibited, the relevant comparison is not with a
+faster tool but with doing the calculation by hand.
 
 For research questions already being pursued, the improvement is in
 reproducibility and in the reliability of the numbers. Extracting the
@@ -632,13 +685,13 @@ placed under continuous integration without being rewritten in another language,
 reproducibility is most often lost. The emitted matplotlib
 scripts close the same loop for figures. Independently of that, the validation
 strategy raises the floor: every reported statistic is checked against SciPy or
-NumPy rather than against the authors' expectations, and the test suite is
+NumPy rather than against the author's own expectations, and the test suite is
 intended to be run by users evaluating the software, not solely by its
 maintainer, since a library whose numerical claims cannot be checked by its
 users offers reproducibility only in principle.
 
 The defects found during extraction (Section 2.2.5) carry a wider lesson, and
-are the most useful outcome of this work. All three had survived in software
+are the most useful outcome of this work. All four had survived in software
 that ran without error and produced plausible numbers. None would have been
 caught by testing the code against expectations derived from the same source;
 each surfaced only when results were compared with an independent
@@ -676,18 +729,25 @@ a tested, dependency-injected JavaScript core of 16 modules. The architecture
 addresses three constraints simultaneously that existing tooling addresses only
 in pairs: it requires no installation, transmits no data and remains scriptable.
 
-The privacy property is structural rather than contractual, because computation
-occurs entirely within the browser and there is no server to receive data. The
-reproducibility property follows from the separation of computation from
-presentation: the identical modules that execute behind the browser interface
-execute under Node.js, so an interactive analysis may be captured as a
-version-pinned script without rewriting. The 1075-test suite validates every
-numerical result against an independent reference, and the three defects that this
+Both properties are structural rather than contractual: computation occurs
+entirely within the browser, and the modules behind the interface are the ones
+that run under Node.js. The 1077-test suite validates every numerical result
+against an independent reference, and the four defects that this
 strategy exposed (deflated standardised moments, tail probabilities floored at
-zero, and misassigned elements in metalloproteins) are documented, corrected and
-covered by regression tests. Future work will extend format
+zero, misassigned elements in metalloproteins, and an adjusted moment fed into a
+transform defined on the unadjusted one) are documented, corrected and covered by
+regression tests. Future work will extend format
 coverage in the trajectory and structure modules and replace the two log-space
 fits with a Levenberg–Marquardt implementation on untransformed data.
+
+## Declaration of generative AI use
+
+Claude (Anthropic) was used in preparing this manuscript: restructuring an
+earlier draft into the present template, correcting reported figures against the
+test suite, drafting and revising prose, and reviewing the numerical claims. The
+software itself, the numerical methods, and the verification of every figure and
+statement reported here are the author's own. The tool is not an author and bears
+no responsibility for the content.
 
 ## Acknowledgements
 
