@@ -4,9 +4,7 @@
 Abbreviations**, the data behind ISO 4. The Journal Abbreviator loads it at
 runtime to abbreviate titles the built-in dictionary does not know.
 
-Source: <https://portal.issn.org/ltwa>. The ISSN International Centre publishes
-it under its own terms, so check those before redistributing this repository,
-and re-download periodically — the list is revised roughly annually.
+Source: <https://portal.issn.org/ltwa>.
 
 ## How the two tiers fit together
 
