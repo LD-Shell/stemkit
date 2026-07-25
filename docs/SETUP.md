@@ -13,7 +13,7 @@ python3 -m http.server 8000
 
 Open `http://localhost:8000/`.
 
-The module name is `http.server` — one word, with a dot, not `https`. Use
+The module name is `http.server`: one word, with a dot, not `https`. Use
 `python3` explicitly, since plain `python` is still Python 2 on many systems.
 Pick a port above 1024; anything below needs root.
 
@@ -34,7 +34,7 @@ node tests/smoke.mjs   # end-to-end checks against a real install
 The smoke test exercises one path per module against the real install, catching
 problems a unit test cannot: a broken aggregate export, a misconfigured module
 type, or a vendored bundle that fails to load. It currently covers 15 of the 16
-domain modules — `iso4` was split out of `journals` after the smoke test was
+domain modules; `iso4` was split out of `journals` after the smoke test was
 written and has no case yet.
 
 `docs/COVERAGE.md` explains the two entries in the coverage table that look like
@@ -44,13 +44,14 @@ gaps and are not.
 
 ```
 stemkit/
-├── *.html                  21 tools, plus index, privacy and 404
+├── *.html                  18 research tools, 3 workflow utilities,
+│                            plus index, privacy and 404
 ├── src/
-│   ├── core/               the tested library — 16 domain modules, no DOM
+│   ├── core/               the tested library: 16 domain modules, no DOM
 │   │                       dependency, plus index.js and vendor.js
 │   ├── tools/              per-tool stylesheets
 │   ├── stemkit-docs.css    shared documentation styles
-│   ├── output.css          compiled Tailwind — generated, do not hand-edit
+│   ├── output.css          compiled Tailwind: generated, do not hand-edit
 │   ├── home.css            landing-page styles
 │   └── script-generator.css
 ├── js/
@@ -68,8 +69,8 @@ stemkit/
 
 ## Deploying
 
-The site is static. Copy the directory to any web host, or push to GitHub Pages
-— `CNAME` already points at `stemkit.net`.
+The site is static. Copy the directory to any web host, or push to GitHub Pages;
+`CNAME` already points at `stemkit.net`.
 
 `tests/`, `docs/`, `paper/`, `package.json` and `node_modules/` are not needed in
 production, though they are harmless if deployed.
@@ -79,7 +80,7 @@ production, though they are harmless if deployed.
 **`js/dependencies/package.json`** contains one line: `"type": "commonjs"`.
 
 The root `package.json` declares `"type": "module"`, which tells Node to parse
-every `.js` file beneath it as an ES module — including the vendored UMD
+every `.js` file beneath it as an ES module, including the vendored UMD
 bundles. When that happens the UMD factory takes its browser branch and fails
 with `Cannot set properties of undefined (setting 'jStat')`. Without this file
 every Node example in the README breaks on the first import.
