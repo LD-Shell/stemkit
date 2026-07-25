@@ -1,16 +1,14 @@
 # Stylesheets
 
-Styles come from three places, and which one a rule belongs in depends on who
-owns the file.
+Three sources. Which one a rule belongs in depends on who owns the file.
 
-```
-src/output.css            compiled Tailwind utilities: generated, never hand-edited
-src/stemkit-docs.css      shared documentation components (.stk-*), used by every tool page
-src/tools/<tool>.css      styles specific to one tool
-```
+| File | Owner | Hand-edit? |
+|---|---|---|
+| `src/output.css` | Tailwind build | No. Regenerated. |
+| `src/stemkit-docs.css` | you | Yes. Shared `.stk-*` components. |
+| `src/tools/<tool>.css` | you | Yes. One tool only. |
 
-Each tool page links them in that order, so a per-tool rule can override a
-shared one:
+Pages link them in that order, so a per-tool rule overrides a shared one:
 
 ```html
 <link rel="stylesheet" href="src/output.css">
@@ -18,47 +16,50 @@ shared one:
 <link rel="stylesheet" href="src/tools/xvg-visualizer.css">
 ```
 
-## Why component CSS is not in `src/output.css`
+## Do not put component CSS in `src/output.css`
 
-`output.css` is generated Tailwind build output, around 69 KB of compiled
-utility classes. A hand-written rule placed there survives only until the next
-`npm run build:css`, which regenerates the file and deletes the addition
-silently. Hand-written component CSS therefore lives in files the build does not
-own.
-
-Rebuild the utilities with:
+It is generated Tailwind output, around 69 KB of compiled utilities. Anything
+added by hand is deleted, silently, by the next build:
 
 ```bash
 npm run build:css     # after editing src/tailwind/input.css
-npm run watch:css     # rebuild on change while developing
+npm run watch:css     # rebuild on change
 ```
 
-## The shared documentation block
+## `src/stemkit-docs.css`
 
-`.stk-section`, `.stk-card`, `.stk-faq` and their relatives were originally
-copy-pasted into each of the 21 pages, and had drifted into eight different
-versions: a chip on one page no longer matched the chip on another.
-`src/stemkit-docs.css` is the single reconciled copy. Where versions disagreed
-the most complete rule was kept, so no page lost styling.
+Holds `.stk-section`, `.stk-card`, `.stk-faq` and relatives, the "How to use" and
+FAQ furniture every tool page carries.
 
-## Remaining inline `style` attributes
+These were originally copy-pasted per page across 21 pages and had drifted into
+eight versions, so a chip on one page no longer matched the chip on another. This
+file is the single reconciled copy; where versions disagreed, the most complete
+rule won.
 
-Two repeated patterns were promoted to `.stk-label` and `.stk-body`. Roughly
-five inline attributes per page remain and are deliberate: each is a one-off
-nudge on a single element, such as `margin-top:1rem` or `max-width:52rem`.
-Inventing a class name for a rule used once adds indirection without removing
-duplication.
+## Inline `style` attributes
 
-Some of these are near-duplicates that differ only slightly:
-`margin-bottom:.3rem` on one page against `.4rem` on another. That is the same
-drift as the documentation block, at small scale. Unifying them would change
-the rendered spacing, so it is a visual decision rather than a refactor and is
-left open.
+Around five per page remain, deliberately. Each is a one-off nudge on a single
+element (`margin-top:1rem`, `max-width:52rem`). A class name for a rule used once
+adds indirection without removing duplication.
 
-## Coverage
+Known wart: some are near-duplicates differing only slightly, such as
+`margin-bottom:.3rem` on one page against `.4rem` on another. Unifying them
+changes rendered spacing, so it is a design decision, not a refactor. Left open.
 
-Six tool stylesheets exist for pages that still carry their own inline
-`<style>` block: `plot-builder`, `doi-fetcher`, `script-generator`,
-`structure-inspector`, `pomodoro`, `sandbox` and `decision`. Switching one over
-means deleting its `<style>` block and adding the two `<link>` tags above; that
-edit pairs naturally with any other work on the page.
+## Conversion state
+
+20 stylesheets in `src/tools/`. Six tool pages still carry their own inline
+`<style>` block:
+
+- `decision.html`
+- `doi-fetcher.html`
+- `plot-builder.html`
+- `pomodoro.html`
+- `sandbox.html`
+- `structure-inspector.html`
+
+To convert one: delete its `<style>` block, add the two `<link>` tags above.
+Pairs naturally with other work on the page.
+
+`404.html` also has an inline block. It is not a tool and does not need one.
+`script-generator.html` uses `src/script-generator.css`, not `src/tools/`.
