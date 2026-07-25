@@ -160,7 +160,7 @@ npm test                # full suite
 npm run test:coverage   # with coverage
 ```
 
-The suite comprises 1075 tests across all 15 domain modules (`src/core` also holds the aggregate
+The suite comprises 1075 tests across all 16 domain modules (`src/core` also holds the aggregate
 export and the injection layer, which carry no domain logic). Numerical results are validated against
 independent references rather than against the implementation itself:
 
@@ -205,7 +205,7 @@ publication-grade nonlinear fits, use Levenberg–Marquardt on untransformed dat
 
 ## Citation
 
-If this software contributes to work you publish, please cite the JOSS paper
+If this software contributes to work you publish, please cite the SoftwareX paper
 (see `paper/paper.md`).
 
 ## Licence
