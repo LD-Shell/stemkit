@@ -33,7 +33,7 @@ Corresponding author: lanrelangmuir@gmail.com
 
 ## Abstract
 
-STEMKit is a suite of 21 browser-based tools for computational chemistry and
+STEMKit is a suite of 18 browser-based tools for computational chemistry and
 scientific data analysis, built on `@stemkit/core`, a JavaScript library of
 parsing and numerical routines carrying no dependency on the document object
 model. All computation executes inside the user's own browser: no data is
@@ -59,7 +59,7 @@ reproducibility; data privacy
 | C3 | Legal code license | MIT License |
 | C4 | Code versioning system used | git |
 | C5 | Software code languages, tools and services used | JavaScript (ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS; GitHub Actions |
-| C6 | Compilation requirements, operating environments and dependencies | Browser tools: any current browser supporting ECMAScript modules and the `FileReader` API; no installation and no build step. Library: Node.js ≥ 18; `npm install` installs the development dependencies (Jest, Tailwind CSS) only. There are no runtime dependencies — jStat, Papa Parse, regression.js and bibtex-parse-js are vendored in the repository |
+| C6 | Compilation requirements, operating environments and dependencies | Browser tools: any current browser supporting ECMAScript modules and the `FileReader` API; no installation and no build step. Library: Node.js ≥ 18; `npm install` installs the development dependencies (Jest, Tailwind CSS) only. There are no runtime dependencies: jStat, Papa Parse, regression.js and bibtex-parse-js are vendored in the repository |
 | C7 | If available, link to developer documentation/manual | <https://github.com/LD-Shell/stemkit#readme>; per-module API documentation in `src/core/README.md`; hosted tools at <https://stemkit.net> |
 | C8 | Support email for questions | lanrelangmuir@gmail.com (issue tracker: <https://github.com/LD-Shell/stemkit/issues>) |
 
@@ -125,8 +125,8 @@ executes behind the interface also executes under Node.js.
 
 The software is used in two ways, which share one implementation.
 Interactively, the user opens a tool page at <https://stemkit.net> (or a local
-clone) and selects a local file — a GROMACS `.xvg` series, a PDB or `.gro`
-structure, a CSV of replicate measurements — and reads the result in the page.
+clone) and selects a local file (a GROMACS `.xvg` series, a PDB or `.gro`
+structure, a CSV of replicate measurements) and reads the result in the page.
 The file is read through `FileReader`; it is never uploaded. Programmatically,
 the same routines are imported from `@stemkit/core` in a Node.js script, which
 is the path taken once an exploratory analysis is to be fixed, version-pinned
@@ -147,10 +147,16 @@ standard practice for the incomplete beta and gamma functions [@press2007].
 
 ## 2. Software description
 
+The 18 research tools are the subject of this paper. Three further browser
+utilities (a Pomodoro timer, a decision matrix and a kinetics sandbox) are
+distributed from the same repository as general workflow aids; they are not part
+of the scholarly contribution and are not described here, though they share the
+presentation layer and so appear in the page counts below.
+
 ### 2.1 Software architecture
 
 The original implementation followed the pattern common to browser tooling: each
-of the 21 tools consisted of an HTML document paired with a single JavaScript
+of the 21 tool pages consisted of an HTML document paired with a single JavaScript
 file combining event handling, rendering and computation. This arrangement is
 expedient during development and progressively obstructive thereafter.
 Computational logic entangled with DOM manipulation cannot be tested without a
@@ -227,8 +233,8 @@ distributed as a Universal Module Definition (UMD) bundle, which detects its
 host at run time and either assigns `module.exports` under CommonJS or attaches
 a global to `window` in a browser. Neither path is reachable from a plain
 ECMAScript module: a UMD file contains no `export` statements, so a direct
-import yields no bindings, while `import { createRequire } from 'module'` — the
-conventional Node.js workaround — constitutes a hard *resolution* failure in a
+import yields no bindings, while `import { createRequire } from 'module'`, the conventional Node.js
+workaround, constitutes a hard *resolution* failure in a
 browser, which occurs before any code executes and therefore cannot be
 intercepted by `try`/`catch`. Rather than branch on the execution environment
 inside every module, which would render the core untestable in one of its two
@@ -252,8 +258,8 @@ written from the same source as the code confirms only internal consistency.
 Reference values were obtained from SciPy [@virtanen2020] for t-tests, ANOVA,
 correlation, non-parametric tests, quantiles and multiple-comparison correction;
 from NumPy [@harris2020] for regression coefficients and descriptive statistics;
-from `scipy.constants` for every unit conversion factor; and from physical
-invariants for structural geometry — specifically the molecular weight and
+from `scipy.constants` for every unit conversion factor; and from physical invariants for structural geometry, specifically the
+molecular weight and
 centre of mass of water, the orthonormality of rotation matrices, the
 preservation of interatomic distances under rotation, and round-trip fidelity
 through every supported file format. An end-to-end smoke test additionally
@@ -270,8 +276,8 @@ GROMACS writes analysis output in the Grace format, a plain-text convention in
 which lines beginning with `#` are comments, lines beginning with `@` are
 formatting directives, and all remaining non-empty lines are whitespace-
 delimited numeric records. The directives carry the plot title, axis labels and
-per-series legends. Discarding them — as a naive parser that skips all
-non-numeric lines would — loses precisely the metadata that identifies which
+per-series legends. Discarding them, as a naive parser that skips all
+non-numeric lines would, loses precisely the metadata that identifies which
 column contains which observable. The `xvg-parser` module recovers this metadata
 alongside the numeric matrix. Malformed records are counted and reported, not
 silently discarded, so a truncated trajectory is visible to the user instead of
@@ -295,9 +301,9 @@ fields are located by character position, and XYZ, which is whitespace-
 delimited. Fixed-column parsing is essential rather than pedantic: a residue
 name may legitimately be blank, and a whitespace-splitting parser would silently
 shift every subsequent field on such a line. Unit handling is explicit
-throughout — PDB and XYZ express coordinates in ångström, `.gro` uses
-nanometres, and every parse result carries its unit — because silently mixing
-the two is the most direct route to a structure that is wrong by a factor of ten.
+throughout: PDB and XYZ express coordinates in ångström, `.gro` uses nanometres,
+and every parse result carries its unit. Silently mixing the two is the most
+direct route to a structure that is wrong by a factor of ten.
 
 Assigning an element to each atom is a prerequisite for any mass-weighted
 quantity, and PDB atom names are ambiguous by construction: `CA` denotes the
@@ -401,7 +407,7 @@ correction for log-transform bias and keeps the result closer to a direct
 non-linear fit. The *logarithmic* model carries none of this bias: it regresses
 $y$ on $\ln x$, so only the predictor is transformed and the residuals
 minimised are those in $y$, exactly as for any model linear in its parameters.
-Where the bias does apply it is material — for a clean doubling series the
+Where the bias does apply it is material: for a clean doubling series the
 weighted exponential fit returns a growth rate of 0.69022 where unweighted
 log-space least squares gives $\ln 2 = 0.69315$. Neither value is incorrect,
 since they answer different questions, but the difference is large enough to
@@ -409,10 +415,9 @@ matter when a rate constant is reported. `fitCurve` therefore exposes a
 `linearised` flag, true for the exponential and power models only, so callers
 may surface the distinction; users requiring publication-grade non-linear fits
 are directed to Levenberg–Marquardt optimisation on untransformed data. A
-dataset containing points a model cannot transform is refused with a message
-naming the requirement — exponential needs every $y > 0$, power every $x > 0$
-and $y > 0$, logarithmic only $x > 0$ — rather than having the offending points
-silently dropped.
+dataset containing points a model cannot transform is refused with a message naming the requirement (exponential needs every $y > 0$,
+power every $x > 0$ and $y > 0$, logarithmic only $x > 0$) rather than having the
+offending points silently dropped.
 
 #### 2.2.4 Digitisation, unit conversion and authoring utilities
 
@@ -454,7 +459,7 @@ specifies memory *per task*, not per job: a request of 32 GB across a
 hundred-task array asks the scheduler for 3.2 TB concurrently. The generator
 computes the true in-flight total and reports it. Generated scripts include
 checkpoint-resume logic, so a requeued job continues from its last checkpoint
-rather than silently restarting from $t = 0$ — a failure mode that consumes an
+rather than silently restarting from $t = 0$, a failure mode that consumes an
 entire allocation while appearing to succeed. Warnings are returned as
 structured objects rather than formatted strings, leaving presentation to the
 caller. The remaining modules support manuscript preparation: LaTeX and Markdown
@@ -477,8 +482,8 @@ G_1 = \frac{\sqrt{n(n-1)}}{n-2}
 $$
 
 whereas the original implementation used the Bessel-corrected sample standard
-deviation, deflating skewness by a factor of $\left((n-1)/n\right)^{3/2}$ —
-approximately 15% at $n = 10$. Because both moments feed the D'Agostino–Pearson
+deviation, deflating skewness by a factor of $\left((n-1)/n\right)^{3/2}$, approximately
+15% at $n = 10$. Because both moments feed the D'Agostino–Pearson
 statistic, every normality $p$-value the tool reported was affected. Second, all
 upper-tail probabilities were computed by subtraction and floored at zero for
 strong effects. Third, haem iron was assigned the mass of fluorine (18.998 Da
@@ -580,8 +585,8 @@ if (!r.assumptions.normality.passed) {
 **Listing 4.** A replicate comparison with the assumption checks surfaced.
 
 Finally, Listing 5 generates the submission script for the continuation run. The
-engine argument selects the GROMACS resource shape — one rank per node, many
-CPUs per task — and the returned warnings report the true in-flight memory total
+engine argument selects the GROMACS resource shape (one rank per node, many CPUs per task) and
+the returned warnings report the true in-flight memory total
 for the array as well as any request the scheduler is likely to reject.
 
 ```javascript
@@ -623,8 +628,8 @@ For research questions already being pursued, the improvement is in
 reproducibility and in the reliability of the numbers. Extracting the
 computation into modules that run unchanged under Node.js means that an analysis
 first explored by clicking can be captured as a script, version-pinned and
-placed under continuous integration without being rewritten in another language
-— the step at which reproducibility is most often lost. The emitted matplotlib
+placed under continuous integration without being rewritten in another language, which is the step at which
+reproducibility is most often lost. The emitted matplotlib
 scripts close the same loop for figures. Independently of that, the validation
 strategy raises the floor: every reported statistic is checked against SciPy or
 NumPy rather than against the authors' expectations, and the test suite is
@@ -639,8 +644,8 @@ caught by testing the code against expectations derived from the same source;
 each surfaced only when results were compared with an independent
 implementation. A 15% error in a reported skewness is not visible by inspection,
 and neither is a $p$-value floored at zero, which looks like a very strong
-result. Authors of scientific software — particularly of the small, in-house
-analysis code that is rarely reviewed — would be well advised to check their
+result. Authors of scientific software, particularly of the small,
+in-house analysis code that is rarely reviewed, would be well advised to check their
 numerics against an independent implementation before reporting output.
 
 In daily practice, the change is the removal of a setup step from tasks that
@@ -656,8 +661,8 @@ developed in the open at <https://github.com/LD-Shell/stemkit> and archived on
 Zenodo with the persistent identifier
 [10.5281/zenodo.21543112](https://doi.org/10.5281/zenodo.21543112) [@stemkit2026], which resolves to the
 current release. The first archived release is contemporaneous with this
-manuscript, so adoption data — downloads, unique users, citing publications —
-does not yet exist. The arguments above are accordingly claims about what the
+manuscript, so adoption data (downloads, unique users, citing publications) does not yet
+exist. The arguments above are accordingly claims about what the
 design makes possible, not evidence of uptake, and should be read as such. The
 software is not used in a commercial setting and has not led to a spin-off
 company; the client-side design does, however, make it directly applicable to
@@ -666,7 +671,7 @@ results to a third-party service.
 
 ## 5. Conclusions
 
-STEMKit is a suite of 21 browser-based tools for computational chemistry built on
+STEMKit is a suite of 18 browser-based tools for computational chemistry built on
 a tested, dependency-injected JavaScript core of 16 modules. The architecture
 addresses three constraints simultaneously that existing tooling addresses only
 in pairs: it requires no installation, transmits no data and remains scriptable.
@@ -677,10 +682,10 @@ reproducibility property follows from the separation of computation from
 presentation: the identical modules that execute behind the browser interface
 execute under Node.js, so an interactive analysis may be captured as a
 version-pinned script without rewriting. The 1075-test suite validates every
-numerical result against an independent reference, and the three defects that
-this strategy exposed — deflated standardised moments, tail probabilities
-floored at zero, and misassigned elements in metalloproteins — are documented,
-corrected and covered by regression tests. Future work will extend format
+numerical result against an independent reference, and the three defects that this
+strategy exposed (deflated standardised moments, tail probabilities floored at
+zero, and misassigned elements in metalloproteins) are documented, corrected and
+covered by regression tests. Future work will extend format
 coverage in the trajectory and structure modules and replace the two log-space
 fits with a Levenberg–Marquardt implementation on untransformed data.
 
