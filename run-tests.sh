@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# run-tests.sh — run the STEMKit test suite and report the numbers cited in the
+# run-tests.sh: run the STEMKit test suite and report the numbers cited in the
 # paper (total tests, per-module counts, domain-module count, smoke test).
 #
 # Usage, from the repository root:
@@ -28,7 +28,7 @@ if [ ! -f package.json ] || ! grep -q '"@stemkit/core"' package.json; then
   exit 1
 fi
 
-echo "STEMKit test run — $(date -u '+%Y-%m-%d %H:%M UTC')"
+echo "STEMKit test run: $(date -u '+%Y-%m-%d %H:%M UTC')"
 hr
 
 # --- 2. toolchain ----------------------------------------------------------
