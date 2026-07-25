@@ -5,7 +5,7 @@ Notable changes to STEMKit and `@stemkit/core`.
 `[output]` marks a change that alters a reported number. Figures produced with an
 earlier version are worth re-checking.
 
-## Unreleased
+## v0.1.1 — 2026-07-25
 
 ### Fixed: numerics
 
