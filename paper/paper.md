@@ -655,7 +655,11 @@ STEMKit is released under the MIT licence, hosted at <https://stemkit.net>,
 developed in the open at <https://github.com/LD-Shell/stemkit> and archived on
 Zenodo with the persistent identifier
 [10.5281/zenodo.21543112](https://doi.org/10.5281/zenodo.21543112) [@stemkit2026], which resolves to the
-current release. It is not used in a commercial setting and has not led to a spin-off
+current release. The first archived release is contemporaneous with this
+manuscript, so adoption data — downloads, unique users, citing publications —
+does not yet exist. The arguments above are accordingly claims about what the
+design makes possible, not evidence of uptake, and should be read as such. The
+software is not used in a commercial setting and has not led to a spin-off
 company; the client-side design does, however, make it directly applicable to
 industrial research groups whose data-handling policies preclude uploading
 results to a third-party service.
