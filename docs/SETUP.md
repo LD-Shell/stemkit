@@ -1,48 +1,54 @@
 # Setup
 
-This archive is the **complete STEMKit site**, not a patch. Unzip it, serve it,
-and every tool works.
+STEMKit is a static site with a tested JavaScript library underneath it. There
+is no build step for the pages; only the Tailwind utilities are generated.
 
 ## Run the site
 
 ```bash
+git clone https://github.com/LD-Shell/stemkit.git
 cd stemkit
 python3 -m http.server 8000
 ```
 
-Open `http://localhost:8000/` in a browser.
+Open `http://localhost:8000/`.
 
-Note the module name: it is `http.server`, one word, with a dot. Not `https`.
-Use `python3` explicitly — on many systems plain `python` is still Python 2.
+The module name is `http.server` — one word, with a dot, not `https`. Use
+`python3` explicitly, since plain `python` is still Python 2 on many systems.
 Pick a port above 1024; anything below needs root.
 
-**Opening the HTML files directly will not work.** Fourteen of the tools load
-their code as ES modules, and browsers block those under `file://` for security
-reasons. The page will render but every button will be dead, with a CORS error
-in the browser console and nothing visible on the page itself. Serve over HTTP
-and it works.
+**Opening the HTML files directly does not work.** Fourteen of the tools load
+their code as ES modules, and browsers block those under `file://`. The page
+renders but every button is dead, with a CORS error in the console and nothing
+visible on the page itself. Serving over HTTP fixes it.
 
 ## Run the tests
 
 ```bash
 npm install
-npm test               # 1075 tests
-node tests/smoke.mjs   # 15 end-to-end checks
+npm test               # 1075 tests across 16 modules
+npm run test:coverage
+node tests/smoke.mjs   # end-to-end checks against a real install
 ```
 
-The smoke test exercises one path through every core module against the real
-install, which catches problems a unit test cannot: a broken aggregate export,
-a misconfigured module type, or a vendored bundle that fails to load.
+The smoke test exercises one path per module against the real install, catching
+problems a unit test cannot: a broken aggregate export, a misconfigured module
+type, or a vendored bundle that fails to load. It currently covers 15 of the 16
+domain modules — `iso4` was split out of `journals` after the smoke test was
+written and has no case yet.
+
+`docs/COVERAGE.md` explains the two entries in the coverage table that look like
+gaps and are not.
 
 ## Layout
 
 ```
 stemkit/
-├── *.html                  21 tools, plus index, privacy, 404 and 5 previews
-├── index.html              landing page
+├── *.html                  21 tools, plus index, privacy and 404
 ├── src/
-│   ├── core/               the tested library — 15 modules, no DOM dependency
-│   ├── tools/              per-tool stylesheets, one per tool
+│   ├── core/               the tested library — 16 domain modules, no DOM
+│   │                       dependency, plus index.js and vendor.js
+│   ├── tools/              per-tool stylesheets
 │   ├── stemkit-docs.css    shared documentation styles
 │   ├── output.css          compiled Tailwind — generated, do not hand-edit
 │   ├── home.css            landing-page styles
@@ -53,8 +59,9 @@ stemkit/
 │   │   *-selection.js
 │   └── dependencies/       vendored third-party bundles (UMD)
 ├── tests/                  Jest suites plus the smoke test
-├── docs/                   these notes
-├── paper/                  JOSS manuscript and ChemRxiv preprint
+├── abbr/                   ISSN LTWA word list for ISO 4 abbreviation
+├── docs/                   setup, stylesheets, coverage
+├── paper/                  SoftwareX manuscript (LaTeX and Markdown)
 ├── css/, assets/, sound/   fonts, icons, audio
 └── package.json            @stemkit/core
 ```
@@ -64,8 +71,8 @@ stemkit/
 The site is static. Copy the directory to any web host, or push to GitHub Pages
 — `CNAME` already points at `stemkit.net`.
 
-`tests/`, `docs/`, `paper/`, `package.json`, and `node_modules/` are not needed
-in production, but they are harmless if deployed.
+`tests/`, `docs/`, `paper/`, `package.json` and `node_modules/` are not needed in
+production, though they are harmless if deployed.
 
 ## Two files that look unimportant and are not
 
@@ -78,46 +85,13 @@ with `Cannot set properties of undefined (setting 'jStat')`. Without this file
 every Node example in the README breaks on the first import.
 
 **`src/output.css`** is compiled Tailwind output. Hand-written rules added there
-survive only until the next `npx tailwindcss` run. Component styles belong in
-`src/stemkit-docs.css` or `src/tools/<tool>.css`.
+survive only until the next `npm run build:css`. Component styles belong in
+`src/stemkit-docs.css` or `src/tools/<tool>.css`; see `docs/CSS.md`.
 
-## What changed from the original
+## Conversion state
 
-Fourteen tools have had their logic extracted into `src/core/` and their inline
-`<style>` blocks moved into `src/tools/`. Two more are partially converted
-through adapters. The rest are untouched. See `docs/INTEGRATION.md` for the
-tool-by-tool breakdown and `docs/CSS-REFACTOR.md` for the stylesheet work.
-
-Three fixes change reported output, so figures made with earlier versions are
-worth re-checking:
-
-- **Statistics** — skewness, kurtosis and every D'Agostino normality p-value
-  shift slightly, because the standardised moments now use the population
-  standard deviation as their definition requires. ANOVA p-values that
-  previously printed as `0` now show their true magnitude.
-- **Structure tools** — molecular weights and centres of mass change for
-  metalloproteins and for any structure containing numeric-prefixed hydrogens.
-  Element inference was previously wrong for those atoms: haem iron was given
-  the mass of fluorine.
-- **`latex-formatter`** — this tool did not run at all before. The original
-  script had a syntax error and never parsed.
-
-## Reading the coverage report
-
-Two entries in the coverage table look like gaps and are not.
-
-`src/core/index.js` reports 0% statements. It is a re-export barrel with no
-logic of its own, so there is nothing for a unit test to execute; what matters
-about it is that every name it claims to export actually resolves. That is what
-`tests/smoke.mjs` checks, by importing the aggregate and asserting each export
-is defined. A unit test would raise the percentage without testing anything
-more.
-
-`src/core/vendor.js` reports about 41%. The uncovered lines are the failure
-branches of dependency injection: the paths taken when a vendored library is
-absent or the wrong shape. They are exercised in the browser only when
-something has gone wrong, and covering them fully would mean asserting the
-wording of error messages rather than behaviour.
-
-Neither is a coverage gap in the code that computes results. Everything under
-`src/core/` that produces a number is covered.
+Fourteen tools have their computation in `src/core/` and their styles in
+`src/tools/`. Two more are partially converted through adapters
+(`js/*-slurm.js`, `js/*-selection.js`). The remainder still hold their logic and
+styles inline. `CONTRIBUTING.md` describes where new code belongs; `CHANGELOG.md`
+records what changed, including the fixes that alter reported output.
