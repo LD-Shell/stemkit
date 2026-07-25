@@ -2,94 +2,110 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21543112.svg)](https://doi.org/10.5281/zenodo.21543112)
 
-Browser-based tools for computational chemistry and scientific data work, plus
-the tested library underneath them.
+Browser tools for computational chemistry, plus `@stemkit/core`, the tested
+library underneath them.
 
-Everything runs client-side. Nothing is uploaded, and every tool works offline
-once the page has loaded.
+All computation is client-side. No uploads, no accounts, no install. Tools work
+offline once the page loads.
 
-**Live site:** <https://stemkit.net>
+Live: <https://stemkit.net>
 
-## What is here
+## Quick start
 
-**18 research tools**, in four areas:
-
-- *Data and statistics* | plot digitiser, data cleaner, statistics calculator,
-  error-bar generator, outlier detector, curve fitter, plot builder
-- *Molecular simulation* | XVG visualiser, structure inspector, coordinate
-  manipulator, MD workflow generator for GROMACS, LAMMPS and PLUMED
-- *Writing and citations* | BibTeX sanitiser and deduplicator, DOI to BibTeX,
-  journal abbreviator with ISO 4 support, LaTeX table builder, equation editor
-- *Units* | scientific converter, across energy, length, pressure, dipole,
-  polarizability, spectroscopy and temperature
-
-Alongside them are three workflow helpers that are not research tools and are
-not part of the scholarly contribution: a Pomodoro timer, a decision matrix,
-and a kinetics sandbox.
-
-**`@stemkit/core`** | the computation behind them, as 16 DOM-free domain
-modules plus an aggregate export and a dependency-injection layer: parsing,
-statistics, molecular geometry, unit conversion, curve fitting, script
-generation. Importable and scriptable independently of the pages.
-See [`src/core/README.md`](src/core/README.md).
-
-## Why the split
-
-The tools are zero-install and client-side, which is good for privacy and bad
-for reproducibility: a figure produced by clicking is hard to regenerate six
-months later. Putting the computation in a library means the same code path can
-be scripted, version-pinned and tested, and it is what makes the numbers
-checkable.
-
-That separation found real defects that had shipped: a wavelength conversion
-returning a plausible but wrong number, skewness computed against the wrong
-standard deviation, and virtual sites in water inflating a system's mass by two
-thirds. Each now has a regression test.
-
-## Running it
-
-The site is static.
+Serve the site (static, no build step):
 
 ```bash
 git clone https://github.com/LD-Shell/stemkit.git
 cd stemkit
-python3 -m http.server 8000
+python3 -m http.server 8000     # then open http://localhost:8000/
 ```
 
-For the library and its tests:
+Opening the HTML files over `file://` will not work. Fourteen tools load ES
+modules, which browsers block outside HTTP.
+
+Use the library:
 
 ```bash
 npm install
-npm test                       # 1075 tests
-npm run test:coverage
-npm run check:links            # internal and external links
-npm run build:css              # after editing src/tailwind/input.css
+npm test                        # 1075 tests, 16 modules
+node tests/smoke.mjs            # end-to-end against a real install
 ```
 
-`docs/SETUP.md` covers deployment and layout. `CHANGELOG.md` records the fixes
-that change reported output.
+```js
+import { parseXvg, columnStats } from '@stemkit/core';
 
-## Documentation
+const { matrix, headers } = parseXvg(readFileSync('rmsd.xvg', 'utf8'));
+console.log(columnStats(matrix.map(r => r[1])));
+```
 
-| | |
+## npm scripts
+
+| Script | Does |
 |---|---|
-| [`src/core/README.md`](src/core/README.md) | the library API |
-| [`docs/SETUP.md`](docs/SETUP.md) | deployment and repository layout |
-| [`docs/COVERAGE.md`](docs/COVERAGE.md) | how to read the coverage report |
-| [`docs/CSS.md`](docs/CSS.md) | stylesheet structure and where rules belong |
-| [`CHANGELOG.md`](CHANGELOG.md) | changes, including those that alter output |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | how to contribute, and where code belongs |
-| [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) | vendored libraries and their licences |
-| [`paper/`](paper/) | the SoftwareX manuscript, in LaTeX and Markdown |
+| `npm test` | Jest, 1075 tests |
+| `npm run test:coverage` | coverage report (see `docs/COVERAGE.md`) |
+| `npm run check:links` | internal and external link check |
+| `npm run check:links:internal` | internal only, no network |
+| `npm run build:css` | rebuild Tailwind after editing `src/tailwind/input.css` |
+| `npm run watch:css` | same, on change |
+
+## What is here
+
+18 research tools:
+
+| Area | Tools |
+|---|---|
+| Data and statistics | plot digitiser, data cleaner, statistics calculator, error-bar generator, outlier detector, curve fitter, plot builder |
+| Molecular simulation | XVG visualiser, structure inspector, coordinate manipulator, MD workflow generator (GROMACS, LAMMPS, PLUMED) |
+| Writing and citations | BibTeX sanitiser, BibTeX deduplicator, DOI to BibTeX, journal abbreviator (ISO 4), LaTeX table builder, equation editor |
+| Units | scientific converter: energy, length, pressure, dipole, polarizability, spectroscopy, temperature |
+
+Three further pages are workflow helpers, not research tools, and are not part
+of the scholarly contribution: Pomodoro timer, decision matrix, kinetics
+sandbox.
+
+`@stemkit/core` holds the computation: 16 DOM-free domain modules, plus an
+aggregate export (`index.js`) and a dependency-injection layer (`vendor.js`).
+API reference in [`src/core/README.md`](src/core/README.md).
+
+## Why the computation is a separate library
+
+Client-side tools are good for privacy and bad for reproducibility: a figure
+produced by clicking is hard to regenerate six months later. Moving the
+computation into an importable library makes the same code path scriptable,
+version-pinnable and testable.
+
+It also surfaced three defects that had shipped:
+
+- wavelength conversion returned a plausible but wrong number
+- skewness used the sample, not population, standard deviation
+- virtual sites in water inflated system mass by 67%
+
+Each now has a regression test. Full list in [`CHANGELOG.md`](CHANGELOG.md).
+
+## Docs
+
+| File | Covers |
+|---|---|
+| [`src/core/README.md`](src/core/README.md) | library API |
+| [`docs/SETUP.md`](docs/SETUP.md) | layout, deployment, gotchas |
+| [`docs/COVERAGE.md`](docs/COVERAGE.md) | reading the coverage report |
+| [`docs/CSS.md`](docs/CSS.md) | stylesheets and where rules belong |
+| [`CHANGELOG.md`](CHANGELOG.md) | changes, including output-affecting fixes |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | contributing, and where code belongs |
+| [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) | vendored library licences |
+| [`paper/`](paper/) | manuscript, LaTeX and Markdown |
 
 ## Citing
 
-Cite the archived release: [10.5281/zenodo.21543112](https://doi.org/10.5281/zenodo.21543112).
-This DOI resolves to the current version. Machine-readable metadata is in
-[`CITATION.cff`](CITATION.cff); the manuscript is in [`paper/`](paper/).
+```
+10.5281/zenodo.21543112
+```
+
+Resolves to the current release. Machine-readable metadata in
+[`CITATION.cff`](CITATION.cff).
 
 ## Licence
 
-MIT, see [`LICENSE`](LICENSE). Vendored libraries under `js/dependencies/`
-keep their own licences; see
-[`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
+MIT, see [`LICENSE`](LICENSE). Vendored libraries under `js/dependencies/` keep
+their own licences: [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
