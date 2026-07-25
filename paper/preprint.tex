@@ -77,7 +77,15 @@
   xrightmargin=6pt
 }
 
-\journal{SoftwareX}
+%% elsarticle's preprint style prints "Preprint submitted to <journal>" and the
+%% date in the footer of every page. This restores a plain centred page number.
+\makeatletter
+\def\ps@pprintTitle{%
+  \let\@oddhead\@empty
+  \let\@evenhead\@empty
+  \def\@oddfoot{\reset@font\hfil\thepage\hfil}%
+  \let\@evenfoot\@oddfoot}
+\makeatother
 
 \begin{document}
 \renewcommand{\labelenumii}{\arabic{enumi}.\arabic{enumii}}
@@ -814,7 +822,11 @@ STEMKit is released under the MIT licence, hosted at
 \url{https://github.com/LD-Shell/stemkit} and archived on
 Zenodo~\cite{stemkit2026} under the persistent identifier
 \url{https://doi.org/10.5281/zenodo.21543112}, which resolves to the current
-release. It is not used in a commercial setting and has not led to a spin-off company; the
+release. The first archived release is contemporaneous with this manuscript, so
+adoption data --- downloads, unique users, citing publications --- does not yet
+exist. The arguments above are accordingly claims about what the design makes
+possible, not evidence of uptake, and should be read as such. The software is
+not used in a commercial setting and has not led to a spin-off company; the
 client-side design does, however, make it directly applicable to industrial
 research groups whose data-handling policies preclude uploading results to a
 third-party service.
