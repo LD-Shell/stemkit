@@ -86,8 +86,8 @@ export const UNIT_DB = Object.freeze({
       amber: { name: "AMBER Force", symbol: "kcal mol-1 Å-1", symbolHtml: "kcal mol<sup>-1</sup> &Aring;<sup>-1</sup>", factor: 0.02390057, desc: "AMBER/CHARMM force unit. Derived from 1 kcal = 4.184 kJ and 1 A = 0.1 nm.", ref: "Thermochemical calorie + A definition" },
       ev_ang: { name: "eV per Angstrom", symbol: "eV/Å", symbolHtml: "eV/&Aring;", factor: 0.01036427, desc: "Gradient unit in VASP, Quantum ESPRESSO, and DFT codes.", ref: "CODATA 2018 (eV) + A definition" },
       hartree_bohr: { name: "Hartree / Bohr", symbol: "Eh a0-1", symbolHtml: "E<sub>h</sub> a<sub>0</sub><sup>-1</sup>", factor: 4.960827e-4, desc: "Atomic unit of force (per particle). 1 E<sub>h</sub>/a<sub>0</sub> = 8.2387&times;10<sup>-8</sup> N.", ref: "CODATA 2018: atomic unit of force" },
-      pn: { name: "Piconewton", symbol: "pN", factor: 1.660539, desc: "AFM and single-molecule pulling (SMD) experiments.", ref: "CODATA 2018: N_A + SI 2019" },
-      newton: { name: "Newton", symbol: "N", factor: 1.660539e-12, desc: "Base SI unit of force (per particle).", ref: "SI 2019 + CODATA 2018 (N_A)" }
+      pn: { name: "Piconewton", symbol: "pN", factor: 1.66053906717, desc: "AFM and single-molecule pulling (SMD) experiments.", ref: "CODATA 2018: N_A + SI 2019" },
+      newton: { name: "Newton", symbol: "N", factor: 1.66053906717e-12, desc: "Base SI unit of force (per particle).", ref: "SI 2019 + CODATA 2018 (N_A)" }
     }
   },
   pressure: {
