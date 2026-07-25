@@ -74,7 +74,7 @@ const r = require(process.argv[2]);
 // Per-module test counts as printed in Table 1 of paper/preprint.tex.
 // Update these once the real numbers are confirmed.
 const paper = {
-  bibtex: 89, statistics: 82, structure: 79, 'xvg-parser': 77,
+  bibtex: 89, statistics: 84, structure: 79, 'xvg-parser': 77,
   'curve-fitting': 72, plumed: 72, selection: 67, slurm: 61,
   latex: 59, 'error-bars': 57, units: 56, journals: 53,
   'data-cleaning': 51, outliers: 51, digitizer: 49
