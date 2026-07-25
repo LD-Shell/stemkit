@@ -1,8 +1,8 @@
 # Reading the coverage report
 
 `npm run test:coverage` reports about 94% of statements and 98% of lines across
-`src/core/`. Two files sit below that and neither is an untested gap, so they
-are explained here rather than left to look like one.
+`src/core/`. Two files report figures far below that, and neither is an untested
+gap, so they are explained here rather than left to look like one.
 
 ## `src/core/index.js` reports 0%
 
@@ -39,3 +39,8 @@ Coverage on the numerical modules, not the total. `statistics.js`,
 `structure.js`, `units.js`, `curve-fitting.js` and `outliers.js` are where a
 regression would change a published number, and those are the figures to check
 if the total moves.
+
+`iso4.js` is the lowest-covered domain module — about 88% of statements, 80% of
+branches and 90% of functions — and unlike the two files above that is a real
+gap rather than an artefact. It is also the newest module and the one the smoke
+test does not yet exercise.
