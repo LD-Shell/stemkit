@@ -1,44 +1,47 @@
-\documentclass[11pt]{article}
+%% STEMKit -- SoftwareX (Original Software Publication) manuscript
+%%
+%% Prepared with the SoftwareX article template (elsarticle, numbered
+%% references). Structure follows SoftwareX article template Version 6
+%% (March 2026): frontmatter, code metadata table, and the five mandatory
+%% sections 1-5, followed by Acknowledgements and References.
+%%
+%% Build:  pdflatex preprint   (run twice, for cross-references)
+%%
+%% Copyright 2026 Elsevier Ltd for the template; distributed under the
+%% conditions of the LaTeX Project Public License, version 1.2 or later,
+%% http://www.latex-project.org/lppl.txt
 
-% ---------------------------------------------------------------------------
-% Packages
-% ---------------------------------------------------------------------------
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-% A scalable outline font is required: microtype's font expansion cannot
-% operate on the default Computer Modern bitmaps, and pdfTeX aborts with
-% "auto expansion is only possible with scalable fonts". If your distribution
-% provides Latin Modern, `\usepackage{lmodern}' preserves the classic Computer
-% Modern appearance; the URW fonts below are used here because they ship with
-% every TeX installation, including minimal ones.
-\usepackage{mathptmx}   % Times for text and mathematics
-\usepackage[scaled=0.9]{helvet}  % Helvetica for sans-serif
-\usepackage{courier}    % Courier for monospace
-\usepackage[english]{babel}
+\documentclass[preprint,12pt,a4paper]{elsarticle}
+
+%% Use the option review to obtain double line spacing
+%% \documentclass[authoryear,preprint,review,12pt]{elsarticle}
+
+%% For including figures, graphicx.sty has been loaded in elsarticle.cls.
+
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{booktabs}
-\usepackage{longtable}
-\usepackage{graphicx}
+\usepackage{siunitx}
 \usepackage{xcolor}
 \usepackage{listings}
-\usepackage[margin=1in]{geometry}
-\usepackage[hidelinks]{hyperref}
-\usepackage{siunitx}
-\usepackage{authblk}
-\usepackage{microtype}
-% Long \texttt{} strings such as file paths and package names cannot hyphenate
-% and would otherwise overflow the margin. Permitting breaks after common
-% separators keeps them inside the text block.
+\usepackage{hyperref}
+%% Long \texttt{} strings such as file paths and package names cannot hyphenate
+%% and would otherwise overflow the margin; this permits breaks inside them.
 \usepackage[htt]{hyphenat}
 
-\sisetup{
-  detect-all,
-  separate-uncertainty = true,
-  range-units = single
-}
+%% The template sets flush-left paragraphs; a small vertical skip is added so
+%% that consecutive paragraphs remain distinguishable.
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
 
-% Listing style for the code excerpts.
+%% The lineno package adds line numbers. Start line numbering with
+%% \begin{linenumbers}, end it with \end{linenumbers}. Or switch it on for the
+%% whole article with \linenumbers.
+%\usepackage{lineno}
+
+\sisetup{detect-all}
+
+%% Listing style for the code excerpts.
 \definecolor{codebg}{RGB}{248,249,250}
 \definecolor{codekw}{RGB}{0,92,197}
 \definecolor{codecm}{RGB}{106,115,125}
@@ -74,66 +77,96 @@
   xrightmargin=6pt
 }
 
-% ---------------------------------------------------------------------------
-% Title
-% ---------------------------------------------------------------------------
-\title{\bfseries STEMKit: A Client-Side Web Architecture for Secure,
-Reproducible Computational Chemistry and Data Analysis Workflows}
-
-\author[1]{Olanrewaju M. Daramola\thanks{ORCID: \href{https://orcid.org/0009-0006-3327-2047}{0009-0006-3327-2047}}}
-\affil[1]{Independent Researcher}
-
-\date{\today}
+\journal{SoftwareX}
 
 \begin{document}
+\renewcommand{\labelenumii}{\arabic{enumi}.\arabic{enumii}}
 
-\maketitle
+\begin{frontmatter}
 
-% ---------------------------------------------------------------------------
+%% Title, authors and addresses
+
+\title{STEMKit: A client-side toolkit for computational chemistry and
+scientific data analysis}
+
+\author[1]{Olanrewaju M. Daramola\corref{cor1}\fnref{orcid}}
+\ead{lanrelangmuir@gmail.com}
+\cortext[cor1]{Corresponding author.}
+\fntext[orcid]{ORCID:
+\href{https://orcid.org/0009-0006-3327-2047}{0009-0006-3327-2047}}
+
+\address[1]{Independent Researcher}
+
 \begin{abstract}
-\noindent
-Computational chemistry generates a steady stream of small analytical tasks
-that fall between the major simulation packages: reading a GROMACS
-\texttt{.xvg} file to check convergence, converting coordinates between
-\si{\nano\metre} and \si{\angstrom}, computing a centre of mass, testing
-whether two sets of replicates differ, or composing a scheduler script that
-requests appropriate resources. Each is individually simple, yet collectively
-they impose enough friction --- an environment to configure, a dependency to
-install, a script to relocate --- that they are frequently performed manually
-and therefore inconsistently. The available remedies each carry a cost: local
-Python tooling demands an environment that managed institutional machines
-often disallow; web services require uploading data, which is unacceptable for
-unpublished results or material under confidentiality agreement; and graphical
-desktop applications resist scripting and hence reproduction.
-
-We present STEMKit, a suite of 21 browser-based tools built on
-\texttt{@stemkit/core}, a JavaScript library of parsing and numerical routines
-carrying no dependency on the document object model. All computation executes
-within the user's browser using the \texttt{FileReader} API; no data is
-transmitted, no account is required, and no installation is performed. Because
-all computation runs locally in the browser, no user data reaches an external
-server. The same modules also execute under Node.js, so an analysis explored
-interactively can be captured as a script, version-pinned, and placed under
-continuous integration without rewriting.
-
-The library comprises 15 domain modules validated by 975 automated tests. Numerical
-results are verified against independent references --- SciPy for inferential
-statistics, NumPy for regression, \texttt{scipy.constants} for each
-conversion factor, and physical invariants for structural geometry --- rather
-than against the implementation itself. Extraction of the computational core
-from the original monolithic scripts exposed three numerical defects that had
-propagated into reported output, each of which is documented, corrected, and
-covered by regression tests.
+%% Text of abstract: ca. 100 words
+STEMKit is a suite of 21 browser-based tools for computational chemistry and
+scientific data analysis, built on \texttt{@stemkit/core}, a JavaScript library
+of parsing and numerical routines carrying no dependency on the document object
+model. All computation executes inside the user's own browser: no data is
+transmitted, no account is required, and nothing is installed, so the tools
+remain usable for unpublished or confidential material. The identical modules
+also execute under Node.js, so an analysis explored interactively can be
+captured as a version-pinned script and placed under continuous integration.
+Sixteen domain modules are covered by 1075 tests validated against SciPy,
+NumPy,
+and physical invariants rather than against the implementation itself.
 \end{abstract}
 
-\vspace{1em}
-\noindent\textbf{Keywords:} computational chemistry, molecular dynamics,
-GROMACS, PLUMED, client-side computation, data privacy, reproducibility,
-open-source software
+\begin{keyword}
+%% keywords here, in the form: keyword \sep keyword
+Computational chemistry \sep Molecular dynamics \sep Client-side computation
+\sep GROMACS \sep Reproducibility \sep Data privacy
+\end{keyword}
+
+\end{frontmatter}
+
+%\linenumbers
 
 % ---------------------------------------------------------------------------
-\section{Introduction}
-\label{sec:introduction}
+\section*{Required Metadata}
+
+\section*{Current code version}
+
+\begin{table}[!h]
+\begin{tabular}{|l|p{4.4cm}|p{6.3cm}|}
+\hline
+\textbf{Nr.} & \textbf{Code metadata description} & \textbf{Metadata} \\
+\hline
+C1 & Current code version & v0.1.0 \\
+\hline
+C2 & Permanent link to code/repository used for this code version &
+\url{https://github.com/LD-Shell/stemkit} (release tag \texttt{v0.1.0}) \\
+\hline
+C3 & Legal code license & MIT License \\
+\hline
+C4 & Code versioning system used & git \\
+\hline
+C5 & Software code languages, tools and services used & JavaScript
+(ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS; GitHub
+Actions \\
+\hline
+C6 & Compilation requirements, operating environments and dependencies &
+Browser tools: any current browser supporting ECMAScript modules and the
+\texttt{FileReader} API; no installation and no build step. Library: Node.js
+$\geq 18$; \texttt{npm install} installs the development dependencies (Jest,
+Tailwind CSS) only. There are no runtime dependencies --- jStat, Papa Parse,
+regression.js and bibtex-parse-js are vendored in the repository \\
+\hline
+C7 & If available, link to developer documentation/manual &
+\url{https://github.com/LD-Shell/stemkit#readme}; per-module API documentation
+in \texttt{src/core/README.md}; hosted tools at \url{https://stemkit.net} \\
+\hline
+C8 & Support email for questions & lanrelangmuir@gmail.com (issue tracker:
+\url{https://github.com/LD-Shell/stemkit/issues}) \\
+\hline
+\end{tabular}
+\caption{Code metadata (mandatory)}
+\label{tab:metadata}
+\end{table}
+
+% ---------------------------------------------------------------------------
+\section{Motivation and significance}
+\label{sec:motivation}
 
 The software landscape of computational chemistry is well served at its
 extremes. Simulation engines such as GROMACS~\cite{abraham2015} and
@@ -157,22 +190,22 @@ and all of them are performed repeatedly.
 
 Three classes of solution exist, and each imposes a characteristic cost.
 
-\paragraph{Local scripting.} A Python environment with MDAnalysis, NumPy, and
-SciPy addresses every task listed above and is the correct instrument for
-sustained analytical work. Its cost is environmental. Managed institutional
-workstations frequently prohibit package installation; conda environments
-drift; and a script written six months ago may no longer execute against the
-current interpreter. For a researcher whose primary expertise lies in
-chemistry rather than software engineering, this cost is not negligible.
+\emph{Local scripting.} A Python environment with MDAnalysis, NumPy and SciPy
+addresses every task listed above and is the correct instrument for sustained
+analytical work. Its cost is environmental. Managed institutional workstations
+frequently prohibit package installation; conda environments drift; and a
+script written six months ago may no longer execute against the current
+interpreter. For a researcher whose primary expertise lies in chemistry rather
+than software engineering, this cost is not negligible.
 
-\paragraph{Web services.} Server-side tools eliminate installation entirely but
+\emph{Web services.} Server-side tools eliminate installation entirely but
 require data transmission. For unpublished results, material subject to a
-confidentiality agreement, or work under embargo, this is frequently
-prohibited outright. Even where permitted, the transfer creates a record whose
-retention policy the researcher does not control.
+confidentiality agreement, or work under embargo, this is frequently prohibited
+outright. Even where permitted, the transfer creates a record whose retention
+policy the researcher does not control.
 
-\paragraph{Desktop applications.} Graphical applications avoid both problems
-but introduce a third: they are difficult to script. An analysis performed by
+\emph{Desktop applications.} Graphical applications avoid both problems but
+introduce a third: they are difficult to script. An analysis performed by
 clicking cannot readily be re-executed, version-controlled, or subjected to
 continuous integration. In practice such an analysis is difficult to reproduce,
 even when every step was recorded at the time.
@@ -180,31 +213,55 @@ even when every step was recorded at the time.
 \subsection{The client-side position}
 
 Modern browsers provide a capable computational environment. The
-\texttt{FileReader} API grants access to local files without transmission;
+\texttt{FileReader} API grants access to local files without transmission, and
 JavaScript engines execute numerical code fast enough for the data volumes
 involved. ECMAScript modules make it possible to organise that code properly,
 instead of accumulating scripts.
 
-We built STEMKit around these constraints. No server participates in the
-computation, so there is nothing to which data could be transmitted; users do
-not have to take a privacy policy on trust. Its reproducibility property derives from a separate architectural
-decision --- the numerical core is extracted into modules with no dependency on
-the browser, so the identical code that executes behind the interface also
-executes under Node.js.
+STEMKit is built around these constraints. No server participates in the
+computation, so there is nothing to which data could be transmitted and users
+are not asked to take a privacy policy on trust. The reproducibility property
+derives from a separate architectural decision: the numerical core is extracted
+into modules with no dependency on the browser, so the identical code that
+executes behind the interface also executes under Node.js.
 
-This paper describes that architecture, the workflows it supports, the
-numerical methods underlying each computation, and the defects that the
-extraction process exposed in the original implementation.
+\subsection{Experimental setting}
+
+The software is used in two ways, which share one implementation.
+Interactively, the user opens a tool page at \url{https://stemkit.net} (or a
+local clone) and selects a local file --- a GROMACS \texttt{.xvg} series, a PDB
+or \texttt{.gro} structure, a CSV of replicate measurements --- and reads the
+result in the page. The file is read through \texttt{FileReader}; it is never
+uploaded. Programmatically, the same routines are imported from
+\texttt{@stemkit/core} in a Node.js script, which is the path taken once an
+exploratory analysis is to be fixed, version-pinned and re-run. Every tool that
+produces a figure additionally emits a standalone matplotlib script that
+regenerates that figure from the original data file, so an interactive result
+can be reproduced offline without the browser.
+
+Related work is cited where the corresponding functionality is described in
+Section~\ref{sec:description}: GROMACS~\cite{abraham2015} and
+LAMMPS~\cite{thompson2022} for the trajectory and job-script formats,
+PLUMED~\cite{tribello2014} for collective-variable output,
+MDAnalysis~\cite{michaudagrawal2011} as the reference framework for trajectory
+analysis, SciPy~\cite{virtanen2020} and NumPy~\cite{harris2020} as the
+validation references for the numerics, and the primary statistical
+literature~\cite{welch1947,dagostino1971,brown1974,holm1979,iglewicz1993,grubbs1969}
+for the implemented tests. Conversion factors follow CODATA
+2018~\cite{tiesinga2021}, and the numerical treatment of tail probabilities
+follows standard practice for the incomplete beta and gamma
+functions~\cite{press2007}.
 
 % ---------------------------------------------------------------------------
-\section{Software Architecture}
-\label{sec:architecture}
+\section{Software description}
+\label{sec:description}
 
-\subsection{Separation of computation from presentation}
+\subsection{Software architecture}
+\label{sec:architecture}
 
 The original implementation followed the pattern common to browser tooling:
 each of the 21 tools consisted of an HTML document paired with a single
-JavaScript file combining event handling, rendering, and computation. This
+JavaScript file combining event handling, rendering and computation. This
 arrangement is expedient during development and progressively obstructive
 thereafter. Computational logic entangled with DOM manipulation cannot be
 tested without a browser, cannot be reused across tools, and cannot be invoked
@@ -215,182 +272,159 @@ mathematical and parsing logic was extracted into a pure module beneath
 \texttt{src/core/}, a test suite was written against the extracted module, and
 the original file was then reduced to DOM wiring that imports the new
 functions. The user-visible interface is unchanged; the computation beneath it
-is now independently addressable.
+is now independently addressable. Figure~\ref{fig:architecture} shows the
+resulting layering and Table~\ref{tab:modules} enumerates the modules.
 
-Table~\ref{tab:modules} enumerates the resulting modules.
+\begin{figure}[htbp]
+\centering
+\small
+\begin{tabular}{c}
+\begin{tabular}{@{}c@{\hspace{1.2em}}c@{}}
+\fbox{\parbox[t]{0.43\textwidth}{\centering \textbf{Browser host}\\[2pt]
+21 static HTML/CSS pages\\ DOM wiring only; \texttt{FileReader} input\\
+UMD bundles loaded by \texttt{<script>}}} &
+\fbox{\parbox[t]{0.43\textwidth}{\centering \textbf{Node.js host}\\[2pt]
+user analysis scripts\\ 1075-test Jest suite; smoke test\\
+UMD bundles via \texttt{createRequire}}} \\
+\end{tabular} \\[6pt]
+$\downarrow$ \hspace{0.4\textwidth} $\downarrow$ \\[6pt]
+\fbox{\parbox{0.9\textwidth}{\centering \textbf{\texttt{@stemkit/core}}\\[2pt]
+16 DOM-free domain modules, aggregated by \texttt{src/core/index.js}}} \\[6pt]
+$\downarrow$ \\[6pt]
+\fbox{\parbox{0.9\textwidth}{\centering \textbf{Vendor injection layer}\\[2pt]
+\texttt{registerVendor()} (Node.js) $\;\cdot\;$
+\texttt{registerFromGlobals()} (browser)}} \\[6pt]
+$\downarrow$ \\[6pt]
+\fbox{\parbox{0.9\textwidth}{\centering \textbf{Vendored UMD bundles}\\[2pt]
+jStat $\;\cdot\;$ Papa Parse $\;\cdot\;$ regression.js $\;\cdot\;$
+bibtex-parse-js}} \\
+\end{tabular}
+\caption{Architecture of STEMKit. Both hosts execute the identical core
+modules; the only environment-specific code is the registration call that
+supplies the vendored libraries.}
+\label{fig:architecture}
+\end{figure}
 
 \begin{table}[htbp]
 \centering
 \caption{Modules of \texttt{@stemkit/core}. Vendored dependencies are supplied
-by injection (Section~\ref{sec:injection}); modules marked \emph{none} operate
-without any third-party code.}
+by injection; modules marked \emph{none} operate without any third-party code.}
 \label{tab:modules}
-\small
+\footnotesize
 \begin{tabular}{@{}llrl@{}}
 \toprule
 \textbf{Module} & \textbf{Domain} & \textbf{Tests} & \textbf{Dependency} \\
 \midrule
-\texttt{bibtex} & Reference deduplication, sanitising & 89 & bibtex-parse-js \\
+\texttt{bibtex} & Reference deduplication, sanitising & 102 & bibtex-parse-js \\
+\texttt{structure} & Molecular geometry, PDB/GRO/XYZ & 100 & none \\
 \texttt{statistics} & Inferential statistics & 82 & jStat \\
-\texttt{structure} & Molecular geometry, PDB/GRO/XYZ & 79 & none \\
+\texttt{curve-fitting} & Least-squares regression & 77 & regression.js \\
 \texttt{xvg-parser} & GROMACS/PLUMED trajectory data & 77 & none \\
-\texttt{curve-fitting} & Least-squares regression & 72 & regression.js \\
+\texttt{units} & Physical unit conversion & 73 & none \\
 \texttt{plumed} & PLUMED input generation & 72 & none \\
 \texttt{selection} & Atom selection, spatial queries & 67 & none \\
 \texttt{slurm} & HPC job-script generation & 61 & none \\
 \texttt{latex} & Table generation and escaping & 59 & none \\
 \texttt{error-bars} & Group summaries, error bars & 57 & jStat \\
-\texttt{units} & Physical unit conversion & 56 & none \\
-\texttt{journals} & Journal title abbreviation & 53 & none \\
+\texttt{journals} & Whole-title journal abbreviation & 53 & none \\
 \texttt{data-cleaning} & Tabular transformation & 51 & Papa Parse \\
 \texttt{outliers} & Anomaly detection & 51 & jStat \\
 \texttt{digitizer} & Figure digitisation & 49 & none \\
+\texttt{iso4} & ISO 4 word-level abbreviation (LTWA) & 44 & none \\
 \midrule
-\textbf{Total}         &                                 & \textbf{975} & \\
+\textbf{Total} & & \textbf{1075} & \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Dependency injection across execution environments}
-\label{sec:injection}
-
 Four third-party libraries are vendored within the repository: jStat for
-statistical distributions, Papa Parse for delimited-text parsing,
-regression.js for curve fitting, and bibtex-parse-js for reference parsing.
-Each is distributed as a Universal Module Definition (UMD) bundle, which
-detects its host at run time and either assigns \texttt{module.exports} under
-CommonJS or attaches a global to \texttt{window} in a browser.
-
-Neither path is reachable from a plain ECMAScript module. A UMD file contains
-no \texttt{export} statements, so a direct import yields no bindings; and
+statistical distributions, Papa Parse for delimited-text parsing, regression.js
+for curve fitting, and bibtex-parse-js for reference parsing. Each is
+distributed as a Universal Module Definition (UMD) bundle, which detects its
+host at run time and either assigns \texttt{module.exports} under CommonJS or
+attaches a global to \texttt{window} in a browser. Neither path is reachable
+from a plain ECMAScript module: a UMD file contains no \texttt{export}
+statements, so a direct import yields no bindings, while
 \texttt{import \{ createRequire \} from 'module'} --- the conventional Node.js
 workaround --- constitutes a hard \emph{resolution} failure in a browser, which
 occurs before any code executes and therefore cannot be intercepted by
-\texttt{try}/\texttt{catch}.
-
-Rather than branch on the execution environment inside every module, which
-would render the core untestable in one of its two targets, the library
-declares the libraries it requires and each host registers them at
-initialisation:
-
-\begin{lstlisting}[caption={Registration under Node.js and in the browser.}]
-// Node.js: the vendored bundles are loaded through createRequire.
-import { createRequire } from 'module';
-import { registerVendor } from '@stemkit/core';
-
-const require = createRequire(import.meta.url);
-registerVendor({ jStat: require('./js/dependencies/jstat.min.js') });
-
-// Browser: the UMD <script> tags have already installed their globals.
-import { registerFromGlobals } from './src/core/index.js';
-registerFromGlobals();
-\end{lstlisting}
-
-Modules request their dependencies lazily, at the point of use rather than at
-import time, so that importing any module never fails merely because an
-unrelated library has not yet been registered. The result is a single code
-path shared by both environments, with the vendored libraries remaining the
-sole source of truth for the numerics in each.
+\texttt{try}/\texttt{catch}. Rather than branch on the execution environment
+inside every module, which would render the core untestable in one of its two
+targets, the library declares the libraries it requires and each host registers
+them at initialisation (Section~\ref{sec:snippets}). Modules request their
+dependencies lazily, at the point of use rather than at import time, so
+importing any module never fails merely because an unrelated library has not yet
+been registered.
 
 One consequence merits explicit note, as it is a common failure mode. A
 repository declaring \texttt{"type": "module"} instructs Node.js to parse every
-\texttt{.js} file beneath it as an ECMAScript module, including the vendored
-UMD bundles. Under that interpretation the UMD factory takes its browser
-branch and fails. Scoping \texttt{"type": "commonjs"} to the dependency
-directory alone restores correct behaviour.
+\texttt{.js} file beneath it as an ECMAScript module, including the vendored UMD
+bundles; under that interpretation the UMD factory takes its browser branch and
+fails. Scoping \texttt{"type": "commonjs"} to the dependency directory alone
+restores correct behaviour.
 
-\subsection{Testing strategy}
-
-The suite comprises 975 tests across the 15 domain modules. Its governing principle is
-that numerical results are validated against \emph{independent} references
-rather than against the implementation under test, since a test written from
-the same source as the code confirms only internal consistency.
-
+The test suite comprises 1075 tests across the 16 domain modules, with 93.9\%
+statement and 97.6\% line coverage of \texttt{src/core/}. Its governing
+principle is that numerical results are validated against \emph{independent}
+references rather than against the implementation under test, since a test
+written from the same source as the code confirms only internal consistency.
 Reference values were obtained from SciPy~\cite{virtanen2020} for t-tests,
-ANOVA, correlation, non-parametric tests, quantiles, and multiple-comparison
+ANOVA, correlation, non-parametric tests, quantiles and multiple-comparison
 correction; from NumPy~\cite{harris2020} for regression coefficients and
 descriptive statistics; from \texttt{scipy.constants} for every unit conversion
 factor; and from physical invariants for structural geometry --- specifically
 the molecular weight and centre of mass of water, the orthonormality of
-rotation matrices, the preservation of interatomic distances under rotation,
-and round-trip fidelity through every supported file format.
-
-An end-to-end smoke test additionally exercises one representative path through
-each module against a real installation, detecting the class of failure that
+rotation matrices, the preservation of interatomic distances under rotation, and
+round-trip fidelity through every supported file format.
+An end-to-end smoke
+test additionally exercises one representative path through fifteen of the
+sixteen modules against a real installation, detecting the class of failure that
 unit tests cannot: a broken aggregate export, a misconfigured module type
 declaration, or a vendored bundle that fails to load.
 
-% ---------------------------------------------------------------------------
-\section{Workflows}
-\label{sec:workflows}
+\subsection{Software functionalities}
+\label{sec:functionalities}
 
-\subsection{Molecular dynamics trajectory analysis}
+\subsubsection{Trajectory and collective-variable data}
 
 GROMACS writes analysis output in the Grace format, a plain-text convention in
 which lines beginning with \texttt{\#} are comments, lines beginning with
 \texttt{@} are formatting directives, and all remaining non-empty lines are
 whitespace-delimited numeric records. The directives carry the plot title, axis
-labels, and per-series legends. Discarding them --- as a naive parser that
-skips all non-numeric lines would --- loses precisely the metadata that
-identifies which column contains which observable.
+labels and per-series legends. Discarding them --- as a naive parser that skips
+all non-numeric lines would --- loses precisely the metadata that identifies
+which column contains which observable. The \texttt{xvg-parser} module recovers
+this metadata alongside the numeric matrix. Malformed records are counted and
+reported, not silently discarded, so a truncated trajectory is visible to the
+user instead of quietly shortening the analysis. Two further details of the
+format are handled explicitly: the Grace multi-set separator \texttt{\&} is
+treated as a delimiter rather than parsed as data, and records containing
+\texttt{NaN} or \texttt{Infinity} are rejected whole, since one non-finite entry
+would otherwise contaminate every downstream statistic.
 
-% AUTHOR: add one concrete example here -- the system and trajectory you
-% actually inspected while building this (e.g. "a 200 ns simulation of X in
-% explicit solvent, ~90k atoms"). A named real system is the single most
-% convincing detail in this section, and it must be one of yours.
-The \texttt{xvg-parser} module recovers this metadata alongside the numeric
-matrix:
+PLUMED~\cite{tribello2014} writes \texttt{COLVAR} files whose header lines begin
+with \texttt{\#!} and carry field names and metadata. Although the convention
+differs from Grace, the comment character coincides, and the same parser
+therefore handles both formats without modification. This is verified by an
+explicit test rather than left to assumption.
 
-\begin{lstlisting}[caption={Parsing a GROMACS RMSD trajectory.}]
-import { parseXvg, extractColumn, columnStats } from '@stemkit/core';
-import { readFileSync } from 'fs';
+\subsubsection{Structure files and molecular geometry}
 
-const { matrix, headers, title } = parseXvg(readFileSync('rmsd.xvg', 'utf8'));
-// title   -> "RMSD & Radius of Gyration"
-// headers -> ["Time (ps)", "Backbone RMSD", "Rg"]
-
-headers.slice(1).forEach((name, i) => {
-  const s = columnStats(extractColumn(matrix, i + 1));
-  console.log(`${name}: ${s.mean.toFixed(4)} +/- ${s.std.toFixed(4)} nm`);
-});
-\end{lstlisting}
-
-Malformed records are counted and reported, not silently discarded, so a
-truncated trajectory is visible to the user instead of quietly shortening the
-analysis. Two further details of the format are handled explicitly. The Grace
-multi-set separator \texttt{\&} is treated as a delimiter, not parsed as data.
-Records containing \texttt{NaN} or \texttt{Infinity} are rejected whole; one
-non-finite entry would otherwise contaminate every downstream statistic.
-
-\subsection{PLUMED collective-variable output}
-
-PLUMED~\cite{tribello2014} writes \texttt{COLVAR} files whose header lines
-begin with \texttt{\#!} and carry field names and metadata. Although the
-convention differs from Grace, the comment character coincides, and the same
-parser therefore handles both formats without modification --- the header lines
-are skipped as comments and the numeric records parsed identically. This is
-verified by an explicit test rather than left to assumption.
-
-\subsection{Structure files and molecular geometry}
-
-The \texttt{structure} module parses the three coordinate formats in routine
-use for classical simulation: PDB and GROMACS \texttt{.gro}, both fixed-column
+The \texttt{structure} module parses the three coordinate formats in routine use
+for classical simulation: PDB and GROMACS \texttt{.gro}, both fixed-column
 formats in which fields are located by character position, and XYZ, which is
 whitespace-delimited. Fixed-column parsing is essential rather than pedantic: a
 residue name may legitimately be blank, and a whitespace-splitting parser would
-silently shift every subsequent field on such a line.
-
-Unit handling is explicit throughout. PDB and XYZ express coordinates in
-\si{\angstrom}; \texttt{.gro} uses \si{\nano\metre}. Every parse result carries
-its unit, and conversion is always deliberate. Silently mixing the two is the
-single most direct route to a structure that is wrong by a factor of ten.
-
-\subsubsection{Element inference from atom names}
+silently shift every subsequent field on such a line. Unit handling is explicit
+throughout --- PDB and XYZ express coordinates in \si{\angstrom}, \texttt{.gro}
+uses nanometres, and every parse result carries its unit --- because silently
+mixing the two is the most direct route to a structure that is wrong by a factor
+of ten.
 
 Assigning an element to each atom is a prerequisite for any mass-weighted
-quantity, and PDB atom names are ambiguous by construction. The name
-\texttt{CA} denotes the $\alpha$-carbon in a protein residue and calcium in an
-ion record. The resolution implemented here proceeds in five stages:
+quantity, and PDB atom names are ambiguous by construction: \texttt{CA} denotes
+the $\alpha$-carbon in a protein residue and calcium in an ion record. The
+resolution implemented here proceeds in five stages.
 
 \begin{enumerate}
   \item An explicit element column, where present, takes priority.
@@ -406,19 +440,12 @@ ion record. The resolution implemented here proceeds in five stages:
         shares its name, the convention for monatomic ions.
 \end{enumerate}
 
-% AUTHOR: if you noticed this on a specific structure -- a PDB code, a
-% metalloprotein you work on -- name it. That is the detail a reviewer will
-% believe came from the bench rather than from a code review.
-Stages 2 and 3 correct defects present in the original implementation, which
-assigned fluorine to haem iron, sulfur to selenomethionine selenium, and no
-element at all to numeric-prefixed hydrogens. The resolution is validated
-against 40 atom names drawn from real structures, covering protein backbone and
-side-chain atoms, nucleic acid atoms, water, monatomic ions, and metal centres.
-
-\subsubsection{Geometric quantities}
-
-The module computes the geometric centroid, the mass-weighted centre of mass,
-the axis-aligned bounding box, and the radius of gyration
+Stages 2 and 3 correct defects present in the original implementation
+(Section~\ref{sec:defects}). The resolution is validated against 40 atom names
+drawn from real structures, covering protein backbone and side-chain atoms,
+nucleic acid atoms, water, monatomic ions and metal centres. On this basis the
+module computes the geometric centroid, the mass-weighted centre of mass, the
+axis-aligned bounding box, and the radius of gyration
 \begin{equation}
   R_g = \sqrt{\frac{\sum_i m_i \left| \mathbf{r}_i - \mathbf{R} \right|^2}
                    {\sum_i m_i}},
@@ -427,115 +454,31 @@ the axis-aligned bounding box, and the radius of gyration
 \end{equation}
 together with rigid-body rotation about an arbitrary pivot using intrinsic
 $Z$--$Y$--$X$ Euler angles. Velocities present in a \texttt{.gro} file rotate
-with the frame but are never translated, so that a round trip through rotation
-and export preserves the kinetic state.
+with the frame but are never translated, so a round trip through rotation and
+export preserves the kinetic state.
 
-\subsection{HPC job-script generation}
+\subsubsection{Statistics, outliers and curve fitting}
 
-Composing a scheduler script correctly requires knowledge that is
-engine-specific and easily misapplied. Two aspects dominate the resulting waste
-of allocation.
-
-First, the resource model differs by engine. GROMACS is threaded and requires
-one MPI rank per node with many CPUs per task; LAMMPS is MPI-parallel and
-requires many ranks per node. Emitting the wrong shape either idles most of a
-node or oversubscribes it.
-
-% AUTHOR: if this bit you on a real cluster, say so and name it. One sentence
-% of the form "on our institutional cluster this silently queued N jobs" is
-% worth more than the general statement below.
-Second, and less widely appreciated, the SLURM \texttt{-{}-mem} directive in an
-array job specifies memory \emph{per task}, not per job. A request of
-\SI{32}{\giga\byte} across a hundred-task array asks the scheduler for
-\SI{3.2}{\tera\byte} concurrently. The generator computes the true in-flight
-total and reports it:
-
-\begin{lstlisting}[caption={Generating a GROMACS submission script.}]
-import { generateScript } from '@stemkit/core';
-
-const { script, warnings } = generateScript({
-  engine: 'gromacs', jobName: 'prod_md', partition: 'gpu',
-  nodes: 1, gpus: 1, cpusPerTask: 16,
-  walltime: '24:00:00', memory: '32G',
-  modules: ['gcc/11.3', 'cuda/12.1', 'gromacs/2023.3'],
-  tpr: 'md.tpr', deffnm: 'md', maxh: 23.5
-});
-
-warnings.forEach(w => console.warn(`[${w.level}] ${w.message}`));
-\end{lstlisting}
-
-Generated scripts include checkpoint-resume logic, so that a requeued job
-continues from its last checkpoint rather than silently restarting from
-$t = 0$ --- a failure mode that consumes an entire allocation while appearing
-to succeed. Warnings are returned as structured objects rather than formatted
-strings, leaving presentation to the caller.
-
-\subsection{Figure digitisation}
-
-Recovering numerical values from a published figure requires a two-point affine
-calibration per axis. On a logarithmic axis the interpolation must be performed
-in logarithmic space,
-\begin{equation}
-  v(p) = 10^{\,\log_{10} v_1
-              + \dfrac{(p - p_1)\left(\log_{10} v_2 - \log_{10} v_1\right)}
-                      {p_2 - p_1}},
-\end{equation}
-because a decade occupies a constant pixel distance there. Treating a
-logarithmic axis linearly is the most frequent source of error in figure
-digitisation, and it produces values that are plausible rather than obviously
-wrong.
-
-The module additionally reports the data-space uncertainty corresponding to a
-one-pixel positioning error. Stating this alongside digitised values is honest
-practice: the precision of a digitised point is determined by the resolution of
-the figure, not by the number of decimal places the export happens to print.
-
-\subsection{Unit conversion}
-
-Sixty-four units across ten categories are supported, each defined by its
-ratio to a category base unit. Conversion therefore reduces to
-\begin{equation}
-  x_{\mathrm{to}} = x_{\mathrm{from}}
-    \cdot \frac{f_{\mathrm{to}}}{f_{\mathrm{from}}},
-\end{equation}
-which keeps the table linear in the number of units rather than quadratic and
-renders every entry independently checkable against its cited source.
-Conversion factors are CODATA 2018 values~\cite{tiesinga2021}; each was
-verified against \texttt{scipy.constants} during testing. Temperature is
-handled separately, since the Celsius and Fahrenheit scales are affine rather
-than multiplicative and cannot be expressed by a single factor.
-
-% ---------------------------------------------------------------------------
-\section{Statistical Rigour}
-\label{sec:statistics}
-
-\subsection{Test selection and assumption checking}
-
-The statistical module implements Welch's~\cite{welch1947} and Student's
+The \texttt{statistics} module implements Welch's~\cite{welch1947} and Student's
 t-tests, the paired t-test, one-way ANOVA, Pearson correlation, the
-Mann--Whitney $U$ test, and the Wilcoxon signed-rank test. Welch's test is the
-default for independent samples, as it does not assume equal variances and
-loses negligible power when they are in fact equal.
-
-Every parametric test reports an effect size and, where standard, a confidence
-interval. Assumptions are checked and surfaced rather than presumed: normality
-by the D'Agostino--Pearson $K^2$ omnibus test~\cite{dagostino1971}, and
-homogeneity of variance by the median-centred Brown--Forsythe variant of
-Levene's test~\cite{brown1974}, chosen for its markedly greater robustness to
-non-normality than the original mean-centred formulation. Where an assumption
-fails, a non-parametric alternative is recommended.
-
-\subsection{Numerical methods}
-
-Table~\ref{tab:methods} maps each computed quantity to its numerical method and
-validation reference.
+Mann--Whitney $U$ test and the Wilcoxon signed-rank test. Welch's test is the
+default for independent samples, as it does not assume equal variances and loses
+negligible power when they are in fact equal. Every parametric test reports an
+effect size and, where standard, a confidence interval. Assumptions are checked
+and surfaced rather than presumed: normality by the D'Agostino--Pearson $K^2$
+omnibus test~\cite{dagostino1971}, and homogeneity of variance by the
+median-centred Brown--Forsythe variant of Levene's test~\cite{brown1974}, chosen
+for its markedly greater robustness to non-normality than the original
+mean-centred formulation. Where an assumption fails, a non-parametric
+alternative is recommended. Table~\ref{tab:methods} maps each computed quantity
+to its numerical method and validation reference.
 
 \begin{table}[htbp]
 \centering
 \caption{Numerical methods and validation references.}
 \label{tab:methods}
 \small
-\begin{tabular}{@{}p{3.9cm}p{5.2cm}p{4.8cm}@{}}
+\begin{tabular}{@{}p{3.4cm}p{4.7cm}p{4.5cm}@{}}
 \toprule
 \textbf{Quantity} & \textbf{Method} & \textbf{Validated against} \\
 \midrule
@@ -553,7 +496,7 @@ Pearson $r$, CI &
   \texttt{scipy.stats.pearsonr} \\
 Mann--Whitney $U$ &
   Tie-corrected normal approximation &
-  \texttt{scipy.stats.mannwhitneyu} \\
+  \texttt{scipy.stats.\allowbreak{}mannwhitneyu} \\
 Wilcoxon $W$ &
   Signed-rank, zeros discarded &
   \texttt{scipy.stats.wilcoxon} \\
@@ -582,150 +525,336 @@ Least-squares fitting &
 \end{tabular}
 \end{table}
 
-\subsection{Cancellation in tail probabilities}
-
 Upper-tail probabilities are computed through the complementary form of the
 incomplete beta and gamma functions rather than as $1 - F(x)$. The two
 expressions are algebraically identical; numerically they are not. Once $F(x)$
 rounds to unity in double precision, the subtraction cancels completely and the
-result is exactly zero.
-
-The consequence is not academic. For the one-way ANOVA used in our test suite
-($F = 377.545$ on $2$ and $21$ degrees of freedom), the naive form returns
-$p = 0$, whereas
+result is exactly zero. The consequence is not academic. For the one-way ANOVA
+used in the test suite ($F = 377.545$ on $2$ and $21$ degrees of freedom), the
+naive form returns $p = 0$, whereas
 \begin{equation}
   p = I_{\frac{d_2}{d_2 + d_1 F}}\!\left(\tfrac{d_2}{2}, \tfrac{d_1}{2}\right)
     = \num{3.4611747382914e-17},
 \end{equation}
 agreeing with SciPy to twelve significant figures. A continuous test statistic
-cannot produce $p = 0$. When that value appears in published output it indicates
-a numerical fault in the software, not an unusually strong effect.
-
-The same treatment is applied to the Student $t$, $\chi^2$, and normal tails.
-Beyond $|z| \approx 8$ the vendored \texttt{erfc} implementation underflows, and
-a documented asymptotic expansion takes over so that a $p$-value is reported as
+cannot produce $p = 0$; when that value appears in published output it indicates
+a numerical fault in the software, not an unusually strong effect. The same
+treatment is applied to the Student $t$, $\chi^2$ and normal tails. Beyond
+$|z| \approx 8$ the vendored \texttt{erfc} implementation underflows, and a
+documented asymptotic expansion takes over so that a $p$-value is reported as
 \num{1.5e-23} rather than as zero.
 
-\subsection{Defects exposed by extraction}
+The \texttt{outliers} module provides Tukey fences, the Iglewicz--Hoaglin
+modified $Z$-score~\cite{iglewicz1993} and Grubbs' test~\cite{grubbs1969};
+\texttt{curve-fitting} performs least-squares fitting with model-adequacy
+warnings. One inherited limitation is documented rather than fixed, and it
+applies to two of the three transformed models rather than to all of them. The
+vendored regression.js library fits the \emph{power} model by regressing
+$\ln y$ on $\ln x$ unweighted, so the residuals minimised are those in
+logarithmic space and small $y$ values carry more influence than a direct fit
+would give them. The \emph{exponential} model also works in log space but
+weights each point by $y$, which is the standard correction for log-transform
+bias and keeps the result closer to a direct non-linear fit. The
+\emph{logarithmic} model carries none of this bias: it regresses $y$ on
+$\ln x$, so only the predictor is transformed and the residuals minimised are
+those in $y$, exactly as for any model linear in its parameters. Where the bias
+does apply it is material --- for a clean doubling series the weighted
+exponential fit returns a growth rate of $\num{0.69022}$ where unweighted
+log-space least squares gives $\ln 2 = \num{0.69315}$. Neither value is
+incorrect, since they answer different questions, but the difference is large
+enough to matter when a rate constant is reported. \texttt{fitCurve} therefore
+exposes a \texttt{linearised} flag, true for the exponential and power models
+only, so callers may surface the distinction; users requiring publication-grade
+non-linear fits are directed to Levenberg--Marquardt optimisation on
+untransformed data. A dataset containing points a model cannot transform is
+refused with a message naming the requirement --- exponential needs every
+$y > 0$, power every $x > 0$ and $y > 0$, logarithmic only $x > 0$ --- rather
+than having the offending points silently dropped.
+
+\subsubsection{Digitisation, unit conversion and authoring utilities}
+
+Recovering numerical values from a published figure requires a two-point affine
+calibration per axis. On a logarithmic axis the interpolation must be performed
+in logarithmic space,
+\begin{equation}
+  v(p) = 10^{\,\log_{10} v_1
+              + \dfrac{(p - p_1)\left(\log_{10} v_2 - \log_{10} v_1\right)}
+                      {p_2 - p_1}},
+\end{equation}
+because a decade occupies a constant pixel distance there. Treating a
+logarithmic axis linearly is the most frequent source of error in figure
+digitisation, and it produces values that are plausible rather than obviously
+wrong. The module additionally reports the data-space uncertainty corresponding
+to a one-pixel positioning error, since the precision of a digitised point is
+set by the resolution of the figure and not by the number of decimal places the
+export happens to print.
+
+Sixty-four units across ten categories are supported, each defined by its ratio
+to a category base unit, so conversion reduces to
+$x_{\mathrm{to}} = x_{\mathrm{from}} \cdot
+f_{\mathrm{to}} / f_{\mathrm{from}}$. This keeps the table linear rather than
+quadratic in the number of units and renders every entry independently
+checkable against its cited source; factors are CODATA 2018
+values~\cite{tiesinga2021}, each verified against \texttt{scipy.constants}
+during testing. Temperature is handled separately, since the Celsius and
+Fahrenheit scales are affine rather than multiplicative.
+
+Composing a scheduler script correctly requires knowledge that is
+engine-specific and easily misapplied, and two aspects dominate the resulting
+waste of allocation. First, the resource model differs by engine: GROMACS is
+threaded and requires one MPI rank per node with many CPUs per task, whereas
+LAMMPS~\cite{thompson2022} is MPI-parallel and requires many ranks per node.
+Emitting the wrong shape either idles most of a node or oversubscribes it.
+Second, and less widely appreciated, the SLURM \texttt{-{}-mem} directive in an
+array job specifies memory \emph{per task}, not per job: a request of 32~GB
+across a hundred-task array asks the scheduler for 3.2~TB concurrently. The
+generator computes the true in-flight total and reports it. Generated scripts
+include checkpoint-resume logic, so a requeued job continues from its last
+checkpoint rather than silently restarting from $t = 0$ --- a failure mode that
+consumes an entire allocation while appearing to succeed. Warnings are returned
+as structured objects rather than formatted strings, leaving presentation to the
+caller. The remaining modules support manuscript preparation: LaTeX and Markdown
+table generation with correct escaping, ISO-4 journal title abbreviation, and
+BibTeX deduplication by union-find over normalised DOIs and titles.
+
+\subsubsection{Defects exposed by extraction}
+\label{sec:defects}
 
 Separating computation from presentation subjected the numerical code to
-independent verification for the first time. Three defects were identified that
-had propagated into reported output.
-
-\paragraph{Standardised moments.} Skewness and kurtosis are defined against the
-\emph{population} standard deviation,
+independent verification for the first time, and three defects were identified
+that had propagated into reported output. First, skewness and kurtosis are
+defined against the \emph{population} standard deviation,
 \begin{equation}
   G_1 = \frac{\sqrt{n(n-1)}}{n-2}
         \cdot \frac{1}{n}\sum_{i=1}^{n}
         \left(\frac{x_i - \bar{x}}{\sigma_{\mathrm{pop}}}\right)^{\!3},
   \qquad
-  \sigma_{\mathrm{pop}} = \sqrt{\frac{1}{n}\sum_i (x_i - \bar{x})^2}.
+  \sigma_{\mathrm{pop}} = \sqrt{\frac{1}{n}\sum_i (x_i - \bar{x})^2},
 \end{equation}
-The original implementation used the Bessel-corrected sample standard
+whereas the original implementation used the Bessel-corrected sample standard
 deviation, deflating skewness by a factor of $\left((n-1)/n\right)^{3/2}$ ---
-approximately \SI{15}{\percent} at $n = 10$. Because both moments feed the
+approximately 15\% at $n = 10$. Because both moments feed the
 D'Agostino--Pearson statistic, every normality $p$-value the tool reported was
-affected.
-
-\paragraph{Tail underflow.} As described above, all upper-tail probabilities
-were computed by subtraction and floored at zero for strong effects.
-
-\paragraph{Element misassignment.} Haem iron was assigned the mass of fluorine
-(\SI{18.998}{\dalton} rather than \SI{55.845}{\dalton}), selenomethionine
-selenium the mass of sulfur, and numeric-prefixed hydrogens no mass at all.
-Molecular weights and centres of mass computed for metalloproteins were
-correspondingly wrong.
-
+affected. Second, all upper-tail probabilities were computed by subtraction and
+floored at zero for strong effects. Third, haem iron was assigned the mass of
+fluorine (18.998~Da rather than 55.845~Da), selenomethionine selenium the mass
+of sulfur, and numeric-prefixed hydrogens no mass at all, so molecular weights
+and centres of mass computed for metalloproteins were correspondingly wrong.
 Each defect is corrected and covered by a regression test. Users who generated
 figures with earlier versions of these tools should re-check any reported
 skewness, normality $p$-value, or metalloprotein mass.
 
-\subsection{An inherited limitation}
+\subsection{Sample code snippets analysis}
+\label{sec:snippets}
 
-We have not fixed one limitation, only documented it. The vendored
-regression.js library fits exponential, power, and logarithmic models by
-\emph{linearisation}:
-taking logarithms and performing least squares in the transformed space,
-additionally weighting the fit by $y$. This minimises error in logarithmic
-space rather than in the original units and is therefore not the
-maximum-likelihood fit under additive Gaussian noise.
+Listing~\ref{lst:register} contains the whole of the environment-specific code
+in the library. Each host registers the vendored bundles once, after which the
+identical modules run unchanged in both.
 
-The magnitude is material. For a clean doubling series the library returns a
-growth rate of $\num{0.69022}$ where unweighted logarithmic least squares gives
-$\ln 2 = \num{0.69315}$. Neither value is incorrect --- they answer different
-questions --- but the difference is large enough to matter when a rate constant
-is reported. The \texttt{fitCurve} function exposes a \texttt{linearised} flag
-so that callers may surface the distinction, and users requiring
-publication-grade non-linear fits are directed to Levenberg--Marquardt
-optimisation on untransformed data.
+\begin{lstlisting}[caption={Registration of the vendored libraries under
+Node.js and in the browser.},label={lst:register}]
+// Node.js: the vendored bundles are loaded through createRequire.
+import { createRequire } from 'module';
+import { registerVendor } from '@stemkit/core';
 
-% ---------------------------------------------------------------------------
-\section{Availability and Reproducibility}
-\label{sec:availability}
+const require = createRequire(import.meta.url);
+registerVendor({ jStat: require('./js/dependencies/jstat.min.js') });
 
-STEMKit is released under the MIT licence. The browser tools require no
-installation; the library is obtained by cloning the repository and running
-\texttt{npm install}.
-
-The complete test suite executes with \texttt{npm test}, and an end-to-end
-smoke test with \texttt{node tests/smoke.mjs}. Both are intended to be run by
-users evaluating the software, not solely by its maintainers: a library whose
-numerical claims cannot be checked by its users offers reproducibility only in
-principle.
-
-Each tool that generates a figure also emits a standalone matplotlib script
-reproducing that figure from the original data file. This closes the loop
-between interactive exploration and reproducible output: a plot examined in the
-browser can be regenerated offline, unchanged, without the browser.
+// Browser: the UMD <script> tags have already installed their globals.
+import { registerFromGlobals } from './src/core/index.js';
+registerFromGlobals();
+\end{lstlisting}
 
 % ---------------------------------------------------------------------------
-\section{Conclusion}
-\label{sec:conclusion}
+\section{Illustrative examples}
+\label{sec:examples}
 
-We have described STEMKit, a suite of 21 browser-based tools for computational
-chemistry built on a tested, dependency-injected JavaScript core. The
-architecture addresses three constraints simultaneously that existing tooling
-addresses only in pairs: it requires no installation, transmits no data, and
-remains scriptable.
+The example below is the post-simulation triage that motivated the toolkit:
+confirm that a production run has equilibrated, characterise the final
+structure, test a replicate comparison and queue a continuation. Every step is
+available interactively as a tool page; the scripted form is shown because it is
+the reproducible one.
 
-The privacy property is structural rather than contractual. Because computation
-occurs entirely within the browser, there is no server to receive data and
-consequently no policy to trust. For researchers handling unpublished results
-or material under confidentiality agreement, this distinction is the difference
-between a usable tool and an unusable one.
+Listing~\ref{lst:xvg} reads a GROMACS RMSD series. The parser returns the
+numeric matrix together with the title and per-series legends recovered from the
+\texttt{@} directives, so each column is reported under its own observable name
+rather than by index.
 
-The reproducibility property follows from the separation of computation from
-presentation. The identical modules that execute behind the browser interface
-execute under Node.js, so an analysis explored interactively may be captured as
-a script and version-pinned without rewriting.
+\begin{lstlisting}[caption={Parsing a GROMACS RMSD trajectory and summarising
+each series.},label={lst:xvg}]
+import { parseXvg, extractColumn, columnStats } from '@stemkit/core';
+import { readFileSync } from 'fs';
 
-The defects found during extraction were the most useful outcome of this work.
-All three had survived in software that ran without error and produced
-plausible numbers. None would have been caught by testing the code against our
-own expectations of it; each surfaced only when the results were compared with
-SciPy and NumPy. A \SI{15}{\percent} error in a reported skewness is not
-visible by inspection. Nor is a $p$-value floored at zero, which looks like a
-very strong result. We would encourage other authors of scientific software to
-check their numerics against an independent implementation.
+const { matrix, headers, title } = parseXvg(readFileSync('rmsd.xvg', 'utf8'));
+// title   -> "RMSD & Radius of Gyration"
+// headers -> ["Time (ps)", "Backbone RMSD", "Rg"]
+
+headers.slice(1).forEach((name, i) => {
+  const s = columnStats(extractColumn(matrix, i + 1));
+  console.log(`${name}: ${s.mean.toFixed(4)} +/- ${s.std.toFixed(4)} nm`);
+});
+\end{lstlisting}
+
+Listing~\ref{lst:structure} takes the final coordinates and computes the
+mass-weighted centre of mass and radius of gyration. Because the input is a
+\texttt{.gro} file its coordinates are in nanometres, and the conversion to
+\si{\angstrom} is requested explicitly rather than assumed.
+
+\begin{lstlisting}[caption={Geometry of the final frame, with an explicit unit
+conversion.},label={lst:structure}]
+import { parseStructure, centreOfMass, radiusOfGyration, convert }
+  from '@stemkit/core';
+
+const frame = parseStructure(readFileSync('final.gro', 'utf8'), 'gro');
+const com = centreOfMass(frame.atoms);          // nm, mass-weighted
+const rg  = radiusOfGyration(frame.atoms, com); // nm
+
+console.log(`Rg = ${convert(rg, 'nm', 'angstrom').toFixed(2)} A`);
+\end{lstlisting}
+
+Listing~\ref{lst:stats} compares two sets of replicate measurements. The
+returned object carries the assumption checks alongside the test result, so a
+violated assumption is visible at the point of use rather than discovered later;
+here a failed normality check redirects the comparison to Mann--Whitney.
+
+\begin{lstlisting}[caption={A replicate comparison with the assumption checks
+surfaced.},label={lst:stats}]
+import { welchTest, mannWhitneyU } from '@stemkit/core';
+
+const r = welchTest(wildType, mutant);
+// r.p, r.effectSize (Hedges' g), r.ci, r.assumptions
+
+if (!r.assumptions.normality.passed) {
+  console.warn(r.assumptions.normality.recommendation);
+  console.log(mannWhitneyU(wildType, mutant));
+} else {
+  console.log(`Welch t(${r.df.toFixed(1)}) = ${r.t.toFixed(3)}, p = ${r.p}`);
+}
+\end{lstlisting}
+
+Finally, Listing~\ref{lst:slurm} generates the submission script for the
+continuation run. The engine argument selects the GROMACS resource shape --- one
+rank per node, many CPUs per task --- and the returned warnings report the true
+in-flight memory total for the array as well as any request the scheduler is
+likely to reject.
+
+\begin{lstlisting}[caption={Generating a GROMACS submission script with
+resource warnings.},label={lst:slurm}]
+import { generateScript } from '@stemkit/core';
+
+const { script, warnings } = generateScript({
+  engine: 'gromacs', jobName: 'prod_md', partition: 'gpu',
+  nodes: 1, gpus: 1, cpusPerTask: 16,
+  walltime: '24:00:00', memory: '32G',
+  modules: ['gcc/11.3', 'cuda/12.1', 'gromacs/2023.3'],
+  tpr: 'md.tpr', deffnm: 'md', maxh: 23.5
+});
+
+warnings.forEach(w => console.warn(`[${w.level}] ${w.message}`));
+\end{lstlisting}
+
+The same four steps performed through the browser produce identical numbers,
+because they call the same functions; the difference is only that the browser
+supplies the file through \texttt{FileReader} and renders the result. Where a
+step produces a figure, the tool also emits a matplotlib script that regenerates
+it from the original data file.
 
 % ---------------------------------------------------------------------------
-\section*{Data and Code Availability}
+\section{Impact}
+\label{sec:impact}
 
-Source code, the complete test suite, and documentation are available at
-\url{https://github.com/LD-Shell/stemkit} under the MIT licence. The browser
-tools are hosted at \url{https://stemkit.net}.
+The most direct effect of the architecture is on work that cannot currently be
+done at all with server-based tools. Analyses of unpublished results, of
+material under a confidentiality agreement, and of data held under an
+institutional policy that forbids third-party upload are all outside the reach
+of a web service, and are frequently outside the reach of local scripting too
+where the workstation is managed and package installation is blocked. Because no
+data leaves the browser, these constraints are satisfied structurally rather
+than contractually: there is no server to receive the data and consequently no
+retention policy to evaluate. For researchers in that position the relevant
+comparison is not with a faster tool but with performing the calculation by
+hand.
 
-\section*{Conflicts of Interest}
+For research questions already being pursued, the improvement is in
+reproducibility and in the reliability of the numbers. Extracting the
+computation into modules that run unchanged under Node.js means that an analysis
+first explored by clicking can be captured as a script, version-pinned and
+placed under continuous integration without being rewritten in another
+language --- the step at which reproducibility is most often lost. The emitted
+matplotlib scripts close the same loop for figures. Independently of that, the
+validation strategy raises the floor: every reported statistic is checked
+against SciPy or NumPy rather than against the authors' expectations, and the
+test suite is intended to be run by users evaluating the software, not solely by
+its maintainer, since a library whose numerical claims cannot be checked by its
+users offers reproducibility only in principle.
+
+The defects found during extraction (Section~\ref{sec:defects}) carry a wider
+lesson, and are the most useful outcome of this work. All three had survived in
+software that ran without error and produced plausible numbers. None would have
+been caught by testing the code against expectations derived from the same
+source; each surfaced only when results were compared with an independent
+implementation. A 15\% error in a reported skewness is not visible by
+inspection, and neither is a $p$-value floored at zero, which looks like a very
+strong result. Authors of scientific software --- particularly of the small,
+in-house analysis code that is rarely reviewed --- would be well advised to
+check their numerics against an independent implementation before reporting
+output.
+
+In daily practice, the change is the removal of a setup step from tasks that
+previously carried one. Checking whether an RMSD has converged, or whether a
+replicate difference survives an assumption check, becomes an operation
+performed at the moment the question arises rather than one deferred until an
+environment is available. The tools are also usable in teaching and in shared
+computing environments where installation is not an option, since a URL is the
+only prerequisite.
+
+STEMKit is released under the MIT licence, hosted at
+\url{https://stemkit.net}, developed in the open at
+\url{https://github.com/LD-Shell/stemkit} and archived for citation. It is not
+used in a commercial setting and has not led to a spin-off company; the
+client-side design does, however, make it directly applicable to industrial
+research groups whose data-handling policies preclude uploading results to a
+third-party service.
+
+% ---------------------------------------------------------------------------
+\section{Conclusions}
+\label{sec:conclusions}
+
+STEMKit is a suite of 21 browser-based tools for computational chemistry built
+on a tested, dependency-injected JavaScript core of 16 modules. The architecture
+addresses three constraints simultaneously that existing tooling addresses only
+in pairs: it requires no installation, transmits no data and remains scriptable.
+
+The privacy property is structural rather than contractual, because computation
+occurs entirely within the browser and there is no server to receive data. The
+reproducibility property follows from the separation of computation from
+presentation: the identical modules that execute behind the browser interface
+execute under Node.js, so an interactive analysis may be captured as a
+version-pinned script without rewriting. The 1075-test suite validates every
+numerical result against an independent reference, and the three defects that
+this strategy exposed --- deflated standardised moments, tail probabilities
+floored at zero, and misassigned elements in metalloproteins --- are documented,
+corrected and covered by regression tests. Future work will extend format
+coverage in the trajectory and structure modules and replace the two log-space
+fits with a Levenberg--Marquardt implementation on untransformed data.
+
+% ---------------------------------------------------------------------------
+\section*{Acknowledgements}
+
+I thank the maintainers of jStat, Papa Parse, regression.js, Plotly, KaTeX and
+3Dmol.js, whose libraries STEMKit builds upon.
+
+\section*{Declaration of competing interest}
 
 The author declares no competing financial or non-financial interests.
 
-\section*{Acknowledgements}
+%% References. The bibliography is typed inline so the manuscript compiles in a
+%% single pdflatex pass. paper.bib holds the same entries for a bibtex build,
+%% which uses \bibliographystyle{elsarticle-num} and \bibliography{paper} in
+%% place of the thebibliography environment below. Note that paper.bib keys the
+%% MDAnalysis entry as michaud-agrawal2011mdanalysis.
 
-We thank the maintainers of jStat, Papa Parse, regression.js, Plotly, KaTeX,
-and 3Dmol.js, whose libraries STEMKit builds upon.
-
-% ---------------------------------------------------------------------------
-\begin{thebibliography}{99}
+\begin{thebibliography}{00}
 
 \bibitem{abraham2015}
 M.~J. Abraham, T.~Murtola, R.~Schulz, S.~P\'{a}ll, J.~C. Smith, B.~Hess, and
@@ -819,4 +948,9 @@ W.~H. Press, S.~A. Teukolsky, W.~T. Vetterling, and B.~P. Flannery,
 
 \end{thebibliography}
 
+%% The SoftwareX template Version 6 (March 2026) no longer carries the
+%% "Current executable software version" (S1-S8) table that earlier versions
+%% included, so it is omitted here.
+
 \end{document}
+\endinput
