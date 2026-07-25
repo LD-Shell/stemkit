@@ -1,5 +1,7 @@
 # STEMKit
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21543112.svg)](https://doi.org/10.5281/zenodo.21543112)
+
 Browser-based tools for computational chemistry and scientific data work, plus
 the tested library underneath them.
 
@@ -82,8 +84,9 @@ that change reported output.
 
 ## Citing
 
-See [`paper/paper.md`](paper/paper.md) and `.zenodo.json`. A citable archive
-DOI is minted through Zenodo on release.
+Cite the archived release: [10.5281/zenodo.21543112](https://doi.org/10.5281/zenodo.21543112).
+This DOI resolves to the current version. Machine-readable metadata is in
+[`CITATION.cff`](CITATION.cff); the manuscript is in [`paper/`](paper/).
 
 ## Licence
 

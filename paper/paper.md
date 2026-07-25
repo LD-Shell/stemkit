@@ -55,7 +55,7 @@ reproducibility; data privacy
 | Nr | Code metadata description | Metadata |
 | --- | --- | --- |
 | C1 | Current code version | v0.1.0 |
-| C2 | Permanent link to code/repository used for this code version | <https://github.com/LD-Shell/stemkit> (release tag `v0.1.0`) |
+| C2 | Permanent link to code/repository used for this code version | <https://doi.org/10.5281/zenodo.21543112> (archived release `v0.1.0`); repository at <https://github.com/LD-Shell/stemkit> |
 | C3 | Legal code license | MIT License |
 | C4 | Code versioning system used | git |
 | C5 | Software code languages, tools and services used | JavaScript (ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS; GitHub Actions |
@@ -652,8 +652,10 @@ computing environments where installation is not an option, since a URL is the
 only prerequisite.
 
 STEMKit is released under the MIT licence, hosted at <https://stemkit.net>,
-developed in the open at <https://github.com/LD-Shell/stemkit> and archived for
-citation. It is not used in a commercial setting and has not led to a spin-off
+developed in the open at <https://github.com/LD-Shell/stemkit> and archived on
+Zenodo with the persistent identifier
+[10.5281/zenodo.21543112](https://doi.org/10.5281/zenodo.21543112) [@stemkit2026], which resolves to the
+current release. It is not used in a commercial setting and has not led to a spin-off
 company; the client-side design does, however, make it directly applicable to
 industrial research groups whose data-handling policies preclude uploading
 results to a third-party service.
