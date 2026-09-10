@@ -9,7 +9,14 @@
  * The content globs include the JS because several tools build markup in
  * template strings; a class that only ever appears there still has to survive
  * the purge.
+ *
+ * `fontFamily.sans` puts the vendored Inter (see src/tailwind/input.css) at
+ * the front of the default stack. Without this the pages requested the font
+ * and then never used it: Tailwind's preflight sets the system stack on
+ * <html>, and nothing in the markup overrode it.
  */
+const defaultTheme = require('tailwindcss/defaultTheme');
+
 module.exports = {
   content: [
     './*.html',
@@ -17,6 +24,12 @@ module.exports = {
     './src/**/*.js'
   ],
   darkMode: 'class',
-  theme: { extend: {} },
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Inter', ...defaultTheme.fontFamily.sans]
+      }
+    }
+  },
   plugins: []
 };
