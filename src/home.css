@@ -7,19 +7,10 @@
 --stk-shadow-lg:0 10px 15px -3px rgb(0 0 0 / .1),0 4px 6px -4px rgb(0 0 0 / .1); }
 
 .tool-card { transition: all .3s cubic-bezier(.4,0,.2,1); }
-.tool-card:hover { transform: translateY(-6px); box-shadow:0 20px 25px -5px rgba(0,0,0,.1),0 10px 10px -5px rgba(0,0,0,.04); }
-.dark .tool-card:hover { box-shadow:0 20px 25px -5px rgba(0,0,0,.5); }
-
-.hero-bg { background-image:radial-gradient(at 0% 0%,rgba(99,102,241,.08) 0,transparent 50%),radial-gradient(at 100% 0%,rgba(16,185,129,.08) 0,transparent 50%); }
-.dark .hero-bg { background-image:radial-gradient(at 0% 0%,rgba(99,102,241,.15) 0,transparent 50%),radial-gradient(at 100% 0%,rgba(16,185,129,.15) 0,transparent 50%); }
-
-@keyframes stk-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
-.animate-float { animation:stk-float 6s ease-in-out infinite; }
-.animate-float-delayed { animation:stk-float 6s ease-in-out 1.5s infinite; }
-.animate-bounce-slow { animation:stk-float 4s ease-in-out .5s infinite; }
+.tool-card:hover { transform: translateY(-2px); box-shadow:var(--stk-shadow); }
 
 html { scroll-behavior:smooth; }
-@media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} .animate-float,.animate-float-delayed,.animate-bounce-slow{animation:none} .tool-card{transition:none} }
+@media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} .tool-card{transition:none} }
 
 .stk-skip { position:absolute; left:-9999px; top:0; z-index:60; background:var(--stk-indigo); color:#fff; padding:.55rem 1rem; border-radius:.5rem; font-weight:700; font-size:.875rem; }
 .stk-skip:focus { left:.75rem; top:.75rem; }
