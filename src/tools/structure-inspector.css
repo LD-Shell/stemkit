@@ -1,97 +1,464 @@
 /*
  * structure-inspector -- tool-specific styles.
  *
- * Extracted from the inline <style> block in structure-inspector.html. Shared
- * documentation styles live in src/stemkit-docs.css; Tailwind utilities are
- * generated into src/output.css and must not be hand-edited.
+ * Shared components (.stk-*) and the design tokens come from
+ * src/tailwind/input.css; documentation furniture from src/stemkit-docs.css.
+ * Everything here is layout that only this page needs: the resizable sidebar,
+ * the viewer column with its overlays and toolbar, and a few row layouts the
+ * shared components do not cover. Colours are tokens, so the dark theme needs
+ * no twin rules.
+ *
+ * Several elements are shown and hidden by the page script with Tailwind's
+ * `.hidden` class. A rule here that sets `display` on the same element wins
+ * over `.hidden` because this file loads after src/output.css, so every such
+ * rule carries a `.hidden` (or `[hidden]`) guard beside it.
  */
 
-from { transform:translateY(100%);opacity:0 }
-to { transform:translateY(0);opacity:1 }
-0%,100% { opacity:1 }
-50% { opacity:.4 }
-.custom-scroll::-webkit-scrollbar { width:6px }
-.custom-scroll::-webkit-scrollbar-track { background:transparent }
-.custom-scroll::-webkit-scrollbar-thumb { background-color:#cbd5e1;border-radius:20px }
-.dark .custom-scroll::-webkit-scrollbar-thumb { background-color:#475569 }
-.toggle-track { position:relative;width:36px;height:20px;border-radius:999px;background:#cbd5e1;transition:background .2s;cursor:pointer;flex-shrink:0 }
-.dark .toggle-track { background:#475569 }
-.toggle-track.active { background:#6366f1 }
-.toggle-track::after { content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2) }
-.toggle-track.active::after { transform:translateX(16px) }
-#atomInfo { position:absolute;bottom:12px;left:12px;z-index:20;background:rgba(15,23,42,.88);color:#f1f5f9;backdrop-filter:blur(8px);padding:8px 14px;border-radius:10px;font-size:12px;font-family:'Inter',monospace;pointer-events:none;opacity:0;transition:opacity .2s;line-height:1.6;max-width:300px;border:1px solid rgba(255,255,255,.1) }
-#atomInfo.visible { opacity:1 }
-#measureInfo { position:absolute;top:12px;right:12px;z-index:20;background:rgba(15,23,42,.88);color:#f1f5f9;backdrop-filter:blur(8px);padding:8px 14px;border-radius:10px;font-size:11px;font-family:'Inter',monospace;transition:opacity .2s;line-height:1.6;max-width:240px;border:1px solid rgba(255,255,255,.1) }
-#measureInfo:empty { display:none }
-input[type="range"] { -webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:4px;background:#e2e8f0;outline:none }
-.dark input[type="range"] { background:#334155 }
-input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:#6366f1;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3) }
-input[type="range"]::-moz-range-thumb { width:16px;height:16px;border:none;border-radius:50%;background:#6366f1;cursor:pointer }
-.section-label { display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px }
-.dark .section-label { color:#94a3b8 }
-.sidebar-btn { background:#f1f5f9;border:none;cursor:pointer;padding:6px 0;border-radius:8px;font-size:12px;font-weight:600;color:#475569;transition:all .15s;box-shadow:0 1px 2px rgba(0,0,0,.04) }
-.dark .sidebar-btn { background:#1e293b;color:#cbd5e1 }
-.sidebar-btn:hover { background:#e0e7ff;color:#4f46e5 }
-.dark .sidebar-btn:hover { background:#312e81;color:#a5b4fc }
-.sidebar-select { width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font-size:12px;outline:none;transition:border-color .15s }
-.sidebar-select:focus { box-shadow:0 0 0 2px rgba(99,102,241,.3);border-color:#6366f1 }
-.dark .sidebar-select { background:#0f172a;border-color:#334155;color:#e2e8f0 }
-.sidebar-input { width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font-size:12px;outline:none;transition:border-color .15s }
-.dark .sidebar-input { background:#0f172a;border-color:#334155;color:#e2e8f0 }
-.sidebar-input:focus { border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.3) }
-.tab-btn { padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:none;transition:all .15s }
-.tab-btn.active { background:#6366f1;color:#fff }
-.tab-btn:not(.active) { background:#f1f5f9;color:#64748b }
-.dark .tab-btn:not(.active) { background:#1e293b;color:#94a3b8 }
-.mode-badge { position:absolute;top:12px;left:12px;z-index:20;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;backdrop-filter:blur(8px);pointer-events:none;transition:opacity .2s }
-.mode-badge.measure { background:rgba(245,158,11,.85);color:#fff }
-.perf-warning { display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;font-size:10px;font-weight:600;background:#fef3c7;color:#92400e;border:1px solid #fde68a;animation:fadeIn .2s }
-.dark .perf-warning { background:rgba(146,64,14,.15);color:#fcd34d;border-color:rgba(253,230,138,.2) }
-.range-group { display:flex;flex-direction:column;gap:4px }
-.range-row { display:flex;align-items:center;gap:8px }
-.range-row span.range-label { font-size:10px;color:#64748b;width:40px;flex-shrink:0 }
-.dark .range-row span.range-label { color:#94a3b8 }
-.range-row span.range-val { font-size:10px;color:#64748b;width:48px;text-align:right;font-variant-numeric:tabular-nums }
-.dark .range-row span.range-val { color:#94a3b8 }
-.spatial-mode-card { border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;cursor:pointer;transition:all .15s;background:#fafbfc }
-.spatial-mode-card:hover { border-color:#a5b4fc;background:#eef2ff }
-.spatial-mode-card.selected { border-color:#6366f1;background:#eef2ff;box-shadow:0 0 0 2px rgba(99,102,241,.2) }
-#busyOverlay { position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center; background:rgba(15,23,42,.55);backdrop-filter:blur(2px) }
-/* The id selector above outranks the .hidden utility class, so the hidden
-   state needs id+class specificity or the overlay can never be dismissed. */
-#busyOverlay.hidden { display:none }
-#busyOverlay .busy-card { display:flex;align-items:center;gap:.7rem;background:rgba(15,23,42,.94); color:#e2e8f0;padding:.85rem 1.2rem;border-radius:.8rem;font-size:.8rem;font-weight:600; border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 30px rgba(0,0,0,.35) }
-.busy-spin { width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.25); border-top-color:#818cf8;animation:busySpin .7s linear infinite;flex-shrink:0 }
-#labelProgress { position:absolute;bottom:12px;right:12px;z-index:25;background:rgba(67,56,202,.92); color:#e0e7ff;padding:5px 11px;border-radius:8px;font-size:10px;font-weight:700; font-variant-numeric:tabular-nums;pointer-events:none;border:1px solid rgba(255,255,255,.15) }
-.measure-row { display:flex;align-items:center;justify-content:space-between;gap:8px }
-.measure-del { background:none;border:none;color:#fca5a5;cursor:pointer;font-size:13px; line-height:1;padding:0 2px;flex-shrink:0 }
-.measure-del:hover { color:#ef4444 }
-.dark .spatial-mode-card { border-color:#334155;background:#0f172a }
-.dark .spatial-mode-card:hover { border-color:#6366f1;background:#1e1b4b }
-.dark .spatial-mode-card.selected { border-color:#818cf8;background:#1e1b4b }
-.query-example { cursor:pointer; transition:all .15s; }
-.query-example:hover { background:#6366f1 !important; color:#fff !important; border-color:#6366f1 !important; }
+/* Upload zone ------------------------------------------------------------- */
 
-@keyframes slideIn {
-  from { transform:translateY(100%);opacity:0 }
-  to { transform:translateY(0);opacity:1 }
+.si-drop { cursor: pointer; }
+.si-fetch { display: flex; gap: 0.5rem; }
+.si-fetch .stk-input { width: 11rem; }
+.si-samples { align-items: center; margin-top: 0.25rem; }
+.si-samples .stk-hint { width: 100%; }
+@media (min-width: 640px) {
+    .si-samples .stk-hint { width: auto; }
 }
 
-@keyframes fadeIn {
-  from { opacity:0;transform:translateY(4px) }
-  to { opacity:1;transform:translateY(0) }
+/* Workspace shell --------------------------------------------------------- */
+
+.si-workspace { gap: 1rem; }
+
+/* Below the desktop breakpoint the viewer comes first so a phone shows the
+   molecule before the controls, and it keeps a fixed share of the viewport so
+   the page does not jump when a structure loads. */
+.si-viewer {
+    order: -1;
+    height: 55vh;
+    min-height: 320px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    background: var(--stk-surface);
+    border: 1px solid var(--stk-border);
+    border-radius: var(--stk-radius-lg);
+    overflow: hidden;
+}
+.si-stage { position: relative; flex: 1 1 auto; min-height: 0; }
+.si-viewer:fullscreen { border: 0; border-radius: 0; background: var(--stk-bg); }
+
+.si-sidebar {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--stk-surface);
+    border: 1px solid var(--stk-border);
+    border-radius: var(--stk-radius-lg);
 }
 
-@keyframes pulse-dot {
-  0%,100% { opacity:1 }
-  50% { opacity:.4 }
+.si-desktop-only { display: none; }
+.si-handle { display: none; }
+
+@media (min-width: 1024px) {
+    .si-workspace { gap: 0; }
+    .si-viewer { order: 0; height: auto; min-height: 0; }
+    .si-sidebar { width: var(--si-sidebar-w, 320px); flex: 0 0 auto; }
+    .si-desktop-only { display: inline-flex; }
+
+    /* The drag handle is the gap between the two columns; the visible grip is
+       narrower than the hit area so it stays easy to catch. */
+    .si-handle {
+        display: block;
+        position: relative;
+        flex: 0 0 1rem;
+        cursor: col-resize;
+        touch-action: none;
+    }
+    .si-handle::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 3px;
+        height: 2.5rem;
+        border-radius: 3px;
+        background: var(--stk-border-strong);
+        transform: translate(-50%, -50%);
+        transition: background-color var(--stk-ease), height var(--stk-ease);
+    }
+    .si-handle:hover::after, .si-handle:focus-visible::after, .si-handle.is-dragging::after {
+        background: var(--stk-accent);
+        height: 4rem;
+    }
+    .si-handle:focus-visible { outline: none; }
+
+    .si-workspace.is-collapsed .si-sidebar,
+    .si-workspace.is-collapsed .si-handle { display: none; }
 }
 
-@keyframes busySpin {
-  to { transform:rotate(360deg) }
+/* Sidebar header ---------------------------------------------------------- */
+
+.si-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem 0.75rem;
+}
+.si-head-main { min-width: 0; display: flex; flex-direction: column; gap: 0.2rem; align-items: flex-start; }
+.si-head-actions { display: flex; gap: 0.15rem; flex-shrink: 0; margin: -0.25rem -0.35rem 0 0; }
+.si-file {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--stk-fg);
+    margin: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.si-meta { font-size: 0.75rem; color: var(--stk-fg-muted); margin: 0; line-height: 1.4; }
+#formatBadge:empty { display: none; }
+
+/* Conditional blocks under the header carry their own spacing so a hidden one
+   leaves no gap behind. */
+.si-head-extra > * { margin: 0 1rem 0.85rem; }
+.si-head-extra > .stk-group + .stk-group { border-top: 0; padding-top: 0; margin-top: 0; }
+
+/* Tab strip. Sticky to the top of whatever scrolls: the page on a phone (so it
+   sits under the site nav), the sidebar pane itself on desktop. */
+.si-tabs-wrap {
+    position: sticky;
+    top: 4rem;
+    z-index: 5;
+    padding: 0 0.5rem;
+    background: var(--stk-surface);
+}
+@media (min-width: 640px) { .si-tabs-wrap { top: 5rem; } }
+@media (min-width: 1024px) { .si-tabs-wrap { top: 0; } }
+
+.si-tabpanel { display: flex; flex-direction: column; padding: 1rem; }
+.si-tabpanel[hidden] { display: none; }
+
+/* Row layouts ------------------------------------------------------------- */
+
+.si-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+.si-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.35rem; }
+.si-btn-row { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+.si-btn-row > * { min-width: 0; }
+.si-grow { flex: 1 1 0; }
+.si-stack { display: flex; flex-direction: column; gap: 0.6rem; }
+.si-stack.hidden { display: none; }
+.si-check-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 1rem; }
+.si-self-start { align-self: flex-start; }
+.si-self-end { align-self: flex-end; height: var(--stk-control-h-sm); }
+.si-mt-2 { margin-top: 0.5rem; }
+.si-mt-3 { margin-top: 0.75rem; }
+.si-w-axis { width: 4.25rem; flex: 0 0 auto; }
+.si-w-unit { width: 4.5rem; flex: 0 0 auto; height: 1.75rem; }
+.si-dim { color: var(--stk-fg-faint); font-weight: 500; margin-left: 0.15rem; }
+.si-transport { display: flex; gap: 0.4rem; align-items: center; }
+
+/* A slider with its label on the left and the live value on the right. */
+.si-range-row {
+    display: grid;
+    grid-template-columns: 3.5rem minmax(0, 1fr) 3.75rem;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 1.5rem;
+}
+.si-range-row-color { grid-template-columns: 3.5rem auto minmax(0, 1fr) 3.75rem; }
+.si-range-label { font-size: 0.75rem; color: var(--stk-fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.si-range-val { font-size: 0.75rem; color: var(--stk-fg-3); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Nested block (the cross-axis clamp) set off from its parent controls. */
+.si-sub { padding: 0.6rem; border: 1px dashed var(--stk-border-strong); border-radius: var(--stk-radius); }
+.si-sub-t { font-size: 0.75rem; font-weight: 600; color: var(--stk-fg-3); }
+
+/* Native colour input, squared up to the small control height. */
+.si-color {
+    width: 1.875rem;
+    height: 1.875rem;
+    padding: 0.1rem;
+    border: 1px solid var(--stk-border-strong);
+    border-radius: var(--stk-radius-sm);
+    background: var(--stk-surface);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.si-color::-webkit-color-swatch-wrapper { padding: 0; }
+.si-color::-webkit-color-swatch { border: 0; border-radius: calc(var(--stk-radius-sm) - 2px); }
+.si-color::-moz-color-swatch { border: 0; border-radius: calc(var(--stk-radius-sm) - 2px); }
+
+/* Per-element colour list, built by the script when the custom scheme is on. */
+.si-elem-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-height: 13rem;
+    overflow-y: auto;
+    padding: 0.6rem;
+    border: 1px solid var(--stk-border);
+    border-radius: var(--stk-radius);
+    background: var(--stk-surface-2);
+}
+.si-elem-list.hidden { display: none; }
+.si-elem-row { display: grid; grid-template-columns: 2.25rem auto minmax(0, 1fr); align-items: center; gap: 0.5rem; }
+.si-elem-row > span { font-family: var(--stk-font-mono); font-size: 0.75rem; font-weight: 700; color: var(--stk-fg-2); }
+.si-elem-row > .stk-btn { justify-self: end; }
+
+/* Syntax guide inside the Tools tab. */
+.si-guide { font-size: 0.75rem; color: var(--stk-fg-muted); line-height: 1.5; }
+.si-guide > p { margin: 0.2rem 0 0.6rem; }
+.si-guide-h { font-weight: 600; color: var(--stk-fg-2); margin-top: 0.85rem; }
+.si-guide-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem 0.75rem; }
+.si-guide-grid > div { display: flex; flex-direction: column; gap: 0.2rem; align-items: flex-start; }
+.query-example {
+    display: inline-block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-family: var(--stk-font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--stk-accent-text);
+    background: var(--stk-accent-soft);
+    border: 1px solid var(--stk-accent-soft-border);
+    border-radius: var(--stk-radius-sm);
+    padding: 0.1rem 0.4rem;
+    cursor: pointer;
+    transition: background-color var(--stk-ease), color var(--stk-ease);
+}
+.query-example:hover { background: var(--stk-accent); border-color: var(--stk-accent); color: var(--stk-accent-fg); }
+.si-guide-code { display: block; margin-top: 0.4rem; padding: 0.35rem 0.5rem; }
+
+/* Export readouts. */
+.si-dims { font-size: 0.75rem; color: var(--stk-fg-3); white-space: nowrap; }
+
+/* Viewer toolbar and overlays --------------------------------------------- */
+
+/* The toolbar sits under the canvas on a phone, where floating it would cover
+   the molecule, and floats over the top-left corner from the tablet size up. */
+.si-toolbar {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: center;
+    gap: 0.15rem;
+    border-radius: 0;
+    border-width: 1px 0 0;
+    box-shadow: none;
+    overflow-x: auto;
+}
+.si-toolbar .stk-toolbar-sep { display: none; }
+/* The shared toolbar rule strips button backgrounds and, being the later of
+   two equally specific rules, also strips the pressed state; restored here. */
+.si-toolbar .stk-btn[aria-pressed="true"] {
+    background: var(--stk-accent-soft);
+    border-color: var(--stk-accent-soft-border);
+    color: var(--stk-accent-text);
+}
+.si-glyph { font-size: 0.85rem; font-weight: 700; font-family: var(--stk-font-mono); }
+@media (min-width: 640px) {
+    .si-toolbar {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        z-index: 25;
+        display: inline-flex;
+        border-radius: var(--stk-radius);
+        border-width: 1px;
+        box-shadow: var(--stk-shadow-sm);
+        overflow: visible;
+    }
+    .si-toolbar .stk-toolbar-sep { display: block; }
 }
 
-@media (min-width:768px) {
-  .stk-grid-3 { grid-template-columns:repeat(3,1fr); }
-  .stk-grid-2 { grid-template-columns:repeat(2,1fr); }
+/* Overlays share one treatment: the overlay tokens, the token radius, 12 px
+   text and a 12 px inset from the canvas edge. */
+.si-overlay, .si-badge, .si-progress, .si-measure, #busyOverlay .busy-card {
+    /* Muted text on the overlay. A fixed value rather than --stk-fg-faint,
+       which darkens with the theme while the overlay itself stays dark. */
+    --si-overlay-muted: #94a3b8;
+    background: var(--stk-overlay);
+    color: var(--stk-overlay-fg);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--stk-radius);
+    font-size: 0.75rem;
+    line-height: 1.5;
 }
+.si-overlay { position: absolute; z-index: 20; padding: 0.5rem 0.75rem; }
+
+.si-atom {
+    bottom: 12px;
+    left: 12px;
+    max-width: min(20rem, calc(100% - 24px));
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--stk-ease);
+}
+.si-atom.visible { opacity: 1; }
+.si-atom dt { color: var(--si-overlay-muted); }
+.si-atom dd { color: var(--stk-overlay-fg); }
+
+/* Status pills (measure mode, label progress) stack top-left, under the
+   floating toolbar where there is one, so they can never collide. */
+.si-status {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+    max-width: calc(100% - 24px);
+    pointer-events: none;
+}
+@media (min-width: 640px) {
+    .si-status { top: calc(12px + 2.65rem + 2px + 8px); }
+}
+.si-badge, .si-progress { padding: 0.25rem 0.6rem; font-weight: 600; }
+.si-badge.measure { background: var(--stk-warn); color: #fff; border-color: transparent; }
+.dark .si-badge.measure { color: #1c1917; }
+.si-badge.hidden, .si-progress.hidden { display: none; }
+
+/* Measurement readout. On a phone it is a strip between the canvas and the
+   toolbar, in the page's own colours, so it never covers the molecule; from
+   the tablet size up it floats over the top-right corner. */
+.si-measure {
+    flex: 0 0 auto;
+    max-height: 40%;
+    overflow-y: auto;
+    padding: 0.4rem 0.5rem 0.5rem 0.75rem;
+}
+.si-measure[hidden] { display: none; }
+.si-measure-h { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.25rem; }
+.si-measure-t { font-weight: 600; color: var(--si-overlay-muted); }
+.si-measure-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.si-measure-list li { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.si-measure-list b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.measure-row span { overflow-wrap: anywhere; }
+@media (max-width: 639px) {
+    .si-measure {
+        border-radius: 0;
+        border-width: 1px 0 0;
+        border-color: var(--stk-border);
+        background: var(--stk-surface-2);
+        color: var(--stk-fg-2);
+    }
+    .si-measure .si-measure-t, .si-measure .si-overlay-btn { color: var(--stk-fg-muted); }
+    .si-measure .si-overlay-btn:hover, .si-measure .si-overlay-btn:focus-visible { background: var(--stk-surface-3); color: var(--stk-fg); }
+    .si-measure .si-overlay-btn:focus-visible { outline-color: var(--stk-accent); }
+    .si-measure b { color: var(--stk-fg); }
+}
+@media (min-width: 640px) {
+    .si-measure {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 20;
+        max-width: min(18rem, calc(100% - 24px));
+        max-height: calc(100% - 24px);
+    }
+}
+
+/* Buttons inside a dark overlay: a ghost treatment on the overlay colours,
+   with a hit area no smaller than the icon buttons elsewhere. */
+.si-overlay-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.75rem;
+    height: 1.75rem;
+    padding: 0 0.4rem;
+    border: 0;
+    border-radius: var(--stk-radius-sm);
+    background: transparent;
+    color: var(--si-overlay-muted);
+    font: inherit;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color var(--stk-ease), color var(--stk-ease);
+}
+.si-overlay-btn:hover, .si-overlay-btn:focus-visible { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.si-overlay-btn:focus-visible { outline: 2px solid var(--stk-overlay-fg); outline-offset: 1px; }
+.measure-del { font-size: 0.85rem; }
+
+/* Busy overlay for synchronous work that cannot be chunked. An id selector
+   outranks Tailwind's `.hidden`, so the hidden state is spelled out. */
+#busyOverlay {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(2, 6, 23, 0.45);
+    cursor: pointer;
+}
+#busyOverlay.hidden { display: none; }
+#busyOverlay .busy-card {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.75rem 1.1rem;
+    font-weight: 600;
+    box-shadow: var(--stk-shadow-lg);
+}
+.busy-spin {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    border-top-color: var(--stk-overlay-fg);
+    animation: si-spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+@keyframes si-spin { to { transform: rotate(360deg); } }
+
+/* Shortcut sheet ---------------------------------------------------------- */
+
+.si-keys {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.55rem 1rem;
+    align-items: center;
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--stk-fg-2);
+}
+.si-keys dt { display: flex; justify-content: flex-end; }
+.si-keys dd { margin: 0; }
+
+/* Full-page drop target ---------------------------------------------------- */
+
+.si-drop-indicator {
+    position: fixed;
+    inset: 0;
+    z-index: 95;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: var(--stk-overlay);
+    pointer-events: none;
+}
+.si-drop-indicator[hidden] { display: none; }
+.si-drop-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.25rem 1.75rem;
+    border: 2px dashed var(--stk-overlay-fg);
+    border-radius: var(--stk-radius-xl);
+    color: var(--stk-overlay-fg);
+    font-size: 1rem;
+    font-weight: 600;
+}
+.si-drop-card i { font-size: 1.5rem; }
+
+/* Toasts: the shared component, plus a fade-out the script triggers. */
+.stk-toast.is-leaving { opacity: 0; transition: opacity 300ms ease; }
