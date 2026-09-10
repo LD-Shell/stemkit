@@ -54,13 +54,6 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
 .doc-tab.active:hover { background:#be123c; color:#fff; }
 .doc-pane { display:none; }
 .doc-pane.active { display:block; animation:docfade .2s ease; }
-from { opacity:0; transform:translateY(4px); }
-to { opacity:1; transform:none; }
-
-@media (min-width:768px) {
-  .stk-grid-3 { grid-template-columns:repeat(3,1fr); }
-  .stk-grid-2 { grid-template-columns:repeat(2,1fr); }
-}
 
 @keyframes docfade {
   from { opacity:0; transform:translateY(4px); }
@@ -68,16 +61,8 @@ to { opacity:1; transform:none; }
 }
 
 @media (max-width: 640px) {
-  .stk-section { padding: 2rem 0; }
-  .stk-wrap { padding-left: 1rem; padding-right: 1rem; }
-  .stk-h2 { font-size: 1.3rem; }
-  .stk-math { font-size: 0.9rem; padding: 0.8rem; }
-  .stk-table { font-size: 0.78rem; }
-  .stk-table th, .stk-table td { padding: 0.4rem 0.5rem; }
   .doc-tab { font-size: 0.78rem; padding: 0.4rem 0.7rem; }
   .doc-tabs { gap: 0.3rem; }
-  .stk-grid-2, .stk-grid-3 { grid-template-columns: 1fr; }
-  .stk-section code { white-space: normal; word-break: break-word; }
 }
 
 /* The Python-script modal ships with Tailwind's `hidden` and is revealed by
