@@ -11,16 +11,9 @@
 .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
 .dark .table-container::-webkit-scrollbar-track { background: #0f172a; }
 .dark .table-container::-webkit-scrollbar-thumb { background: #334155; }
-from { transform: translateY(100%); opacity: 0; }
-to { transform: translateY(0); opacity: 1; }
 .toast-enter { animation: slideIn 0.3s forwards; }
 
 @keyframes slideIn {
   from { transform: translateY(100%); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
-}
-
-@media (min-width:768px) {
-  .stk-grid-3 { grid-template-columns:repeat(3,1fr); }
-  .stk-grid-2 { grid-template-columns:repeat(2,1fr); }
 }
