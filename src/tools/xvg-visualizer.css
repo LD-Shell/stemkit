@@ -15,8 +15,3 @@
 .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
 .dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
 #xvgCodeModal.open { display:flex; }
-
-@media (min-width:768px) {
-  .stk-grid-3 { grid-template-columns:repeat(3,1fr); }
-  .stk-grid-2 { grid-template-columns:repeat(2,1fr); }
-}
