@@ -6,8 +6,6 @@
  * generated into src/output.css and must not be hand-edited.
  */
 
-from { transform: translateY(100%); opacity: 0; }
-to { transform: translateY(0); opacity: 1; }
 .toast-enter { animation: slideIn 0.3s forwards; }
 .table-container::-webkit-scrollbar { width: 6px; height: 6px; }
 .table-container::-webkit-scrollbar-track { background: transparent; }
@@ -38,12 +36,7 @@ to { transform: translateY(0); opacity: 1; }
 .mf-defs dt .katex { font-size:1em; }
 .mf-defs dd { margin:0; font-size:.82rem; color:#64748b; line-height:1.5; }
 .dark .mf-defs dd { color:#94a3b8; }
-0% { box-shadow:0 0 0 0 rgba(99,102,241,.55); }
-70% { box-shadow:0 0 0 10px rgba(99,102,241,0); }
-100% { box-shadow:0 0 0 0 rgba(99,102,241,0); }
 .run-pulse { animation: runPulse 1.4s ease-out 1; }
-0%, 100% { box-shadow:0 0 0 0 rgba(99,102,241,0); }
-50% { box-shadow:0 0 0 5px rgba(99,102,241,.25); }
 #exampleBtn.run-pulse { animation: hintPulse 1.8s ease-in-out 3; }
 .eb-samples { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin-bottom:1rem; }
 .eb-samples-label { font-size:.72rem; font-weight:700; color:#64748b; white-space:nowrap; }
@@ -74,11 +67,6 @@ to { transform: translateY(0); opacity: 1; }
 @keyframes slideIn {
   from { transform: translateY(100%); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
-}
-
-@media (min-width:768px) {
-  .stk-grid-3 { grid-template-columns:repeat(3,1fr); }
-  .stk-grid-2 { grid-template-columns:repeat(2,1fr); }
 }
 
 @keyframes runPulse {
