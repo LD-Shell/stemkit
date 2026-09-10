@@ -12,8 +12,3 @@
 .dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
 .hl-change { background-color: rgba(236, 72, 153, 0.2); border-bottom: 2px solid #ec4899; padding: 0 2px; border-radius: 2px; }
 .hl-unknown { background-color: rgba(245, 158, 11, 0.15); border-bottom: 2px dotted #f59e0b; padding: 0 2px; border-radius: 2px; cursor: help; }
-
-@media (min-width:768px) {
-  .stk-grid-3 { grid-template-columns:repeat(3,1fr); }
-  .stk-grid-2 { grid-template-columns:repeat(2,1fr); }
-}
