@@ -6,8 +6,6 @@
  * generated into src/output.css and must not be hand-edited.
  */
 
-from { transform: translateY(100%); opacity: 0; }
-to { transform: translateY(0); opacity: 1; }
 .toast-enter { animation: slideIn 0.3s forwards; }
 .duplicate-group { transition: all 0.3s ease; }
 .duplicate-group.resolved { opacity: 0.5; filter: grayscale(100%); pointer-events: none; }
@@ -15,9 +13,4 @@ to { transform: translateY(0); opacity: 1; }
 @keyframes slideIn {
   from { transform: translateY(100%); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
-}
-
-@media (min-width:768px) {
-  .stk-grid-3 { grid-template-columns:repeat(3,1fr); }
-  .stk-grid-2 { grid-template-columns:repeat(2,1fr); }
 }
