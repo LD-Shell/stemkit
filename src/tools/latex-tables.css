@@ -25,16 +25,9 @@
 .dark .preview-table.booktabs thead { border-top: 2px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; }
 .preview-table.booktabs tbody tr:last-child { border-bottom: 2px solid #334155; }
 .dark .preview-table.booktabs tbody tr:last-child { border-bottom: 2px solid #cbd5e1; }
-from { transform: translateY(100%); opacity: 0; }
-to { transform: translateY(0); opacity: 1; }
 .toast-enter { animation: slideIn 0.3s forwards; }
 
 @keyframes slideIn {
   from { transform: translateY(100%); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
-}
-
-@media (min-width:768px) {
-  .stk-grid-3 { grid-template-columns:repeat(3,1fr); }
-  .stk-grid-2 { grid-template-columns:repeat(2,1fr); }
 }
