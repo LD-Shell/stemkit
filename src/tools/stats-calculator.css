@@ -6,8 +6,6 @@
  * generated into src/output.css and must not be hand-edited.
  */
 
-from { transform: translateY(100%); opacity: 0; }
-to { transform: translateY(0); opacity: 1; }
 .toast-enter { animation: slideIn 0.3s forwards; }
 #theoryContainer .katex-mathml, .katex .katex-mathml { position:absolute !important; clip:rect(1px,1px,1px,1px) !important; padding:0 !important; border:0 !important; height:1px !important; width:1px !important; overflow:hidden !important; }
 #theoryContainer .katex-display { margin:.35rem 0; }
@@ -43,9 +41,6 @@ to { transform: translateY(0); opacity: 1; }
 .tut-chip:hover { background:#4f46e5; color:#fff; border-color:#4f46e5; box-shadow:0 2px 8px rgba(79,70,229,.25); transform:translateY(-1px); }
 .dark .tut-chip { background:rgba(15,23,42,.6); color:#a5b4fc; border-color:rgba(129,140,248,.35); }
 .dark .tut-chip:hover { background:#4f46e5; color:#fff; border-color:#4f46e5; }
-0% { box-shadow:0 0 0 0 rgba(99,102,241,.55); }
-70% { box-shadow:0 0 0 10px rgba(99,102,241,0); }
-100% { box-shadow:0 0 0 0 rgba(99,102,241,0); }
 .run-pulse { animation: runPulse 1.4s ease-out 1; }
 .hl { color:#4f46e5; font-weight:600; }
 .dark .hl { color:#818cf8; }
