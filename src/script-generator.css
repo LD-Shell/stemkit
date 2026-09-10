@@ -1,288 +1,185 @@
-.accordion-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; max-height: 0; opacity: 0; overflow: hidden; }
-.accordion-content.expanded { max-height: 800px; opacity: 1; overflow: visible; }
-.accordion-icon { transition: transform 0.3s ease; }
-.accordion-btn[aria-expanded="true"] .accordion-icon { transform: rotate(180deg); }
+/*
+ * MD workflow generator: tool-specific styles.
+ *
+ * The builder is assembled from the shared components in
+ * src/tailwind/input.css and the documentation sections from
+ * src/stemkit-docs.css; both read the design tokens, so re-pointing the accent
+ * on <body> is what gives every control the tool's rose. What remains here is
+ * the layout those components do not cover (the settings/output split, the
+ * always-dark code panes) and the PLUMED builder cards, whose markup is
+ * generated at run time.
+ */
 
-.custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-.custom-scroll::-webkit-scrollbar-track { background: transparent; }
-.custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
-.dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
+body {
+  --stk-accent: #e11d48;
+  --stk-accent-hover: #be123c;
+  --stk-accent-text: #be123c;
+  --stk-accent-soft: #fff1f2;
+  --stk-accent-soft-border: #fecdd3;
+  --stk-ring: rgba(225, 29, 72, .35);
+}
+.dark body {
+  --stk-accent: #f43f5e;
+  --stk-accent-hover: #fb7185;
+  --stk-accent-text: #fda4af;
+  --stk-accent-soft: rgba(244, 63, 94, .16);
+  --stk-accent-soft-border: rgba(251, 113, 133, .35);
+  --stk-ring: rgba(251, 113, 133, .45);
+}
 
-/* ==============================================================
-Builder layout: keep the generated script visible while the
-settings scroll.
+/* The hidden attribute must beat a component's own display value, otherwise
+   a .stk-field { display:flex } stays visible with hidden set. */
+#builderLayout [hidden], .sg-jump[hidden] { display: none !important; }
 
-Wide screens (>=1024px): two independent columns. The utility
-classes already do this, but the fixed calc() height can crush
-the panes on short laptops, so clamp it here instead.
+/* ---------------------------------------------------------------------------
+   Engine strip and settings actions
+--------------------------------------------------------------------------- */
+.sg-strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem; }
+.sg-strip-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+@media (max-width: 479.98px) {
+  .sg-engines { display: flex; width: 100%; }
+  .sg-strip-actions { width: 100%; }
+  .sg-strip-actions .stk-btn { flex: 1 1 auto; }
+}
 
-Narrow / stacked (<1024px): the columns stack into one page
-scroll, so the output would disappear above the fold. Dock it
-to the bottom of the viewport as a sticky preview instead.
-============================================================== */
+/* ---------------------------------------------------------------------------
+   Builder layout
+   ---------------------------------------------------------------------------
+   Under 1024px the columns stack and the output follows the form. From
+   1024px the form flows with the page while the output column sticks to the
+   viewport under the 5rem navigation bar, so the script stays in view while
+   the settings scroll past.
+--------------------------------------------------------------------------- */
+.sg-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.sg-settings, .sg-panel-group { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.sg-form { display: flex; flex-direction: column; gap: .85rem; }
+.sg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.sg-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sg-grid-span { grid-column: 1 / -1; }
+@media (max-width: 479.98px) {
+  .sg-grid, .sg-grid-3 { grid-template-columns: minmax(0, 1fr); }
+}
+.sg-option { display: flex; flex-direction: column; gap: .6rem; padding-top: .75rem; border-top: 1px solid var(--stk-border); }
+.sg-option > .stk-group-t { margin-bottom: -.2rem; }
+.sg-check-block { align-items: flex-start; line-height: 1.45; }
+.sg-check-block input { margin-top: .2rem; }
+.sg-checks .stk-check code, .stk-check code { font-family: var(--stk-font-mono); font-size: .9em; }
+.sg-panel-tools { display: inline-flex; align-items: center; gap: .5rem; flex-shrink: 0; }
+.sg-inline-select { display: inline-flex; align-items: center; gap: .35rem; font-size: .75rem; color: var(--stk-fg-muted); }
+.sg-inline-select .stk-select { width: auto; padding-right: 1.6rem; background-position: right .4rem center; }
+.sg-link { color: var(--stk-accent-text); font-weight: 600; text-decoration: none; }
+.sg-link:hover { text-decoration: underline; }
+.stk-hint code, .stk-switch-row code { font-family: var(--stk-font-mono); font-size: .92em; }
+
+/* Warnings: one line per message inside the shared callout. */
+.sg-warn-list { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+.sg-warn-list p { margin: 0; overflow-wrap: anywhere; }
+.sg-warn-list code { font-family: var(--stk-font-mono); font-size: .92em; }
+
+/* Resource summary under the cluster form. */
+.sg-summary { display: flex; flex-wrap: wrap; gap: .3rem 1rem; margin: 0; padding: .6rem .8rem; border-radius: var(--stk-radius); background: var(--stk-surface-2); border: 1px solid var(--stk-border); font-size: .75rem; line-height: 1.4; }
+.sg-summary > div { display: flex; gap: .35rem; align-items: baseline; }
+.sg-summary dt { color: var(--stk-fg-muted); }
+.sg-summary dd { margin: 0; color: var(--stk-fg); font-weight: 600; }
+
+/* ---------------------------------------------------------------------------
+   Output column
+   ---------------------------------------------------------------------------
+   The code panes stay dark in both themes: a script is easier to read on a
+   dark ground and the colouring needs only one palette. Headers, footers and
+   borders use the tokens so the panels still belong to the page.
+--------------------------------------------------------------------------- */
+.sg-output { display: flex; flex-direction: column; gap: .75rem; min-width: 0; }
+.sg-out { display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.sg-out-h { flex-shrink: 0; flex-wrap: wrap; row-gap: .4rem; padding: .5rem .75rem .5rem 1rem; }
+.sg-out-actions { display: flex; gap: .4rem; flex-shrink: 0; }
+.sg-out-body { flex: 1 1 auto; min-height: 0; overflow: auto; background: #0b1120; color: #e2e8f0; }
+.sg-code { margin: 0; padding: .85rem 1rem; font-family: var(--stk-font-mono); font-size: .75rem; line-height: 1.55; white-space: pre; tab-size: 4; }
+.sg-code .tok-c { color: #8b9bb4; }
+.sg-code .tok-d { color: #fda4af; }
+.sg-code .tok-v { color: #7dd3fc; }
+.sg-code .tok-s { color: #fde68a; }
+.sg-out-f { flex-shrink: 0; padding: .45rem 1rem; border-top: 1px solid var(--stk-border); font-size: .75rem; line-height: 1.45; color: var(--stk-fg-muted); }
+.sg-out-f code { font-family: var(--stk-font-mono); color: var(--stk-fg); }
+.sg-out-f:empty { display: none; }
+
+/* Split handle between the two panes; a pointer target 12px tall around a
+   4px bar. Only meaningful in the two-column layout. */
+.sg-split { display: none; position: relative; height: .75rem; margin: -.125rem 0; flex-shrink: 0; cursor: row-resize; border-radius: var(--stk-radius-sm); }
+.sg-split::before { content: ""; position: absolute; left: 50%; top: 50%; width: 3rem; height: 4px; margin: -2px 0 0 -1.5rem; border-radius: 999px; background: var(--stk-border-strong); transition: background-color var(--stk-ease); }
+.sg-split:hover::before, .sg-split.is-dragging::before, .sg-split:focus-visible::before { background: var(--stk-accent); }
+
+@media (max-width: 1023.98px) {
+  #scriptBox .sg-out-body { height: 50vh; }
+  .sg-out-top .sg-out-body { height: 40vh; }
+  /* Room for the fixed "View script" button under the last field. */
+  .sg-settings { padding-bottom: 2.5rem; }
+}
 @media (min-width: 1024px) {
-#builderLayout {
-    /* Never shorter than 32rem, never taller than the viewport
-    minus the page chrome, avoids a crushed pane on 768px-tall
-    laptops while still filling large displays. */
-    height: clamp(32rem, calc(100vh - 16rem), 100vh);
-    min-height: 32rem;
+  .sg-layout { grid-template-columns: 420px minmax(0, 1fr); }
+  /* The script sets --sg-col-h to what is left of the viewport below the
+     column, so the whole column is on screen at every scroll position; the
+     floor only matters on a very short window. */
+  .sg-output { position: sticky; top: 6rem; height: var(--sg-col-h, calc(100vh - 7rem)); min-height: 18rem; }
+  #scriptBox { flex: 1 1 0; min-height: 10rem; }
+  .sg-out-top { flex: 0 0 auto; height: var(--sg-top-h, 34%); min-height: 7rem; max-height: 70%; }
+  .sg-split { display: block; }
 }
-#settingsColumn { overflow-y: auto; }
-#outputColumn   { min-height: 0; height: 100%; }
-}
-@media (max-width: 1023.98px) {
-/* The docked panel breaks out of the page gutter with negative
-margins; this guard stops that ever producing a horizontal
-scrollbar on browsers where 50vw includes the scrollbar. */
-html, body { overflow-x: hidden; }
-}
-@media (max-width: 1023.98px) {
-/* Stacked: the script docks to the bottom and stays on screen
-while the settings above it scroll past.
 
-The dock needs an EXPLICIT height, not just a cap: a sticky
-element sizes to its content, and with no definite height the
-inner code area collapses to nothing. */
-#outputColumn {
-    position: sticky;
-    bottom: 0;
-    z-index: 30;
-    height: 38vh;              /* ~1/3 of the screen */
-    min-height: 13rem;         /* never smaller than ~3 code lines + header */
-    max-height: 60vh;
-    /* Break out of the page gutter so the dock spans the full
-    viewport width instead of being inset like a card. Uses
-    100% + negative margins rather than 100vw, because 100vw
-    includes the scrollbar and would cause horizontal overflow. */
-    width: auto;
-    margin-left: calc(50% - 50vw);
-    margin-right: calc(50% - 50vw);
-    padding: .5rem .75rem 0;
-    box-sizing: border-box;
-    background: rgba(248,250,252,.96);
-    backdrop-filter: blur(6px);
-    border-top: 1px solid rgba(148,163,184,.35);
-    box-shadow: 0 -8px 20px -12px rgba(2,6,23,.45);
-    gap: .5rem;
+/* "View script" on stacked layouts: fixed at the bottom centre, shown only
+   while the output column is off screen. */
+.sg-jump { position: fixed; left: 50%; bottom: 1rem; transform: translateX(-50%); z-index: 40; box-shadow: var(--stk-shadow); }
+@media (min-width: 1024px) { .sg-jump { display: none !important; } }
+
+/* ---------------------------------------------------------------------------
+   Help badges and their floating tooltip
+--------------------------------------------------------------------------- */
+.plumed-help { display: inline-flex; align-items: center; justify-content: center; width: 1rem; height: 1rem; margin-left: .1rem; border-radius: 999px; background: var(--stk-accent-soft); border: 1px solid var(--stk-accent-soft-border); color: var(--stk-accent-text); font-size: 11px; font-weight: 700; line-height: 1; cursor: help; user-select: none; flex-shrink: 0; vertical-align: -.1em; }
+.plumed-help:hover { background: var(--stk-accent-soft-border); }
+/* Appended to <body> and positioned by script, so a scrolling panel can never
+   clip it. */
+#plumedTooltip { position: fixed; z-index: 9999; width: 260px; max-width: 80vw; padding: .65rem .75rem; border-radius: var(--stk-radius); border: 1px solid var(--stk-border-strong); background: var(--stk-fg); color: var(--stk-bg); font-size: 13px; font-weight: 400; line-height: 1.5; text-align: left; letter-spacing: 0; text-transform: none; white-space: normal; box-shadow: var(--stk-shadow-lg); opacity: 0; visibility: hidden; transition: opacity .12s ease; pointer-events: none; }
+#plumedTooltip.show { opacity: 1; visibility: visible; }
+.dark #plumedTooltip { background: var(--stk-surface-2); color: var(--stk-fg); }
+
+/* ---------------------------------------------------------------------------
+   PLUMED CV builder cards (markup generated by js/script-generator.js)
+--------------------------------------------------------------------------- */
+.sg-cv-list { display: flex; flex-direction: column; gap: .6rem; }
+#plumedCVList label, #plumedBiasParams label { font-size: 11px; line-height: 1.3; font-weight: 600; }
+#plumedCVList label { color: var(--stk-fg-muted); }
+#plumedCVList input[type="text"], #plumedCVList select, #plumedCVList textarea, #plumedBiasParams input[type="text"] {
+  font-size: 12px; line-height: 1.3; padding: 4px 6px; margin-top: 2px; font-family: var(--stk-font-mono);
 }
-.dark #outputColumn {
-    background: rgba(2,6,23,.96);
-    border-top-color: rgba(51,65,85,.6);
-}
-/* Inner boxes: allow shrinking, share the docked height, and keep
-their own internal scroll so the code stays reachable. */
-#outputColumn > div { min-height: 0; }
-#outputColumn > div:not(.hidden) { flex: 1 1 0; min-height: 0; }
-#outputColumn #topologyOutputBox { height: auto; min-height: 0; }
-/* The scrollable code body must be free to fill what is left after
-the header bar, and must not be squeezed to zero. */
-#outputColumn .dock-body {
-    flex: 1 1 auto;
-    min-height: 4.5rem;
-    overflow: auto;
-    padding: .625rem .75rem;
-}
-#outputColumn pre  { margin: 0; }
-#outputColumn code { font-size: 10.5px; line-height: 1.45; }
-/* The header bar must keep its natural height and never grow,
-so whatever remains belongs to the code body. (Tailwind's
-shrink-0 is not available here.) */
-#outputColumn > div > div:first-child { flex: 0 0 auto; }
-/* Each box is a column so header + body stack correctly. */
-#outputColumn > div:not(.hidden) { display: flex; flex-direction: column; }
-/* Give the settings column breathing room above the docked panel. */
-#settingsColumn { padding-bottom: .5rem; }
-}
-/* Phones: a touch shorter, and the header/buttons tighten up. */
+#plumedCVList p, #plumedBiasParams p { font-size: 11px; line-height: 1.4; }
+#plumedCVList .plumed-cv-example { font-size: 11px; line-height: 1.45; }
+#plumedCVDesc .plumed-cv-example { font-size: 12px; line-height: 1.5; }
+#plumedCVDesc .plumed-cv-gate, #plumedCVList .plumed-cv-gate { display: inline-block; font-size: 11px; line-height: 1.4; color: var(--stk-warn); }
+/* Fields the active bias makes redundant: visible but disabled. */
+#plumedCVList .plumed-field-off { opacity: .45; }
+#plumedCVList .plumed-field-off input, #plumedCVList .plumed-field-off select { background: var(--stk-surface-3) !important; color: var(--stk-fg-faint) !important; cursor: not-allowed; text-decoration: line-through; }
+#plumedCVList .plumed-field-off label { text-decoration: line-through; }
+#plumedCVDesc a.plumed-doclink, #plumedCVList a.plumed-doclink { color: var(--stk-accent-text); font-weight: 600; text-decoration: none; }
+#plumedCVDesc a.plumed-doclink:hover, #plumedCVList a.plumed-doclink:hover { text-decoration: underline; }
+
+/* ---------------------------------------------------------------------------
+   Documentation: the per-engine tabs in the method section
+--------------------------------------------------------------------------- */
+.hl { color: var(--stk-accent-text); font-weight: 600; }
+.doc-tabs { display: flex; flex-wrap: wrap; gap: .4rem; margin: 1.25rem 0 1.75rem; border-bottom: 1px solid var(--stk-border); padding-bottom: .75rem; }
+.doc-tab { display: inline-flex; align-items: center; gap: .45rem; font-size: .85rem; font-weight: 700; padding: .5rem .95rem; border-radius: var(--stk-radius); cursor: pointer; border: 1px solid transparent; color: var(--stk-fg-muted); background: transparent; transition: background-color var(--stk-ease), color var(--stk-ease); }
+.doc-tab:hover { background: var(--stk-surface-2); color: var(--stk-fg); }
+.doc-tab.active { background: var(--stk-accent); color: var(--stk-accent-fg); border-color: var(--stk-accent); }
+.doc-tab.active:hover { background: var(--stk-accent-hover); color: var(--stk-accent-fg); }
+.doc-pane { display: none; }
+.doc-pane.active { display: block; }
+.doc-pane ul.sg-list { font-size: .88rem; color: var(--stk-fg-muted); line-height: 1.7; padding-left: 1.1rem; margin-top: .6rem; }
+/* The directive mapping table never breaks a directive mid-token: each
+   directive is its own <code>, cells wrap between them, and on a phone the
+   table scrolls sideways inside its wrapper instead. */
+.sg-map { min-width: 60rem; }
+.sg-map code { white-space: nowrap !important; overflow-wrap: normal !important; }
 @media (max-width: 640px) {
-#outputColumn {
-    height: 33vh;              /* one third of the screen */
-    min-height: 11.5rem;
-    max-height: 50vh;
-    padding: .375rem .5rem 0;
+  .doc-tab { font-size: .78rem; padding: .4rem .7rem; }
+  .doc-tabs { gap: .3rem; }
 }
-#outputColumn .dock-body { padding: .5rem .625rem; min-height: 4rem; }
-#outputColumn code { font-size: 10px; }
-/* Two docked boxes will not fit on a phone; the primary script wins
-and the topology box is reachable by collapsing the dock. */
-#outputColumn #topologyOutputBox { display: none; }
-}
-/* The dock collapse control only applies to the stacked layout. */
-.dock-toggle-btn { display: none; }
-@media (max-width: 1023.98px) {
-.dock-toggle-btn { display: inline-flex; }
-/* Collapsed: only the header bar remains, freeing the screen for
-the settings while keeping the script one tap away. Must override
-the explicit height set above. */
-#outputColumn.dock-collapsed {
-    height: auto;
-    min-height: 0;
-    max-height: none;
-}
-#outputColumn.dock-collapsed .dock-body { display: none; }
-#outputColumn.dock-collapsed #topologyOutputBox { display: none; }
-#outputColumn.dock-collapsed > div:not(.hidden) { flex: 0 0 auto; min-height: 0; }
-}
-
-/* STEMKit docs / how-to / FAQ, self-contained styles (shared look with other tools) */
-.stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
-.stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
-.stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;
-        text-transform:uppercase; letter-spacing:.12em; padding:.3rem .7rem; border-radius:9999px;
-        background:#ffe4e6; color:#be123c; border:1px solid #fecdd3; }
-.dark .stk-chip { background:rgba(190,18,60,.18); color:#fda4af; border-color:rgba(244,63,94,.3); }
-.stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
-.stk-lead { max-width:48rem; color:#64748b; line-height:1.6; }
-.dark .stk-lead { color:#94a3b8; }
-.stk-grid { display:grid; gap:1rem; grid-template-columns:1fr; margin-top:1.5rem; }
-@media (min-width:768px){ .stk-grid-3{grid-template-columns:repeat(3,1fr);} .stk-grid-2{grid-template-columns:repeat(2,1fr);} }
-.stk-card { border-radius:1rem; border:1px solid rgba(148,163,184,.25); padding:1.4rem; background:#fff; }
-.dark .stk-card { background:#0f172a; border-color:rgba(51,65,85,.8); }
-.stk-step { display:flex; gap:.85rem; align-items:flex-start; }
-.stk-num { width:2rem; height:2rem; border-radius:9999px; display:inline-flex; align-items:center;
-    justify-content:center; font-weight:800; font-size:.85rem; flex-shrink:0;
-    background:#f43f5e; color:#fff; }
-.stk-step h3 { font-weight:700; font-size:.95rem; margin-bottom:.15rem; }
-.stk-step p { font-size:.85rem; color:#64748b; line-height:1.5; }
-.dark .stk-step p { color:#94a3b8; }
-.stk-note { display:flex; gap:.6rem; align-items:flex-start; font-size:.82rem; line-height:1.55;
-        background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:.75rem; padding:.9rem 1rem; }
-.dark .stk-note { background:rgba(120,53,15,.15); border-color:rgba(180,83,9,.4); color:#fcd34d; }
-.stk-faq { border-bottom:1px solid rgba(148,163,184,.22); }
-.stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 2.5rem 1rem 0; font-weight:600; font-size:.95rem;
-                position:relative; line-height:1.5; }
-.stk-faq > summary::-webkit-details-marker { display:none; }
-.stk-faq > summary::after { content:"+"; font-weight:700; color:#f43f5e; font-size:1.2rem; line-height:1;
-                        position:absolute; right:0; top:1rem; }
-.stk-faq[open] > summary::after { content:"\2212"; }
-.plumed-help { position:relative; display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px;
-border-radius:9999px; background:#fecdd3; color:#be123c; font-size:10px; font-weight:800;
-cursor:help; user-select:none; flex-shrink:0; line-height:1; }
-.dark .plumed-help { background:rgba(190,18,60,.35); color:#fda4af; }
-.plumed-help:hover { background:#fda4af; }
-/* Floating tooltip (appended to <body>, so it can never be clipped by a
-scrolling panel). Positioned with fixed coords by JS. */
-#plumedTooltip {
-position:fixed; z-index:9999; width:260px; max-width:80vw;
-background:#0f172a; color:#f1f5f9;
-font-size:13px; font-weight:400; line-height:1.5; text-align:left; letter-spacing:0;
-padding:.65rem .75rem; border-radius:.55rem; border:1px solid rgba(148,163,184,.35);
-box-shadow:0 12px 30px rgba(0,0,0,.4); white-space:normal; text-transform:none;
-opacity:0; visibility:hidden; transition:opacity .12s ease; pointer-events:none;
-font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-#plumedTooltip.show { opacity:1; visibility:visible; }
-.dark #plumedTooltip { background:#1e293b; border-color:rgba(51,65,85,.9); }
-/* -----------------------------------------------------------------
-PLUMED CV-builder cards: self-contained sizing so the dynamically
-generated cards render correctly even if the Tailwind utility layer
-is unavailable. Scoped to the builder containers only.
------------------------------------------------------------------- */
-#plumedCVList label, #plumedBiasParams label { font-size:9px; line-height:1.3; font-weight:700; }
-#plumedCVList label { color:#94a3b8; }
-#plumedCVList input[type="text"],
-#plumedCVList select,
-#plumedCVList textarea,
-#plumedBiasParams input[type="text"] {
-font-size:11px; line-height:1.3; padding:4px 6px; margin-top:2px;
-font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-#plumedCVList p, #plumedBiasParams p { font-size:9px; line-height:1.35; }
-#plumedCVList .plumed-cv-typelabel { font-size:10px; font-weight:800; text-transform:uppercase; }
-#plumedCVList .plumed-cv-example { font-size:10px; line-height:1.45; }
-#plumedCVList .plumed-cv-example code { font-size:9.5px; }
-#plumedCVDesc .plumed-cv-example { font-size:11px; line-height:1.5; }
-#plumedCVDesc .plumed-cv-gate, #plumedCVList .plumed-cv-gate { display:inline-block; font-size:10px; line-height:1.4; color:#b45309; }
-.dark #plumedCVDesc .plumed-cv-gate, .dark #plumedCVList .plumed-cv-gate { color:#fbbf24; }
-/* Bias-redundant CV fields: visible but disabled ("blacked out"). */
-#plumedCVList .plumed-field-off { opacity:.45; }
-#plumedCVList .plumed-field-off input,
-#plumedCVList .plumed-field-off select {
-background:#e2e8f0 !important; color:#94a3b8 !important; cursor:not-allowed;
-text-decoration:line-through; }
-.dark #plumedCVList .plumed-field-off input,
-.dark #plumedCVList .plumed-field-off select {
-background:#1e293b !important; color:#64748b !important; }
-#plumedCVList .plumed-field-off label { text-decoration:line-through; }
-#plumedCVDesc a.plumed-doclink, #plumedCVList a.plumed-doclink {
-color:#be123c; font-weight:600; text-decoration:none; }
-#plumedCVDesc a.plumed-doclink:hover, #plumedCVList a.plumed-doclink:hover { text-decoration:underline; }
-.dark #plumedCVDesc a.plumed-doclink, .dark #plumedCVList a.plumed-doclink { color:#fda4af; }
-.stk-faq > div { padding:0 0 1.1rem; font-size:.88rem; line-height:1.6; color:#475569; }
-.dark .stk-faq > div { color:#94a3b8; }
-.stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem; }
-.stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600;
-        color:#be123c; text-decoration:none; border:1px solid #fecdd3; background:#ffe4e6;
-        padding:.4rem .8rem; border-radius:.6rem; }
-.dark .stk-refs a { color:#fda4af; background:rgba(190,18,60,.15); border-color:rgba(244,63,94,.3); }
-.stk-refs a:hover { text-decoration:underline; }
-.stk-byline { font-size:.8rem; color:#94a3b8; margin-top:.35rem; }
-.stk-credit { margin-top:2rem; font-size:.8rem; color:#94a3b8; }
-
-.stk-math { overflow-x:auto; padding:1rem 1.1rem; margin:.6rem 0 1rem; border:1px solid rgba(148,163,184,.25);
-        border-radius:.75rem; background:#f8fafc; font-size:1.1rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
-.dark .stk-math { background:#0f172a; }
-.stk-eqn-label { font-size:.9rem; font-weight:600; color:#475569; margin-top:1.1rem; }
-.dark .stk-eqn-label { color:#cbd5e1; }
-.stk-where { font-size:.85rem; color:#64748b; line-height:1.75; margin-top:.5rem; }
-.dark .stk-where { color:#94a3b8; }
-.stk-refs-h { font-weight:700; font-size:1rem; margin-top:1.9rem; margin-bottom:.5rem; }
-.stk-refs-list { font-size:.82rem; color:#64748b; line-height:1.75; padding-left:1.2rem; }
-.dark .stk-refs-list { color:#94a3b8; }
-.stk-refs-list li { margin-bottom:.45rem; }
-.stk-refs-list a { color:#be123c; text-decoration:none; }
-.dark .stk-refs-list a { color:#fda4af; }
-.stk-refs-list a:hover { text-decoration:underline; }
-
-/* Consistent inline code across all documentation */
-.stk-section code, .stk-faq code, .stk-note code, .stk-where code, .stk-lead code,
-.stk-step p code, .stk-refs-list code, .stk-table code, .stk-card code {
-font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
-font-size: 0.85em; background: #fff1f2; color: #be123c;
-border: 1px solid #fecdd3; border-radius: 0.3rem; padding: 0.05em 0.35em;
-white-space: nowrap; }
-.dark .stk-section code, .dark .stk-faq code, .dark .stk-note code, .dark .stk-where code,
-.dark .stk-lead code, .dark .stk-step p code, .dark .stk-refs-list code,
-.dark .stk-table code, .dark .stk-card code {
-background: rgba(190,18,60,.15); color: #fda4af; border-color: rgba(244,63,94,.3); }
-/* code inside note keeps the note's warm tone */
-.stk-note code { background: rgba(180,83,9,.1); color: #92400e; border-color: rgba(180,83,9,.25); }
-.dark .stk-note code { background: rgba(180,83,9,.2); color: #fcd34d; border-color: rgba(180,83,9,.4); }
-
-/* Theme-colour highlight instead of heavy bold */
-.hl { color:#e11d48; font-weight:600; }
-.dark .hl { color:#fb7185; }
-
-/* Documentation tabs */
-.doc-tabs { display:flex; flex-wrap:wrap; gap:.4rem; margin:1.25rem 0 1.75rem; border-bottom:1px solid rgba(148,163,184,.25); padding-bottom:.75rem; }
-.doc-tab { display:inline-flex; align-items:center; gap:.45rem; font-size:.85rem; font-weight:700;
-    padding:.5rem .95rem; border-radius:.6rem; cursor:pointer; border:1px solid transparent;
-    color:#64748b; background:transparent; transition:all .15s ease; }
-.doc-tab:hover { background:#f1f5f9; color:#0f172a; }
-.dark .doc-tab { color:#94a3b8; }
-.dark .doc-tab:hover { background:#1e293b; color:#f1f5f9; }
-.doc-tab.active { background:#e11d48; color:#fff; border-color:#e11d48; }
-.doc-tab.active:hover { background:#be123c; color:#fff; }
-.doc-pane { display:none; }
-.doc-pane.active { display:block; animation:docfade .2s ease; }
-@keyframes docfade { from { opacity:0; transform:translateY(4px);} to { opacity:1; transform:none; } }
-
-/* Mobile responsiveness for documentation */
-@media (max-width: 640px) {
-.stk-section { padding: 2rem 0; }
-.stk-wrap { padding-left: 1rem; padding-right: 1rem; }
-.stk-h2 { font-size: 1.3rem; }
-.stk-math { font-size: 0.9rem; padding: 0.8rem; }
-.stk-table { font-size: 0.78rem; }
-.stk-table th, .stk-table td { padding: 0.4rem 0.5rem; }
-.doc-tab { font-size: 0.78rem; padding: 0.4rem 0.7rem; }
-.doc-tabs { gap: 0.3rem; }
-.stk-grid-2, .stk-grid-3 { grid-template-columns: 1fr; }
-.stk-section code { white-space: normal; word-break: break-word; }
-}
-
-/* Reference table for the force-field parameter mapping */
-.stk-table { width:100%; border-collapse:collapse; margin-top:1rem; font-size:.85rem; }
-.stk-table th, .stk-table td { border:1px solid rgba(148,163,184,.3); padding:.55rem .7rem; text-align:left; }
-.stk-table th { background:#f1f5f9; font-weight:700; }
-.dark .stk-table th { background:#1e293b; }
-.stk-table code { font-size:.8rem; }
