@@ -160,12 +160,12 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="text-slate-500 dark:text-slate-500 mb-1">
             ${escapeHtml(getField(tags, 'title') || 'No title')}
           </div>
-          <div class="font-mono text-[10px] text-slate-400">
+          <div class="font-mono text-[11px] text-slate-400">
             ${escapeHtml(getField(tags, 'journal') || '')} ${escapeHtml(getField(tags, 'year') || '')}
             ${getField(tags, 'doi') ? '· DOI' : ''}
             · score ${completenessScore(entry)}
           </div>
-          ${missing.length ? `<div class="text-[10px] text-amber-600 mt-1">missing: ${missing.join(', ')}</div>` : ''}
+          ${missing.length ? `<div class="text-[11px] text-amber-600 mt-1">missing: ${missing.join(', ')}</div>` : ''}
         `;
 
         card.addEventListener('click', () => {
