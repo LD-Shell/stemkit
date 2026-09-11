@@ -5,173 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D Structure Inspector | WebGL Molecular Viewer | STEMKit</title>
     <meta name="description" content="Free browser-based 3D molecular viewer. Load PDB, GRO, XYZ, CIF, MOL2 or CUBE files, select atoms by chain, residue, element or distance, measure bonds and angles, and export publication-quality images, all rendered locally with WebGL.">
-    <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
     <link rel="stylesheet" href="css/all.min.css">
     <script src="js/dependencies/3Dmol-min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = { darkMode: 'class' }</script>
-    <style>
-        @keyframes slideIn{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
-        @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
-        .custom-scroll::-webkit-scrollbar{width:6px}
-        .custom-scroll::-webkit-scrollbar-track{background:transparent}
-        .custom-scroll::-webkit-scrollbar-thumb{background-color:#cbd5e1;border-radius:20px}
-        .dark .custom-scroll::-webkit-scrollbar-thumb{background-color:#475569}
 
-        .toggle-track{position:relative;width:36px;height:20px;border-radius:999px;background:#cbd5e1;transition:background .2s;cursor:pointer;flex-shrink:0}
-        .dark .toggle-track{background:#475569}
-        .toggle-track.active{background:#6366f1}
-        .toggle-track::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-        .toggle-track.active::after{transform:translateX(16px)}
-
-        #atomInfo{position:absolute;bottom:12px;left:12px;z-index:20;background:rgba(15,23,42,.88);color:#f1f5f9;backdrop-filter:blur(8px);padding:8px 14px;border-radius:10px;font-size:12px;font-family:'Inter',monospace;pointer-events:none;opacity:0;transition:opacity .2s;line-height:1.6;max-width:300px;border:1px solid rgba(255,255,255,.1)}
-        #atomInfo.visible{opacity:1}
-        #measureInfo{position:absolute;top:12px;right:12px;z-index:20;background:rgba(15,23,42,.88);color:#f1f5f9;backdrop-filter:blur(8px);padding:8px 14px;border-radius:10px;font-size:11px;font-family:'Inter',monospace;transition:opacity .2s;line-height:1.6;max-width:240px;border:1px solid rgba(255,255,255,.1)}
-        #measureInfo:empty{display:none}
-
-        input[type="range"]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:4px;background:#e2e8f0;outline:none}
-        .dark input[type="range"]{background:#334155}
-        input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;background:#6366f1;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)}
-        input[type="range"]::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;background:#6366f1;cursor:pointer}
-
-        .section-label{display:block;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
-        .dark .section-label{color:#94a3b8}
-        .sidebar-btn{background:#f1f5f9;border:none;cursor:pointer;padding:6px 0;border-radius:8px;font-size:12px;font-weight:600;color:#475569;transition:all .15s;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-        .dark .sidebar-btn{background:#1e293b;color:#cbd5e1}
-        .sidebar-btn:hover{background:#e0e7ff;color:#4f46e5}
-        .dark .sidebar-btn:hover{background:#312e81;color:#a5b4fc}
-        .sidebar-select{width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font-size:12px;outline:none;transition:border-color .15s}
-        .sidebar-select:focus{box-shadow:0 0 0 2px rgba(99,102,241,.3);border-color:#6366f1}
-        .dark .sidebar-select{background:#0f172a;border-color:#334155;color:#e2e8f0}
-        .sidebar-input{width:100%;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font-size:12px;outline:none;transition:border-color .15s}
-        .dark .sidebar-input{background:#0f172a;border-color:#334155;color:#e2e8f0}
-        .sidebar-input:focus{border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.3)}
-        .tab-btn{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:none;transition:all .15s}
-        .tab-btn.active{background:#6366f1;color:#fff}
-        .tab-btn:not(.active){background:#f1f5f9;color:#64748b}
-        .dark .tab-btn:not(.active){background:#1e293b;color:#94a3b8}
-        .mode-badge{position:absolute;top:12px;left:12px;z-index:20;padding:4px 10px;border-radius:8px;font-size:11px;font-weight:700;backdrop-filter:blur(8px);pointer-events:none;transition:opacity .2s}
-        .mode-badge.measure{background:rgba(245,158,11,.85);color:#fff}
-
-        .perf-warning{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;font-size:10px;font-weight:600;background:#fef3c7;color:#92400e;border:1px solid #fde68a;animation:fadeIn .2s}
-        .dark .perf-warning{background:rgba(146,64,14,.15);color:#fcd34d;border-color:rgba(253,230,138,.2)}
-
-        .range-group{display:flex;flex-direction:column;gap:4px}
-        .range-row{display:flex;align-items:center;gap:8px}
-        .range-row span.range-label{font-size:10px;color:#64748b;width:40px;flex-shrink:0}
-        .dark .range-row span.range-label{color:#94a3b8}
-        .range-row span.range-val{font-size:10px;color:#64748b;width:48px;text-align:right;font-variant-numeric:tabular-nums}
-        .dark .range-row span.range-val{color:#94a3b8}
-
-        .spatial-mode-card{border:1.5px solid #e2e8f0;border-radius:10px;padding:10px;cursor:pointer;transition:all .15s;background:#fafbfc}
-        .spatial-mode-card:hover{border-color:#a5b4fc;background:#eef2ff}
-        .spatial-mode-card.selected{border-color:#6366f1;background:#eef2ff;box-shadow:0 0 0 2px rgba(99,102,241,.2)}
-
-        /* Busy overlay for unavoidable synchronous work (surface meshing) */
-        #busyOverlay{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
-            background:rgba(15,23,42,.55);backdrop-filter:blur(2px)}
-        /* The id selector above outranks the .hidden utility class, so the
-           hidden state needs id+class specificity or the overlay can never be
-           dismissed and sits over the viewer reading "Working…" forever. */
-        #busyOverlay.hidden{display:none}
-        #busyOverlay .busy-card{display:flex;align-items:center;gap:.7rem;background:rgba(15,23,42,.94);
-            color:#e2e8f0;padding:.85rem 1.2rem;border-radius:.8rem;font-size:.8rem;font-weight:600;
-            border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 30px rgba(0,0,0,.35)}
-        .busy-spin{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.25);
-            border-top-color:#818cf8;animation:busySpin .7s linear infinite;flex-shrink:0}
-        @keyframes busySpin{to{transform:rotate(360deg)}}
-
-        /* Label build progress */
-        #labelProgress{position:absolute;bottom:12px;right:12px;z-index:25;background:rgba(67,56,202,.92);
-            color:#e0e7ff;padding:5px 11px;border-radius:8px;font-size:10px;font-weight:700;
-            font-variant-numeric:tabular-nums;pointer-events:none;border:1px solid rgba(255,255,255,.15)}
-
-        /* Measurement readout rows */
-        .measure-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
-        .measure-del{background:none;border:none;color:#fca5a5;cursor:pointer;font-size:13px;
-            line-height:1;padding:0 2px;flex-shrink:0}
-        .measure-del:hover{color:#ef4444}
-        .dark .spatial-mode-card{border-color:#334155;background:#0f172a}
-        .dark .spatial-mode-card:hover{border-color:#6366f1;background:#1e1b4b}
-        .dark .spatial-mode-card.selected{border-color:#818cf8;background:#1e1b4b}
-    </style>
-
-    <style>
-        /* STEMKit docs / how-to / FAQ | self-contained styles */
-        .stk-section { padding: 3rem 0; border-top: 1px solid rgba(148,163,184,.2); }
-        .stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
-        .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.68rem; font-weight:800;
-                    text-transform:uppercase; letter-spacing:.12em; padding:.3rem .7rem; border-radius:9999px;
-                    background:#eef2ff; color:#4338ca; border:1px solid #e0e7ff; }
-        .dark .stk-chip { background:rgba(67,56,202,.18); color:#a5b4fc; border-color:rgba(99,102,241,.3); }
-        .stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
-        .stk-lead { max-width:48rem; color:#64748b; line-height:1.6; }
-        .dark .stk-lead { color:#94a3b8; }
-        .stk-grid { display:grid; gap:1rem; grid-template-columns:1fr; margin-top:1.5rem; }
-        @media (min-width:768px){ .stk-grid-3{grid-template-columns:repeat(3,1fr);} .stk-grid-2{grid-template-columns:repeat(2,1fr);} }
-        .stk-card { border-radius:1rem; border:1px solid rgba(148,163,184,.25); padding:1.4rem; background:#fff; }
-        .dark .stk-card { background:#0f172a; border-color:rgba(51,65,85,.8); }
-        .stk-card h3 { font-weight:700; margin-bottom:.4rem; }
-        .stk-card p { font-size:.88rem; color:#64748b; line-height:1.6; }
-        .dark .stk-card p { color:#94a3b8; }
-        .stk-step { display:flex; gap:.85rem; align-items:flex-start; }
-        .stk-num { width:2rem; height:2rem; border-radius:9999px; display:inline-flex; align-items:center;
-                   justify-content:center; font-weight:800; font-size:.85rem; flex-shrink:0;
-                   background:#4f46e5; color:#fff; }
-        .stk-step h3 { font-weight:700; font-size:.95rem; margin-bottom:.15rem; }
-        .stk-step p { font-size:.85rem; color:#64748b; line-height:1.5; }
-        .dark .stk-step p { color:#94a3b8; }
-        .stk-note { display:flex; gap:.6rem; align-items:flex-start; font-size:.82rem; line-height:1.55;
-                    background:#fffbeb; border:1px solid #fde68a; color:#92400e; border-radius:.75rem; padding:.9rem 1rem; }
-        .dark .stk-note { background:rgba(120,53,15,.15); border-color:rgba(180,83,9,.4); color:#fcd34d; }
-        .stk-faq { border-bottom:1px solid rgba(148,163,184,.22); }
-        .stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 0; font-weight:600; font-size:.95rem;
-                             display:flex; justify-content:space-between; align-items:center; gap:1rem; }
-        .stk-faq > summary::-webkit-details-marker { display:none; }
-        .stk-faq > summary::after { content:"+"; font-weight:700; color:#6366f1; font-size:1.2rem; line-height:1; }
-        .stk-faq[open] > summary::after { content:"\2212"; }
-        .stk-faq > div { padding:0 0 1.1rem; font-size:.88rem; line-height:1.6; color:#475569; }
-        .dark .stk-faq > div { color:#94a3b8; }
-        .stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem; }
-        .stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600;
-                      color:#4f46e5; text-decoration:none; border:1px solid #e0e7ff; background:#eef2ff;
-                      padding:.4rem .8rem; border-radius:.6rem; }
-        .dark .stk-refs a { color:#a5b4fc; background:rgba(67,56,202,.15); border-color:rgba(99,102,241,.3); }
-        .stk-refs a:hover { text-decoration:underline; }
-        .stk-byline { font-size:.8rem; color:#94a3b8; margin-top:.35rem; }
-        .stk-credit { margin-top:2rem; font-size:.8rem; color:#94a3b8; }
-        .stk-refs-h { font-weight:700; font-size:1rem; margin-top:1.9rem; margin-bottom:.5rem; }
-        .stk-refs-list { font-size:.82rem; color:#64748b; line-height:1.75; padding-left:1.2rem; }
-        .dark .stk-refs-list { color:#94a3b8; }
-        .stk-refs-list li { margin-bottom:.45rem; }
-        .stk-refs-list a { color:#4f46e5; text-decoration:none; }
-        .dark .stk-refs-list a { color:#a5b4fc; }
-        .stk-refs-list a:hover { text-decoration:underline; }
-
-        /* Syntax reference table */
-        .stk-syntax { width:100%; border-collapse:collapse; font-size:.85rem; margin-top:.75rem; }
-        .stk-syntax th { text-align:left; font-size:.7rem; text-transform:uppercase; letter-spacing:.08em;
-                         color:#64748b; padding:.5rem .6rem; border-bottom:2px solid rgba(148,163,184,.3); }
-        .dark .stk-syntax th { color:#94a3b8; }
-        .stk-syntax td { padding:.55rem .6rem; border-bottom:1px solid rgba(148,163,184,.18); vertical-align:top; }
-        .stk-syntax td:first-child { white-space:nowrap; }
-        .stk-syntax code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.82rem;
-                           font-weight:700; color:#4338ca; background:#eef2ff; padding:.15rem .4rem;
-                           border-radius:.35rem; border:1px solid #e0e7ff; }
-        .dark .stk-syntax code { color:#a5b4fc; background:rgba(67,56,202,.18); border-color:rgba(99,102,241,.3); }
-        .stk-syntax p { color:#64748b; line-height:1.5; }
-        .dark .stk-syntax p { color:#94a3b8; }
-        .stk-kbd { display:inline-block; font-family:ui-monospace,monospace; font-size:.72rem; font-weight:700;
-                   padding:.15rem .45rem; border-radius:.35rem; background:#f1f5f9; color:#475569;
-                   border:1px solid #cbd5e1; border-bottom-width:2px; }
-        .dark .stk-kbd { background:#1e293b; color:#cbd5e1; border-color:#475569; }
-
-        /* Clickable query example chips */
-        .query-example { cursor:pointer; transition:all .15s; }
-        .query-example:hover { background:#6366f1 !important; color:#fff !important; border-color:#6366f1 !important; }
-    </style>
 
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "HowTo", "name": "How to inspect a molecular structure in 3D", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Load a structure", "text": "Drag in a PDB, GRO, XYZ, CIF, MOL2 or CUBE coordinate file, or enter a four-character PDB ID to fetch it from RCSB."}, {"@type": "HowToStep", "position": 2, "name": "Pick a representation", "text": "Choose cartoon, stick, ball-and-stick, sphere, cross or wireframe, then colour by element, chain, residue, B-factor or secondary structure."}, {"@type": "HowToStep", "position": 3, "name": "Narrow the selection", "text": "Filter by chain, residue and element, add a within-distance radius for binding pockets, or slice along an axis with the spatial sliders, then Isolate or Highlight."}, {"@type": "HowToStep", "position": 4, "name": "Measure and export", "text": "Enable measure mode and click two atoms for a distance or three for an angle, then export a high-resolution PNG or save the selection as a PDB fragment."}]}
@@ -181,6 +18,8 @@
 </script>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
+    <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tools/structure-inspector.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
 
@@ -225,627 +64,623 @@
     <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex flex-col gap-6">
 
         <!-- UPLOAD ZONE -->
-        <section id="uploadZone" class="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-3xl bg-indigo-50/50 dark:bg-indigo-900/10 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer p-10 text-center group">
+        <section id="uploadZone" class="stk-drop si-drop" aria-label="Load a structure">
             <input type="file" id="fileInput" accept=".pdb,.xyz,.gro,.sdf,.mol,.mol2,.cif,.mcif,.cdjson,.json,.mmtf,.prmtop,.pqr,.cube,.vasp,.poscar,.contcar,.ent" class="hidden" aria-label="Upload molecular structure file">
-            <div class="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl flex items-center justify-center mb-5 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-microscope text-4xl"></i></div>
-            <h1 class="text-3xl font-bold mb-3">3D Structure Inspector</h1>
-            <p class="text-slate-500 dark:text-slate-400 mb-4 max-w-md">Render PDB, SDF, MOL2, XYZ, CIF, GRO, CUBE, MMTF, VASP, and more.</p>
-            <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-sm">Select Coordinate File</button>
-            <div class="mt-5 flex items-center gap-2">
-                <span class="text-xs text-slate-400 font-semibold">or</span>
-                <input id="pdbIdInput" type="text" maxlength="6" placeholder="PDB ID (e.g. 4N8T)" class="sidebar-input w-40 text-center text-xs" onclick="event.stopPropagation()">
-                <button id="fetchPdbBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors" onclick="event.stopPropagation()"><i class="fa-solid fa-download mr-1"></i>Fetch</button>
+            <span class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-microscope"></i></span>
+            <h1>3D Structure Inspector</h1>
+            <p>Render a coordinate file in the browser, select atoms by chain, residue, element or distance, measure geometry and export a figure.</p>
+            <div class="stk-drop-actions">
+                <button type="button" id="chooseFileBtn" class="stk-btn stk-btn-primary"><i class="fa-solid fa-folder-open"></i>Choose file</button>
+                <div class="si-fetch">
+                    <input id="pdbIdInput" type="text" maxlength="6" placeholder="PDB ID, e.g. 4N8T" class="stk-input stk-mono" aria-label="PDB identifier" autocomplete="off" spellcheck="false">
+                    <button type="button" id="fetchPdbBtn" class="stk-btn"><i class="fa-solid fa-cloud-arrow-down"></i>Fetch</button>
+                </div>
             </div>
-            <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-3">PDB · SDF · MOL · MOL2 · XYZ · CIF · CDJSON · MMTF · PRMTOP · GRO · PQR · CUBE · VASP</p>
+            <div class="stk-drop-actions si-samples">
+                <span class="stk-hint">Or try a sample:</span>
+                <button type="button" class="stk-btn stk-btn-sm stk-btn-soft si-sample" data-sample="assets/samples/helix-ala15.pdb"><i class="fa-solid fa-dna"></i>Poly-alanine helix</button>
+                <button type="button" class="stk-btn stk-btn-sm stk-btn-soft si-sample" data-sample="assets/samples/benzene.xyz"><i class="fa-solid fa-ring"></i>Benzene</button>
+            </div>
+            <div class="stk-drop-formats" aria-label="Accepted formats">
+                <span class="stk-badge">PDB</span><span class="stk-badge">ENT</span><span class="stk-badge">CIF</span><span class="stk-badge">mmCIF</span><span class="stk-badge">SDF</span><span class="stk-badge">MOL</span><span class="stk-badge">MOL2</span><span class="stk-badge">XYZ</span><span class="stk-badge">GRO</span><span class="stk-badge">PQR</span><span class="stk-badge">PRMTOP</span><span class="stk-badge">MMTF</span><span class="stk-badge">CDJSON</span><span class="stk-badge">CUBE</span><span class="stk-badge">VASP</span>
+            </div>
+            <p class="stk-hint">Files are parsed in your browser and never uploaded.</p>
         </section>
 
         <!-- WORKSPACE -->
-        <section id="workspace" class="hidden flex-col lg:flex-row gap-4 w-full" style="min-height:720px">
+        <section id="workspace" class="stk-shell si-workspace hidden flex-col lg:flex-row w-full" aria-label="Structure viewer">
 
             <!-- SIDEBAR -->
-            <aside id="sidebar" class="w-full lg:w-[320px] flex flex-col gap-3 bg-white dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-y-auto custom-scroll shrink-0" style="max-height:88vh">
+            <aside id="sidebar" class="si-sidebar stk-shell-pane stk-scroll">
 
-                <div>
-                    <h2 id="fileName" class="font-bold text-base truncate">structure.pdb</h2>
-                    <p id="structureMeta" class="text-xs text-slate-500 dark:text-slate-400 mb-0.5">0 Atoms</p>
-                    <p id="formatBadge" class="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold mb-2"></p>
-                    <div id="perfWarning" class="hidden perf-warning mb-2">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span id="perfWarningText">Large structure, labels may cause lag.</span>
+                <div class="si-head">
+                    <div class="si-head-main">
+                        <h2 id="fileName" class="si-file">structure.pdb</h2>
+                        <p id="structureMeta" class="si-meta stk-tnum">0 Atoms</p>
+                        <span id="formatBadge" class="stk-badge stk-badge-accent"></span>
                     </div>
-                    <button id="resetBtn" class="text-[11px] text-red-600 hover:text-red-700 font-medium"><i class="fa-solid fa-rotate-left mr-1"></i>Close viewer</button>
+                    <div class="si-head-actions">
+                        <button type="button" id="collapseSidebarBtn" class="stk-btn stk-btn-ghost stk-btn-icon stk-btn-sm si-desktop-only" aria-label="Hide panel" title="Hide panel"><i class="fa-solid fa-chevron-left"></i></button>
+                        <button type="button" id="resetBtn" class="stk-btn stk-btn-ghost stk-btn-icon stk-btn-sm" aria-label="Close viewer" title="Close viewer"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
                 </div>
-                <hr class="border-slate-200 dark:border-slate-800">
+                <div class="si-head-extra">
+                    <div id="perfWarning" class="stk-callout stk-callout-warn hidden" role="status">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span id="perfWarningText"></span>
+                    </div>
 
-                <div class="flex gap-1 flex-wrap">
-                    <button class="tab-btn active" data-tab="tabStyle">Style</button>
-                    <button class="tab-btn" data-tab="tabDisplay">Display</button>
-                    <button class="tab-btn" data-tab="tabTools">Tools</button>
-                    <button class="tab-btn" data-tab="tabExport">Export</button>
+                    <!-- Trajectory (shown for multi-frame files) -->
+                    <div id="trajectoryPanel" class="stk-group hidden">
+                        <h3 class="stk-group-t">Trajectory</h3>
+                        <div class="si-transport">
+                            <button type="button" id="trajPrev" class="stk-btn stk-btn-sm stk-btn-icon" aria-label="Previous frame" title="Previous frame"><i class="fa-solid fa-backward-step"></i></button>
+                            <button type="button" id="trajPlay" class="stk-btn stk-btn-sm si-grow"><i class="fa-solid fa-play"></i>Play</button>
+                            <button type="button" id="trajNext" class="stk-btn stk-btn-sm stk-btn-icon" aria-label="Next frame" title="Next frame"><i class="fa-solid fa-forward-step"></i></button>
+                        </div>
+                        <div class="si-range-row">
+                            <label class="si-range-label" for="trajSlider">Frame</label>
+                            <input type="range" id="trajSlider" min="0" max="0" step="1" value="0" class="stk-range">
+                            <span id="trajFrame" class="si-range-val">0/0</span>
+                        </div>
+                        <div class="stk-field">
+                            <label for="trajSpeed">Playback speed</label>
+                            <select id="trajSpeed" class="stk-select stk-select-sm">
+                                <option value="200">Slow</option>
+                                <option value="100" selected>Normal</option>
+                                <option value="50">Fast</option>
+                                <option value="20">Very fast</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Isosurface (shown for cube files) -->
+                    <div id="isoPanel" class="stk-group hidden">
+                        <h3 class="stk-group-t">Isosurface</h3>
+                        <p class="stk-hint">Volumetric data from the cube file. Positive and negative lobes are drawn in blue and red.</p>
+                        <div class="si-range-row">
+                            <label class="si-range-label" for="isoPosVal">+ Isovalue</label>
+                            <input type="range" id="isoPosVal" min="0.001" max="0.2" step="0.001" value="0.02" class="stk-range">
+                            <span id="isoPosDisplay" class="si-range-val">0.02</span>
+                        </div>
+                        <div class="si-range-row">
+                            <label class="si-range-label" for="isoNegVal">&minus; Isovalue</label>
+                            <input type="range" id="isoNegVal" min="-0.2" max="-0.001" step="0.001" value="-0.02" class="stk-range">
+                            <span id="isoNegDisplay" class="si-range-val">-0.02</span>
+                        </div>
+                        <div class="si-range-row">
+                            <label class="si-range-label" for="isoOpacity">Opacity</label>
+                            <input type="range" id="isoOpacity" min="0.1" max="1" step="0.05" value="0.7" class="stk-range">
+                            <span id="isoOpacityDisplay" class="si-range-val">0.7</span>
+                        </div>
+                        <div class="si-btn-row">
+                            <button type="button" id="applyIso" class="stk-btn stk-btn-sm stk-btn-primary si-grow">Render isosurface</button>
+                            <button type="button" id="clearIso" class="stk-btn stk-btn-sm">Clear</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="si-tabs-wrap">
+                    <div class="stk-tabs stk-tabs-fill" role="tablist" aria-label="Viewer settings">
+                        <button type="button" id="tabStyleBtn" class="stk-tab" role="tab" aria-selected="true" aria-controls="tabStyle" data-tab="tabStyle">Style</button>
+                        <button type="button" id="tabDisplayBtn" class="stk-tab" role="tab" aria-selected="false" aria-controls="tabDisplay" data-tab="tabDisplay" tabindex="-1">Display</button>
+                        <button type="button" id="tabToolsBtn" class="stk-tab" role="tab" aria-selected="false" aria-controls="tabTools" data-tab="tabTools" tabindex="-1">Tools</button>
+                        <button type="button" id="tabExportBtn" class="stk-tab" role="tab" aria-selected="false" aria-controls="tabExport" data-tab="tabExport" tabindex="-1">Export</button>
+                    </div>
                 </div>
 
                 <!-- TAB: Style -->
-                <div id="tabStyle" class="tab-content flex flex-col gap-3">
-                    <div class="flex flex-col gap-1">
-                        <label class="section-label">Rendering style</label>
-                        <select id="styleSelect" class="sidebar-select">
-                            <option value="stick">Stick</option>
-                            <option value="ballstick">Ball & Stick</option>
-                            <option value="sphere">Sphere (vdW)</option>
-                            <option value="cross">Cross</option>
-                            <option value="line">Wireframe</option>
-                            <option value="cartoon">Cartoon (Protein/NA)</option>
-                        </select>
-                    </div>
-                    <div class="flex flex-col gap-1">
-                        <label class="section-label">Color scheme</label>
-                        <select id="colorSelect" class="sidebar-select">
-                            <option value="element">By Element (Jmol)</option>
-                            <option value="chain">By Chain</option>
-                            <option value="residue">By Residue</option>
-                            <option value="bFactor">By B-Factor</option>
-                            <option value="spectrum">Spectrum (Rainbow)</option>
-                            <option value="ss">By Secondary Structure</option>
-                            <option value="custom">Custom Color</option>
-                        </select>
-                    </div>
-                    <div id="perElementColorContainer" class="hidden flex flex-col gap-2 mt-2 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-slate-800 max-h-48 overflow-y-auto custom-scroll"></div>
-
-                    <hr class="border-slate-200 dark:border-slate-800">
-                    <div class="flex flex-col gap-2">
-                        <label class="section-label">Selection styling</label>
-                        <p class="text-[10px] text-slate-400 leading-tight mb-1">Apply a different style to a subset of atoms.</p>
-
-                        <div class="flex flex-col gap-2 p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800">
-                            <div class="grid grid-cols-2 gap-2">
-                                <div>
-                                    <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Chain</span>
-                                    <select id="selChain" class="sidebar-select text-[11px]">
-                                        <option value="">All Chains</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Element</span>
-                                    <select id="selElem" class="sidebar-select text-[11px]">
-                                        <option value="">All Elements</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Residue</span>
-                                <select id="selResn" class="sidebar-select text-[11px]">
-                                    <option value="">All Residues</option>
-                                </select>
-                            </div>
-
-                            <!-- Advanced text query (collapsible) -->
-                            <div class="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden mt-1">
-                                <button id="selAdvancedToggle" class="w-full text-left px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 dark:text-slate-400 flex justify-between items-center hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-                                    <span><i class="fa-solid fa-terminal mr-1"></i>Advanced query</span>
-                                    <i class="fa-solid fa-chevron-down text-[8px] transition-transform duration-200" id="selAdvancedIcon"></i>
-                                </button>
-                                <div id="selAdvancedPanel" class="hidden px-2.5 py-2 border-t border-slate-200 dark:border-slate-700">
-                                    <input id="selQuery" type="text" placeholder="e.g. resi:1-50 atom:CA  ss:h" class="sidebar-input text-[11px]">
-                                    <p class="text-[9px] text-slate-400 mt-1">Overrides dropdowns when filled. Uses same syntax as Tools tab.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="flex gap-1 mt-1">
-                            <select id="selStyle" class="sidebar-select flex-grow text-[11px]">
+                <div id="tabStyle" class="si-tabpanel" role="tabpanel" aria-labelledby="tabStyleBtn">
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">Representation</h3>
+                        <div class="stk-field">
+                            <label for="styleSelect">Style</label>
+                            <select id="styleSelect" class="stk-select">
                                 <option value="stick">Stick</option>
-                                <option value="ballstick">Ball & Stick</option>
-                                <option value="sphere">Sphere</option>
-                                <option value="cartoon">Cartoon</option>
-                                <option value="cartoontube">Cartoon (Tube/Trace)</option>
+                                <option value="ballstick">Ball and stick</option>
+                                <option value="sphere">Sphere (van der Waals)</option>
+                                <option value="cross">Cross</option>
                                 <option value="line">Wireframe</option>
-                                <option value="hidden">Hide</option>
+                                <option value="cartoon">Cartoon (protein, nucleic acid)</option>
                             </select>
-                            <button id="applySelStyle" class="sidebar-btn px-3 text-[11px]">Apply</button>
                         </div>
-                        <label class="flex items-center gap-1.5 cursor-pointer mt-1">
-                            <input type="checkbox" id="selStyleUseColor" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
-                            <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">Override colour</span>
-                            <input type="color" id="selStyleColor" value="#f59e0b" class="hidden w-6 h-6 rounded cursor-pointer border-0 p-0">
-                        </label>
-                        <button id="clearSelStyles" class="text-[10px] text-red-500 hover:text-red-600 font-medium mt-1 text-left">Clear selection styles</button>
+                        <div class="stk-field">
+                            <label for="colorSelect">Colour</label>
+                            <select id="colorSelect" class="stk-select">
+                                <option value="element">By element (Jmol)</option>
+                                <option value="chain">By chain</option>
+                                <option value="residue">By residue</option>
+                                <option value="bFactor">By B-factor</option>
+                                <option value="spectrum">Spectrum (rainbow)</option>
+                                <option value="ss">By secondary structure</option>
+                                <option value="custom">Custom, per element</option>
+                            </select>
+                        </div>
+                        <div id="perElementColorContainer" class="si-elem-list stk-scroll hidden"></div>
+                    </div>
+
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">Selection styling</h3>
+                        <p class="stk-hint">Apply a different style to a subset of atoms, on top of the base representation.</p>
+                        <div class="si-grid-2">
+                            <div class="stk-field">
+                                <label for="selChain">Chain</label>
+                                <select id="selChain" class="stk-select stk-select-sm"><option value="">All chains</option></select>
+                            </div>
+                            <div class="stk-field">
+                                <label for="selElem">Element</label>
+                                <select id="selElem" class="stk-select stk-select-sm"><option value="">All elements</option></select>
+                            </div>
+                        </div>
+                        <div class="stk-field">
+                            <label for="selResn">Residue</label>
+                            <select id="selResn" class="stk-select stk-select-sm"><option value="">All residues</option></select>
+                        </div>
+                        <details class="stk-disclosure">
+                            <summary>Advanced query</summary>
+                            <div>
+                                <input id="selQuery" type="text" placeholder="e.g. resi:1-50 atom:CA ss:h" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false" aria-label="Selection query">
+                                <p class="stk-hint">Overrides the dropdowns when filled. Same syntax as the Tools tab.</p>
+                            </div>
+                        </details>
+                        <div class="stk-field">
+                            <label for="selStyle">Style for the selection</label>
+                            <div class="si-btn-row">
+                                <select id="selStyle" class="stk-select stk-select-sm si-grow">
+                                    <option value="stick">Stick</option>
+                                    <option value="ballstick">Ball and stick</option>
+                                    <option value="sphere">Sphere</option>
+                                    <option value="cartoon">Cartoon</option>
+                                    <option value="cartoontube">Cartoon (tube)</option>
+                                    <option value="line">Wireframe</option>
+                                    <option value="hidden">Hide</option>
+                                </select>
+                                <button type="button" id="applySelStyle" class="stk-btn stk-btn-sm stk-btn-primary">Apply</button>
+                            </div>
+                        </div>
+                        <div class="si-check-row">
+                            <label class="stk-check"><input type="checkbox" id="selStyleUseColor"><span>Override colour</span></label>
+                            <input type="color" id="selStyleColor" value="#f59e0b" class="si-color hidden" aria-label="Override colour">
+                        </div>
+                        <button type="button" id="clearSelStyles" class="stk-btn stk-btn-sm stk-btn-ghost si-self-start">Clear selection styles</button>
                     </div>
                 </div>
 
                 <!-- TAB: Display -->
-                <div id="tabDisplay" class="tab-content hidden flex flex-col gap-3">
-                    <label class="section-label">Overlays</label>
-                    <div class="flex flex-col gap-2.5">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-1.5">
-                                <span class="text-xs text-slate-700 dark:text-slate-300">Atom labels</span>
-                                <span id="atomLabelWarn" class="hidden text-[9px] text-amber-600 dark:text-amber-400 font-bold">(slow)</span>
-                            </div>
-                            <div id="toggleAtomLabels" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div>
+                <div id="tabDisplay" class="si-tabpanel" role="tabpanel" aria-labelledby="tabDisplayBtn" hidden>
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">Labels</h3>
+                        <div class="stk-switch-row">
+                            <span>Atom labels <span id="atomLabelWarn" class="stk-badge stk-badge-warn hidden"></span></span>
+                            <button type="button" id="toggleAtomLabels" class="stk-switch" role="switch" aria-checked="false" aria-label="Atom labels"></button>
                         </div>
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-1.5">
-                                <span class="text-xs text-slate-700 dark:text-slate-300">Residue labels</span>
-                                <span id="resLabelWarn" class="hidden text-[9px] text-amber-600 dark:text-amber-400 font-bold">(slow)</span>
-                            </div>
-                            <div id="toggleResLabels" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div>
+                        <div class="stk-switch-row">
+                            <span>Residue labels <span id="resLabelWarn" class="stk-badge stk-badge-warn hidden"></span></span>
+                            <button type="button" id="toggleResLabels" class="stk-switch" role="switch" aria-checked="false" aria-label="Residue labels"></button>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-[10px] text-slate-500 w-20 shrink-0">Label scope</span>
-                            <select id="labelScope" class="sidebar-select text-[11px] flex-grow">
+                        <div class="stk-field">
+                            <label for="labelScope">Label scope</label>
+                            <select id="labelScope" class="stk-select stk-select-sm">
                                 <option value="selection" selected>Current selection</option>
                                 <option value="visible">Visible atoms</option>
                                 <option value="all">Everything</option>
                             </select>
+                            <p class="stk-hint">Scoping to a selection keeps labels usable on large systems. Over the limit, the atoms nearest the centre of the view win.</p>
                         </div>
-                        <p class="text-[9px] text-slate-400 leading-tight -mt-1">Scoping to a selection is what keeps labels usable on big systems. Over the limit, the atoms nearest the camera win.</p>
                         <div id="labelLimitRow" class="hidden">
-                            <div class="flex items-center gap-2">
-                                <span class="text-[10px] text-slate-500 w-20 shrink-0">Label limit</span>
-                                <input type="range" id="labelLimit" min="100" max="10000" step="100" value="1500" class="flex-grow">
-                                <span id="labelLimitVal" class="text-[10px] text-slate-500 w-12 text-right">1,500</span>
+                            <div class="si-range-row">
+                                <label class="si-range-label" for="labelLimit">Limit</label>
+                                <input type="range" id="labelLimit" min="100" max="10000" step="100" value="1500" class="stk-range">
+                                <span id="labelLimitVal" class="si-range-val">1,500</span>
                             </div>
-                            <label class="flex items-center gap-1.5 cursor-pointer mt-1">
-                                <input type="checkbox" id="labelForce" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
-                                <span class="text-[10px] font-bold text-amber-600 dark:text-amber-400">Allow labels above 50k atoms (risky)</span>
-                            </label>
+                            <label class="stk-check si-mt-2"><input type="checkbox" id="labelForce"><span>Allow labels above 50,000 atoms (may freeze the tab)</span></label>
                         </div>
-                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Show hydrogens</span><div id="toggleHydrogens" class="toggle-track active" role="switch" aria-checked="true" tabindex="0"></div></div>
-                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Axis indicator</span><div id="toggleAxis" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
-                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Spin animation</span><div id="toggleSpin" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
-                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Click to inspect</span><div id="toggleClickInspect" class="toggle-track active" role="switch" aria-checked="true" tabindex="0"></div></div>
-                        <div class="flex items-center justify-between"><span class="text-xs text-slate-700 dark:text-slate-300">Outline</span><div id="toggleOutline" class="toggle-track" role="switch" aria-checked="false" tabindex="0"></div></div>
                     </div>
-                    <hr class="border-slate-200 dark:border-slate-800">
-                    <label class="section-label">Solvent surface</label>
-                    <div class="flex items-center gap-1.5">
-                        <button id="surfaceBtn" class="sidebar-btn px-3 text-[11px] whitespace-nowrap">Toggle</button>
-                        <select id="surfaceType" class="sidebar-select text-[11px] flex-grow">
-                            <option value="VDW">Van der Waals</option>
-                            <option value="SAS">Solvent Accessible</option>
-                            <option value="SES">Solvent Excluded</option>
-                            <option value="MS">Molecular</option>
-                        </select>
+
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">View</h3>
+                        <div class="stk-switch-row"><span>Show hydrogens</span><button type="button" id="toggleHydrogens" class="stk-switch" role="switch" aria-checked="true" aria-label="Show hydrogens"></button></div>
+                        <div class="stk-switch-row"><span>Axis indicator</span><button type="button" id="toggleAxis" class="stk-switch" role="switch" aria-checked="false" aria-label="Axis indicator"></button></div>
+                        <div class="stk-switch-row"><span>Spin</span><button type="button" id="toggleSpin" class="stk-switch" role="switch" aria-checked="false" aria-label="Spin"></button></div>
+                        <div class="stk-switch-row"><span>Click to inspect atoms</span><button type="button" id="toggleClickInspect" class="stk-switch" role="switch" aria-checked="true" aria-label="Click to inspect atoms"></button></div>
+                        <div class="stk-switch-row"><span>Outline</span><button type="button" id="toggleOutline" class="stk-switch" role="switch" aria-checked="false" aria-label="Outline"></button></div>
                     </div>
-                    <label class="flex items-center gap-1.5 cursor-pointer">
-                        <input type="checkbox" id="surfaceSelOnly" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
-                        <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">Only current selection</span>
-                    </label>
-                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Opacity</span><input type="range" id="surfaceOpacity" min="0.05" max="1" step="0.05" value="0.6" class="flex-grow"><span id="surfaceOpacityVal" class="text-[10px] text-slate-500 w-7 text-right">0.6</span></div>
-                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Color</span>
-                        <select id="surfaceColorScheme" class="sidebar-select text-[11px] flex-grow">
+
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">Surface</h3>
+                        <div class="si-btn-row">
+                            <button type="button" id="surfaceBtn" class="stk-btn stk-btn-sm">Toggle surface</button>
+                            <select id="surfaceType" class="stk-select stk-select-sm si-grow" aria-label="Surface type">
+                                <option value="VDW">Van der Waals</option>
+                                <option value="SAS">Solvent accessible</option>
+                                <option value="SES">Solvent excluded</option>
+                                <option value="MS">Molecular</option>
+                            </select>
+                        </div>
+                        <label class="stk-check"><input type="checkbox" id="surfaceSelOnly"><span>Only the current selection</span></label>
+                        <div class="si-range-row">
+                            <label class="si-range-label" for="surfaceOpacity">Opacity</label>
+                            <input type="range" id="surfaceOpacity" min="0.05" max="1" step="0.05" value="0.6" class="stk-range">
+                            <span id="surfaceOpacityVal" class="si-range-val">0.6</span>
+                        </div>
+                        <div class="stk-field">
+                            <label for="surfaceColorScheme">Surface colour</label>
+                            <div class="si-btn-row">
+                                <select id="surfaceColorScheme" class="stk-select stk-select-sm si-grow">
+                                    <option value="white">White</option>
+                                    <option value="element">By element</option>
+                                    <option value="chain">By chain</option>
+                                    <option value="bFactor">By B-factor</option>
+                                    <option value="spectrum">Spectrum</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                                <input type="color" id="surfaceCustomColor" value="#ffffff" class="si-color hidden" aria-label="Custom surface colour">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">Slab</h3>
+                        <p class="stk-hint">Clip the scene in front of and behind the centre of rotation.</p>
+                        <div class="si-range-row">
+                            <label class="si-range-label" for="slabNear">Near</label>
+                            <input type="range" id="slabNear" min="-100" max="0" step="1" value="-100" class="stk-range">
+                            <span id="slabNearVal" class="si-range-val">Off</span>
+                        </div>
+                        <div class="si-range-row">
+                            <label class="si-range-label" for="slabFar">Far</label>
+                            <input type="range" id="slabFar" min="0" max="100" step="1" value="100" class="stk-range">
+                            <span id="slabFarVal" class="si-range-val">Off</span>
+                        </div>
+                        <button type="button" id="resetSlab" class="stk-btn stk-btn-sm stk-btn-ghost si-self-start">Reset slab</button>
+                    </div>
+
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">Background</h3>
+                        <select id="bgSelect" class="stk-select stk-select-sm" aria-label="Background colour">
+                            <option value="theme">Match theme</option>
+                            <option value="black">Black</option>
                             <option value="white">White</option>
-                            <option value="element">By Element</option>
-                            <option value="chain">By Chain</option>
-                            <option value="bFactor">By B-Factor</option>
-                            <option value="spectrum">Spectrum</option>
-                            <option value="custom">Custom</option>
+                            <option value="grey">Grey</option>
                         </select>
-                        <input type="color" id="surfaceCustomColor" value="#ffffff" class="w-6 h-6 rounded cursor-pointer border-0 p-0 hidden">
                     </div>
-                    <hr class="border-slate-200 dark:border-slate-800">
-                    <label class="section-label">Slab / clipping</label>
-                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Near</span><input type="range" id="slabNear" min="-100" max="0" step="1" value="-100" class="flex-grow"><span id="slabNearVal" class="text-[10px] text-slate-500 w-7 text-right">Off</span></div>
-                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Far</span><input type="range" id="slabFar" min="0" max="100" step="1" value="100" class="flex-grow"><span id="slabFarVal" class="text-[10px] text-slate-500 w-7 text-right">Off</span></div>
-                    <button id="resetSlab" class="text-[10px] text-slate-500 hover:text-indigo-500 font-medium text-left">Reset slab</button>
-                    <hr class="border-slate-200 dark:border-slate-800">
-                    <label class="section-label">Background</label>
-                    <select id="bgSelect" class="sidebar-select">
-                        <option value="theme">Match theme</option>
-                        <option value="black">Black</option>
-                        <option value="white">White</option>
-                        <option value="grey">Grey</option>
-                    </select>
-                    <hr class="border-slate-200 dark:border-slate-800">
-                    <label class="section-label">Camera presets</label>
-                    <button id="centerBtn" class="sidebar-btn text-xs"><i class="fa-solid fa-compress mr-1"></i>Recenter</button>
-                    <div class="grid grid-cols-3 gap-1.5">
-                        <button data-axis="xy-pos" class="axis-btn sidebar-btn text-[10px]">XY <span class="opacity-40">+Z</span></button>
-                        <button data-axis="xz-pos" class="axis-btn sidebar-btn text-[10px]">XZ <span class="opacity-40">+Y</span></button>
-                        <button data-axis="yz-pos" class="axis-btn sidebar-btn text-[10px]">YZ <span class="opacity-40">+X</span></button>
-                        <button data-axis="xy-neg" class="axis-btn sidebar-btn text-[10px]">XY <span class="opacity-40">-Z</span></button>
-                        <button data-axis="xz-neg" class="axis-btn sidebar-btn text-[10px]">XZ <span class="opacity-40">-Y</span></button>
-                        <button data-axis="yz-neg" class="axis-btn sidebar-btn text-[10px]">YZ <span class="opacity-40">-X</span></button>
+
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">Camera</h3>
+                        <button type="button" id="centerBtn" class="stk-btn stk-btn-sm"><i class="fa-solid fa-arrows-to-dot"></i>Recentre</button>
+                        <div class="si-grid-3">
+                            <button type="button" data-axis="xy-pos" class="axis-btn stk-btn stk-btn-sm">XY <span class="si-dim">+Z</span></button>
+                            <button type="button" data-axis="xz-pos" class="axis-btn stk-btn stk-btn-sm">XZ <span class="si-dim">+Y</span></button>
+                            <button type="button" data-axis="yz-pos" class="axis-btn stk-btn stk-btn-sm">YZ <span class="si-dim">+X</span></button>
+                            <button type="button" data-axis="xy-neg" class="axis-btn stk-btn stk-btn-sm">XY <span class="si-dim">&minus;Z</span></button>
+                            <button type="button" data-axis="xz-neg" class="axis-btn stk-btn stk-btn-sm">XZ <span class="si-dim">&minus;Y</span></button>
+                            <button type="button" data-axis="yz-neg" class="axis-btn stk-btn stk-btn-sm">YZ <span class="si-dim">&minus;X</span></button>
+                        </div>
+                        <p class="stk-hint">View plane, with the axis pointing at the camera.</p>
                     </div>
                 </div>
 
                 <!-- TAB: Tools -->
-                <div id="tabTools" class="tab-content hidden flex flex-col gap-3">
-                    <label class="section-label">Distance measurement</label>
-                    <p class="text-[10px] text-slate-400 leading-tight">Click two atoms to measure a distance, or enable angle mode and pick three.</p>
-                    <div class="flex gap-1.5">
-                        <button id="measureModeBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-ruler mr-1"></i>Measure Mode</button>
-                        <button id="clearMeasures" class="sidebar-btn px-3 text-[11px]">Clear All</button>
-                    </div>
-                    <label class="flex items-center gap-1.5 cursor-pointer">
-                        <input type="checkbox" id="measureMode3" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
-                        <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">Angle mode (pick 3 atoms)</span>
-                    </label>
-
-                    <div class="flex gap-1.5">
-                        <button id="measureZoomBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-magnifying-glass-plus mr-1"></i>Zoom to picks</button>
-                        <button id="measureCopyBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-clipboard mr-1"></i>Copy data</button>
-                    </div>
-
-                    <!-- FIGURE MODE -->
-                    <div class="p-3 bg-amber-50/60 dark:bg-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-900/40 flex flex-col gap-2">
-                        <label class="flex items-center gap-1.5 cursor-pointer">
-                            <input type="checkbox" id="measureFocusToggle" class="rounded border-slate-300 text-amber-600 focus:ring-amber-600">
-                            <span class="text-[11px] font-bold text-amber-800 dark:text-amber-300"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Figure mode</span>
-                        </label>
-                        <p class="text-[9px] text-slate-500 dark:text-slate-400 leading-tight -mt-1">Fades everything except the atoms you measured, so the geometry reads clearly in a paper.</p>
-
-                        <div id="measureFocusPanel" class="hidden flex flex-col gap-2 pt-1">
-                            <label class="flex items-center gap-1.5 cursor-pointer">
-                                <input type="checkbox" id="measureFocusRes" checked class="rounded border-slate-300 text-amber-600 focus:ring-amber-600">
-                                <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-300">Keep whole residues in focus</span>
-                            </label>
-
-                            <div class="flex items-center gap-1.5">
-                                <span class="text-[10px] text-slate-500 w-14 shrink-0">Context</span>
-                                <select id="measureContextStyle" class="sidebar-select text-[10px] flex-grow">
-                                    <option value="wire" selected>Wireframe</option>
-                                    <option value="stick">Thin stick</option>
-                                    <option value="cartoon">Cartoon</option>
-                                    <option value="hide">Hide entirely</option>
-                                </select>
-                                <input type="color" id="measureContextColor" value="#94a3b8" class="w-6 h-6 rounded cursor-pointer border-0 p-0 shrink-0" title="Context colour">
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-[10px] text-slate-500 w-14 shrink-0">Fade</span>
-                                <input type="range" id="measureContextOpacity" min="0.03" max="1" step="0.01" value="0.15" class="flex-grow">
-                                <span id="measureContextOpacityVal" class="text-[10px] text-slate-500 w-8 text-right">0.15</span>
-                            </div>
+                <div id="tabTools" class="si-tabpanel" role="tabpanel" aria-labelledby="tabToolsBtn" hidden>
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">Measure</h3>
+                        <p class="stk-hint">In measure mode, click two atoms for a distance or three for an angle.</p>
+                        <div class="si-btn-row">
+                            <button type="button" id="measureModeBtn" class="stk-btn stk-btn-sm si-grow" aria-pressed="false"><i class="fa-solid fa-ruler"></i>Measure mode</button>
+                            <button type="button" id="clearMeasures" class="stk-btn stk-btn-sm">Clear all</button>
                         </div>
+                        <label class="stk-check"><input type="checkbox" id="measureMode3"><span>Angle mode (pick three atoms)</span></label>
+                        <div class="si-btn-row">
+                            <button type="button" id="measureZoomBtn" class="stk-btn stk-btn-sm si-grow"><i class="fa-solid fa-magnifying-glass-plus"></i>Zoom to picks</button>
+                            <button type="button" id="measureCopyBtn" class="stk-btn stk-btn-sm si-grow"><i class="fa-solid fa-clipboard"></i>Copy data</button>
+                        </div>
+                        <details class="stk-disclosure">
+                            <summary>Measurement appearance</summary>
+                            <div>
+                                <div class="si-range-row si-range-row-color">
+                                    <label class="si-range-label" for="measureLineWidth">Line</label>
+                                    <input type="color" id="measureLineColor" value="#facc15" class="si-color" aria-label="Line colour" title="Line colour">
+                                    <input type="range" id="measureLineWidth" min="0.01" max="0.3" step="0.01" value="0.04" class="stk-range">
+                                    <span id="measureLineWidthVal" class="si-range-val">0.04</span>
+                                </div>
+                                <label class="stk-check"><input type="checkbox" id="measureDashed" checked><span>Dashed line</span></label>
+                                <div class="si-range-row">
+                                    <label class="si-range-label" for="measureMarkerSize">Markers</label>
+                                    <input type="range" id="measureMarkerSize" min="0" max="1.2" step="0.05" value="0.4" class="stk-range">
+                                    <span id="measureMarkerSizeVal" class="si-range-val">0.40</span>
+                                </div>
+                                <div class="si-range-row si-range-row-color">
+                                    <label class="si-range-label" for="measureLabelSize">Label</label>
+                                    <input type="color" id="measureLabelColor" value="#fef08a" class="si-color" aria-label="Label colour" title="Label colour">
+                                    <input type="range" id="measureLabelSize" min="8" max="28" step="1" value="11" class="stk-range">
+                                    <span id="measureLabelSizeVal" class="si-range-val">11</span>
+                                </div>
+                                <label class="stk-check"><input type="checkbox" id="measureLabelBg" checked><span>Label background</span></label>
+                                <div class="si-btn-row">
+                                    <div class="stk-field si-grow">
+                                        <label for="measureDecimals">Decimals</label>
+                                        <select id="measureDecimals" class="stk-select stk-select-sm">
+                                            <option value="0">0</option>
+                                            <option value="1">1</option>
+                                            <option value="2" selected>2</option>
+                                            <option value="3">3</option>
+                                        </select>
+                                    </div>
+                                    <label class="stk-check si-self-end"><input type="checkbox" id="measureShowUnit" checked><span>Show unit</span></label>
+                                </div>
+                            </div>
+                        </details>
                     </div>
 
-                    <!-- APPEARANCE -->
-                    <div class="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
-                        <button class="sel-guide-btn w-full text-left px-3 py-2 bg-slate-50 dark:bg-slate-900 text-[11px] font-bold text-slate-600 dark:text-slate-300 flex justify-between items-center transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
-                            <span><i class="fa-solid fa-palette mr-1"></i>Measurement appearance</span>
-                            <i class="fa-solid fa-chevron-down transition-transform duration-200"></i>
-                        </button>
-                        <div class="hidden p-3 bg-slate-50 dark:bg-slate-900/50 flex flex-col gap-2 border-t border-slate-200 dark:border-slate-800">
-                            <div class="flex items-center gap-2">
-                                <span class="text-[10px] text-slate-500 w-14 shrink-0">Line</span>
-                                <input type="color" id="measureLineColor" value="#facc15" class="w-6 h-6 rounded cursor-pointer border-0 p-0 shrink-0">
-                                <input type="range" id="measureLineWidth" min="0.01" max="0.3" step="0.01" value="0.04" class="flex-grow">
-                                <span id="measureLineWidthVal" class="text-[10px] text-slate-500 w-8 text-right">0.04</span>
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">Figure mode</h3>
+                        <label class="stk-check"><input type="checkbox" id="measureFocusToggle"><span>Fade everything except the measured atoms</span></label>
+                        <p class="stk-hint">The picked atoms keep the full representation; the rest drops to a faint context style so the geometry reads clearly in a figure.</p>
+                        <div id="measureFocusPanel" class="si-stack hidden">
+                            <label class="stk-check"><input type="checkbox" id="measureFocusRes" checked><span>Keep whole residues in focus</span></label>
+                            <div class="stk-field">
+                                <label for="measureContextStyle">Context style</label>
+                                <div class="si-btn-row">
+                                    <select id="measureContextStyle" class="stk-select stk-select-sm si-grow">
+                                        <option value="wire" selected>Wireframe</option>
+                                        <option value="stick">Thin stick</option>
+                                        <option value="cartoon">Cartoon</option>
+                                        <option value="hide">Hidden</option>
+                                    </select>
+                                    <input type="color" id="measureContextColor" value="#94a3b8" class="si-color" aria-label="Context colour" title="Context colour">
+                                </div>
                             </div>
-                            <label class="flex items-center gap-1.5 cursor-pointer">
-                                <input type="checkbox" id="measureDashed" checked class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
-                                <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-300">Dashed line</span>
-                            </label>
-                            <div class="flex items-center gap-2">
-                                <span class="text-[10px] text-slate-500 w-14 shrink-0">Markers</span>
-                                <input type="range" id="measureMarkerSize" min="0" max="1.2" step="0.05" value="0.4" class="flex-grow">
-                                <span id="measureMarkerSizeVal" class="text-[10px] text-slate-500 w-8 text-right">0.40</span>
-                            </div>
-                            <hr class="border-slate-200 dark:border-slate-800">
-                            <div class="flex items-center gap-2">
-                                <span class="text-[10px] text-slate-500 w-14 shrink-0">Label</span>
-                                <input type="color" id="measureLabelColor" value="#fef08a" class="w-6 h-6 rounded cursor-pointer border-0 p-0 shrink-0">
-                                <input type="range" id="measureLabelSize" min="8" max="28" step="1" value="11" class="flex-grow">
-                                <span id="measureLabelSizeVal" class="text-[10px] text-slate-500 w-8 text-right">11</span>
-                            </div>
-                            <label class="flex items-center gap-1.5 cursor-pointer">
-                                <input type="checkbox" id="measureLabelBg" checked class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
-                                <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-300">Label background</span>
-                            </label>
-                            <div class="flex items-center gap-1.5">
-                                <span class="text-[10px] text-slate-500 w-14 shrink-0">Decimals</span>
-                                <select id="measureDecimals" class="sidebar-select text-[10px] flex-grow">
-                                    <option value="0">0</option>
-                                    <option value="1">1</option>
-                                    <option value="2" selected>2</option>
-                                    <option value="3">3</option>
-                                </select>
-                                <label class="flex items-center gap-1 cursor-pointer shrink-0">
-                                    <input type="checkbox" id="measureShowUnit" checked class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
-                                    <span class="text-[10px] font-semibold text-slate-600 dark:text-slate-300">Units</span>
-                                </label>
+                            <div class="si-range-row">
+                                <label class="si-range-label" for="measureContextOpacity">Fade</label>
+                                <input type="range" id="measureContextOpacity" min="0.03" max="1" step="0.01" value="0.15" class="stk-range">
+                                <span id="measureContextOpacityVal" class="si-range-val">0.15</span>
                             </div>
                         </div>
                     </div>
 
-                    <hr class="border-slate-200 dark:border-slate-800">
-                    <label class="section-label">Interactive selection builder</label>
-                    <p class="text-[10px] text-slate-400 leading-tight mb-2">Build a selection to isolate or zoom. Updates live when auto-isolate is on.</p>
-
-                    <div class="flex flex-col gap-2 p-3 bg-slate-50 dark:bg-slate-900/80 rounded-xl border border-slate-200 dark:border-slate-800">
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Residue</span>
-                                <select id="buildResn" class="sidebar-select text-[11px] interactive-select">
-                                    <option value="">All Residues</option>
-                                </select>
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">Selection builder</h3>
+                        <p class="stk-hint">Combine the filters below, then isolate, highlight or zoom. With auto-isolate on, the view follows every change.</p>
+                        <div class="si-grid-2">
+                            <div class="stk-field">
+                                <label for="buildResn">Residue</label>
+                                <select id="buildResn" class="stk-select stk-select-sm interactive-select"><option value="">All residues</option></select>
                             </div>
-                            <div>
-                                <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Element</span>
-                                <select id="buildElem" class="sidebar-select text-[11px] interactive-select">
-                                    <option value="">All Elements</option>
-                                </select>
+                            <div class="stk-field">
+                                <label for="buildElem">Element</label>
+                                <select id="buildElem" class="stk-select stk-select-sm interactive-select"><option value="">All elements</option></select>
                             </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Chain</span>
-                                <select id="buildChain" class="sidebar-select text-[11px] interactive-select">
-                                    <option value="">All Chains</option>
-                                </select>
+                            <div class="stk-field">
+                                <label for="buildChain">Chain</label>
+                                <select id="buildChain" class="stk-select stk-select-sm interactive-select"><option value="">All chains</option></select>
                             </div>
-                            <div>
-                                <span class="text-[10px] font-semibold text-slate-500 mb-1 block">Residue ID</span>
-                                <input id="buildResi" type="text" placeholder="e.g. 1-50" class="sidebar-input text-[11px]">
+                            <div class="stk-field">
+                                <label for="buildResi">Residue number</label>
+                                <input id="buildResi" type="text" placeholder="e.g. 1-50" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                             </div>
                         </div>
-
-                        <div class="flex flex-wrap gap-x-3 gap-y-1">
-                            <label class="flex items-center gap-1.5 cursor-pointer">
-                                <input type="checkbox" id="buildNot" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
-                                <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">Invert (NOT)</span>
-                            </label>
-                            <label class="flex items-center gap-1.5 cursor-pointer">
-                                <input type="checkbox" id="buildByres" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
-                                <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">Whole residues</span>
-                            </label>
+                        <div class="si-check-row">
+                            <label class="stk-check"><input type="checkbox" id="buildNot"><span>Invert</span></label>
+                            <label class="stk-check"><input type="checkbox" id="buildByres"><span>Whole residues</span></label>
                         </div>
-
-                        <div id="buildWithinRow" class="range-row">
-                            <span class="range-label">Within</span>
-                            <input type="range" id="buildWithin" min="0" max="20" step="0.5" value="0" class="flex-grow">
-                            <span id="buildWithinVal" class="range-val">off</span>
+                        <div id="buildWithinRow" class="si-range-row">
+                            <label class="si-range-label" for="buildWithin">Within</label>
+                            <input type="range" id="buildWithin" min="0" max="20" step="0.5" value="0" class="stk-range">
+                            <span id="buildWithinVal" class="si-range-val">off</span>
                         </div>
-                        <p class="text-[9px] text-slate-400 leading-tight -mt-1">Expands to every atom within this distance of the selection above | ideal for binding pockets.</p>
+                        <p class="stk-hint">Expands the selection to every atom within this distance of it, for binding pockets.</p>
 
-                        <hr class="border-slate-200 dark:border-slate-800 my-1">
-
-                        <!-- SPATIAL SELECTION -->
-                        <div>
-                            <span class="text-[10px] font-semibold text-slate-500 mb-2 block"><i class="fa-solid fa-layer-group mr-1"></i>Spatial region</span>
-                            
-                            <div class="flex gap-1 mb-2">
-                                <select id="spatialAxis" class="sidebar-select text-[11px] w-16">
-                                    <option value="z">Z axis</option>
-                                    <option value="y">Y axis</option>
-                                    <option value="x">X axis</option>
+                        <div class="stk-field si-mt-2">
+                            <label for="spatialMode">Spatial region</label>
+                            <div class="si-btn-row">
+                                <select id="spatialAxis" class="stk-select stk-select-sm si-w-axis" aria-label="Axis">
+                                    <option value="z">Z</option>
+                                    <option value="y">Y</option>
+                                    <option value="x">X</option>
                                 </select>
-                                <select id="spatialMode" class="sidebar-select text-[11px] flex-grow">
+                                <select id="spatialMode" class="stk-select stk-select-sm si-grow">
                                     <option value="">No spatial filter</option>
-                                    <option value="range">Range (from → to)</option>
-                                    <option value="center">Center ± width</option>
+                                    <option value="range">Range (from, to)</option>
+                                    <option value="center">Centre and width</option>
                                     <option value="top">Top surface</option>
                                     <option value="bottom">Bottom surface</option>
                                 </select>
                             </div>
+                        </div>
 
-                            <div id="spatialControls" class="hidden flex flex-col gap-2 mt-1">
-                                <!-- Range mode controls -->
-                                <div id="spatialRangeControls" class="hidden range-group">
-                                    <div class="range-row">
-                                        <span class="range-label">From</span>
-                                        <input type="range" id="spatialFrom" min="0" max="100" step="0.1" value="0" class="flex-grow">
-                                        <span id="spatialFromVal" class="range-val">0.0</span>
-                                    </div>
-                                    <div class="range-row">
-                                        <span class="range-label">To</span>
-                                        <input type="range" id="spatialTo" min="0" max="100" step="0.1" value="100" class="flex-grow">
-                                        <span id="spatialToVal" class="range-val">100.0</span>
-                                    </div>
+                        <div id="spatialControls" class="si-stack hidden">
+                            <div id="spatialRangeControls" class="si-stack hidden">
+                                <div class="si-range-row">
+                                    <label class="si-range-label" for="spatialFrom">From</label>
+                                    <input type="range" id="spatialFrom" min="0" max="100" step="0.1" value="0" class="stk-range">
+                                    <span id="spatialFromVal" class="si-range-val">0.0</span>
                                 </div>
-
-                                <!-- Center mode controls -->
-                                <div id="spatialCenterControls" class="hidden range-group">
-                                    <div class="range-row">
-                                        <span class="range-label">Center</span>
-                                        <input type="range" id="spatialCenter" min="0" max="100" step="0.1" value="50" class="flex-grow">
-                                        <span id="spatialCenterVal" class="range-val">50.0</span>
-                                    </div>
-                                    <div class="range-row">
-                                        <span class="range-label">± Width</span>
-                                        <input type="range" id="spatialWidth" min="0.5" max="50" step="0.5" value="5" class="flex-grow">
-                                        <span id="spatialWidthVal" class="range-val">5.0</span>
-                                    </div>
+                                <div class="si-range-row">
+                                    <label class="si-range-label" for="spatialTo">To</label>
+                                    <input type="range" id="spatialTo" min="0" max="100" step="0.1" value="100" class="stk-range">
+                                    <span id="spatialToVal" class="si-range-val">100.0</span>
                                 </div>
-
-                                <!-- Surface mode controls -->
-                                <div id="spatialSurfaceControls" class="hidden range-group">
-                                    <div class="range-row">
-                                        <span class="range-label">Depth</span>
-                                        <input type="range" id="spatialDepth" min="0.5" max="30" step="0.5" value="5" class="flex-grow">
-                                        <span id="spatialDepthVal" class="range-val">5.0 Å</span>
-                                    </div>
+                            </div>
+                            <div id="spatialCenterControls" class="si-stack hidden">
+                                <div class="si-range-row">
+                                    <label class="si-range-label" for="spatialCenter">Centre</label>
+                                    <input type="range" id="spatialCenter" min="0" max="100" step="0.1" value="50" class="stk-range">
+                                    <span id="spatialCenterVal" class="si-range-val">50.0</span>
                                 </div>
-
-                                <!-- Cross-axis width clamp (available for all modes) -->
-                                <div class="flex items-center mt-2">
-                                    <label class="flex items-center gap-1.5 cursor-pointer">
-                                        <input type="checkbox" id="enableCrossAxis" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
-                                        <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">Clamp cross-axes (width)</span>
-                                    </label>
+                                <div class="si-range-row">
+                                    <label class="si-range-label" for="spatialWidth">&plusmn; Width</label>
+                                    <input type="range" id="spatialWidth" min="0.5" max="50" step="0.5" value="5" class="stk-range">
+                                    <span id="spatialWidthVal" class="si-range-val">5.0</span>
                                 </div>
-
-                                <div id="crossAxisControls" class="hidden range-group mt-1 p-2 bg-white dark:bg-slate-950 rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
-                                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 block" id="crossAxisLabel">Perpendicular axes</span>
-                                    <!-- Axis A -->
-                                    <div class="range-row">
-                                        <span class="range-label" id="crossA_label">X from</span>
-                                        <input type="range" id="crossA_from" min="0" max="100" step="0.1" class="flex-grow">
-                                        <span id="crossA_fromVal" class="range-val">0.0</span>
-                                    </div>
-                                    <div class="range-row">
-                                        <span class="range-label" id="crossA_toLabel">X to</span>
-                                        <input type="range" id="crossA_to" min="0" max="100" step="0.1" class="flex-grow">
-                                        <span id="crossA_toVal" class="range-val">100.0</span>
-                                    </div>
-                                    <hr class="border-slate-200 dark:border-slate-700 my-1">
-                                    <!-- Axis B -->
-                                    <div class="range-row">
-                                        <span class="range-label" id="crossB_label">Y from</span>
-                                        <input type="range" id="crossB_from" min="0" max="100" step="0.1" class="flex-grow">
-                                        <span id="crossB_fromVal" class="range-val">0.0</span>
-                                    </div>
-                                    <div class="range-row">
-                                        <span class="range-label" id="crossB_toLabel">Y to</span>
-                                        <input type="range" id="crossB_to" min="0" max="100" step="0.1" class="flex-grow">
-                                        <span id="crossB_toVal" class="range-val">100.0</span>
-                                    </div>
+                            </div>
+                            <div id="spatialSurfaceControls" class="si-stack hidden">
+                                <div class="si-range-row">
+                                    <label class="si-range-label" for="spatialDepth">Depth</label>
+                                    <input type="range" id="spatialDepth" min="0.5" max="30" step="0.5" value="5" class="stk-range">
+                                    <span id="spatialDepthVal" class="si-range-val">5.0 &Aring;</span>
                                 </div>
-
-                                <div class="flex items-center gap-2 mt-1">
-                                    <span class="text-[10px] font-semibold text-slate-500">Unit:</span>
-                                    <select id="spatialUnit" class="sidebar-select text-[10px] w-auto py-0.5 px-1 bg-slate-100 dark:bg-slate-800 border-none">
-                                        <option value="A" selected>Å (Ångström)</option>
-                                        <option value="nm">nm (Nanometer)</option>
-                                    </select>
+                            </div>
+                            <label class="stk-check"><input type="checkbox" id="enableCrossAxis"><span>Clamp the other two axes</span></label>
+                            <div id="crossAxisControls" class="si-stack si-sub hidden">
+                                <span class="si-sub-t" id="crossAxisLabel">Perpendicular axes</span>
+                                <div class="si-range-row">
+                                    <label class="si-range-label" id="crossA_label" for="crossA_from">X from</label>
+                                    <input type="range" id="crossA_from" min="0" max="100" step="0.1" class="stk-range">
+                                    <span id="crossA_fromVal" class="si-range-val">0.0</span>
                                 </div>
+                                <div class="si-range-row">
+                                    <label class="si-range-label" id="crossA_toLabel" for="crossA_to">X to</label>
+                                    <input type="range" id="crossA_to" min="0" max="100" step="0.1" class="stk-range">
+                                    <span id="crossA_toVal" class="si-range-val">100.0</span>
+                                </div>
+                                <div class="si-range-row">
+                                    <label class="si-range-label" id="crossB_label" for="crossB_from">Y from</label>
+                                    <input type="range" id="crossB_from" min="0" max="100" step="0.1" class="stk-range">
+                                    <span id="crossB_fromVal" class="si-range-val">0.0</span>
+                                </div>
+                                <div class="si-range-row">
+                                    <label class="si-range-label" id="crossB_toLabel" for="crossB_to">Y to</label>
+                                    <input type="range" id="crossB_to" min="0" max="100" step="0.1" class="stk-range">
+                                    <span id="crossB_toVal" class="si-range-val">100.0</span>
+                                </div>
+                            </div>
+                            <div class="stk-field">
+                                <label for="spatialUnit">Unit</label>
+                                <select id="spatialUnit" class="stk-select stk-select-sm">
+                                    <option value="A" selected>&Aring;ngstr&ouml;m (&Aring;)</option>
+                                    <option value="nm">Nanometre (nm)</option>
+                                </select>
                             </div>
                         </div>
 
-                        <div class="flex items-center mt-1">
-                            <label class="flex items-center gap-1.5 cursor-pointer">
-                                <input type="checkbox" id="autoUpdateView" checked class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-600">
-                                <span class="text-[10px] font-bold text-slate-600 dark:text-slate-300">Auto-isolate on change</span>
-                            </label>
+                        <label class="stk-check"><input type="checkbox" id="autoUpdateView" checked><span>Auto-isolate on change</span></label>
+                        <div class="si-btn-row">
+                            <button type="button" id="guiIsolateBtn" class="stk-btn stk-btn-sm stk-btn-primary si-grow"><i class="fa-solid fa-filter"></i>Isolate</button>
+                            <button type="button" id="guiHighlightBtn" class="stk-btn stk-btn-sm si-grow"><i class="fa-solid fa-highlighter"></i>Highlight</button>
+                            <button type="button" id="guiZoomBtn" class="stk-btn stk-btn-sm si-grow"><i class="fa-solid fa-crosshairs"></i>Zoom</button>
                         </div>
+                        <p id="selectionCount" class="stk-hint stk-tnum hidden" role="status"><i class="fa-solid fa-atom"></i> <span id="selCountText">0 atoms selected</span></p>
+                        <button type="button" class="reset-view-btn stk-btn stk-btn-sm stk-btn-ghost si-self-start">Reset view (show all)</button>
                     </div>
 
-                    <div class="flex gap-1.5 mt-2">
-                        <button id="guiIsolateBtn" class="sidebar-btn flex-grow text-[11px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 hover:bg-indigo-200"><i class="fa-solid fa-filter mr-1"></i>Isolate</button>
-                        <button id="guiHighlightBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-highlighter mr-1"></i>Highlight</button>
-                        <button id="guiZoomBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-crosshairs mr-1"></i>Zoom</button>
-                    </div>
-                    <div id="selectionCount" class="text-[10px] text-slate-400 mt-1 hidden"><i class="fa-solid fa-atom mr-1"></i><span id="selCountText">0 atoms selected</span></div>
-                    <button class="reset-view-btn text-[10px] text-slate-500 hover:text-indigo-500 font-medium text-left mt-1 mb-2">Reset view (Show all)</button>
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">
+                            <label for="focusQuery">Query</label>
+                            <select id="queryUnit" class="stk-select stk-select-sm si-w-unit" aria-label="Distance unit for the query">
+                                <option value="nm">nm</option>
+                                <option value="A" selected>&Aring;</option>
+                            </select>
+                        </h3>
+                        <input id="focusQuery" type="text" placeholder="e.g. z:>4.8 resn:HOH or chain:A elem:Fe" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                        <div class="si-btn-row">
+                            <button type="button" id="focusBtn" class="stk-btn stk-btn-sm si-grow"><i class="fa-solid fa-crosshairs"></i>Zoom to query</button>
+                            <button type="button" id="isolateBtn" class="stk-btn stk-btn-sm">Isolate</button>
+                            <button type="button" id="exportSelBtn" class="stk-btn stk-btn-sm stk-btn-icon" aria-label="Save the current selection as a PDB file" title="Save the current selection as a PDB file"><i class="fa-solid fa-file-export"></i></button>
+                        </div>
+                        <button type="button" class="reset-view-btn stk-btn stk-btn-sm stk-btn-ghost si-self-start">Reset view (show all)</button>
 
-                    <hr class="border-slate-200 dark:border-slate-800">
-                    <div class="flex items-center justify-between mb-1">
-                        <label class="section-label mb-0">Advanced syntax query</label>
-                        <select id="queryUnit" class="sidebar-select w-auto text-[10px] py-0.5 px-1 bg-slate-100 dark:bg-slate-800 border-none outline-none">
-                            <option value="nm">Nanometers (nm)</option>
-                            <option value="A" selected>Ångströms (Å)</option>
-                        </select>
-                    </div>
-
-                    <input id="focusQuery" type="text" placeholder="e.g. z:>4.8 resn:HOH  or  chain:A elem:Fe" class="sidebar-input text-[11px]">
-                    <div class="flex gap-1.5 mt-1">
-                        <button id="focusBtn" class="sidebar-btn flex-grow text-[11px]"><i class="fa-solid fa-crosshairs mr-1"></i>Zoom Query</button>
-                        <button id="isolateBtn" class="sidebar-btn px-3 text-[11px]">Isolate</button>
-                        <button id="exportSelBtn" class="sidebar-btn px-3 text-[11px]" title="Save the current selection as a PDB file"><i class="fa-solid fa-file-export"></i></button>
-                    </div>
-                    <button class="reset-view-btn text-[10px] text-slate-500 hover:text-indigo-500 font-medium text-left mt-1 mb-2">Reset view (Show all)</button>
-
-                    <div class="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
-                        <button class="sel-guide-btn w-full text-left px-3 py-2 bg-slate-50 dark:bg-slate-900 text-[11px] font-bold text-slate-600 dark:text-slate-300 flex justify-between items-center transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
-                            <span>Syntax guide & examples</span>
-                            <i class="fa-solid fa-chevron-down transition-transform duration-200"></i>
-                        </button>
-                        <div class="hidden p-3 bg-slate-50 dark:bg-slate-900/50 text-[10px] text-slate-600 dark:text-slate-400 space-y-2 border-t border-slate-200 dark:border-slate-800">
-                            <p class="text-[9px] text-slate-400 mb-1">Click any example to load it into the query box. Tokens are combined with AND.</p>
-                            <div class="grid grid-cols-2 gap-x-2 gap-y-1.5">
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">chain:A</span><br>Chain ID</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">resn:HOH</span><br>Residue name</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">resi:1-50</span><br>Residue range</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">elem:Fe</span><br>Element symbol</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">atom:CA</span><br>Atom name</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">ss:h</span><br>Sec. struct</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">b:&gt;30</span><br>B-factor filter</div>
-                                <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">serial:1-99</span><br>Serial range</div>
-                            </div>
-                            <div class="pt-2 mt-1 border-t border-slate-200 dark:border-slate-700">
-                                <p class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Named groups:</p>
-                                <div class="grid grid-cols-2 gap-x-2 gap-y-1.5">
-                                    <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">protein:1</span><br>Amino acids</div>
-                                    <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">nucleic:1</span><br>DNA / RNA</div>
-                                    <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">solvent:1</span><br>Water</div>
-                                    <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">ion:1</span><br>Common ions</div>
-                                    <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">backbone:1</span><br>N, CA, C, O</div>
-                                    <div><span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/30 px-1 py-0.5 rounded query-example">sidechain:1</span><br>Non-backbone</div>
+                        <details class="stk-disclosure">
+                            <summary>Syntax guide and examples</summary>
+                            <div class="si-guide">
+                                <p class="stk-hint">Click an example to load it into the query box. Tokens are combined with AND.</p>
+                                <div class="si-guide-grid">
+                                    <div><span class="query-example">chain:A</span>Chain ID</div>
+                                    <div><span class="query-example">resn:HOH</span>Residue name</div>
+                                    <div><span class="query-example">resi:1-50</span>Residue range</div>
+                                    <div><span class="query-example">elem:Fe</span>Element symbol</div>
+                                    <div><span class="query-example">atom:CA</span>Atom name</div>
+                                    <div><span class="query-example">ss:h</span>Secondary structure</div>
+                                    <div><span class="query-example">b:&gt;30</span>B-factor filter</div>
+                                    <div><span class="query-example">serial:1-99</span>Serial range</div>
                                 </div>
+                                <p class="si-guide-h">Named groups</p>
+                                <div class="si-guide-grid">
+                                    <div><span class="query-example">protein:1</span>Amino acids</div>
+                                    <div><span class="query-example">nucleic:1</span>DNA and RNA</div>
+                                    <div><span class="query-example">solvent:1</span>Water</div>
+                                    <div><span class="query-example">ion:1</span>Common ions</div>
+                                    <div><span class="query-example">backbone:1</span>N, CA, C, O</div>
+                                    <div><span class="query-example">sidechain:1</span>Non-backbone</div>
+                                </div>
+                                <p class="si-guide-h">Logic and distance</p>
+                                <code class="query-example si-guide-code" data-query="within:5,resn:HEM">within:5,resn:HEM</code>
+                                <p>Everything within 5 &Aring; of the haem group, a binding pocket.</p>
+                                <code class="query-example si-guide-code" data-query="not:solvent:1">not:solvent:1</code>
+                                <p>Strip the water. Prefix any token with <b>not:</b> or <b>!</b> to invert it.</p>
+                                <code class="query-example si-guide-code" data-query="or:chain:A|chain:B">or:chain:A|chain:B</code>
+                                <p>Union of clauses separated by <b>|</b>.</p>
+                                <code class="query-example si-guide-code" data-query="within:5,chain:A not:chain:A byres:1">within:5,chain:A not:chain:A byres:1</code>
+                                <p>The interface: whole residues near chain A but not part of it.</p>
+                                <p class="si-guide-h">Spatial filters (&Aring; or nm)</p>
+                                <code class="query-example si-guide-code" data-query="z:&gt;4.8 resn:HOH">z:&gt;4.8 resn:HOH</code>
+                                <p>Atoms above z = 4.8 that are water.</p>
+                                <code class="query-example si-guide-code" data-query="x:20-30 y:20-30">x:20-30 y:20-30</code>
+                                <p>Cross-section patch in the XY plane.</p>
                             </div>
-                            <div class="pt-2 mt-1 border-t border-slate-200 dark:border-slate-700">
-                                <p class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Logic &amp; distance:</p>
-                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 query-example" data-query="within:5,resn:HEM">within:5,resn:HEM</code>
-                                <p class="mt-1 mb-2 leading-tight">Everything within 5 Å of the haem group, a binding pocket.</p>
-                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 query-example" data-query="not:solvent:1">not:solvent:1</code>
-                                <p class="mt-1 mb-2 leading-tight">Strip the water. Prefix any token with <b>not:</b> or <b>!</b> to invert it.</p>
-                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 query-example" data-query="or:chain:A|chain:B">or:chain:A|chain:B</code>
-                                <p class="mt-1 mb-2 leading-tight">Union of clauses separated by <b>|</b>.</p>
-                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 query-example" data-query="within:5,chain:A not:chain:A byres:1">within:5,chain:A not:chain:A byres:1</code>
-                                <p class="mt-1 leading-tight">The interface: whole residues near chain A but not part of it.</p>
-                            </div>
-                            <div class="pt-2 mt-1 border-t border-slate-200 dark:border-slate-700">
-                                <p class="font-semibold text-slate-700 dark:text-slate-300 mb-1">Spatial filters (Å or nm):</p>
-                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 query-example" data-query="z:&gt;4.8 resn:HOH">z:&gt;4.8 resn:HOH</code>
-                                <p class="mt-1 mb-2 leading-tight">Atoms above z = 4.8 that are water.</p>
-                                <code class="block bg-white dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 query-example" data-query="x:20-30 y:20-30">x:20-30 y:20-30</code>
-                                <p class="mt-1 leading-tight">Cross-section patch in the XY plane.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Trajectory panel (conditional) -->
-                <div id="trajectoryPanel" class="hidden flex flex-col gap-2">
-                    <label class="section-label">Trajectory / frames</label>
-                    <div class="flex items-center gap-2">
-                        <button id="trajPrev" class="sidebar-btn px-2 text-xs"><i class="fa-solid fa-backward-step"></i></button>
-                        <button id="trajPlay" class="sidebar-btn px-3 text-xs flex-grow"><i class="fa-solid fa-play mr-1"></i>Play</button>
-                        <button id="trajNext" class="sidebar-btn px-2 text-xs"><i class="fa-solid fa-forward-step"></i></button>
-                    </div>
-                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Frame</span><input type="range" id="trajSlider" min="0" max="0" step="1" value="0" class="flex-grow"><span id="trajFrame" class="text-[10px] text-slate-500 w-10 text-right">0/0</span></div>
-                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-12 shrink-0">Speed</span>
-                        <select id="trajSpeed" class="sidebar-select text-[11px] flex-grow">
-                            <option value="200">Slow</option>
-                            <option value="100" selected>Normal</option>
-                            <option value="50">Fast</option>
-                            <option value="20">Very Fast</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Isosurface panel (conditional, for cube files) -->
-                <div id="isoPanel" class="hidden flex flex-col gap-2 mt-2 pt-3 border-t border-slate-200 dark:border-slate-800">
-                    <label class="section-label" style="color:#8b5cf6"><i class="fa-solid fa-cloud mr-1"></i>Isosurface (Cube data)</label>
-                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-14 shrink-0">+ Isoval</span><input type="range" id="isoPosVal" min="0.001" max="0.2" step="0.001" value="0.02" class="flex-grow"><span id="isoPosDisplay" class="text-[10px] text-slate-500 w-10 text-right">0.02</span></div>
-                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-14 shrink-0">- Isoval</span><input type="range" id="isoNegVal" min="-0.2" max="-0.001" step="0.001" value="-0.02" class="flex-grow"><span id="isoNegDisplay" class="text-[10px] text-slate-500 w-10 text-right">-0.02</span></div>
-                    <div class="flex items-center gap-2"><span class="text-[10px] text-slate-500 w-14 shrink-0">Opacity</span><input type="range" id="isoOpacity" min="0.1" max="1" step="0.05" value="0.7" class="flex-grow"><span id="isoOpacityDisplay" class="text-[10px] text-slate-500 w-7 text-right">0.7</span></div>
-                    <div class="flex gap-1.5">
-                        <button id="applyIso" class="sidebar-btn flex-grow text-[11px]" style="background:#8b5cf6;color:#fff">Render Isosurface</button>
-                        <button id="clearIso" class="sidebar-btn px-3 text-[11px]">Clear</button>
+                        </details>
                     </div>
                 </div>
 
                 <!-- TAB: Export -->
-                <div id="tabExport" class="tab-content hidden flex flex-col gap-3">
-                    <label class="section-label">Export image (PNG)</label>
-                    <div class="flex items-center gap-1.5">
-                        <span class="text-[10px] text-slate-500 w-16 shrink-0">Resolution</span>
-                        <select id="exportQuality" class="sidebar-select text-[11px] flex-grow">
-                            <option value="1">1x (Standard)</option>
-                            <option value="2" selected>2x (High)</option>
-                            <option value="4">4x (Print)</option>
-                            <option value="6">6x (Ultra)</option>
-                            <option value="8">8x (Poster)</option>
-                            <option value="10">10x (Extreme)</option>
-                        </select>
+                <div id="tabExport" class="si-tabpanel" role="tabpanel" aria-labelledby="tabExportBtn" hidden>
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">PNG image</h3>
+                        <div class="stk-field">
+                            <label for="exportQuality">Scale</label>
+                            <div class="si-btn-row">
+                                <select id="exportQuality" class="stk-select stk-select-sm si-grow">
+                                    <option value="1">1&times;</option>
+                                    <option value="2" selected>2&times;</option>
+                                    <option value="4">4&times;</option>
+                                    <option value="6">6&times;</option>
+                                    <option value="8">8&times;</option>
+                                    <option value="10">10&times;</option>
+                                </select>
+                                <output id="exportDims" class="si-dims stk-tnum" for="exportQuality" aria-live="polite"></output>
+                            </div>
+                            <p class="stk-hint">Multiples of the on-screen canvas. Resize the viewer, or hide the panel, to change the base size.</p>
+                        </div>
+                        <label class="stk-check"><input type="checkbox" id="exportTransparent"><span>Transparent background</span></label>
+                        <div id="exportWarn" class="stk-callout stk-callout-warn" role="status" hidden>
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <span id="exportWarnText"></span>
+                        </div>
+                        <button type="button" id="downloadBtn" class="stk-btn stk-btn-primary"><i class="fa-solid fa-download"></i>Download PNG</button>
+                        <p id="exportNote" class="stk-hint">Requests beyond the GPU's texture limit are clamped to the largest safe size rather than blacking out the canvas.</p>
                     </div>
-                    <p id="exportNote" class="text-[10px] text-slate-400 leading-tight"></p>
-                    <button id="downloadBtn" class="sidebar-btn text-xs mt-2" style="background:#6366f1;color:#fff"><i class="fa-solid fa-download mr-1"></i>Download PNG</button>
-                    <p class="text-[9px] text-slate-400 leading-tight mt-1">Very large multipliers are clamped automatically to your GPU's maximum texture size, so exports can't crash the viewer.</p>
                 </div>
 
             </aside>
 
+            <div id="sidebarHandle" class="si-handle" role="separator" aria-orientation="vertical" aria-valuemin="280" aria-valuemax="480" aria-valuenow="320" aria-label="Resize the panel. Arrow keys adjust, double-click resets." title="Drag to resize, double-click to reset" tabindex="0"></div>
+
             <!-- VIEWER -->
-            <div class="flex-grow bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm relative overflow-hidden" style="min-height:500px">
-                <div id="viewerCanvas" class="absolute inset-0 w-full h-full cursor-move"></div>
-                <div id="atomInfo"></div>
-                <div id="measureInfo"></div>
-                <div id="modeBadge" class="mode-badge hidden"></div>
-                <div id="labelProgress" class="hidden"></div>
-                <div id="busyOverlay" class="hidden">
-                    <div class="busy-card"><span class="busy-spin"></span><span id="busyText">Working…</span></div>
+            <div id="viewerColumn" class="si-viewer stk-shell-main">
+                <div class="si-stage">
+                    <div id="viewerCanvas" class="absolute inset-0 w-full h-full cursor-move" aria-label="3D structure" role="img"></div>
+                    <div class="si-status">
+                        <div id="modeBadge" class="si-badge hidden" role="status"></div>
+                        <div id="labelProgress" class="si-progress stk-tnum hidden" role="status"></div>
+                    </div>
+                    <dl id="atomInfo" class="si-overlay si-atom stk-kv" aria-live="polite"></dl>
+                    <div id="busyOverlay" class="hidden" role="status">
+                        <div class="busy-card"><span class="busy-spin" aria-hidden="true"></span><span id="busyText">Working</span></div>
+                    </div>
+                </div>
+                <div id="measureInfo" class="si-measure" hidden></div>
+                <div class="stk-toolbar si-toolbar" role="toolbar" aria-label="Viewer controls">
+                    <button type="button" id="tbReset" class="stk-btn stk-btn-icon" aria-label="Reset view" title="Reset view (R)"><i class="fa-solid fa-arrows-to-dot"></i></button>
+                    <button type="button" id="tbSpin" class="stk-btn stk-btn-icon" aria-label="Spin" aria-pressed="false" title="Spin (S)"><i class="fa-solid fa-rotate"></i></button>
+                    <span class="stk-toolbar-sep" aria-hidden="true"></span>
+                    <button type="button" id="tbMeasure" class="stk-btn stk-btn-icon" aria-label="Measure mode" aria-pressed="false" title="Measure mode (M)"><i class="fa-solid fa-ruler"></i></button>
+                    <button type="button" id="tbHydrogens" class="stk-btn stk-btn-icon" aria-label="Show hydrogens" aria-pressed="true" title="Show hydrogens (H)"><span class="si-glyph" aria-hidden="true">H</span></button>
+                    <button type="button" id="tbLabels" class="stk-btn stk-btn-icon" aria-label="Atom labels" aria-pressed="false" title="Atom labels (L)"><i class="fa-solid fa-tag"></i></button>
+                    <span class="stk-toolbar-sep" aria-hidden="true"></span>
+                    <button type="button" id="tbScreenshot" class="stk-btn stk-btn-icon" aria-label="Save PNG with the current export settings" title="Save PNG"><i class="fa-solid fa-camera"></i></button>
+                    <button type="button" id="tbFullscreen" class="stk-btn stk-btn-icon" aria-label="Fullscreen" aria-pressed="false" title="Fullscreen (F)"><i class="fa-solid fa-expand"></i></button>
+                    <button type="button" id="tbPanel" class="stk-btn stk-btn-icon si-desktop-only" aria-label="Show panel" aria-pressed="true" title="Show or hide the panel"><i class="fa-solid fa-table-columns"></i></button>
+                    <span class="stk-toolbar-sep" aria-hidden="true"></span>
+                    <button type="button" id="tbHelp" class="stk-btn stk-btn-icon" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)"><i class="fa-solid fa-question"></i></button>
                 </div>
             </div>
 
@@ -1057,7 +892,35 @@
         </div>
     </footer>
 
-    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
+    <!-- Keyboard shortcut sheet -->
+    <div id="shortcutSheet" class="stk-modal" role="dialog" aria-modal="true" aria-labelledby="shortcutTitle" hidden>
+        <div class="stk-modal-box">
+            <div class="stk-panel-h">
+                <h2 id="shortcutTitle" class="stk-panel-t"><i class="fa-solid fa-keyboard"></i>Keyboard shortcuts</h2>
+                <button type="button" id="shortcutClose" class="stk-btn stk-btn-ghost stk-btn-icon stk-btn-sm" aria-label="Close" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="stk-panel-b">
+                <dl class="si-keys">
+                    <dt><span class="stk-key">R</span></dt><dd>Reset the view</dd>
+                    <dt><span class="stk-key">S</span></dt><dd>Spin on or off</dd>
+                    <dt><span class="stk-key">M</span></dt><dd>Measure mode on or off</dd>
+                    <dt><span class="stk-key">H</span></dt><dd>Show or hide hydrogens</dd>
+                    <dt><span class="stk-key">L</span></dt><dd>Atom labels on or off</dd>
+                    <dt><span class="stk-key">F</span></dt><dd>Fullscreen viewer</dd>
+                    <dt><span class="stk-key">?</span></dt><dd>This sheet</dd>
+                    <dt><span class="stk-key">Esc</span></dt><dd>Leave measure mode, close this sheet</dd>
+                </dl>
+                <p class="stk-hint si-mt-3">Shortcuts are ignored while a text field or a select has focus, and when a modifier key is held. Drag to rotate, scroll or right-drag to zoom, and drag with the middle button or with Ctrl held to translate.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full-page drop target, shown while a file is dragged over the page -->
+    <div id="dropIndicator" class="si-drop-indicator" hidden aria-hidden="true">
+        <div class="si-drop-card"><i class="fa-solid fa-file-arrow-up"></i><span>Drop the file to load it</span></div>
+    </div>
+
+    <div id="toastContainer" class="stk-toasts" aria-live="polite"></div>
 
     <script src="js/structure-inspector.js"></script>
 </body>
