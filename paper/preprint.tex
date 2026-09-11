@@ -190,10 +190,10 @@ C8 & Support email for questions & lanrelangmuir@gmail.com (issue tracker:
 The software landscape of computational chemistry is well served at its
 extremes. Simulation engines such as GROMACS~\cite{abraham2015} and
 LAMMPS~\cite{thompson2022} are mature, extensively validated, and actively
-maintained; analysis frameworks such as MDAnalysis~\cite{michaudagrawal2011}
-provide comprehensive programmatic access to trajectory data. Between these
-poles lies a substantial volume of routine work that neither category serves
-comfortably.
+maintained; analysis frameworks such as
+MDAnalysis~\cite{michaud-agrawal2011mdanalysis} provide comprehensive
+programmatic access to trajectory data. Between these poles lies a substantial
+volume of routine work that neither category serves comfortably.
 
 Consider the interval between completing a simulation and reporting it. A
 researcher must inspect the RMSD to confirm equilibration, extract a radius of
@@ -266,7 +266,7 @@ can be reproduced offline without the browser.
 Related work is cited where the corresponding functionality is described in
 Section~\ref{sec:description}: GROMACS~\cite{abraham2015},
 LAMMPS~\cite{thompson2022} and PLUMED~\cite{tribello2014} for the file formats,
-MDAnalysis~\cite{michaudagrawal2011} as the reference framework,
+MDAnalysis~\cite{michaud-agrawal2011mdanalysis} as the reference framework,
 3Dmol.js~\cite{rego2015}, whose atom-selection syntax the \texttt{selection}
 module mirrors, SciPy~\cite{virtanen2020} and NumPy~\cite{harris2020} for
 validation, the
@@ -887,11 +887,11 @@ independent comparison had already been made and had already disagreed: the
 tolerance was widened until the test passed and the residual was explained away.
 An independent reference is necessary but not sufficient. A disagreement with
 one must be treated as a defect until shown otherwise, and a loosened tolerance
-is where that demonstration usually fails to happen. None of these errors is
-visible by inspection; a $p$-value floored at zero looks like a very strong
-result. Authors of small, rarely reviewed in-house analysis code would be well
-advised to check their numerics against an independent implementation before
-reporting output.
+is where that demonstration usually fails to happen. A 15\% error in a reported
+skewness is not visible by inspection, and neither is a $p$-value floored at
+zero, which looks like a very strong result. Authors of small, rarely reviewed
+in-house analysis code would be well advised to check their numerics against an
+independent implementation before reporting output.
 
 In daily practice, the change is the removal of a setup step from tasks that
 previously carried one. Checking whether an RMSD has converged, or whether a
@@ -981,7 +981,7 @@ G.~A. Tribello, M.~Bonomi, D.~Branduardi, C.~Camilloni, and G.~Bussi,
 \newblock \emph{Comput. Phys. Commun.} \textbf{185}(2), 604--613 (2014).
 \newblock \url{https://doi.org/10.1016/j.cpc.2013.09.018}
 
-\bibitem{michaudagrawal2011}
+\bibitem{michaud-agrawal2011mdanalysis}
 N.~Michaud-Agrawal, E.~J. Denning, T.~B. Woolf, and O.~Beckstein,
 \newblock MDAnalysis: A toolkit for the analysis of molecular dynamics
   simulations,
