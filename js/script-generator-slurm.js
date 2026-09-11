@@ -1,64 +1,42 @@
 /**
- * SLURM header adapter for the HPC Script Generator.
+ * Scheduler-header adapter for the MD workflow generator.
  *
- * `script-generator.js` is 2,855 lines, most of which is the PLUMED
- * collective-variable builder and the MDP stage forms | both densely coupled to
- * the DOM. Rewriting the whole file in one step would be a large, hard-to-review
- * change with little benefit, so this module converts only the part with real
- * logic in it: the `#SBATCH` header and its resource warnings.
+ * `script-generator.js` is mostly the PLUMED collective-variable builder and
+ * the MDP stage forms, both densely coupled to the DOM. Converting all of it
+ * would be a large, hard-to-review change with little benefit, so this module
+ * covers only the part with real logic in it: the directive header and its
+ * resource warnings. The page reads the form, this module turns it into the
+ * configuration object `core/scheduler` takes, and the tested core produces
+ * the header. For SLURM the result is byte for byte what the page produced
+ * before the core existed.
  *
- * It exposes a function with the same shape as the original
- * `buildSlurmHeader(engine, warnings)`, so the two existing call sites need no
- * change beyond importing this instead of using the local definition. The
- * header itself, the array-memory arithmetic, and the resource checks now come
- * from the tested core.
- *
- * ## Applying this
- *
- * In `js/script-generator.js`:
- *
- *   1. Add at the top of the file (before `document.addEventListener`):
- *
- *        import { buildSlurmHeaderFromDOM } from './script-generator-slurm.js';
- *
- *   2. Delete the local `function buildSlurmHeader(engine, warnings) { ... }`
- *      (around line 1025 through its closing brace).
- *
- *   3. Add a thin forwarder in its place so the call sites are untouched:
- *
- *        const buildSlurmHeader = (engine, warnings) =>
- *          buildSlurmHeaderFromDOM(engine, warnings, { $, getStr, getInt, isChecked });
- *
- *   4. Add `type="module"` to the script tag in `script-generator.html`.
- *
- * The remaining ~2,700 lines are unchanged and keep working exactly as before.
+ * The function keeps the shape of the page's original
+ * `buildSlurmHeader(engine, warnings)`: it returns the header text and the
+ * array flag, and appends warnings to the caller's array as HTML strings,
+ * which is what the page's rendering code expects.
  */
 
-import {
-  buildSlurmHeader as coreBuildSlurmHeader,
-  validateResources
-} from '../src/core/slurm.js';
+import { buildHeader, DEFAULT_PE } from '../src/core/scheduler.js';
+import { validateResources } from '../src/core/slurm.js';
 
 /**
- * Read the job form and build the `#SBATCH` header through the core.
- *
- * Warnings are appended to the caller's array as HTML strings, matching what
- * the existing rendering code expects. The core returns structured objects, so
- * they are formatted here rather than in the library.
+ * Read the job form and build the directive header through the core.
  *
  * @param {'gromacs'|'lammps'} engine
  * @param {string[]} warnings - Mutated in place, as the original did.
  * @param {{$:Function, getStr:Function, getInt:Function, isChecked:Function}} dom
- *        The existing DOM helpers from script-generator.js, injected so this
- *        module has no direct dependency on them.
- * @returns {{header:string, isArray:boolean}}
+ *        The page's DOM helpers, injected so this module has no direct
+ *        dependency on them.
+ * @returns {{header:string, isArray:boolean, scheduler:string}}
  */
-export function buildSlurmHeaderFromDOM(engine, warnings, dom) {
+export function buildHeaderFromDOM(engine, warnings, dom) {
   const { getStr, getInt, isChecked } = dom;
 
   const isArray = isChecked('jobArrayToggle');
+  const scheduler = getStr('jobScheduler', 'slurm');
 
   const config = {
+    scheduler,
     engine,
     jobName: getStr('jobName', 'md_job'),
     partition: isChecked('usePartition') ? getStr('jobPartition', '') : '',
@@ -72,10 +50,11 @@ export function buildSlurmHeaderFromDOM(engine, warnings, dom) {
     memory: getStr('jobMem', ''),
     array: isArray,
     arrayRange: getStr('jobArrayRange', ''),
-    mailUser: isChecked('useMail') ? getStr('jobMailUser', '') : ''
+    mailUser: isChecked('useMail') ? getStr('jobMailUser', '') : '',
+    pe: getStr('sgePe', DEFAULT_PE)
   };
 
-  const result = coreBuildSlurmHeader(config);
+  const result = buildHeader(config);
   const resourceWarnings = validateResources(config);
 
   for (const w of [...result.warnings, ...resourceWarnings]) {
@@ -88,7 +67,7 @@ export function buildSlurmHeaderFromDOM(engine, warnings, dom) {
     warnings.push('Mail notifications enabled but no address given.');
   }
 
-  return { header: result.script, isArray };
+  return { header: result.script, isArray, scheduler };
 }
 
 /**
