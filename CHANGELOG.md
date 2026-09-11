@@ -5,6 +5,82 @@ Notable changes to STEMKit and `@stemkit/core`.
 `[output]` marks a change that alters a reported number. Figures produced with an
 earlier version are worth re-checking.
 
+## Unreleased
+
+No reported number changes in this release. Every tool was checked against
+the previous version for identical output on the same input.
+
+### Added: `@stemkit/core`
+
+- **`core/scheduler`**: directive headers, environment-variable names, launch
+  prefixes and submit commands for SLURM, PBS Professional / OpenPBS, LSF and
+  Grid Engine, sharing `core/slurm`'s validation. The SLURM path delegates to
+  `core/slurm` unchanged. 51 tests; the module count is 17 and the suite 1128.
+
+### Changed: MD workflow generator
+
+- Scheduler selector (SLURM, PBS Pro / OpenPBS, LSF, Grid Engine). The engine
+  blocks follow the choice: launcher, job and array variables, working
+  directory, log paths and the submit command. Anything site-specific
+  (queue names, parallel environment, GPU resource names, memory units) is
+  marked as such inside the generated script.
+- The `#SBATCH` header now comes from `core/slurm` through
+  `js/script-generator-slurm.js`, as that adapter's header always intended;
+  output for the same inputs is byte-identical.
+- Download buttons for `submit.sh`, `topol.top` and `plumed.dat`; settings
+  persist between visits and can be exported and imported as JSON; a resource
+  summary (cores, GPUs, core-hours, array tasks in flight) under the cluster
+  form; syntax colouring of the generated script.
+
+### Changed: structure inspector
+
+- Application shell: the viewer fills the space under the navigation, the
+  side panel scrolls on its own, can be resized by dragging or with the arrow
+  keys and collapsed, and remembers its width, state and last open tab.
+- Viewer toolbar and keyboard shortcuts (`R` reset, `S` spin, `M` measure,
+  `H` hydrogens, `L` labels, `F` fullscreen, `?` shortcut sheet, `Esc`).
+- Files can be dropped anywhere on the page; large files report read
+  progress; a file that fails to parse names the file and the reason and
+  returns to the upload zone. The PDB fetch distinguishes a missing entry
+  from a network failure.
+- Two bundled samples (`assets/samples/`), generated from textbook geometry
+  so the demonstration works offline.
+- PNG export offers a transparent background and shows the output size in
+  pixels; very large exports warn rather than fail.
+
+### Changed: coordinate manipulator
+
+- The workspace is built from the shared components: panels with plain
+  headings instead of a per-card colour theme, labels above their controls,
+  the system statistics as a key/value list with tabular figures, the box and
+  `editconf` notes as callouts, and a viewer toolbar over the canvas.
+- Empty state with two bundled samples and the accepted formats as chips; a
+  file can be dropped anywhere on the page.
+- Undo and redo are a toolbar with keyboard shortcuts; on a phone the viewer
+  comes first, then the controls, then the output buffer, with no sideways
+  scrolling at 375 px.
+- Parsing, geometry, unit handling and the written files are untouched: the
+  same operations on the same structure produce byte-identical PDB, GRO and
+  XYZ output and the same `gmx editconf` command as the previous version.
+
+### Changed: every page
+
+- All stylesheets, fonts and scripts are served from the repository. Inter is
+  vendored (variable weight, SIL OFL 1.1) and is now applied as the body
+  face, which it never was: the pages requested it from Google Fonts and
+  rendered in the system font. The structure inspector loaded Tailwind from a
+  CDN and threw `tailwind is not defined` offline. Favicons are relative.
+- Design tokens and shared components in `src/tailwind/input.css`
+  (`docs/CSS.md`). Visible keyboard focus, `prefers-reduced-motion`, no text
+  below 11 px, reference tables and code blocks that scroll inside their box
+  on phones rather than widening the page.
+- The six pages that still carried inline `<style>` blocks use
+  `src/tools/<tool>.css`. Ten per-tool stylesheets contained stray keyframe
+  bodies outside any `@keyframes` rule, left by the earlier extraction; the
+  shared stylesheet set the two- and three-column documentation grid and
+  then reset it to one column, which every tool stylesheet patched with its
+  own media query. Both fixed at the source.
+
 ## v0.1.1 — 2026-07-25
 
 ### Fixed: numerics
