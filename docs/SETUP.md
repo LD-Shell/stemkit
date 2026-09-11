@@ -41,10 +41,12 @@ stemkit/
 ├── *.html                  18 research tools, 3 workflow utilities,
 │                           plus index, privacy and 404
 ├── src/
-│   ├── core/               the library: 16 domain modules, no DOM,
+│   ├── core/               the library: 17 domain modules, no DOM,
 │   │                       plus index.js (barrel) and vendor.js (DI)
+│   ├── tailwind/input.css  design tokens, shared .stk-* components,
+│   │                       hand-written rules that survive a rebuild
 │   ├── tools/              per-tool stylesheets, 20 files
-│   ├── stemkit-docs.css    shared .stk-* components
+│   ├── stemkit-docs.css    shared documentation furniture
 │   ├── output.css          generated Tailwind. Do not hand-edit.
 │   ├── home.css            landing page
 │   └── script-generator.css
@@ -57,7 +59,8 @@ stemkit/
 ├── abbr/                   ISSN LTWA word list for ISO 4
 ├── docs/                   setup, stylesheets, coverage
 ├── paper/                  manuscript, LaTeX and Markdown
-├── css/, assets/, sound/   fonts, icons, audio
+├── css/, assets/, sound/   fonts (Inter and Font Awesome are vendored),
+│                           icons, sample structures, audio
 └── package.json            @stemkit/core
 ```
 
@@ -84,16 +87,21 @@ Cannot set properties of undefined (setting 'jStat')
 Delete that file and every Node example in the README breaks on first import.
 
 **`src/output.css`** is generated. Rules added by hand survive until the next
-`npm run build:css`. Component styles go in `src/stemkit-docs.css` or
+`npm run build:css`. Shared rules go in `src/tailwind/input.css`, documentation
+furniture in `src/stemkit-docs.css`, and anything for one page in
 `src/tools/<tool>.css`. See `docs/CSS.md`.
+
+**No page fetches anything from another host.** Inter lives in
+`css/fonts/inter/` and is declared in `src/tailwind/input.css`; if a page ever
+renders in a system font, the build was not run after that file changed.
 
 ## Conversion state
 
 | State | Count | Notes |
 |---|---|---|
-| Computation in `src/core/`, styles in `src/tools/` | 14 | fully converted |
-| Partially converted via adapters | 2 | `js/*-slurm.js`, `js/*-selection.js` |
-| Logic and styles still inline | rest | |
+| Computation in `src/core/`, styles in `src/tools/` | 16 | fully converted; the script generator's header, launcher and environment come from `core/slurm` and `core/scheduler` through `js/script-generator-slurm.js` |
+| Styles in `src/tools/`, computation still in the page script | 2 | structure inspector (`js/structure-inspector-selection.js` exists but is not applied; its header says why the two parsers do not yet agree) and plot builder |
+| Styles in `src/tools/`, no computation to move | 3 | pomodoro, decision, sandbox |
 
 `CONTRIBUTING.md` covers where new code belongs. `CHANGELOG.md` records what
 changed, including fixes that alter reported output.
