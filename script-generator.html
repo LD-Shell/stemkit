@@ -6,39 +6,39 @@
 
     <title>MD Workflow Generator | GROMACS, LAMMPS & PLUMED | STEMKit</title>
     <meta name="title" content="MD Workflow Generator | GROMACS, LAMMPS & PLUMED | STEMKit">
-    <meta name="description" content="Generate correct SLURM batch scripts and GROMACS .top headers. Force field, combination rule and 1-4 fudge factors are coupled automatically, with warnings when they diverge. Runs 100% in your browser.">
-    <meta name="keywords" content="slurm script generator, gromacs topology generator, fudgeLJ fudgeQQ, combination rule, amber charmm opls, hpc job array, mdrun openmp, cpus-per-task">
+    <meta name="description" content="Generate batch scripts for SLURM, PBS Pro / OpenPBS, LSF and Grid Engine, GROMACS .top headers and PLUMED inputs. Force field, combination rule and 1-4 fudge factors are coupled automatically, with warnings when they diverge. Runs entirely in your browser.">
+    <meta name="keywords" content="slurm script generator, pbs qsub script, lsf bsub script, grid engine qsub, gromacs topology generator, fudgeLJ fudgeQQ, combination rule, amber charmm opls, hpc job array, mdrun openmp, cpus-per-task, plumed input">
 
     <link rel="canonical" href="https://stemkit.net/script-generator.html">
     <meta property="og:url" content="https://stemkit.net/script-generator.html">
     <meta property="twitter:url" content="https://stemkit.net/script-generator.html">
 
-    <meta property="og:title" content="SLURM & GROMACS Script Generator | STEMKit">
-    <meta property="twitter:title" content="SLURM & GROMACS Script Generator | STEMKit">
-    <meta property="og:description" content="Generate correct SLURM batch scripts and GROMACS topology headers, with the force field, combination rule and fudge factors kept consistent.">
-    <meta property="twitter:description" content="Generate correct SLURM batch scripts and GROMACS topology headers, with the force field, combination rule and fudge factors kept consistent.">
+    <meta property="og:title" content="MD Workflow Generator | GROMACS, LAMMPS & PLUMED | STEMKit">
+    <meta property="twitter:title" content="MD Workflow Generator | GROMACS, LAMMPS & PLUMED | STEMKit">
+    <meta property="og:description" content="Generate batch scripts for SLURM, PBS, LSF and Grid Engine, plus GROMACS topology headers with the force field, combination rule and fudge factors kept consistent.">
+    <meta property="twitter:description" content="Generate batch scripts for SLURM, PBS, LSF and Grid Engine, plus GROMACS topology headers with the force field, combination rule and fudge factors kept consistent.">
 
     <script type="application/ld+json">
         {
             "@context": "https://schema.org",
             "@type": "WebApplication",
-            "name": "STEMKit SLURM & GROMACS Script Generator",
+            "name": "STEMKit MD Workflow Generator",
             "url": "https://stemkit.net/script-generator.html",
-            "description": "Generate SLURM batch scripts and GROMACS topology headers with coupled force-field parameters.",
+            "description": "Generate batch scripts for SLURM, PBS Pro / OpenPBS, LSF and Grid Engine, GROMACS topology headers with coupled force-field parameters, and PLUMED inputs.",
             "author": { "@type": "Person", "name": "Olanrewaju M. Daramola" },
             "applicationCategory": "DeveloperApplication",
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "SLURM Job Arrays", "GROMACS Topology Headers", "Coupled Force-field / Fudge Factors", "Input Validation", "100% Client-Side" ]
+            "featureList": [ "SLURM, PBS, LSF and Grid Engine headers", "Job arrays", "GROMACS topology headers", "Coupled force-field / fudge factors", "PLUMED input builder", "Input validation", "Client-side only" ]
         }
     </script>
 
     <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"HowTo","name":"How to generate a SLURM batch script and GROMACS topology header","totalTime":"PT2M","step":[{"@type":"HowToStep","position":1,"name":"Set cluster parameters","text":"Enter job name, nodes, CPUs per task, GPUs, wall time and memory. Toggle a job array if you need to run many systems at once."},{"@type":"HowToStep","position":2,"name":"Choose the force field","text":"Pick a force field. The combination rule and 1-4 fudge factors are set automatically to the values GROMACS ships for that force field."},{"@type":"HowToStep","position":3,"name":"Review warnings","text":"If any parameter diverges from the canonical values, or a required SLURM directive is missing, an inline warning explains what to fix."},{"@type":"HowToStep","position":4,"name":"Copy the output","text":"Copy the generated submit.sh and topol.top header into your project. Fill in the [ molecules ] section with your species and counts."}]}
+    {"@context":"https://schema.org","@type":"HowTo","name":"How to generate a batch script and GROMACS topology header","totalTime":"PT2M","step":[{"@type":"HowToStep","position":1,"name":"Set cluster parameters","text":"Pick the scheduler (SLURM, PBS Pro / OpenPBS, LSF or Grid Engine), then enter job name, nodes, CPUs per task, GPUs, wall time and memory. Toggle a job array if you need to run many systems at once."},{"@type":"HowToStep","position":2,"name":"Choose the force field","text":"Pick a force field. The combination rule and 1-4 fudge factors are set automatically to the values GROMACS ships for that force field."},{"@type":"HowToStep","position":3,"name":"Review warnings","text":"If any parameter diverges from the canonical values, or a required SLURM directive is missing, an inline warning explains what to fix."},{"@type":"HowToStep","position":4,"name":"Copy the output","text":"Copy the generated submit.sh and topol.top header into your project. Fill in the [ molecules ] section with your species and counts."}]}
     </script>
     <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why does choosing a force field change the combination rule and fudge factors?","acceptedAnswer":{"@type":"Answer","text":"Because they are physically coupled. Each GROMACS force field ships a [ defaults ] line with a specific combination rule and 1-4 scaling. AMBER uses rule 2 with 0.5/0.8333, CHARMM36 uses rule 2 with 1.0/1.0, and OPLS-AA uses rule 3 with 0.5/0.5. Mixing them silently produces a physically wrong topology."}},{"@type":"Question","name":"What are fudgeLJ and fudgeQQ?","acceptedAnswer":{"@type":"Answer","text":"They are the factors by which 1-4 Lennard-Jones and 1-4 electrostatic interactions are scaled. fudgeLJ is applied only when gen-pairs is yes; fudgeQQ is always applied."}},{"@type":"Question","name":"Is my data uploaded anywhere?","acceptedAnswer":{"@type":"Answer","text":"No. The generator runs entirely in your browser. Nothing you type is sent to a server."}},{"@type":"Question","name":"Why did the script add memory, log files and bash -e that I did not ask for?","acceptedAnswer":{"@type":"Answer","text":"These are HPC best practices. bash -e aborts the job on the first failing command so it shows as FAILED in sacct; explicit --mem avoids a small site default killing the job; and --output/--error capture logs per job or per array task."}},{"@type":"Question","name":"Can I override the auto-set parameters?","acceptedAnswer":{"@type":"Answer","text":"Yes. Enable Advanced override to edit the combination rule and fudge factors manually. A warning appears whenever your values differ from the force field's canonical parameters."}}]}
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why does choosing a force field change the combination rule and fudge factors?","acceptedAnswer":{"@type":"Answer","text":"Because they are physically coupled. Each GROMACS force field ships a [ defaults ] line with a specific combination rule and 1-4 scaling. AMBER uses rule 2 with 0.5/0.8333, CHARMM36 uses rule 2 with 1.0/1.0, and OPLS-AA uses rule 3 with 0.5/0.5. Mixing them silently produces a physically wrong topology."}},{"@type":"Question","name":"What are fudgeLJ and fudgeQQ?","acceptedAnswer":{"@type":"Answer","text":"They are the factors by which 1-4 Lennard-Jones and 1-4 electrostatic interactions are scaled. fudgeLJ is applied only when gen-pairs is yes; fudgeQQ is always applied."}},{"@type":"Question","name":"Is my data uploaded anywhere?","acceptedAnswer":{"@type":"Answer","text":"No. The generator runs entirely in your browser. Nothing you type is sent to a server."}},{"@type":"Question","name":"Why did the script add memory, log files and bash -e that I did not ask for?","acceptedAnswer":{"@type":"Answer","text":"These are HPC best practices. bash -e aborts the job on the first failing command so it shows as FAILED in sacct; explicit --mem avoids a small site default killing the job; and --output/--error capture logs per job or per array task."}},{"@type":"Question","name":"Which schedulers are supported?","acceptedAnswer":{"@type":"Answer","text":"SLURM, PBS Professional / OpenPBS, IBM Spectrum LSF and Grid Engine (SGE, UGE). The same resource request is translated into each scheduler's directives, environment variables and launch command; anything a site defines itself, such as the GPU resource name under PBS or Grid Engine, is marked as site-specific in the script."}},{"@type":"Question","name":"Can I override the auto-set parameters?","acceptedAnswer":{"@type":"Answer","text":"Yes. Enable Advanced override to edit the combination rule and fudge factors manually. A warning appears whenever your values differ from the force field's canonical parameters."}}]}
     </script>
 
     <meta name="author" content="Olanrewaju M. Daramola">
@@ -49,16 +49,16 @@
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp">
 
-    <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="https://stemkit.net/assets/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="https://stemkit.net/assets/favicon-16x16.png">
-    <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/all.min.css">
-    <link rel="stylesheet" href="src/script-generator.css">
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
+    <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/script-generator.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
 
@@ -123,465 +123,486 @@
             </div>
             <h1 class="text-2xl sm:text-4xl font-black mb-2 tracking-tight">MD Workflow Generator | GROMACS, LAMMPS &amp; PLUMED</h1>
             <p class="text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
-                Build a ready-to-submit SLURM script for <strong>GROMACS</strong> or <strong>LAMMPS</strong>, or compose a <strong>PLUMED</strong> <code>plumed.dat</code> with collective variables and metadynamics. For GROMACS, chain a full staged workflow (EM &rarr; NVT &rarr; NPT &rarr; Production) with restraint and checkpoint wiring and GPU-offload flags; for LAMMPS, pick the right accelerator package; for PLUMED, choose CVs by category and set the bias and speed options, all from source-verified keywords.
+                Build a ready-to-submit batch script for <strong>GROMACS</strong> or <strong>LAMMPS</strong> on SLURM, PBS Pro / OpenPBS, LSF or Grid Engine, or compose a <strong>PLUMED</strong> <code>plumed.dat</code> with collective variables and metadynamics. For GROMACS, chain a full staged workflow (EM &rarr; NVT &rarr; NPT &rarr; Production) with restraint and checkpoint wiring and GPU-offload flags; for LAMMPS, pick the right accelerator package; for PLUMED, choose CVs by category and set the bias and speed options, all from source-verified keywords.
             </p>
-            <p class="text-xs text-slate-400 mt-3">100% client-side &middot; <a href="#method" class="text-rose-500 hover:underline">See method &amp; references</a></p>
+            <p class="text-xs text-slate-400 mt-3">Runs entirely in your browser &middot; <a href="#method" class="sg-link">See method &amp; references</a></p>
         </header>
 
-        <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
+        <div id="toastContainer" class="stk-toasts" aria-live="polite"></div>
 
 
         <!-- Engine selector -->
-        <div class="flex items-center gap-1 mb-4 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1 w-full sm:w-fit">
-            <button data-engine-tab="gromacs" aria-selected="true" role="tab" style="background-color:#e11d48;color:#ffffff;" class="flex-1 sm:flex-none justify-center shadow-sm px-2 sm:px-5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 sm:gap-2">
-                <i class="fa-solid fa-atom"></i> GROMACS
-            </button>
-            <button data-engine-tab="lammps" aria-selected="false" role="tab" class="flex-1 sm:flex-none justify-center text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 px-2 sm:px-5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 sm:gap-2">
-                <i class="fa-solid fa-cubes"></i> LAMMPS
-            </button>
-            <button data-engine-tab="plumed" aria-selected="false" role="tab" class="flex-1 sm:flex-none justify-center text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 px-2 sm:px-5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 sm:gap-2">
-                <i class="fa-solid fa-wave-square"></i> PLUMED
-            </button>
+        <div class="sg-strip">
+            <div class="stk-seg sg-engines" role="tablist" aria-label="Engine">
+                <button type="button" role="tab" data-engine-tab="gromacs" aria-selected="true" aria-controls="gromacsPanel"><i class="fa-solid fa-atom"></i> GROMACS</button>
+                <button type="button" role="tab" data-engine-tab="lammps" aria-selected="false" aria-controls="lammpsPanel"><i class="fa-solid fa-cubes"></i> LAMMPS</button>
+                <button type="button" role="tab" data-engine-tab="plumed" aria-selected="false" aria-controls="plumedPanel"><i class="fa-solid fa-wave-square"></i> PLUMED</button>
+            </div>
+            <div class="sg-strip-actions">
+                <button type="button" id="exportSettings" class="stk-btn stk-btn-sm" title="Save every setting to a JSON file"><i class="fa-solid fa-file-export"></i> Export settings</button>
+                <button type="button" id="importSettings" class="stk-btn stk-btn-sm" title="Load settings from a JSON file"><i class="fa-solid fa-file-import"></i> Import settings</button>
+                <input type="file" id="importSettingsFile" accept="application/json,.json" hidden>
+                <button type="button" id="resetSettings" class="stk-btn stk-btn-sm stk-btn-ghost" title="Restore the defaults and forget the saved settings"><i class="fa-solid fa-rotate-left"></i> Reset to defaults</button>
+            </div>
         </div>
 
-        <div id="builderLayout" class="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-16rem)] lg:min-h-[640px]">
+        <div id="builderLayout" class="sg-layout">
 
-            <div id="settingsColumn" class="w-full lg:w-[420px] flex flex-col gap-4 lg:overflow-y-auto custom-scroll lg:pr-2 shrink-0">
+            <div id="settingsColumn" class="sg-settings">
 
                 <!-- CLUSTER PARAMETERS -->
-                <div id="clusterCard" class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
-                    <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                        <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider"><i class="fa-solid fa-terminal text-rose-500 mr-2"></i>Cluster Parameters</span>
+                <section id="clusterCard" class="stk-panel" aria-labelledby="clusterTitle">
+                    <div class="stk-panel-h">
+                        <h2 class="stk-panel-t" id="clusterTitle"><i class="fa-solid fa-server"></i> Cluster</h2>
                     </div>
-                    <div class="p-4 flex flex-col gap-3">
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label for="jobName" class="text-[10px] font-bold text-slate-500 uppercase">Job Name</label>
-                                <input type="text" id="jobName" value="md_prod" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 mt-1">
+                    <div class="stk-panel-b sg-form">
+                        <div class="stk-field">
+                            <label for="jobScheduler">Scheduler</label>
+                            <select id="jobScheduler" class="stk-select">
+                                <option value="slurm" selected>SLURM</option>
+                                <option value="pbs">PBS Pro / OpenPBS</option>
+                                <option value="lsf">LSF</option>
+                                <option value="sge">Grid Engine (SGE / UGE)</option>
+                            </select>
+                            <p class="stk-hint" id="schedulerHint">Directives use <code>#SBATCH</code>; submit with <code>sbatch submit.sh</code>.</p>
+                        </div>
+
+                        <div class="sg-grid">
+                            <div class="stk-field">
+                                <label for="jobName">Job name</label>
+                                <input type="text" id="jobName" value="md_prod" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
                             </div>
-                            <div>
-                                <label for="jobTime" class="text-[10px] font-bold text-slate-500 uppercase">Wall Time <span class="plumed-help" tabindex="0" data-tip="Maximum run time as HH:MM:SS or D-HH:MM:SS. The job is killed when this elapses, so pad it above your expected runtime. Shorter walltimes often schedule sooner.">?</span></label>
-                                <input type="text" id="jobTime" value="24:00:00" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 mt-1 font-mono" placeholder="D-HH:MM:SS">
+                            <div class="stk-field">
+                                <label for="jobTime">Wall time <span class="plumed-help" tabindex="0" data-tip="Maximum run time as HH:MM:SS or D-HH:MM:SS. The job is killed when this elapses, so pad it above the expected run time. Shorter wall times often schedule sooner.">?</span></label>
+                                <input type="text" id="jobTime" value="24:00:00" class="stk-input stk-mono" placeholder="D-HH:MM:SS" autocomplete="off" spellcheck="false">
                             </div>
-                            <div>
-                                <label for="jobNodes" class="text-[10px] font-bold text-slate-500 uppercase">Nodes <span class="plumed-help" tabindex="0" data-tip="Number of compute nodes to request. Most single-GPU or modest CPU jobs use 1; only scale up if your run actually parallelises across nodes.">?</span></label>
-                                <input type="number" id="jobNodes" value="1" min="1" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 mt-1">
+                            <div class="stk-field">
+                                <label for="jobNodes">Nodes <span class="plumed-help" tabindex="0" data-tip="Number of compute nodes. Most single-GPU or modest CPU jobs use 1; only scale up if the run actually parallelises across nodes.">?</span></label>
+                                <input type="number" id="jobNodes" value="1" min="1" class="stk-input">
                             </div>
 
                             <!-- GROMACS: threads per task -->
-                            <div id="gmxCpuField">
-                                <label for="jobCpus" class="text-[10px] font-bold text-slate-500 uppercase">CPUs / Task (OpenMP) <span class="plumed-help" tabindex="0" data-tip="OpenMP threads per MPI task (sets --cpus-per-task and OMP_NUM_THREADS). For GROMACS, tasks × threads should match the cores you request.">?</span></label>
-                                <input type="number" id="jobCpus" value="8" min="1" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 mt-1">
+                            <div id="gmxCpuField" class="stk-field">
+                                <label for="jobCpus">CPUs per task <span class="plumed-help" tabindex="0" data-tip="OpenMP threads per MPI task (sets --cpus-per-task, or its equivalent, and OMP_NUM_THREADS). For GROMACS, tasks x threads should match the cores you request.">?</span></label>
+                                <input type="number" id="jobCpus" value="8" min="1" class="stk-input">
                             </div>
                             <!-- LAMMPS: MPI tasks per node -->
-                            <div id="lmpTaskField" class="hidden">
-                                <label for="jobTasks" class="text-[10px] font-bold text-slate-500 uppercase">MPI Tasks / Node <span class="plumed-help" tabindex="0" data-tip="Number of MPI ranks per node (--ntasks-per-node). LAMMPS is MPI-parallel, so this is your main parallelism knob.">?</span></label>
-                                <input type="number" id="jobTasks" value="4" min="1" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 mt-1">
+                            <div id="lmpTaskField" class="stk-field" hidden>
+                                <label for="jobTasks">MPI tasks per node <span class="plumed-help" tabindex="0" data-tip="MPI ranks per node (--ntasks-per-node, or its equivalent). LAMMPS is MPI-parallel, so this is the main parallelism setting.">?</span></label>
+                                <input type="number" id="jobTasks" value="4" min="1" class="stk-input">
                             </div>
 
-                            <div>
-                                <label for="jobGpus" class="text-[10px] font-bold text-slate-500 uppercase">GPUs / Node <span class="plumed-help" tabindex="0" data-tip="GPUs to request per node (--gres=gpu:N). Set 0 for CPU-only runs. Request only what your run can actually use.">?</span></label>
-                                <input type="number" id="jobGpus" value="1" min="0" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 mt-1">
+                            <div class="stk-field">
+                                <label for="jobGpus">GPUs per node <span class="plumed-help" tabindex="0" data-tip="GPUs to request per node (--gres=gpu:N, or its equivalent). Set 0 for CPU-only runs. Request only what the run can use.">?</span></label>
+                                <input type="number" id="jobGpus" value="1" min="0" class="stk-input">
                             </div>
-                            <div>
-                                <label for="jobMem" class="text-[10px] font-bold text-slate-500 uppercase">Memory <span class="plumed-help" tabindex="0" data-tip="Memory per node (e.g. 8G, 16000M). Request a bit above your peak usage, asking for far more than you need can delay scheduling.">?</span></label>
-                                <input type="text" id="jobMem" value="32G" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 mt-1 font-mono" placeholder="e.g. 32G">
+                            <div class="stk-field">
+                                <label for="jobMem">Memory per node <span class="plumed-help" tabindex="0" data-tip="Memory per node (e.g. 8G, 16000M). Request a little above the peak usage; asking for far more than needed delays scheduling. Converted to each scheduler's own units.">?</span></label>
+                                <input type="text" id="jobMem" value="32G" class="stk-input stk-mono" placeholder="e.g. 32G" autocomplete="off" spellcheck="false">
                             </div>
                             <!-- LAMMPS optional cpus-per-task (for OMP/KOKKOS-OMP) -->
-                            <div id="lmpCpuField" class="hidden">
-                                <label for="lmpCpus" class="text-[10px] font-bold text-slate-500 uppercase">CPUs / Task <span class="plumed-help" tabindex="0" data-tip="OpenMP threads per MPI task. Only relevant for the hybrid OPENMP accelerator; for pure-MPI runs keep this at 1.">?</span></label>
-                                <input type="number" id="lmpCpus" value="1" min="1" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 mt-1">
+                            <div id="lmpCpuField" class="stk-field" hidden>
+                                <label for="lmpCpus">CPUs per task <span class="plumed-help" tabindex="0" data-tip="OpenMP threads per MPI task. Only relevant for the hybrid OPENMP accelerator; for pure-MPI runs keep this at 1.">?</span></label>
+                                <input type="number" id="lmpCpus" value="1" min="1" class="stk-input">
+                            </div>
+                            <!-- Grid Engine: parallel environment -->
+                            <div id="sgePeField" class="stk-field sg-grid-span" hidden>
+                                <label for="sgePe">Parallel environment</label>
+                                <input type="text" id="sgePe" value="mpi" class="stk-input stk-mono" placeholder="mpi" autocomplete="off" spellcheck="false">
+                                <p class="stk-hint">Site-specific. List the names with <code>qconf -spl</code>; a shared-memory PE (often <code>smp</code>) for threaded runs, an MPI one for ranks across nodes.</p>
                             </div>
                         </div>
 
-                        <!-- Partition -->
-                        <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
-                            <label class="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                                Specify partition
-                                <input type="checkbox" id="usePartition" class="w-4 h-4 text-rose-600 bg-slate-100 border-slate-300 rounded focus:ring-rose-500">
-                            </label>
-                            <div id="partitionWrap" class="mt-2 opacity-40">
-                                <input type="text" id="jobPartition" value="gpu" disabled class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 font-mono" placeholder="partition name">
-                                <p class="text-[10px] text-slate-400 mt-1 leading-snug">Best practice: leave unset unless you need specific hardware.</p>
+                        <!-- Partition / queue -->
+                        <div class="sg-option">
+                            <div class="stk-switch-row">
+                                <span id="partitionLabel">Partition or queue</span>
+                                <button type="button" id="usePartition" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="partitionLabel"></button>
+                            </div>
+                            <div id="partitionWrap" class="stk-field" hidden>
+                                <label for="jobPartition" class="sr-only">Partition or queue name</label>
+                                <input type="text" id="jobPartition" value="gpu" class="stk-input stk-mono" placeholder="partition name" autocomplete="off" spellcheck="false">
+                                <p class="stk-hint">Leave unset unless the run needs specific hardware; the scheduler then has more freedom.</p>
                             </div>
                         </div>
 
                         <!-- Job array -->
-                        <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
-                            <label class="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                                Enable Job Array
-                                <input type="checkbox" id="jobArrayToggle" class="w-4 h-4 text-rose-600 bg-slate-100 border-slate-300 rounded focus:ring-rose-500">
-                            </label>
-                            <div id="arraySettings" class="mt-2 hidden gap-2">
-                                <input type="text" id="jobArrayRange" value="1-5" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 font-mono" placeholder="e.g. 1-10">
-                                <input type="text" id="jobArrayDir" value="run_" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 font-mono" placeholder="Base dir">
+                        <div class="sg-option">
+                            <div class="stk-switch-row">
+                                <span id="arrayLabel">Job array</span>
+                                <button type="button" id="jobArrayToggle" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="arrayLabel"></button>
+                            </div>
+                            <div id="arraySettings" class="sg-grid" hidden>
+                                <div class="stk-field">
+                                    <label for="jobArrayRange">Index range</label>
+                                    <input type="text" id="jobArrayRange" value="1-5" class="stk-input stk-mono" placeholder="e.g. 1-10" autocomplete="off" spellcheck="false">
+                                    <p class="stk-hint"><code>1-10</code>, <code>1-100:2</code>, or <code>1-50%4</code> to cap tasks in flight.</p>
+                                </div>
+                                <div class="stk-field">
+                                    <label for="jobArrayDir">Directory prefix</label>
+                                    <input type="text" id="jobArrayDir" value="run_" class="stk-input stk-mono" placeholder="run_" autocomplete="off" spellcheck="false">
+                                    <p class="stk-hint">Each task runs in <code>prefix</code> + index, e.g. <code>run_3</code>.</p>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Mail -->
-                        <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
-                            <label class="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                                Email notifications
-                                <input type="checkbox" id="useMail" class="w-4 h-4 text-rose-600 bg-slate-100 border-slate-300 rounded focus:ring-rose-500">
-                            </label>
-                            <div id="mailWrap" class="mt-2 hidden">
-                                <input type="email" id="jobMailUser" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs outline-none focus:ring-2 focus:ring-rose-500 font-mono" placeholder="you@example.edu">
+                        <div class="sg-option">
+                            <div class="stk-switch-row">
+                                <span id="mailLabel">Email when the job ends</span>
+                                <button type="button" id="useMail" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="mailLabel"></button>
+                            </div>
+                            <div id="mailWrap" class="stk-field" hidden>
+                                <label for="jobMailUser" class="sr-only">Email address</label>
+                                <input type="email" id="jobMailUser" class="stk-input stk-mono" placeholder="you@example.edu" autocomplete="email" spellcheck="false">
                             </div>
                         </div>
 
-                        <div id="slurmWarnings" class="hidden flex-col gap-1.5 mt-1 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50 rounded-lg p-2.5"></div>
+                        <div id="slurmWarnings" class="stk-callout stk-callout-warn" role="status" hidden></div>
+
+                        <dl id="resourceSummary" class="sg-summary stk-tnum" aria-live="polite"></dl>
                     </div>
-                </div>
+                </section>
 
                 <!-- ============ GROMACS PANEL ============ -->
-                <div id="gromacsPanel" class="flex flex-col gap-4">
+                <div id="gromacsPanel" class="sg-panel-group" role="tabpanel">
 
                     <!-- Workflow stages -->
-                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
-                        <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                            <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider"><i class="fa-solid fa-diagram-project text-rose-500 mr-2"></i>MD Workflow Stages</span>
+                    <section class="stk-panel" aria-labelledby="stagesTitle">
+                        <div class="stk-panel-h">
+                            <h2 class="stk-panel-t" id="stagesTitle"><i class="fa-solid fa-diagram-project"></i> Workflow stages</h2>
                         </div>
-                        <div class="p-4 flex flex-col gap-3">
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label for="gmxStartConf" class="text-[10px] font-bold text-slate-500 uppercase">Start coordinate <span class="plumed-help" tabindex="0" data-tip="The input structure for the first stage (.gro or .pdb). Later stages automatically read the previous stage’s output coordinates.">?</span></label>
-                                    <input type="text" id="gmxStartConf" value="system.gro" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none focus:ring-2 focus:ring-rose-500 font-mono">
+                        <div class="stk-panel-b sg-form">
+                            <div class="sg-grid">
+                                <div class="stk-field">
+                                    <label for="gmxStartConf">Start coordinates <span class="plumed-help" tabindex="0" data-tip="The input structure for the first stage (.gro or .pdb). Later stages read the previous stage's output coordinates.">?</span></label>
+                                    <input type="text" id="gmxStartConf" value="system.gro" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
                                 </div>
-                                <div>
-                                    <label for="gmxTopol" class="text-[10px] font-bold text-slate-500 uppercase">Topology <span class="plumed-help" tabindex="0" data-tip="The system topology (.top) passed to every grompp call. Must match the force field selected below.">?</span></label>
-                                    <input type="text" id="gmxTopol" value="topol.top" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none focus:ring-2 focus:ring-rose-500 font-mono">
+                                <div class="stk-field">
+                                    <label for="gmxTopol">Topology <span class="plumed-help" tabindex="0" data-tip="The system topology (.top) passed to every grompp call. Must match the force field selected below.">?</span></label>
+                                    <input type="text" id="gmxTopol" value="topol.top" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
                                 </div>
-                                <div class="col-span-2">
-                                    <label for="gmxIndex" class="text-[10px] font-bold text-slate-500 uppercase">Index file (optional) <span class="plumed-help" tabindex="0" data-tip="A GROMACS index file (.ndx) defining custom atom groups, e.g. for position restraints or temperature-coupling groups. Leave blank if not needed.">?</span></label>
-                                    <input type="text" id="gmxIndex" value="" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none focus:ring-2 focus:ring-rose-500 font-mono" placeholder="index.ndx">
+                                <div class="stk-field">
+                                    <label for="gmxIndex">Index file <span class="plumed-help" tabindex="0" data-tip="A GROMACS index file (.ndx) defining custom atom groups, e.g. for position restraints or temperature-coupling groups. Leave blank if not needed.">?</span></label>
+                                    <input type="text" id="gmxIndex" value="" class="stk-input stk-mono" placeholder="optional, index.ndx" autocomplete="off" spellcheck="false">
                                 </div>
-                                <div class="col-span-2">
-                                    <label for="gmxBinary" class="text-[10px] font-bold text-slate-500 uppercase">GROMACS executable <span class="plumed-help" tabindex="0" data-tip="The gmx command on your cluster. Many HPC modules install the MPI build as gmx_mpi (and some sites use a versioned name such as gmx_mpi_d for double precision). Run 'module load gromacs' then 'which gmx gmx_mpi' to check. This name is used for both grompp and mdrun.">?</span></label>
-                                    <input type="text" id="gmxBinary" value="gmx" list="gmxBinaryList" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none focus:ring-2 focus:ring-rose-500 font-mono" placeholder="gmx">
+                                <div class="stk-field">
+                                    <label for="gmxBinary">GROMACS executable <span class="plumed-help" tabindex="0" data-tip="The gmx command on the cluster. Many HPC modules install the MPI build as gmx_mpi (and some sites use a versioned name such as gmx_mpi_d for double precision). Run 'module load gromacs' then 'which gmx gmx_mpi' to check. Used for both grompp and mdrun.">?</span></label>
+                                    <input type="text" id="gmxBinary" value="gmx" list="gmxBinaryList" class="stk-input stk-mono" placeholder="gmx" autocomplete="off" spellcheck="false">
                                     <datalist id="gmxBinaryList">
                                         <option value="gmx"></option>
                                         <option value="gmx_mpi"></option>
                                         <option value="gmx_mpi_d"></option>
                                         <option value="gmx_d"></option>
                                     </datalist>
-                                    <p class="text-[10px] text-slate-400 mt-1 leading-snug">Use <code>gmx_mpi</code> if your module provides the MPI build (common on HPC). Check with <code>which gmx gmx_mpi</code> after loading the module.</p>
+                                    <p class="stk-hint">Use <code>gmx_mpi</code> if the module provides the MPI build. Check with <code>which gmx gmx_mpi</code> after loading it.</p>
                                 </div>
                             </div>
 
-                            <p class="text-[10px] text-slate-400 leading-snug -mb-1">Toggle each stage. Each has its own <code>.mdp</code> and <code>-deffnm</code>; grompp chains automatically (each <code>-c</code> reads the previous stage's <code>.gro</code>, <code>-t</code> its <code>.cpt</code>).</p>
+                            <p class="stk-hint">Each stage has its own <code>.mdp</code> and <code>-deffnm</code>; grompp chains automatically (each <code>-c</code> reads the previous stage's <code>.gro</code>, <code>-t</code> its <code>.cpt</code>).</p>
 
-                            <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
-                                <label class="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer mb-2">
-                                    <span>Energy Minimisation</span>
-                                    <input type="checkbox" id="stage_em_on" checked class="w-4 h-4 text-rose-600 bg-slate-100 border-slate-300 rounded focus:ring-rose-500">
-                                </label>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label for="stage_em_mdp" class="text-[9px] font-bold text-slate-400 uppercase">.mdp file</label>
-                                        <input type="text" id="stage_em_mdp" value="em.mdp" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-[11px] mt-0.5 outline-none focus:ring-2 focus:ring-rose-500 font-mono">
-                                    </div>
-                                    <div>
-                                        <label for="stage_em_deffnm" class="text-[9px] font-bold text-slate-400 uppercase">-deffnm</label>
-                                        <input type="text" id="stage_em_deffnm" value="em" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-[11px] mt-0.5 outline-none focus:ring-2 focus:ring-rose-500 font-mono">
-                                    </div>
+                            <div class="sg-option">
+                                <div class="stk-switch-row">
+                                    <span id="stageEmLabel">Energy minimisation</span>
+                                    <button type="button" id="stage_em_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="stageEmLabel"></button>
                                 </div>
-                                <label class="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 cursor-pointer mt-1.5">
-                                    <input type="checkbox" id="stage_em_posres"  class="w-3.5 h-3.5 text-rose-600 rounded focus:ring-rose-500">
-                                    Position restraints (adds <code class="mx-1">-r</code>)
-                                </label>
+                                <div class="sg-grid sg-stage">
+                                    <div class="stk-field">
+                                        <label for="stage_em_mdp">.mdp file</label>
+                                        <input type="text" id="stage_em_mdp" value="em.mdp" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_em_deffnm">-deffnm</label>
+                                        <input type="text" id="stage_em_deffnm" value="em" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <label class="stk-check sg-grid-span"><input type="checkbox" id="stage_em_posres"> <span>Position restraints (adds <code>-r</code>)</span></label>
+                                </div>
                             </div>
-                            <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
-                                <label class="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer mb-2">
-                                    <span>NVT Equilibration</span>
-                                    <input type="checkbox" id="stage_nvt_on" checked class="w-4 h-4 text-rose-600 bg-slate-100 border-slate-300 rounded focus:ring-rose-500">
-                                </label>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label for="stage_nvt_mdp" class="text-[9px] font-bold text-slate-400 uppercase">.mdp file</label>
-                                        <input type="text" id="stage_nvt_mdp" value="nvt.mdp" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-[11px] mt-0.5 outline-none focus:ring-2 focus:ring-rose-500 font-mono">
-                                    </div>
-                                    <div>
-                                        <label for="stage_nvt_deffnm" class="text-[9px] font-bold text-slate-400 uppercase">-deffnm</label>
-                                        <input type="text" id="stage_nvt_deffnm" value="nvt" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-[11px] mt-0.5 outline-none focus:ring-2 focus:ring-rose-500 font-mono">
-                                    </div>
+                            <div class="sg-option">
+                                <div class="stk-switch-row">
+                                    <span id="stageNvtLabel">NVT equilibration</span>
+                                    <button type="button" id="stage_nvt_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="stageNvtLabel"></button>
                                 </div>
-                                <label class="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 cursor-pointer mt-1.5">
-                                    <input type="checkbox" id="stage_nvt_posres" checked class="w-3.5 h-3.5 text-rose-600 rounded focus:ring-rose-500">
-                                    Position restraints (adds <code class="mx-1">-r</code>)
-                                </label>
+                                <div class="sg-grid sg-stage">
+                                    <div class="stk-field">
+                                        <label for="stage_nvt_mdp">.mdp file</label>
+                                        <input type="text" id="stage_nvt_mdp" value="nvt.mdp" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_nvt_deffnm">-deffnm</label>
+                                        <input type="text" id="stage_nvt_deffnm" value="nvt" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <label class="stk-check sg-grid-span"><input type="checkbox" id="stage_nvt_posres" checked> <span>Position restraints (adds <code>-r</code>)</span></label>
+                                </div>
                             </div>
-                            <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
-                                <label class="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer mb-2">
-                                    <span>NPT Equilibration</span>
-                                    <input type="checkbox" id="stage_npt_on" checked class="w-4 h-4 text-rose-600 bg-slate-100 border-slate-300 rounded focus:ring-rose-500">
-                                </label>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label for="stage_npt_mdp" class="text-[9px] font-bold text-slate-400 uppercase">.mdp file</label>
-                                        <input type="text" id="stage_npt_mdp" value="npt.mdp" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-[11px] mt-0.5 outline-none focus:ring-2 focus:ring-rose-500 font-mono">
-                                    </div>
-                                    <div>
-                                        <label for="stage_npt_deffnm" class="text-[9px] font-bold text-slate-400 uppercase">-deffnm</label>
-                                        <input type="text" id="stage_npt_deffnm" value="npt" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-[11px] mt-0.5 outline-none focus:ring-2 focus:ring-rose-500 font-mono">
-                                    </div>
+                            <div class="sg-option">
+                                <div class="stk-switch-row">
+                                    <span id="stageNptLabel">NPT equilibration</span>
+                                    <button type="button" id="stage_npt_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="stageNptLabel"></button>
                                 </div>
-                                <label class="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 cursor-pointer mt-1.5">
-                                    <input type="checkbox" id="stage_npt_posres" checked class="w-3.5 h-3.5 text-rose-600 rounded focus:ring-rose-500">
-                                    Position restraints (adds <code class="mx-1">-r</code>)
-                                </label>
+                                <div class="sg-grid sg-stage">
+                                    <div class="stk-field">
+                                        <label for="stage_npt_mdp">.mdp file</label>
+                                        <input type="text" id="stage_npt_mdp" value="npt.mdp" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_npt_deffnm">-deffnm</label>
+                                        <input type="text" id="stage_npt_deffnm" value="npt" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <label class="stk-check sg-grid-span"><input type="checkbox" id="stage_npt_posres" checked> <span>Position restraints (adds <code>-r</code>)</span></label>
+                                </div>
                             </div>
-                            <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
-                                <label class="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer mb-2">
-                                    <span>Production MD</span>
-                                    <input type="checkbox" id="stage_prod_on" checked class="w-4 h-4 text-rose-600 bg-slate-100 border-slate-300 rounded focus:ring-rose-500">
-                                </label>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label for="stage_prod_mdp" class="text-[9px] font-bold text-slate-400 uppercase">.mdp file</label>
-                                        <input type="text" id="stage_prod_mdp" value="md.mdp" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-[11px] mt-0.5 outline-none focus:ring-2 focus:ring-rose-500 font-mono">
-                                    </div>
-                                    <div>
-                                        <label for="stage_prod_deffnm" class="text-[9px] font-bold text-slate-400 uppercase">-deffnm</label>
-                                        <input type="text" id="stage_prod_deffnm" value="md" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-[11px] mt-0.5 outline-none focus:ring-2 focus:ring-rose-500 font-mono">
-                                    </div>
+                            <div class="sg-option">
+                                <div class="stk-switch-row">
+                                    <span id="stageProdLabel">Production MD</span>
+                                    <button type="button" id="stage_prod_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="stageProdLabel"></button>
                                 </div>
-                                <label class="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 cursor-pointer mt-1.5">
-                                    <input type="checkbox" id="stage_prod_posres"  class="w-3.5 h-3.5 text-rose-600 rounded focus:ring-rose-500">
-                                    Position restraints (adds <code class="mx-1">-r</code>)
-                                </label>
+                                <div class="sg-grid sg-stage">
+                                    <div class="stk-field">
+                                        <label for="stage_prod_mdp">.mdp file</label>
+                                        <input type="text" id="stage_prod_mdp" value="md.mdp" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_prod_deffnm">-deffnm</label>
+                                        <input type="text" id="stage_prod_deffnm" value="md" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <label class="stk-check sg-grid-span"><input type="checkbox" id="stage_prod_posres"> <span>Position restraints (adds <code>-r</code>)</span></label>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
 
                     <!-- GROMACS GPU flags -->
-                    <div id="gmxGpuCard" class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
-                        <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                            <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider"><i class="fa-solid fa-microchip text-rose-500 mr-2"></i>GPU Offload (mdrun)</span>
+                    <section id="gmxGpuCard" class="stk-panel" aria-labelledby="gpuTitle">
+                        <div class="stk-panel-h">
+                            <h2 class="stk-panel-t" id="gpuTitle"><i class="fa-solid fa-microchip"></i> GPU offload (mdrun)</h2>
                         </div>
-                        <div class="p-4 flex flex-col gap-2.5">
-                            <p class="text-[10px] text-slate-400 leading-snug">Applied only when GPUs / Node &gt; 0. Offloads the named calculation to the GPU.</p>
-                            <div class="grid grid-cols-2 gap-2">
-                                <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer"><input type="checkbox" id="gpuNb" checked class="w-4 h-4 text-rose-600 rounded focus:ring-rose-500"> <code>-nb gpu</code> <span class="plumed-help" tabindex="0" data-tip="Offload the short-range non-bonded (particle-particle) interactions to the GPU. This is the main GROMACS GPU acceleration and is required for the other GPU offloads.">?</span></label>
-                                <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer"><input type="checkbox" id="gpuPme" checked class="w-4 h-4 text-rose-600 rounded focus:ring-rose-500"> <code>-pme gpu</code> <span class="plumed-help" tabindex="0" data-tip="Offload PME long-range electrostatics to the GPU. Only one PME rank is supported on the GPU, so with multiple ranks the tool adds -npme 1.">?</span></label>
-                                <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer"><input type="checkbox" id="gpuBonded" class="w-4 h-4 text-rose-600 rounded focus:ring-rose-500"> <code>-bonded gpu</code> <span class="plumed-help" tabindex="0" data-tip="Offload bonded interactions to the GPU. Requires -nb gpu, since it is part of the same particle-particle workload.">?</span></label>
-                                <label class="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer"><input type="checkbox" id="gpuUpdate" class="w-4 h-4 text-rose-600 rounded focus:ring-rose-500"> <code>-update gpu</code> <span class="plumed-help" tabindex="0" data-tip="Run the integration/constraints update on the GPU (GPU-resident mode). Needs constraints=h-bonds and disables dynamic load balancing; not used for energy minimisation.">?</span></label>
+                        <div class="stk-panel-b sg-form">
+                            <p class="stk-hint">Applied only when GPUs per node is above 0. Each flag offloads the named calculation to the GPU.</p>
+                            <div class="sg-grid sg-checks">
+                                <label class="stk-check"><input type="checkbox" id="gpuNb" checked> <code>-nb gpu</code> <span class="plumed-help" tabindex="0" data-tip="Offload the short-range non-bonded (particle-particle) interactions to the GPU. This is the main GROMACS GPU acceleration and is required for the other GPU offloads.">?</span></label>
+                                <label class="stk-check"><input type="checkbox" id="gpuPme" checked> <code>-pme gpu</code> <span class="plumed-help" tabindex="0" data-tip="Offload PME long-range electrostatics to the GPU. Only one PME rank is supported on the GPU, so with multiple ranks the tool adds -npme 1.">?</span></label>
+                                <label class="stk-check"><input type="checkbox" id="gpuBonded"> <code>-bonded gpu</code> <span class="plumed-help" tabindex="0" data-tip="Offload bonded interactions to the GPU. Requires -nb gpu, since it is part of the same particle-particle workload.">?</span></label>
+                                <label class="stk-check"><input type="checkbox" id="gpuUpdate"> <code>-update gpu</code> <span class="plumed-help" tabindex="0" data-tip="Run the integration and constraints update on the GPU (GPU-resident mode). Needs constraints = h-bonds and disables dynamic load balancing; not used for energy minimisation.">?</span></label>
                             </div>
-                            <div>
-                                <label for="gpuNtmpi" class="text-[10px] font-bold text-slate-500 uppercase">-ntmpi (optional) <span class="plumed-help" tabindex="0" data-tip="Number of thread-MPI ranks. With PME on the GPU only one PME rank is allowed, so the tool adds -npme 1 when you set more than one rank.">?</span></label>
-                                <input type="text" id="gpuNtmpi" value="" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none focus:ring-2 focus:ring-rose-500 font-mono" placeholder="e.g. 1">
+                            <div class="stk-field">
+                                <label for="gpuNtmpi">-ntmpi <span class="plumed-help" tabindex="0" data-tip="Number of thread-MPI ranks. With PME on the GPU only one PME rank is allowed, so the tool adds -npme 1 when you set more than one rank.">?</span></label>
+                                <input type="text" id="gpuNtmpi" value="" class="stk-input stk-mono" placeholder="optional, e.g. 1" autocomplete="off" spellcheck="false">
                             </div>
                         </div>
-                    </div>
+                    </section>
 
                     <!-- PLUMED coupling -->
-                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
-                        <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                            <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider"><i class="fa-solid fa-wave-square text-rose-500 mr-2"></i>PLUMED (optional)</span>
+                    <section class="stk-panel" aria-labelledby="gmxPlumedTitle">
+                        <div class="stk-panel-h">
+                            <h2 class="stk-panel-t" id="gmxPlumedTitle"><i class="fa-solid fa-wave-square"></i> PLUMED</h2>
                         </div>
-                        <div class="p-4 flex flex-col gap-3">
-                            <label class="flex items-center justify-between gap-3 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                                <span>Attach <code>-plumed</code> to mdrun</span>
-                                <input type="checkbox" id="gmxUsePlumed" class="w-4 h-4 text-rose-600 bg-slate-100 border-slate-300 rounded focus:ring-rose-500 shrink-0">
-                            </label>
-                            <div id="gmxPlumedWrap" class="hidden flex-col gap-3">
-                                <div>
-                                    <label for="gmxPlumedFile" class="text-[10px] font-bold text-slate-500 uppercase">PLUMED input file <span class="plumed-help" tabindex="0" data-tip="The plumed.dat file passed to mdrun via -plumed. Build it in the PLUMED tab, then reference it here by name.">?</span></label>
-                                    <input type="text" id="gmxPlumedFile" value="plumed.dat" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded p-2 text-xs mt-1 font-mono outline-none focus:ring-2 focus:ring-rose-500">
+                        <div class="stk-panel-b sg-form">
+                            <div class="stk-switch-row">
+                                <span id="gmxPlumedLabel">Attach <code>-plumed</code> to mdrun</span>
+                                <button type="button" id="gmxUsePlumed" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="gmxPlumedLabel"></button>
+                            </div>
+                            <div id="gmxPlumedWrap" class="sg-form" hidden>
+                                <div class="stk-field">
+                                    <label for="gmxPlumedFile">PLUMED input file <span class="plumed-help" tabindex="0" data-tip="The plumed.dat file passed to mdrun via -plumed. Build it in the PLUMED tab, then reference it here by name.">?</span></label>
+                                    <input type="text" id="gmxPlumedFile" value="plumed.dat" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
                                 </div>
-                                <div>
-                                    <label for="gmxPlumedScope" class="text-[10px] font-bold text-slate-500 uppercase">Apply to <span class="plumed-help" tabindex="0" data-tip="Whether the -plumed flag is added only to the production stage or to every MD stage (NVT, NPT, Production). Energy minimisation is never coupled.">?</span></label>
-                                    <select id="gmxPlumedScope" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded p-2 text-xs mt-1 outline-none focus:ring-2 focus:ring-rose-500">
+                                <div class="stk-field">
+                                    <label for="gmxPlumedScope">Apply to</label>
+                                    <select id="gmxPlumedScope" class="stk-select">
                                         <option value="prod">Production stage only</option>
-                                        <option value="all">All MD stages (NVT, NPT, Production)</option>
+                                        <option value="all">All MD stages (NVT, NPT, production)</option>
                                     </select>
-                                    <p class="text-[10px] text-slate-400 mt-1 leading-snug">Build the <code>plumed.dat</code> in the PLUMED tab, then reference it here. EM is never coupled.</p>
+                                    <p class="stk-hint">Build the <code>plumed.dat</code> in the PLUMED tab, then reference it here. Energy minimisation is never coupled.</p>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
 
                     <!-- Topology header -->
-                    <div id="topologyCard" class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
-                        <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                            <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider"><i class="fa-solid fa-atom text-rose-500 mr-2"></i>Topology Header</span>
+                    <section id="topologyCard" class="stk-panel" aria-labelledby="topologyTitle">
+                        <div class="stk-panel-h">
+                            <h2 class="stk-panel-t" id="topologyTitle"><i class="fa-solid fa-atom"></i> Topology header</h2>
                         </div>
-                        <div class="p-4 flex flex-col gap-3">
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label for="topForcefield" class="text-[10px] font-bold text-slate-500 uppercase">Force Field <span class="plumed-help" tabindex="0" data-tip="Selecting a force field auto-fills the matching combination rule and 1-4 fudge factors below, which must be consistent with it.">?</span></label>
-                                    <select id="topForcefield" class="w-full bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-2 border-slate-300 dark:border-slate-600 rounded-lg p-2 text-xs mt-1 outline-none cursor-pointer hover:border-rose-400 dark:hover:border-rose-500 focus:ring-2 focus:ring-rose-500 transition-colors">
+                        <div class="stk-panel-b sg-form">
+                            <div class="sg-grid">
+                                <div class="stk-field">
+                                    <label for="topForcefield">Force field <span class="plumed-help" tabindex="0" data-tip="Selecting a force field fills in the matching combination rule and 1-4 fudge factors, which must be consistent with it.">?</span></label>
+                                    <select id="topForcefield" class="stk-select">
                                         <option value="amber99sb-ildn">AMBER99SB-ILDN</option>
                                         <option value="charmm36">CHARMM36</option>
                                         <option value="opls-aa">OPLS-AA</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label for="topSolvent" class="text-[10px] font-bold text-slate-500 uppercase">Water Model <span class="plumed-help" tabindex="0" data-tip="The water model include (e.g. TIP3P, SPC/E). It should be compatible with your chosen force field.">?</span></label>
-                                    <select id="topSolvent" class="w-full bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-2 border-slate-300 dark:border-slate-600 rounded-lg p-2 text-xs mt-1 outline-none cursor-pointer hover:border-rose-400 dark:hover:border-rose-500 focus:ring-2 focus:ring-rose-500 transition-colors">
+                                <div class="stk-field">
+                                    <label for="topSolvent">Water model <span class="plumed-help" tabindex="0" data-tip="The water model include (e.g. TIP3P, SPC/E). It should be compatible with the chosen force field.">?</span></label>
+                                    <select id="topSolvent" class="stk-select">
                                         <option value="spce">SPC/E</option>
                                         <option value="tip3p">TIP3P</option>
                                         <option value="tip4p">TIP4P</option>
                                     </select>
                                 </div>
                             </div>
-                            <div class="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-950/50 border border-slate-100 dark:border-slate-800 rounded-lg p-2.5 leading-snug">
-                                <i class="fa-solid fa-circle-info text-rose-400 mr-1"></i>
-                                Combination rule and 1&#8209;4 fudge factors are set automatically to match the force field. <a href="#method" class="text-rose-500 hover:underline">Why?</a>
-                            </div>
-                            <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
-                                <label class="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                                    Advanced override
-                                    <input type="checkbox" id="topAdvancedToggle" class="w-4 h-4 text-rose-600 bg-slate-100 border-slate-300 rounded focus:ring-rose-500">
-                                </label>
-                                <div id="topAdvancedPanel" class="mt-2 hidden flex-col gap-3">
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label for="topComb" class="text-[10px] font-bold text-slate-500 uppercase">Comb Rule <span class="plumed-help" tabindex="0" data-tip="How pair Lennard-Jones parameters are combined: rule 2 is Lorentz-Berthelot (arithmetic/geometric); rules 1 and 3 are geometric. Set by the force field.">?</span></label>
-                                            <select id="topComb" class="w-full bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-2 border-slate-300 dark:border-slate-600 rounded-lg p-2 text-xs mt-1 outline-none cursor-pointer hover:border-rose-400 dark:hover:border-rose-500 focus:ring-2 focus:ring-rose-500 transition-colors">
-                                                <option value="2">2 (Lorentz&ndash;Berthelot)</option>
-                                                <option value="1">1 (Geometric)</option>
-                                                <option value="3">3 (OPLS, geometric)</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label for="topFudge" class="text-[10px] font-bold text-slate-500 uppercase">Fudge LJ / QQ <span class="plumed-help" tabindex="0" data-tip="Scaling of 1-4 non-bonded interactions: fudgeLJ scales 1-4 Lennard-Jones (only with gen-pairs=yes); fudgeQQ scales 1-4 electrostatics and is always applied.">?</span></label>
-                                            <select id="topFudge" class="w-full bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-2 border-slate-300 dark:border-slate-600 rounded-lg p-2 text-xs mt-1 outline-none cursor-pointer hover:border-rose-400 dark:hover:border-rose-500 focus:ring-2 focus:ring-rose-500 transition-colors">
-                                                <option value="amber">0.5 / 0.8333 (AMBER)</option>
-                                                <option value="charmm">1.0 / 1.0 (CHARMM)</option>
-                                                <option value="opls">0.5 / 0.5 (OPLS)</option>
-                                                <option value="none">1.0 / 1.0 (None)</option>
-                                            </select>
-                                        </div>
+                            <p class="stk-hint">Combination rule and 1&#8209;4 fudge factors are set automatically to match the force field. <a href="#method" class="sg-link">Why?</a></p>
+                            <div class="sg-option">
+                                <div class="stk-switch-row">
+                                    <span id="topAdvancedLabel">Advanced override</span>
+                                    <button type="button" id="topAdvancedToggle" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="topAdvancedLabel"></button>
+                                </div>
+                                <div id="topAdvancedPanel" class="sg-grid" hidden>
+                                    <div class="stk-field">
+                                        <label for="topComb">Combination rule <span class="plumed-help" tabindex="0" data-tip="How pair Lennard-Jones parameters are combined: rule 2 is Lorentz-Berthelot (arithmetic/geometric); rules 1 and 3 are geometric. Set by the force field.">?</span></label>
+                                        <select id="topComb" class="stk-select">
+                                            <option value="2">2 (Lorentz&ndash;Berthelot)</option>
+                                            <option value="1">1 (Geometric)</option>
+                                            <option value="3">3 (OPLS, geometric)</option>
+                                        </select>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="topFudge">fudgeLJ / fudgeQQ <span class="plumed-help" tabindex="0" data-tip="Scaling of 1-4 non-bonded interactions: fudgeLJ scales 1-4 Lennard-Jones (only with gen-pairs = yes); fudgeQQ scales 1-4 electrostatics and is always applied.">?</span></label>
+                                        <select id="topFudge" class="stk-select">
+                                            <option value="amber">0.5 / 0.8333 (AMBER)</option>
+                                            <option value="charmm">1.0 / 1.0 (CHARMM)</option>
+                                            <option value="opls">0.5 / 0.5 (OPLS)</option>
+                                            <option value="none">1.0 / 1.0 (None)</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>
-                            <div>
-                                <label for="topIncludes" class="text-[10px] font-bold text-slate-500 uppercase">Custom ITP Includes <span class="plumed-help" tabindex="0" data-tip="Extra #include lines (one per line) for ligand or ion .itp files, added after the force-field include in the topology header.">?</span></label>
-                                <textarea id="topIncludes" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none font-mono resize-none h-16 custom-scroll" placeholder='e.g., #include "ligand.itp"'>#include "ligand.itp"</textarea>
+                            <div class="stk-field">
+                                <label for="topIncludes">Additional includes <span class="plumed-help" tabindex="0" data-tip="Extra #include lines (one per line) for ligand or ion .itp files, added after the force-field include in the topology header.">?</span></label>
+                                <textarea id="topIncludes" class="stk-textarea stk-mono" rows="2" placeholder='e.g. #include "ligand.itp"' spellcheck="false">#include "ligand.itp"</textarea>
                             </div>
-                            <div id="topWarnings" class="hidden flex-col gap-1.5 mt-1 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50 rounded-lg p-2.5"></div>
+                            <div id="topWarnings" class="stk-callout stk-callout-warn" role="status" hidden></div>
                         </div>
-                    </div>
+                    </section>
                 </div>
 
                 <!-- ============ LAMMPS PANEL ============ -->
-                <div id="lammpsPanel" class="hidden flex-col gap-4">
-                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
-                        <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                            <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider"><i class="fa-solid fa-cubes text-rose-500 mr-2"></i>LAMMPS Run</span>
+                <div id="lammpsPanel" class="sg-panel-group" role="tabpanel" hidden>
+                    <section class="stk-panel" aria-labelledby="lammpsTitle">
+                        <div class="stk-panel-h">
+                            <h2 class="stk-panel-t" id="lammpsTitle"><i class="fa-solid fa-cubes"></i> LAMMPS run</h2>
                         </div>
-                        <div class="p-4 flex flex-col gap-3">
-                            <div>
-                                <label for="lmpInput" class="text-[10px] font-bold text-slate-500 uppercase">Input script <span class="plumed-help" tabindex="0" data-tip="Your LAMMPS input deck (e.g. in.run). It is passed to LAMMPS with the -in flag.">?</span></label>
-                                <input type="text" id="lmpInput" value="in.lammps" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none focus:ring-2 focus:ring-rose-500 font-mono" placeholder="in.lammps or path/to/input.in">
+                        <div class="stk-panel-b sg-form">
+                            <div class="sg-grid">
+                                <div class="stk-field">
+                                    <label for="lmpInput">Input script <span class="plumed-help" tabindex="0" data-tip="The LAMMPS input deck (e.g. in.run), passed with the -in flag.">?</span></label>
+                                    <input type="text" id="lmpInput" value="in.lammps" class="stk-input stk-mono" placeholder="in.lammps" autocomplete="off" spellcheck="false">
+                                </div>
+                                <div class="stk-field">
+                                    <label for="lmpLog">Log file <span class="plumed-help" tabindex="0" data-tip="Where LAMMPS writes its log (-log). The end of this file reports the performance and timing breakdown used to judge whether acceleration helped.">?</span></label>
+                                    <input type="text" id="lmpLog" value="log.lammps" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                </div>
                             </div>
-                            <div>
-                                <label for="lmpLog" class="text-[10px] font-bold text-slate-500 uppercase">Log file <span class="plumed-help" tabindex="0" data-tip="Where LAMMPS writes its log (-log). The end of this file reports the performance/timing breakdown you use to judge whether acceleration helped.">?</span></label>
-                                <input type="text" id="lmpLog" value="log.lammps" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 outline-none focus:ring-2 focus:ring-rose-500 font-mono">
-                            </div>
-                            <div id="lmpGpuCard">
-                                <label for="lmpAccel" class="text-[10px] font-bold text-slate-500 uppercase">Accelerator package <span class="plumed-help" tabindex="0" data-tip="Chooses the LAMMPS accelerator (GPU, KOKKOS, INTEL, OPENMP, OPT) and adds the matching -sf/-pk flags. Acceleration is not always faster | benchmark for your system.">?</span></label>
-                                <select id="lmpAccel" class="w-full bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-2 border-slate-300 dark:border-slate-600 rounded-lg p-2 text-xs mt-1 outline-none cursor-pointer hover:border-rose-400 dark:hover:border-rose-500 focus:ring-2 focus:ring-rose-500 transition-colors">
+                            <div id="lmpGpuCard" class="stk-field">
+                                <label for="lmpAccel">Accelerator package <span class="plumed-help" tabindex="0" data-tip="Chooses the LAMMPS accelerator (GPU, KOKKOS, INTEL, OPENMP, OPT) and adds the matching -sf/-pk flags. Acceleration is not always faster; benchmark for your system.">?</span></label>
+                                <select id="lmpAccel" class="stk-select">
                                     <option value="none">None (plain CPU / MPI)</option>
                                     <option value="gpu">GPU, CUDA/OpenCL/HIP (-sf gpu -pk gpu N)</option>
-                                    <option value="kokkos">KOKKOS | GPU (-k on g N -sf kk)</option>
-                                    <option value="intel">INTEL | vectorised CPU (-sf intel)</option>
-                                    <option value="omp">OPENMP, hybrid MPI+threads (-sf omp -pk omp N)</option>
+                                    <option value="kokkos">KOKKOS, GPU (-k on g N -sf kk)</option>
+                                    <option value="intel">INTEL, vectorised CPU (-sf intel)</option>
+                                    <option value="omp">OPENMP, hybrid MPI + threads (-sf omp -pk omp N)</option>
                                     <option value="opt">OPT, templated CPU pair styles (-sf opt)</option>
                                 </select>
-                                <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">LAMMPS is MPI-parallel (<code>--ntasks</code>). GPU/KOKKOS use GPUs; OPENMP is hybrid (set CPUs/Task); INTEL and OPT accelerate CPU-only runs. Accelerating is <strong>not always faster</strong>, benchmark for your system and styles.</p>
+                                <p class="stk-hint">LAMMPS is MPI-parallel. GPU and KOKKOS use GPUs; OPENMP is hybrid (set CPUs per task); INTEL and OPT accelerate CPU-only runs. Acceleration is not always faster: benchmark for your system and styles.</p>
                             </div>
                         </div>
-                    </div>
+                    </section>
                 </div>
 
                 <!-- ============ PLUMED PANEL ============ -->
-                <div id="plumedPanel" class="hidden flex-col gap-4">
+                <div id="plumedPanel" class="sg-panel-group" role="tabpanel" hidden>
+
+                    <div id="plumedWarnings" class="stk-callout stk-callout-warn" role="status" hidden></div>
 
                     <!-- Bias method -->
-                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
-                        <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                            <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider"><i class="fa-solid fa-mountain text-rose-500 mr-2"></i>Bias / Sampling Method</span>
-                            <span class="text-[9px] font-bold uppercase tracking-wider text-white bg-rose-500 rounded-full px-2 py-0.5">Step 1</span>
+                    <section class="stk-panel" aria-labelledby="biasTitle">
+                        <div class="stk-panel-h">
+                            <h2 class="stk-panel-t" id="biasTitle"><i class="fa-solid fa-mountain"></i> Bias and sampling method</h2>
+                            <span class="stk-badge stk-badge-accent">Step 1</span>
                         </div>
-                        <div class="p-4 flex flex-col gap-3">
-                            <div>
-                                <label for="plumedBias" class="text-[10px] font-bold text-slate-500 uppercase">Method <span class="plumed-help" tabindex="0" data-tip="The enhanced-sampling or restraint method applied to the CVs marked “Bias”. Its editable parameters appear below.">?</span></label>
-                                <select id="plumedBias" class="w-full bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-2 border-slate-300 dark:border-slate-600 rounded-lg p-2 text-xs mt-1 outline-none cursor-pointer hover:border-rose-400 dark:hover:border-rose-500 focus:ring-2 focus:ring-rose-500 transition-colors">
+                        <div class="stk-panel-b sg-form">
+                            <div class="stk-field">
+                                <label for="plumedBias">Method <span class="plumed-help" tabindex="0" data-tip="The enhanced-sampling or restraint method applied to the CVs marked Bias. Its editable parameters appear below.">?</span></label>
+                                <select id="plumedBias" class="stk-select">
                                     <option value="none">None (CVs only &rarr; COLVAR)</option>
                                     <option value="metad">Metadynamics (standard)</option>
-                                    <option value="wt_metad" selected>Well-Tempered Metadynamics</option>
-                                    <option value="opes">OPES (PROBABILITY enhanced)</option>
-                                    <option value="pbmetad">Parallel-Bias Metadynamics (PBMETAD)</option>
+                                    <option value="wt_metad" selected>Well-tempered metadynamics</option>
+                                    <option value="opes">OPES (on-the-fly probability enhanced sampling)</option>
+                                    <option value="pbmetad">Parallel-bias metadynamics (PBMETAD)</option>
                                     <option value="restraint">Harmonic RESTRAINT (umbrella)</option>
                                 </select>
                             </div>
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label for="plumedTemp" class="text-[10px] font-bold text-slate-500 uppercase">TEMP (K) <span class="plumed-help" tabindex="0" data-tip="Global system temperature (K) used as a fallback for methods that need it. Per-method TEMP fields below override this where present.">?</span> <span class="text-slate-400 normal-case font-normal">· global</span></label>
-                                    <input type="text" id="plumedTemp" value="300" class="w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 font-mono outline-none focus:ring-2 focus:ring-rose-500">
+                            <div class="sg-grid">
+                                <div class="stk-field">
+                                    <label for="plumedTemp">TEMP (K) <span class="plumed-help" tabindex="0" data-tip="Global system temperature (K) used as a fallback for methods that need it. Per-method TEMP fields below override this where present.">?</span></label>
+                                    <input type="text" id="plumedTemp" value="300" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
                                 </div>
-                                <div>
-                                    <label for="plumedStride" class="text-[10px] font-bold text-slate-500 uppercase">Default STRIDE <span class="plumed-help" tabindex="0" data-tip="Fallback deposition/print frequency (in steps) used when a method or the PRINT card does not specify its own.">?</span></label>
-                                    <input type="text" id="plumedStride" value="500" class="w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs mt-1 font-mono outline-none focus:ring-2 focus:ring-rose-500">
+                                <div class="stk-field">
+                                    <label for="plumedStride">Default STRIDE <span class="plumed-help" tabindex="0" data-tip="Fallback deposition and print frequency (in steps) used when a method or the PRINT card does not specify its own.">?</span></label>
+                                    <input type="text" id="plumedStride" value="500" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
                                 </div>
                             </div>
-                            <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
-                                <p class="text-[10px] font-bold text-slate-500 uppercase mb-1">Method parameters</p>
+                            <div class="sg-option">
+                                <p class="stk-group-t">Method parameters</p>
                                 <div id="plumedBiasParams"></div>
                             </div>
                         </div>
-                    </div>
+                    </section>
 
                     <!-- Units -->
-                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
-                        <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                            <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider"><i class="fa-solid fa-ruler text-rose-500 mr-2"></i>Units</span>
+                    <section class="stk-panel" aria-labelledby="unitsTitle">
+                        <div class="stk-panel-h">
+                            <h2 class="stk-panel-t" id="unitsTitle"><i class="fa-solid fa-ruler"></i> Units</h2>
                         </div>
-                        <div class="p-4 flex flex-col gap-3">
-                            <div class="grid grid-cols-3 gap-2">
-                                <div>
-                                    <label for="plumedUnitLength" class="text-[10px] font-bold text-slate-500 uppercase">Length <span class="plumed-help" tabindex="0" data-tip="Length unit for all values in the PLUMED input. Default nm. A UNITS line is written only when you change a unit from its default.">?</span></label>
-                                    <select id="plumedUnitLength" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded p-2 text-xs mt-1 outline-none focus:ring-2 focus:ring-rose-500">
+                        <div class="stk-panel-b sg-form">
+                            <div class="sg-grid sg-grid-3">
+                                <div class="stk-field">
+                                    <label for="plumedUnitLength">Length <span class="plumed-help" tabindex="0" data-tip="Length unit for all values in the PLUMED input. Default nm. A UNITS line is written only when you change a unit from its default.">?</span></label>
+                                    <select id="plumedUnitLength" class="stk-select">
                                         <option value="nm">nm</option>
                                         <option value="A">Å</option>
                                         <option value="um">µm</option>
                                         <option value="Bohr">Bohr</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label for="plumedUnitEnergy" class="text-[10px] font-bold text-slate-500 uppercase">Energy <span class="plumed-help" tabindex="0" data-tip="Energy unit for HEIGHT, KAPPA, BARRIER, etc. Default kJ/mol. Change it to match how you want to read/set energies.">?</span></label>
-                                    <select id="plumedUnitEnergy" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded p-2 text-xs mt-1 outline-none focus:ring-2 focus:ring-rose-500">
+                                <div class="stk-field">
+                                    <label for="plumedUnitEnergy">Energy <span class="plumed-help" tabindex="0" data-tip="Energy unit for HEIGHT, KAPPA, BARRIER and so on. Default kJ/mol.">?</span></label>
+                                    <select id="plumedUnitEnergy" class="stk-select">
                                         <option value="kj/mol">kJ/mol</option>
                                         <option value="kcal/mol">kcal/mol</option>
                                         <option value="eV">eV</option>
                                         <option value="Ha">Hartree</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label for="plumedUnitTime" class="text-[10px] font-bold text-slate-500 uppercase">Time <span class="plumed-help" tabindex="0" data-tip="Time unit used by PLUMED. Default ps. Affects how time-based keywords are interpreted.">?</span></label>
-                                    <select id="plumedUnitTime" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded p-2 text-xs mt-1 outline-none focus:ring-2 focus:ring-rose-500">
+                                <div class="stk-field">
+                                    <label for="plumedUnitTime">Time <span class="plumed-help" tabindex="0" data-tip="Time unit used by PLUMED. Default ps. Affects how time-based keywords are interpreted.">?</span></label>
+                                    <select id="plumedUnitTime" class="stk-select">
                                         <option value="ps">ps</option>
                                         <option value="fs">fs</option>
                                         <option value="ns">ns</option>
                                     </select>
                                 </div>
                             </div>
-                            <p class="text-[10px] text-slate-400 leading-snug">PLUMED defaults to <code>nm</code>, <code>kJ/mol</code>, <code>ps</code>. A <code>UNITS</code> line is written only when you change one; then every length/energy you type (R_0, D_MAX, HEIGHT, KAPPA…) must be in the chosen units.</p>
+                            <p class="stk-hint">PLUMED defaults to <code>nm</code>, <code>kJ/mol</code>, <code>ps</code>. A <code>UNITS</code> line is written only when you change one; every length and energy you type (R_0, D_MAX, HEIGHT, KAPPA) must then be in the chosen units.</p>
                         </div>
-                    </div>
+                    </section>
 
                     <!-- CV builder -->
-                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
-                        <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                            <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider"><i class="fa-solid fa-wave-square text-rose-500 mr-2"></i>Collective Variables</span>
-                            <span class="flex items-center gap-2"><span class="text-[9px] font-bold uppercase tracking-wider text-white bg-rose-500 rounded-full px-2 py-0.5">Step 2</span><label class="flex items-center gap-1 text-[10px] font-mono text-slate-500 dark:text-slate-400">PLUMED <select id="plumedVersion" class="bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded px-1 py-0.5 text-[10px] font-mono outline-none cursor-pointer focus:ring-2 focus:ring-rose-500"><option value="2.9">2.9</option><option value="2.10">2.10</option></select></label></span>
+                    <section class="stk-panel" aria-labelledby="cvTitle">
+                        <div class="stk-panel-h">
+                            <h2 class="stk-panel-t" id="cvTitle"><i class="fa-solid fa-wave-square"></i> Collective variables</h2>
+                            <span class="sg-panel-tools">
+                                <span class="stk-badge stk-badge-accent">Step 2</span>
+                                <label class="sg-inline-select">PLUMED <select id="plumedVersion" class="stk-select stk-select-sm stk-mono"><option value="2.9">2.9</option><option value="2.10">2.10</option></select></label>
+                            </span>
                         </div>
-                        <div class="p-4 flex flex-col gap-3">
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label for="plumedCategory" class="text-[10px] font-bold text-slate-500 uppercase">Category <span class="plumed-help" tabindex="0" data-tip="Groups the collective variables by type so you can find them quickly. Selecting a category filters the CV list on the right.">?</span></label>
-                                    <select id="plumedCategory" class="w-full bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-2 border-slate-300 dark:border-slate-600 rounded-lg p-2 text-xs mt-1 outline-none cursor-pointer hover:border-rose-400 dark:hover:border-rose-500 focus:ring-2 focus:ring-rose-500 transition-colors">
+                        <div class="stk-panel-b sg-form">
+                            <div class="sg-grid">
+                                <div class="stk-field">
+                                    <label for="plumedCategory">Category <span class="plumed-help" tabindex="0" data-tip="Groups the collective variables by type. Selecting a category filters the list on the right.">?</span></label>
+                                    <select id="plumedCategory" class="stk-select">
                                         <option value="geometry">Distances &amp; geometry</option>
                                         <option value="angles">Angles &amp; torsions</option>
                                         <option value="contacts">Coordination &amp; contacts</option>
@@ -594,169 +615,154 @@
                                         <option value="custom">Custom (raw PLUMED line)</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label for="plumedCVSelect" class="text-[10px] font-bold text-slate-500 uppercase">Collective variable</label>
-                                    <select id="plumedCVSelect" class="w-full bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-2 border-slate-300 dark:border-slate-600 rounded-lg p-2 text-xs mt-1 outline-none cursor-pointer hover:border-rose-400 dark:hover:border-rose-500 focus:ring-2 focus:ring-rose-500 transition-colors"></select>
+                                <div class="stk-field">
+                                    <label for="plumedCVSelect">Collective variable</label>
+                                    <select id="plumedCVSelect" class="stk-select"></select>
                                 </div>
                             </div>
-                            <p id="plumedCVDesc" class="text-[11px] text-slate-500 dark:text-slate-400 leading-snug min-h-[2.2em]"></p>
-                            <button id="plumedAddCV" style="background-color:#e11d48;color:#ffffff;" class="w-full hover:opacity-90 py-2 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2">
-                                <i class="fa-solid fa-plus"></i> Add collective variable
-                            </button>
-                            <div id="plumedCVList" class="flex flex-col gap-2 mt-1"></div>
-                            <div class="border-t border-slate-100 dark:border-slate-800 pt-3 mt-1">
-                                <label for="plumedMolinfo" class="text-[10px] font-bold text-slate-500 uppercase">MOLINFO reference structure <span class="plumed-help" tabindex="0" data-tip="A PDB used only to enable @-shortcuts like @backbone or @phi-2. It does not load index groups, use a GROUP CV with NDX_FILE/NDX_GROUP for that.">?</span></label>
-                                <input type="text" id="plumedMolinfo" value="" placeholder="e.g. reference.pdb" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded p-2 text-xs mt-1 font-mono outline-none focus:ring-2 focus:ring-rose-500">
-                                <p class="text-[10px] text-slate-400 mt-1 leading-snug">One <code>MOLINFO</code> applies to the whole file (it is written once, before the CVs). It is only needed for <code>@</code>-shortcuts like <code>@phi-2</code> or <code>@backbone</code>. To pull atoms from an index file, you don't need this, add a <strong class="text-rose-500 font-semibold">GROUP</strong> CV and set its <code>NDX_FILE</code>/<code>NDX_GROUP</code> instead.</p>
+                            <p id="plumedCVDesc" class="stk-hint min-h-[2.2em]"></p>
+                            <button type="button" id="plumedAddCV" class="stk-btn stk-btn-primary w-full"><i class="fa-solid fa-plus"></i> Add collective variable</button>
+                            <div id="plumedCVList" class="sg-cv-list"></div>
+                            <div class="sg-option stk-field">
+                                <label for="plumedMolinfo">MOLINFO reference structure <span class="plumed-help" tabindex="0" data-tip="A PDB used only to enable @-shortcuts like @backbone or @phi-2. It does not load index groups; use a GROUP CV with NDX_FILE/NDX_GROUP for that.">?</span></label>
+                                <input type="text" id="plumedMolinfo" value="" placeholder="optional, e.g. reference.pdb" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                <p class="stk-hint">One <code>MOLINFO</code> applies to the whole file and is written once, before the CVs. It is only needed for <code>@</code>-shortcuts such as <code>@phi-2</code> or <code>@backbone</code>. To pull atoms from an index file, add a <strong>GROUP</strong> CV and set its <code>NDX_FILE</code> and <code>NDX_GROUP</code> instead.</p>
                             </div>
-                            <div class="border-t border-slate-100 dark:border-slate-800 pt-3 mt-1">
-                                <label class="flex items-center justify-between gap-2 text-[10px] font-bold text-slate-500 uppercase cursor-pointer">
-                                    <span>Rebuild whole molecules (<code>WHOLEMOLECULES</code>) <span class="plumed-help" tabindex="0" data-tip="Emits a WHOLEMOLECULES line before the CVs so PLUMED reconstructs molecules split across periodic boundaries. Required (except with TYPE=DRMSD) for CVs like ALPHARMSD/PARABETARMSD on codes such as GROMACS. Placed before the CVs so they see the corrected coordinates.">?</span></span>
-                                    <input type="checkbox" id="plumedWhole" class="w-4 h-4 text-rose-600 rounded focus:ring-rose-500 shrink-0">
-                                </label>
-                                <div id="plumedWholeWrap" class="hidden flex-col gap-2 mt-2">
-                                    <div>
-                                        <label for="plumedWholeEntities" class="text-[9px] font-bold text-slate-400 uppercase">Entities (one per line, or use RESIDUES=all)</label>
-                                        <textarea id="plumedWholeEntities" rows="2" placeholder="1-100&#10;30-40" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded p-2 text-xs mt-1 font-mono outline-none focus:ring-2 focus:ring-rose-500 resize-y"></textarea>
+                            <div class="sg-option">
+                                <div class="stk-switch-row">
+                                    <span id="plumedWholeLabel">Rebuild whole molecules (<code>WHOLEMOLECULES</code>) <span class="plumed-help" tabindex="0" data-tip="Emits a WHOLEMOLECULES line before the CVs so PLUMED reconstructs molecules split across periodic boundaries. Required (except with TYPE=DRMSD) for CVs like ALPHARMSD/PARABETARMSD on codes such as GROMACS. Placed before the CVs so they see the corrected coordinates.">?</span></span>
+                                    <button type="button" id="plumedWhole" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="plumedWholeLabel"></button>
+                                </div>
+                                <div id="plumedWholeWrap" class="sg-form" hidden>
+                                    <div class="stk-field">
+                                        <label for="plumedWholeEntities">Entities (one per line, or use RESIDUES=all)</label>
+                                        <textarea id="plumedWholeEntities" rows="2" placeholder="1-100&#10;30-40" class="stk-textarea stk-mono" spellcheck="false"></textarea>
                                     </div>
-                                    <label class="flex items-center gap-2 text-[10px] text-slate-600 dark:text-slate-300 cursor-pointer">
-                                        <input type="checkbox" id="plumedWholeResidues" class="w-3.5 h-3.5 text-rose-600 rounded focus:ring-rose-500">
-                                        <span>Use <code>RESIDUES=all MOLTYPE=protein</code> instead (needs MOLINFO)</span>
-                                    </label>
-                                    <p class="text-[10px] text-slate-400 leading-snug">Written once, right after <code>MOLINFO</code> and before the CVs. Each non-empty line becomes <code>ENTITY0</code>, <code>ENTITY1</code>, &hellip; Not needed if your secondary-structure CVs all use <code>TYPE=DRMSD</code>.</p>
+                                    <label class="stk-check"><input type="checkbox" id="plumedWholeResidues"> <span>Use <code>RESIDUES=all MOLTYPE=protein</code> instead (needs MOLINFO)</span></label>
+                                    <p class="stk-hint">Written once, right after <code>MOLINFO</code> and before the CVs. Each non-empty line becomes <code>ENTITY0</code>, <code>ENTITY1</code>, &hellip; Not needed if the secondary-structure CVs all use <code>TYPE=DRMSD</code>.</p>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
 
                     <!-- Speed optimisation -->
-                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
-                        <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                            <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider"><i class="fa-solid fa-gauge-high text-rose-500 mr-2"></i>Speed Optimisation</span>
+                    <section class="stk-panel" aria-labelledby="speedTitle">
+                        <div class="stk-panel-h">
+                            <h2 class="stk-panel-t" id="speedTitle"><i class="fa-solid fa-gauge-high"></i> Speed</h2>
                         </div>
-                        <div class="p-4 flex flex-col gap-2.5">
-                            <label class="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
-                                <input type="checkbox" id="plumedGrid" checked class="w-4 h-4 mt-0.5 text-rose-600 rounded focus:ring-rose-500">
-                                <span><strong>Store bias on a grid</strong> (<code>GRID_MIN/MAX/BIN</code>), essential for MetaD speed; cost stays flat as hills accumulate. Bounds are auto-calculated based on CV type.</span>
-                            </label>
-                            <label class="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
-                                <input type="checkbox" id="plumedRct" class="w-4 h-4 mt-0.5 text-rose-600 rounded focus:ring-rose-500">
-                                <span><strong>On-the-fly reweighting</strong> (<code>CALC_RCT</code>, <code>RCT_USTRIDE=10</code>), computes c(t); setting the stride &gt;1 speeds it up. Requires a grid.</span>
-                            </label>
-                            <div class="border-t border-slate-100 dark:border-slate-800 pt-3 mt-1">
-                                <label for="plumedWalkersMode" class="text-[10px] font-bold text-slate-500 uppercase">Multiple walkers <span class="plumed-help" tabindex="0" data-tip="Several simulations share one growing bias, so the free-energy surface converges faster. MPI mode couples replicas launched in one multi-replica job (mpirun -np N ... -multi, or GROMACS -multidir) and needs an MPI-enabled PLUMED. Disk mode instead has each walker write hills to a shared directory and periodically read the others - it works for independent jobs and for engines like ASE.">?</span></label>
-                                <select id="plumedWalkersMode" class="w-full bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded p-2 text-xs mt-1 outline-none cursor-pointer focus:ring-2 focus:ring-rose-500">
+                        <div class="stk-panel-b sg-form">
+                            <label class="stk-check sg-check-block"><input type="checkbox" id="plumedGrid" checked> <span><strong>Store the bias on a grid</strong> (<code>GRID_MIN/MAX/BIN</code>). Essential for metadynamics speed: the cost stays flat as hills accumulate. Bounds default to the CV type.</span></label>
+                            <label class="stk-check sg-check-block"><input type="checkbox" id="plumedRct"> <span><strong>On-the-fly reweighting</strong> (<code>CALC_RCT</code>, <code>RCT_USTRIDE=10</code>) computes c(t); a stride above 1 keeps it cheap. Requires a grid.</span></label>
+                            <div class="sg-option stk-field">
+                                <label for="plumedWalkersMode">Multiple walkers <span class="plumed-help" tabindex="0" data-tip="Several simulations share one growing bias, so the free-energy surface converges faster. MPI mode couples replicas launched in one multi-replica job (mpirun -np N ... -multi, or GROMACS -multidir) and needs an MPI-enabled PLUMED. Shared-directory mode instead has each walker write hills to a shared directory and periodically read the others; it works for independent jobs and for engines such as ASE.">?</span></label>
+                                <select id="plumedWalkersMode" class="stk-select">
                                     <option value="none">Off (single walker)</option>
-                                    <option value="mpi">MPI (WALKERS_MPI) | one multi-replica job</option>
-                                    <option value="disk">Shared directory (WALKERS_N/ID/DIR) | independent jobs</option>
+                                    <option value="mpi">MPI (WALKERS_MPI), one multi-replica job</option>
+                                    <option value="disk">Shared directory (WALKERS_N/ID/DIR), independent jobs</option>
                                 </select>
-                                <div id="plumedWalkersDisk" class="hidden flex-col gap-2 mt-2">
-                                    <div class="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label for="plumedWalkersN" class="text-[9px] font-bold text-slate-400 uppercase">WALKERS_N</label>
-                                            <input type="text" id="plumedWalkersN" value="4" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded p-1.5 text-xs mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">
+                                <div id="plumedWalkersDisk" class="sg-form" hidden>
+                                    <div class="sg-grid">
+                                        <div class="stk-field">
+                                            <label for="plumedWalkersN">WALKERS_N</label>
+                                            <input type="text" id="plumedWalkersN" value="4" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                                         </div>
-                                        <div>
-                                            <label for="plumedWalkersId" class="text-[9px] font-bold text-slate-400 uppercase">WALKERS_ID <span class="plumed-help" tabindex="0" data-tip="This walker's index, starting from 0. Each walker needs a DIFFERENT id, so in a job array this is normally driven by ${SLURM_ARRAY_TASK_ID}.">?</span></label>
-                                            <input type="text" id="plumedWalkersId" value="0" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded p-1.5 text-xs mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">
+                                        <div class="stk-field">
+                                            <label for="plumedWalkersId">WALKERS_ID <span class="plumed-help" tabindex="0" data-tip="This walker's index, starting from 0. Each walker needs a different id, so in a job array this is normally driven by the array index variable.">?</span></label>
+                                            <input type="text" id="plumedWalkersId" value="0" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                                         </div>
-                                        <div>
-                                            <label for="plumedWalkersDir" class="text-[9px] font-bold text-slate-400 uppercase">WALKERS_DIR</label>
-                                            <input type="text" id="plumedWalkersDir" value="../hills" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded p-1.5 text-xs mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">
+                                        <div class="stk-field">
+                                            <label for="plumedWalkersDir">WALKERS_DIR</label>
+                                            <input type="text" id="plumedWalkersDir" value="../hills" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                                         </div>
-                                        <div>
-                                            <label for="plumedWalkersRstride" class="text-[9px] font-bold text-slate-400 uppercase">WALKERS_RSTRIDE</label>
-                                            <input type="text" id="plumedWalkersRstride" value="100" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded p-1.5 text-xs mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">
+                                        <div class="stk-field">
+                                            <label for="plumedWalkersRstride">WALKERS_RSTRIDE</label>
+                                            <input type="text" id="plumedWalkersRstride" value="100" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                                         </div>
                                     </div>
-                                    <p class="text-[10px] text-slate-400 leading-snug">Every walker must share the same <code>WALKERS_DIR</code> and use a <strong>different</strong> <code>WALKERS_ID</code> (0, 1, 2, …). In a job array set the id from <code>${SLURM_ARRAY_TASK_ID}</code>. Not supported by OPES, use MPI mode there.</p>
+                                    <p class="stk-hint">Every walker must share the same <code>WALKERS_DIR</code> and use a different <code>WALKERS_ID</code> (0, 1, 2, &hellip;). In a job array set the id from the array index, e.g. <code>${SLURM_ARRAY_TASK_ID}</code>. Not supported by OPES; use MPI mode there.</p>
                                 </div>
                             </div>
-                            <p class="text-[10px] text-slate-400 leading-snug mt-1"><i class="fa-solid fa-circle-info mr-1"></i>For <code>COORDINATION</code>, also enable <code>NLIST</code> with a tuned <code>NL_CUTOFF</code>/<code>NL_STRIDE</code> on the CV itself. See the method notes below.</p>
+                            <p class="stk-hint">For <code>COORDINATION</code>, also enable <code>NLIST</code> with a tuned <code>NL_CUTOFF</code> and <code>NL_STRIDE</code> on the CV itself. See the method notes below.</p>
                         </div>
-                    </div>
+                    </section>
 
                     <!-- PRINT / output -->
-                    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
-                        <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                            <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider"><i class="fa-solid fa-file-lines text-rose-500 mr-2"></i>PRINT Output</span>
+                    <section class="stk-panel" aria-labelledby="printTitle">
+                        <div class="stk-panel-h">
+                            <h2 class="stk-panel-t" id="printTitle"><i class="fa-solid fa-file-lines"></i> PRINT output</h2>
                         </div>
-                        <div class="p-4 flex flex-col gap-3">
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label for="plumedPrintFile" class="text-[10px] font-bold text-slate-500 uppercase">Output file <span class="plumed-help" tabindex="0" data-tip="Name of the COLVAR-style file the PRINT action writes the selected quantities to.">?</span></label>
-                                    <input type="text" id="plumedPrintFile" value="COLVAR" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded p-2 text-xs mt-1 font-mono outline-none focus:ring-2 focus:ring-rose-500">
+                        <div class="stk-panel-b sg-form">
+                            <div class="sg-grid">
+                                <div class="stk-field">
+                                    <label for="plumedPrintFile">Output file <span class="plumed-help" tabindex="0" data-tip="Name of the COLVAR-style file the PRINT action writes the selected quantities to.">?</span></label>
+                                    <input type="text" id="plumedPrintFile" value="COLVAR" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
                                 </div>
-                                <div>
-                                    <label for="plumedPrintStride" class="text-[10px] font-bold text-slate-500 uppercase">Print STRIDE <span class="plumed-help" tabindex="0" data-tip="How often (in steps) values are written to the output file. Larger = smaller files, coarser time resolution.">?</span></label>
-                                    <input type="text" id="plumedPrintStride" value="500" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded p-2 text-xs mt-1 font-mono outline-none focus:ring-2 focus:ring-rose-500">
+                                <div class="stk-field">
+                                    <label for="plumedPrintStride">Print STRIDE <span class="plumed-help" tabindex="0" data-tip="How often (in steps) values are written to the output file. Larger means smaller files and coarser time resolution.">?</span></label>
+                                    <input type="text" id="plumedPrintStride" value="500" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
                                 </div>
                             </div>
-                            <div>
-                                <label for="plumedPrintExtra" class="text-[10px] font-bold text-slate-500 uppercase">Extra quantities to print <span class="plumed-help" tabindex="0" data-tip="Additional components to append to the PRINT ARG list (comma- or space-separated), e.g. metad.rbias or a CV component like cn.morethan.">?</span></label>
-                                <input type="text" id="plumedPrintExtra" value="" placeholder="e.g. metad.rbias, cn.morethan" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded p-2 text-xs mt-1 font-mono outline-none focus:ring-2 focus:ring-rose-500">
-                                <p class="text-[10px] text-slate-400 mt-1 leading-snug">All CV labels and the active bias components are printed automatically. Add any extra components here (comma- or space-separated); they append to the <code>PRINT ARG</code> list.</p>
+                            <div class="stk-field">
+                                <label for="plumedPrintExtra">Extra quantities to print <span class="plumed-help" tabindex="0" data-tip="Additional components to append to the PRINT ARG list (comma- or space-separated), e.g. metad.rbias or a CV component like cn.morethan.">?</span></label>
+                                <input type="text" id="plumedPrintExtra" value="" placeholder="e.g. metad.rbias, cn.morethan" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                <p class="stk-hint">All CV labels and the active bias components are printed automatically. Anything added here is appended to the <code>PRINT ARG</code> list.</p>
                             </div>
                         </div>
-                    </div>
+                    </section>
                 </div>
 
             </div>
 
             <!-- OUTPUT COLUMN -->
-            <div id="outputColumn" class="flex-grow flex flex-col gap-4 min-h-[560px] lg:min-h-0 lg:h-full">
+            <div id="outputColumn" class="sg-output">
 
-                <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col flex-1 min-h-[300px] relative overflow-hidden">
-                    <div class="bg-slate-950 px-4 py-2.5 flex justify-between items-center border-b border-slate-800 shrink-0">
-                        <div class="flex items-center gap-2">
-                            <span class="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/50"></span>
-                            <span id="primaryOutputLabel" class="text-sm font-bold text-rose-400 uppercase tracking-wider font-mono">submit.sh</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <button id="dockToggle" type="button" class="dock-toggle-btn bg-slate-800 hover:bg-slate-700 text-white px-2 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1 active:scale-95" aria-expanded="true" aria-controls="outputColumn" title="Collapse or expand the docked script preview">
-                                <i class="fa-solid fa-chevron-down"></i> <span class="dock-toggle-text">Hide</span>
-                            </button>
-                            <button class="copy-btn bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1 active:scale-95" data-target="slurmOutput">
-                                <i class="fa-regular fa-copy"></i> Copy Script
-                            </button>
+                <section id="scriptBox" class="stk-panel sg-out" aria-labelledby="primaryOutputLabel">
+                    <div class="stk-panel-h sg-out-h">
+                        <h2 class="stk-panel-t"><span class="stk-mono" id="primaryOutputLabel">submit.sh</span> <span class="stk-badge stk-badge-accent" id="schedulerBadge">SLURM</span></h2>
+                        <div class="sg-out-actions">
+                            <button type="button" class="stk-btn stk-btn-sm copy-btn" data-target="slurmOutput" aria-label="Copy submit.sh"><i class="fa-regular fa-copy"></i> Copy</button>
+                            <button type="button" class="stk-btn stk-btn-sm download-btn" data-target="slurmOutput" data-filename="submit.sh" aria-label="Download submit.sh"><i class="fa-solid fa-download"></i> Download</button>
                         </div>
                     </div>
-                    <div class="dock-body flex-grow p-4 overflow-auto custom-scroll relative">
-                        <pre><code id="slurmOutput" class="text-slate-300 font-mono text-[11px] leading-relaxed whitespace-pre-wrap select-all"># SLURM script will appear here...</code></pre>
+                    <div class="sg-out-body stk-scroll">
+                        <pre class="sg-code"><code id="slurmOutput" class="select-all"></code></pre>
                     </div>
-                </div>
+                    <div class="sg-out-f" id="submitHint"></div>
+                </section>
 
-                <div id="topologyOutputBox" class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col h-1/3 min-h-[240px] relative overflow-hidden">
-                    <div class="bg-slate-950 px-4 py-2.5 flex justify-between items-center border-b border-slate-800 shrink-0">
-                        <div class="flex items-center gap-2">
-                            <span class="w-3 h-3 rounded-full bg-emerald-500/20 border border-emerald-500/50"></span>
-                            <span class="text-sm font-bold text-emerald-400 uppercase tracking-wider font-mono">topol.top</span>
+                <div id="outputSplit" class="sg-split" role="separator" aria-orientation="horizontal" aria-label="Resize the output panes" aria-controls="topologyOutputBox" tabindex="0" title="Drag to resize"></div>
+
+                <section id="topologyOutputBox" class="stk-panel sg-out sg-out-top" aria-labelledby="topologyOutputLabel">
+                    <div class="stk-panel-h sg-out-h">
+                        <h2 class="stk-panel-t"><span class="stk-mono" id="topologyOutputLabel">topol.top</span> <span class="stk-badge">header</span></h2>
+                        <div class="sg-out-actions">
+                            <button type="button" class="stk-btn stk-btn-sm copy-btn" data-target="topOutput" aria-label="Copy topol.top header"><i class="fa-regular fa-copy"></i> Copy</button>
+                            <button type="button" class="stk-btn stk-btn-sm download-btn" data-target="topOutput" data-filename="topol.top" aria-label="Download topol.top header"><i class="fa-solid fa-download"></i> Download</button>
                         </div>
-                        <button class="copy-btn bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1 active:scale-95" data-target="topOutput">
-                            <i class="fa-regular fa-copy"></i> Copy Header
-                        </button>
                     </div>
-                    <div class="flex-grow p-4 overflow-auto custom-scroll relative">
-                        <pre><code id="topOutput" class="text-slate-300 font-mono text-[11px] leading-relaxed whitespace-pre-wrap select-all">; Topology header will appear here...</code></pre>
+                    <div class="sg-out-body stk-scroll">
+                        <pre class="sg-code"><code id="topOutput" class="select-all"></code></pre>
                     </div>
-                </div>
+                </section>
 
             </div>
         </div>
+
+        <button type="button" id="viewScript" class="stk-btn stk-btn-primary sg-jump" hidden><i class="fa-solid fa-arrow-down"></i> View script</button>
 
         <!-- ================= HOW TO USE ================= -->
         <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
             <div class="stk-wrap">
                 <span class="stk-chip"><i class="fa-solid fa-server"></i> How-To Guide</span>
-                <h2 class="stk-h2">How to generate a SLURM script and topology header</h2>
-                <p class="stk-lead">Set your cluster resources on the left, pick a force field, and copy the two files that appear on the right. The generator keeps the physics consistent so you do not ship a silently broken topology.</p>
+                <h2 class="stk-h2">How to generate a batch script and topology header</h2>
+                <p class="stk-lead">Pick the scheduler and set the cluster resources, choose a force field, and copy or download the files the generator writes as you type. It keeps the physics consistent so you do not ship a silently broken topology, and it remembers your settings between visits.</p>
                 <div class="stk-grid stk-grid-2">
-                    <div class="stk-step"><span class="stk-num">1</span><div><h3>Pick an engine &amp; resources</h3><p>Choose <strong>GROMACS</strong> or <strong>LAMMPS</strong> at the top, then set nodes, GPUs, wall time and memory. GROMACS uses CPUs/task (threaded); LAMMPS uses MPI tasks/node.</p></div></div>
+                    <div class="stk-step"><span class="stk-num">1</span><div><h3>Pick a scheduler, an engine and resources</h3><p>Choose <strong>GROMACS</strong> or <strong>LAMMPS</strong> at the top and the scheduler in the cluster card (SLURM, PBS Pro / OpenPBS, LSF or Grid Engine), then set nodes, GPUs, wall time and memory. GROMACS uses CPUs per task (threaded); LAMMPS uses MPI tasks per node. The summary line under the form totals the cores, GPUs and core-hours.</p></div></div>
                     <div class="stk-step"><span class="stk-num">2</span><div><h3>Define the workflow</h3><p>For GROMACS, toggle the stages you need (EM &rarr; NVT &rarr; NPT &rarr; Production), each with its own <code>.mdp</code> and <code>-deffnm</code>. The tool chains <code>grompp</code> &rarr; <code>mdrun</code> and wires restraints and checkpoints between stages.</p></div></div>
                     <div class="stk-step"><span class="stk-num">3</span><div><h3>Set the force field &amp; GPU flags</h3><p>The force field auto-sets the combination rule and 1&#8209;4 fudge factors. Choose which calculations to offload to the GPU (<code>-nb</code>, <code>-pme</code>, <code>-bonded</code>, <code>-update</code>). Warnings flag anything inconsistent.</p></div></div>
-                    <div class="stk-step"><span class="stk-num">4</span><div><h3>Copy and finish</h3><p>Copy <code>submit.sh</code> (and, for GROMACS, the <code>topol.top</code> header) into your project, then complete the <code>[ molecules ]</code> section with your species and counts.</p></div></div>
+                    <div class="stk-step"><span class="stk-num">4</span><div><h3>Copy or download, then submit</h3><p>Copy or download <code>submit.sh</code> (and, for GROMACS, the <code>topol.top</code> header), complete the <code>[ molecules ]</code> section with your species and counts, and submit with the command shown under the script: <code>sbatch</code>, <code>qsub</code>, or <code>bsub &lt; submit.sh</code> for LSF. Export settings writes a JSON file a group can share; Import settings reads one back.</p></div></div>
                 </div>
-                <div class="stk-note" style="margin-top:1.4rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>The generated script uses <code>#!/bin/bash -e</code>, requests memory explicitly, and writes per-job or per-array logs under <code>logs/</code>. These are deliberate HPC best practices, not noise, see the reasons in the next section.</div></div>
+                <div class="stk-note" style="margin-top:1.4rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>The generated script uses <code>#!/bin/bash -e</code>, requests memory explicitly, and writes per-job or per-array logs under <code>logs/</code>. These are deliberate HPC best practices, not noise, see the reasons in the next section. Anything the vendor leaves to the site (a GPU resource name, a parallel-environment name, a memory unit) is marked as site-specific in a comment inside the script.</div></div>
             </div>
         </section>
 
@@ -766,8 +772,8 @@
                 <h2 class="stk-h2">What the generator does, and why</h2>
                 <div class="stk-grid stk-grid-2">
                     <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Coupled force-field parameters</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">The combination rule and 1&#8209;4 fudge factors are not free choices: each force field ships a specific <code>[ defaults ]</code> line. Selecting a force field sets both for you, and any manual override that diverges from the canonical values is flagged.</p></div>
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Resource-safe SLURM defaults</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Explicit <code>--mem</code>, <code>--time</code> validation, <code>#!/bin/bash -e</code>, and log files with <code>%x</code>/<code>%j</code>/<code>%A_%a</code> patterns follow published cluster best-practice guides so jobs fail loudly instead of silently.</p></div>
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Hybrid CPU/GPU threading</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;"><code>OMP_NUM_THREADS</code> is tied to <code>SLURM_CPUS_PER_TASK</code>, and <code>SRUN_CPUS_PER_TASK</code> is exported for Slurm&nbsp;&gt;&nbsp;22.05. <code>gmx mdrun</code> runs with <code>-ntomp</code> and <code>-pin on</code> for reproducible thread placement.</p></div>
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">One request, four schedulers</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Explicit memory, wall-time validation, <code>#!/bin/bash -e</code> and per-job or per-array logs under <code>logs/</code> follow published cluster best-practice guides so jobs fail loudly instead of silently. The same request becomes <code>#SBATCH</code>, <code>#PBS</code>, <code>#BSUB</code> or <code>#$</code> directives, with the matching job-id, array-index and launch conventions.</p></div>
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Hybrid CPU/GPU threading</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Under SLURM <code>OMP_NUM_THREADS</code> is tied to <code>SLURM_CPUS_PER_TASK</code>, and <code>SRUN_CPUS_PER_TASK</code> is exported for Slurm&nbsp;&gt;&nbsp;22.05; PBS sets <code>NCPUS</code> from <code>ompthreads</code>, which the script reads with the requested count as the fallback; LSF and Grid Engine expose only slot counts, so for them the requested thread count is written next to the directive it matches. <code>gmx mdrun</code> runs with <code>-ntomp</code> and <code>-pin on</code> for reproducible thread placement.</p></div>
                     <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Everything stays local</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">The whole tool runs in your browser. Nothing you type is uploaded, logged, or sent anywhere, safe for unpublished systems and internal project names.</p></div>
                 </div>
                 <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-triangle-exclamation" style="margin-top:.15rem;"></i><div>The generated files are a correct <em>starting point</em>, not a validated production input. Always run <code>gmx grompp</code> and check its warnings, and confirm module names, partitions and GPU flags against your own cluster's documentation.</div></div>
@@ -785,7 +791,7 @@
                     <button class="doc-tab active" data-doc-tab="gromacs" role="tab"><i class="fa-solid fa-atom"></i> GROMACS</button>
                     <button class="doc-tab" data-doc-tab="lammps" role="tab"><i class="fa-solid fa-cubes"></i> LAMMPS</button>
                     <button class="doc-tab" data-doc-tab="plumed" role="tab"><i class="fa-solid fa-wave-square"></i> PLUMED</button>
-                    <button class="doc-tab" data-doc-tab="general" role="tab"><i class="fa-solid fa-server"></i> SLURM / General</button>
+                    <button class="doc-tab" data-doc-tab="general" role="tab"><i class="fa-solid fa-server"></i> Schedulers</button>
                 </div>
 
                 <div class="doc-pane active" data-doc-pane="gromacs">
@@ -880,16 +886,38 @@
                 </div>
 
                 <div class="doc-pane" data-doc-pane="general">
-                <h2 class="stk-h2">The SLURM side</h2>
-                <p class="stk-lead">The batch script follows widely published cluster best-practice guides.</p>
-                <ul style="font-size:.88rem;color:#64748b;line-height:1.7;padding-left:1.1rem;margin-top:.6rem;">
-                    <li><strong><code>#!/bin/bash -e</code></strong>, a failing command aborts the job immediately, so failures surface as <code>FAILED</code> in <code>sacct</code> instead of continuing with a corrupt state.</li>
-                    <li><strong>Explicit <code>--mem</code></strong>, without it, many sites apply a small default (often ~1&nbsp;GB/CPU) that quietly kills MD jobs.</li>
-                    <li><strong><code>OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK</code></strong> (plus <code>SRUN_CPUS_PER_TASK</code> for Slurm&nbsp;&gt;&nbsp;22.05), prevents thread over-subscription in hybrid runs.</li>
+                <h2 class="stk-h2">The scheduler side</h2>
+                <p class="stk-lead">The batch script follows widely published cluster best-practice guides, whichever scheduler is selected.</p>
+                <ul class="sg-list">
+                    <li><strong><code>#!/bin/bash -e</code></strong>, a failing command aborts the job immediately, so failures surface as <code>FAILED</code> in <code>sacct</code> (or the equivalent) instead of continuing with a corrupt state. Whether the <code>-e</code> on that first line reaches bash depends on how the scheduler starts the script: Grid Engine's default <code>shell_start_mode</code> ignores the shebang line and runs the script through the <code>-S</code> shell, and LSF's documentation does not say whether the options on it survive, so the PBS, LSF and Grid Engine scripts repeat it as an explicit <code>set -e</code>.</li>
+                    <li><strong>Explicit memory</strong>, without it, many sites apply a small default (often ~1&nbsp;GB/CPU) that quietly kills MD jobs. The request is translated into each scheduler's own unit: <code>--mem=32G</code>, <code>mem=32gb</code> in a PBS chunk, <code>rusage[mem=32768]</code> in MB for LSF, <code>h_vmem=32G</code> for Grid Engine.</li>
+                    <li><strong><code>OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK</code></strong> (plus <code>SRUN_CPUS_PER_TASK</code> for Slurm&nbsp;&gt;&nbsp;22.05), prevents thread over-subscription in hybrid runs. PBS sets <code>NCPUS</code> from <code>ompthreads</code> for rank 0, so the script reads it with the requested count as the fallback; LSF and Grid Engine expose only slot counts, so the requested value is written in, next to the directive it matches.</li>
                     <li><strong>Only set <code>--cpus-per-task</code> for multithreaded codes and <code>ntasks&gt;1</code> for MPI codes</strong>, <code>gmx mdrun</code> is the hybrid case handled here.</li>
-                    <li><span class="hl">Minimal partition specification</span>, leaving the partition unset (unless special hardware is needed) gives the scheduler more freedom and shortens queue time.</li>
+                    <li><span class="hl">Minimal partition specification</span>, leaving the partition or queue unset (unless special hardware is needed) gives the scheduler more freedom and shortens queue time.</li>
                     <li><span class="hl">Request only what you use</span>, over-requesting CPUs, memory or GPUs leaves resources idle (nobody else can use them) and lengthens your own queue time. Get a job working on one GPU and confirm it is actually used before scaling up, and size memory from the job's real peak usage (e.g. the <code>MaxRSS</code> field in <code>sacct</code>).</li>
                 </ul>
+
+                <p class="stk-eqn-label">How the request maps onto each scheduler</p>
+                <div class="stk-table-wrap">
+                <table class="stk-table sg-map">
+                    <thead>
+                        <tr><th>Request</th><th>SLURM</th><th>PBS Pro / OpenPBS</th><th>LSF</th><th>Grid Engine</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Threaded (GROMACS)</td><td><code>--nodes=N</code> <code>--ntasks-per-node=1</code> <code>--cpus-per-task=C</code></td><td><code>select=N:ncpus=C:mpiprocs=1:ompthreads=C</code></td><td><code>-n N&times;C</code> <code>-R "span[ptile=C]"</code></td><td><code>-pe &lt;pe&gt; N&times;C</code></td></tr>
+                        <tr><td>MPI (LAMMPS)</td><td><code>--ntasks-per-node=M</code> <code>--cpus-per-task=T</code></td><td><code>ncpus=M&times;T:mpiprocs=M:ompthreads=T</code></td><td><code>-n N&times;M&times;T</code> <code>-R "span[ptile=M&times;T]"</code></td><td><code>-pe &lt;pe&gt; N&times;M&times;T</code></td></tr>
+                        <tr><td>GPUs per node</td><td><code>--gres=gpu:G</code></td><td><code>:ngpus=G</code> (site-specific name)</td><td><code>-gpu "num=G"</code></td><td>commented placeholder, site-specific</td></tr>
+                        <tr><td>Memory per node</td><td><code>--mem=32G</code></td><td><code>:mem=32gb</code></td><td><code>rusage[mem=32768]</code> (MB by default)</td><td><code>-l h_vmem=32G</code> (often per slot)</td></tr>
+                        <tr><td>Wall time</td><td><code>--time=D-HH:MM:SS</code></td><td><code>-l walltime=HH:MM:SS</code></td><td><code>-W HH:MM</code> (seconds rounded up)</td><td><code>-l h_rt=HH:MM:SS</code></td></tr>
+                        <tr><td>Job array</td><td><code>--array=1-10%2</code>, <code>$SLURM_ARRAY_TASK_ID</code></td><td><code>-J 1-10%2</code>, <code>$PBS_ARRAY_INDEX</code></td><td><code>-J "name[1-10]%2"</code>, <code>$LSB_JOBINDEX</code></td><td><code>-t 1-10</code> <code>-tc 2</code> (1-based), <code>$SGE_TASK_ID</code></td></tr>
+                        <tr><td>Launch</td><td><code>srun</code></td><td><code>mpirun -np</code> <code>$(wc -l &lt; "$PBS_NODEFILE")</code></td><td><code>mpirun -np</code> <code>$LSB_DJOB_NUMPROC</code></td><td><code>mpirun -np $NSLOTS</code></td></tr>
+                        <tr><td>Submit</td><td><code>sbatch submit.sh</code></td><td><code>qsub submit.sh</code></td><td><code>bsub &lt; submit.sh</code></td><td><code>qsub submit.sh</code></td></tr>
+                    </tbody>
+                </table>
+                </div>
+                <p class="stk-where">
+                    <code>N</code> nodes, <code>C</code> threads per task, <code>M</code> MPI tasks per node, <code>T</code> threads per task. LSF and Grid Engine count slots (cores on most sites) rather than tasks, so a hybrid run divides the slot count by the thread count at launch. SLURM and Grid Engine open the log file as the job starts, so <code>logs/</code> must exist before submission; the submit hint under the script includes the <code>mkdir</code>. PBS and LSF spool the streams and copy them back when the job ends, so the script's own <code>mkdir -p logs</code> is in time there.
+                </p>
 
                 </div>
 
@@ -899,9 +927,12 @@
                     <li>GROMACS user guide. <em>System preparation</em> (EM &rarr; NVT &rarr; NPT staging; <code>-r</code> restraints, <code>-t</code> checkpoint continuation). <a href="https://manual.gromacs.org/current/user-guide/system-preparation.html" target="_blank" rel="noopener">system preparation</a>.</li>
                     <li>GROMACS user guide. <em>Getting good performance from mdrun</em> (GPU offload rules: PME&nbsp;=&nbsp;1 rank, <code>-bonded</code> needs <code>-nb gpu</code>, GPU-resident constraints, ranks-per-GPU). <a href="https://manual.gromacs.org/current/user-guide/mdrun-performance.html" target="_blank" rel="noopener">mdrun-performance</a>.</li>
                     <li>GROMACS force-field <code>forcefield.itp</code> files (AMBER, CHARMM36, OPLS-AA), the shipped <code>[ defaults ]</code> lines used for the table above.</li>
-                    <li>LAMMPS documentation. <em>Accelerator packages</em> (GPU, KOKKOS, INTEL, OPENMP, OPT | suffixes <code>gpu/kk/intel/omp/opt</code>) and <em>command-line options</em>. <a href="https://docs.lammps.org/Speed_packages.html" target="_blank" rel="noopener">Speed_packages</a>, <a href="https://docs.lammps.org/Run_options.html" target="_blank" rel="noopener">Run_options</a>.</li>
+                    <li>LAMMPS documentation. <em>Accelerator packages</em> (GPU, KOKKOS, INTEL, OPENMP, OPT; suffixes <code>gpu/kk/intel/omp/opt</code>) and <em>command-line options</em>. <a href="https://docs.lammps.org/Speed_packages.html" target="_blank" rel="noopener">Speed_packages</a>, <a href="https://docs.lammps.org/Run_options.html" target="_blank" rel="noopener">Run_options</a>.</li>
                     <li>University of Chicago RCC and NatLab Rockies HPC. <em>LAMMPS on SLURM</em> (OPENMP hybrid <code>-sf omp -pk omp N</code> with <code>srun -n R -c T</code>; INTEL/OPT usage; benchmarking). <a href="https://users.rcc.uchicago.edu/~tszasz/rccdocs/software/applications/lammps/index.html" target="_blank" rel="noopener">RCC</a>, <a href="https://github.com/NatLabRockies/HPC/blob/master/applications/lammps/README.md" target="_blank" rel="noopener">NatLabRockies</a>.</li>
                     <li>SchedMD. <em>Slurm <code>sbatch</code> documentation</em> and <em>Quick Start User Guide</em>. <a href="https://slurm.schedmd.com/sbatch.html" target="_blank" rel="noopener">slurm.schedmd.com/sbatch</a>, <a href="https://slurm.schedmd.com/quickstart.html" target="_blank" rel="noopener">quickstart</a>.</li>
+                    <li>Altair Engineering. <em>PBS Professional 2021.1 User's Guide</em> (submitting jobs, <code>select</code> and <code>place</code>, job arrays, environment variables), and the OpenPBS <code>qsub(1B)</code> and <code>pbs_resources(7B)</code> man pages (<code>mpiprocs</code>, <code>ompthreads</code>, <code>place</code>). <a href="https://help.altair.com/2021.1.3/PBS%20Professional/PBSUserGuide2021.1.3.pdf" target="_blank" rel="noopener">PBS Professional User's Guide</a>, <a href="https://github.com/openpbs/openpbs/blob/master/doc/man1/qsub.1B" target="_blank" rel="noopener">qsub.1B</a>, <a href="https://github.com/openpbs/openpbs/blob/master/doc/man1/pbs_resources.7B" target="_blank" rel="noopener">pbs_resources.7B</a>.</li>
+                    <li>IBM. <em>IBM Spectrum LSF 10.1 command reference: <code>bsub</code></em> (<code>-n</code>, <code>-R "span[ptile]"</code>, <code>-R "rusage[mem]"</code>, <code>-gpu</code>, <code>-W</code>, job arrays, <code>%J</code>/<code>%I</code>) and the <em>lsf.conf</em> reference (<code>LSF_UNIT_FOR_LIMITS</code>, <code>LSB_GPU_NEW_SYNTAX</code>, <code>LSB_BSUB_PARSE_SCRIPT</code>). <a href="https://www.ibm.com/docs/en/spectrum-lsf/10.1.0?topic=reference-bsub" target="_blank" rel="noopener">bsub</a>, <a href="https://www.ibm.com/docs/en/spectrum-lsf/10.1.0?topic=lsfconf-lsb-gpu-new-syntax" target="_blank" rel="noopener">LSB_GPU_NEW_SYNTAX</a>, <a href="https://www.ibm.com/docs/en/spectrum-lsf/10.1.0?topic=lsfconf-lsb-bsub-parse-script" target="_blank" rel="noopener">LSB_BSUB_PARSE_SCRIPT</a>.</li>
+                    <li>Open Grid Scheduler. <em><code>qsub(1)</code></em> (<code>-pe</code>, <code>-l h_rt</code>, <code>-t</code>/<code>-tc</code>, <code>-o</code> with a directory, <code>-S</code>, <code>-cwd</code>, environment variables), <em><code>sge_types(1)</code></em> (memory specifiers) and <em><code>queue_conf(5)</code></em> (<code>shell_start_mode</code>) man pages. <a href="https://gridscheduler.sourceforge.net/htmlman/htmlman1/qsub.html" target="_blank" rel="noopener">qsub</a>, <a href="https://gridscheduler.sourceforge.net/htmlman/htmlman1/sge_types.html" target="_blank" rel="noopener">sge_types</a>, <a href="https://gridscheduler.sourceforge.net/htmlman/htmlman5/queue_conf.html" target="_blank" rel="noopener">queue_conf</a>.</li>
                     <li>EuroCC Spain. <em>SLURM Best Practice Guide for HPC Users</em> (bash <code>-e</code>, memory, parallelism, job arrays).</li>
                     <li>NASA NCCS. <em>Slurm Best Practices on Discover</em> (minimal partition specification; time/memory/node requirements). <a href="https://www.nccs.nasa.gov/slurm-best-practices-on-discover/" target="_blank" rel="noopener">nccs.nasa.gov</a>.</li>
                     <li>RIT Research Computing. <em>Slurm Quick Start Tutorial</em> (sbatch options, <code>%x</code>/<code>%j</code> log variables, memory units, requesting only what you use, verifying GPU utilisation). <a href="https://research-computing.git-pages.rit.edu/docs/slurm_quick_start_tutorial.html" target="_blank" rel="noopener">research-computing.git-pages.rit.edu</a>.</li>
@@ -921,21 +952,28 @@
                 <div style="margin-top:1rem;">
                     <details class="stk-faq"><summary>Why did the tool add <code>-npme 1</code> or warn about my GPU flags?</summary><div>These are GROMACS rules. PME on a GPU supports only one PME rank, so <code>-npme 1</code> is added when you request <code>-pme gpu</code> with more than one rank. <code>-bonded gpu</code> requires <code>-nb gpu</code> because bonded offload is part of the same particle-particle workload. And <code>-update gpu</code> (GPU-resident mode) needs <code>constraints = h-bonds</code> and turns off dynamic load balancing.</div></details>
                     <details class="stk-faq"><summary>How are the GROMACS stages chained together?</summary><div>Each stage's <code>grompp</code> reads the previous stage's <code>.gro</code> via <code>-c</code>, and its checkpoint via <code>-t</code> for continuation (NVT&nbsp;&rarr;&nbsp;NPT&nbsp;&rarr;&nbsp;Production). When a stage has position restraints, <code>-r</code> is added pointing at the same coordinate file. Restraints are released automatically for Production.</div></details>
-                    <details class="stk-faq"><summary>Why does LAMMPS use tasks instead of CPUs per task?</summary><div>LAMMPS parallelises with MPI, so you request <code>--ntasks</code> (MPI ranks), whereas GROMACS <code>mdrun</code> is threaded and uses <code>--cpus-per-task</code>. The one exception is the LAMMPS <strong>OPENMP</strong> package, a hybrid MPI&nbsp;&times;&nbsp;OpenMP scheme that uses both, the tool then sets <code>-pk omp N</code> to match CPUs/Task. For GPU or KOKKOS runs, MPI ranks per node usually matches GPUs per node.</div></details>
+                    <details class="stk-faq"><summary>Why does LAMMPS use tasks instead of CPUs per task?</summary><div>LAMMPS parallelises with MPI, so you request <code>--ntasks</code> (MPI ranks), whereas GROMACS <code>mdrun</code> is threaded and uses <code>--cpus-per-task</code>. The one exception is the LAMMPS <strong>OPENMP</strong> package, a hybrid MPI&nbsp;&times;&nbsp;OpenMP scheme that uses both, the tool then sets <code>-pk omp N</code> to match CPUs per task. For GPU or KOKKOS runs, MPI ranks per node usually matches GPUs per node.</div></details>
                     <details class="stk-faq"><summary>Which LAMMPS accelerator should I pick?</summary><div>It depends on your hardware and your input's styles, and there is no universal answer, you must benchmark. GPU/KOKKOS need a GPU; INTEL and OPT speed up CPU-only runs; OPENMP is hybrid and helps on high-core-count nodes. Acceleration is not automatically faster: offloading can leave the CPU idle, and adding cores past the optimum can slow a run down. Read the <code>Performance</code> and timing breakdown LAMMPS prints at the end, and scale up only what measurably helps.</div></details>
                     <details class="stk-faq"><summary>How does the PLUMED builder help me?</summary><div>It groups the collective variables by category and, for each one, exposes the exact keywords defined in the PLUMED source, atom lists, switching-function parameters, flags like <code>NOPBC</code> or <code>COMPONENTS</code>, so you get correct <code>plumed.dat</code> syntax without reading the code. You add CVs, label them, pick a bias method (standard/well-tempered MetaD, OPES, or a restraint), and toggle speed options. The output targets PLUMED&nbsp;2.9.</div></details>
                     <details class="stk-faq"><summary>What is the difference between standard and well-tempered metadynamics here?</summary><div>Standard MetaD deposits Gaussian hills of fixed height. Well-tempered MetaD scales the hill height down over time using a <code>BIASFACTOR</code> (and <code>TEMP</code>), so the bias converges more smoothly. The builder adds those two keywords when you select the well-tempered variant, and OPES is offered as a modern alternative.</div></details>
                     <details class="stk-faq"><summary>Why does the PLUMED tab warn about grids and <code>CALC_RCT</code>?</summary><div>Metadynamics without a grid re-sums every deposited hill each step, so a long run slows down continuously, storing the bias on a grid keeps the cost flat. And <code>CALC_RCT</code> (on-the-fly c(t) reweighting) only works when the bias is on a grid, so the tool warns if you enable reweighting without it.</div></details>
                     <details class="stk-faq"><summary>Why does choosing a force field change the combination rule and fudge factors?</summary><div>Because they are physically coupled. Each GROMACS force field ships a specific <code>[ defaults ]</code> line: AMBER uses rule&nbsp;2 with 0.5/0.8333, CHARMM36 uses rule&nbsp;2 with 1.0/1.0, and OPLS-AA uses rule&nbsp;3 with 0.5/0.5. Mixing them produces a silently wrong topology.</div></details>
                     <details class="stk-faq"><summary>What exactly are fudgeLJ and fudgeQQ?</summary><div>They scale the 1&#8209;4 interactions (between atoms separated by three bonds). <code>fudgeLJ</code> scales the 1&#8209;4 Lennard-Jones term and is applied only when <code>gen-pairs</code> is <code>yes</code>; <code>fudgeQQ</code> scales the 1&#8209;4 electrostatics and is always applied.</div></details>
-                    <details class="stk-faq"><summary>Can I override the auto-set parameters?</summary><div>Yes | enable <em>Advanced override</em> to edit the combination rule and fudge factors directly. Whenever your values differ from the force field's canonical ones, a warning explains the mismatch so you can confirm it is intentional.</div></details>
+                    <details class="stk-faq"><summary>Can I override the auto-set parameters?</summary><div>Yes: enable <em>Advanced override</em> to edit the combination rule and fudge factors directly. Whenever your values differ from the force field's canonical ones, a warning explains the mismatch so you can confirm it is intentional.</div></details>
                     <details class="stk-faq"><summary>Why did the script add things I did not ask for (bash -e, memory, log files)?</summary><div>They are HPC best practices. <code>#!/bin/bash -e</code> makes the job stop and report <code>FAILED</code> on the first error; explicit <code>--mem</code> stops a small site default from killing the job; and <code>--output</code>/<code>--error</code> capture logs per job or per array task under <code>logs/</code>.</div></details>
+                    <details class="stk-faq"><summary>Which schedulers are supported, and what changes between them?</summary><div>SLURM, PBS Professional / OpenPBS, IBM Spectrum LSF and Grid Engine (SGE, UGE). Pick one in the cluster card and the same request is written as <code>#SBATCH</code>, <code>#PBS</code>, <code>#BSUB</code> or <code>#$</code> directives, with the matching job-id and array-index variables, the launch command (<code>srun</code> or <code>mpirun</code> with the task count taken from the allocation) and the submit command under the script. The mapping table in the method section lists every directive. The SLURM output is unchanged from earlier versions of this tool.</div></details>
+                    <details class="stk-faq"><summary>Why does LSF need <code>bsub &lt; submit.sh</code> rather than <code>bsub submit.sh</code>?</summary><div><code>bsub</code> reads the <code>#BSUB</code> lines only when the script arrives on standard input. Given as an argument, the file runs as a plain command and every directive is ignored, so the job would be submitted with the queue defaults.</div></details>
+                    <details class="stk-faq"><summary>What does "site-specific" mean in the generated script?</summary><div>A value the vendor documentation leaves to each installation: the GPU resource name under PBS (<code>ngpus</code> on most sites) or Grid Engine (no standard at all, so the script carries a commented placeholder), the Grid Engine parallel-environment name (<code>qconf -spl</code> lists them), the memory resource and its unit, and whether an LSF slot is a core. Check each against your cluster's documentation before submitting; the comment sits next to the line it concerns.</div></details>
+                    <details class="stk-faq"><summary>Why does the submit hint start with <code>mkdir -p logs</code>?</summary><div>SLURM and Grid Engine open the output file as the job starts; if <code>logs/</code> does not exist yet, the job fails before the script's own <code>mkdir</code> can run. PBS and LSF spool the output and copy it back when the job ends, so for them the <code>mkdir</code> inside the script is in time.</div></details>
+                    <details class="stk-faq"><summary>Where are my settings kept, and how do I share them?</summary><div>In your browser's local storage, written a moment after each change and restored when you return; nothing leaves your device. Export settings downloads the same data as a JSON file so a group can share one cluster configuration, Import settings reads it back (unknown keys are ignored), and Reset to defaults forgets the saved state.</div></details>
                     <details class="stk-faq"><summary>Is this a validated production input?</summary><div>No. It is a correct, best-practice starting point. Always run <code>gmx grompp</code> and read its warnings, and check module names, partitions, GPU flags and account settings against your own cluster's documentation.</div></details>
                     <details class="stk-faq"><summary>Is my data uploaded anywhere?</summary><div>No. Everything runs locally in your browser. Nothing you type (job names, project directories, includes) leaves your device.</div></details>
                 </div>
                 <div class="stk-refs">
                     <a href="https://manual.gromacs.org/current/reference-manual/topologies/topology-file-formats.html" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> GROMACS topology docs</a>
                     <a href="https://slurm.schedmd.com/sbatch.html" target="_blank" rel="noopener"><i class="fa-solid fa-terminal"></i> Slurm sbatch</a>
+                    <a href="https://www.ibm.com/docs/en/spectrum-lsf/10.1.0?topic=reference-bsub" target="_blank" rel="noopener"><i class="fa-solid fa-terminal"></i> LSF bsub</a>
+                    <a href="https://gridscheduler.sourceforge.net/htmlman/htmlman1/qsub.html" target="_blank" rel="noopener"><i class="fa-solid fa-terminal"></i> Grid Engine qsub</a>
                     <a href="https://www.nccs.nasa.gov/slurm-best-practices-on-discover/" target="_blank" rel="noopener"><i class="fa-solid fa-server"></i> NCCS best practices</a>
                 </div>
                 <p class="stk-credit">The generator runs entirely in your browser, no data leaves your device.</p>
@@ -1094,6 +1132,6 @@
             window.addEventListener('scroll', hide, true);
         })();
     </script>
-    <script src="js/script-generator.js"></script>
+    <script type="module" src="js/script-generator.js"></script>
 </body>
 </html>
