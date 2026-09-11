@@ -21,6 +21,7 @@ import {
   independentTTest,
   parsePDB, structureStats,
   generateScript,
+  buildHeader, submitCommand, launcher,
   convert,
   parseBibtex, deduplicateAuto,
   fitCurve,
@@ -100,6 +101,17 @@ check('slurm', () => {
   assert(script.startsWith('#!/bin/bash'), 'missing shebang');
   assert(script.includes('#SBATCH --mem=8G'), 'memory directive missing');
   assert(script.includes('gmx mdrun'), 'run command missing');
+});
+
+check('scheduler', () => {
+  const { script, warnings } = buildHeader({
+    scheduler: 'pbs', engine: 'lammps', memory: '8G', walltime: '1:00:00', tasksPerNode: 16
+  });
+  assert(script.includes('#PBS -l select=1:ncpus=16:mpiprocs=16:ompthreads=1:mem=8gb'), 'select line wrong');
+  assert(!script.includes('#SBATCH'), 'SLURM directive leaked into a PBS header');
+  assert(warnings.length === 0, `unexpected warnings: ${warnings.map(w => w.message).join('; ')}`);
+  assert(submitCommand('lsf') === 'bsub < submit.sh', 'LSF submits from stdin');
+  assert(launcher('sge', { cpusPerTask: 2 }) === 'mpirun -np $((NSLOTS / 2))', 'hybrid launcher');
 });
 
 check('units', () => {
