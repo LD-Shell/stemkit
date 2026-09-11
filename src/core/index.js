@@ -29,7 +29,8 @@
  * ```
  *
  * Modules that need no third-party code, `xvg-parser`, `structure`, `slurm`,
- * `digitizer`, `latex`, `units`, work without any registration at all.
+ * `scheduler`, `digitizer`, `latex`, `units`, work without any registration at
+ * all.
  *
  * ## Name collisions
  *
@@ -63,6 +64,7 @@ export * as Outliers from './outliers.js';
 export * as CurveFitting from './curve-fitting.js';
 export * as Structure from './structure.js';
 export * as Slurm from './slurm.js';
+export * as Scheduler from './scheduler.js';
 export * as Units from './units.js';
 export * as DataCleaning from './data-cleaning.js';
 export * as Latex from './latex.js';
@@ -81,6 +83,7 @@ export * as Selection from './selection.js';
 export * from './vendor.js';
 export * from './structure.js';
 export * from './slurm.js';
+export * from './scheduler.js';
 export * from './latex.js';
 export * from './bibtex.js';
 export * from './journals.js';
