@@ -27,7 +27,7 @@ Use the library:
 
 ```bash
 npm install
-npm test                        # 1077 tests, 16 modules
+npm test                        # 1128 tests, 17 modules
 node tests/smoke.mjs            # end-to-end against a real install
 ```
 
@@ -42,7 +42,7 @@ console.log(columnStats(matrix.map(r => r[1])));
 
 | Script | Does |
 |---|---|
-| `npm test` | Jest, 1077 tests |
+| `npm test` | Jest, 1128 tests |
 | `npm run test:coverage` | coverage report (see `docs/COVERAGE.md`) |
 | `npm run check:links` | internal and external link check |
 | `npm run check:links:internal` | internal only, no network |
@@ -64,7 +64,7 @@ Three further pages are workflow helpers, not research tools, and are not part
 of the scholarly contribution: Pomodoro timer, decision matrix, kinetics
 sandbox.
 
-`@stemkit/core` holds the computation: 16 DOM-free domain modules, plus an
+`@stemkit/core` holds the computation: 17 DOM-free domain modules, plus an
 aggregate export (`index.js`) and a dependency-injection layer (`vendor.js`).
 API reference in [`src/core/README.md`](src/core/README.md).
 
