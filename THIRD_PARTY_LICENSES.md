@@ -37,10 +37,13 @@ metadata or its repository, not inferred from the code.
 
 ## Fonts and icons
 
+Both typefaces are served from this repository; no page loads a font or a
+stylesheet from another host.
+
 | Asset | Licence | Source |
 |---|---|---|
 | Font Awesome (free tier) | CC BY 4.0 (icons), SIL OFL 1.1 (fonts), MIT (code) | https://fontawesome.com |
-| Inter | SIL OFL 1.1 | https://rsms.me/inter/ |
+| Inter (variable weight, latin subset, vendored at `css/fonts/inter/` from `@fontsource-variable/inter` 5.3.0, licence text alongside) | SIL OFL 1.1 | https://rsms.me/inter/ |
 | KaTeX fonts | SIL OFL 1.1 | bundled with KaTeX |
 
 ## Data
