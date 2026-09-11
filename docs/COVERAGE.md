@@ -43,4 +43,5 @@ changes a published number.
 
 One real gap: `iso4.js` at about 88% of statements, 80% of branches, 90% of
 functions. Unlike the two files above, that is genuinely untested code. It is
-also the newest module and the one `smoke.mjs` does not exercise.
+also one of the two modules, with `journals.js`, that `smoke.mjs` does not
+call into.
