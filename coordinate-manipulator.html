@@ -41,10 +41,10 @@
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp">
 
-    <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="https://stemkit.net/assets/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="https://stemkit.net/assets/favicon-16x16.png">
-    <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
     
     <script src="js/dependencies/3Dmol-min.js"></script>
     <link rel="stylesheet" href="css/all.min.css">
@@ -120,288 +120,254 @@
         </div>
     </nav>
 
-    <main class="stk-shell-tall flex-grow w-full flex flex-col relative">
-        
-        <section id="uploadZone" class="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-slate-950 transition-opacity duration-300">
-            <div class="w-full max-w-4xl flex flex-col items-center justify-center border-2 border-dashed border-purple-300 dark:border-purple-700 rounded-3xl bg-purple-50/50 dark:bg-purple-900/10 cursor-pointer p-20 text-center group transition-colors hover:bg-purple-50 dark:hover:bg-purple-900/20" id="dropArea">
-                <input type="file" id="fileInput" accept=".pdb,.gro,.xyz" class="hidden">
-                <div class="w-24 h-24 bg-purple-100 dark:bg-purple-900/50 rounded-3xl flex items-center justify-center mb-8 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform shadow-sm">
-                    <i class="fa-solid fa-cube text-5xl"></i>
-                </div>
-                <h1 class="text-4xl font-black mb-4 tracking-tight">Coordinate Manipulator</h1>
-                <p class="text-slate-500 dark:text-slate-400 mb-2 max-w-lg leading-relaxed">
-                    Parse topologies instantly. Apply rigid-body translation vectors, compute system dimensions, and convert output formats entirely in your browser.
-                </p>
-                <p class="text-xs font-bold text-slate-400 dark:text-slate-500 mb-8 uppercase tracking-wider">Supported formats: .pdb, .gro, .xyz</p>
-                <button class="bg-purple-600 hover:bg-purple-700 text-white px-8 py-3.5 rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2">
-                    <i class="fa-solid fa-file-import"></i> Initialize Topology
-                </button>
+    <main class="cm-main flex-grow max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex flex-col gap-6">
+
+        <!-- EMPTY STATE -->
+        <section id="uploadZone" class="stk-drop cm-drop" aria-label="Load a structure">
+            <input type="file" id="fileInput" accept=".pdb,.ent,.gro,.xyz" class="hidden" aria-label="Choose a structure file">
+            <span class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-cube"></i></span>
+            <h1>Coordinate Manipulator</h1>
+            <p>Translate, rotate and re-box PDB, GRO and XYZ coordinates in the browser; nothing is uploaded.</p>
+            <div class="stk-drop-actions">
+                <button type="button" id="chooseFileBtn" class="stk-btn stk-btn-primary"><i class="fa-solid fa-folder-open"></i>Choose file</button>
             </div>
+            <div class="stk-drop-actions cm-samples">
+                <span class="stk-hint">Or try a sample:</span>
+                <button type="button" class="stk-btn stk-btn-sm stk-btn-soft cm-sample" data-sample="assets/samples/helix-ala15.pdb"><i class="fa-solid fa-dna"></i>Poly-alanine helix</button>
+                <button type="button" class="stk-btn stk-btn-sm stk-btn-soft cm-sample" data-sample="assets/samples/benzene.xyz"><i class="fa-solid fa-ring"></i>Benzene</button>
+            </div>
+            <div class="stk-drop-formats" aria-label="Accepted formats">
+                <span class="stk-badge">PDB</span><span class="stk-badge">ENT</span><span class="stk-badge">GRO</span><span class="stk-badge">XYZ</span>
+            </div>
+            <p id="dropStatus" class="stk-hint cm-drop-status" role="status" aria-live="polite" hidden><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><span id="dropStatusText"></span></p>
         </section>
 
-        <section id="workspace" class="stk-shell hidden w-full flex-grow flex flex-col lg:flex-row p-4 gap-4 pb-12">
-            
-            <div class="stk-shell-main w-full lg:w-[420px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden shadow-sm shrink-0">
-                
-                <div class="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-between items-center">
+        <!-- WORKSPACE -->
+        <section id="workspace" class="stk-shell cm-shell" aria-label="Coordinate workspace" tabindex="-1" hidden>
+
+            <!-- CONTROLS -->
+            <div class="cm-controls stk-shell-pane stk-scroll">
+
+                <div class="stk-panel cm-head">
+                    <div class="cm-head-row">
+                        <div class="cm-head-main">
+                            <h2 id="fileLabel" class="cm-file">structure.pdb</h2>
+                            <div class="cm-head-badges">
+                                <span id="formatBadge" class="stk-badge stk-badge-accent"></span>
+                                <span id="unitBadge" class="stk-badge"></span>
+                            </div>
+                        </div>
+                        <button type="button" id="btnCloseWorkspace" class="stk-btn stk-btn-ghost stk-btn-icon stk-btn-sm" aria-label="Close file" title="Close file"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="stk-toolbar cm-history" role="toolbar" aria-label="History">
+                        <button type="button" id="btnUndo" class="stk-btn stk-btn-sm" aria-label="Undo" aria-keyshortcuts="Control+Z Meta+Z" title="Nothing to undo" disabled><i class="fa-solid fa-rotate-left"></i>Undo</button>
+                        <button type="button" id="btnRedo" class="stk-btn stk-btn-sm" aria-label="Redo" aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z Control+Y" title="Nothing to redo" disabled><i class="fa-solid fa-rotate-right"></i>Redo</button>
+                        <span class="stk-toolbar-sep" aria-hidden="true"></span>
+                        <button type="button" id="btnRestore" class="stk-btn stk-btn-sm" title="Restore the coordinates as loaded" data-needs-structure disabled><i class="fa-solid fa-arrow-rotate-left"></i>Restore</button>
+                    </div>
+                </div>
+
+                <details id="statsPanel" class="stk-disclosure" open>
+                    <summary>System statistics</summary>
                     <div>
-                        <h2 class="text-base font-black tracking-tight flex items-center gap-2">
-                            <i class="fa-solid fa-layer-group text-purple-500"></i> Transformation Engine
-                        </h2>
-                        <p id="systemFormatLabel" class="text-[10px] text-slate-500 font-mono mt-1 uppercase">Awaiting structure...</p>
+                        <dl class="stk-kv cm-stats">
+                            <dt>Atoms</dt><dd id="statAtomCount">0</dd>
+                            <dt>Geometric centre</dt><dd id="statGeoCenter">0.0, 0.0, 0.0</dd>
+                            <dt>Centre of mass</dt><dd id="statMassCenter">0.0, 0.0, 0.0</dd>
+                            <dt>Molecular weight</dt><dd><span id="statMolWeight">&mdash;</span> <button type="button" id="btnMassDetail" class="cm-link">Show working</button></dd>
+                            <dt>Bounding box</dt><dd id="statBoundingBox">0.0 &times; 0.0 &times; 0.0</dd>
+                        </dl>
+                        <details id="massDetail" class="stk-disclosure">
+                            <summary>How the mass was calculated</summary>
+                            <div>
+                                <p class="stk-hint">Sum of standard atomic weights over every atom present in the file, including solvent and ions. Natural-isotope averages, not monoisotopic masses; no charge correction.</p>
+                                <div id="massTable" class="stk-table-wrap"></div>
+                                <p id="massAssumptions" class="stk-hint cm-warn-text"></p>
+                                <button type="button" id="btnMassDownload" class="stk-btn stk-btn-sm cm-self-start" data-needs-structure disabled><i class="fa-solid fa-download"></i>Download working (.csv)</button>
+                            </div>
+                        </details>
                     </div>
-                    <button id="btnCloseWorkspace" class="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-red-500 hover:border-red-200 dark:hover:border-red-800 transition-colors flex items-center justify-center">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
+                </details>
 
-                <div class="flex-grow overflow-y-auto p-4 custom-scroll space-y-3">
-                    
-                    <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
-                        <button class="accordion-btn w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center text-left focus:outline-none" aria-expanded="true" data-target="statsContent">
-                            <span class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">System Statistics</span>
-                            <i class="fa-solid fa-chevron-down accordion-icon text-slate-400 text-xs"></i>
-                        </button>
-                        <div id="statsContent" class="accordion-content expanded px-4 pb-4 pt-2">
-                            <div class="grid grid-cols-2 gap-y-3 text-xs">
-                                <div>
-                                    <span class="text-[10px] font-bold text-slate-400 block uppercase">Total Atoms</span>
-                                    <span id="statAtomCount" class="font-mono text-slate-700 dark:text-slate-300">0</span>
-                                </div>
-                                <div>
-                                    <span class="text-[10px] font-bold text-slate-400 block uppercase">Geometric Center</span>
-                                    <span id="statGeoCenter" class="font-mono text-slate-700 dark:text-slate-300">0.0, 0.0, 0.0</span>
-                                </div>
-                                <div>
-                                    <span class="text-[10px] font-bold text-slate-400 block uppercase">Centre of Mass</span>
-                                    <span id="statMassCenter" class="font-mono text-slate-700 dark:text-slate-300">0.0, 0.0, 0.0</span>
-                                </div>
-                                <div>
-                                    <span class="text-[10px] font-bold text-slate-400 block uppercase">Molecular Weight</span>
-                                    <span id="statMolWeight" class="font-mono text-slate-700 dark:text-slate-300">, </span>
-                                        <button id="btnMassDetail" type="button" class="ml-1 text-[10px] font-bold text-purple-600 dark:text-purple-400 hover:underline align-middle">how?</button>
-                                </div>
-                                <div class="col-span-2">
-                                    <span class="text-[10px] font-bold text-slate-400 block uppercase">Bounding Box (XYZ)</span>
-                                    <span id="statBoundingBox" class="font-mono text-slate-700 dark:text-slate-300">0.0 × 0.0 × 0.0</span>
-                                </div>
-                            <details id="massDetail" class="col-span-2 mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">
-                                <summary class="cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 hover:text-purple-500">How the mass was calculated</summary>
-                                <div class="mt-2 text-[11px] leading-relaxed text-slate-600 dark:text-slate-400">
-                                    <p class="mb-2">Sum of standard atomic weights over every atom present in the file, including solvent and ions. Natural-isotope averages, not monoisotopic masses; no charge correction.</p>
-                                    <div id="massTable" class="overflow-x-auto"></div>
-                                    <p id="massAssumptions" class="mt-2 text-amber-700 dark:text-amber-400"></p>
-                                    <button id="btnMassDownload" type="button" class="mt-2 bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all">Download working (.csv)</button>
-                                </div>
-                            </details>
-
-                            </div>
-                        </div>
+                <section class="stk-panel" aria-labelledby="transTitle">
+                    <div class="stk-panel-h">
+                        <h3 id="transTitle" class="stk-panel-t"><i class="fa-solid fa-up-down-left-right"></i>Translation</h3>
                     </div>
-
-                    <div class="border border-purple-200 dark:border-purple-800 rounded-xl overflow-hidden bg-purple-50/30 dark:bg-purple-900/10">
-                        <div class="px-4 py-3 border-b border-purple-100 dark:border-purple-800/50 flex justify-between items-center">
-                            <span class="text-xs font-bold text-purple-900 dark:text-purple-300 uppercase tracking-wider">Rigid-Body Translation</span>
-                        </div>
-                        <div class="p-4">
-                            <p id="transUnitNote" class="text-[10px] text-slate-500 dark:text-slate-400 mb-3">Input vector components. Units match the parsed input file (.pdb = Å, .gro = nm).</p>
-                            <div class="grid grid-cols-3 gap-2 mb-3">
-                                <div>
-                                    <span id="labelTransX" class="text-[10px] font-bold text-slate-500 uppercase">Delta X</span>
-                                    <input type="number" id="transX" value="0.000" step="0.1" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
-                                </div>
-                                <div>
-                                    <span id="labelTransY" class="text-[10px] font-bold text-slate-500 uppercase">Delta Y</span>
-                                    <input type="number" id="transY" value="0.000" step="0.1" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
-                                </div>
-                                <div>
-                                    <span id="labelTransZ" class="text-[10px] font-bold text-slate-500 uppercase">Delta Z</span>
-                                    <input type="number" id="transZ" value="0.000" step="0.1" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
-                                </div>
+                    <div class="stk-panel-b cm-form">
+                        <p class="stk-hint">Adds this vector to every atom; the unit follows the source file.</p>
+                        <div class="cm-xyz">
+                            <div class="stk-field">
+                                <label for="transX">x (<span class="cm-src-unit">&Aring;</span>)</label>
+                                <input type="number" id="transX" value="0.000" step="0.1" class="stk-input stk-mono stk-tnum">
                             </div>
-                            <div class="mb-3">
-                                <span class="text-[10px] font-bold text-slate-500 uppercase">Centre using</span>
-                                <select id="centerMode" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs outline-none mt-0.5">
-                                    <option value="geometric">Geometric centre (centroid)</option>
-                                    <option value="mass">Centre of mass (mass-weighted)</option>
-                                </select>
+                            <div class="stk-field">
+                                <label for="transY">y (<span class="cm-src-unit">&Aring;</span>)</label>
+                                <input type="number" id="transY" value="0.000" step="0.1" class="stk-input stk-mono stk-tnum">
                             </div>
-                            <div class="flex gap-2">
-                                <button id="btnCenterSys" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 rounded-lg text-xs transition-colors shadow-sm">
-                                    <i class="fa-solid fa-crosshairs mr-1"></i> Align Origin
-                                </button>
-                                <button id="btnApplyTrans" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-lg text-xs transition-colors shadow-sm">
-                                    Apply Vector
-                                </button>
+                            <div class="stk-field">
+                                <label for="transZ">z (<span class="cm-src-unit">&Aring;</span>)</label>
+                                <input type="number" id="transZ" value="0.000" step="0.1" class="stk-input stk-mono stk-tnum">
                             </div>
                         </div>
-                    </div>
-
-                    <!-- ROTATION -->
-                    <div class="border border-sky-200 dark:border-sky-800 rounded-xl overflow-hidden bg-sky-50/30 dark:bg-sky-900/10">
-                        <div class="px-4 py-3 border-b border-sky-100 dark:border-sky-800/50 flex justify-between items-center">
-                            <span class="text-xs font-bold text-sky-900 dark:text-sky-300 uppercase tracking-wider">3D Rotation</span>
-                            <span class="text-[9px] font-mono text-sky-700 dark:text-sky-400">degrees</span>
-                        </div>
-                        <div class="p-4">
-                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mb-3">Applied as intrinsic Z&#8209;Y&#8209;X (yaw, then pitch, then roll) about the pivot below. Rigid rotation, bond lengths and angles are preserved.</p>
-                            <div class="grid grid-cols-3 gap-2 mb-3">
-                                <div>
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Rot X (&#176;)</span>
-                                    <input type="number" id="rotX" value="0" step="5" min="-360" max="360" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
-                                </div>
-                                <div>
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Rot Y (&#176;)</span>
-                                    <input type="number" id="rotY" value="0" step="5" min="-360" max="360" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
-                                </div>
-                                <div>
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Rot Z (&#176;)</span>
-                                    <input type="number" id="rotZ" value="0" step="5" min="-360" max="360" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <span class="text-[10px] font-bold text-slate-500 uppercase">Rotate about</span>
-                                <select id="rotPivot" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs outline-none mt-0.5">
-                                    <option value="geometric">Geometric centre</option>
-                                    <option value="mass">Centre of mass</option>
-                                    <option value="origin">Origin (0, 0, 0)</option>
-                                </select>
-                            </div>
-                            <div class="flex gap-2">
-                                <button id="btnUndo" type="button" title="Nothing to undo" class="opacity-40 cursor-not-allowed bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 font-bold py-2 px-3 rounded-lg text-xs transition-all mr-2 flex items-center gap-1.5"><i class="fa-solid fa-rotate-left"></i> Undo</button>
-                        <button id="btnRedo" type="button" title="Nothing to redo" class="opacity-40 cursor-not-allowed bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 font-bold py-2 px-3 rounded-lg text-xs transition-all mr-2 flex items-center gap-1.5"><i class="fa-solid fa-rotate-right"></i> Redo</button>
-                                <button id="btnResetRot" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 rounded-lg text-xs transition-colors shadow-sm">
-                                    <i class="fa-solid fa-rotate-left mr-1"></i> Reset Angles
-                                </button>
-                                <button id="btnApplyRot" class="flex-1 bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 rounded-lg text-xs transition-colors shadow-sm">
-                                    Apply Rotation
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- SIMULATION BOX -->
-                    <div id="boxPanel" class="border border-emerald-200 dark:border-emerald-800 rounded-xl overflow-hidden bg-emerald-50/30 dark:bg-emerald-900/10 transition-opacity">
-                        <div class="px-4 py-3 border-b border-emerald-100 dark:border-emerald-800/50 flex justify-between items-center">
-                            <span class="text-xs font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider">Simulation Box</span>
-                            <span class="text-[9px] font-mono text-emerald-700 dark:text-emerald-400">GRO &middot; <span id="boxUnitLabel">nm</span></span>
-                        </div>
-                        <div class="p-4">
-                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mb-3">Box vectors written to <code>.gro</code> output (and as <code>CRYST1</code> in PDB). GROMACS always expects nanometres here, whatever the source file used.</p>
-                            <div class="grid grid-cols-3 gap-2 mb-3">
-                                <div>
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Lx (nm)</span>
-                                    <input type="number" id="boxLx" value="0.00000" step="0.1" min="0" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
-                                </div>
-                                <div>
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Ly (nm)</span>
-                                    <input type="number" id="boxLy" value="0.00000" step="0.1" min="0" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
-                                </div>
-                                <div>
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Lz (nm)</span>
-                                    <input type="number" id="boxLz" value="0.00000" step="0.1" min="0" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
-                                </div>
-                            </div>
-                            <div class="flex items-end gap-2 mb-2">
-                                <div class="flex-1">
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase">Padding (%)</span>
-                                    <input type="number" id="boxPad" value="10" step="5" min="0" max="200" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center font-mono">
-                                </div>
-                                <button id="btnBoxFromBounds" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs transition-colors shadow-sm">
-                                    <i class="fa-solid fa-cube mr-1"></i> Fit to Molecule
-                                </button>
-                            </div>
-                            <p id="boxSource" class="text-[10px] text-slate-500 dark:text-slate-400 font-mono"></p>
-                        </div>
-                    </div>
-
-                </div>
-
-                <div class="mt-auto p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3 rounded-b-3xl">
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <span class="text-[10px] font-bold text-slate-500 uppercase">Output Format</span>
-                            <select id="exportFormat" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs outline-none">
-                                <option value="xyz">Standard XYZ (.xyz)</option>
-                                <option value="pdb">Protein Data Bank (.pdb)</option>
-                                <option value="gro">GROMACS (.gro)</option>
+                        <div class="stk-field">
+                            <label for="centerMode">Centre using</label>
+                            <select id="centerMode" class="stk-select">
+                                <option value="geometric">Geometric centre (centroid)</option>
+                                <option value="mass">Centre of mass (mass-weighted)</option>
                             </select>
                         </div>
-                        <div>
-                            <span class="text-[10px] font-bold text-slate-500 uppercase">Filename</span>
-                            <input type="text" id="exportName" value="translated_sys" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs outline-none">
+                        <div class="cm-actions">
+                            <button type="button" id="btnCenterSys" class="stk-btn" data-needs-structure disabled><i class="fa-solid fa-crosshairs"></i>Align Origin</button>
+                            <button type="button" id="btnApplyTrans" class="stk-btn stk-btn-primary" data-needs-structure disabled>Apply Vector</button>
                         </div>
                     </div>
-                    <p id="exportUnitNote" class="text-[10px] text-slate-500 dark:text-slate-400 font-mono"></p>
-                    <div class="mb-4 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-                        <div class="bg-slate-50 dark:bg-slate-950 px-3 py-2 flex justify-between items-center border-b border-slate-200 dark:border-slate-800">
-                            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Equivalent GROMACS command</span>
-                            <button id="btnCopyEditconf" class="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 hover:underline">Copy</button>
+                </section>
+
+                <section class="stk-panel" aria-labelledby="rotTitle">
+                    <div class="stk-panel-h">
+                        <h3 id="rotTitle" class="stk-panel-t"><i class="fa-solid fa-rotate"></i>Rotation</h3>
+                        <span class="stk-badge">degrees</span>
+                    </div>
+                    <div class="stk-panel-b cm-form">
+                        <p class="stk-hint">Applied as intrinsic Z&#8209;Y&#8209;X (yaw, then pitch, then roll) about the pivot below. Rigid rotation, bond lengths and angles are preserved.</p>
+                        <div class="cm-xyz">
+                            <div class="stk-field">
+                                <label for="rotX">x (&deg;)</label>
+                                <input type="number" id="rotX" value="0" step="5" min="-360" max="360" class="stk-input stk-mono stk-tnum">
+                            </div>
+                            <div class="stk-field">
+                                <label for="rotY">y (&deg;)</label>
+                                <input type="number" id="rotY" value="0" step="5" min="-360" max="360" class="stk-input stk-mono stk-tnum">
+                            </div>
+                            <div class="stk-field">
+                                <label for="rotZ">z (&deg;)</label>
+                                <input type="number" id="rotZ" value="0" step="5" min="-360" max="360" class="stk-input stk-mono stk-tnum">
+                            </div>
                         </div>
-                        <pre class="p-3 overflow-x-auto text-[11px] leading-relaxed bg-white dark:bg-slate-900"><code id="editconfOut" class="font-mono text-slate-700 dark:text-slate-300">Load a structure to see the equivalent command.</code></pre>
-                        <div id="editconfNotes" class="px-3 pb-3 text-[10px] leading-relaxed text-amber-700 dark:text-amber-400"></div>
+                        <div class="stk-field">
+                            <label for="rotPivot">Rotate about</label>
+                            <select id="rotPivot" class="stk-select">
+                                <option value="geometric">Geometric centre</option>
+                                <option value="mass">Centre of mass</option>
+                                <option value="origin">Origin (0, 0, 0)</option>
+                            </select>
+                        </div>
+                        <div class="cm-actions">
+                            <button type="button" id="btnApplyRot" class="stk-btn stk-btn-primary" data-needs-structure disabled>Apply Rotation</button>
+                        </div>
                     </div>
+                </section>
 
-                    <button id="btnDownload" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl transition-all duration-200 transform hover:-translate-y-1 hover:shadow-lg active:scale-95 shadow-md text-sm flex justify-center items-center">
-                        <i class="fa-solid fa-download mr-2 text-lg"></i> Download Coordinates
-                    </button>
-                </div>
+                <section id="boxPanel" class="stk-panel" aria-labelledby="boxTitle">
+                    <div class="stk-panel-h">
+                        <h3 id="boxTitle" class="stk-panel-t"><i class="fa-solid fa-cube"></i>Simulation box</h3>
+                        <span class="stk-badge">nm</span>
+                    </div>
+                    <div class="stk-panel-b cm-form">
+                        <p class="stk-hint">Written to <code>.gro</code> output and as <code>CRYST1</code> in PDB. GROMACS always expects nanometres here, whatever the source file used.</p>
+                        <div class="cm-xyz">
+                            <div class="stk-field">
+                                <label for="boxLx">Lx (nm)</label>
+                                <input type="number" id="boxLx" value="0.00000" step="0.1" min="0" class="stk-input stk-mono stk-tnum">
+                            </div>
+                            <div class="stk-field">
+                                <label for="boxLy">Ly (nm)</label>
+                                <input type="number" id="boxLy" value="0.00000" step="0.1" min="0" class="stk-input stk-mono stk-tnum">
+                            </div>
+                            <div class="stk-field">
+                                <label for="boxLz">Lz (nm)</label>
+                                <input type="number" id="boxLz" value="0.00000" step="0.1" min="0" class="stk-input stk-mono stk-tnum">
+                            </div>
+                        </div>
+                        <div class="stk-field-row cm-fit-row">
+                            <div class="stk-field">
+                                <label for="boxPad">Padding (%)</label>
+                                <input type="number" id="boxPad" value="10" step="5" min="0" max="200" class="stk-input stk-mono stk-tnum">
+                            </div>
+                            <button type="button" id="btnBoxFromBounds" class="stk-btn" data-needs-structure disabled><i class="fa-solid fa-expand"></i>Fit to Molecule</button>
+                        </div>
+                        <div id="boxSource" class="stk-callout" role="status">
+                            <i id="boxSourceIcon" class="fa-solid fa-circle-info" aria-hidden="true"></i>
+                            <span id="boxSourceText"></span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="stk-panel" aria-labelledby="exportTitle">
+                    <div class="stk-panel-h">
+                        <h3 id="exportTitle" class="stk-panel-t"><i class="fa-solid fa-file-export"></i>Export</h3>
+                    </div>
+                    <div class="stk-panel-b cm-form">
+                        <div class="stk-field-row cm-export-row">
+                            <div class="stk-field">
+                                <label for="exportFormat">Format</label>
+                                <select id="exportFormat" class="stk-select">
+                                    <option value="xyz">XYZ (.xyz)</option>
+                                    <option value="pdb">PDB (.pdb)</option>
+                                    <option value="gro">GROMACS (.gro)</option>
+                                </select>
+                            </div>
+                            <div class="stk-field">
+                                <label for="exportName">File name</label>
+                                <input type="text" id="exportName" value="translated_sys" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                            </div>
+                            <button type="button" id="btnDownload" class="stk-btn stk-btn-primary" data-needs-structure disabled><i class="fa-solid fa-download"></i>Download</button>
+                        </div>
+                        <p class="stk-hint">Writes <code id="exportFileName" class="cm-filename">translated_sys.xyz</code>. <span id="exportUnitNote"></span></p>
+                        <div class="cm-code-h">
+                            <span class="stk-label-sm">Equivalent <code>gmx editconf</code> command</span>
+                            <button type="button" id="btnCopyEditconf" class="stk-btn stk-btn-sm stk-btn-ghost" data-needs-structure disabled><i class="fa-regular fa-copy"></i>Copy</button>
+                        </div>
+                        <pre class="stk-code"><code id="editconfOut">Load a structure to see the equivalent command.</code></pre>
+                        <div id="editconfNotes" class="stk-callout stk-callout-warn" role="status" hidden>
+                            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                            <ul id="editconfNotesList" class="cm-notes"></ul>
+                        </div>
+                    </div>
+                </section>
 
             </div>
 
-            <div class="stk-shell-main flex-grow flex flex-col gap-4 min-w-0">
-
-            <div class="flex-grow bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col relative overflow-hidden min-h-[240px]">
-                <div class="bg-white dark:bg-slate-950 px-4 py-3 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 shrink-0">
-                    <div class="flex flex-col">
-                        <span class="text-sm font-bold text-purple-500 dark:text-purple-400 uppercase tracking-wider font-mono">Structure View</span>
-                        <span id="viewerNote" class="text-[10px] text-slate-400 font-mono">Updates after every transformation</span>
-                    </div>
-                    <div class="flex gap-2">
-                        <label class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 cursor-pointer select-none mr-1" title="Outline the simulation cell">
-                            <input type="checkbox" id="showBox" checked class="accent-purple-500"> Box
-                        </label>
-                        <select id="viewerStyle" class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none">
-                            <option value="stick">Sticks</option>
-                            <option value="sphere">Spheres</option>
-                            <option value="ballstick" selected>Ball &amp; stick</option>
-                            <option value="line">Wireframe</option>
-                        </select>
-                        <button id="btnViewerReset" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1 rounded-lg text-xs font-bold transition-all" title="Recentre the view">
-                            <i class="fa-solid fa-crosshairs"></i>
-                        </button>
-                    </div>
+            <!-- VIEWER -->
+            <div class="cm-viewer">
+                <div class="cm-stage">
+                    <div id="viewerCanvas" class="absolute inset-0 w-full h-full cursor-move" role="img" aria-label="3D view of the structure"></div>
+                    <p id="viewerFallback" class="cm-fallback" role="status" hidden></p>
+                    <p id="viewerNote" class="cm-viewer-note stk-tnum" role="status"></p>
                 </div>
-                <div id="viewerCanvas" class="flex-grow relative w-full"></div>
-                <p id="viewerFallback" class="hidden absolute inset-0 flex items-center justify-center text-center text-xs text-slate-500 px-6"></p>
-            </div>
-
-            <div id="viewSplit" role="separator" aria-orientation="horizontal" tabindex="0"
-                 aria-label="Drag to resize the structure view. Arrow keys adjust, double-click resets."
-                 title="Drag to resize · double-click to reset"
-                 class="hidden lg:flex shrink-0 h-5 -my-1 items-center justify-center cursor-row-resize group select-none focus:outline-none">
-                <span class="flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm text-slate-400 group-hover:text-purple-500 group-hover:border-purple-400 group-focus:text-purple-500 group-focus:border-purple-400 transition-colors">
-                    <i class="fa-solid fa-grip-lines text-[10px]"></i>
-                    <span class="text-[10px] font-bold uppercase tracking-wider">Drag to resize</span>
-                </span>
-            </div>
-
-            <div id="previewPanel" class="stk-preview-pane bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col relative overflow-hidden shrink-0">
-                <div class="bg-slate-950 px-4 py-3 flex justify-between items-center border-b border-slate-800 shrink-0">
-                    <div class="flex flex-col">
-                        <span class="text-sm font-bold text-purple-400 uppercase tracking-wider font-mono">Data Buffer Preview</span>
-                        <span id="previewNote" class="text-[10px] text-slate-500 font-mono"></span>
-                    </div>
-                    <button id="btnShowAll" class="hidden bg-slate-700 hover:bg-slate-600 text-white border border-slate-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-all mr-2"></button>
-                    <button id="btnCopyBuffer" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1">
-                        <i class="fa-regular fa-copy"></i> Copy Buffer
-                    </button>
-                </div>
-                <div class="flex-grow p-4 overflow-auto custom-scroll relative">
-                    <pre><code id="coordOutput" class="text-emerald-400 font-mono text-xs leading-relaxed whitespace-pre select-all">Awaiting structure array...</code></pre>
+                <div class="stk-toolbar cm-toolbar" role="toolbar" aria-label="View controls">
+                    <button type="button" id="showBox" class="stk-btn stk-btn-icon" aria-label="Show simulation box" aria-pressed="true" title="Show simulation box"><i class="fa-solid fa-vector-square"></i></button>
+                    <span class="stk-toolbar-sep" aria-hidden="true"></span>
+                    <select id="viewerStyle" class="stk-select stk-select-sm cm-style" aria-label="Representation" title="Representation">
+                        <option value="stick">Sticks</option>
+                        <option value="sphere">Spheres</option>
+                        <option value="ballstick" selected>Ball and stick</option>
+                        <option value="line">Wireframe</option>
+                    </select>
+                    <span class="stk-toolbar-sep" aria-hidden="true"></span>
+                    <button type="button" id="btnViewerReset" class="stk-btn stk-btn-icon" aria-label="Recentre the view" title="Recentre the view"><i class="fa-solid fa-arrows-to-dot"></i></button>
                 </div>
             </div>
 
+            <div id="viewSplit" class="cm-split" role="separator" aria-orientation="horizontal" aria-controls="previewPanel" aria-label="Resize the output buffer. Arrow keys adjust, double-click resets." title="Drag to resize, double-click to reset" tabindex="0"></div>
+
+            <!-- OUTPUT BUFFER -->
+            <div id="previewPanel" class="stk-panel cm-preview" aria-label="Output buffer">
+                <div class="stk-panel-h cm-preview-h">
+                    <h3 class="stk-panel-t">Output buffer
+                        <span id="previewFormat" class="stk-badge stk-badge-accent">XYZ</span>
+                        <span id="previewCount" class="stk-badge stk-tnum"></span>
+                        <span id="previewWarn" class="stk-badge stk-badge-warn" hidden></span>
+                        <span id="previewBusy" class="stk-badge" hidden><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><span id="previewBusyText"></span></span>
+                    </h3>
+                    <div class="cm-preview-actions">
+                        <button type="button" id="btnShowAll" class="stk-btn stk-btn-sm" hidden></button>
+                        <button type="button" id="btnCopyBuffer" class="stk-btn stk-btn-sm" data-needs-structure disabled><i class="fa-regular fa-copy"></i>Copy</button>
+                    </div>
+                </div>
+                <div class="cm-preview-body stk-scroll">
+                    <pre class="cm-code"><code id="coordOutput" class="select-all"></code></pre>
+                </div>
             </div>
 
         </section>
@@ -522,7 +488,12 @@
         </div>
     </footer>
 
-    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
+    <!-- Full-page drop target, shown while a file is dragged over the page -->
+    <div id="dropIndicator" class="cm-drop-indicator" hidden aria-hidden="true">
+        <div class="cm-drop-card"><i class="fa-solid fa-file-arrow-up"></i><span>Drop the file to load it</span></div>
+    </div>
+
+    <div id="toastContainer" class="stk-toasts" aria-live="polite"></div>
 
     <script>
         // 1. Theme toggle logic (Mobile & Desktop)
