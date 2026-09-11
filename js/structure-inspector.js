@@ -27,6 +27,17 @@
     const LABEL_CHUNK = 150;
     const LABEL_FRAME_BUDGET_MS = 10;  // stop a chunk early if it overruns
 
+    // Above this, an export is warned about even when the GPU accepts it:
+    // image viewers and editors commonly choke on more than 8k px a side.
+    const LARGE_EXPORT_PX = 8000;
+    // Files above this size get a progress overlay while they are read.
+    const LARGE_FILE_BYTES = 5 * 1024 * 1024;
+
+    const SIDEBAR_MIN = 280, SIDEBAR_MAX = 480, SIDEBAR_DEFAULT = 320;
+    const SIDEBAR_WIDTH_KEY = 'stemkit-inspector-sidebar-width';
+    const SIDEBAR_COLLAPSED_KEY = 'stemkit-inspector-sidebar-collapsed';
+    const TAB_KEY = 'stemkit-inspector-tab';
+
     const ELEMENT_COLORS = {
         H: '#FFFFFF', C: '#909090', O: '#FF0D0D', N: '#3050F8', S: '#FFFF30',
         P: '#FF8000', F: '#90E050', Cl: '#1FF01F', Br: '#A62929', I: '#940094',
@@ -279,9 +290,18 @@
                 slabNearVal: $('slabNearVal'), slabFarVal: $('slabFarVal'), resetSlab: $('resetSlab'),
                 bgSelect: $('bgSelect'), resetBtn: $('resetBtn'),
                 downloadBtn: $('downloadBtn'), exportQuality: $('exportQuality'),
-                exportNote: $('exportNote'),
-                viewerCanvas: $('viewerCanvas'), atomInfo: $('atomInfo'),
-                measureInfo: $('measureInfo'), modeBadge: $('modeBadge'),
+                exportDims: $('exportDims'), exportWarn: $('exportWarn'),
+                exportWarnText: $('exportWarnText'), exportTransparent: $('exportTransparent'),
+                viewerCanvas: $('viewerCanvas'), viewerColumn: $('viewerColumn'),
+                atomInfo: $('atomInfo'), measureInfo: $('measureInfo'), modeBadge: $('modeBadge'),
+                // Shell, toolbar, sheets
+                sidebar: $('sidebar'), sidebarHandle: $('sidebarHandle'),
+                collapseSidebarBtn: $('collapseSidebarBtn'), chooseFileBtn: $('chooseFileBtn'),
+                tbReset: $('tbReset'), tbSpin: $('tbSpin'), tbMeasure: $('tbMeasure'),
+                tbHydrogens: $('tbHydrogens'), tbLabels: $('tbLabels'), tbScreenshot: $('tbScreenshot'),
+                tbFullscreen: $('tbFullscreen'), tbPanel: $('tbPanel'), tbHelp: $('tbHelp'),
+                shortcutSheet: $('shortcutSheet'), shortcutClose: $('shortcutClose'),
+                dropIndicator: $('dropIndicator'),
                 isoPanel: $('isoPanel'), isoPosVal: $('isoPosVal'), isoNegVal: $('isoNegVal'),
                 isoOpacity: $('isoOpacity'), isoPosDisplay: $('isoPosDisplay'),
                 isoNegDisplay: $('isoNegDisplay'), isoOpacityDisplay: $('isoOpacityDisplay'),
@@ -350,26 +370,67 @@
         // ───────────────────────────────────────────────────────────
         // UI UTILITIES
         // ───────────────────────────────────────────────────────────
-        toast(msg, type = 'info') {
+        /**
+         * @param {string} msg
+         * @param {'info'|'success'|'error'|'warn'} [type]
+         * @param {{title?:string}} [opts]  bold lead-in, e.g. the file name
+         */
+        toast(msg, type = 'info', opts = {}) {
             const container = $('toastContainer');
             if (!container) return;
             const t = document.createElement('div');
-            const cls = type === 'success'
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
-                : type === 'error'
-                ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800'
-                : 'bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-950 dark:text-indigo-300 dark:border-indigo-800';
-            const ico = type === 'success' ? 'fa-check-circle'
-                      : type === 'error' ? 'fa-triangle-exclamation' : 'fa-info-circle';
-            t.className = `px-4 py-3 rounded-xl border shadow-lg text-sm font-medium ${cls}`;
-            t.style.animation = 'slideIn .3s forwards';
-            // Icon is trusted; message is escaped.
-            t.innerHTML = `<i class="fa-solid ${ico} mr-2"></i>${escapeHTML(msg)}`;
+            const variant = type === 'success' ? ' stk-toast-ok'
+                          : type === 'error' ? ' stk-toast-danger'
+                          : type === 'warn' ? ' stk-toast-warn' : '';
+            t.className = 'stk-toast' + variant;
+            t.setAttribute('role', type === 'error' ? 'alert' : 'status');
+            const icon = document.createElement('i');
+            icon.className = 'fa-solid ' + (type === 'success' ? 'fa-circle-check'
+                : type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-info');
+            icon.setAttribute('aria-hidden', 'true');
+            const body = document.createElement('span');
+            if (opts.title) {
+                const b = document.createElement('b');
+                b.textContent = opts.title;
+                body.append(b, document.createTextNode(' '));
+            }
+            body.appendChild(document.createTextNode(msg));
+            t.append(icon, body);
             container.appendChild(t);
+            // Errors carry a reason the user may want to read twice.
             setTimeout(() => {
-                t.style.opacity = '0';
+                t.classList.add('is-leaving');
                 setTimeout(() => t.remove(), 300);
-            }, 3000);
+            }, type === 'error' ? 6000 : 3000);
+        }
+
+        /** Swap a button's icon for a spinner while an async action runs. */
+        setButtonBusy(btn, on) {
+            if (!btn) return;
+            const icon = btn.querySelector('i');
+            if (icon) {
+                if (on) {
+                    icon.dataset.icon = icon.className;
+                    icon.className = 'fa-solid fa-circle-notch fa-spin';
+                } else if (icon.dataset.icon) {
+                    icon.className = icon.dataset.icon;
+                    delete icon.dataset.icon;
+                }
+            }
+            btn.disabled = on;
+            btn.setAttribute('aria-busy', String(on));
+        }
+
+        showWorkspace() {
+            this.el.uploadZone.classList.add('hidden');
+            this.el.workspace.classList.remove('hidden');
+            this.el.workspace.classList.add('flex');
+        }
+
+        showUploadZone() {
+            this.el.workspace.classList.add('hidden');
+            this.el.workspace.classList.remove('flex');
+            this.el.uploadZone.classList.remove('hidden');
         }
 
         populateDropdown(selectEl, items, defaultText) {
@@ -689,9 +750,9 @@
             container.textContent = '';
             this.state.customElementColors = {};
 
-            const header = document.createElement('div');
-            header.className = 'text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 sticky top-0 bg-slate-50 dark:bg-slate-900/50 z-10 pb-1';
-            header.textContent = 'Per-Element Colors';
+            const header = document.createElement('span');
+            header.className = 'si-sub-t';
+            header.textContent = 'Per-element colours';
             container.appendChild(header);
 
             for (const elName of elements) {
@@ -699,20 +760,22 @@
                 this.state.customElementColors[elName] = defCol;
 
                 const row = document.createElement('div');
-                row.className = 'flex items-center justify-between gap-2';
+                row.className = 'si-elem-row';
 
                 const label = document.createElement('span');
-                label.className = 'text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300 w-8';
                 label.textContent = elName;     // safe
 
                 const picker = document.createElement('input');
                 picker.type = 'color';
                 picker.value = defCol;
-                picker.className = 'w-6 h-6 rounded cursor-pointer border-0 p-0 flex-grow bg-transparent';
+                picker.className = 'si-color';
+                picker.setAttribute('aria-label', `${elName} colour`);
 
                 const resetBtn = document.createElement('button');
-                resetBtn.className = 'sidebar-btn px-2 py-1 text-[9px] font-bold';
+                resetBtn.type = 'button';
+                resetBtn.className = 'stk-btn stk-btn-sm stk-btn-ghost';
                 resetBtn.textContent = 'Reset';
+                resetBtn.setAttribute('aria-label', `Reset ${elName} colour`);
 
                 const onPick = rafThrottle(v => {
                     this.state.customElementColors[elName] = v;
@@ -740,17 +803,17 @@
             if (n > PERF_LABEL_BLOCK) {
                 this.el.perfWarning.classList.remove('hidden');
                 this.el.perfWarningText.textContent =
-                    `${formatNum(n)} atoms, labels disabled to prevent browser freeze.`;
+                    `${formatNum(n)} atoms: labels are disabled to keep the tab responsive.`;
                 [atomWarn, resWarn].forEach(w => {
-                    if (w) { w.classList.remove('hidden'); w.textContent = '(disabled)'; }
+                    if (w) { w.classList.remove('hidden'); w.textContent = 'disabled'; }
                 });
                 limitRow?.classList.add('hidden');
             } else if (n > PERF_LABEL_WARN) {
                 this.el.perfWarning.classList.remove('hidden');
                 this.el.perfWarningText.textContent =
-                    `${formatNum(n)} atoms, labels may cause lag. Limit adjustable below.`;
+                    `${formatNum(n)} atoms: labels may lag. The limit is adjustable in the Display tab.`;
                 [atomWarn, resWarn].forEach(w => {
-                    if (w) { w.classList.remove('hidden'); w.textContent = '(may lag)'; }
+                    if (w) { w.classList.remove('hidden'); w.textContent = 'may lag'; }
                 });
                 limitRow?.classList.remove('hidden');
             } else {
@@ -974,44 +1037,107 @@
             if (!file) return;
             const fn = file.name.toLowerCase();
             const match = Object.entries(FORMAT_MAP).find(([ext]) => fn.endsWith(ext));
-            if (!match) { this.toast('Format not supported.', 'error'); return; }
+            if (!match) {
+                this.toast('is not a supported format. Accepted: PDB, ENT, CIF, SDF, MOL, MOL2, XYZ, GRO, PQR, PRMTOP, MMTF, CDJSON, CUBE and VASP.', 'error', { title: file.name });
+                return;
+            }
 
             const info = match[1];
             this.currentExtension = info.f;
             this.el.fileName.textContent = file.name;      // safe
             this.el.formatBadge.textContent = info.l;
-            this.toast('Loading…');
+
+            // A large file takes long enough to read and parse that silence
+            // reads as a hang, so the workspace opens at once with a progress
+            // overlay. Smaller files go straight through.
+            const big = file.size > LARGE_FILE_BYTES;
+            const progress = pct => this.setBusy(true, `Reading ${file.name}: ${pct}%`);
+            if (big) { this.showWorkspace(); progress(0); }
 
             const reader = new FileReader();
-            reader.onerror = () => this.toast('Could not read that file.', 'error');
-            if (info.b) {
-                reader.onload = ev => { this.currentModelData = new Uint8Array(ev.target.result); this.initViewer(); };
-                reader.readAsArrayBuffer(file);
-            } else {
-                reader.onload = ev => { this.currentModelData = ev.target.result; this.initViewer(); };
-                reader.readAsText(file);
+            reader.onprogress = ev => {
+                if (big && ev.lengthComputable) progress(Math.round(ev.loaded / ev.total * 100));
+            };
+            reader.onerror = () => {
+                this.setBusy(false);
+                this.loadFailed(file.name, 'The browser could not read the file.');
+            };
+            reader.onload = ev => {
+                this.currentModelData = info.b ? new Uint8Array(ev.target.result) : ev.target.result;
+                if (!big) { this.initViewer(file.name); return; }
+                // Parsing is one synchronous call; the overlay needs a painted
+                // frame to show its new text before the tab locks up.
+                this.setBusy(true, `Parsing ${file.name}`);
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    this.initViewer(file.name);
+                    this.setBusy(false);
+                }));
+            };
+            if (info.b) reader.readAsArrayBuffer(file);
+            else reader.readAsText(file);
+        }
+
+        /** Load one of the bundled samples through the same path as a dropped file. */
+        async loadSample(path, btn) {
+            this.setButtonBusy(btn, true);
+            try {
+                const res = await fetch(path);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const text = await res.text();
+                this.handleFile(new File([text], path.split('/').pop(), { type: 'text/plain' }));
+            } catch (err) {
+                console.error(err);
+                this.toast('The sample could not be fetched. Samples need the page to be served over HTTP rather than opened from disk.', 'error');
+            } finally {
+                this.setButtonBusy(btn, false);
             }
         }
 
         async fetchPdb() {
             const id = this.el.pdbIdInput.value.trim().toUpperCase();
             if (!/^[A-Z0-9]{4}$/.test(id)) {
-                this.toast('Enter a valid 4-character PDB ID.', 'error');
+                this.toast('Enter a four-character PDB identifier.', 'error');
+                this.el.pdbIdInput.focus();
                 return;
             }
-            this.toast(`Fetching ${id} from RCSB…`);
+            const btn = this.el.fetchPdbBtn;
+            this.setButtonBusy(btn, true);
             try {
-                const res = await fetch(`https://files.rcsb.org/download/${id}.pdb`);
-                if (!res.ok) throw new Error('Not found');
+                let res;
+                try {
+                    res = await fetch(`https://files.rcsb.org/download/${id}.pdb`);
+                } catch (err) {
+                    // fetch rejects only when no response arrived at all:
+                    // offline, DNS failure, or a blocked request.
+                    this.toast('Could not reach RCSB. Check the network connection and try again.', 'error');
+                    return;
+                }
+                if (res.status === 404) {
+                    this.toast(`PDB ${id} was not found on RCSB. Check the identifier.`, 'error');
+                    return;
+                }
+                if (!res.ok) {
+                    this.toast(`RCSB answered HTTP ${res.status} for ${id}. Try again later.`, 'error');
+                    return;
+                }
                 this.currentModelData = await res.text();
                 this.currentExtension = 'pdb';
-                this.el.fileName.textContent = id + '.pdb';
-                this.el.formatBadge.textContent = 'PDB | RCSB Fetch';
-                this.initViewer();
-            } catch (err) {
-                console.error(err);
-                this.toast(`Failed to fetch ${id}. Check the ID and try again.`, 'error');
+                this.el.fileName.textContent = `${id}.pdb`;
+                this.el.formatBadge.textContent = 'PDB, RCSB';
+                this.initViewer(`${id}.pdb`);
+            } finally {
+                this.setButtonBusy(btn, false);
             }
+        }
+
+        /**
+         * A file that could not be turned into a model. The viewer has already
+         * been cleared by then, so the honest state is the empty one: back to
+         * the upload zone, with a toast that names the file and the reason.
+         */
+        loadFailed(name, reason) {
+            this.reset();
+            this.toast(`could not be loaded. ${reason}`, 'error', { title: name });
         }
 
         /**
@@ -1043,11 +1169,13 @@
             return this._webgl;
         }
 
-        initViewer() {
+        initViewer(name) {
             // Checked before the workspace is revealed. Swapping the upload
             // screen for a viewer that cannot draw leaves an empty panel and
             // no explanation, which reads as the file having failed to load.
             if (!this.webglAvailable()) {
+                this.setBusy(false);
+                if (!this.viewer) this.showUploadZone();
                 this.toast(
                     'This viewer needs WebGL, which the browser is not providing. ' +
                     'Enabling hardware acceleration, or opening the page in a ' +
@@ -1057,9 +1185,7 @@
                 return;
             }
 
-            this.el.uploadZone.classList.add('hidden');
-            this.el.workspace.classList.remove('hidden');
-            this.el.workspace.classList.add('flex');
+            this.showWorkspace();
 
             if (this.viewer) {
                 this.viewer.clear();
@@ -1074,9 +1200,7 @@
                 if (!this.viewer) {
                     // A context can still be refused after the probe passes,
                     // e.g. when too many WebGL contexts are already open.
-                    this.el.workspace.classList.add('hidden');
-                    this.el.workspace.classList.remove('flex');
-                    this.el.uploadZone.classList.remove('hidden');
+                    this.showUploadZone();
                     this.toast(
                         'Could not start the 3D viewer. Closing other tabs using ' +
                         '3D graphics and reloading usually frees enough resources.',
@@ -1086,16 +1210,28 @@
                 }
             }
 
+            const label = (this.currentExtension || 'file').toUpperCase();
             try {
                 this.viewer.addModel(this.currentModelData, this.currentExtension, {
                     multimodel: true, frames: true, keepH: true
                 });
+                // 3Dmol's parsers rarely throw. A file they cannot make sense
+                // of yields an empty model, which would read as success here
+                // and then fail inside the renderer, so it is caught first.
+                if (!this.allAtoms().length) {
+                    this.loadFailed(name, `The ${label} parser found no atoms in it.`);
+                    return;
+                }
                 this.afterModelLoaded();
-                this.toast('Structure rendered.', 'success');
             } catch (err) {
                 console.error(err);
-                this.toast('Error parsing file.', 'error');
+                const detail = err && err.message
+                    ? `The ${label} parser reported: ${err.message}`
+                    : `The ${label} parser reported an error.`;
+                this.loadFailed(name, detail);
+                return;
             }
+            this.toast('Structure rendered.', 'success');
         }
 
         afterModelLoaded() {
@@ -1132,12 +1268,12 @@
             const sortedElem = Array.from(elems).sort();
             const sortedChain = Array.from(chains).sort();
 
-            this.populateDropdown(this.el.buildResn, sortedRes, 'All Residues');
-            this.populateDropdown(this.el.buildElem, sortedElem, 'All Elements');
-            this.populateDropdown(this.el.buildChain, sortedChain, 'All Chains');
-            this.populateDropdown($('selChain'), sortedChain, 'All Chains');
-            this.populateDropdown($('selElem'), sortedElem, 'All Elements');
-            this.populateDropdown($('selResn'), sortedRes, 'All Residues');
+            this.populateDropdown(this.el.buildResn, sortedRes, 'All residues');
+            this.populateDropdown(this.el.buildElem, sortedElem, 'All elements');
+            this.populateDropdown(this.el.buildChain, sortedChain, 'All chains');
+            this.populateDropdown($('selChain'), sortedChain, 'All chains');
+            this.populateDropdown($('selElem'), sortedElem, 'All elements');
+            this.populateDropdown($('selResn'), sortedRes, 'All residues');
 
             this.buildPerElementColorUI(sortedElem);
             this.updatePerfWarnings();
@@ -1179,6 +1315,7 @@
             this.setupClickInspect();
             this.viewer.zoomTo();
             this.viewer.render();
+            this.syncToolbar();
         }
 
         // ───────────────────────────────────────────────────────────
@@ -1521,35 +1658,47 @@
         }
 
         showAtomInfo(atom) {
-            // Every field below originates in a user-supplied file, so all of it
-            // is escaped before it reaches innerHTML.
-            const parts = [`<b>${escapeHTML(atom.elem)}</b>`];
-            if (atom.atom) parts.push(`, ${escapeHTML(atom.atom)}`);
-            const rows = [];
-            if (atom.resn) rows.push(`Res: ${escapeHTML(atom.resn)} ${escapeHTML(atom.resi ?? '')}`);
-            if (atom.chain) rows.push(`Chain: ${escapeHTML(atom.chain)}`);
-            rows.push(`Pos: (${atom.x.toFixed(2)}, ${atom.y.toFixed(2)}, ${atom.z.toFixed(2)})`);
-            if (typeof atom.b === 'number' && atom.b) rows.push(`B: ${atom.b.toFixed(2)}`);
-            if (atom.serial !== undefined) rows.push(`Serial: ${escapeHTML(atom.serial)}`);
-            if (atom.ss) rows.push(`SS: ${escapeHTML(atom.ss)}`);
+            // Every field originates in a user-supplied file; the card is built
+            // from text nodes so none of it is interpreted as markup.
+            const box = this.el.atomInfo;
+            box.textContent = '';
+            const row = (key, value) => {
+                const dt = document.createElement('dt');
+                dt.textContent = key;
+                const dd = document.createElement('dd');
+                dd.textContent = value;
+                box.append(dt, dd);
+            };
+            row('Element', atom.elem || '?');
+            if (atom.atom) row('Name', atom.atom);
+            if (atom.resn) row('Residue', `${atom.resn} ${atom.resi ?? ''}`.trim());
+            if (atom.chain) row('Chain', atom.chain);
+            if (atom.serial !== undefined) row('Serial', String(atom.serial));
+            else row('Index', String(atom.index));
+            if (typeof atom.b === 'number' && atom.b) row('B-factor', atom.b.toFixed(2));
+            row('Position', `${atom.x.toFixed(2)}, ${atom.y.toFixed(2)}, ${atom.z.toFixed(2)}`);
+            if (atom.ss) row('Sec. structure', atom.ss);
 
-            this.el.atomInfo.innerHTML = parts.join('') + '<br>' + rows.join('<br>');
-            this.el.atomInfo.classList.add('visible');
+            box.classList.add('visible');
             clearTimeout(this._atomInfoTimer);
-            this._atomInfoTimer = setTimeout(() => this.el.atomInfo.classList.remove('visible'), 5000);
+            this._atomInfoTimer = setTimeout(() => this.hideAtomInfo(), 5000);
+        }
+
+        hideAtomInfo() {
+            clearTimeout(this._atomInfoTimer);
+            this.el.atomInfo.classList.remove('visible');
         }
 
         setMeasureMode(on) {
             this.state.measureMode = on;
             this.state.measureAtoms = [];
-            const btn = this.el.measureModeBtn;
-            btn.style.background = on ? '#f59e0b' : '';
-            btn.style.color = on ? '#fff' : '';
+            this.el.measureModeBtn.setAttribute('aria-pressed', String(on));
             this.el.modeBadge.classList.toggle('hidden', !on);
             this.el.modeBadge.classList.toggle('measure', on);
             this.el.modeBadge.textContent = on
-                ? (this.el.measureMode3?.checked ? 'Measure Mode (Angle (3 atoms)' : 'Measure Mode) Distance (2 atoms)')
+                ? (this.el.measureMode3?.checked ? 'Measure: angle, pick three atoms' : 'Measure: distance, pick two atoms')
                 : '';
+            this.syncToolbar();
         }
 
         handleMeasureClick(atom) {
@@ -1672,8 +1821,27 @@
             const box = this.el.measureInfo;
             if (!box) return;
             box.textContent = '';
-            this.state.measurements.forEach((rec, i) => {
-                const row = document.createElement('div');
+            const recs = this.state.measurements;
+            box.hidden = recs.length === 0;
+            if (!recs.length) return;
+
+            const head = document.createElement('div');
+            head.className = 'si-measure-h';
+            const title = document.createElement('span');
+            title.className = 'si-measure-t';
+            title.textContent = recs.length === 1 ? '1 measurement' : `${recs.length} measurements`;
+            const clearAll = document.createElement('button');
+            clearAll.type = 'button';
+            clearAll.className = 'si-overlay-btn';
+            clearAll.textContent = 'Clear all';
+            clearAll.setAttribute('aria-label', 'Clear all measurements');
+            clearAll.addEventListener('click', () => this.clearMeasurements());
+            head.append(title, clearAll);
+
+            const list = document.createElement('ol');
+            list.className = 'si-measure-list';
+            recs.forEach((rec, i) => {
+                const row = document.createElement('li');
                 row.className = 'measure-row';
 
                 const label = rec.kind === 'angle'
@@ -1687,9 +1855,11 @@
                 txt.appendChild(strong);
 
                 const del = document.createElement('button');
-                del.className = 'measure-del';
+                del.type = 'button';
+                del.className = 'si-overlay-btn measure-del';
                 del.textContent = '×';
                 del.title = 'Remove this measurement';
+                del.setAttribute('aria-label', `Remove measurement ${i + 1}`);
                 del.addEventListener('click', () => {
                     this.state.measurements.splice(i, 1);
                     this.redrawMeasurements();
@@ -1697,8 +1867,9 @@
                 });
 
                 row.append(txt, del);
-                box.appendChild(row);
+                list.appendChild(row);
             });
+            box.append(head, list);
         }
 
         /**
@@ -1831,16 +2002,35 @@
             return Math.max(1, Math.min(requested, maxByWidth, maxBySide));
         }
 
+        /**
+         * Output size beside the scale select, and a warning when the request
+         * is beyond what the GPU will draw (clamped, as `safeMultiplier` has
+         * always done) or merely very large. The warning never blocks.
+         */
         updateExportNote() {
-            if (!this.el.exportNote) return;
+            const dims = this.el.exportDims, warn = this.el.exportWarn;
+            if (!dims) return;
             const canvas = this.el.viewerCanvas.querySelector('canvas');
-            if (!canvas) { this.el.exportNote.textContent = ''; return; }
+            if (!canvas || !canvas.width) {
+                dims.textContent = '';
+                if (warn) warn.hidden = true;
+                return;
+            }
             const requested = parseInt(this.el.exportQuality.value, 10) || 2;
             const safe = this.safeMultiplier(requested);
             const w = canvas.width * safe, h = canvas.height * safe;
-            this.el.exportNote.textContent = safe < requested
-                ? `Clamped to ${safe}× (${w}×${h} px), your GPU limit is ${this.maxTextureSize()} px.`
-                : `Output: ${w} × ${h} px`;
+            dims.textContent = `${w} × ${h} px`;
+            if (!warn) return;
+
+            let text = '';
+            if (safe < requested) {
+                const reqW = canvas.width * requested, reqH = canvas.height * requested;
+                text = `${requested}× would be ${reqW} × ${reqH} px, beyond this GPU's ${this.maxTextureSize()} px texture limit. The export is clamped to ${safe}× (${w} × ${h} px).`;
+            } else if (Math.max(w, h) > LARGE_EXPORT_PX) {
+                text = `${w} × ${h} px is a very large image; some viewers and editors struggle above ${LARGE_EXPORT_PX} px on a side.`;
+            }
+            this.el.exportWarnText.textContent = text;
+            warn.hidden = !text;
         }
 
         /**
@@ -1854,23 +2044,29 @@
          *
          * Device pixel ratio matters too. On a HiDPI screen the on-screen
          * canvas is already dpr times its CSS size, so exporting at the CSS
-         * size alone produces a file visibly softer than what is on screen , 
+         * size alone produces a file visibly softer than what is on screen,
          * which is exactly the complaint this addresses. The multiplier is
          * applied on top of dpr.
          *
          * The container is parked off-screen while it is oversized, so the
          * page does not visibly jump or grow scrollbars mid-export.
+         *
+         * A transparent export clears the drawing buffer to the background
+         * colour at alpha 0 for the one render that is copied out. 3Dmol
+         * creates its context with alpha enabled and keeps the drawing buffer,
+         * so the copy carries the alpha channel; the on-screen background is
+         * restored before anyone sees it.
          */
-        captureCanvas(mult) {
+        captureCanvas(mult, transparent = false) {
             const host = this.el.viewerCanvas;
             const canvas = host && host.querySelector('canvas');
             if (!canvas) throw new Error('No canvas');
 
-            const scale = Math.max(1, mult);
             // 3Dmol multiplies the container size by the device pixel ratio
             // when it sizes the drawing buffer, so the exported file ends up
             // at scale × dpr, matching, then exceeding, on-screen sharpness.
-            if (scale <= 1) return canvas;
+            const scale = Math.max(1, mult);
+            const oversized = scale > 1;
 
             const rect = host.getBoundingClientRect();
             const cssW = Math.max(1, Math.round(rect.width));
@@ -1885,16 +2081,19 @@
                 zIndex: host.style.zIndex
             };
 
-            host.style.position = 'fixed';
-            host.style.left = '-100000px';
-            host.style.top = '0';
-            host.style.zIndex = '-1';
-            host.style.width = `${cssW * scale}px`;
-            host.style.height = `${cssH * scale}px`;
+            if (oversized) {
+                host.style.position = 'fixed';
+                host.style.left = '-100000px';
+                host.style.top = '0';
+                host.style.zIndex = '-1';
+                host.style.width = `${cssW * scale}px`;
+                host.style.height = `${cssH * scale}px`;
+            }
 
             let out;
             try {
-                this.viewer.resize();
+                if (transparent) this.viewer.setBackgroundColor(this.getBackgroundColor(), 0);
+                if (oversized) this.viewer.resize();
                 this.viewer.render();
 
                 out = document.createElement('canvas');
@@ -1905,8 +2104,11 @@
                 // Restore in a finally block: leaving the viewer parked
                 // off-screen because an export failed would take the tool down
                 // with it.
-                Object.assign(host.style, prev);
-                this.viewer.resize();
+                if (transparent) this.viewer.setBackgroundColor(this.getBackgroundColor());
+                if (oversized) {
+                    Object.assign(host.style, prev);
+                    this.viewer.resize();
+                }
                 this.viewer.render();
             }
             return out;
@@ -1916,6 +2118,7 @@
             if (!this.viewer) return;
             const requested = parseInt(this.el.exportQuality.value, 10) || 2;
             const mult = this.safeMultiplier(requested);
+            const transparent = !!this.el.exportTransparent?.checked;
             if (mult < requested) {
                 this.toast(`Clamped to ${mult}×, ${requested}× exceeds this GPU's texture limit.`);
             } else {
@@ -1925,7 +2128,7 @@
             setTimeout(() => {
                 let dataURL = null;
                 try {
-                    dataURL = this.captureCanvas(mult).toDataURL('image/png');
+                    dataURL = this.captureCanvas(mult, transparent).toDataURL('image/png');
                 } catch (err) {
                     console.warn('Manual capture failed, falling back to pngURI():', err);
                     try { dataURL = this.viewer.pngURI(); } catch (e2) { console.error(e2); }
@@ -1985,11 +2188,11 @@
             if (this.state.trajPlaying) {
                 clearInterval(this._trajInterval);
                 this.state.trajPlaying = false;
-                this.el.trajPlay.innerHTML = '<i class="fa-solid fa-play mr-1"></i>Play';
+                this.el.trajPlay.innerHTML = '<i class="fa-solid fa-play"></i>Play';
                 return;
             }
             this.state.trajPlaying = true;
-            this.el.trajPlay.innerHTML = '<i class="fa-solid fa-pause mr-1"></i>Pause';
+            this.el.trajPlay.innerHTML = '<i class="fa-solid fa-pause"></i>Pause';
             const speed = parseInt(this.el.trajSpeed.value, 10) || 100;
             this._trajInterval = setInterval(() => {
                 let f = parseInt(this.el.trajSlider.value, 10) + 1;
@@ -2063,19 +2266,20 @@
             }
 
             this.el.formatBadge.textContent = '';
-            this.el.atomInfo.classList.remove('visible');
+            this.hideAtomInfo();
             this.el.atomInfo.textContent = '';
             this.el.measureInfo.textContent = '';
+            this.el.measureInfo.hidden = true;
             this.el.perfWarning.classList.add('hidden');
             this.el.enableCrossAxis.checked = false;
             this.el.crossAxisControls.classList.add('hidden');
             this.el.spatialMode.value = '';
             this.el.spatialControls.classList.add('hidden');
-            this.el.uploadZone.classList.remove('hidden');
-            this.el.workspace.classList.add('hidden');
-            this.el.workspace.classList.remove('flex');
+            if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen();
+            this.showUploadZone();
             this.el.fileInput.value = '';
             if (this.state.measureMode) this.setMeasureMode(false);
+            this.syncToolbar();
         }
 
         // ───────────────────────────────────────────────────────────
@@ -2090,18 +2294,276 @@
         // ───────────────────────────────────────────────────────────
         // TOGGLE HELPER
         // ───────────────────────────────────────────────────────────
+        /**
+         * The switches are real buttons, so Space and Enter already produce a
+         * click; a separate keydown handler would flip them twice.
+         */
         setupToggle(el, key, fn) {
             if (!el) return;
-            const flip = () => {
+            el.addEventListener('click', () => {
                 this.T[key] = !this.T[key];
-                el.classList.toggle('active', this.T[key]);
                 el.setAttribute('aria-checked', String(this.T[key]));
+                this.syncToolbar();
                 if (fn) fn(this.T[key]);
-            };
-            el.addEventListener('click', flip);
-            el.addEventListener('keydown', e => {
-                if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); }
             });
+        }
+
+        // ───────────────────────────────────────────────────────────
+        // SHELL: SIDEBAR, TABS, TOOLBAR, SHEETS
+        // ───────────────────────────────────────────────────────────
+        resetView() {
+            if (!this.viewer) return;
+            this.viewer.zoomTo();
+            this.viewer.render();
+        }
+
+        /** The WebGL canvas is sized from its container, so it has to be told. */
+        syncViewer() {
+            if (!this.viewer) return;
+            this.viewer.resize();
+            this.viewer.render();
+            this.updateExportNote();
+        }
+
+        /** Toolbar buttons mirror state they do not own; refresh them from it. */
+        syncToolbar() {
+            const e = this.el;
+            const press = (btn, on) => { if (btn) btn.setAttribute('aria-pressed', String(!!on)); };
+            press(e.tbSpin, this.T.spin);
+            press(e.tbMeasure, this.state.measureMode);
+            press(e.tbHydrogens, this.T.hydrogens);
+            press(e.tbLabels, this.T.atomLabels);
+            const fs = !!document.fullscreenElement;
+            press(e.tbFullscreen, fs);
+            if (e.tbFullscreen) {
+                e.tbFullscreen.setAttribute('aria-label', fs ? 'Exit fullscreen' : 'Fullscreen');
+                e.tbFullscreen.title = fs ? 'Exit fullscreen (F)' : 'Fullscreen (F)';
+                const icon = e.tbFullscreen.querySelector('i');
+                if (icon) icon.className = fs ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+            }
+        }
+
+        setSidebarCollapsed(on, persist = true) {
+            this.el.workspace.classList.toggle('is-collapsed', on);
+            const btn = this.el.tbPanel;
+            if (btn) {
+                btn.setAttribute('aria-pressed', String(!on));
+                btn.setAttribute('aria-label', on ? 'Show panel' : 'Hide panel');
+            }
+            // Focus must not vanish with the panel.
+            if (on && btn && this.el.sidebar.contains(document.activeElement)) btn.focus();
+            if (persist) {
+                try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, on ? '1' : '0'); } catch (e) { /* no persistence */ }
+            }
+        }
+
+        /** Resizable, collapsible sidebar; width and state survive a reload. */
+        initLayout() {
+            const e = this.el, ws = e.workspace, handle = e.sidebarHandle;
+            if (!ws || !handle) return;
+            const clamp = w => Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Math.round(w)));
+            let width = SIDEBAR_DEFAULT, collapsed = false;
+            try {
+                const saved = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
+                if (Number.isFinite(saved) && saved > 0) width = clamp(saved);
+                collapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+            } catch (err) { /* no persistence */ }
+
+            const apply = () => {
+                ws.style.setProperty('--si-sidebar-w', `${width}px`);
+                handle.setAttribute('aria-valuenow', String(width));
+            };
+            const remember = () => {
+                try { localStorage.setItem(SIDEBAR_WIDTH_KEY, String(width)); } catch (err) { /* no persistence */ }
+            };
+            const setWidth = w => { width = clamp(w); apply(); };
+            apply();
+            this.setSidebarCollapsed(collapsed, false);
+
+            let dragging = false, startX = 0, startW = 0;
+            handle.addEventListener('pointerdown', ev => {
+                if (ev.button !== 0) return;
+                dragging = true;
+                startX = ev.clientX;
+                startW = width;
+                handle.setPointerCapture(ev.pointerId);
+                handle.classList.add('is-dragging');
+                // Suppressed during the drag so the pointer does not select
+                // the surrounding text as it moves.
+                document.body.style.userSelect = 'none';
+                ev.preventDefault();
+            });
+            handle.addEventListener('pointermove', ev => {
+                if (dragging) setWidth(startW + ev.clientX - startX);
+            });
+            const stop = () => {
+                if (!dragging) return;
+                dragging = false;
+                handle.classList.remove('is-dragging');
+                document.body.style.userSelect = '';
+                remember();
+            };
+            handle.addEventListener('pointerup', stop);
+            handle.addEventListener('pointercancel', stop);
+            // Double-click returns to the default rather than leaving the user
+            // to drag back to a size they cannot see a number for.
+            handle.addEventListener('dblclick', () => { setWidth(SIDEBAR_DEFAULT); remember(); });
+            handle.addEventListener('keydown', ev => {
+                const step = ev.shiftKey ? 48 : 16;
+                if (ev.key === 'ArrowRight') setWidth(width + step);
+                else if (ev.key === 'ArrowLeft') setWidth(width - step);
+                else if (ev.key === 'Home') setWidth(SIDEBAR_MIN);
+                else if (ev.key === 'End') setWidth(SIDEBAR_MAX);
+                else return;
+                ev.preventDefault();
+                remember();
+            });
+
+            e.collapseSidebarBtn?.addEventListener('click', () => this.setSidebarCollapsed(true));
+            e.tbPanel?.addEventListener('click', () => this.setSidebarCollapsed(!ws.classList.contains('is-collapsed')));
+
+            // Any change to the canvas box (drag, collapse, fullscreen, phone
+            // rotation) has to reach the renderer, and the export size with it.
+            if ('ResizeObserver' in window) {
+                new ResizeObserver(rafThrottle(() => this.syncViewer())).observe(e.viewerCanvas);
+            } else {
+                window.addEventListener('resize', debounce(() => this.syncViewer(), 60));
+            }
+        }
+
+        /** ARIA tab strip with arrow-key movement; the open tab is remembered. */
+        initTabs() {
+            const tabs = Array.from(document.querySelectorAll('.si-tabs-wrap [role="tab"]'));
+            if (!tabs.length) return;
+            const select = (btn, focus) => {
+                for (const t of tabs) {
+                    const on = t === btn;
+                    t.setAttribute('aria-selected', String(on));
+                    t.tabIndex = on ? 0 : -1;
+                    const panel = $(t.dataset.tab);
+                    if (panel) panel.hidden = !on;
+                }
+                if (focus) btn.focus();
+                // The export size depends on the canvas, which may have changed
+                // while the tab was out of sight.
+                if (btn.dataset.tab === 'tabExport') this.updateExportNote();
+                try { localStorage.setItem(TAB_KEY, btn.dataset.tab); } catch (err) { /* no persistence */ }
+            };
+            tabs.forEach((btn, i) => {
+                btn.addEventListener('click', () => select(btn, false));
+                btn.addEventListener('keydown', ev => {
+                    let j = null;
+                    if (ev.key === 'ArrowRight') j = (i + 1) % tabs.length;
+                    else if (ev.key === 'ArrowLeft') j = (i - 1 + tabs.length) % tabs.length;
+                    else if (ev.key === 'Home') j = 0;
+                    else if (ev.key === 'End') j = tabs.length - 1;
+                    if (j === null) return;
+                    ev.preventDefault();
+                    select(tabs[j], true);
+                });
+            });
+            let saved = null;
+            try { saved = localStorage.getItem(TAB_KEY); } catch (err) { /* no persistence */ }
+            select(tabs.find(t => t.dataset.tab === saved) || tabs[0], false);
+        }
+
+        initToolbar() {
+            const e = this.el;
+            e.tbReset?.addEventListener('click', () => this.resetView());
+            e.tbSpin?.addEventListener('click', () => e.toggleSpin?.click());
+            e.tbMeasure?.addEventListener('click', () => this.setMeasureMode(!this.state.measureMode));
+            e.tbHydrogens?.addEventListener('click', () => e.toggleHydrogens?.click());
+            e.tbLabels?.addEventListener('click', () => e.toggleAtomLabels?.click());
+            e.tbScreenshot?.addEventListener('click', () => this.exportPNG());
+            e.tbFullscreen?.addEventListener('click', () => this.toggleFullscreen());
+            e.tbHelp?.addEventListener('click', () => this.openShortcuts());
+            document.addEventListener('fullscreenchange', () => this.syncToolbar());
+            this.syncToolbar();
+        }
+
+        toggleFullscreen() {
+            if (document.fullscreenElement) {
+                if (document.exitFullscreen) document.exitFullscreen();
+                return;
+            }
+            const col = this.el.viewerColumn;
+            if (!col || !document.fullscreenEnabled || typeof col.requestFullscreen !== 'function') {
+                this.toast('Fullscreen is not available in this browser.', 'error');
+                return;
+            }
+            col.requestFullscreen().catch(() => this.toast('The browser refused fullscreen.', 'error'));
+        }
+
+        openShortcuts() {
+            const sheet = this.el.shortcutSheet;
+            if (!sheet || !sheet.hidden) return;
+            this._sheetReturnFocus = document.activeElement;
+            sheet.hidden = false;
+            this.el.shortcutClose?.focus();
+        }
+
+        closeShortcuts() {
+            const sheet = this.el.shortcutSheet;
+            if (!sheet || sheet.hidden) return;
+            sheet.hidden = true;
+            const back = this._sheetReturnFocus;
+            this._sheetReturnFocus = null;
+            if (back && document.contains(back) && typeof back.focus === 'function') back.focus();
+        }
+
+        initShortcutSheet() {
+            const sheet = this.el.shortcutSheet;
+            if (!sheet) return;
+            this.el.shortcutClose?.addEventListener('click', () => this.closeShortcuts());
+            sheet.addEventListener('click', ev => { if (ev.target === sheet) this.closeShortcuts(); });
+            // Keep Tab inside the dialog while it is open.
+            sheet.addEventListener('keydown', ev => {
+                if (ev.key !== 'Tab') return;
+                const focusable = Array.from(sheet.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'));
+                if (!focusable.length) return;
+                const first = focusable[0], last = focusable[focusable.length - 1];
+                if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+                else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+            });
+        }
+
+        /** Files dropped anywhere on the page load, with a full-page target while dragging. */
+        initDrop() {
+            const ind = this.el.dropIndicator;
+            const hasFiles = ev => Array.from((ev.dataTransfer && ev.dataTransfer.types) || []).includes('Files');
+            // dragenter and dragleave fire for every element boundary crossed;
+            // a depth counter turns them into one enter and one leave.
+            let depth = 0;
+            const show = on => {
+                if (ind) ind.hidden = !on;
+                this.el.uploadZone.classList.toggle('is-over', on);
+            };
+            document.addEventListener('dragenter', ev => {
+                if (!hasFiles(ev)) return;
+                ev.preventDefault();
+                depth++;
+                show(true);
+            });
+            document.addEventListener('dragover', ev => {
+                if (!hasFiles(ev)) return;
+                ev.preventDefault();
+                ev.dataTransfer.dropEffect = 'copy';
+            });
+            document.addEventListener('dragleave', ev => {
+                if (!hasFiles(ev)) return;
+                depth = Math.max(0, depth - 1);
+                if (depth === 0) show(false);
+            });
+            document.addEventListener('drop', ev => {
+                if (!hasFiles(ev)) return;
+                ev.preventDefault();
+                depth = 0;
+                show(false);
+                const file = ev.dataTransfer.files && ev.dataTransfer.files[0];
+                if (file) this.handleFile(file);
+            });
+            // A drag abandoned outside the window sends no final dragleave.
+            window.addEventListener('dragend', () => { depth = 0; show(false); });
         }
 
         // ───────────────────────────────────────────────────────────
@@ -2111,33 +2573,28 @@
             const e = this.el;
 
             // ---- Upload ----
-            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt =>
-                e.uploadZone.addEventListener(evt, ev => { ev.preventDefault(); ev.stopPropagation(); }));
-            e.uploadZone.addEventListener('dragover', () => e.uploadZone.classList.add('border-indigo-500'));
-            e.uploadZone.addEventListener('dragleave', () => e.uploadZone.classList.remove('border-indigo-500'));
-            e.uploadZone.addEventListener('drop', ev => {
-                e.uploadZone.classList.remove('border-indigo-500');
-                this.handleFile(ev.dataTransfer.files[0]);
-            });
             e.uploadZone.addEventListener('click', ev => {
-                if (ev.target.closest('#pdbIdInput') || ev.target.closest('#fetchPdbBtn')) return;
+                // The zone itself is the big target; its own controls keep
+                // their own jobs.
+                if (ev.target.closest('button, input, select, a, label')) return;
                 e.fileInput.click();
             });
+            e.chooseFileBtn?.addEventListener('click', () => e.fileInput.click());
             e.fileInput.addEventListener('change', ev => this.handleFile(ev.target.files[0]));
             e.fetchPdbBtn.addEventListener('click', () => this.fetchPdb());
             e.pdbIdInput.addEventListener('keydown', ev => {
                 if (ev.key === 'Enter') { ev.preventDefault(); this.fetchPdb(); }
             });
+            document.querySelectorAll('.si-sample').forEach(btn =>
+                btn.addEventListener('click', () => this.loadSample(btn.dataset.sample, btn)));
+            this.initDrop();
 
-            // ---- Tabs ----
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-                    btn.classList.add('active');
-                    $(btn.dataset.tab)?.classList.remove('hidden');
-                });
-            });
+            // ---- Shell ----
+            this.initTabs();
+            this.initLayout();
+            this.initToolbar();
+            this.initShortcutSheet();
+            e.busyOverlay?.addEventListener('click', () => this.setBusy(false));
 
             // ---- Theme ----
             document.querySelectorAll('.themeToggle').forEach(b => b.addEventListener('click', () => {
@@ -2173,13 +2630,6 @@
             e.bgSelect.addEventListener('change', () => this.applyBackground());
 
             // ---- Selection styling (Style tab) ----
-            const selAdvToggle = $('selAdvancedToggle'), selAdvPanel = $('selAdvancedPanel'),
-                  selAdvIcon = $('selAdvancedIcon');
-            selAdvToggle?.addEventListener('click', () => {
-                selAdvPanel.classList.toggle('hidden');
-                selAdvIcon.style.transform = selAdvPanel.classList.contains('hidden') ? '' : 'rotate(180deg)';
-            });
-
             e.applySelStyle.addEventListener('click', () => {
                 if (!this.viewer) return;
                 const sel = this.buildSelStyleSelection();
@@ -2302,7 +2752,7 @@
                     this.state.lastSelection = null;
                     this.applyStyles();
                     e.selectionCount?.classList.add('hidden');
-                    if (this.viewer) { this.viewer.zoomTo(); this.viewer.render(); }
+                    this.resetView();
                 });
             });
 
@@ -2313,15 +2763,6 @@
                 if (ev.key === 'Enter') { ev.preventDefault(); this.runQuery('isolate'); }
             });
             $('exportSelBtn')?.addEventListener('click', () => this.exportSelectionPDB());
-
-            document.querySelectorAll('.sel-guide-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const content = btn.nextElementSibling;
-                    const icon = btn.querySelector('i');
-                    content.classList.toggle('hidden');
-                    if (icon) icon.style.transform = content.classList.contains('hidden') ? '' : 'rotate(180deg)';
-                });
-            });
 
             // Clickable example chips in the syntax guide
             document.querySelectorAll('.query-example').forEach(chip => {
@@ -2429,7 +2870,7 @@
                 on ? this.viewer.spin('y', 1) : this.viewer.spin(false);
             });
             this.setupToggle(e.toggleClickInspect, 'clickInspect', on => {
-                if (!on) e.atomInfo.classList.remove('visible');
+                if (!on) this.hideAtomInfo();
             });
             this.setupToggle(e.toggleOutline, 'outline', () => this.applyOutline());
 
@@ -2442,11 +2883,7 @@
                 this.viewer.zoomTo();
                 this.viewer.render();
             }));
-            e.centerBtn.addEventListener('click', () => {
-                if (!this.viewer) return;
-                this.viewer.zoomTo();
-                this.viewer.render();
-            });
+            e.centerBtn.addEventListener('click', () => this.resetView());
 
             // ---- Export ----
             e.downloadBtn.addEventListener('click', () => this.exportPNG());
@@ -2515,24 +2952,31 @@
             // ---- Keyboard shortcuts ----
             document.addEventListener('keydown', ev => {
                 const tag = (ev.target.tagName || '').toLowerCase();
-                if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+                if (tag === 'input' || tag === 'textarea' || tag === 'select' || ev.target.isContentEditable) return;
                 if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
-                if (!this.viewer) return;
+                const sheetOpen = e.shortcutSheet && !e.shortcutSheet.hidden;
+                if (ev.key === 'Escape') {
+                    if (sheetOpen) { this.closeShortcuts(); return; }
+                    if (e.busyOverlay && !e.busyOverlay.classList.contains('hidden')) { this.setBusy(false); return; }
+                    if (this.state.measureMode) this.setMeasureMode(false);
+                    this.hideAtomInfo();
+                    return;
+                }
+                if (ev.key === '?') {
+                    ev.preventDefault();
+                    if (sheetOpen) this.closeShortcuts(); else this.openShortcuts();
+                    return;
+                }
+                if (sheetOpen || !this.viewer) return;
                 switch (ev.key.toLowerCase()) {
-                    case 'r': this.viewer.zoomTo(); this.viewer.render(); break;
+                    case 'r': this.resetView(); break;
                     case 'm': this.setMeasureMode(!this.state.measureMode); break;
                     case 'h': e.toggleHydrogens?.click(); break;
                     case 's': e.toggleSpin?.click(); break;
                     case 'l': e.toggleAtomLabels?.click(); break;
-                    case 'escape':
-                        if (this.state.measureMode) this.setMeasureMode(false);
-                        e.atomInfo.classList.remove('visible');
-                        break;
+                    case 'f': this.toggleFullscreen(); break;
                 }
             });
-
-            // Keep the export estimate accurate when the viewport changes.
-            window.addEventListener('resize', debounce(() => this.updateExportNote(), 250));
         }
 
         buildSelStyleSelection() {
