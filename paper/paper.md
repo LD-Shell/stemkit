@@ -533,33 +533,35 @@ G_1 = \frac{\sqrt{n(n-1)}}{n-2}
 $$
 
 whereas the original implementation used the Bessel-corrected sample standard
-deviation, deflating skewness by a factor of $\left((n-1)/n\right)^{3/2}$, approximately
-15% at $n = 10$. Because both moments feed the D'Agostino–Pearson
+deviation, deflating skewness by a factor of $\left((n-1)/n\right)^{3/2}$,
+approximately 15% at $n = 10$. Because both moments feed the D'Agostino–Pearson
 statistic, every normality $p$-value the tool reported was affected. Second, all
 upper-tail probabilities were computed by subtraction and floored at zero for
 strong effects. Third, haem iron was assigned the mass of fluorine (18.998 Da
 rather than 55.845 Da), selenomethionine selenium the mass of sulfur, and
 numeric-prefixed hydrogens no mass at all, so molecular weights and centres of
-mass computed for metalloproteins were correspondingly wrong. Fourth, the D'Agostino–Pearson transformations are defined on the biased moment
-ratios $\sqrt{b_1} = m_3/m_2^{3/2}$ and $b_2 = m_4/m_2^2$, but the
-sample-size-adjusted $G_1$ above was passed into the skewness transform instead.
-The adjustment inflates $\sqrt{b_1}$ by exactly $\sqrt{n(n-1)}/(n-2)$: a factor
-of 1.247 at $n = 8$, 1.186 at $n = 10$ and 1.039 at $n = 40$. The error therefore
-vanishes on symmetric data and grows with skew. Because that factor exceeds unity
-for every $n$, the inflated statistic is always the larger and the reported $p$
+mass computed for metalloproteins were correspondingly wrong. Fourth, the
+D'Agostino–Pearson transformations are defined on the biased moment ratios
+$\sqrt{b_1} = m_3/m_2^{3/2}$ and $b_2 = m_4/m_2^2$, but the sample-size-adjusted
+$G_1$ above was passed into the skewness transform instead. The adjustment
+inflates $\sqrt{b_1}$ by exactly $\sqrt{n(n-1)}/(n-2)$: a factor of 1.247 at
+$n = 8$, 1.186 at $n = 10$ and 1.039 at $n = 40$. The error therefore vanishes
+on symmetric data and grows with skew. Because that factor exceeds unity for
+every $n$, the inflated statistic is always the larger and the reported $p$
 always the smaller, so the bias is systematically anti-conservative rather than
 merely noisy: the verdict at $\alpha = 0.05$ can only ever move from retaining
 normality to rejecting it, which is precisely the branch that redirects a user
-from Welch's test to Mann-Whitney. This defect is instructive because an independent reference was already
-in place and already disagreed: the discrepancy had been absorbed by loosening
-the assertion to three decimal places and attributing the residual to a
-difference in SciPy's kurtosis transform. The reference was correct and the
-implementation was not. $K^2$ now agrees with SciPy to twelve significant
+from Welch's test to Mann-Whitney. This defect is instructive because an
+independent reference was already in place and already disagreed: the
+discrepancy had been absorbed by loosening the assertion to three decimal places
+and attributing the residual to a difference in SciPy's kurtosis transform; that
+transform is identical, and the fixture was nearly symmetric ($g_1 = -0.0063$),
+so the inflation multiplied approximately zero. The reference was correct and
+the implementation was not. $K^2$ now agrees with SciPy to twelve significant
 figures across $8 \leq n \leq 1000$, the full range over which the $S_U$
 approximation is tabulated [@dagostino1973] and the provenance of the module's
-$n \geq 8$ guard, while `skewness()` continues to report $G_1$,
-which is the right statistic to publish and matches
-`scipy.stats.skew(bias=False)`.
+$n \geq 8$ guard, while `skewness()` continues to report $G_1$, which is the
+right statistic to publish and matches `scipy.stats.skew(bias=False)`.
 
 Each defect is
 corrected and covered by a regression test. Users who generated figures with
@@ -702,10 +704,16 @@ users offers reproducibility only in principle.
 
 The defects found during extraction (Section 2.2.5) carry a wider lesson, and
 are the most useful outcome of this work. All four had survived in software
-that ran without error and produced plausible numbers. None would have been
-caught by testing the code against expectations derived from the same source;
-each surfaced only when results were compared with an independent
-implementation. A 15% error in a reported skewness is not visible by inspection,
+that ran without error and produced plausible numbers. Three would not have
+been caught by testing the code against expectations derived from the same
+source; each surfaced only when results were compared with an independent
+implementation. The fourth is the more uncomfortable case, because the
+independent comparison had already been made and had already disagreed: the
+tolerance was widened until the test passed and the residual was explained
+away. An independent reference is necessary but not sufficient. A disagreement
+with one must be treated as a defect until shown otherwise, and a loosened
+tolerance is where that demonstration usually fails to happen. A 15% error in a
+reported skewness is not visible by inspection,
 and neither is a $p$-value floored at zero, which looks like a very strong
 result. Authors of scientific software, particularly of the small,
 in-house analysis code that is rarely reviewed, would be well advised to check their
