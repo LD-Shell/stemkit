@@ -1,10 +1,13 @@
 /*
- * STEMKit, HPC Script Generator (SLURM + GROMACS/LAMMPS)
+ * STEMKit, MD Workflow Generator (SLURM, PBS, LSF, Grid Engine + GROMACS/LAMMPS/PLUMED)
  * Author: Olanrewaju M. Daramola
  *
- * Client-side only. Generates SLURM batch scripts, a staged GROMACS workflow
- * (EM / NVT / NPT / Production with grompp->mdrun chaining), a GROMACS .top
- * header, and LAMMPS submission scripts.
+ * Client-side only. Generates batch scripts for four schedulers, a staged
+ * GROMACS workflow (EM / NVT / NPT / Production with grompp->mdrun chaining),
+ * a GROMACS .top header, LAMMPS submission scripts and PLUMED input files.
+ * The directive header comes from src/core/scheduler.js through the adapter
+ * in script-generator-slurm.js; this file is DOM wiring and the engine and
+ * PLUMED blocks.
  *
  * Correctness references (see on-page "Method & References"):
  *  - Force field <-> combination rule <-> fudge factors are coupled:
@@ -20,6 +23,10 @@
  *    (set --ntasks). LAMMPS GPU: -sf gpu -pk gpu N ; KOKKOS: -k on g N -sf kk.
  *  - #!/bin/bash -e so failures abort and show as FAILED in sacct.
  */
+
+import { buildHeaderFromDOM } from './script-generator-slurm.js';
+import { getScheduler, envVars, launcher, submitCommand } from '../src/core/scheduler.js';
+import { estimateCoreHours, arrayConcurrency } from '../src/core/slurm.js';
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -976,37 +983,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Helpers
     // =====================================================================
     function toggleVisibility(el, show) {
-        if (!el) return;
-        el.classList.toggle('hidden', !show);
-        el.classList.toggle('flex', show);
+        if (el) el.hidden = !show;
     }
 
     function setWarnings(container, messages) {
         if (!container) return;
-        if (!messages.length) {
-            container.classList.add('hidden');
-            container.innerHTML = '';
-            return;
-        }
-        container.classList.remove('hidden');
-        container.innerHTML = messages.map(m =>
-            `<div class="flex items-start gap-2 text-[11px] leading-snug">
-                <i class="fa-solid fa-triangle-exclamation mt-0.5 shrink-0"></i>
-                <span>${m}</span>
-             </div>`
-        ).join('');
-    }
-
-    function isValidWallTime(t) {
-        if (!t) return false;
-        return /^(\d+-)?\d{1,2}:\d{2}:\d{2}$/.test(t)
-            || /^\d{1,2}:\d{2}$/.test(t)
-            || /^\d+$/.test(t);
-    }
-
-    function isValidArrayRange(r) {
-        if (!r) return false;
-        return /^\d+(-\d+)?(:\d+)?(,\d+(-\d+)?(:\d+)?)*(%\d+)?$/.test(r.trim());
+        container.hidden = !messages.length;
+        container.innerHTML = messages.length
+            ? `<i class="fa-solid fa-triangle-exclamation"></i><div class="sg-warn-list">` +
+              messages.map(m => `<p>${m}</p>`).join('') + `</div>`
+            : '';
     }
 
     function getInt(id, dflt) {
@@ -1017,123 +1003,88 @@ document.addEventListener('DOMContentLoaded', () => {
         const v = ($(id)?.value || '').trim();
         return v || dflt;
     }
-    function isChecked(id) { return !!($(id) && $(id).checked); }
-
-    // =====================================================================
-    // SLURM header (shared, but resource model differs per engine)
-    // =====================================================================
-    function buildSlurmHeader(engine, warnings) {
-        const jName  = getStr('jobName', 'md_job');
-        const jNodes = getInt('jobNodes', 1);
-        const jGpus  = getInt('jobGpus', 0);
-        const jTime  = getStr('jobTime', '');
-        const jMem   = getStr('jobMem', '');
-        const cpus   = getInt('jobCpus', 1);       // GROMACS: threads/task
-        const ntasks = getInt('jobTasks', 1);      // LAMMPS: MPI ranks/node
-
-        let s = `#!/bin/bash -e\n`;
-        s += `#SBATCH --job-name=${jName}\n`;
-
-        if (isChecked('usePartition')) {
-            const p = getStr('jobPartition', '');
-            if (p) s += `#SBATCH --partition=${p}\n`;
-        }
-
-        s += `#SBATCH --nodes=${jNodes}\n`;
-
-        if (engine === 'gromacs') {
-            // Threaded: 1 task/node, many CPUs/task.
-            s += `#SBATCH --ntasks-per-node=1\n`;
-            s += `#SBATCH --cpus-per-task=${cpus}\n`;
-        } else {
-            // MPI: many tasks/node. For GPU, tasks usually == GPUs/node.
-            s += `#SBATCH --ntasks-per-node=${ntasks}\n`;
-            const lcpt = getInt('lmpCpus', 1);
-            if (lcpt > 1) s += `#SBATCH --cpus-per-task=${lcpt}\n`;
-        }
-
-        if (jGpus > 0) s += `#SBATCH --gres=gpu:${jGpus}\n`;
-
-        if (jMem) {
-            s += `#SBATCH --mem=${jMem}\n`;
-        } else {
-            warnings.push('No memory requested. Most clusters then apply a small default (often ~1&nbsp;GB/CPU), which can kill MD jobs. Set a value for <code>--mem</code>.');
-        }
-
-        if (isValidWallTime(jTime)) {
-            s += `#SBATCH --time=${jTime}\n`;
-        } else {
-            s += `#SBATCH --time=24:00:00\n`;
-            warnings.push('Wall time looks malformed | expected <code>D-HH:MM:SS</code>, <code>HH:MM:SS</code>, or minutes. Substituted <code>24:00:00</code>.');
-        }
-
-        const isArray = isChecked('jobArrayToggle');
-        if (isArray) {
-            const r = getStr('jobArrayRange', '');
-            if (isValidArrayRange(r)) {
-                s += `#SBATCH --array=${r}\n`;
-            } else {
-                s += `#SBATCH --array=1-5\n`;
-                warnings.push('Array range looks malformed | expected e.g. <code>1-10</code>, <code>1-100:2</code>. Substituted <code>1-5</code>.');
-            }
-            s += `#SBATCH --output=logs/%x_%A_%a.out\n`;
-            s += `#SBATCH --error=logs/%x_%A_%a.err\n`;
-        } else {
-            s += `#SBATCH --output=logs/%x_%j.out\n`;
-            s += `#SBATCH --error=logs/%x_%j.err\n`;
-        }
-
-        if (isChecked('useMail')) {
-            const addr = getStr('jobMailUser', '');
-            if (addr) {
-                s += `#SBATCH --mail-user=${addr}\n`;
-                s += `#SBATCH --mail-type=END,FAIL,TIME_LIMIT_80\n`;
-            } else {
-                warnings.push('Mail notifications enabled but no address given.');
-            }
-        }
-
-        // Array jobs request --mem PER TASK, so the in-flight total is
-        // multiplied by the number of concurrent tasks. A default left
-        // untouched on a large array can wedge the queue.
-        if (isArray && jMem) {
-            const m = String(jMem).trim().match(/^(\d+(?:\.\d+)?)\s*([GMT])B?$/i);
-            const rm = getStr('jobArrayRange', '').match(/^(\d+)\s*-\s*(\d+)(?::\d+)?(?:%(\d+))?/);
-            if (m && rm) {
-                const per = parseFloat(m[1]);
-                const unit = m[2].toUpperCase();
-                const nTasks = parseInt(rm[2], 10) - parseInt(rm[1], 10) + 1;
-                const cap = rm[3] ? parseInt(rm[3], 10) : nTasks;
-                const concurrent = Math.min(cap, nTasks);
-                warnings.push(
-                    `Array job: <code>--mem=${jMem}</code> is per <em>task</em>. With ${concurrent} task${concurrent > 1 ? 's' : ''} running concurrently that is <strong>${(per * concurrent)}${unit}</strong> in flight. ` +
-                    `Confirm this fits your partition limit, if not, cap concurrency in the array range (e.g. <code>${rm[1]}-${rm[2]}%4</code>).`
-                );
-            } else {
-                warnings.push('Array job: <code>--mem</code> is requested per <em>task</em>, so the in-flight total is multiplied by the number of concurrent tasks. Confirm it fits your partition.');
-            }
-        }
-
-        return { header: s, isArray };
+    // Optional sections are role="switch" buttons; the rest are checkboxes.
+    function isChecked(id) {
+        const el = $(id);
+        if (!el) return false;
+        return el.getAttribute('role') === 'switch' ? el.getAttribute('aria-checked') === 'true' : !!el.checked;
+    }
+    function currentScheduler() {
+        const id = getStr('jobScheduler', 'slurm');
+        try { return getScheduler(id).id; } catch (_) { return 'slurm'; }
     }
 
-    function envBlock(engine) {
+    // =====================================================================
+    // Scheduler header: built by the tested core (src/core/scheduler.js,
+    // which hands SLURM to src/core/slurm.js) through the adapter in
+    // script-generator-slurm.js, which reads the form via the DOM helpers
+    // above. Same shape as the local SLURM function it replaced.
+    // =====================================================================
+    const buildSchedulerHeader = (engine, warnings) =>
+        buildHeaderFromDOM(engine, warnings, { $, getStr, getInt, isChecked });
+
+    // SLURM and PBS expose the per-task thread count inside the job; LSF and
+    // Grid Engine count slots, so for them the requested number is written in,
+    // next to the directive it matches.
+    const OMP_NOTE = {
+        pbs: '# PBS sets NCPUS (and OMP_NUM_THREADS) from ompthreads for rank 0, per\n' +
+             '# pbs_resources(7B); the requested count is the fallback.',
+        lsf: '# LSF reports slots (LSB_DJOB_NUMPROC), not threads per task; this matches the\n' +
+             '# ptile requested above.',
+        sge: '# Grid Engine reports slots (NSLOTS), not threads per task; this matches the PE\n' +
+             '# request above.'
+    };
+
+    // The OMP_NUM_THREADS export for a scheduler other than SLURM. `threads`
+    // has the same floor the core applies to the header's thread count.
+    function ompExport(scheduler, threads) {
+        const n = Math.max(1, threads);
+        const value = scheduler === 'pbs' ? `\${NCPUS:-${n}}` : String(n);
+        return `${OMP_NOTE[scheduler]}\nexport OMP_NUM_THREADS=${value}\n\n`;
+    }
+
+    function envBlock(engine, scheduler) {
         let e = `\n# --- Environment ---\n`;
+        if (scheduler === 'pbs') {
+            e += `# PBS starts the job in $HOME; work where qsub ran.\n`;
+            e += `cd "$PBS_O_WORKDIR"\n`;
+        } else if (scheduler === 'lsf') {
+            e += `# LSF starts in the submission directory when the node can see it; be explicit.\n`;
+            e += `cd "$LS_SUBCWD"\n`;
+        }
         e += `mkdir -p logs\n`;
         e += `module purge\n`;
         if (engine === 'gromacs') {
             e += `module load gromacs/2023   # adjust to your cluster's module name\n\n`;
-            e += `# Match OpenMP threads to the CPUs Slurm granted.\n`;
-            e += `export OMP_NUM_THREADS=\${SLURM_CPUS_PER_TASK:-1}\n`;
-            e += `# Slurm > 22.05: also export for srun-launched steps.\n`;
-            e += `export SRUN_CPUS_PER_TASK=\$SLURM_CPUS_PER_TASK\n\n`;
+            if (scheduler === 'slurm') {
+                e += `# Match OpenMP threads to the CPUs Slurm granted.\n`;
+                e += `export OMP_NUM_THREADS=\${SLURM_CPUS_PER_TASK:-1}\n`;
+                e += `# Slurm > 22.05: also export for srun-launched steps.\n`;
+                e += `export SRUN_CPUS_PER_TASK=\$SLURM_CPUS_PER_TASK\n\n`;
+            } else {
+                e += ompExport(scheduler, getInt('jobCpus', 1));
+            }
         } else {
             e += `module load lammps         # adjust to your cluster's module name\n\n`;
             e += `# LAMMPS is MPI-parallel; keep OpenMP off unless using USER-OMP/KOKKOS-OMP.\n`;
-            e += `export OMP_NUM_THREADS=\${SLURM_CPUS_PER_TASK:-1}\n\n`;
+            if (scheduler === 'slurm') {
+                e += `export OMP_NUM_THREADS=\${SLURM_CPUS_PER_TASK:-1}\n\n`;
+            } else {
+                e += ompExport(scheduler, getInt('lmpCpus', 1));
+            }
         }
         return e;
     }
+
+    // How each scheduler hands the allocation to mpirun; srun needs no note.
+    const LAUNCH_NOTE = {
+        pbs: '# PBS_NODEFILE has one line per MPI rank. An MPI built with PBS (TM) support\n' +
+             '# reads it itself; otherwise add -machinefile "$PBS_NODEFILE".',
+        lsf: '# LSB_DJOB_NUMPROC is the slot count of the allocation; Open MPI and Intel MPI\n' +
+             '# with LSF integration also take the host list from LSB_MCPU_HOSTS.',
+        sge: '# NSLOTS is the slot count of the PE; Open MPI and MPICH built with Grid Engine\n' +
+             '# support read the host list from $PE_HOSTFILE.'
+    };
 
     // =====================================================================
     // GROMACS: GPU flag string from advanced toggles.
@@ -1204,16 +1155,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!out) return;
         const warnings = [];
 
-        const { header, isArray } = buildSlurmHeader('gromacs', warnings);
+        const { header, isArray, scheduler } = buildSchedulerHeader('gromacs', warnings);
         let s = header;
-        s += envBlock('gromacs');
+        s += envBlock('gromacs', scheduler);
 
         s += `# --- Execution ---\n`;
 
         if (isArray) {
             const baseDir = getStr('jobArrayDir', 'run_');
             s += `# One directory per array task.\n`;
-            s += `SYSTEM_DIR="${baseDir}\${SLURM_ARRAY_TASK_ID}"\n`;
+            s += `SYSTEM_DIR="${baseDir}\${${envVars(scheduler).arrayIndex}}"\n`;
             s += `cd "\$SYSTEM_DIR" || { echo "Missing directory \$SYSTEM_DIR" >&2; exit 1; }\n\n`;
         }
 
@@ -1240,7 +1191,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!stages.length) {
             s += `# (No workflow stages enabled, enable EM/NVT/NPT/Production on the left.)\n`;
-            out.textContent = s;
+            renderOutput(out, s);
             setWarnings($('slurmWarnings'), warnings);
             return;
         }
@@ -1304,7 +1255,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         s += `echo "Workflow complete."\n`;
 
-        out.textContent = s;
+        renderOutput(out, s);
         setWarnings($('slurmWarnings'), warnings);
     }
 
@@ -1316,15 +1267,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!out) return;
         const warnings = [];
 
-        const { header, isArray } = buildSlurmHeader('lammps', warnings);
+        const { header, isArray, scheduler } = buildSchedulerHeader('lammps', warnings);
         let s = header;
-        s += envBlock('lammps');
+        s += envBlock('lammps', scheduler);
 
         s += `# --- Execution ---\n`;
 
         if (isArray) {
             const baseDir = getStr('jobArrayDir', 'run_');
-            s += `SYSTEM_DIR="${baseDir}\${SLURM_ARRAY_TASK_ID}"\n`;
+            s += `SYSTEM_DIR="${baseDir}\${${envVars(scheduler).arrayIndex}}"\n`;
             s += `cd "\$SYSTEM_DIR" || { echo "Missing directory \$SYSTEM_DIR" >&2; exit 1; }\n\n`;
         }
 
@@ -1342,13 +1293,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // GPU package: -sf appends /gpu to supported styles; -pk sets GPUs/node.
                 lmpArgs += ` -sf gpu -pk gpu ${gpus > 0 ? gpus : 1}`;
                 note = '# GPU package: -sf gpu appends /gpu to supported styles; -pk gpu N sets GPUs/node.';
-                if (gpus <= 0) warnings.push('GPU package selected but 0 GPUs requested. Set GPUs / Node &gt; 0.');
+                if (gpus <= 0) warnings.push('GPU package selected but 0 GPUs requested. Set GPUs per node above 0.');
                 break;
             case 'kokkos':
                 // KOKKOS on GPU: typically one MPI rank per GPU.
                 lmpArgs += ` -k on g ${gpus > 0 ? gpus : 1} -sf kk -pk kokkos`;
                 note = '# KOKKOS (GPU): typically one MPI rank per GPU (-k on g N).';
-                if (gpus <= 0) warnings.push('KOKKOS/GPU selected but 0 GPUs requested. Set GPUs / Node &gt; 0, or use the OPENMP package for CPU threading.');
+                if (gpus <= 0) warnings.push('KOKKOS/GPU selected but 0 GPUs requested. Set GPUs per node above 0, or use the OPENMP package for CPU threading.');
                 break;
             case 'intel':
                 // INTEL package: vectorised CPU (and optional Phi offload).
@@ -1358,9 +1309,11 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'omp':
                 // OPENMP package: hybrid MPI + OpenMP. -pk omp N must match cpus-per-task.
                 lmpArgs += ` -sf omp -pk omp ${ompThreads}`;
-                note = '# OPENMP package: hybrid MPI x OpenMP. -pk omp N matches --cpus-per-task; benchmark 1/2/4 threads per rank.';
+                note = scheduler === 'slurm'
+                    ? '# OPENMP package: hybrid MPI x OpenMP. -pk omp N matches --cpus-per-task; benchmark 1/2/4 threads per rank.'
+                    : '# OPENMP package: hybrid MPI x OpenMP. -pk omp N matches the threads per rank requested above; benchmark 1/2/4 threads per rank.';
                 if (ompThreads <= 1) {
-                    warnings.push('OPENMP package with 1 thread/rank behaves like MPI-only. Set CPUs / Task &gt; 1 to use threading (2 is often optimal).');
+                    warnings.push('OPENMP package with 1 thread/rank behaves like MPI-only. Set CPUs per task above 1 to use threading (2 is often optimal).');
                 }
                 break;
             case 'opt':
@@ -1377,12 +1330,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (note) s += note + `\n`;
-        s += `srun lmp ${lmpArgs}\n`;
+        if (LAUNCH_NOTE[scheduler]) s += LAUNCH_NOTE[scheduler] + `\n`;
+        s += `${launcher(scheduler, { cpusPerTask: ompThreads })} lmp ${lmpArgs}\n`;
         s += `echo "LAMMPS run complete. Check the Performance line in ${logFile}."\n`;
         s += `# Tip: accelerating is not always faster. Benchmark task/thread/GPU\n`;
         s += `#      combinations for YOUR system and styles before production runs.\n`;
 
-        out.textContent = s;
+        renderOutput(out, s);
         setWarnings($('slurmWarnings'), warnings);
     }
 
@@ -1738,7 +1692,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let wmLine = '';
             if (wholeResidues) {
                 wmLine = `WHOLEMOLECULES RESIDUES=all MOLTYPE=protein`;
-                if (!molinfo) warnings.push('<code>WHOLEMOLECULES RESIDUES=all</code> needs a MOLINFO reference structure | set one above.');
+                if (!molinfo) warnings.push('<code>WHOLEMOLECULES RESIDUES=all</code> needs a MOLINFO reference structure; set one above.');
             } else {
                 const ents = wholeEntities.split(/[\n,]+/).map(e => e.trim()).filter(Boolean);
                 if (ents.length) {
@@ -1755,8 +1709,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!plumedCVs.length) {
             s += `# (No collective variables added yet - add one on the left.)\n`;
-            out.textContent = s;
-            setWarnings($('slurmWarnings'), warnings);
+            renderOutput(out, s);
+            setWarnings($('plumedWarnings'), warnings);
             return;
         }
 
@@ -2050,8 +2004,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         s += `PRINT ARG=${printList.join(',')} FILE=${printFile} STRIDE=${printStride}\n`;
 
-        out.textContent = s;
-        setWarnings($('slurmWarnings'), warnings);
+        renderOutput(out, s);
+        setWarnings($('plumedWarnings'), warnings);
     }
 
     // =====================================================================
@@ -2128,7 +2082,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const bmod = def && def.module && PLUMED_MODULES[def.module];
         if (bmod) {
             const mn = document.createElement('p');
-            mn.className = 'text-[9px] leading-snug mb-2 px-1.5 py-1 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40';
+            mn.className = 'text-[11px] leading-snug mb-2 px-1.5 py-1 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40';
             mn.innerHTML = `<i class="fa-solid fa-cube mr-1"></i>Requires the <strong>${bmod.name}</strong> module, not in a stock PLUMED build. <span class="plumed-help" tabindex="0" data-tip="${bmod.hint.replace(/"/g,'&quot;')}">?</span>`;
             host.appendChild(mn);
         }
@@ -2142,10 +2096,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const cur = plumedBiasVals[method][p.k] !== undefined ? plumedBiasVals[method][p.k] : p.def;
             const help = (p.help || '').replace(/"/g, '&quot;');
             const badge = help ? `<span class="plumed-help" tabindex="0" data-tip="${help}">?</span>` : '';
-            const perTag = p.perCV ? '<span class="text-[8px] text-slate-400 font-normal">/CV</span>' : '';
+            const perTag = p.perCV ? '<span class="text-[11px] text-slate-400 font-normal">/CV</span>' : '';
             const cell = document.createElement('div');
             cell.innerHTML = `
-                <label class="text-[9px] font-bold text-slate-400 flex items-center gap-1">${p.label}${perTag}${badge}</label>
+                <label class="text-[11px] font-bold text-slate-400 flex items-center gap-1">${p.label}${perTag}${badge}</label>
                 <input type="text" data-bias-key="${p.k}" value="${cur ?? ''}" ${p.def === '' ? 'placeholder="(optional)"' : ''}
                        class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">`;
             wrap.appendChild(cell);
@@ -2153,7 +2107,7 @@ document.addEventListener('DOMContentLoaded', () => {
         host.appendChild(wrap);
         if (def.params.some(p => p.perCV)) {
             const note = document.createElement('p');
-            note.className = 'text-[10px] text-slate-400 mt-2 leading-snug';
+            note.className = 'text-[11px] text-slate-400 mt-2 leading-snug';
             note.innerHTML = '<span class="text-slate-400">/CV</span> fields apply one value to every biased CV. To set them individually, type a comma-separated list (one per biased CV).';
             host.appendChild(note);
         }
@@ -2198,7 +2152,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const def = PLUMED_CV_DEFS[type];
         // Defense in depth: never add a CV that the target version cannot parse.
         if (!cvAvailable(def)) {
-            setWarnings($('slurmWarnings'), [
+            setWarnings($('plumedWarnings'), [
                 `${type} needs PLUMED ≥ ${def.minVersion}; your target is ${targetVersion()}. ` +
                 (def.fallback ? `On ${targetVersion()} use ${def.fallback} instead.` : 'Switch the target version to use it.')
             ]);
@@ -2291,7 +2245,7 @@ document.addEventListener('DOMContentLoaded', () => {
             head.className = 'flex items-center justify-between mb-2 gap-2';
             head.innerHTML = `
                 <div class="flex items-center gap-2 min-w-0">
-                    <span class="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase shrink-0">${inst.type}</span>
+                    <span class="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase shrink-0">${inst.type}</span>
                     <input data-cv="${inst.id}" data-field="__label" value="${inst.label}"
                            class="w-24 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5 text-[11px] font-mono outline-none focus:ring-2 focus:ring-rose-500"
                            title="Label for this CV" />
@@ -2300,14 +2254,14 @@ document.addEventListener('DOMContentLoaded', () => {
             right.className = 'flex items-center gap-2 shrink-0';
             if (!inst.isGroup && !inst.noBias) {
                 const biasLbl = document.createElement('label');
-                biasLbl.className = 'flex items-center gap-1 text-[10px] font-bold uppercase cursor-pointer ' +
+                biasLbl.className = 'flex items-center gap-1 text-[11px] font-bold uppercase cursor-pointer ' +
                     (inst.bias ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400');
                 biasLbl.title = 'Feed this CV to the bias (unchecked = tracked/printed only)';
                 biasLbl.innerHTML = `<input type="checkbox" data-cv="${inst.id}" data-field="__bias" ${inst.bias ? 'checked' : ''} class="w-3.5 h-3.5 text-rose-600 rounded focus:ring-rose-500"> Bias`;
                 right.appendChild(biasLbl);
             } else if (inst.noBias) {
                 const tag = document.createElement('span');
-                tag.className = 'text-[9px] font-bold uppercase text-slate-400';
+                tag.className = 'text-[11px] font-bold uppercase text-slate-400';
                 tag.title = 'This action is a reference value, not a bias target. It is printed and can be used as an ARG in a CUSTOM combination.';
                 tag.textContent = 'ref only';
                 right.appendChild(tag);
@@ -2337,14 +2291,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const mod = def.module && PLUMED_MODULES[def.module];
             if (mod) {
                 const mn = document.createElement('p');
-                mn.className = 'text-[9px] leading-snug mb-1.5 px-1.5 py-1 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40';
+                mn.className = 'text-[11px] leading-snug mb-1.5 px-1.5 py-1 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40';
                 mn.innerHTML = `<i class="fa-solid fa-cube mr-1"></i>Requires the <strong>${mod.name}</strong> module, not in a stock PLUMED build. <span class="plumed-help" tabindex="0" data-tip="${mod.hint.replace(/"/g,'&quot;')}">?</span>`;
                 card.appendChild(mn);
             }
             const prq = def.prereq && PLUMED_PREREQS[def.prereq];
             if (prq) {
                 const pn = document.createElement('p');
-                pn.className = 'text-[9px] leading-snug mb-1.5 px-1.5 py-1 rounded bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800/40';
+                pn.className = 'text-[11px] leading-snug mb-1.5 px-1.5 py-1 rounded bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800/40';
                 pn.innerHTML = `<i class="fa-solid fa-circle-info mr-1"></i>Needs a <code>${prq.label}</code> line. <span class="plumed-help" tabindex="0" data-tip="${prq.note.replace(/"/g,'&quot;')}">?</span>`;
                 card.appendChild(pn);
             }
@@ -2378,12 +2332,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (f.type === 'select') {
                     const opts = f.options.map(o => `<option value="${o}" ${o===inst.values[f.k]?'selected':''}>${o}</option>`).join('');
                     wrap.innerHTML = `
-                        <label class="text-[9px] font-bold text-slate-400 flex items-center gap-1">${f.label}${off ? `<span class="plumed-help" tabindex="0"${dTip}>?</span>` : helpFor(f)}</label>
+                        <label class="text-[11px] font-bold text-slate-400 flex items-center gap-1">${f.label}${off ? `<span class="plumed-help" tabindex="0"${dTip}>?</span>` : helpFor(f)}</label>
                         <select data-cv="${inst.id}" data-field="${f.k}" ${dis}
                                 class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 outline-none focus:ring-2 focus:ring-rose-500">${opts}</select>`;
                 } else {
                     wrap.innerHTML = `
-                        <label class="text-[9px] font-bold text-slate-400 flex items-center gap-1">${f.label}${off ? `<span class="plumed-help" tabindex="0"${dTip}>?</span>` : helpFor(f)}</label>
+                        <label class="text-[11px] font-bold text-slate-400 flex items-center gap-1">${f.label}${off ? `<span class="plumed-help" tabindex="0"${dTip}>?</span>` : helpFor(f)}</label>
                         <input type="text" data-cv="${inst.id}" data-field="${f.k}" value="${inst.values[f.k] ?? ''}" ${dis}
                                class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">`;
                 }
@@ -2397,7 +2351,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const shared = reductionFieldsFor(def);
             if (shared.length) {
                 const secLbl = document.createElement('p');
-                secLbl.className = 'text-[9px] font-bold text-slate-400 uppercase mt-2 mb-1 flex items-center gap-1';
+                secLbl.className = 'text-[11px] font-bold text-slate-400 uppercase mt-2 mb-1 flex items-center gap-1';
                 secLbl.innerHTML = `Reductions <span class="plumed-help" tabindex="0" data-tip="Reduce the per-atom vector to scalar CVs. Toggle a flag (MEAN, SUM, HIGHEST, LOWEST) or give a switching/kernel block (MORE_THAN, LESS_THAN, BETWEEN, MIN, MAX). Each enabled reduction becomes a selectable component (${inst.label}${(componentsForCV(inst)[0]||(def.compStyle==='underscore'?'_mean':'.mean'))}).">?</span>`;
                 card.appendChild(secLbl);
                 const rgrid = document.createElement('div');
@@ -2407,7 +2361,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (disCount) {
                 const hn = document.createElement('p');
-                hn.className = 'text-[9px] text-slate-400 italic mt-1.5 leading-snug';
+                hn.className = 'text-[11px] text-slate-400 italic mt-1.5 leading-snug';
                 hn.innerHTML = `<i class="fa-solid fa-ban mr-1"></i>${disCount} field${disCount > 1 ? 's' : ''} greyed out, managed by the selected bias method and left out of the output.`;
                 card.appendChild(hn);
             }
@@ -2436,31 +2390,31 @@ document.addEventListener('DOMContentLoaded', () => {
                         <select data-cv-bias="${inst.id}" data-field="comp"
                                 class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">${opts}</select>`;
                 } else if (isScalarCV(inst)) {
-                    compControl = `<p class="text-[10px] text-slate-400 italic mt-0.5">Scalar CV, bias uses the bare label <code>${inst.label}</code> (no component).</p>`;
+                    compControl = `<p class="text-[11px] text-slate-400 italic mt-0.5">Scalar CV, bias uses the bare label <code>${inst.label}</code> (no component).</p>`;
                 } else {
                     compControl = `<input type="text" data-cv-bias="${inst.id}" data-field="comp" value="${inst.biasValues.comp || ''}" placeholder="e.g. .sss" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">`;
                 }
 
                 biasWrap.innerHTML = `
                     <div class="mb-2">
-                        <label class="text-[9px] font-bold text-rose-600 flex items-center gap-1 uppercase">Target Component <span class="plumed-help" tabindex="0" data-tip="The specific component to bias if the CV outputs multiple (dot notation, e.g. ${inst.label}.mean). Leave blank for scalar CVs.">?</span></label>
+                        <label class="text-[11px] font-bold text-rose-600 flex items-center gap-1 uppercase">Target Component <span class="plumed-help" tabindex="0" data-tip="The specific component to bias if the CV outputs multiple (dot notation, e.g. ${inst.label}.mean). Leave blank for scalar CVs.">?</span></label>
                         ${compControl}
                     </div>
                     <div class="grid grid-cols-4 gap-2">
                         <div>
-                            <label class="text-[9px] font-bold text-rose-600 flex items-center gap-1 uppercase">Grid Min</label>
+                            <label class="text-[11px] font-bold text-rose-600 flex items-center gap-1 uppercase">Grid Min</label>
                             <input type="text" data-cv-bias="${inst.id}" data-field="min" value="${inst.biasValues.min}" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">
                         </div>
                         <div>
-                            <label class="text-[9px] font-bold text-rose-600 flex items-center gap-1 uppercase">Grid Max</label>
+                            <label class="text-[11px] font-bold text-rose-600 flex items-center gap-1 uppercase">Grid Max</label>
                             <input type="text" data-cv-bias="${inst.id}" data-field="max" value="${inst.biasValues.max}" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">
                         </div>
                         <div>
-                            <label class="text-[9px] font-bold text-rose-600 flex items-center gap-1 uppercase">Grid Bin</label>
+                            <label class="text-[11px] font-bold text-rose-600 flex items-center gap-1 uppercase">Grid Bin</label>
                             <input type="text" data-cv-bias="${inst.id}" data-field="bin" value="${inst.biasValues.bin}" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">
                         </div>
                         <div>
-                            <label class="text-[9px] font-bold text-rose-600 flex items-center gap-1 uppercase">Sigma <span class="plumed-help" tabindex="0" data-tip="Width of the Gaussian hill (SIGMA) for this CV.">?</span></label>
+                            <label class="text-[11px] font-bold text-rose-600 flex items-center gap-1 uppercase">Sigma <span class="plumed-help" tabindex="0" data-tip="Width of the Gaussian hill (SIGMA) for this CV.">?</span></label>
                             <input type="text" data-cv-bias="${inst.id}" data-field="sigma" value="${inst.biasValues.sigma}" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">
                         </div>
                     </div>
@@ -2530,6 +2484,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentEngine === 'gromacs') generateGromacsScript();
         else if (currentEngine === 'lammps') generateLammpsScript();
         else if (currentEngine === 'plumed') generatePlumedScript();
+        updateResourceSummary();
     }
 
     // =====================================================================
@@ -2605,34 +2560,20 @@ document.addEventListener('DOMContentLoaded', () => {
         t += `; Fill in with your actual species and counts, e.g.:\n`;
         t += `; Protein_A    1\n; SOL          10000\n; NA           30\n; CL           28\n`;
 
-        out.textContent = t;
+        renderOutput(out, t, { topology: true });
         setWarnings($('topWarnings'), warnings);
     }
 
     // =====================================================================
     // Engine tab switching
     // =====================================================================
+    const OUTPUT_FILE = { gromacs: 'submit.sh', lammps: 'submit.sh', plumed: 'plumed.dat' };
+
     function switchEngine(engine) {
         currentEngine = engine;
 
         document.querySelectorAll('[data-engine-tab]').forEach(btn => {
-            const active = btn.getAttribute('data-engine-tab') === engine;
-            if (active) {
-                // Inline style guarantees the active colour even if the
-                // bg-rose-600 utility is not present in the compiled CSS.
-                btn.style.backgroundColor = '#e11d48'; // rose-600
-                btn.style.color = '#ffffff';
-                btn.classList.add('shadow-sm');
-            } else {
-                btn.style.backgroundColor = '';
-                btn.style.color = '';
-                btn.classList.remove('shadow-sm');
-            }
-            btn.classList.toggle('text-slate-700', !active);
-            btn.classList.toggle('dark:text-slate-300', !active);
-            btn.classList.toggle('hover:bg-slate-200', !active);
-            btn.classList.toggle('dark:hover:bg-slate-800', !active);
-            btn.setAttribute('aria-selected', active ? 'true' : 'false');
+            btn.setAttribute('aria-selected', btn.getAttribute('data-engine-tab') === engine ? 'true' : 'false');
         });
 
         // Panels visible per engine
@@ -2641,26 +2582,25 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleVisibility($('plumedPanel'),  engine === 'plumed');
 
         // Resource-model fields: GROMACS shows CPUs/task, LAMMPS shows tasks/node.
-        // PLUMED generates an input file, so the SLURM resource card is hidden.
+        // PLUMED generates an input file, so the cluster card is hidden.
         toggleVisibility($('gmxCpuField'),  engine === 'gromacs');
         toggleVisibility($('lmpTaskField'), engine === 'lammps');
         toggleVisibility($('lmpCpuField'),  engine === 'lammps');
-        const clusterCard = $('clusterCard');
-        if (clusterCard) clusterCard.classList.toggle('hidden', engine === 'plumed');
+        toggleVisibility($('clusterCard'), engine !== 'plumed');
 
         // Topology + GROMACS GPU flags only relevant to GROMACS
-        const topCard = $('topologyCard');
-        if (topCard) topCard.classList.toggle('hidden', engine !== 'gromacs');
-        const gmxGpuCard = $('gmxGpuCard');
-        if (gmxGpuCard) gmxGpuCard.classList.toggle('hidden', engine !== 'gromacs');
-        const lmpGpuCard = $('lmpGpuCard');
-        if (lmpGpuCard) lmpGpuCard.classList.toggle('hidden', engine !== 'lammps');
+        toggleVisibility($('topologyCard'), engine === 'gromacs');
+        toggleVisibility($('gmxGpuCard'), engine === 'gromacs');
+        toggleVisibility($('lmpGpuCard'), engine === 'lammps');
 
         // Output labels + secondary box
         const lbl = $('primaryOutputLabel');
-        if (lbl) lbl.textContent = (engine === 'plumed') ? 'plumed.dat' : 'submit.sh';
-        const topBox = $('topologyOutputBox');
-        if (topBox) topBox.classList.toggle('hidden', engine !== 'gromacs');
+        if (lbl) lbl.textContent = OUTPUT_FILE[engine];
+        document.querySelectorAll('[data-target="slurmOutput"]').forEach(btn => {
+            btn.setAttribute('data-filename', OUTPUT_FILE[engine]);
+        });
+        toggleVisibility($('topologyOutputBox'), engine === 'gromacs');
+        toggleVisibility($('outputSplit'), engine === 'gromacs');
 
         if (engine === 'plumed') {
             populatePlumedCVSelect();
@@ -2668,8 +2608,187 @@ document.addEventListener('DOMContentLoaded', () => {
             renderBiasParams();
             renderPlumedCVList();
         }
+        syncSchedulerUI();
         generateSubmitScript();
         if (engine === 'gromacs') generateTopologyHeader();
+        scheduleSave();
+    }
+
+    // Everything on the page that follows the scheduler choice: the PE field,
+    // the hint under the selector, the badge on the output panel, the submit
+    // command under the script and the Copy/Download labels.
+    function syncSchedulerUI() {
+        const id = currentScheduler();
+        const meta = getScheduler(id);
+        toggleVisibility($('sgePeField'), id === 'sge');
+
+        const hint = $('schedulerHint');
+        if (hint) {
+            hint.innerHTML = `Directives use <code>${escapeHtml(meta.prefix)}</code>; submit with ` +
+                `<code>${escapeHtml(submitCommand(id))}</code>.`;
+        }
+
+        const plumed = currentEngine === 'plumed';
+        const badge = $('schedulerBadge');
+        if (badge) badge.textContent = plumed ? `PLUMED ${targetVersion()}` : meta.label;
+
+        const foot = $('submitHint');
+        if (foot) {
+            if (plumed) {
+                foot.innerHTML = 'Pass it to the engine, e.g. <code>gmx mdrun -plumed plumed.dat</code>.';
+            } else {
+                // SLURM and Grid Engine open the log file as the job starts, so the
+                // directory has to exist before submission; the script's mkdir is
+                // too late for them.
+                const cmd = (meta.logDirAtStart ? 'mkdir -p logs && ' : '') + submitCommand(id);
+                foot.innerHTML = `Submit with <code>${escapeHtml(cmd)}</code>` +
+                    (meta.stdin ? ' (bsub reads the <code>#BSUB</code> lines from standard input only).' : '.');
+            }
+        }
+
+        const what = plumed ? 'plumed.dat' : `submit.sh (${meta.label})`;
+        document.querySelectorAll('[data-target="slurmOutput"]').forEach(btn => {
+            const verb = btn.classList.contains('copy-btn') ? 'Copy' : 'Download';
+            btn.setAttribute('aria-label', `${verb} ${what}`);
+            btn.title = `${verb} ${what}`;
+        });
+    }
+
+    // =====================================================================
+    // Resource summary under the cluster form
+    // =====================================================================
+    function updateResourceSummary() {
+        const host = $('resourceSummary');
+        if (!host) return;
+        const engine = currentEngine === 'lammps' ? 'lammps' : 'gromacs';
+        const config = {
+            engine,
+            nodes: getInt('jobNodes', 1),
+            cpusPerTask: engine === 'gromacs' ? getInt('jobCpus', 1) : getInt('lmpCpus', 1),
+            tasksPerNode: getInt('jobTasks', 1),
+            walltime: getStr('jobTime', '')
+        };
+        const gpus = getInt('jobGpus', 0) * config.nodes;
+        const est = estimateCoreHours(config);
+        const cores = est ? est.cores
+            : config.nodes * (engine === 'gromacs' ? config.cpusPerTask : config.tasksPerNode * Math.max(1, config.cpusPerTask));
+        const fmt = (n, digits = 0) => Number(n).toLocaleString('en-GB', { maximumFractionDigits: digits });
+        const items = [
+            ['Nodes', fmt(config.nodes)],
+            ['Cores', fmt(cores)],
+            ['GPUs', fmt(gpus)]
+        ];
+        if (est) {
+            items.push(['Wall time', `${fmt(est.hours, 2)} h`]);
+            items.push(['Core-hours', fmt(est.coreHours, 1)]);
+        } else {
+            items.push(['Wall time', 'unreadable']);
+        }
+        if (isChecked('jobArrayToggle')) {
+            const conc = arrayConcurrency(getStr('jobArrayRange', ''));
+            if (conc) {
+                items.push(['Array', `${fmt(conc.total)} tasks, ${fmt(conc.concurrent)} in flight`]);
+                items.push(['In flight', `${fmt(cores * conc.concurrent)} cores` + (gpus ? `, ${fmt(gpus * conc.concurrent)} GPUs` : '')]);
+                if (est) items.push(['Core-hours, all tasks', fmt(est.coreHours * conc.total, 1)]);
+            }
+        }
+        host.innerHTML = items.map(([k, v]) =>
+            `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join('');
+    }
+
+    // =====================================================================
+    // Output rendering: syntax colouring
+    // =====================================================================
+    // A small tokenizer for the generated files. It escapes as it goes and
+    // never drops a character, so the pane's textContent stays the exact text
+    // that Copy and Download hand out.
+    const DIRECTIVE_LINE = /^(#SBATCH|#PBS|#BSUB|#\$)(?=\s|$)/;
+    const TOPOLOGY_DIRECTIVE = /^#(include|define|undef|ifdef|ifndef|else|endif)\b/;
+
+    function highlightLine(line, opts) {
+        const esc = escapeHtml;
+        const span = (cls, text) => `<span class="${cls}">${esc(text)}</span>`;
+        const directive = opts.topology ? TOPOLOGY_DIRECTIVE : DIRECTIVE_LINE;
+        if (directive.test(line)) return span('tok-d', line);
+        const commentChar = opts.topology ? ';' : '#';
+        if (line.trimStart().startsWith(commentChar)) return span('tok-c', line);
+
+        let out = '';
+        let i = 0;
+        const n = line.length;
+        const varAt = (j) => {
+            // $NAME, ${...}, $(...) and $((...)) all start here; return the length.
+            if (line[j] !== '$') return 0;
+            const c = line[j + 1];
+            if (c === '{') { const k = line.indexOf('}', j); return k < 0 ? 0 : k - j + 1; }
+            if (c === '(') return 2;
+            const m = /^\$[A-Za-z_][A-Za-z0-9_]*/.exec(line.slice(j));
+            return m ? m[0].length : 0;
+        };
+        while (i < n) {
+            const ch = line[i];
+            if (ch === commentChar && (i === 0 || /\s/.test(line[i - 1]))) {
+                out += span('tok-c', line.slice(i));
+                break;
+            }
+            if (ch === "'") {
+                const k = line.indexOf("'", i + 1);
+                const end = k < 0 ? n : k + 1;
+                out += span('tok-s', line.slice(i, end));
+                i = end;
+                continue;
+            }
+            if (ch === '"') {
+                // Variables expand inside double quotes, so they keep their colour.
+                const k = line.indexOf('"', i + 1);
+                const end = k < 0 ? n : k + 1;
+                let inner = '';
+                let j = i;
+                while (j < end) {
+                    const len = Math.min(varAt(j), end - j);
+                    if (len && line[j + 1] !== '(') { inner += span('tok-v', line.slice(j, j + len)); j += len; }
+                    else { inner += esc(line[j]); j += 1; }
+                }
+                out += `<span class="tok-s">${inner}</span>`;
+                i = end;
+                continue;
+            }
+            const len = varAt(i);
+            if (len) {
+                if (line[i + 1] === '(') {
+                    // $( and $((: colour the opener, leave the contents to the scanner,
+                    // and colour the matching closer when it turns up.
+                    const dbl = line[i + 2] === '(';
+                    const opener = dbl ? '$((' : '$(';
+                    out += span('tok-v', opener);
+                    i += opener.length;
+                    let depth = 1;
+                    let j = i;
+                    while (j < n && depth > 0) {
+                        if (line[j] === '(') depth += 1;
+                        else if (line[j] === ')') depth -= 1;
+                        if (depth > 0) j += 1;
+                    }
+                    const closer = dbl ? '))' : ')';
+                    const body = line.slice(i, j);
+                    out += highlightLine(body, opts);
+                    if (j < n) { out += span('tok-v', closer); i = j + closer.length; }
+                    else i = n;
+                    continue;
+                }
+                out += span('tok-v', line.slice(i, i + len));
+                i += len;
+                continue;
+            }
+            out += esc(ch);
+            i += 1;
+        }
+        return out;
+    }
+
+    function renderOutput(node, text, opts = {}) {
+        if (!node) return;
+        node.innerHTML = text.split('\n').map(l => highlightLine(l, opts)).join('\n');
     }
 
     // =====================================================================
@@ -2680,10 +2799,19 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', () => switchEngine(btn.getAttribute('data-engine-tab')));
     });
 
+    // Switches toggle themselves and then announce a change, so the same
+    // listeners serve them and the checkboxes.
+    document.querySelectorAll('#builderLayout [role="switch"]').forEach(sw => {
+        sw.addEventListener('click', () => {
+            sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') === 'true' ? 'false' : 'true');
+            sw.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    });
+
     // Generic inputs that affect the submit script
     const submitInputIds = [
         'jobName','jobPartition','jobNodes','jobCpus','jobTasks','lmpCpus','jobGpus',
-        'jobTime','jobMem','jobArrayRange','jobArrayDir','jobMailUser',
+        'jobTime','jobMem','jobArrayRange','jobArrayDir','jobMailUser','sgePe',
         'gmxTopol','gmxStartConf','gmxIndex','gmxBinary','gpuNtmpi',
         'lmpInput','lmpLog'
     ];
@@ -2696,11 +2824,16 @@ document.addEventListener('DOMContentLoaded', () => {
     submitToggleIds.forEach(id => { const el = $(id); if (el) el.addEventListener('change', generateSubmitScript); });
 
     if ($('lmpAccel')) $('lmpAccel').addEventListener('change', generateSubmitScript);
+    if ($('jobScheduler')) $('jobScheduler').addEventListener('change', () => {
+        syncSchedulerUI();
+        generateSubmitScript();
+    });
 
     // PLUMED
     if ($('plumedVersion')) $('plumedVersion').addEventListener('change', () => {
         populatePlumedCVSelect();   // re-mark gated CVs
         renderPlumedCVList();       // doc links + any version-dependent notes
+        syncSchedulerUI();          // the badge names the target version
         generatePlumedScript();     // header comment + doc base
     });
     if ($('plumedCategory')) $('plumedCategory').addEventListener('change', populatePlumedCVSelect);
@@ -2716,19 +2849,15 @@ document.addEventListener('DOMContentLoaded', () => {
     ['plumedGrid','plumedRct','plumedWalkers'].forEach(id => {
         const el = $(id); if (el) el.addEventListener('change', generatePlumedScript);
     });
-    // Multiple-walkers mode: show the shared-directory fields only in disk mode.
-    if ($('plumedWalkersMode')) $('plumedWalkersMode').addEventListener('change', (e) => {
-        const w = $('plumedWalkersDisk');
-        if (w) toggleVisibility(w, e.target.value === 'disk');
+    if ($('plumedWalkersMode')) $('plumedWalkersMode').addEventListener('change', () => {
+        syncVisibility();
         generatePlumedScript();
     });
     ['plumedWalkersN','plumedWalkersId','plumedWalkersDir','plumedWalkersRstride'].forEach(id => {
         const el = $(id); if (el) el.addEventListener('input', generatePlumedScript);
     });
-    // WHOLEMOLECULES controls: toggle the sub-panel and regenerate.
-    if ($('plumedWhole')) $('plumedWhole').addEventListener('change', (e) => {
-        const w = $('plumedWholeWrap');
-        if (w) toggleVisibility(w, e.target.checked);
+    if ($('plumedWhole')) $('plumedWhole').addEventListener('change', () => {
+        syncVisibility();
         generatePlumedScript();
     });
     if ($('plumedWholeResidues')) $('plumedWholeResidues').addEventListener('change', generatePlumedScript);
@@ -2737,27 +2866,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // GROMACS + PLUMED coupling
     ['gmxUsePlumed','gmxPlumedScope'].forEach(id => {
         const el = $(id); if (el) el.addEventListener('change', () => {
-            const w = $('gmxPlumedWrap');
-            if (id === 'gmxUsePlumed' && w) w.classList.toggle('hidden', !$('gmxUsePlumed').checked);
+            syncVisibility();
             generateGromacsScript();
         });
     });
     if ($('gmxPlumedFile')) $('gmxPlumedFile').addEventListener('input', generateGromacsScript);
 
-    // Array show/hide
-    if ($('jobArrayToggle')) $('jobArrayToggle').addEventListener('change', (e) => toggleVisibility($('arraySettings'), e.target.checked));
-    if ($('usePartition'))   $('usePartition').addEventListener('change', (e) => {
-        const inp = $('jobPartition'); if (inp) inp.disabled = !e.target.checked;
-        const w = $('partitionWrap'); if (w) w.classList.toggle('opacity-40', !e.target.checked);
+    // Optional sections open and close with their switch.
+    ['jobArrayToggle', 'usePartition', 'useMail'].forEach(id => {
+        const el = $(id); if (el) el.addEventListener('change', syncVisibility);
     });
-    if ($('useMail')) $('useMail').addEventListener('change', (e) => toggleVisibility($('mailWrap'), e.target.checked));
 
     // GROMACS stage rows
     GMX_STAGES.forEach(key => {
         ['on','mdp','deffnm','posres'].forEach(suffix => {
             const el = $(`stage_${key}_${suffix}`);
             if (!el) return;
-            const evt = (el.type === 'checkbox') ? 'change' : 'input';
+            const evt = (el.type === 'checkbox' || el.getAttribute('role') === 'switch') ? 'change' : 'input';
             el.addEventListener(evt, generateGromacsScript);
         });
     });
@@ -2769,77 +2894,75 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if ($('topSolvent'))  $('topSolvent').addEventListener('change', generateTopologyHeader);
     if ($('topIncludes')) $('topIncludes').addEventListener('input', generateTopologyHeader);
-    if ($('topAdvancedToggle')) $('topAdvancedToggle').addEventListener('change', (e) => {
-        manualOverride = e.target.checked;
-        toggleVisibility($('topAdvancedPanel'), e.target.checked);
+    if ($('topAdvancedToggle')) $('topAdvancedToggle').addEventListener('change', () => {
+        manualOverride = isChecked('topAdvancedToggle');
+        syncVisibility();
         if (!manualOverride) applyForcefieldPreset();
         generateTopologyHeader();
     });
     if ($('topComb'))  $('topComb').addEventListener('change', generateTopologyHeader);
     if ($('topFudge')) $('topFudge').addEventListener('change', generateTopologyHeader);
 
+    // The sub-panels that open under a switch or a select, derived from the
+    // current state so restoring saved settings uses the same code path.
+    function syncVisibility() {
+        toggleVisibility($('arraySettings'), isChecked('jobArrayToggle'));
+        toggleVisibility($('partitionWrap'), isChecked('usePartition'));
+        toggleVisibility($('mailWrap'), isChecked('useMail'));
+        toggleVisibility($('gmxPlumedWrap'), isChecked('gmxUsePlumed'));
+        toggleVisibility($('topAdvancedPanel'), isChecked('topAdvancedToggle'));
+        toggleVisibility($('plumedWholeWrap'), isChecked('plumedWhole'));
+        toggleVisibility($('plumedWalkersDisk'), getStr('plumedWalkersMode', 'none') === 'disk');
+    }
+
     // =====================================================================
-    // Copy buttons
+    // Toasts, copy and download
     // =====================================================================
-    function showToast(message) {
+    function showToast(message, kind = '') {
         const c = $('toastContainer');
         if (!c) return;
         const toast = document.createElement('div');
-        toast.className = 'bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-xl transform transition-all duration-300 translate-y-[-20px] opacity-0';
-        toast.textContent = message;
+        toast.className = 'stk-toast' + (kind ? ` stk-toast-${kind}` : '');
+        toast.setAttribute('role', 'status');
+        const icon = kind === 'danger' ? 'fa-circle-exclamation' : kind === 'ok' ? 'fa-circle-check' : 'fa-circle-info';
+        toast.innerHTML = `<i class="fa-solid ${icon}"></i><span></span>`;
+        toast.querySelector('span').textContent = message;
         c.appendChild(toast);
-        requestAnimationFrame(() => {
-            toast.classList.remove('translate-y-[-20px]', 'opacity-0');
-            toast.classList.add('translate-y-0', 'opacity-100');
-        });
-        setTimeout(() => {
-            toast.classList.remove('translate-y-0', 'opacity-100');
-            toast.classList.add('translate-y-[-20px]', 'opacity-0');
-            setTimeout(() => toast.remove(), 300);
-        }, 2000);
+        setTimeout(() => toast.remove(), 3200);
     }
 
-    // Docked script preview (stacked layout): collapse/expand so the user can
-    // reclaim screen space for the settings without losing the script entirely.
-    if ($('dockToggle')) {
-        $('dockToggle').addEventListener('click', (e) => {
-            const col = $('outputColumn');
-            if (!col) return;
-            const collapsed = col.classList.toggle('dock-collapsed');
-            const btn = e.currentTarget;
-            btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-            const icon = btn.querySelector('i');
-            const text = btn.querySelector('.dock-toggle-text');
-            if (icon) icon.className = collapsed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
-            if (text) text.textContent = collapsed ? 'Show' : 'Hide';
-        });
+    // The pane holds coloured spans; textContent is the plain file.
+    const outputText = (id) => ($(id) ? $(id).textContent : '');
+
+    function downloadText(text, filename, type = 'text/plain') {
+        const url = URL.createObjectURL(new Blob([text], { type }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
     document.querySelectorAll('.copy-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            const targetId = e.currentTarget.getAttribute('data-target');
-            const node = $(targetId);
-            if (!node) return;
-            const code = node.textContent;
             const el = e.currentTarget;
-
+            const code = outputText(el.getAttribute('data-target'));
+            const originalHTML = el.innerHTML;
             const done = () => {
-                showToast('Code copied to clipboard!');
-                const originalHTML = el.innerHTML;
-                el.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
-                el.classList.replace('bg-slate-800', 'bg-emerald-600');
-                el.classList.remove('hover:bg-slate-700');
+                el.innerHTML = '<i class="fa-solid fa-check"></i> Copied';
+                el.setAttribute('aria-pressed', 'true');
                 setTimeout(() => {
                     el.innerHTML = originalHTML;
-                    el.classList.replace('bg-emerald-600', 'bg-slate-800');
-                    el.classList.add('hover:bg-slate-700');
+                    el.removeAttribute('aria-pressed');
                 }, 2000);
             };
             const fallbackCopy = () => {
                 const ta = document.createElement('textarea');
                 ta.value = code; ta.style.position = 'fixed'; ta.style.opacity = '0';
                 document.body.appendChild(ta); ta.select();
-                try { document.execCommand('copy'); done(); } catch (_) {}
+                try { document.execCommand('copy'); done(); } catch (_) { showToast('Copy failed. Select the text and copy it by hand.', 'danger'); }
                 document.body.removeChild(ta);
             };
             if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -2848,9 +2971,258 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    document.querySelectorAll('.download-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const el = e.currentTarget;
+            downloadText(outputText(el.getAttribute('data-target')), el.getAttribute('data-filename') || 'output.txt');
+        });
+    });
+
+    // =====================================================================
+    // Saved settings: localStorage, export and import
+    // =====================================================================
+    // One key holds every field on the page plus the PLUMED builder state,
+    // written a moment after each change and read back on load. The same
+    // object, with a version, is what Export writes and Import reads.
+    const STORAGE_KEY = 'stemkit.script-generator';
+    const SETTINGS_VERSION = 1;
+    let saveTimer = null;
+
+    function settingsFields() {
+        return Array.from(document.querySelectorAll(
+            '#builderLayout input[id], #builderLayout select[id], #builderLayout textarea[id], #builderLayout [role="switch"][id]'
+        )).filter(el => !(el.tagName === 'INPUT' && (el.type === 'file' || el.type === 'button')));
+    }
+
+    function fieldValue(el) {
+        if (el.getAttribute('role') === 'switch') return el.getAttribute('aria-checked') === 'true';
+        if (el.type === 'checkbox') return el.checked;
+        return el.value;
+    }
+
+    function setFieldValue(el, value) {
+        if (el.getAttribute('role') === 'switch') { el.setAttribute('aria-checked', value ? 'true' : 'false'); return; }
+        if (el.type === 'checkbox') { el.checked = !!value; return; }
+        if (el.tagName === 'SELECT') {
+            const v = String(value);
+            if (Array.from(el.options).some(o => o.value === v)) el.value = v;
+            return;
+        }
+        el.value = value == null ? '' : String(value);
+    }
+
+    function serialiseSettings() {
+        const fields = {};
+        settingsFields().forEach(el => { fields[el.id] = fieldValue(el); });
+        return {
+            tool: 'script-generator',
+            version: SETTINGS_VERSION,
+            engine: currentEngine,
+            fields,
+            plumed: {
+                seq: plumedCVSeq,
+                cvs: plumedCVs.map(c => ({
+                    id: c.id, type: c.type, label: c.label, bias: c.bias, isGroup: c.isGroup,
+                    noBias: c.noBias, values: { ...c.values }, biasValues: { ...c.biasValues }
+                })),
+                bias: JSON.parse(JSON.stringify(plumedBiasVals))
+            }
+        };
+    }
+
+    // Unknown keys are ignored: a file from a newer page, or one with a
+    // field this page no longer has, still restores everything it can.
+    function applySettings(data) {
+        if (!data || typeof data !== 'object') return false;
+        const fields = data.fields && typeof data.fields === 'object' ? data.fields : {};
+        settingsFields().forEach(el => {
+            if (Object.prototype.hasOwnProperty.call(fields, el.id)) setFieldValue(el, fields[el.id]);
+        });
+
+        const p = data.plumed && typeof data.plumed === 'object' ? data.plumed : {};
+        plumedCVs = Array.isArray(p.cvs) ? p.cvs
+            .filter(c => c && PLUMED_CV_DEFS[c.type] && typeof c.id === 'string')
+            .map(c => {
+                const def = PLUMED_CV_DEFS[c.type];
+                return {
+                    id: c.id,
+                    type: c.type,
+                    label: String(c.label || c.id),
+                    bias: !def.isGroup && !def.noBias && c.bias !== false,
+                    isGroup: !!def.isGroup,
+                    noBias: !!def.noBias,
+                    values: c.values && typeof c.values === 'object' ? { ...c.values } : {},
+                    biasValues: { comp: '', min: '0.0', max: '10.0', bin: '200', sigma: '0.1',
+                                  ...(c.biasValues && typeof c.biasValues === 'object' ? c.biasValues : {}) }
+                };
+            }) : [];
+        plumedCVSeq = Math.max(
+            Number.isInteger(p.seq) ? p.seq : 0,
+            ...plumedCVs.map(c => parseInt(String(c.id).replace(/^cv/, ''), 10) || 0)
+        );
+        Object.keys(plumedBiasVals).forEach(k => { delete plumedBiasVals[k]; });
+        if (p.bias && typeof p.bias === 'object') {
+            Object.keys(p.bias).forEach(method => {
+                if (PLUMED_BIAS_DEFS[method] && p.bias[method] && typeof p.bias[method] === 'object') {
+                    plumedBiasVals[method] = { ...p.bias[method] };
+                }
+            });
+        }
+
+        manualOverride = isChecked('topAdvancedToggle');
+        if (!manualOverride) applyForcefieldPreset();
+        syncVisibility();
+        const engine = ['gromacs', 'lammps', 'plumed'].includes(data.engine) ? data.engine : 'gromacs';
+        switchEngine(engine);
+        return true;
+    }
+
+    function saveSettings() {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(serialiseSettings())); } catch (_) { /* storage may be unavailable */ }
+    }
+    function scheduleSave() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(saveSettings, 300);
+    }
+    function loadSettings() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return null;
+            const data = JSON.parse(raw);
+            return data && data.tool === 'script-generator' ? data : null;
+        } catch (_) { return null; }
+    }
+
+    // Field edits bubble up from anywhere in the builder, including the
+    // PLUMED cards built at run time; engine changes save from switchEngine.
+    $('builderLayout')?.addEventListener('input', scheduleSave);
+    $('builderLayout')?.addEventListener('change', scheduleSave);
+    $('builderLayout')?.addEventListener('click', (e) => {
+        if (e.target.closest('button')) scheduleSave();
+    });
+
+    const defaultSettings = serialiseSettings();
+
+    if ($('exportSettings')) $('exportSettings').addEventListener('click', () => {
+        saveSettings();
+        downloadText(JSON.stringify(serialiseSettings(), null, 2), 'md-workflow-settings.json', 'application/json');
+    });
+    if ($('importSettings')) $('importSettings').addEventListener('click', () => $('importSettingsFile')?.click());
+    if ($('importSettingsFile')) $('importSettingsFile').addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (!file) return;
+        file.text().then(text => {
+            let data;
+            try { data = JSON.parse(text); } catch (_) {
+                showToast(`${file.name} is not valid JSON.`, 'danger');
+                return;
+            }
+            if (!data || data.tool !== 'script-generator') {
+                showToast(`${file.name} is not a settings file from this tool.`, 'danger');
+                return;
+            }
+            if (Number(data.version) > SETTINGS_VERSION) {
+                showToast(`Settings version ${data.version} is newer than this page understands; unknown settings were ignored.`, 'warn');
+            }
+            applySettings(data);
+            saveSettings();
+            showToast(`Settings imported from ${file.name}.`, 'ok');
+        }).catch(() => showToast(`Could not read ${file.name}.`, 'danger'));
+    });
+    if ($('resetSettings')) $('resetSettings').addEventListener('click', () => {
+        try { localStorage.removeItem(STORAGE_KEY); } catch (_) { /* nothing to clear */ }
+        applySettings(defaultSettings);
+        showToast('Settings reset to the defaults.', 'ok');
+    });
+
+    // =====================================================================
+    // Output column: split handle and the "View script" button
+    // =====================================================================
+    // Drag the handle between the two panes to trade height between them;
+    // arrow keys do the same from the keyboard. Only active side by side.
+    (function wireSplit() {
+        const handle = $('outputSplit');
+        const column = $('outputColumn');
+        const top = $('topologyOutputBox');
+        if (!handle || !column || !top) return;
+        const setHeight = (px) => {
+            const max = column.clientHeight * 0.7;
+            const h = Math.min(max, Math.max(112, px));
+            top.style.setProperty('--sg-top-h', `${Math.round(h)}px`);
+        };
+        let startY = 0, startH = 0;
+        const onMove = (e) => setHeight(startH + (startY - e.clientY));
+        const onUp = () => {
+            handle.classList.remove('is-dragging');
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+        };
+        handle.addEventListener('pointerdown', (e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            startY = e.clientY;
+            startH = top.getBoundingClientRect().height;
+            handle.classList.add('is-dragging');
+            window.addEventListener('pointermove', onMove);
+            window.addEventListener('pointerup', onUp);
+        });
+        handle.addEventListener('keydown', (e) => {
+            if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+            e.preventDefault();
+            setHeight(top.getBoundingClientRect().height + (e.key === 'ArrowUp' ? 24 : -24));
+        });
+    })();
+
+    // A sticky column sized to the viewport overflows it until the page has
+    // scrolled far enough for the column to stick, so size it from where it
+    // actually is: what is left below its top edge, up to the sticky height.
+    (function wireStickyHeight() {
+        const column = $('outputColumn');
+        if (!column) return;
+        const wide = window.matchMedia('(min-width: 1024px)');
+        let frame = 0;
+        const update = () => {
+            frame = 0;
+            if (!wide.matches) { column.style.removeProperty('--sg-col-h'); return; }
+            const stickyTop = parseFloat(getComputedStyle(column).top) || 0;
+            const top = Math.max(column.getBoundingClientRect().top, stickyTop);
+            column.style.setProperty('--sg-col-h', `${Math.round(window.innerHeight - top - 16)}px`);
+        };
+        const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+        window.addEventListener('scroll', schedule, { passive: true });
+        window.addEventListener('resize', schedule);
+        update();
+    })();
+
+    // Shown only while the form is on screen and the output is not, so it
+    // neither covers the script nor follows the reader into the documentation.
+    (function wireJump() {
+        const btn = $('viewScript');
+        const column = $('outputColumn');
+        const settings = $('settingsColumn');
+        if (!btn || !column || !settings || !('IntersectionObserver' in window)) return;
+        const seen = { settings: false, output: false };
+        const apply = () => { btn.hidden = window.innerWidth >= 1024 || seen.output || !seen.settings; };
+        const watch = (el, key) => new IntersectionObserver((entries) => {
+            seen[key] = entries.some(en => en.isIntersecting);
+            apply();
+        }, { threshold: 0.02 }).observe(el);
+        watch(settings, 'settings');
+        watch(column, 'output');
+        window.addEventListener('resize', apply);
+        btn.addEventListener('click', () => column.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    })();
+
     // =====================================================================
     // Init
     // =====================================================================
-    applyForcefieldPreset();
-    switchEngine('gromacs');
+    const saved = loadSettings();
+    if (saved) {
+        applySettings(saved);
+    } else {
+        applyForcefieldPreset();
+        syncVisibility();
+        switchEngine('gromacs');
+    }
 });
