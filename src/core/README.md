@@ -78,7 +78,7 @@ registerFromGlobals();
 ```
 
 Modules needing no registration: `xvg-parser`, `structure`, `slurm`,
-`digitizer`, `latex`, `units`.
+`scheduler`, `digitizer`, `latex`, `units`.
 
 ## Modules
 
@@ -90,6 +90,7 @@ Modules needing no registration: `xvg-parser`, `structure`, `slurm`,
 | `curve-fitting` | Least-squares fitting with goodness-of-fit and adequacy checks | regression.js |
 | `structure` | PDB/GRO/XYZ parsing, centre of mass, R<sub>g</sub>, rotations, format conversion |, |
 | `slurm` | SLURM batch-script generation for GROMACS and LAMMPS |, |
+| `scheduler` | Directive headers, environment variables and launchers for SLURM, PBS Pro / OpenPBS, LSF and Grid Engine |, |
 | `plumed` | PLUMED input generation, version gating, CV validation |, |
 | `selection` | Atom selection language, spatial neighbour queries |, |
 | `units` | 64 units across 10 categories, CODATA 2018 / SI 2019 |, |
@@ -141,6 +142,25 @@ warnings.forEach(w => console.warn(`[${w.level}] ${w.message}`));
 writeFileSync('submit.sh', script);
 ```
 
+The same request for another scheduler: `buildHeader` translates the
+directives, `launcher` and `envVars` give the matching launch prefix and
+variable names, and `submitCommand` says how the file is submitted (`bsub <
+submit.sh` for LSF, which reads `#BSUB` lines from standard input only).
+
+```js
+import { buildHeader, launcher, submitCommand } from './src/core/index.js';
+
+const { script, warnings } = buildHeader({
+  scheduler: 'pbs', engine: 'lammps', jobName: 'melt',
+  nodes: 2, tasksPerNode: 16, walltime: '1-12:00:00', memory: '64G'
+});
+// #PBS -l select=2:ncpus=16:mpiprocs=16:ompthreads=1:mem=64gb
+// #PBS -l place=scatter
+// #PBS -l walltime=36:00:00
+console.log(launcher('pbs'));         // mpirun -np $(wc -l < "$PBS_NODEFILE")
+console.log(submitCommand('pbs'));    // qsub submit.sh
+```
+
 ### Statistics with assumption checks
 
 ```js
@@ -160,7 +180,7 @@ npm test                # full suite
 npm run test:coverage   # with coverage
 ```
 
-The suite comprises 1077 tests across all 16 domain modules (`src/core` also holds the aggregate
+The suite comprises 1128 tests across all 17 domain modules (`src/core` also holds the aggregate
 export and the injection layer, which carry no domain logic). Numerical results are validated against
 independent references rather than against the implementation itself:
 
