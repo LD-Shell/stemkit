@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fmt = (x) => (Number.isInteger(x) ? x : x.toPrecision(5));
     const cell = (label, value) =>
-      `<div class="px-2"><span class="block text-[10px] uppercase tracking-wider text-slate-400">${label}</span>
+      `<div class="px-2"><span class="block text-[11px] uppercase tracking-wider text-slate-400">${label}</span>
        <span class="font-mono font-semibold">${value}</span></div>`;
 
     colStats.innerHTML =
