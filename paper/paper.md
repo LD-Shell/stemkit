@@ -39,8 +39,8 @@ of parsing and numerical routines with no DOM dependency. All computation runs
 inside the user's own browser: nothing is transmitted, no account is required
 and nothing is installed, so the tools stay usable for unpublished or
 confidential data. The same modules run under Node.js, so an interactive
-analysis can be captured as a version-pinned script. The 16 domain modules carry
-1077 tests validated against SciPy, NumPy
+analysis can be captured as a version-pinned script. The 17 domain modules carry
+1128 tests validated against SciPy, NumPy
 and physical invariants rather than against the implementation itself. That
 validation exposed four defects that had been altering reported results, among
 them *p*-values floored at zero and the mass of haem iron taken as fluorine's.
@@ -184,7 +184,7 @@ enumerates the modules.
 ┌───────────────────────────────┐   ┌───────────────────────────────┐
 │        Browser host           │   │         Node.js host          │
 │  21 static HTML/CSS pages     │   │  user analysis scripts        │
-│  DOM wiring only;             │   │  1077-test Jest suite;        │
+│  DOM wiring only;             │   │  1128-test Jest suite;        │
 │  FileReader input             │   │  smoke test                   │
 │  UMD bundles via <script>     │   │  UMD bundles: createRequire   │
 └───────────────┬───────────────┘   └───────────────┬───────────────┘
@@ -193,7 +193,7 @@ enumerates the modules.
                                   ▼
         ┌─────────────────────────────────────────────────┐
         │                 @stemkit/core                   │
-        │  16 DOM-free domain modules, aggregated by      │
+        │  17 DOM-free domain modules, aggregated by      │
         │  src/core/index.js                              │
         └─────────────────────────┬───────────────────────┘
                                   ▼
@@ -226,15 +226,16 @@ injection; modules marked *none* operate without any third-party code.
 | `units` | Physical unit conversion | 73 | none |
 | `plumed` | PLUMED input generation | 72 | none |
 | `selection` | Atom selection, spatial queries | 67 | none |
-| `slurm` | HPC job-script generation | 61 | none |
+| `slurm` | SLURM job scripts, resource checks | 61 | none |
 | `latex` | Table generation and escaping | 59 | none |
 | `error-bars` | Group summaries, error bars | 57 | jStat |
 | `journals` | Whole-title journal abbreviation | 53 | none |
 | `data-cleaning` | Tabular transformation | 51 | Papa Parse |
 | `outliers` | Anomaly detection | 51 | jStat |
+| `scheduler` | Scheduler directives and launchers | 51 | none |
 | `digitizer` | Figure digitisation | 49 | none |
 | `iso4` | ISO 4 word-level abbreviation (LTWA) | 44 | none |
-| **Total** | | **1077** | |
+| **Total** | | **1128** | |
 
 Four third-party libraries are vendored within the repository: jStat for
 statistical distributions, Papa Parse for delimited-text parsing, regression.js
@@ -262,7 +263,7 @@ under that interpretation the UMD factory takes its browser branch and fails.
 Scoping `"type": "commonjs"` to the dependency directory alone restores correct
 behaviour.
 
-The test suite comprises 1077 tests across the 16 domain modules, with 93.9%
+The test suite comprises 1128 tests across the 17 domain modules, with 94.1%
 statement and 97.6% line coverage of `src/core/`. Its governing
 principle is that numerical results are validated against *independent*
 references rather than against the implementation under test, since a test
@@ -275,7 +276,7 @@ molecular weight and
 centre of mass of water, the orthonormality of rotation matrices, the
 preservation of interatomic distances under rotation, and round-trip fidelity
 through every supported file format. An end-to-end smoke test additionally
-exercises one representative path through fifteen of the sixteen modules against
+exercises one representative path through fifteen of the seventeen modules against
 a real installation, detecting the class of failure that unit tests cannot: a broken
 aggregate export, a misconfigured module type declaration, or a vendored bundle
 that fails to load.
@@ -294,7 +295,7 @@ aids and are excluded.
 | XVG visualiser | `xvg-parser` | Plot GROMACS/PLUMED series with recovered axis metadata |
 | Structure inspector | `structure`, `selection` | Geometry, mass breakdown, atom selection, 3D view |
 | Coordinate manipulator | `structure` | Translate, rotate, re-box; PDB/GRO/XYZ interconversion |
-| MD workflow generator | `slurm`, `plumed` | SLURM scripts for GROMACS and LAMMPS; PLUMED input |
+| MD workflow generator | `slurm`, `scheduler`, `plumed` | Batch scripts for GROMACS and LAMMPS on four schedulers; PLUMED input |
 | Statistics calculator | `statistics` | t-tests, ANOVA, correlation, non-parametric tests, assumption checks |
 | Error-bar generator | `error-bars` | Group summaries, error bars, significance annotation |
 | Outlier detector | `outliers` | Tukey fences, modified $Z$-score, Grubbs' test |
@@ -503,7 +504,16 @@ checkpoint-resume logic, so a requeued job continues from its last checkpoint
 rather than silently restarting from $t = 0$, a failure mode that consumes an
 entire allocation while appearing to succeed. Warnings are returned as
 structured objects rather than formatted strings, leaving presentation to the
-caller. The remaining modules support manuscript preparation: LaTeX and Markdown
+caller.
+
+A single resource request is emitted for any of four schedulers, SLURM, PBS
+Professional/OpenPBS, LSF and Grid Engine, because the same allocation is
+expressed by different directives, environment variables and launch commands on
+each; values that are site-dependent, among them the queue name, the name of
+the parallel environment and the resource under which GPUs are requested, are
+marked as such in the generated script rather than guessed.
+
+The remaining modules support manuscript preparation: LaTeX and Markdown
 table generation with correct escaping, ISO-4 journal title abbreviation, and
 BibTeX deduplication by union-find over normalised DOIs and titles.
 
@@ -725,13 +735,13 @@ results to a third-party service.
 ## 5. Conclusions
 
 STEMKit is a suite of 18 browser-based tools for computational chemistry built on
-a tested, dependency-injected JavaScript core of 16 modules. The architecture
+a tested, dependency-injected JavaScript core of 17 modules. The architecture
 addresses three constraints simultaneously that existing tooling addresses only
 in pairs: it requires no installation, transmits no data and remains scriptable.
 
 Both properties are structural rather than contractual: computation occurs
 entirely within the browser, and the modules behind the interface are the ones
-that run under Node.js. The 1077-test suite validates every numerical result
+that run under Node.js. The 1128-test suite validates every numerical result
 against an independent reference, and the four defects that this
 strategy exposed (deflated standardised moments, tail probabilities floored at
 zero, misassigned elements in metalloproteins, and an adjusted moment fed into a
