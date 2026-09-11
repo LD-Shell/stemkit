@@ -81,6 +81,12 @@ Comments should explain why something is the way it is, particularly where the
 obvious approach was wrong. Comments restating what the next line does are
 noise.
 
+Styles follow `docs/CSS.md`: colours and sizes come from the tokens in
+`src/tailwind/input.css`, shared components are preferred over new per-tool
+classes, and no page loads a stylesheet, font or script from another host, so
+every tool keeps working offline. Check a change at 375, 768, 1280 and
+1920 px in both themes before opening a pull request.
+
 ## Pull requests
 
 Keep them focused; a reviewer can assess one change well and five changes
