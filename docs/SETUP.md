@@ -31,8 +31,8 @@ node tests/smoke.mjs   # end-to-end against a real install
 ```
 
 The smoke test catches what unit tests cannot: a broken aggregate export, a
-mis-scoped `type` field, a vendored bundle that fails to load. It covers 15 of
-16 modules; `iso4` postdates it and has no case yet.
+mis-scoped `type` field, a vendored bundle that fails to load. It calls into 15
+of the 17 modules; `iso4` and `journals` have no case yet.
 
 ## Layout
 
