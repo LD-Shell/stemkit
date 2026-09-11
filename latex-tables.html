@@ -42,12 +42,11 @@
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp">
 
-    <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="https://stemkit.net/assets/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="https://stemkit.net/assets/favicon-16x16.png">
-    <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/all.min.css">
     
 
@@ -139,7 +138,7 @@
                 <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col flex-grow">
                     <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2">1. Paste Data Matrix</h2>
                     <textarea id="dataInput" class="w-full flex-grow bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-teal-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" placeholder="Paste data here from Excel, Numbers, or CSV...&#10;&#10;Column A&#9;Column B&#9;Column C&#10;Data 1&#9;Data 2&#9;Data 3"></textarea>
-                    <p class="text-[10px] text-slate-400 mt-2"><i class="fa-solid fa-circle-info mr-1"></i> First row is automatically treated as the header.</p>
+                    <p class="text-[11px] text-slate-400 mt-2"><i class="fa-solid fa-circle-info mr-1"></i> First row is automatically treated as the header.</p>
                 </div>
 
                 <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
@@ -150,7 +149,7 @@
                     <div id="settingsContent" class="accordion-content expanded px-4 pb-4 pt-2">
                         <div class="grid grid-cols-2 gap-3 mb-3">
                             <div>
-                                <span class="text-[10px] font-bold text-slate-500 uppercase">Environment</span>
+                                <span class="text-[11px] font-bold text-slate-500 uppercase">Environment</span>
                                 <select id="envSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs mt-1">
                                     <option value="table">table (Standard)</option>
                                     <option value="table*">table* (Full width)</option>
@@ -158,7 +157,7 @@
                                 </select>
                             </div>
                             <div>
-                                <span class="text-[10px] font-bold text-slate-500 uppercase">Style Protocol</span>
+                                <span class="text-[11px] font-bold text-slate-500 uppercase">Style Protocol</span>
                                 <select id="styleSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs mt-1">
                                     <option value="booktabs">Booktabs (Academic)</option>
                                     <option value="standard">Standard Lines</option>
@@ -168,7 +167,7 @@
                         </div>
 
                         <div class="mb-3">
-                            <span class="text-[10px] font-bold text-slate-500 uppercase">Global Alignment</span>
+                            <span class="text-[11px] font-bold text-slate-500 uppercase">Global Alignment</span>
                             <div class="flex gap-2 mt-1">
                                 <label class="flex items-center gap-1 text-xs cursor-pointer"><input type="radio" name="align" value="l" class="text-teal-600"> Left</label>
                                 <label class="flex items-center gap-1 text-xs cursor-pointer"><input type="radio" name="align" value="c" checked class="text-teal-600"> Center</label>
@@ -177,12 +176,12 @@
                         </div>
 
                         <div class="mb-3">
-                            <span class="text-[10px] font-bold text-slate-500 uppercase">Caption</span>
+                            <span class="text-[11px] font-bold text-slate-500 uppercase">Caption</span>
                             <input type="text" id="captionInput" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs mt-1" placeholder="Enter table caption...">
                         </div>
                         
                         <div>
-                            <span class="text-[10px] font-bold text-slate-500 uppercase">Reference Label</span>
+                            <span class="text-[11px] font-bold text-slate-500 uppercase">Reference Label</span>
                             <input type="text" id="labelInput" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs mt-1 font-mono" placeholder="tab:my_table">
                         </div>
                     </div>
