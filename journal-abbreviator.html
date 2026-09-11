@@ -42,12 +42,11 @@
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp">
 
-    <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="https://stemkit.net/assets/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="https://stemkit.net/assets/favicon-16x16.png">
-    <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/all.min.css">
     
 
@@ -138,8 +137,8 @@
                 <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col flex-grow">
                     <div class="flex justify-between items-center mb-2">
                         <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Raw Input</h2>
-                        <button id="btnExample" class="text-[10px] text-slate-400 hover:text-pink-500 uppercase font-bold transition-colors mr-3">Example</button>
-                        <button id="btnClear" class="text-[10px] text-slate-400 hover:text-red-500 uppercase font-bold transition-colors">Clear</button>
+                        <button id="btnExample" class="text-[11px] text-slate-400 hover:text-pink-500 uppercase font-bold transition-colors mr-3">Example</button>
+                        <button id="btnClear" class="text-[11px] text-slate-400 hover:text-red-500 uppercase font-bold transition-colors">Clear</button>
                     </div>
                     <textarea id="dataInput" class="w-full flex-grow bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-pink-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" spellcheck="false" placeholder="Paste bibliography here...&#10;&#10;E.g., Smith, J. et al., Journal of the American Chemical Society, 2024."></textarea>
                 </div>
@@ -149,7 +148,7 @@
                         <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
                             <i class="fa-solid fa-pen-to-square text-pink-500 mr-1"></i> Custom abbreviations
                         </span>
-                        <span id="dictLabel" class="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded font-mono"></span>
+                        <span id="dictLabel" class="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 text-[11px] px-2 py-0.5 rounded font-mono"></span>
                     </summary>
                     <p class="text-xs text-slate-400 mt-3 mb-2 leading-relaxed">
                         One rule per line: <code class="text-pink-500">Full Journal Name = Abbrev.</code>, lines starting with <code>#</code> are ignored.
@@ -165,7 +164,7 @@
                     <div class="bg-slate-950 px-4 py-3 flex justify-between items-center border-b border-slate-800 shrink-0">
                         <div class="flex items-center gap-3">
                             <span class="text-sm font-bold text-pink-400 uppercase tracking-wider font-mono">Abbreviated Output</span>
-                            <span id="statsLabel" class="bg-slate-800 text-slate-300 text-[10px] px-2 py-0.5 rounded font-mono">0 Changes</span>
+                            <span id="statsLabel" class="bg-slate-800 text-slate-300 text-[11px] px-2 py-0.5 rounded font-mono">0 Changes</span>
                         </div>
                         <div class="flex gap-2">
                             <label class="flex items-center gap-2 text-xs font-bold text-slate-400 cursor-pointer mr-2">
