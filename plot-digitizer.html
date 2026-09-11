@@ -49,12 +49,11 @@
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp">
 
-    <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="https://stemkit.net/assets/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="https://stemkit.net/assets/favicon-16x16.png">
-    <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
     
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/all.min.css">
     
 
@@ -238,7 +237,7 @@
                                 </div>
                                 
                                 <div id="eraseControls" class="hidden flex-col gap-1 mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-800">
-                                    <div class="flex justify-between text-[10px] font-bold text-red-800 dark:text-red-300">
+                                    <div class="flex justify-between text-[11px] font-bold text-red-800 dark:text-red-300">
                                         <span>Eraser radius (px)</span>
                                         <span id="eraseRadiusVal">10</span>
                                     </div>
@@ -255,17 +254,17 @@
                             <div id="plotContent" class="accordion-content px-4 pb-4">
                                 <div class="grid grid-cols-2 gap-2 mb-2">
                                     <div>
-                                        <span class="text-[10px] font-bold text-slate-500 uppercase">X-Axis Label</span>
+                                        <span class="text-[11px] font-bold text-slate-500 uppercase">X-Axis Label</span>
                                         <input type="text" id="pyXLabel" value="Distance (Å)" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs">
                                     </div>
                                     <div>
-                                        <span class="text-[10px] font-bold text-slate-500 uppercase">Y-Axis Label</span>
+                                        <span class="text-[11px] font-bold text-slate-500 uppercase">Y-Axis Label</span>
                                         <input type="text" id="pyYLabel" value="Density (g/cm³)" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs">
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2 mb-2">
                                     <div>
-                                        <span class="text-[10px] font-bold text-slate-500 uppercase">Dimensions (Inches)</span>
+                                        <span class="text-[11px] font-bold text-slate-500 uppercase">Dimensions (Inches)</span>
                                         <div class="flex items-center gap-1">
                                             <input type="number" id="pyFigWidth" value="8" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center" placeholder="W">
                                             <span class="text-xs text-slate-400">x</span>
@@ -273,7 +272,7 @@
                                         </div>
                                     </div>
                                     <div>
-                                        <span class="text-[10px] font-bold text-slate-500 uppercase">Plot Layout</span>
+                                        <span class="text-[11px] font-bold text-slate-500 uppercase">Plot Layout</span>
                                         <select id="pyPlotLayout" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs">
                                             <option value="single">Single plot</option>
                                             <option value="subplots">Separate subplots</option>
@@ -301,7 +300,7 @@
 
                     <div class="mt-auto p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3 rounded-b-3xl">
                         <div>
-                            <span class="text-[10px] font-bold text-slate-500 uppercase">Output filename</span>
+                            <span class="text-[11px] font-bold text-slate-500 uppercase">Output filename</span>
                             <div class="flex items-center mt-1 relative">
                                 <input type="text" id="csvFilename" value="extracted_data" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm pr-12 focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow">
                                 <span class="absolute right-3 text-slate-400 text-sm font-mono">.csv</span>
