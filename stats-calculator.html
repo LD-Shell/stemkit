@@ -41,11 +41,10 @@
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp">
 
-    <link rel="icon" type="image/x-icon" href="https://stemkit.net/assets/favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="https://stemkit.net/assets/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="https://stemkit.net/assets/favicon-16x16.png">
-    <link rel="apple-touch-icon" href="https://stemkit.net/assets/apple-touch-icon.png">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
     <link rel="stylesheet" href="css/all.min.css">
     
     <link rel="stylesheet" href="css/dependencies/katex.min.css">
@@ -185,9 +184,9 @@
                 <textarea id="dataInput" class="w-full flex-grow min-h-[300px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none resize-y" placeholder="Paste data here (columns separated by tabs or commas)...&#10;Group A&#9;Group B&#10;4.5&#9;6.1&#10;5.1&#9;5.8&#10;4.9&#9;6.3"></textarea>
 
                 <div class="mt-4 flex flex-wrap items-center gap-3">
-                    <div class="flex items-center gap-2">
-                        <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Format</label>
-                        <select id="formatSelect" class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <div class="flex items-center gap-2 min-w-0 max-w-full">
+                        <label for="formatSelect" class="text-xs font-bold text-slate-500 uppercase tracking-wider">Format</label>
+                        <select id="formatSelect" class="min-w-0 max-w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
                             <option value="auto">Auto-detect</option>
                             <option value="wide">Wide (one column per group)</option>
                             <option value="long">Long / tidy (value + group columns)</option>
