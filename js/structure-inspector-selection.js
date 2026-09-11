@@ -47,6 +47,30 @@
  *
  * The `SpatialGrid` and `dist2` definitions near the top of the file can then
  * be deleted; this module re-exports the tested versions.
+ *
+ * ## Why it is not applied yet
+ *
+ * A side-by-side reading of the two parsers found five places where the core
+ * would answer a query differently from the page, so switching would change
+ * what a selection returns. Each needs settling in `core/selection` first:
+ *
+ *   - `byres:1` and `expand:N` are page tokens (the syntax table gives
+ *     `within:5,resn:HEM byres:1` as a worked example); `compileSelection`
+ *     has no such keys and treats them as attribute matches on a field that
+ *     does not exist, so the query selects nothing.
+ *   - `hetero:1` is the HETATM flag on the page; the core defines it by
+ *     residue name and excludes water.
+ *   - The named sets differ both ways: the page's protein set includes SEC
+ *     and PYL, the core's does not; the page's ion set includes ION.
+ *   - The page reads the unit from the `#queryUnit` control; this adapter
+ *     reads only `opts.unit`, so a nanometre query would silently become
+ *     angstrom.
+ *   - Core attribute matching is case-insensitive, while the syntax table
+ *     states that `elem` is case-sensitive, and chain identifiers can be
+ *     case-distinct in assemblies.
+ *
+ * Note also that 3Dmol's GRO parser scales to angstrom on load, so the
+ * `within:` unit hazard described above does not arise in the viewer itself.
  */
 
 import {
