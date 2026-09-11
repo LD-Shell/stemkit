@@ -32,6 +32,12 @@ import {
 
 document.addEventListener('DOMContentLoaded', () => {
 
+  // The nav's toggle only writes the preference; nothing on this page read it
+  // back, so a visitor who chose dark elsewhere arrived here in light.
+  try {
+    document.documentElement.classList.toggle('dark', localStorage.getItem('theme') === 'dark');
+  } catch (e) { /* private mode */ }
+
   // --- 1. State ---
   const state = {
     atoms: [],
@@ -59,16 +65,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const uploadZone = $('uploadZone');
   const fileInput = $('fileInput');
+  const chooseFileBtn = $('chooseFileBtn');
+  const dropStatus = $('dropStatus');
+  const dropStatusText = $('dropStatusText');
+  const dropIndicator = $('dropIndicator');
   const workspace = $('workspace');
   const outputArea = $('coordOutput');
   const exportFormat = $('exportFormat');
-  const unitNote = $('transUnitNote');
   const boxNote = $('boxSource');
-  const warningBox = $('previewNote');
+  const boxNoteIcon = $('boxSourceIcon');
+  const boxNoteText = $('boxSourceText');
 
   const btnShowAll = $('btnShowAll');
   const btnUndo = $('btnUndo');
   const btnRedo = $('btnRedo');
+  const btnCloseWorkspace = $('btnCloseWorkspace');
   const massDetail = $('massDetail');
   const massTable = $('massTable');
   const massAssumptions = $('massAssumptions');
@@ -77,13 +88,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const showBox = $('showBox');
   const editconfOut = $('editconfOut');
   const editconfNotes = $('editconfNotes');
+  const editconfNotesList = $('editconfNotesList');
   const btnCopyEditconf = $('btnCopyEditconf');
   const fileNameInput = $('exportName');
+  const exportFileName = $('exportFileName');
+  const exportUnitNote = $('exportUnitNote');
   const viewerCanvas = $('viewerCanvas');
   const viewerStyle = $('viewerStyle');
   const viewerNote = $('viewerNote');
   const viewerFallback = $('viewerFallback');
   const btnViewerReset = $('btnViewerReset');
+  const previewPanel = $('previewPanel');
+  const previewFormat = $('previewFormat');
+  const previewCount = $('previewCount');
+  const previewWarn = $('previewWarn');
+  const previewBusy = $('previewBusy');
+  const previewBusyText = $('previewBusyText');
 
   // The statistics panel is a set of individual fields rather than one block,
   // so each is written separately.
@@ -92,7 +112,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const statMassCenter = $('statMassCenter');
   const statMolWeight = $('statMolWeight');
   const statBoundingBox = $('statBoundingBox');
-  const systemFormatLabel = $('systemFormatLabel');
+  const fileLabel = $('fileLabel');
+  const formatBadge = $('formatBadge');
+  const unitBadge = $('unitBadge');
+  const sourceUnitLabels = document.querySelectorAll('.cm-src-unit');
 
   const rotX = $('rotX');
   const rotY = $('rotY');
@@ -110,107 +133,209 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnTranslate = $('btnApplyTrans');
   const btnCentre = $('btnCenterSys');
   const centerMode = $('centerMode');
-  const btnReset = $('btnResetRot');
+  const btnRestore = $('btnRestore');
+  const btnBoxFromBounds = $('btnBoxFromBounds');
   const btnDownload = $('btnDownload');
   const btnCopy = $('btnCopyBuffer');
+
+  // Everything that acts on coordinates is disabled until there are some.
+  const needsStructure = document.querySelectorAll('[data-needs-structure]');
+  function setStructureLoaded(on) {
+    needsStructure.forEach(el => { el.disabled = !on; });
+  }
 
   let originalAtoms = [];
 
   // --- 3. File intake ---
-  // The dashed box is the drop target; the surrounding section only positions
-  // it. Binding to the section instead paints drag feedback on an element with
-  // no border, and (because the file input lives inside it) lets the
-  // synthetic click from `fileInput.click()` bubble back into the same handler
-  // and re-open the picker, which loses the change event.
-  const dropArea = $('dropArea') || uploadZone;
-
-  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(evt => {
-    if (dropArea) dropArea.addEventListener(evt, (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    }, false);
+  // The whole empty state is the click target; its own controls keep their
+  // jobs, and the synthetic click from `fileInput.click()` bubbles back here
+  // and is ignored for the same reason.
+  if (uploadZone) uploadZone.addEventListener('click', (e) => {
+    if (e.target.closest('button, input, a, label')) return;
+    if (fileInput) fileInput.click();
   });
-
-  const DRAG_CLASSES = ['bg-purple-100', 'dark:bg-purple-900/30', 'border-purple-400'];
-
-  if (dropArea) {
-    ['dragenter', 'dragover'].forEach(evt =>
-      dropArea.addEventListener(evt, () => dropArea.classList.add(...DRAG_CLASSES)));
-    ['dragleave', 'drop'].forEach(evt =>
-      dropArea.addEventListener(evt, () => dropArea.classList.remove(...DRAG_CLASSES)));
-
-    dropArea.addEventListener('drop', (e) => {
-      if (e.dataTransfer && e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-    });
-
-    dropArea.addEventListener('click', (e) => {
-      if (e.target === fileInput) return;   // our own synthetic click, ignore
-      if (fileInput) fileInput.click();
-    });
-  }
-
+  if (chooseFileBtn) chooseFileBtn.addEventListener('click', () => {
+    if (fileInput) fileInput.click();
+  });
   if (fileInput) fileInput.addEventListener('change', (e) => {
     if (e.target.files.length) handleFile(e.target.files[0]);
   });
+
+  // Files dropped anywhere on the page load, with a full-page target while
+  // dragging. dragenter and dragleave fire for every element boundary
+  // crossed; a depth counter turns them into one enter and one leave.
+  const hasFiles = (e) =>
+    Array.from((e.dataTransfer && e.dataTransfer.types) || []).includes('Files');
+  let dragDepth = 0;
+  const showDropTarget = (on) => {
+    if (dropIndicator) dropIndicator.hidden = !on;
+    if (uploadZone) uploadZone.classList.toggle('is-over', on);
+  };
+  document.addEventListener('dragenter', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth++;
+    showDropTarget(true);
+  });
+  document.addEventListener('dragover', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+  document.addEventListener('dragleave', (e) => {
+    if (!hasFiles(e)) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) showDropTarget(false);
+  });
+  document.addEventListener('drop', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth = 0;
+    showDropTarget(false);
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  });
+  // A drag abandoned outside the window sends no final dragleave.
+  window.addEventListener('dragend', () => { dragDepth = 0; showDropTarget(false); });
+
+  /** Swap a button's icon for a spinner while an async action runs. */
+  function setButtonBusy(btn, on) {
+    const icon = btn && btn.querySelector('i');
+    if (!icon) return;
+    if (on) {
+      icon.dataset.icon = icon.className;
+      icon.className = 'fa-solid fa-circle-notch fa-spin';
+    } else if (icon.dataset.icon) {
+      icon.className = icon.dataset.icon;
+      delete icon.dataset.icon;
+    }
+  }
+
+  /** Load a bundled sample through the same path as a dropped file. */
+  async function loadSample(path, btn) {
+    setButtonBusy(btn, true);
+    try {
+      const res = await fetch(path);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      handleFile(new File([text], path.split('/').pop(), { type: 'text/plain' }));
+    } catch (err) {
+      console.error(err);
+      showToast('The sample could not be fetched. Samples need the page to be ' +
+                'served over HTTP rather than opened from disk.', 'error');
+    } finally {
+      setButtonBusy(btn, false);
+    }
+  }
+  document.querySelectorAll('.cm-sample').forEach(btn =>
+    btn.addEventListener('click', () => loadSample(btn.dataset.sample, btn)));
+
+  /**
+   * Busy indicator for work that blocks the thread: reading and parsing a
+   * file, or formatting a very large buffer. Each has its own slot so one
+   * finishing cannot clear the other. Shown on the empty state while that is
+   * visible and in the buffer header once a structure is loaded.
+   */
+  const busy = { load: null, format: null };
+  function setBusy(kind, label) {
+    busy[kind] = label || null;
+    const current = busy.load || busy.format;
+    if (uploadZone) uploadZone.setAttribute('aria-busy', String(Boolean(busy.load)));
+    if (dropStatus) {
+      dropStatus.hidden = !busy.load;
+      dropStatusText.textContent = busy.load || '';
+    }
+    if (previewPanel) previewPanel.setAttribute('aria-busy', String(Boolean(current)));
+    if (previewBusy) {
+      previewBusy.hidden = !current;
+      previewBusyText.textContent = current || '';
+    }
+  }
 
   function handleFile(file) {
     const name = (file && file.name) || '';
     const ext = name.split('.').pop().toLowerCase();
 
     if (!['pdb', 'gro', 'xyz', 'ent'].includes(ext)) {
-      showToast('Unsupported file type, use .pdb, .gro or .xyz.', 'error');
+      showToast(`${name || 'That file'} is not a PDB, GRO or XYZ file.`, 'error');
       return;
     }
 
+    setBusy('load', `Reading ${name}`);
     const reader = new FileReader();
+    reader.onerror = () => {
+      setBusy('load', null);
+      showToast(`${name} could not be read.`, 'error');
+    };
     reader.onload = (e) => {
-      const result = parseStructure(e.target.result, name);
-
-      if (!result || result.atoms.length === 0) {
-        showToast('No atoms could be parsed from that file.', 'error');
-        return;
-      }
-
-      state.atoms = result.atoms;
-      originalAtoms = result.atoms.map(a => ({ ...a }));
-      state.box = result.box;
-      // Off-diagonal cell components, present only for a triclinic box.
-      state.boxVectors = result.boxVectors || null;
-      state.fileName = name || null;
-      state.revision++;
-      undoStack.length = 0;
-      redoStack.length = 0;
-      updateUndoButton();
-      resetApplied();
-      state.unit = result.unit;
-      state.format = result.format;
-      state.title = result.title || name;
-      state.unknownElements = result.unknownElements || [];
-      state.boxEdited = false;
-
-      if (systemFormatLabel) {
-        systemFormatLabel.textContent =
-          `${name} · ${(result.format || '').toUpperCase()} · ${result.unit === 'nm' ? 'nm' : 'Å'}`;
-      }
-
-      seedBoxInputs();
-      updateSystemStats();
-      renderOutput();
-      renderEditconf();
-
-      if (uploadZone) uploadZone.classList.add('hidden');
-      if (workspace) workspace.classList.remove('hidden');
-
-      if (state.unknownElements.length) {
-        showToast(
-          `Unrecognised element symbol(s): ${state.unknownElements.join(', ')}. ` +
-          `Carbon mass assumed for those atoms.`,
-          'info'
-        );
-      }
+      // Deferred a tick so the busy state paints before the parse, which is
+      // synchronous, holds the thread.
+      setTimeout(() => {
+        try {
+          loadStructure(e.target.result, name);
+        } catch (err) {
+          console.error(err);
+          showToast(`${name} could not be parsed.`, 'error');
+        } finally {
+          setBusy('load', null);
+        }
+      }, 0);
     };
     reader.readAsText(file);
-    fileInput.value = '';
+    if (fileInput) fileInput.value = '';
+  }
+
+  function loadStructure(text, name) {
+    const result = parseStructure(text, name);
+
+    if (!result || result.atoms.length === 0) {
+      showToast(`No atoms could be parsed from ${name}.`, 'error');
+      return;
+    }
+
+    state.atoms = result.atoms;
+    originalAtoms = result.atoms.map(a => ({ ...a }));
+    state.box = result.box;
+    // Off-diagonal cell components, present only for a triclinic box.
+    state.boxVectors = result.boxVectors || null;
+    state.fileName = name || null;
+    state.revision++;
+    undoStack.length = 0;
+    redoStack.length = 0;
+    updateUndoButton();
+    resetApplied();
+    state.unit = result.unit;
+    state.format = result.format;
+    state.title = result.title || name;
+    state.unknownElements = result.unknownElements || [];
+    state.boxEdited = false;
+
+    if (fileLabel) fileLabel.textContent = name;
+    if (formatBadge) formatBadge.textContent = (result.format || '').toUpperCase();
+    if (unitBadge) unitBadge.textContent = result.unit === 'nm' ? 'nm' : 'Å';
+
+    // Shown before the viewer is built so the canvas has a size to fit to.
+    if (uploadZone) uploadZone.hidden = true;
+    if (workspace) {
+      workspace.hidden = false;
+      workspace.focus({ preventScroll: true });
+    }
+    setStructureLoaded(true);
+
+    seedBoxInputs();
+    updateSystemStats();
+    updateExportInfo();
+    renderOutput();
+    renderEditconf();
+    renderViewer();
+
+    if (state.unknownElements.length) {
+      showToast(
+        `Unrecognised element symbol(s): ${state.unknownElements.join(', ')}. ` +
+        `Carbon mass assumed for those atoms.`,
+        'warn'
+      );
+    }
   }
 
   // --- 4. Statistics ---
@@ -239,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (statMolWeight) {
-      statMolWeight.textContent = s.totalMass ? `${s.totalMass.toFixed(2)} Da` : ', ';
+      statMolWeight.textContent = s.totalMass ? `${s.totalMass.toFixed(2)} Da` : '—';
       if (massDetail && massDetail.open) renderMassDetail();
     }
 
@@ -250,12 +375,26 @@ document.addEventListener('DOMContentLoaded', () => {
         : '0.0 × 0.0 × 0.0';
     }
 
-    if (unitNote) {
-      unitNote.textContent =
-        `Source coordinates are in ${u}. ` +
-        `Export as ${exportFormat ? exportFormat.value.toUpperCase() : 'PDB'} uses ` +
-        `${targetUnit(exportFormat ? exportFormat.value : 'pdb') === 'nm' ? 'nm' : 'Å'}; ` +
-        `conversion is applied automatically.`;
+    sourceUnitLabels.forEach(el => { el.textContent = u; });
+  }
+
+  /** The base name the download and the editconf command share. */
+  function exportBaseName() {
+    return (fileNameInput && fileNameInput.value.trim()) || 'output';
+  }
+
+  /** File name and unit conversion for the chosen format, kept current as
+   *  either changes. */
+  function updateExportInfo() {
+    const format = exportFormat ? exportFormat.value : 'pdb';
+    if (exportFileName) exportFileName.textContent = `${exportBaseName()}.${format}`;
+    if (previewFormat) previewFormat.textContent = format.toUpperCase();
+    if (exportUnitNote) {
+      const src = state.unit === 'nm' ? 'nm' : 'Å';
+      const dst = targetUnit(format) === 'nm' ? 'nm' : 'Å';
+      exportUnitNote.textContent = src === dst
+        ? `Coordinates stay in ${src}.`
+        : `Coordinates are converted from ${src} to ${dst}.`;
     }
   }
 
@@ -271,7 +410,6 @@ document.addEventListener('DOMContentLoaded', () => {
     boxLy.value = box[1].toFixed(4);
     boxLz.value = box[2].toFixed(4);
     updateBoxNote(box);
-    renderViewer();
   }
 
   function currentBox() {
@@ -309,19 +447,16 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'Box set from the padded bounding box.';
   }
 
-  function updateBoxNote(box) {
+  function updateBoxNote(box, fit = boxFitsStructure(state.atoms, state.unit, box)) {
     if (!boxNote) return;
-    const fit = boxFitsStructure(state.atoms, state.unit, box);
     const source = boxSourceText();
-    if (fit.fits) {
-      boxNote.textContent =
-        `Box (nm): ${box.map(v => v.toFixed(3)).join(' × ')}, ${source}`;
-      boxNote.className = 'text-xs text-slate-500';
-    } else {
-      boxNote.textContent =
-        `${source} The structure overflows the box along ${fit.overflow.join(', ')}. ` +
+    boxNoteText.textContent = fit.fits
+      ? `Box (nm): ${box.map(v => v.toFixed(3)).join(' × ')}, ${source}`
+      : `${source} The structure overflows the box along ${fit.overflow.join(', ')}. ` +
         `Increase those dimensions or the system will be clipped.`;
-      boxNote.className = 'text-xs text-amber-600 dark:text-amber-400';
+    boxNote.classList.toggle('stk-callout-warn', !fit.fits);
+    if (boxNoteIcon) {
+      boxNoteIcon.className = fit.fits ? 'fa-solid fa-circle-info' : 'fa-solid fa-triangle-exclamation';
     }
   }
 
@@ -331,13 +466,30 @@ document.addEventListener('DOMContentLoaded', () => {
       // Typing lengths describes a rectangular cell, so any triclinic
       // components read from the source no longer apply.
       state.boxVectors = null;
-      updateBoxNote(currentBox());
       renderOutput();
+      renderEditconf();
+      refreshBox();
     }));
 
   if (boxPad) boxPad.addEventListener('input', () => {
     if (!state.boxEdited) seedBoxInputs();
     renderOutput();
+    renderEditconf();
+    refreshBox();
+  });
+
+  // Fitting discards whatever box the file carried and lets the padded
+  // bounding box drive the cell from here on, so a later transform keeps the
+  // fit rather than reviving the old lengths.
+  if (btnBoxFromBounds) btnBoxFromBounds.addEventListener('click', () => {
+    if (!requireStructure()) return;
+    state.box = null;
+    state.boxVectors = null;
+    state.boxEdited = false;
+    seedBoxInputs();
+    renderOutput();
+    renderEditconf();
+    refreshBox();
   });
 
   // --- 6. Transforms (delegated to the core) ---
@@ -373,7 +525,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast(
         'The cell was not rotated with the contents. For a periodic system, ' +
         're-solvate or rebuild the box before running from these coordinates.',
-        'info'
+        'warn'
       );
     }
   });
@@ -406,7 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
       : 'Centred on the geometric centroid.');
   });
 
-  if (btnReset) btnReset.addEventListener('click', () => {
+  if (btnRestore) btnRestore.addEventListener('click', () => {
     if (originalAtoms.length === 0) return;
     pushUndo('restore to original');
     state.atoms = originalAtoms.map(a => ({ ...a }));
@@ -420,6 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderEditconf();
     if (!state.boxEdited) seedBoxInputs();
     renderOutput();
+    renderViewer();
     showToast(message, 'success');
   }
 
@@ -427,19 +580,36 @@ document.addEventListener('DOMContentLoaded', () => {
   let previewCache = { signature: null, text: '' };
   let previewToken = 0;
 
-  /** Row count beneath the preview heading, so the size is never a surprise. */
-  function updatePreviewNote(count, working) {
-    if (!warningBox) return;
-    const fit = state.box && boxFitsStructure(state.atoms, state.unit, currentBox());
-    if (fit && !fit.fits) return;          // the overflow warning takes priority
-    warningBox.textContent = working
-      ? `${count.toLocaleString()} atoms | formatting…`
-      : `${count.toLocaleString()} atoms | complete buffer, scrollable`;
+  // Capped by default so a large system stays responsive, with the button
+  // lifting it. The cap is generous enough that most structures are shown
+  // whole and the button never appears.
+  const PREVIEW_LIMIT = 5000;
+
+  function lineCount(text) {
+    if (!text) return 0;
+    let n = 0;
+    for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) n++;
+    return text.endsWith('\n') ? n : n + 1;
+  }
+
+  /** Badges in the buffer header: how much text there is and whether the
+   *  cell holds the structure. */
+  function updatePreviewMeta(text, limited, fit) {
+    if (previewCount) {
+      previewCount.textContent = limited
+        ? `first ${PREVIEW_LIMIT.toLocaleString()} of ${state.atoms.length.toLocaleString()} atoms`
+        : `${lineCount(text).toLocaleString()} lines`;
+    }
+    if (previewWarn) {
+      previewWarn.hidden = fit.fits;
+      previewWarn.textContent = fit.fits ? '' : `Overflows box: ${fit.overflow.join(', ')}`;
+    }
   }
 
   if (exportFormat) exportFormat.addEventListener('change', () => {
-    updateSystemStats();
+    updateExportInfo();
     renderOutput();
+    renderEditconf();
   });
 
   function renderOutput() {
@@ -447,29 +617,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const format = exportFormat ? exportFormat.value : 'pdb';
     const box = currentBox();
+    const fit = boxFitsStructure(state.atoms, state.unit, box);
+    updateBoxNote(box, fit);
 
     // The whole buffer is shown, however large, so it can always be scrolled
     // to the end. Two things keep that affordable.
     //
     // First, the result is cached against a signature of what it was built
-    // from, so the common case, a redraw where nothing relevant changed , 
+    // from, so the common case, a redraw where nothing relevant changed,
     // costs nothing. Formatting is only repeated when the coordinates, the
     // format or the cell actually change.
     //
     // Second, for a large system the work is handed to a later task rather
     // than done inside the click handler. Formatting a million atoms takes
     // seconds; doing that synchronously would freeze the page with no
-    // indication why, so the row count and a "formatting" note are painted
-    // first and the text arrives when it is ready.
-    // Capped by default so a large system stays responsive, with the button
-    // lifting it. The cap is generous enough that most structures are shown
-    // whole and the button never appears.
-    const PREVIEW_LIMIT = 5000;
+    // indication why, so the row count and a busy badge are painted first
+    // and the text arrives when it is ready.
     const limited = !state.showAllRows && state.atoms.length > PREVIEW_LIMIT;
     const rows = limited ? state.atoms.slice(0, PREVIEW_LIMIT) : state.atoms;
 
     if (btnShowAll) {
-      btnShowAll.classList.toggle('hidden', state.atoms.length <= PREVIEW_LIMIT);
+      btnShowAll.hidden = state.atoms.length <= PREVIEW_LIMIT;
       btnShowAll.textContent = state.showAllRows
         ? `Show first ${PREVIEW_LIMIT.toLocaleString()}`
         : `Show all ${state.atoms.length.toLocaleString()}`;
@@ -480,9 +648,14 @@ document.addEventListener('DOMContentLoaded', () => {
       (box || []).join(','), (state.boxVectors || []).join(',')
     ].join('|');
 
+    // Every path takes a fresh token so a deferred build that is still in
+    // flight cannot land on top of newer text.
+    const token = ++previewToken;
+
     if (previewCache.signature === signature) {
       outputArea.textContent = previewCache.text;
-      updatePreviewNote(state.atoms.length);
+      updatePreviewMeta(previewCache.text, limited, fit);
+      setBusy('format', null);
       return;
     }
 
@@ -497,37 +670,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (rows.length <= ASYNC_ABOVE) {
       previewCache = { signature, text: build() };
       outputArea.textContent = previewCache.text;
-      updatePreviewNote(state.atoms.length);
+      updatePreviewMeta(previewCache.text, limited, fit);
+      setBusy('format', null);
       return;
     }
 
     outputArea.textContent =
       `Formatting ${state.atoms.length.toLocaleString()} atoms…`;
-    updatePreviewNote(state.atoms.length, true);
+    if (previewCount) previewCount.textContent = `${state.atoms.length.toLocaleString()} atoms`;
+    setBusy('format', 'Formatting');
 
-    // A later transformation supersedes this one: without the token an older,
-    // slower build could land after a newer one and show stale coordinates.
-    const token = ++previewToken;
     setTimeout(() => {
       if (token !== previewToken) return;
       previewCache = { signature, text: build() };
       outputArea.textContent = previewCache.text;
-      updatePreviewNote(state.atoms.length);
+      updatePreviewMeta(previewCache.text, limited, fit);
+      setBusy('format', null);
     }, 0);
-
-    updateBoxNote(box);
-
-    if (warningBox) {
-      const fit = boxFitsStructure(state.atoms, state.unit, box);
-      if (!fit.fits) {
-        warningBox.textContent =
-          `Warning: the structure is larger than the box along ` +
-          `${fit.overflow.join(', ')}.`;
-        warningBox.classList.remove('hidden');
-      } else {
-        warningBox.classList.add('hidden');
-      }
-    }
   }
 
   function fullOutput() {
@@ -543,53 +702,74 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnDownload) btnDownload.addEventListener('click', () => {
     if (!requireStructure()) return;
     const format = exportFormat ? exportFormat.value : 'pdb';
+    const fileName = `${exportBaseName()}.${format}`;
     const blob = new Blob([fullOutput()], { type: 'text/plain;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `structure.${format}`;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast(`Downloaded structure.${format}`, 'success');
+    showToast(`Downloaded ${fileName}.`, 'success');
   });
 
-  if (btnCopy) btnCopy.addEventListener('click', () => {
-    if (!requireStructure()) return;
-    navigator.clipboard.writeText(fullOutput())
-      .then(() => showToast('Coordinates copied.', 'success'))
-      .catch(() => showToast('Clipboard access denied.', 'error'));
-  });
+  /**
+   * Copy-to-clipboard buttons confirm in place, swapping their label for a
+   * tick for two seconds, so a copy does not need a toast.
+   */
+  function copyButton(btn, getText, failMessage) {
+    if (!btn) return;
+    const idle = btn.innerHTML;
+    let timer = null;
+    btn.addEventListener('click', () => {
+      const text = getText();
+      if (text === null) return;
+      const done = () => {
+        btn.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i>Copied';
+        clearTimeout(timer);
+        timer = setTimeout(() => { btn.innerHTML = idle; }, 2000);
+      };
+      if (!navigator.clipboard || !navigator.clipboard.writeText) {
+        showToast(failMessage, 'error');
+        return;
+      }
+      navigator.clipboard.writeText(text).then(done, () => showToast(failMessage, 'error'));
+    });
+  }
+
+  copyButton(btnCopy, () => (requireStructure() ? fullOutput() : null),
+    'Clipboard access denied. Select the text and copy it by hand.');
 
   // --- 8. Utilities ---
-  function showToast(msg, type) {
+  /**
+   * @param {string} msg
+   * @param {'info'|'success'|'error'|'warn'} [type]
+   */
+  function showToast(msg, type = 'info') {
     const container = $('toastContainer');
     if (!container) return;
     const toast = document.createElement('div');
-    const colors = type === 'success'
-      ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30'
-      : type === 'error'
-        ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900/30'
-        : 'bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-900/30';
-    toast.className =
-      `px-4 py-3 rounded-xl border shadow-lg toast-enter text-sm font-medium transition-all ${colors}`;
-    toast.innerText = msg;
+    const variant = type === 'success' ? ' stk-toast-ok'
+      : type === 'error' ? ' stk-toast-danger'
+        : type === 'warn' ? ' stk-toast-warn' : '';
+    toast.className = 'stk-toast' + variant;
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    const icon = document.createElement('i');
+    icon.className = 'fa-solid ' + (type === 'success' ? 'fa-circle-check'
+      : type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-info');
+    icon.setAttribute('aria-hidden', 'true');
+    const body = document.createElement('span');
+    body.textContent = msg;
+    toast.append(icon, body);
     container.appendChild(toast);
+    // Errors carry a reason the user may want to read twice.
     setTimeout(() => {
-      toast.style.opacity = '0';
+      toast.classList.add('is-leaving');
       setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, type === 'error' ? 6000 : 3000);
   }
-
-  document.querySelectorAll('.accordion-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const expanded = btn.getAttribute('aria-expanded') === 'true';
-      btn.setAttribute('aria-expanded', !expanded);
-      const target = $(btn.getAttribute('data-target'));
-      if (target) target.classList.toggle('expanded');
-    });
-  });
 
   /* --- 3D viewer -----------------------------------------------------------
    * Rendered with 3Dmol, the same library the Structure Inspector uses. The
@@ -629,7 +809,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function showViewerFallback(message) {
     if (!viewerFallback) return;
     viewerFallback.textContent = message;
-    viewerFallback.classList.remove('hidden');
+    viewerFallback.hidden = false;
     if (viewerCanvas) viewerCanvas.style.display = 'none';
   }
 
@@ -641,6 +821,9 @@ document.addEventListener('DOMContentLoaded', () => {
       default: return { stick: { radius: 0.12 }, sphere: { scale: 0.25 } };
     }
   }
+
+  const isDark = () => document.documentElement.classList.contains('dark');
+  const viewerBackground = () => (isDark() ? '#0f172a' : '#f1f5f9');
 
   /** Rebuild the model from the current coordinates. */
   function renderViewer() {
@@ -662,9 +845,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       if (!viewer) {
-        const dark = document.documentElement.classList.contains('dark');
         viewer = window.$3Dmol.createViewer(viewerCanvas, {
-          backgroundColor: dark ? '#0f172a' : '#f1f5f9'
+          backgroundColor: viewerBackground()
         });
       }
       if (!viewer) throw new Error('viewer unavailable');
@@ -692,8 +874,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (viewerNote) {
         viewerNote.textContent = state.atoms.length > VIEW_LIMIT
           ? `Showing the first ${VIEW_LIMIT.toLocaleString()} of ` +
-            `${state.atoms.length.toLocaleString()} atoms, the export is complete`
-          : 'Updates after every transformation';
+            `${state.atoms.length.toLocaleString()} atoms; the export is complete`
+          : '';
       }
     } catch (err) {
       console.error(err);
@@ -701,6 +883,15 @@ document.addEventListener('DOMContentLoaded', () => {
       showViewerFallback('The 3D view could not be started. Transformations and ' +
                          'export still work.');
     }
+  }
+
+  /** Redraw the cell outline alone, leaving the model and the camera as
+   *  they are. */
+  function refreshBox() {
+    if (!viewer || viewerFailed) return;
+    viewer.removeAllShapes();
+    drawBox();
+    viewer.render();
   }
 
   if (viewerStyle) viewerStyle.addEventListener('change', () => {
@@ -715,15 +906,25 @@ document.addEventListener('DOMContentLoaded', () => {
     viewer.render();
   });
 
+  // The nav's own handler toggles the class; this runs after it and repaints
+  // the canvas, whose background and cell outline follow the theme.
+  document.querySelectorAll('.themeToggle').forEach(btn => btn.addEventListener('click', () => {
+    if (!viewer || viewerFailed) return;
+    viewer.setBackgroundColor(viewerBackground());
+    renderViewer();
+  }));
 
   /* --- Resizable split between the view and the preview --------------------
    * The useful proportion depends on the structure and on what the user is
    * doing, so it is left adjustable rather than fixed. The preview keeps a
    * concrete height and the view takes whatever is left, which is what lets
    * the preview scroll internally instead of pushing the page taller.
+   *
+   * The height travels as a custom property rather than an inline height so
+   * the stacked layout under 1024 px can ignore it and keep its own share of
+   * the viewport.
    */
   const viewSplit = $('viewSplit');
-  const previewPanel = $('previewPanel');
 
   if (viewSplit && previewPanel) {
     const MIN_PREVIEW = 100;   // still shows a few rows
@@ -733,18 +934,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const setPreviewHeight = (px) => {
       const shell = previewPanel.parentElement;
-      const available = shell ? shell.getBoundingClientRect().height : window.innerHeight;
+      const available = shell
+        ? shell.clientHeight - viewSplit.offsetHeight
+        : window.innerHeight;
       const max = Math.max(MIN_PREVIEW, available - MIN_VIEW);
-      previewPanel.style.height = `${Math.round(Math.min(Math.max(px, MIN_PREVIEW), max))}px`;
-    };
-
-    const onMove = (e) => {
-      if (!dragging) return;
-      e.preventDefault();
-      const point = e.touches ? e.touches[0].clientY : e.clientY;
-      // Distance from the pointer to the bottom of the panel is the height
-      // the preview should take.
-      setPreviewHeight(previewPanel.getBoundingClientRect().bottom - point);
+      const height = Math.round(Math.min(Math.max(px, MIN_PREVIEW), max));
+      previewPanel.style.setProperty('--cm-preview-h', `${height}px`);
+      viewSplit.setAttribute('aria-valuenow', String(height));
     };
 
     const SPLIT_KEY = 'stemkit-coord-split';
@@ -754,7 +950,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // the split simply starts at its default each visit.
     try {
       const saved = Number(localStorage.getItem(SPLIT_KEY));
-      if (Number.isFinite(saved) && saved > 0) previewPanel.style.height = `${saved}px`;
+      if (Number.isFinite(saved) && saved > 0) {
+        previewPanel.style.setProperty('--cm-preview-h', `${saved}px`);
+      }
     } catch (e) { /* no persistence */ }
 
     const remember = () => {
@@ -763,49 +961,6 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (e) { /* no persistence */ }
     };
 
-    const stop = () => {
-      if (!dragging) return;
-      dragging = false;
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
-      remember();
-    };
-
-    const start = (e) => {
-      dragging = true;
-      // Suppressed during the drag so the pointer does not select the
-      // surrounding text as it moves.
-      document.body.style.userSelect = 'none';
-      document.body.style.cursor = 'row-resize';
-      e.preventDefault();
-    };
-
-    // Double-click returns to the default rather than leaving the user to
-    // drag back to a size they cannot see a number for.
-    viewSplit.addEventListener('dblclick', () => {
-      previewPanel.style.height = `${DEFAULT_PREVIEW}px`;
-      remember();
-      if (viewer && !viewerFailed) { viewer.resize(); viewer.render(); }
-    });
-
-    viewSplit.addEventListener('mousedown', start);
-    viewSplit.addEventListener('touchstart', start, { passive: false });
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('touchmove', onMove, { passive: false });
-    window.addEventListener('mouseup', stop);
-    window.addEventListener('touchend', stop);
-
-    // Keyboard equivalent, so the split is not mouse-only.
-    viewSplit.addEventListener('keydown', (e) => {
-      const step = e.shiftKey ? 48 : 16;
-      const current = previewPanel.getBoundingClientRect().height;
-      if (e.key === 'ArrowUp') { setPreviewHeight(current + step); e.preventDefault(); }
-      else if (e.key === 'ArrowDown') { setPreviewHeight(current - step); e.preventDefault(); }
-      else return;
-      remember();
-      if (viewer && !viewerFailed) { viewer.resize(); viewer.render(); }
-    });
-
     // The WebGL canvas is sized from its container, so it has to be told.
     let resizeTimer = null;
     const syncViewer = () => {
@@ -813,13 +968,61 @@ document.addEventListener('DOMContentLoaded', () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => { viewer.resize(); viewer.render(); }, 60);
     };
-    window.addEventListener('mouseup', syncViewer);
-    window.addEventListener('touchend', syncViewer);
+
+    const stop = () => {
+      if (!dragging) return;
+      dragging = false;
+      viewSplit.classList.remove('is-dragging');
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      remember();
+      syncViewer();
+    };
+
+    // Pointer events cover mouse, pen and touch alike; capturing the pointer
+    // keeps the drag alive when it leaves the handle, as it does at once.
+    viewSplit.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      dragging = true;
+      viewSplit.classList.add('is-dragging');
+      viewSplit.setPointerCapture(e.pointerId);
+      // Suppressed during the drag so the pointer does not select the
+      // surrounding text as it moves.
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'row-resize';
+      e.preventDefault();
+    });
+    viewSplit.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      e.preventDefault();
+      // Distance from the pointer to the bottom of the panel is the height
+      // the preview should take.
+      setPreviewHeight(previewPanel.getBoundingClientRect().bottom - e.clientY);
+    });
+    viewSplit.addEventListener('pointerup', stop);
+    viewSplit.addEventListener('pointercancel', stop);
+
+    // Double-click returns to the default rather than leaving the user to
+    // drag back to a size they cannot see a number for.
+    viewSplit.addEventListener('dblclick', () => {
+      setPreviewHeight(DEFAULT_PREVIEW);
+      remember();
+      syncViewer();
+    });
+
+    // Keyboard equivalent, so the split is not pointer-only.
+    viewSplit.addEventListener('keydown', (e) => {
+      const step = e.shiftKey ? 48 : 16;
+      const current = previewPanel.getBoundingClientRect().height;
+      if (e.key === 'ArrowUp') { setPreviewHeight(current + step); e.preventDefault(); }
+      else if (e.key === 'ArrowDown') { setPreviewHeight(current - step); e.preventDefault(); }
+      else return;
+      remember();
+      syncViewer();
+    });
+
     window.addEventListener('resize', syncViewer);
   }
-
-
-
 
   /**
    * Outline the simulation cell.
@@ -833,8 +1036,10 @@ document.addEventListener('DOMContentLoaded', () => {
    * there. If the structure has been translated away from the origin it will
    * sit outside the outline, which is worth seeing rather than hiding.
    */
+  const boxShown = () => !showBox || showBox.getAttribute('aria-pressed') !== 'false';
+
   function drawBox() {
-    if (!viewer || !showBox || !showBox.checked) return;
+    if (!viewer || !boxShown()) return;
 
     const box = currentBox();
     if (!box || box.length < 3 || !box.every(Number.isFinite)) return;
@@ -864,7 +1069,7 @@ document.addEventListener('DOMContentLoaded', () => {
       [[1,1,0],[1,1,1]], [[1,0,1],[1,1,1]], [[0,1,1],[1,1,1]]
     ];
 
-    const dark = document.documentElement.classList.contains('dark');
+    const dark = isDark();
     for (const [p1, p2] of edges) {
       viewer.addLine({
         start: corner(...p1),
@@ -875,8 +1080,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  if (showBox) showBox.addEventListener('change', renderViewer);
-
+  if (showBox) showBox.addEventListener('click', () => {
+    showBox.setAttribute('aria-pressed', String(!boxShown()));
+    refreshBox();
+  });
 
   /* --- Equivalent gmx editconf command --------------------------------------
    * The point of this panel is not to replace `gmx editconf` but to hand back
@@ -910,7 +1117,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const a = state.applied;
     const inFile = state.fileName || `input.${state.format || 'gro'}`;
     const outFmt = exportFormat ? exportFormat.value : 'gro';
-    const outName = (fileNameInput && fileNameInput.value.trim()) || 'output';
+    const outName = exportBaseName();
 
     const parts = [`gmx editconf -f ${inFile} -o ${outName}.${outFmt}`];
     const notes = [];
@@ -1011,37 +1218,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!result) {
       editconfOut.textContent = 'Load a structure to see the equivalent command.';
-      if (editconfNotes) editconfNotes.innerHTML = '';
+      if (editconfNotes) {
+        editconfNotes.hidden = true;
+        editconfNotesList.replaceChildren();
+      }
       return;
     }
 
     editconfOut.textContent = result.command;
     if (editconfNotes) {
-      editconfNotes.innerHTML = result.notes.length
-        ? '<ul class="list-disc pl-4 space-y-1">' +
-          result.notes.map(n => `<li>${n}</li>`).join('') + '</ul>'
-        : '';
+      editconfNotesList.replaceChildren(...result.notes.map(n => {
+        const li = document.createElement('li');
+        li.textContent = n;
+        return li;
+      }));
+      editconfNotes.hidden = result.notes.length === 0;
     }
   }
 
-  if (btnCopyEditconf) btnCopyEditconf.addEventListener('click', () => {
+  copyButton(btnCopyEditconf, () => {
     const result = editconfCommand();
-    if (!result) return;
-    navigator.clipboard.writeText(result.command).then(
-      () => showToast('Command copied.', 'success'),
-      () => showToast('Could not copy the command.', 'error')
-    );
+    return result ? result.command : null;
+  }, 'Could not copy the command. Select the text and copy it by hand.');
+
+  if (fileNameInput) fileNameInput.addEventListener('input', () => {
+    updateExportInfo();
+    renderEditconf();
   });
-
-  if (exportFormat) exportFormat.addEventListener('change', renderEditconf);
-  if (fileNameInput) fileNameInput.addEventListener('input', renderEditconf);
-
 
   if (btnShowAll) btnShowAll.addEventListener('click', () => {
     state.showAllRows = !state.showAllRows;
     renderOutput();
   });
-
 
   /* --- Undo -----------------------------------------------------------------
    * Each transformation pushes a snapshot of the coordinates before it runs,
@@ -1157,8 +1365,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!btn) return;
     const empty = stack.length === 0;
     btn.disabled = empty;
-    btn.classList.toggle('opacity-40', empty);
-    btn.classList.toggle('cursor-not-allowed', empty);
     btn.title = empty ? `Nothing to ${verb}` : `${verb[0].toUpperCase()}${verb.slice(1)}: ${stack[stack.length - 1].label}`;
   }
 
@@ -1187,6 +1393,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  /* --- Closing the file ------------------------------------------------------
+   * Returns to the empty state with nothing kept: the coordinates, the history
+   * and the drawn model all go, so the next file starts clean. Focus moves to
+   * the file button, which is where a keyboard user would carry on.
+   */
+  function closeWorkspace() {
+    state.atoms = [];
+    originalAtoms = [];
+    state.box = null;
+    state.boxVectors = null;
+    state.boxEdited = false;
+    state.fileName = null;
+    state.format = null;
+    state.title = '';
+    state.unknownElements = [];
+    state.showAllRows = false;
+    state.revision++;
+    resetApplied();
+    undoStack.length = 0;
+    redoStack.length = 0;
+    updateUndoButton();
+    previewCache = { signature: null, text: '' };
+    previewToken++;
+    setBusy('format', null);
+    if (viewer && !viewerFailed) {
+      viewer.clear();
+      viewer.render();
+    }
+    if (outputArea) outputArea.textContent = '';
+    setStructureLoaded(false);
+    if (workspace) workspace.hidden = true;
+    if (uploadZone) uploadZone.hidden = false;
+    if (fileInput) fileInput.value = '';
+    if (chooseFileBtn) chooseFileBtn.focus();
+  }
+
+  if (btnCloseWorkspace) btnCloseWorkspace.addEventListener('click', closeWorkspace);
 
   /* --- How the mass was calculated -----------------------------------------
    * A single number is easy to trust and hard to check. The working is shown
@@ -1205,30 +1448,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const rows = b.rows.map(r => `
-      <tr class="border-b border-slate-200/60 dark:border-slate-800">
-        <td class="py-1 pr-3 font-mono">${r.symbol}</td>
-        <td class="py-1 pr-3 text-right">${r.count.toLocaleString()}</td>
-        <td class="py-1 pr-3 text-right font-mono">${r.weight}</td>
-        <td class="py-1 text-right font-mono">${r.subtotal.toFixed(3)}</td>
+      <tr>
+        <td>${r.symbol}</td>
+        <td>${r.count.toLocaleString()}</td>
+        <td>${r.weight}</td>
+        <td>${r.subtotal.toFixed(3)}</td>
       </tr>`).join('');
 
     massTable.innerHTML = `
-      <table class="w-full text-[11px]">
-        <thead class="text-slate-500 dark:text-slate-400">
-          <tr class="border-b border-slate-300 dark:border-slate-700">
-            <th class="text-left py-1 pr-3 font-bold">Element</th>
-            <th class="text-right py-1 pr-3 font-bold">Atoms</th>
-            <th class="text-right py-1 pr-3 font-bold">Weight (u)</th>
-            <th class="text-right py-1 font-bold">Subtotal (Da)</th>
+      <table class="cm-mass">
+        <thead>
+          <tr>
+            <th>Element</th>
+            <th>Atoms</th>
+            <th>Weight (u)</th>
+            <th>Subtotal (Da)</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
         <tfoot>
-          <tr class="font-bold">
-            <td class="pt-1 pr-3">Total</td>
-            <td class="pt-1 pr-3 text-right">${b.rows.reduce((s, r) => s + r.count, 0).toLocaleString()}</td>
+          <tr>
+            <td>Total</td>
+            <td>${b.rows.reduce((s, r) => s + r.count, 0).toLocaleString()}</td>
             <td></td>
-            <td class="pt-1 text-right font-mono">${b.total.toFixed(2)}</td>
+            <td>${b.total.toFixed(2)}</td>
           </tr>
         </tfoot>
       </table>`;
