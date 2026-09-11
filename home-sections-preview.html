@@ -1,5 +1,5 @@
 <!doctype html><html><head><meta charset="utf8">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="css/all.min.css">
 <style>body{font-family:Inter,system-ui,sans-serif;margin:0;background:#f8fafc}
 /* STEMKit home chrome, plain CSS (output.css is JIT-purged, so unused
    utilities would silently no-op). Reuses the build's exact tokens:
@@ -122,7 +122,9 @@ mark.stk-hit { background:rgba(99,102,241,.25); color:inherit; border-radius:.2r
 .stk-quotes-head p { color:#64748b; margin:.75rem auto 0; max-width:38rem; line-height:1.6; }
 .dark .stk-quotes-head p { color:#94a3b8; }
 .stk-quotes-grid { display:grid; grid-template-columns:1fr; gap:1.5rem; }
-@media (min-width:768px){ .stk-quotes-grid { grid-template-columns:repeat(3,1fr); } }
+@media (min-width:768px){ .stk-quotes-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+.stk-quote { min-width:0; }
+.stk-quote figcaption > div { min-width:0; }
 .stk-quote { padding:1.75rem; background:#ffffff; border:1px solid #e2e8f0; border-radius:1.5rem;
    display:flex; flex-direction:column; transition:transform .2s, box-shadow .2s, border-color .2s; }
 .dark .stk-quote { background:#1e293b; border-color:#334155; }
