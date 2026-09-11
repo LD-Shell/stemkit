@@ -119,8 +119,8 @@ of parsing and numerical routines with no DOM dependency. All computation runs
 inside the user's own browser: nothing is transmitted, no account is required
 and nothing is installed, so the tools stay usable for unpublished or
 confidential data. The same modules run under Node.js, so an interactive
-analysis can be captured as a version-pinned script. The 16 domain modules carry
-1077 tests validated against SciPy, NumPy
+analysis can be captured as a version-pinned script. The 17 domain modules carry
+1128 tests validated against SciPy, NumPy
 and physical invariants rather than against the implementation itself. That
 validation exposed four defects that had been altering reported results, among
 them $p$-values floored at zero and the mass of haem iron taken as fluorine's.
@@ -321,12 +321,12 @@ resulting layering and Table~\ref{tab:modules} enumerates the modules.
   \footnotesize UMD bundles via \texttt{<script>}};
 \node[box, right=of browser] (node) {\textbf{Node.js host}\\[1pt]
   \footnotesize analysis scripts, CI\\
-  \footnotesize 1077-test Jest suite; smoke test\\
+  \footnotesize 1128-test Jest suite; smoke test\\
   \footnotesize UMD bundles via \texttt{createRequire}};
 
 \node[wide, below=of $(browser.south)!0.5!(node.south)$, yshift=-1mm] (core)
   {\textbf{\texttt{@stemkit/core}}\\[1pt]
-   \footnotesize 16 DOM-free domain modules, aggregated by \texttt{src/core/index.js}};
+   \footnotesize 17 DOM-free domain modules, aggregated by \texttt{src/core/index.js}};
 \node[wide, below=of core] (inject)
   {\textbf{Vendor injection layer}\\[1pt]
    \footnotesize \texttt{registerVendor()} (Node.js) $\cdot$
@@ -366,16 +366,17 @@ by injection; modules marked \emph{none} operate without any third-party code.}
 \texttt{units} & Physical unit conversion & 73 & none \\
 \texttt{plumed} & PLUMED input generation & 72 & none \\
 \texttt{selection} & Atom selection, spatial queries & 67 & none \\
-\texttt{slurm} & HPC job-script generation & 61 & none \\
+\texttt{slurm} & SLURM job scripts, resource checks & 61 & none \\
 \texttt{latex} & Table generation and escaping & 59 & none \\
 \texttt{error-bars} & Group summaries, error bars & 57 & jStat \\
 \texttt{journals} & Whole-title journal abbreviation & 53 & none \\
 \texttt{data-cleaning} & Tabular transformation & 51 & Papa Parse \\
 \texttt{outliers} & Anomaly detection & 51 & jStat \\
+\texttt{scheduler} & Scheduler directives and launchers & 51 & none \\
 \texttt{digitizer} & Figure digitisation & 49 & none \\
 \texttt{iso4} & ISO 4 word-level abbreviation (LTWA) & 44 & none \\
 \midrule
-\textbf{Total} & & \textbf{1077} & \\
+\textbf{Total} & & \textbf{1128} & \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -399,7 +400,7 @@ been registered.
 
 
 
-The test suite comprises 1077 tests across the 16 domain modules, with 93.9\%
+The test suite comprises 1128 tests across the 17 domain modules, with 94.1\%
 statement and 97.6\% line coverage of \texttt{src/core/}. Its governing
 principle is that numerical results are validated against \emph{independent}
 references rather than against the implementation under test, since a test
@@ -414,7 +415,7 @@ rotation matrices, the preservation of interatomic distances under rotation, and
 round-trip fidelity through every supported file format.
 An end-to-end smoke
 test additionally exercises one representative path through fifteen of the
-sixteen modules against a real installation, detecting the class of failure that
+seventeen modules against a real installation, detecting the class of failure that
 unit tests cannot: a broken aggregate export, a misconfigured module type
 declaration, or a vendored bundle that fails to load.
 
@@ -438,7 +439,7 @@ are excluded.}
 XVG visualiser & \texttt{xvg-parser} & Plot GROMACS/PLUMED series with recovered axis metadata \\
 Structure inspector & \texttt{structure}, \texttt{selection} & Geometry, mass breakdown, atom selection, 3D view \\
 Coordinate manipulator & \texttt{structure} & Translate, rotate, re-box; PDB/GRO/XYZ interconversion \\
-MD workflow generator & \texttt{slurm}, \texttt{plumed} & SLURM scripts for GROMACS and LAMMPS; PLUMED input \\
+MD workflow generator & \texttt{slurm}, \texttt{scheduler}, \texttt{plumed} & Batch scripts for GROMACS and LAMMPS on four schedulers; PLUMED input \\
 Statistics calculator & \texttt{statistics} & t-tests, ANOVA, correlation, non-parametric tests, assumption checks \\
 Error-bar generator & \texttt{error-bars} & Group summaries, error bars, significance annotation \\
 Outlier detector & \texttt{outliers} & Tukey fences, modified $Z$-score, Grubbs' test \\
@@ -681,7 +682,16 @@ across a hundred-task array asks the scheduler for 3.2~TB concurrently. The gene
 total and reports it. Generated scripts resume from the last checkpoint rather
 than silently restarting from $t = 0$, a failure mode that consumes an entire
 allocation while appearing to succeed. Warnings are returned as structured
-objects, leaving presentation to the caller. The remaining modules support manuscript preparation: LaTeX and Markdown
+objects, leaving presentation to the caller.
+
+A single resource request is emitted for any of four schedulers, SLURM, PBS
+Professional/OpenPBS, LSF and Grid Engine, because the same allocation is
+expressed by different directives, environment variables and launch commands on
+each; values that are site-dependent, among them the queue name, the name of
+the parallel environment and the resource under which GPUs are requested, are
+marked as such in the generated script rather than guessed.
+
+The remaining modules support manuscript preparation: LaTeX and Markdown
 table generation with correct escaping, ISO-4 journal title abbreviation, and
 BibTeX deduplication by union-find over normalised DOIs and titles.
 
@@ -906,13 +916,13 @@ third-party service.
 \label{sec:conclusions}
 
 STEMKit is a suite of 18 browser-based tools for computational chemistry built
-on a tested, dependency-injected JavaScript core of 16 modules. The architecture
+on a tested, dependency-injected JavaScript core of 17 modules. The architecture
 addresses three constraints simultaneously that existing tooling addresses only
 in pairs: it requires no installation, transmits no data and remains scriptable.
 
 Both properties are structural rather than contractual: computation occurs
 entirely within the browser, and the modules behind the interface are the ones
-that run under Node.js. The 1077-test suite validates every numerical result
+that run under Node.js. The 1128-test suite validates every numerical result
 against an independent reference, and the four defects that this strategy
 exposed (deflated standardised moments, tail probabilities floored
 at zero, misassigned elements in metalloproteins, and an adjusted moment fed
