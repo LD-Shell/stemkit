@@ -908,6 +908,56 @@ export function oneSampleWilcoxon(a, mu0 = 0) {
   return r ? { ...r, mu0, median: median(a) } : null;
 }
 
+/**
+ * Spearman's rank correlation, rho, with a confidence interval.
+ *
+ * Each variable is ranked with ties given their average rank, and rho is
+ * Pearson's r on those ranks. That is exact with or without ties; the
+ * textbook shortcut 1 − 6Σd²/(n(n²−1)) is not once ties are present. The
+ * p-value refers t = rho·√((n−2)/(1−rho²)) to Student's t on n − 2 df, as
+ * `scipy.stats.spearmanr` does, an approximation that is adequate from about
+ * n = 10.
+ *
+ * The interval is a Fisher-z interval with the variance of Bonett & Wright
+ * (2000), (1 + rho²/2)/(n − 3), in place of Pearson's 1/(n − 3), which is too
+ * narrow for rho and undercovers as |rho| grows. It needs n ≥ 4.
+ *
+ * @param {number[]} arr1
+ * @param {number[]} arr2
+ * @param {{conf?: number}} [options]
+ * @returns {{rho:number, t:number, df:number, p:number,
+ *            ci:[number,number], n:number, ties:boolean}|null}
+ *          null with fewer than three pairs; rho NaN when either variable is
+ *          constant.
+ */
+export function spearmanCorrelation(arr1, arr2, options = {}) {
+  const { conf = 0.95 } = options;
+  const { a, b } = alignPairs(arr1, arr2);
+  const n = a.length;
+  if (n < 3) return null;
+
+  const ties = new Set(a).size < n || new Set(b).size < n;
+  const pr = pearsonCorrelation(ranks(a), ranks(b), { conf });
+  const rho = pr.r;
+  const df = n - 2;
+  if (!Number.isFinite(rho)) {
+    return { rho: NaN, t: NaN, df, p: NaN, ci: [NaN, NaN], n, ties };
+  }
+  if (Math.abs(rho) >= 1) {
+    return { rho, t: Infinity * Math.sign(rho), df, p: 0, ci: [rho, rho], n, ties };
+  }
+
+  let ci = [NaN, NaN];
+  if (n > 3) {
+    const jStat = requireVendor('jStat');
+    const z = Math.atanh(rho);
+    const se = Math.sqrt((1 + (rho * rho) / 2) / (n - 3));
+    const zc = jStat.normal.inv(1 - (1 - conf) / 2, 0, 1);
+    ci = [Math.tanh(z - zc * se), Math.tanh(z + zc * se)];
+  }
+  return { rho, t: pr.t, df, p: pr.p, ci, n, ties };
+}
+
 /* ------------------------------------------------------------------ *
  * Helpers
  * ------------------------------------------------------------------ */

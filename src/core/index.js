@@ -168,6 +168,7 @@ export {
   mannWhitneyU,
   wilcoxonSignedRank,
   oneSampleWilcoxon,
+  spearmanCorrelation,
   alignPairs,
   formatP,
   interpretD,

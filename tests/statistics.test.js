@@ -6,7 +6,7 @@ import {
   tTwoSided, tCritical, fUpperTail, zTwoSided, chiSquaredUpperTail,
   dagostinoNormality, leveneTest,
   independentTTest, pairedTTest, oneSampleTTest, oneWayAnova, pearsonCorrelation,
-  leastSquaresLine,
+  leastSquaresLine, spearmanCorrelation,
   mannWhitneyU, wilcoxonSignedRank, oneSampleWilcoxon,
   alignPairs, formatP, interpretD, interpretEta, interpretR,
   classifyFields, pivotLongToGroups
@@ -556,6 +556,67 @@ describe('pearsonCorrelation', () => {
 
   test('returns null with fewer than three pairs', () => {
     expect(pearsonCorrelation([1, 2], [1, 2])).toBeNull();
+  });
+});
+
+describe('spearmanCorrelation', () => {
+  test('rho and p match scipy spearmanr with ties in y', () => {
+    // stats.spearmanr(X1, X2); X2 holds two tied pairs.
+    const r = spearmanCorrelation(X1, X2);
+    expect(r.rho).toBeCloseTo(0.6470816712483338, 12);
+    expect(r.p).toBeCloseTo(0.059592213885008516, 8);
+    expect(r.df).toBe(7);
+    expect(r.ties).toBe(true);
+  });
+
+  test('matches scipy with ties in both variables', () => {
+    // stats.spearmanr([1,2,2,3,4,5,5,5,6,7], [2.0,1.5,3.1,2.9,4.0,4.4,3.8,5.0,4.9,6.2])
+    const x = [1, 2, 2, 3, 4, 5, 5, 5, 6, 7];
+    const y = [2.0, 1.5, 3.1, 2.9, 4.0, 4.4, 3.8, 5.0, 4.9, 6.2];
+    const r = spearmanCorrelation(x, y);
+    expect(r.rho).toBeCloseTo(0.8985678841491289, 12);
+    expect(r.p).toBeCloseTo(0.00040908483359797026, 10);
+  });
+
+  test('the interval is Fisher z with the Bonett-Wright variance', () => {
+    // np.tanh(np.arctanh(rho) -/+ stats.norm.ppf(0.975) * np.sqrt((1 + rho**2/2) / (n - 3)))
+    const r = spearmanCorrelation(X1, X2);
+    expect(r.ci[0]).toBeCloseTo(-0.10923394836907992, 9);
+    expect(r.ci[1]).toBeCloseTo(0.9288844022679728, 9);
+    const r99 = spearmanCorrelation(X1, X2, { conf: 0.99 });
+    expect(r99.ci[0]).toBeCloseTo(-0.3680508360136536, 9);
+    expect(r99.ci[1]).toBeCloseTo(0.9584650312064131, 9);
+  });
+
+  test('a monotone but non-linear relationship gives rho = 1 where Pearson does not', () => {
+    // stats.spearmanr -> 1.0, stats.pearsonr -> 0.7376908727427494
+    const sx = [0.5, 1, 2, 3, 4, 6, 8, 10, 15, 20, 30, 40];
+    const sy = [0.9, 1.7, 2.9, 3.6, 4.3, 5.0, 5.4, 5.6, 6.0, 6.1, 6.25, 6.3];
+    const r = spearmanCorrelation(sx, sy);
+    expect(r.rho).toBeCloseTo(1, 12);
+    expect(r.p).toBeLessThan(1e-12);
+    expect(pearsonCorrelation(sx, sy).r).toBeCloseTo(0.7376908727427494, 12);
+  });
+
+  test('is invariant to a monotone transform of either variable', () => {
+    const a = spearmanCorrelation(X1, X2);
+    const b = spearmanCorrelation(X1.map(Math.exp), X2.map(v => v * v * v));
+    expect(b.rho).toBeCloseTo(a.rho, 12);
+  });
+
+  test('a perfectly reversed order gives rho = -1', () => {
+    expect(spearmanCorrelation([1, 2, 3, 4, 5], [5, 4, 3, 2, 1]).rho).toBeCloseTo(-1, 12);
+  });
+
+  test('has no interval at n = 3 and is NaN for a constant variable', () => {
+    const r3 = spearmanCorrelation([1, 2, 3], [1, 3, 2]);
+    expect(r3.rho).toBeCloseTo(0.5, 12);
+    expect(Number.isNaN(r3.ci[0])).toBe(true);
+    expect(Number.isNaN(spearmanCorrelation([1, 1, 1, 1], [1, 2, 3, 4]).rho)).toBe(true);
+  });
+
+  test('returns null with fewer than three pairs', () => {
+    expect(spearmanCorrelation([1, 2], [2, 1])).toBeNull();
   });
 });
 
