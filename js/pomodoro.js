@@ -151,7 +151,7 @@ function getTrack(name) {
             }
             if (row) row.dataset.failed = 'true';
             const readout = document.getElementById(`val-${name}`);
-            if (readout) readout.textContent = ', ';
+            if (readout) readout.textContent = 'n/a';
         });
         audioTracks[name] = el;
     }
@@ -203,7 +203,7 @@ function setNoiseVolume(raw) {
     brownNoise.gain.gain.setTargetAtTime(vol * 0.6, ctx.currentTime, 0.05);
 }
 
-// Two-tone chime. Replaces the blocking alert().
+// Two-tone chime, the end-of-session signal; nothing here blocks with a dialog.
 function playChime(isBreakEnding) {
     const ctx = getAudioContext();
     if (!ctx) return;

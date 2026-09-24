@@ -48,11 +48,11 @@
     </script>
 
     <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does the timer keep running if I switch tabs?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The countdown is anchored to an absolute finish time rather than counting ticks, so browser throttling of inactive tabs does not cause drift. The remaining time also appears in the tab title."}}, {"@type": "Question", "name": "Is my data uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Everything runs in your browser. Your intervals are stored in this browser’s local storage and nothing about your sessions is sent to a server."}}, {"@type": "Question", "name": "How long should a focus session be?", "acceptedAnswer": {"@type": "Answer", "text": "25 minutes is the classic default and suits interruptible work. For debugging, reading papers, or writing, 45–50 minutes often works better because complex problems take time to load into working memory. Change it under Intervals."}}, {"@type": "Question", "name": "Why does the audio not start immediately?", "acceptedAnswer": {"@type": "Answer", "text": "Browsers block audio until you interact with the page, and each channel only downloads when you first raise its slider. If a slider is greyed out, that recording failed to load."}}, {"@type": "Question", "name": "Will I get a notification when the session ends?", "acceptedAnswer": {"@type": "Answer", "text": "A chime always plays. If you grant notification permission on first start, you will also get a desktop notification, but only while the tab is in the background, so a focused tab is never interrupted twice."}}, {"@type": "Question", "name": "Are there keyboard shortcuts?", "acceptedAnswer": {"@type": "Answer", "text": "Yes: Space starts and pauses, R resets the current session, and S skips to the next one. Arrow keys move between the Focus, Short and Long tabs."}}]}
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Does the timer keep running if I switch tabs?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The countdown is anchored to an absolute finish time rather than counting ticks, so browser throttling of inactive tabs does not cause drift. The remaining time also appears in the tab title."}}, {"@type": "Question", "name": "Is my data uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Everything runs in your browser. Your intervals are stored in this browser’s local storage and nothing about your sessions is sent to a server."}}, {"@type": "Question", "name": "How long should a focus session be?", "acceptedAnswer": {"@type": "Answer", "text": "25 minutes is the classic default and suits interruptible work. For debugging, reading papers, or writing, 45–50 minutes often works better because complex problems take time to load into working memory. Change it under Set intervals."}}, {"@type": "Question", "name": "Why does the audio not start immediately?", "acceptedAnswer": {"@type": "Answer", "text": "Browsers block audio until you interact with the page, and each channel only downloads when you first raise its slider. If a slider is greyed out, that recording failed to load."}}, {"@type": "Question", "name": "Will I get a notification when the session ends?", "acceptedAnswer": {"@type": "Answer", "text": "A chime always plays. If you grant notification permission on first start, you will also get a desktop notification, but only while the tab is in the background, so a focused tab is never interrupted twice."}}, {"@type": "Question", "name": "Are there keyboard shortcuts?", "acceptedAnswer": {"@type": "Answer", "text": "Yes: Space starts and pauses, R resets the current session, and S skips to the next one. Arrow keys move between the Focus, Short and Long tabs."}}]}
 </script>
 
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "HowTo", "name": "How to use the Ambient Pomodoro timer", "totalTime": "PT30M", "step": [{"@type": "HowToStep", "position": 1, "name": "Pick one task first", "text": "Decide what you are working on before you press start, so the session is not spent choosing."}, {"@type": "HowToStep", "position": 2, "name": "Set your interval", "text": "Open Intervals to change the focus and break lengths. Defaults are 25 minutes focus and 5 minutes break, with a long break every four sessions."}, {"@type": "HowToStep", "position": 3, "name": "Raise a soundscape", "text": "Move any mixer slider above zero. Rain, cafe and brown noise layer freely and audio only downloads when used."}, {"@type": "HowToStep", "position": 4, "name": "Work until the chime", "text": "Press Start or hit Space. The dial and the tab title both track the countdown while you work."}]}
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to use the Ambient Pomodoro timer", "totalTime": "PT30M", "step": [{"@type": "HowToStep", "position": 1, "name": "Pick one task first", "text": "Decide what you are working on before you press start, so the session is not spent choosing."}, {"@type": "HowToStep", "position": 2, "name": "Set your interval", "text": "Open Set intervals to change the focus and break lengths. Defaults are 25 minutes focus and 5 minutes break, with a long break every four sessions."}, {"@type": "HowToStep", "position": 3, "name": "Raise a soundscape", "text": "Move any mixer slider above zero. Rain, cafe and brown noise layer freely and audio only downloads when used."}, {"@type": "HowToStep", "position": 4, "name": "Work until the chime", "text": "Press Start or hit Space. The dial and the tab title both track the countdown while you work."}]}
 </script>
     <meta name="author" content="Olanrewaju M. Daramola">
     <meta name="theme-color" content="#1f5c96">
@@ -133,20 +133,25 @@
         </div>
     </nav>
 
-    <main id="main" class="max-w-6xl mx-auto px-6 py-12 w-full flex-grow">
+    <main id="main" class="flex-grow max-w-6xl mx-auto px-4 sm:px-6 py-8 w-full flex flex-col gap-8">
 
-        <div class="text-center mb-12">
-            <h1 class="text-4xl md:text-5xl font-black mb-4 tracking-tight">Ambient Pomodoro</h1>
-            <p class="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">Set an interval, raise a soundscape, and work until the chime. The countdown is anchored to a real clock time, so it stays accurate in a background tab.</p>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Cirillo intervals · 100% client-side</p>
-        </div>
+        <header class="stk-pagehead">
+            <div>
+                <h1 class="stk-pagehead-title">Ambient Pomodoro</h1>
+                <p class="stk-pagehead-lede">Work in timed focus sessions with short and long breaks between them, over rain, caf&eacute; or brown noise; the countdown follows the clock, so it stays right in a background tab.</p>
+                <ul class="stk-pagehead-meta">
+                    <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
+                    <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
+                </ul>
+            </div>
+        </header>
 
         <div class="w-full max-w-md mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-8 relative">
 
             <div id="mode-switch" class="pm-modes mb-8" role="tablist" aria-label="Session type">
-                <button id="btn-mode-pomodoro" role="tab" aria-selected="true" class="pm-mode">Focus</button>
-                <button id="btn-mode-short" role="tab" aria-selected="false" class="pm-mode">Short</button>
-                <button id="btn-mode-long" role="tab" aria-selected="false" class="pm-mode">Long</button>
+                <button type="button" id="btn-mode-pomodoro" role="tab" aria-selected="true" class="pm-mode">Focus</button>
+                <button type="button" id="btn-mode-short" role="tab" aria-selected="false" class="pm-mode">Short</button>
+                <button type="button" id="btn-mode-long" role="tab" aria-selected="false" class="pm-mode">Long</button>
             </div>
 
             <div id="dial" class="pm-dial mb-8" data-mode="pomodoro" data-running="false">
@@ -163,30 +168,27 @@
             </div>
 
             <div class="flex justify-center items-center gap-3 mb-6">
-                <button id="btn-reset" class="pm-ctl" aria-label="Reset the current session">
+                <button type="button" id="btn-reset" class="pm-ctl" aria-label="Reset the current session">
                     <i class="fa-solid fa-rotate-right text-lg" aria-hidden="true"></i>
                 </button>
-                <button id="btn-toggle" class="pm-primary" data-running="false" aria-pressed="false">Start</button>
-                <button id="btn-skip" class="pm-ctl" aria-label="Skip to the next session">
+                <button type="button" id="btn-toggle" class="pm-primary" data-running="false" aria-pressed="false">Start</button>
+                <button type="button" id="btn-skip" class="pm-ctl" aria-label="Skip to the next session">
                     <i class="fa-solid fa-forward-step text-lg" aria-hidden="true"></i>
                 </button>
             </div>
 
-            <p class="text-center text-xs text-slate-500 dark:text-slate-400 mb-8">
-                <span class="pm-kbd">Space</span> start ·
-                <span class="pm-kbd">R</span> reset ·
-                <span class="pm-kbd">S</span> skip
-            </p>
+            <ul class="pm-keys mb-8" aria-label="Keyboard shortcuts">
+                <li><kbd class="pm-kbd">Space</kbd> start or pause</li>
+                <li><kbd class="pm-kbd">R</kbd> reset</li>
+                <li><kbd class="pm-kbd">S</kbd> skip</li>
+            </ul>
 
             <div class="border-t border-slate-200 dark:border-slate-800 pt-6">
 
                 <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                        <i class="fa-solid fa-sliders" aria-hidden="true"></i> Ambient mixer
-                    </h2>
-                    <button id="btn-settings" aria-expanded="false" aria-controls="settings-panel"
-                            class="text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-brand-600 transition-colors flex items-center gap-1.5">
-                        <i class="fa-solid fa-gear" aria-hidden="true"></i> Intervals
+                    <h2 class="stk-ptitle">Ambient sound</h2>
+                    <button type="button" id="btn-settings" aria-expanded="false" aria-controls="settings-panel" class="pm-disclose">
+                        <i class="fa-solid fa-gear" aria-hidden="true"></i> Set intervals <i class="fa-solid fa-chevron-down pm-chev" aria-hidden="true"></i>
                     </button>
                 </div>
 
@@ -210,7 +212,7 @@
 
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-6">
                     Recordings used under Creative Commons:
-                    <a href="#faq" class="pm-underline hover:text-brand-600 transition-colors">see credits</a>.
+                    <a href="#faq" class="pm-underline hover:text-brand-700 dark:hover:text-brand-300 transition-colors">see credits</a>.
                 </p>
 
                 <div id="settings-panel" class="hidden mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
@@ -249,7 +251,7 @@
             <h2 class="stk-h2">How to use the Ambient Pomodoro</h2>
             <p class="stk-lead">The technique works by making the unit of work fixed and the decision of what to work on happen once, in advance. Here is the workflow.</p>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-step"><span class="stk-num">1</span><div><h3>Pick one task first</h3><p>Decide what you are working on <em>before</em> you press start. Choosing mid-session is itself a context switch, the one this method exists to remove.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Set your interval</h3><p>Open <strong>Intervals</strong> to change the focus and break lengths. Defaults are 25/5 with a long break every four sessions. Settings are saved in this browser.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Raise a soundscape</h3><p>Move any mixer slider above zero. Channels layer freely, and audio only downloads once you actually use it.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Work until the chime</h3><p>Press <strong>Start</strong>, or hit <kbd>Space</kbd>. The dial and the tab title both track the countdown, so you can leave the tab and still see the time remaining.</p></div></div>
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Pick one task first</h3><p>Decide what you are working on <em>before</em> you press start. Choosing mid-session is itself a context switch, the one this method exists to remove.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Set your interval</h3><p>Open <strong>Set intervals</strong> to change the focus and break lengths. Defaults are 25/5 with a long break every four sessions. Settings are saved in this browser.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Raise a soundscape</h3><p>Move any mixer slider above zero. Channels layer freely, and audio only downloads once you actually use it.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Work until the chime</h3><p>Press <strong>Start</strong>, or hit <kbd>Space</kbd>. The dial and the tab title both track the countdown, so you can leave the tab and still see the time remaining.</p></div></div>
             </div>
         </div>
     </section>
@@ -296,7 +298,7 @@
         <div class="stk-wrap" style="max-width:52rem;">
             <h2 class="stk-h2">Frequently asked questions</h2>
             <div style="margin-top:1rem;">
-                <details class="stk-faq"><summary>Does the timer keep running if I switch tabs?</summary><div>Yes. The countdown is anchored to an absolute finish time rather than counting ticks, so browser throttling of inactive tabs does not cause drift. The remaining time also appears in the tab title.</div></details><details class="stk-faq"><summary>Is my data uploaded anywhere?</summary><div>No. Everything runs in your browser. Your intervals are stored in this browser&rsquo;s local storage and nothing about your sessions is sent to a server.</div></details><details class="stk-faq"><summary>How long should a focus session be?</summary><div>25 minutes is the classic default and suits interruptible work. For debugging, reading papers, or writing, 45&ndash;50 minutes often works better because complex problems take time to load into working memory. Change it under Intervals.</div></details><details class="stk-faq"><summary>Why does the audio not start immediately?</summary><div>Browsers block audio until you interact with the page, and each channel only downloads when you first raise its slider. If a slider is greyed out, that recording failed to load.</div></details><details class="stk-faq"><summary>Will I get a notification when the session ends?</summary><div>A chime always plays. If you grant notification permission on first start, you will also get a desktop notification, but only while the tab is in the background, so a focused tab is never interrupted twice.</div></details><details class="stk-faq"><summary>Are there keyboard shortcuts?</summary><div>Yes: <kbd>Space</kbd> starts and pauses, <kbd>R</kbd> resets the current session, and <kbd>S</kbd> skips to the next one. Arrow keys move between the Focus, Short and Long tabs.</div></details>
+                <details class="stk-faq"><summary>Does the timer keep running if I switch tabs?</summary><div>Yes. The countdown is anchored to an absolute finish time rather than counting ticks, so browser throttling of inactive tabs does not cause drift. The remaining time also appears in the tab title.</div></details><details class="stk-faq"><summary>Is my data uploaded anywhere?</summary><div>No. Everything runs in your browser. Your intervals are stored in this browser&rsquo;s local storage and nothing about your sessions is sent to a server.</div></details><details class="stk-faq"><summary>How long should a focus session be?</summary><div>25 minutes is the classic default and suits interruptible work. For debugging, reading papers, or writing, 45&ndash;50 minutes often works better because complex problems take time to load into working memory. Change it under Set intervals.</div></details><details class="stk-faq"><summary>Why does the audio not start immediately?</summary><div>Browsers block audio until you interact with the page, and each channel only downloads when you first raise its slider. If a slider is greyed out, that recording failed to load.</div></details><details class="stk-faq"><summary>Will I get a notification when the session ends?</summary><div>A chime always plays. If you grant notification permission on first start, you will also get a desktop notification, but only while the tab is in the background, so a focused tab is never interrupted twice.</div></details><details class="stk-faq"><summary>Are there keyboard shortcuts?</summary><div>Yes: <kbd>Space</kbd> starts and pauses, <kbd>R</kbd> resets the current session, and <kbd>S</kbd> skips to the next one. Arrow keys move between the Focus, Short and Long tabs.</div></details>
             </div>
             <div class="stk-refs">
                 <a href="https://freesound.org/people/Snoopy20111/sounds/399072/" target="_blank" rel="noopener"><i class="fa-solid fa-cloud-rain"></i> Rain_Loop.wav by Snoopy20111 (CC0 1.0)</a><a href="https://freesound.org/people/Tomlija/sounds/99632/" target="_blank" rel="noopener"><i class="fa-solid fa-mug-hot"></i> small cafe ambience.wav by Tomlija (CC BY 3.0)</a>
