@@ -65,8 +65,8 @@
 
 /* Inline code inside documentation prose. The pink treatment marks a literal
    the reader might type; the note variant keeps to the note's amber. */
-.stk-section code, .stk-faq code, .stk-note code, .stk-where code, .stk-lead code, .stk-step p code, .stk-refs-list code, .stk-table code, .stk-card code { font-family:var(--stk-font-mono); font-size:.85em; background:#fff1f2; color:#be123c; border:1px solid #fecdd3; border-radius:.3rem; padding:.05em .35em; white-space:nowrap; }
-.dark .stk-section code, .dark .stk-faq code, .dark .stk-note code, .dark .stk-where code, .dark .stk-lead code, .dark .stk-step p code, .dark .stk-refs-list code, .dark .stk-table code, .dark .stk-card code { background:rgba(190,18,60,.15); color:#fda4af; border-color:rgba(244,63,94,.3); }
+.stk-section code, .stk-faq code, .stk-note code, .stk-where code, .stk-lead code, .stk-step p code, .stk-refs-list code, .stk-table code, .stk-card code { font-family:var(--stk-font-mono); font-size:.85em; background:#f1f6fb; color:#1a4b7b; border:1px solid #c0d6ec; border-radius:.3rem; padding:.05em .35em; white-space:nowrap; }
+.dark .stk-section code, .dark .stk-faq code, .dark .stk-note code, .dark .stk-where code, .dark .stk-lead code, .dark .stk-step p code, .dark .stk-refs-list code, .dark .stk-table code, .dark .stk-card code { background:rgba(53,116,176,.16); color:#92b8dd; border-color:rgba(92,147,199,.35); }
 .stk-note code { background:rgba(180,83,9,.1); color:#92400e; border-color:rgba(180,83,9,.25); }
 .dark .stk-note code { background:rgba(180,83,9,.2); border-color:rgba(180,83,9,.4); }
 

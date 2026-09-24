@@ -47,10 +47,10 @@ document.addEventListener('DOMContentLoaded', () => {
       e.stopPropagation();
     }, false);
   });
-  uploadZone.addEventListener('dragover', () => uploadZone.classList.add('border-indigo-500'));
-  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('border-indigo-500'));
+  uploadZone.addEventListener('dragover', () => uploadZone.classList.add('border-brand-500'));
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('border-brand-500'));
   uploadZone.addEventListener('drop', (e) => {
-    uploadZone.classList.remove('border-indigo-500');
+    uploadZone.classList.remove('border-brand-500');
     if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
   });
   uploadZone.addEventListener('click', () => fileInput.click());
@@ -278,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400'
       : type === 'error'
         ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400'
-        : 'bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400';
+        : 'bg-brand-50 text-brand-800 border-brand-200 dark:bg-brand-900/30 dark:text-brand-400';
     toast.className = `px-4 py-3 rounded-xl border shadow-lg toast-enter text-sm font-medium transition-all ${colors}`;
     toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-triangle-exclamation' : 'fa-info-circle'} mr-2"></i> ${escapeHtml(msg)}`;
     container.appendChild(toast);

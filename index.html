@@ -18,7 +18,8 @@
         {"@context":"https://schema.org","@type":"WebApplication","name":"STEMKit","url":"https://stemkit.net/index.html","description":"21 free, privacy-first browser tools for scientists and students: plot digitizing, statistics, curve fitting, figure building, unit conversion, molecular viewing, and LaTeX/BibTeX formatting.","applicationCategory":"EducationalApplication","operatingSystem":"All","browserRequirements":"Requires JavaScript","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["100% client-side","No data uploads","No sign-up","Works offline"]}
     </script>
     <meta name="author" content="STEMKit">
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#1f5c96">
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
@@ -48,9 +49,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center gap-4 h-16 sm:h-20">
                 <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity" aria-label="STEMKit home">
-                    <div class="bg-indigo-600 text-white p-2 sm:p-2.5 rounded-lg shadow-sm flex items-center justify-center">
-                        <i class="fa-solid fa-flask text-lg sm:text-xl" aria-hidden="true"></i>
-                    </div>
+                    <svg class="stk-logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect width="32" height="32" rx="7.5"/><path d="M16 5.2 25.35 10.6v10.8L16 26.8 6.65 21.4V10.6ZM16.8 8.9l4.96 2.87M21.76 20.23 16.8 23.1M9.46 18.87v-5.74"/></svg>
                     <span class="text-xl sm:text-2xl font-black tracking-tighter text-slate-900 dark:text-white">STEMKit</span>
                 </a>
 
@@ -88,7 +87,7 @@
                 <a href="index.html#pub-tools" class="stk-navlink block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" data-stk-cat="pub">Writing</a>
                 <a href="index.html#focus-tools" class="stk-navlink block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" data-stk-cat="focus">Focus</a>
                 <div class="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800">
-                    <button type="button" class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl shadow-md transition-colors" data-stk-find aria-haspopup="dialog">
+                    <button type="button" class="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white py-3 rounded-xl shadow-md transition-colors" data-stk-find aria-haspopup="dialog">
                         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Find a tool
                     </button>
                 </div>
@@ -141,56 +140,56 @@
                 <p class="hm-sec-blurb">Clean, test, fit and plot experimental data.</p>
                 <div class="hm-list">
                     <a href="plot-digitizer.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400"><i class="fa-solid fa-crosshairs" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-crosshairs" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Plot Digitizer</h3>
                             <p class="hm-tool-desc tool-desc">Extract data points from a graph image by clicking or tracing curves, then export the numbers as CSV.</p>
                         </div>
                     </a>
                     <a href="data-cleaner.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400"><i class="fa-solid fa-broom" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-broom" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Data Cleaner</h3>
                             <p class="hm-tool-desc tool-desc">Clean, normalize and log-transform messy CSV datasets, then download the tidied file.</p>
                         </div>
                     </a>
                     <a href="stats-calculator.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400"><i class="fa-solid fa-calculator" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-calculator" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Statistics Calculator</h3>
                             <p class="hm-tool-desc tool-desc">Run t-tests, ANOVA, correlation and non-parametric tests with effect sizes, CIs and assumption checks.</p>
                         </div>
                     </a>
                     <a href="error-bar-generator.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-teal-100 text-teal-600 dark:bg-teal-900/50 dark:text-teal-400"><i class="fa-solid fa-chart-column" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-chart-column" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Error Bar Generator</h3>
                             <p class="hm-tool-desc tool-desc">Compute mean, SD, SEM, median, IQR and confidence intervals per group, then plot and export error bars.</p>
                         </div>
                     </a>
                     <a href="outlier-detector.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400"><i class="fa-solid fa-filter" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-filter" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Outlier Detector</h3>
                             <p class="hm-tool-desc tool-desc">Flag anomalies with Z-scores, Tukey’s IQR fences or the robust modified Z-score.</p>
                         </div>
                     </a>
                     <a href="curve-fitter.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400"><i class="fa-solid fa-wave-square" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-wave-square" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Curve Fitter</h3>
                             <p class="hm-tool-desc tool-desc">Fit linear, polynomial, exponential, power or log models and read off coefficients, R² and RMSE.</p>
                         </div>
                     </a>
                     <a href="plot-builder.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400"><i class="fa-solid fa-chart-area" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-chart-area" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Plot Builder</h3>
                             <p class="hm-tool-desc tool-desc">Overlay multiple datasets in one figure, style it fully, and export PNG/SVG or matplotlib code.</p>
                         </div>
                     </a>
                     <a href="xvg-visualizer.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400"><i class="fa-solid fa-file-csv" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-file-csv" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">XVG Visualizer</h3>
                             <p class="hm-tool-desc tool-desc">Plot GROMACS .xvg and CSV logs interactively; select columns, smooth, and export the figure or Python code.</p>
@@ -207,28 +206,28 @@
                 <p class="hm-sec-blurb">Inspect structures, prepare coordinates and write the batch scripts for a run.</p>
                 <div class="hm-list">
                     <a href="structure-inspector.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400"><i class="fa-solid fa-cube" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-cube" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Structure Inspector</h3>
                             <p class="hm-tool-desc tool-desc">Render PDB, CIF, GRO, XYZ and more in 3D; select atoms, measure geometry and export a figure.</p>
                         </div>
                     </a>
                     <a href="coordinate-manipulator.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-400"><i class="fa-solid fa-arrows-up-down-left-right" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-arrows-up-down-left-right" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Coordinate Manipulator</h3>
                             <p class="hm-tool-desc tool-desc">Translate, rotate and re-box PDB, GRO and XYZ coordinates, and convert between the formats.</p>
                         </div>
                     </a>
                     <a href="scientific-converter.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-400"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Scientific Converter</h3>
                             <p class="hm-tool-desc tool-desc">Convert energy, length, pressure, dipole, polarizability, spectroscopic and temperature units against CODATA values.</p>
                         </div>
                     </a>
                     <a href="script-generator.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400"><i class="fa-solid fa-terminal" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-terminal" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">MD Workflow Generator</h3>
                             <p class="hm-tool-desc tool-desc">Build batch scripts for GROMACS and LAMMPS on SLURM, PBS, LSF or Grid Engine, and write PLUMED inputs.</p>
@@ -245,42 +244,42 @@
                 <p class="hm-sec-blurb">Equations, tables and a bibliography that builds.</p>
                 <div class="hm-list">
                     <a href="latex-formatter.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400"><i class="fa-solid fa-square-root-variable" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-square-root-variable" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Equation Formatter</h3>
                             <p class="hm-tool-desc tool-desc">Build LaTeX equations and matrices visually with a live preview, then copy the code.</p>
                         </div>
                     </a>
                     <a href="latex-tables.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-teal-100 text-teal-600 dark:bg-teal-900/50 dark:text-teal-400"><i class="fa-solid fa-table-cells" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-table-cells" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Visual LaTeX Tables</h3>
                             <p class="hm-tool-desc tool-desc">Paste a table from Excel, edit and merge cells visually, and copy clean LaTeX (booktabs) output.</p>
                         </div>
                     </a>
                     <a href="doi-fetcher.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">DOI to BibTeX</h3>
                             <p class="hm-tool-desc tool-desc">Paste DOIs and get ready-to-use BibTeX entries resolved from Crossref.</p>
                         </div>
                     </a>
                     <a href="bibtex-deduplicator.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400"><i class="fa-solid fa-copy" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-copy" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">BibTeX Deduplicator</h3>
                             <p class="hm-tool-desc tool-desc">Scan a .bib library and merge duplicate entries by DOI and title.</p>
                         </div>
                     </a>
                     <a href="bibtex-sanitizer.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400"><i class="fa-solid fa-broom" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-broom" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">BibTeX Sanitizer</h3>
                             <p class="hm-tool-desc tool-desc">Fix messy BibTeX exports: standardize capitalization, repair braces and clean fields.</p>
                         </div>
                     </a>
                     <a href="journal-abbreviator.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-pink-100 text-pink-600 dark:bg-pink-900/50 dark:text-pink-400"><i class="fa-solid fa-spell-check" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-spell-check" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Journal Abbreviator</h3>
                             <p class="hm-tool-desc tool-desc">Convert full journal names to their ISO 4 / CASSI standard abbreviations.</p>
@@ -297,21 +296,21 @@
                 <p class="hm-sec-blurb">Not research tools: a timer, a decision matrix and a physics toy for the breaks in between.</p>
                 <div class="hm-list is-odd">
                     <a href="pomodoro.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-900/50 dark:text-fuchsia-400"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Ambient Pomodoro</h3>
                             <p class="hm-tool-desc tool-desc">A focus timer with adjustable ambient sounds like rain and cafe noise for deep work.</p>
                         </div>
                     </a>
                     <a href="decision.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400"><i class="fa-solid fa-code-branch" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-code-branch" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Decision Matrix</h3>
                             <p class="hm-tool-desc tool-desc">Weigh options against criteria in a scored matrix to rank your best choice.</p>
                         </div>
                     </a>
                     <a href="sandbox.html" class="tool-card hm-tool">
-                        <span class="hm-ico bg-cyan-100 text-cyan-600 dark:bg-cyan-900/50 dark:text-cyan-400"><i class="fa-solid fa-atom" aria-hidden="true"></i></span>
+                        <span class="hm-ico"><i class="fa-solid fa-atom" aria-hidden="true"></i></span>
                         <div class="hm-tool-txt">
                             <h3 class="hm-tool-name tool-title">Kinetic Sandbox</h3>
                             <p class="hm-tool-desc tool-desc">An interactive fluid and particle physics playground, a calm visual break.</p>
@@ -371,7 +370,7 @@ console.log(columnStats(matrix.map(r =&gt; r[1])));</code></pre>
         <div class="max-w-7xl mx-auto px-6">
             <div class="stk-dir mb-12">
                 <div>
-                    <h4><i class="fa-solid fa-chart-pie text-indigo-500 text-xs"></i> Data &amp; Statistics</h4>
+                    <h4><i class="fa-solid fa-chart-pie text-brand-500 dark:text-brand-400 text-xs"></i> Data &amp; Statistics</h4>
                     <ul>
                         <li><a href="plot-digitizer.html">Plot Digitizer</a></li>
                         <li><a href="data-cleaner.html">Data Cleaner</a></li>
@@ -384,7 +383,7 @@ console.log(columnStats(matrix.map(r =&gt; r[1])));</code></pre>
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-microchip text-orange-500 text-xs"></i> Computational Chemistry</h4>
+                    <h4><i class="fa-solid fa-microchip text-brand-500 dark:text-brand-400 text-xs"></i> Computational Chemistry</h4>
                     <ul>
                         <li><a href="structure-inspector.html">Structure Inspector</a></li>
                         <li><a href="coordinate-manipulator.html">Coordinate Manipulator</a></li>
@@ -393,7 +392,7 @@ console.log(columnStats(matrix.map(r =&gt; r[1])));</code></pre>
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-book-open text-teal-500 text-xs"></i> Writing &amp; Citations</h4>
+                    <h4><i class="fa-solid fa-book-open text-brand-500 dark:text-brand-400 text-xs"></i> Writing &amp; Citations</h4>
                     <ul>
                         <li><a href="latex-formatter.html">Equation Formatter</a></li>
                         <li><a href="latex-tables.html">Visual LaTeX Tables</a></li>
@@ -404,7 +403,7 @@ console.log(columnStats(matrix.map(r =&gt; r[1])));</code></pre>
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-headphones text-fuchsia-500 text-xs"></i> Focus &amp; Flow</h4>
+                    <h4><i class="fa-solid fa-headphones text-brand-500 dark:text-brand-400 text-xs"></i> Focus &amp; Flow</h4>
                     <ul>
                         <li><a href="pomodoro.html">Ambient Pomodoro</a></li>
                         <li><a href="decision.html">Decision Matrix</a></li>
@@ -414,13 +413,13 @@ console.log(columnStats(matrix.map(r =&gt; r[1])));</code></pre>
             </div>
             <div class="border-t border-slate-200 dark:border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400 gap-4">
                 <div class="flex items-center gap-2">
-                    <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
+                    <svg class="stk-logo stk-logo-foot" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect width="32" height="32" rx="7.5"/><path d="M16 5.2 25.35 10.6v10.8L16 26.8 6.65 21.4V10.6ZM16.8 8.9l4.96 2.87M21.76 20.23 16.8 23.1M9.46 18.87v-5.74"/></svg>
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                 </div>
-                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-indigo-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-brand-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
                 <div class="flex gap-6 text-sm font-medium">
-                    <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
-                    <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+                    <a href="privacy.html#privacy" class="hover:text-brand-500 transition-colors">Privacy Policy</a>
+                    <a href="privacy.html#terms" class="hover:text-brand-500 transition-colors">Terms of Service</a>
                 </div>
             </div>
         </div>

@@ -3,29 +3,13 @@
  *
  * The builder is assembled from the shared components in
  * src/tailwind/input.css and the documentation sections from
- * src/stemkit-docs.css; both read the design tokens, so re-pointing the accent
- * on <body> is what gives every control the tool's rose. What remains here is
+ * src/stemkit-docs.css; both read the design tokens, so every control takes
+ * the site accent without rules of its own. What remains here is
  * the layout those components do not cover (the settings/output split, the
  * always-dark code panes) and the PLUMED builder cards, whose markup is
  * generated at run time.
  */
 
-body {
-  --stk-accent: #e11d48;
-  --stk-accent-hover: #be123c;
-  --stk-accent-text: #be123c;
-  --stk-accent-soft: #fff1f2;
-  --stk-accent-soft-border: #fecdd3;
-  --stk-ring: rgba(225, 29, 72, .35);
-}
-.dark body {
-  --stk-accent: #e11d48;
-  --stk-accent-hover: #f43f5e;
-  --stk-accent-text: #fda4af;
-  --stk-accent-soft: rgba(244, 63, 94, .16);
-  --stk-accent-soft-border: rgba(251, 113, 133, .35);
-  --stk-ring: rgba(251, 113, 133, .45);
-}
 
 /* The hidden attribute must beat a component's own display value, otherwise
    a .stk-field { display:flex } stays visible with hidden set. */
@@ -96,7 +80,7 @@ body {
 .sg-out-body { flex: 1 1 auto; min-height: 0; overflow: auto; background: #0b1120; color: #e2e8f0; }
 .sg-code { margin: 0; padding: .85rem 1rem; font-family: var(--stk-font-mono); font-size: .75rem; line-height: 1.55; white-space: pre; tab-size: 4; }
 .sg-code .tok-c { color: #8b9bb4; }
-.sg-code .tok-d { color: #fda4af; }
+.sg-code .tok-d { color: #92b8dd; }
 .sg-code .tok-v { color: #7dd3fc; }
 .sg-code .tok-s { color: #fde68a; }
 .sg-out-f { flex-shrink: 0; padding: .45rem 1rem; border-top: 1px solid var(--stk-border); font-size: .75rem; line-height: 1.45; color: var(--stk-fg-muted); }

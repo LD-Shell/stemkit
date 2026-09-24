@@ -12,7 +12,7 @@
     <meta name="robots" content="noindex, follow">
 
     <meta name="author" content="Olanrewaju M. Daramola">
-    <meta name="theme-color" content="#f43f5e">
+    <meta name="theme-color" content="#1f5c96">
 
     <meta property="og:type" content="website">
     <meta property="og:title" content="Page Not Found (404) | STEMKit">
@@ -20,6 +20,7 @@
     <meta property="og:url" content="https://stemkit.net/404.html">
     <meta property="og:image" content="https://stemkit.net/assets/og-image.webp">
 
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
@@ -53,7 +54,7 @@
             font-weight: 900;
             line-height: .9;
             letter-spacing: -.04em;
-            background: linear-gradient(135deg, #f43f5e 0%, #6366f1 100%);
+            background: linear-gradient(135deg, #3574b0 0%, #3574b0 100%);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
@@ -61,13 +62,13 @@
         .nf-path {
             font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
             font-size: .8rem;
-            background: #fff1f2; color: #be123c;
-            border: 1px solid #fecdd3; border-radius: .375rem;
+            background: #f1f6fb; color: #1a4b7b;
+            border: 1px solid #c0d6ec; border-radius: .375rem;
             padding: .15em .5em;
             word-break: break-all;
         }
         .dark .nf-path {
-            background: rgba(190,18,60,.15); color: #fda4af; border-color: rgba(244,63,94,.3);
+            background: rgba(26, 75, 123,.15); color: #92b8dd; border-color: rgba(53, 116, 176,.3);
         }
         .nf-card {
             display: flex; align-items: center; gap: .75rem;
@@ -77,9 +78,9 @@
             text-decoration: none;
             transition: border-color .15s, transform .15s, background-color .15s;
         }
-        .nf-card:hover { border-color: #f43f5e; transform: translateY(-1px); background: rgba(244,63,94,.04); }
-        .dark .nf-card:hover { background: rgba(244,63,94,.1); }
-        .nf-card i { color: #f43f5e; width: 1.1rem; text-align: center; }
+        .nf-card:hover { border-color: #3574b0; transform: translateY(-1px); background: rgba(53, 116, 176,.04); }
+        .dark .nf-card:hover { background: rgba(53, 116, 176,.1); }
+        .nf-card i { color: #3574b0; width: 1.1rem; text-align: center; }
         .nf-grid { display: grid; grid-template-columns: 1fr; gap: .6rem; }
         @media (min-width: 640px) { .nf-grid { grid-template-columns: 1fr 1fr; } }
         #nfSuggestions:empty { display: none; }
@@ -94,9 +95,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center gap-4 h-16 sm:h-20">
                 <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity" aria-label="STEMKit home">
-                    <div class="bg-indigo-600 text-white p-2 sm:p-2.5 rounded-lg shadow-sm flex items-center justify-center">
-                        <i class="fa-solid fa-flask text-lg sm:text-xl" aria-hidden="true"></i>
-                    </div>
+                    <svg class="stk-logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect width="32" height="32" rx="7.5"/><path d="M16 5.2 25.35 10.6v10.8L16 26.8 6.65 21.4V10.6ZM16.8 8.9l4.96 2.87M21.76 20.23 16.8 23.1M9.46 18.87v-5.74"/></svg>
                     <span class="text-xl sm:text-2xl font-black tracking-tighter text-slate-900 dark:text-white">STEMKit</span>
                 </a>
 
@@ -134,7 +133,7 @@
                 <a href="index.html#pub-tools" class="stk-navlink block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" data-stk-cat="pub">Writing</a>
                 <a href="index.html#focus-tools" class="stk-navlink block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" data-stk-cat="focus">Focus</a>
                 <div class="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800">
-                    <button type="button" class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl shadow-md transition-colors" data-stk-find aria-haspopup="dialog">
+                    <button type="button" class="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white py-3 rounded-xl shadow-md transition-colors" data-stk-find aria-haspopup="dialog">
                         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Find a tool
                     </button>
                 </div>
@@ -167,7 +166,7 @@
         </div>
 
         <div class="mt-10 flex flex-wrap gap-3 justify-center">
-            <a href="index.html" class="bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm flex items-center gap-2">
+            <a href="index.html" class="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors shadow-sm flex items-center gap-2">
                 <i class="fa-solid fa-house"></i> All tools
             </a>
             <button type="button" id="nfBack" class="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 px-5 py-2.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
@@ -180,10 +179,10 @@
     <footer class="border-t border-slate-200 dark:border-slate-800 mt-8">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div class="flex flex-col sm:flex-row justify-between items-center gap-4 text-slate-500 dark:text-slate-400">
-                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-indigo-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-brand-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
                 <div class="flex gap-6 text-sm font-medium">
-                    <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
-                    <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+                    <a href="privacy.html#privacy" class="hover:text-brand-500 transition-colors">Privacy Policy</a>
+                    <a href="privacy.html#terms" class="hover:text-brand-500 transition-colors">Terms of Service</a>
                 </div>
             </div>
         </div>

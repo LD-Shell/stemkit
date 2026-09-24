@@ -196,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30'
       : type === 'error'
         ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900/30'
-        : 'bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-900/30';
+        : 'bg-brand-50 text-brand-800 border-brand-200 dark:bg-brand-900/30';
     toast.className =
       `px-4 py-3 rounded-xl border shadow-lg toast-enter text-sm font-medium transition-all ${colors}`;
     toast.innerHTML =

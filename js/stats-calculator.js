@@ -535,7 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderCI(text) {
     if (!ciBox) return;
     ciBox.innerHTML =
-      `<i class="fa-solid fa-arrows-left-right-to-line mr-1" style="color:#6366f1"></i> ${text}`;
+      `<i class="fa-solid fa-arrows-left-right-to-line mr-1" style="color:#3574b0"></i> ${text}`;
     ciBox.style.display = 'block';
   }
 

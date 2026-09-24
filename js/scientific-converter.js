@@ -25,7 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!matrixGrid) return;
 
   let activeCategory = 'energy';
-  let activeColor = 'orange';
+  // Every category takes the site accent. Core still carries a colour per
+  // category, which the page no longer uses.
+  const activeColor = 'brand';
 
   /* --- 2. Rendering --- */
 
@@ -39,7 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!catData) return;
 
     activeCategory = categoryKey;
-    activeColor = catData.color;
 
     if (categoryIcon) categoryIcon.className = `fa-solid ${catData.icon}`;
     if (categoryName) categoryName.innerText = catData.title;
@@ -60,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     tabs.forEach(tab => {
       const isActive = tab.getAttribute('data-cat') === categoryKey;
-      const tColor = tab.getAttribute('data-color');
+      const tColor = activeColor;
       tab.className = isActive
         ? `cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-${tColor}-300 ` +
           `dark:border-${tColor}-700 bg-${tColor}-50 dark:bg-${tColor}-900/20 text-${tColor}-700 ` +

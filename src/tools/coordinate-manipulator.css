@@ -2,30 +2,14 @@
  * coordinate-manipulator -- tool-specific styles.
  *
  * The controls are the shared components from src/tailwind/input.css, which
- * read the design tokens, so re-pointing the accent on <body> is what turns
- * every button, badge and focus ring purple. What remains here is the layout
+ * read the design tokens, so buttons, badges and focus rings take the site
+ * accent without rules of their own. What remains here is the layout
  * those components do not cover: the three-pane workspace and how it stacks
  * on a phone, the viewer with its toolbar and overlays, the resizable output
  * buffer, and the always-dark code area. Colours are tokens, so the dark
- * theme needs no twin rules beyond the accent.
+ * theme needs no twin rules.
  */
 
-body {
-    --stk-accent: #7c3aed;
-    --stk-accent-hover: #6d28d9;
-    --stk-accent-text: #6d28d9;
-    --stk-accent-soft: #f5f3ff;
-    --stk-accent-soft-border: #ddd6fe;
-    --stk-ring: rgba(124, 58, 237, 0.35);
-}
-.dark body {
-    --stk-accent: #7c3aed;
-    --stk-accent-hover: #8b5cf6;
-    --stk-accent-text: #c4b5fd;
-    --stk-accent-soft: rgba(139, 92, 246, 0.16);
-    --stk-accent-soft-border: rgba(167, 139, 250, 0.35);
-    --stk-ring: rgba(167, 139, 250, 0.45);
-}
 
 /* The script shows and hides elements with the `hidden` attribute. A shared
    component that sets its own `display` (a button, a badge, the drop zone)

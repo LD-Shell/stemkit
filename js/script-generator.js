@@ -2101,7 +2101,7 @@ document.addEventListener('DOMContentLoaded', () => {
             cell.innerHTML = `
                 <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">${p.label}${perTag}${badge}</label>
                 <input type="text" data-bias-key="${p.k}" value="${cur ?? ''}" ${p.def === '' ? 'placeholder="(optional)"' : ''}
-                       class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">`;
+                       class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-brand-500">`;
             wrap.appendChild(cell);
         });
         host.appendChild(wrap);
@@ -2245,9 +2245,9 @@ document.addEventListener('DOMContentLoaded', () => {
             head.className = 'flex items-center justify-between mb-2 gap-2';
             head.innerHTML = `
                 <div class="flex items-center gap-2 min-w-0">
-                    <span class="text-[11px] font-bold text-rose-600 dark:text-rose-400 uppercase shrink-0">${inst.type}</span>
+                    <span class="text-[11px] font-bold text-brand-600 dark:text-brand-400 uppercase shrink-0">${inst.type}</span>
                     <input data-cv="${inst.id}" data-field="__label" value="${inst.label}"
-                           class="w-24 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5 text-[11px] font-mono outline-none focus:ring-2 focus:ring-rose-500"
+                           class="w-24 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5 text-[11px] font-mono outline-none focus:ring-2 focus:ring-brand-500"
                            title="Label for this CV" />
                 </div>`;
             const right = document.createElement('div');
@@ -2255,9 +2255,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!inst.isGroup && !inst.noBias) {
                 const biasLbl = document.createElement('label');
                 biasLbl.className = 'flex items-center gap-1 text-[11px] font-bold uppercase cursor-pointer ' +
-                    (inst.bias ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400');
+                    (inst.bias ? 'text-brand-600 dark:text-brand-400' : 'text-slate-500 dark:text-slate-400');
                 biasLbl.title = 'Feed this CV to the bias (unchecked = tracked/printed only)';
-                biasLbl.innerHTML = `<input type="checkbox" data-cv="${inst.id}" data-field="__bias" ${inst.bias ? 'checked' : ''} class="w-3.5 h-3.5 text-rose-600 rounded focus:ring-rose-500"> Bias`;
+                biasLbl.innerHTML = `<input type="checkbox" data-cv="${inst.id}" data-field="__bias" ${inst.bias ? 'checked' : ''} class="w-3.5 h-3.5 text-brand-600 rounded focus:ring-brand-500"> Bias`;
                 right.appendChild(biasLbl);
             } else if (inst.noBias) {
                 const tag = document.createElement('span');
@@ -2267,7 +2267,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 right.appendChild(tag);
             }
             const rm = document.createElement('button');
-            rm.className = 'text-slate-500 dark:text-slate-400 hover:text-rose-500 text-xs';
+            rm.className = 'text-slate-500 dark:text-slate-400 hover:text-brand-500 text-xs';
             rm.innerHTML = '<i class="fa-solid fa-trash"></i>';
             rm.addEventListener('click', () => removePlumedCV(inst.id));
             right.appendChild(rm);
@@ -2327,19 +2327,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     wrap.className = 'col-span-2 flex items-center gap-2' + (off ? ' plumed-field-off' : '');
                     wrap.innerHTML = `
                         <input type="checkbox" data-cv="${inst.id}" data-field="${f.k}" ${inst.values[f.k] ? 'checked' : ''} ${dis}
-                               class="w-3.5 h-3.5 text-rose-600 rounded focus:ring-rose-500">
+                               class="w-3.5 h-3.5 text-brand-600 rounded focus:ring-brand-500">
                         <label class="text-[11px] text-slate-600 dark:text-slate-300"${off ? ' tabindex="0"'+dTip.replace('data-tip','data-tip').replace(/^ /,' ') : ''}>${f.label}</label>${off ? `<span class="plumed-help" tabindex="0"${dTip}>?</span>` : helpFor(f)}`;
                 } else if (f.type === 'select') {
                     const opts = f.options.map(o => `<option value="${o}" ${o===inst.values[f.k]?'selected':''}>${o}</option>`).join('');
                     wrap.innerHTML = `
                         <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">${f.label}${off ? `<span class="plumed-help" tabindex="0"${dTip}>?</span>` : helpFor(f)}</label>
                         <select data-cv="${inst.id}" data-field="${f.k}" ${dis}
-                                class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 outline-none focus:ring-2 focus:ring-rose-500">${opts}</select>`;
+                                class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 outline-none focus:ring-2 focus:ring-brand-500">${opts}</select>`;
                 } else {
                     wrap.innerHTML = `
                         <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">${f.label}${off ? `<span class="plumed-help" tabindex="0"${dTip}>?</span>` : helpFor(f)}</label>
                         <input type="text" data-cv="${inst.id}" data-field="${f.k}" value="${inst.values[f.k] ?? ''}" ${dis}
-                               class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">`;
+                               class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-brand-500">`;
                 }
                 host.appendChild(wrap);
             };
@@ -2369,7 +2369,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Bias Settings Accordion Extender
             if (!inst.isGroup && !inst.noBias) {
                 const biasWrap = document.createElement('div');
-                biasWrap.className = `mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 bg-rose-50/50 dark:bg-rose-900/10 p-2 rounded-lg ${inst.bias ? 'block' : 'hidden'}`;
+                biasWrap.className = `mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 bg-brand-50/50 dark:bg-brand-900/10 p-2 rounded-lg ${inst.bias ? 'block' : 'hidden'}`;
 
                 // Multi-component CVs get a dropdown so the user picks the exact
                 // component (e.g. ".mean" for a v2.9 multicolvar or "_lessthan"
@@ -2388,34 +2388,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     ).join('');
                     compControl = `
                         <select data-cv-bias="${inst.id}" data-field="comp"
-                                class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">${opts}</select>`;
+                                class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-brand-500">${opts}</select>`;
                 } else if (isScalarCV(inst)) {
                     compControl = `<p class="text-[11px] text-slate-500 dark:text-slate-400 italic mt-0.5">Scalar CV, bias uses the bare label <code>${inst.label}</code> (no component).</p>`;
                 } else {
-                    compControl = `<input type="text" data-cv-bias="${inst.id}" data-field="comp" value="${inst.biasValues.comp || ''}" placeholder="e.g. .sss" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">`;
+                    compControl = `<input type="text" data-cv-bias="${inst.id}" data-field="comp" value="${inst.biasValues.comp || ''}" placeholder="e.g. .sss" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-brand-500">`;
                 }
 
                 biasWrap.innerHTML = `
                     <div class="mb-2">
-                        <label class="text-[11px] font-bold text-rose-600 flex items-center gap-1 uppercase">Target Component <span class="plumed-help" tabindex="0" data-tip="The specific component to bias if the CV outputs multiple (dot notation, e.g. ${inst.label}.mean). Leave blank for scalar CVs.">?</span></label>
+                        <label class="text-[11px] font-bold text-brand-600 flex items-center gap-1 uppercase">Target Component <span class="plumed-help" tabindex="0" data-tip="The specific component to bias if the CV outputs multiple (dot notation, e.g. ${inst.label}.mean). Leave blank for scalar CVs.">?</span></label>
                         ${compControl}
                     </div>
                     <div class="grid grid-cols-4 gap-2">
                         <div>
-                            <label class="text-[11px] font-bold text-rose-600 flex items-center gap-1 uppercase">Grid Min</label>
-                            <input type="text" data-cv-bias="${inst.id}" data-field="min" value="${inst.biasValues.min}" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">
+                            <label class="text-[11px] font-bold text-brand-600 flex items-center gap-1 uppercase">Grid Min</label>
+                            <input type="text" data-cv-bias="${inst.id}" data-field="min" value="${inst.biasValues.min}" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-brand-500">
                         </div>
                         <div>
-                            <label class="text-[11px] font-bold text-rose-600 flex items-center gap-1 uppercase">Grid Max</label>
-                            <input type="text" data-cv-bias="${inst.id}" data-field="max" value="${inst.biasValues.max}" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">
+                            <label class="text-[11px] font-bold text-brand-600 flex items-center gap-1 uppercase">Grid Max</label>
+                            <input type="text" data-cv-bias="${inst.id}" data-field="max" value="${inst.biasValues.max}" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-brand-500">
                         </div>
                         <div>
-                            <label class="text-[11px] font-bold text-rose-600 flex items-center gap-1 uppercase">Grid Bin</label>
-                            <input type="text" data-cv-bias="${inst.id}" data-field="bin" value="${inst.biasValues.bin}" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">
+                            <label class="text-[11px] font-bold text-brand-600 flex items-center gap-1 uppercase">Grid Bin</label>
+                            <input type="text" data-cv-bias="${inst.id}" data-field="bin" value="${inst.biasValues.bin}" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-brand-500">
                         </div>
                         <div>
-                            <label class="text-[11px] font-bold text-rose-600 flex items-center gap-1 uppercase">Sigma <span class="plumed-help" tabindex="0" data-tip="Width of the Gaussian hill (SIGMA) for this CV.">?</span></label>
-                            <input type="text" data-cv-bias="${inst.id}" data-field="sigma" value="${inst.biasValues.sigma}" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">
+                            <label class="text-[11px] font-bold text-brand-600 flex items-center gap-1 uppercase">Sigma <span class="plumed-help" tabindex="0" data-tip="Width of the Gaussian hill (SIGMA) for this CV.">?</span></label>
+                            <input type="text" data-cv-bias="${inst.id}" data-field="sigma" value="${inst.biasValues.sigma}" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-brand-500">
                         </div>
                     </div>
                 `;

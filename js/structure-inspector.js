@@ -1468,8 +1468,8 @@
                     queue.push({
                         text: `${a.resn || '?'}${a.resi ?? ''}`,
                         options: {
-                            position: { x: a.x, y: a.y, z: a.z }, fontSize: 9, fontColor: '#c7d2fe',
-                            backgroundColor: 'rgba(67,56,202,.75)', backgroundOpacity: 0.75,
+                            position: { x: a.x, y: a.y, z: a.z }, fontSize: 9, fontColor: '#c0d6ec',
+                            backgroundColor: 'rgba(26, 75, 123,.75)', backgroundOpacity: 0.75,
                             borderRadius: 4, padding: 2, showBackground: true, inFront: true
                         }
                     });

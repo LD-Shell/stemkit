@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const missing = missingFields(entry);
 
         card.innerHTML = `
-          <div class="font-bold text-indigo-600 dark:text-indigo-400 mb-1">
+          <div class="font-bold text-brand-600 dark:text-brand-400 mb-1">
             ${escapeHtml(entry.citationKey)}${isBest ? ' <span class="text-emerald-600">· most complete</span>' : ''}
           </div>
           <div class="text-slate-600 dark:text-slate-400 mb-1">
@@ -171,9 +171,9 @@ document.addEventListener('DOMContentLoaded', () => {
         card.addEventListener('click', () => {
           resolutions[gi] = entry;
           for (const sib of grid.children) {
-            sib.classList.remove('ring-2', 'ring-indigo-500');
+            sib.classList.remove('ring-2', 'ring-brand-500');
           }
-          card.classList.add('ring-2', 'ring-indigo-500');
+          card.classList.add('ring-2', 'ring-brand-500');
           updateProgress();
         });
 
@@ -198,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const idx = group.members.findIndex(m => m.data === resolutions[gi]);
       const grid = cards.querySelector('.grid');
       if (grid && grid.children[idx]) {
-        grid.children[idx].classList.add('ring-2', 'ring-indigo-500');
+        grid.children[idx].classList.add('ring-2', 'ring-brand-500');
       }
     });
     updateProgress();
@@ -261,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30'
       : type === 'error'
         ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900/30'
-        : 'bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-900/30';
+        : 'bg-brand-50 text-brand-800 border-brand-200 dark:bg-brand-900/30';
     toast.className =
       `px-4 py-3 rounded-xl border shadow-lg toast-enter text-sm font-medium transition-all ${colors}`;
     toast.innerText = msg;

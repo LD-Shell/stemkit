@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let traces = []; 
     let traceCounter = 0;
 
-    const defaultColors = ['#4f46e5', '#ef4444', '#10b981', '#f59e0b', '#06b6d4', '#8b5cf6', '#ec4899'];
+    const defaultColors = ['#3574b0', '#ef4444', '#10b981', '#f59e0b', '#06b6d4', '#8b5cf6', '#ec4899'];
 
     // # Caching DOM references
     const uploadZone = document.getElementById('uploadZone');
@@ -90,10 +90,10 @@ document.addEventListener("DOMContentLoaded", () => {
         uploadZone.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
     });
 
-    uploadZone.addEventListener('dragover', () => uploadZone.classList.add('border-indigo-500'));
-    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('border-indigo-500'));
+    uploadZone.addEventListener('dragover', () => uploadZone.classList.add('border-brand-500'));
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('border-brand-500'));
     uploadZone.addEventListener('drop', (e) => {
-        uploadZone.classList.remove('border-indigo-500');
+        uploadZone.classList.remove('border-brand-500');
         handleFiles(e.dataTransfer.files);
     });
     uploadZone.addEventListener('click', () => fileInput.click());
@@ -155,7 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
         fileInventory.innerHTML = '';
         Object.keys(dataStore).forEach(fileId => {
             const badge = document.createElement('div');
-            badge.className = 'text-xs font-medium bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-3 py-1.5 rounded flex justify-between items-center';
+            badge.className = 'text-xs font-medium bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400 px-3 py-1.5 rounded flex justify-between items-center';
             badge.innerHTML = `<span><i class="fa-solid fa-file-csv mr-1"></i> ${dataStore[fileId].filename}</span>`;
             fileInventory.appendChild(badge);
         });
@@ -208,7 +208,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             card.innerHTML = `
                 <div class="flex justify-between items-center pr-6">
-                    <input type="text" class="trace-name text-sm font-bold bg-transparent outline-none border-b border-transparent focus:border-indigo-500 w-full truncate" value="${trace.config.name}" data-id="${trace.id}">
+                    <input type="text" class="trace-name text-sm font-bold bg-transparent outline-none border-b border-transparent focus:border-brand-500 w-full truncate" value="${trace.config.name}" data-id="${trace.id}">
                 </div>
                 
                 <button class="remove-trace absolute top-3 right-3 text-slate-500 dark:text-slate-400 hover:text-red-500 transition-colors" data-id="${trace.id}">

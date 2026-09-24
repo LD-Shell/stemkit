@@ -34,13 +34,14 @@
     </script>
 
     <meta name="author" content="STEMKit">
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#1f5c96">
 
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://stemkit.net/assets/og-image.webp">
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp">
 
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
@@ -74,9 +75,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center gap-4 h-16 sm:h-20">
                 <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity" aria-label="STEMKit home">
-                    <div class="bg-indigo-600 text-white p-2 sm:p-2.5 rounded-lg shadow-sm flex items-center justify-center">
-                        <i class="fa-solid fa-flask text-lg sm:text-xl" aria-hidden="true"></i>
-                    </div>
+                    <svg class="stk-logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect width="32" height="32" rx="7.5"/><path d="M16 5.2 25.35 10.6v10.8L16 26.8 6.65 21.4V10.6ZM16.8 8.9l4.96 2.87M21.76 20.23 16.8 23.1M9.46 18.87v-5.74"/></svg>
                     <span class="text-xl sm:text-2xl font-black tracking-tighter text-slate-900 dark:text-white drop-shadow-md">STEMKit</span>
                 </a>
 
@@ -114,7 +113,7 @@
                 <a href="index.html#pub-tools" class="stk-navlink block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" data-stk-cat="pub">Writing</a>
                 <a href="index.html#focus-tools" class="stk-navlink block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" data-stk-cat="focus">Focus</a>
                 <div class="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800">
-                    <button type="button" class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl shadow-md transition-colors" data-stk-find aria-haspopup="dialog">
+                    <button type="button" class="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white py-3 rounded-xl shadow-md transition-colors" data-stk-find aria-haspopup="dialog">
                         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Find a tool
                     </button>
                 </div>
@@ -129,7 +128,7 @@
         <div class="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md px-6 py-3 rounded-full shadow-2xl border border-white/20 dark:border-slate-700/50 flex items-center gap-6 pointer-events-auto z-10">
             <span class="text-sm font-bold text-slate-600 dark:text-slate-300">Move mouse to repel</span>
             <div class="h-4 w-px bg-slate-300 dark:bg-slate-600"></div>
-            <button id="btn-reset-particles" class="text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:opacity-70 transition-opacity">
+            <button id="btn-reset-particles" class="text-sm font-bold text-brand-600 dark:text-brand-400 hover:opacity-70 transition-opacity">
                 <i class="fa-solid fa-rotate-right mr-1"></i> Reset
             </button>
         </div>

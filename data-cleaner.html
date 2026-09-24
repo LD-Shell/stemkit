@@ -35,13 +35,14 @@
     </script>
     
     <meta name="author" content="Olanrewaju M. Daramola">
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#1f5c96">
 
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://stemkit.net/assets/og-image.webp">
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp">
 
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
@@ -84,9 +85,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center gap-4 h-16 sm:h-20">
                 <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity" aria-label="STEMKit home">
-                    <div class="bg-indigo-600 text-white p-2 sm:p-2.5 rounded-lg shadow-sm flex items-center justify-center">
-                        <i class="fa-solid fa-flask text-lg sm:text-xl" aria-hidden="true"></i>
-                    </div>
+                    <svg class="stk-logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect width="32" height="32" rx="7.5"/><path d="M16 5.2 25.35 10.6v10.8L16 26.8 6.65 21.4V10.6ZM16.8 8.9l4.96 2.87M21.76 20.23 16.8 23.1M9.46 18.87v-5.74"/></svg>
                     <span class="text-xl sm:text-2xl font-black tracking-tighter text-slate-900 dark:text-white">STEMKit</span>
                 </a>
 
@@ -124,7 +123,7 @@
                 <a href="index.html#pub-tools" class="stk-navlink block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" data-stk-cat="pub">Writing</a>
                 <a href="index.html#focus-tools" class="stk-navlink block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" data-stk-cat="focus">Focus</a>
                 <div class="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800">
-                    <button type="button" class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl shadow-md transition-colors" data-stk-find aria-haspopup="dialog">
+                    <button type="button" class="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white py-3 rounded-xl shadow-md transition-colors" data-stk-find aria-haspopup="dialog">
                         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Find a tool
                     </button>
                 </div>
@@ -134,14 +133,14 @@
 
     <main id="main" class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
         
-        <section id="uploadZone" class="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-3xl bg-indigo-50/50 dark:bg-indigo-900/10 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer p-12 text-center group">
+        <section id="uploadZone" class="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-brand-300 dark:border-brand-700 rounded-3xl bg-brand-50/50 dark:bg-brand-900/10 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-all cursor-pointer p-12 text-center group">
             <input type="file" id="fileInput" accept=".csv" class="hidden" aria-label="Upload CSV dataset">
-            <div class="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl flex items-center justify-center mb-6 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
+            <div class="w-20 h-20 bg-brand-100 dark:bg-brand-900/50 rounded-2xl flex items-center justify-center mb-6 text-brand-600 dark:text-brand-400 group-hover:scale-110 transition-transform">
                 <i class="fa-solid fa-file-csv text-4xl"></i>
             </div>
             <h1 class="text-3xl font-bold mb-3">Data Cleaner</h1>
             <p class="text-slate-600 dark:text-slate-400 mb-6 max-w-md">Drag and drop raw data arrays here. Execute mathematical operations and drop null values entirely in RAM.</p>
-            <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-sm">
+            <button class="bg-brand-600 hover:bg-brand-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-sm">
                 Select CSV Dataset
             </button>
         </section>
@@ -158,12 +157,12 @@
                 <div class="lg:col-span-7 flex flex-wrap gap-4 items-end bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
                     <div class="flex-grow min-w-[150px]">
                         <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wider">Target Column</label>
-                        <select id="colSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></select>
+                        <select id="colSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none"></select>
                     </div>
                     
                     <div class="flex-grow min-w-[200px]">
                         <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wider">Transformation</label>
-                        <select id="opSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <select id="opSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
                             <option value="drop_na">Drop Missing Values (NaN)</option>
                             <option value="log10">Log10 Transform</option>
                             <option value="ln">Natural Log (ln)</option>
@@ -174,7 +173,7 @@
                         </select>
                     </div>
 
-                    <button id="applyBtn" class="bg-slate-900 dark:bg-indigo-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-slate-800 dark:hover:bg-indigo-700 transition-colors shadow-sm">
+                    <button id="applyBtn" class="bg-slate-900 dark:bg-brand-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-slate-800 dark:hover:bg-brand-700 transition-colors shadow-sm">
                         Execute
                     </button>
                 </div>
@@ -270,7 +269,7 @@
         <div class="max-w-7xl mx-auto px-6">
             <div class="stk-dir mb-12">
                 <div>
-                    <h4><i class="fa-solid fa-chart-pie text-indigo-500 text-xs"></i> Data &amp; Statistics</h4>
+                    <h4><i class="fa-solid fa-chart-pie text-brand-500 dark:text-brand-400 text-xs"></i> Data &amp; Statistics</h4>
                     <ul>
                         <li><a href="plot-digitizer.html">Plot Digitizer</a></li>
                         <li><a href="data-cleaner.html">Data Cleaner</a></li>
@@ -283,7 +282,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-microchip text-orange-500 text-xs"></i> Computational Chemistry</h4>
+                    <h4><i class="fa-solid fa-microchip text-brand-500 dark:text-brand-400 text-xs"></i> Computational Chemistry</h4>
                     <ul>
                         <li><a href="structure-inspector.html">Structure Inspector</a></li>
                         <li><a href="coordinate-manipulator.html">Coordinate Manipulator</a></li>
@@ -292,7 +291,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-book-open text-teal-500 text-xs"></i> Writing &amp; Citations</h4>
+                    <h4><i class="fa-solid fa-book-open text-brand-500 dark:text-brand-400 text-xs"></i> Writing &amp; Citations</h4>
                     <ul>
                         <li><a href="latex-formatter.html">Equation Formatter</a></li>
                         <li><a href="latex-tables.html">Visual LaTeX Tables</a></li>
@@ -303,7 +302,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-headphones text-fuchsia-500 text-xs"></i> Focus &amp; Flow</h4>
+                    <h4><i class="fa-solid fa-headphones text-brand-500 dark:text-brand-400 text-xs"></i> Focus &amp; Flow</h4>
                     <ul>
                         <li><a href="pomodoro.html">Ambient Pomodoro</a></li>
                         <li><a href="decision.html">Decision Matrix</a></li>
@@ -313,13 +312,13 @@
             </div>
             <div class="border-t border-slate-200 dark:border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400 gap-4">
                 <div class="flex items-center gap-2">
-                    <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
+                    <svg class="stk-logo stk-logo-foot" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect width="32" height="32" rx="7.5"/><path d="M16 5.2 25.35 10.6v10.8L16 26.8 6.65 21.4V10.6ZM16.8 8.9l4.96 2.87M21.76 20.23 16.8 23.1M9.46 18.87v-5.74"/></svg>
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                 </div>
-                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-indigo-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-brand-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
                 <div class="flex gap-6 text-sm font-medium">
-                    <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
-                    <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+                    <a href="privacy.html#privacy" class="hover:text-brand-500 transition-colors">Privacy Policy</a>
+                    <a href="privacy.html#terms" class="hover:text-brand-500 transition-colors">Terms of Service</a>
                 </div>
             </div>
         </div>

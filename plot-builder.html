@@ -34,13 +34,14 @@
     </script>
     
     <meta name="author" content="STEMKit">
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#1f5c96">
 
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://stemkit.net/assets/og-image.webp">
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp">
 
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
@@ -77,9 +78,7 @@
         <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center gap-4 h-16 sm:h-20">
                 <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity" aria-label="STEMKit home">
-                    <div class="bg-indigo-600 text-white p-2 sm:p-2.5 rounded-lg shadow-sm flex items-center justify-center">
-                        <i class="fa-solid fa-flask text-lg sm:text-xl" aria-hidden="true"></i>
-                    </div>
+                    <svg class="stk-logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect width="32" height="32" rx="7.5"/><path d="M16 5.2 25.35 10.6v10.8L16 26.8 6.65 21.4V10.6ZM16.8 8.9l4.96 2.87M21.76 20.23 16.8 23.1M9.46 18.87v-5.74"/></svg>
                     <span class="text-xl sm:text-2xl font-black tracking-tighter text-slate-900 dark:text-white">STEMKit</span>
                 </a>
 
@@ -117,7 +116,7 @@
                 <a href="index.html#pub-tools" class="stk-navlink block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" data-stk-cat="pub">Writing</a>
                 <a href="index.html#focus-tools" class="stk-navlink block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" data-stk-cat="focus">Focus</a>
                 <div class="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800">
-                    <button type="button" class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl shadow-md transition-colors" data-stk-find aria-haspopup="dialog">
+                    <button type="button" class="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white py-3 rounded-xl shadow-md transition-colors" data-stk-find aria-haspopup="dialog">
                         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Find a tool
                     </button>
                 </div>
@@ -137,9 +136,9 @@
                         <span class="text-xs font-normal text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">CSV format</span>
                     </h2>
                     
-                    <div id="uploadZone" class="border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-xl bg-indigo-50/50 dark:bg-indigo-900/10 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer p-4 text-center group">
+                    <div id="uploadZone" class="border-2 border-dashed border-brand-300 dark:border-brand-700 rounded-xl bg-brand-50/50 dark:bg-brand-900/10 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-all cursor-pointer p-4 text-center group">
                         <input type="file" id="fileInput" accept=".csv" multiple class="hidden">
-                        <p class="text-sm font-medium text-slate-600 dark:text-slate-300"><i class="fa-solid fa-file-csv mr-1 text-indigo-500"></i> Drop files or click to add</p>
+                        <p class="text-sm font-medium text-slate-600 dark:text-slate-300"><i class="fa-solid fa-file-csv mr-1 text-brand-500"></i> Drop files or click to add</p>
                     </div>
                     <div class="mt-2 text-center">
                         <button id="loadSampleBtn" class="pb-sample-btn"><i class="fa-solid fa-flask-vial"></i> Load sample dataset</button>
@@ -150,7 +149,7 @@
                 <div id="datasetContainer" class="flex flex-col gap-4 hidden">
                     <div class="flex justify-between items-center">
                         <h2 class="text-base font-bold">2. Active traces</h2>
-                        <button id="addTraceBtn" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
+                        <button id="addTraceBtn" class="text-xs font-bold text-brand-600 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 transition-colors">
                             <i class="fa-solid fa-plus mr-1"></i> Add trace
                         </button>
                     </div>
@@ -163,10 +162,10 @@
                     <div class="flex flex-col gap-4">
                         <div>
                             <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Titles</label>
-                            <input type="text" id="plotTitle" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 mb-2" placeholder="Main Plot Title">
+                            <input type="text" id="plotTitle" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-500 mb-2" placeholder="Main Plot Title">
                             <div class="grid grid-cols-2 gap-2">
-                                <input type="text" id="xAxisLabel" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" placeholder="X-Axis Label">
-                                <input type="text" id="yAxisLabel" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" placeholder="Y-Axis Label">
+                                <input type="text" id="xAxisLabel" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-500" placeholder="X-Axis Label">
+                                <input type="text" id="yAxisLabel" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-500" placeholder="Y-Axis Label">
                             </div>
                         </div>
                         
@@ -174,25 +173,25 @@
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Axes & grid</label>
                                 <label class="flex items-center gap-2 text-sm cursor-pointer mb-2">
-                                    <input type="checkbox" id="showFrame" class="rounded text-indigo-600" checked> Boxed frame
+                                    <input type="checkbox" id="showFrame" class="rounded text-brand-600" checked> Boxed frame
                                 </label>
                                 <label class="flex items-center gap-2 text-sm cursor-pointer mb-2">
-                                    <input type="checkbox" id="showGridX" class="rounded text-indigo-600"> Inner X grid
+                                    <input type="checkbox" id="showGridX" class="rounded text-brand-600"> Inner X grid
                                 </label>
                                 <label class="flex items-center gap-2 text-sm cursor-pointer">
-                                    <input type="checkbox" id="showGridY" class="rounded text-indigo-600"> Inner Y grid
+                                    <input type="checkbox" id="showGridY" class="rounded text-brand-600"> Inner Y grid
                                 </label>
                             </div>
                             
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Scale & ticks</label>
                                 <label class="flex items-center gap-2 text-sm cursor-pointer mb-2">
-                                    <input type="checkbox" id="xLogScale" class="rounded text-indigo-600"> X log scale
+                                    <input type="checkbox" id="xLogScale" class="rounded text-brand-600"> X log scale
                                 </label>
                                 <label class="flex items-center gap-2 text-sm cursor-pointer mb-3">
-                                    <input type="checkbox" id="yLogScale" class="rounded text-indigo-600"> Y log scale
+                                    <input type="checkbox" id="yLogScale" class="rounded text-brand-600"> Y log scale
                                 </label>
-                                <select id="tickStyle" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none focus:border-indigo-500">
+                                <select id="tickStyle" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none focus:border-brand-500">
                                     <option value="inside">Ticks: Inside</option>
                                     <option value="outside">Ticks: Outside</option>
                                     <option value="">Ticks: Hidden</option>
@@ -202,7 +201,7 @@
 
                         <div class="border-t border-slate-100 dark:border-slate-800 pt-4">
                             <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Legend configuration</label>
-                            <select id="legendPosition" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500">
+                            <select id="legendPosition" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-500">
                                 <option value="top-right">Inner Top Right</option>
                                 <option value="top-left">Inner Top Left</option>
                                 <option value="bottom-right">Inner Bottom Right</option>
@@ -272,7 +271,7 @@
                         </div>
                     </div>
 
-                    <button id="updatePlotBtn" class="bg-slate-900 dark:bg-indigo-600 text-white w-full py-3 rounded-xl font-bold transition-all duration-150 shadow-sm hover:shadow-md active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 mt-6 flex items-center justify-center gap-2">
+                    <button id="updatePlotBtn" class="bg-slate-900 dark:bg-brand-600 text-white w-full py-3 rounded-xl font-bold transition-all duration-150 shadow-sm hover:shadow-md active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 mt-6 flex items-center justify-center gap-2">
                         <i class="fa-solid fa-chart-line text-sm"></i> Render Graph
                     </button>
                 </div>
@@ -284,13 +283,13 @@
                 <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex justify-between items-center z-10 flex-shrink-0">
                     <h2 class="text-sm font-bold text-slate-700 dark:text-slate-300">Plot viewport</h2>
                     <div class="flex gap-2">
-                        <button id="copyPyBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold hover:text-indigo-600 transition-colors shadow-sm" title="Copy matplotlib code to reproduce this figure">
+                        <button id="copyPyBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold hover:text-brand-600 transition-colors shadow-sm" title="Copy matplotlib code to reproduce this figure">
                             <i class="fa-brands fa-python mr-1"></i> Python
                         </button>
-                        <button id="downloadSvgBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold hover:text-indigo-600 transition-colors shadow-sm">
+                        <button id="downloadSvgBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold hover:text-brand-600 transition-colors shadow-sm">
                             <i class="fa-solid fa-download mr-1"></i> SVG
                         </button>
-                        <button id="downloadPngBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold hover:text-indigo-600 transition-colors shadow-sm">
+                        <button id="downloadPngBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold hover:text-brand-600 transition-colors shadow-sm">
                             <i class="fa-solid fa-download mr-1"></i> PNG
                         </button>
                     </div>
@@ -349,7 +348,7 @@
         <div class="max-w-7xl mx-auto px-6">
             <div class="stk-dir mb-12">
                 <div>
-                    <h4><i class="fa-solid fa-chart-pie text-indigo-500 text-xs"></i> Data &amp; Statistics</h4>
+                    <h4><i class="fa-solid fa-chart-pie text-brand-500 dark:text-brand-400 text-xs"></i> Data &amp; Statistics</h4>
                     <ul>
                         <li><a href="plot-digitizer.html">Plot Digitizer</a></li>
                         <li><a href="data-cleaner.html">Data Cleaner</a></li>
@@ -362,7 +361,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-microchip text-orange-500 text-xs"></i> Computational Chemistry</h4>
+                    <h4><i class="fa-solid fa-microchip text-brand-500 dark:text-brand-400 text-xs"></i> Computational Chemistry</h4>
                     <ul>
                         <li><a href="structure-inspector.html">Structure Inspector</a></li>
                         <li><a href="coordinate-manipulator.html">Coordinate Manipulator</a></li>
@@ -371,7 +370,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-book-open text-teal-500 text-xs"></i> Writing &amp; Citations</h4>
+                    <h4><i class="fa-solid fa-book-open text-brand-500 dark:text-brand-400 text-xs"></i> Writing &amp; Citations</h4>
                     <ul>
                         <li><a href="latex-formatter.html">Equation Formatter</a></li>
                         <li><a href="latex-tables.html">Visual LaTeX Tables</a></li>
@@ -382,7 +381,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-headphones text-fuchsia-500 text-xs"></i> Focus &amp; Flow</h4>
+                    <h4><i class="fa-solid fa-headphones text-brand-500 dark:text-brand-400 text-xs"></i> Focus &amp; Flow</h4>
                     <ul>
                         <li><a href="pomodoro.html">Ambient Pomodoro</a></li>
                         <li><a href="decision.html">Decision Matrix</a></li>
@@ -392,13 +391,13 @@
             </div>
             <div class="border-t border-slate-200 dark:border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400 gap-4">
                 <div class="flex items-center gap-2">
-                    <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
+                    <svg class="stk-logo stk-logo-foot" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect width="32" height="32" rx="7.5"/><path d="M16 5.2 25.35 10.6v10.8L16 26.8 6.65 21.4V10.6ZM16.8 8.9l4.96 2.87M21.76 20.23 16.8 23.1M9.46 18.87v-5.74"/></svg>
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                 </div>
-                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-indigo-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-brand-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
                 <div class="flex gap-6 text-sm font-medium">
-                    <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
-                    <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+                    <a href="privacy.html#privacy" class="hover:text-brand-500 transition-colors">Privacy Policy</a>
+                    <a href="privacy.html#terms" class="hover:text-brand-500 transition-colors">Terms of Service</a>
                 </div>
             </div>
         </div>
@@ -411,9 +410,9 @@
     <div id="codeModal" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background:rgba(15,23,42,.6);">
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col">
             <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
-                <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-brands fa-python text-indigo-500"></i> matplotlib code</h3>
+                <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-brands fa-python text-brand-500"></i> matplotlib code</h3>
                 <div class="flex items-center gap-2">
-                    <button id="copyCodeBtn" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-xs font-bold transition-colors"><i class="fa-solid fa-copy mr-1"></i> Copy</button>
+                    <button id="copyCodeBtn" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-md text-xs font-bold transition-colors"><i class="fa-solid fa-copy mr-1"></i> Copy</button>
                     <button id="closeCodeBtn" class="w-8 h-8 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><i class="fa-solid fa-xmark"></i></button>
                 </div>
             </div>

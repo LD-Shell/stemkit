@@ -17,8 +17,8 @@
 .mf-defs dt .katex { font-size:1em; }
 .mf-defs dd { margin:0; font-size:.82rem; color:#64748b; line-height:1.5; }
 .dark .mf-defs dd { color:#94a3b8; }
-.ci-box { font-size:.75rem; font-weight:500; line-height:1.5; padding:.5rem .75rem; margin-bottom:.75rem; border-radius:.5rem; color:#475569; background:rgba(238,242,255,.6); border:1px solid #e0e7ff; }
-.dark .ci-box { color:#c7d2fe; background:rgba(49,46,129,.25); border-color:rgba(67,56,202,.4); }
+.ci-box { font-size:.75rem; font-weight:500; line-height:1.5; padding:.5rem .75rem; margin-bottom:.75rem; border-radius:.5rem; color:#475569; background:rgba(241, 246, 251,.6); border:1px solid #e0ebf6; }
+.dark .ci-box { color:#c0d6ec; background:rgba(23, 53, 83,.25); border-color:rgba(26, 75, 123,.4); }
 .assume-box { font-size:.75rem; line-height:1.55; padding:.75rem; margin-bottom:1rem; border-radius:.5rem; color:#334155; background:#f8fafc; border:1px solid #e2e8f0; }
 .dark .assume-box { color:#e2e8f0; background:#1e293b; border-color:#334155; }
 .assume-box .assume-title { font-weight:700; margin-bottom:.5rem; display:flex; align-items:center; gap:.5rem; color:#1e293b; }
@@ -31,25 +31,25 @@
 .dark .assume-box .assume-foot { border-top-color:#334155; color:#94a3b8; }
 .assume-box .ico-warn { color:#f59e0b; margin-top:1px; }
 .assume-box .ico-ok { color:#10b981; margin-top:1px; }
-.assume-box .assume-title i { color:#6366f1; }
-.dark .assume-box .assume-title i { color:#818cf8; }
+.assume-box .assume-title i { color:#3574b0; }
+.dark .assume-box .assume-title i { color:#5c93c7; }
 .tut-group { display:flex; align-items:center; gap:1rem; padding:.6rem 0; border-top:1px solid rgba(148,163,184,.18); }
 .tut-group:first-child { border-top:none; padding-top:0; }
 .tut-heading { flex:0 0 8.5rem; font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--stk-fg-3); }
 .tut-chips { display:flex; flex-wrap:wrap; gap:.5rem; }
-.tut-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.82rem; font-weight:600; padding:.5rem .85rem; border-radius:.6rem; cursor:pointer; transition:all .15s; background:#fff; color:#4f46e5; border:1px solid rgba(99,102,241,.3); }
-.tut-chip:hover { background:#4f46e5; color:#fff; border-color:#4f46e5; box-shadow:0 2px 8px rgba(79,70,229,.25); transform:translateY(-1px); }
-.dark .tut-chip { background:rgba(15,23,42,.6); color:#a5b4fc; border-color:rgba(129,140,248,.35); }
-.dark .tut-chip:hover { background:#4f46e5; color:#fff; border-color:#4f46e5; }
+.tut-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.82rem; font-weight:600; padding:.5rem .85rem; border-radius:.6rem; cursor:pointer; transition:all .15s; background:#fff; color:#1f5c96; border:1px solid rgba(53, 116, 176,.3); }
+.tut-chip:hover { background:#1f5c96; color:#fff; border-color:#1f5c96; box-shadow:0 2px 8px rgba(31, 92, 150,.25); transform:translateY(-1px); }
+.dark .tut-chip { background:rgba(15,23,42,.6); color:#92b8dd; border-color:rgba(92, 147, 199,.35); }
+.dark .tut-chip:hover { background:#1f5c96; color:#fff; border-color:#1f5c96; }
 .run-pulse { animation: runPulse 1.4s ease-out 1; }
-.hl { color:#4f46e5; font-weight:600; }
-.dark .hl { color:#818cf8; }
+.hl { color:#1f5c96; font-weight:600; }
+.dark .hl { color:#5c93c7; }
 .doc-tabs { display:flex; flex-wrap:wrap; gap:.4rem; margin:1.25rem 0 1.75rem; border-bottom:1px solid rgba(148,163,184,.25); padding-bottom:.75rem; }
 .doc-tab { display:inline-flex; align-items:center; gap:.45rem; font-size:.85rem; font-weight:700; padding:.5rem .9rem; border-radius:.6rem; border:1px solid transparent; cursor:pointer; background:transparent; color:#64748b; transition:all .15s; }
 .doc-tab:hover { background:#f1f5f9; color:#0f172a; }
 .dark .doc-tab { color:#94a3b8; }
 .dark .doc-tab:hover { background:#1e293b; color:#f1f5f9; }
-.doc-tab.active { background:#4f46e5; color:#fff; border-color:#4f46e5; }
+.doc-tab.active { background:#1f5c96; color:#fff; border-color:#1f5c96; }
 .doc-pane { display:none; }
 .doc-pane.active { display:block; animation:docfade .2s ease; }
 
@@ -69,9 +69,9 @@
 }
 
 @keyframes runPulse {
-  0% { box-shadow:0 0 0 0 rgba(99,102,241,.55); }
-  70% { box-shadow:0 0 0 10px rgba(99,102,241,0); }
-  100% { box-shadow:0 0 0 0 rgba(99,102,241,0); }
+  0% { box-shadow:0 0 0 0 rgba(53, 116, 176,.55); }
+  70% { box-shadow:0 0 0 10px rgba(53, 116, 176,0); }
+  100% { box-shadow:0 0 0 0 rgba(53, 116, 176,0); }
 }
 
 @keyframes docfade {

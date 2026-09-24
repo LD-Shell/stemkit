@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pct = Math.round(currentLevel * 100);
     resultsBody.innerHTML = computedResults.map(r => `
       <tr class="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
-        <td class="px-3 py-3 font-bold text-indigo-600 dark:text-indigo-400 border-r border-slate-100 dark:border-slate-800">${escapeHtml(String(r.key))}</td>
+        <td class="px-3 py-3 font-bold text-brand-600 dark:text-brand-400 border-r border-slate-100 dark:border-slate-800">${escapeHtml(String(r.key))}</td>
         <td class="px-3 py-3">${r.n}</td>
         <td class="px-3 py-3">${fmt(r.mean)}</td>
         <td class="px-3 py-3">${fmt(r.sd)}</td>
@@ -211,8 +211,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const PALETTES = {
-    default: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6', '#ec4899'],
-    ocean: ['#0ea5e9', '#06b6d4', '#14b8a6', '#3b82f6', '#6366f1'],
+    default: ['#3574b0', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6', '#ec4899'],
+    ocean: ['#0ea5e9', '#06b6d4', '#14b8a6', '#3b82f6', '#3574b0'],
     warm: ['#f59e0b', '#ef4444', '#f97316', '#dc2626', '#fbbf24'],
     mono: ['#475569', '#64748b', '#94a3b8', '#334155', '#1e293b']
   };

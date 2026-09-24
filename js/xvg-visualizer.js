@@ -73,11 +73,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
 
   ['dragenter', 'dragover'].forEach(eventName => {
-    dropArea.addEventListener(eventName, () => dropArea.classList.add('bg-blue-100', 'dark:bg-blue-900/30', 'border-blue-400'));
+    dropArea.addEventListener(eventName, () => dropArea.classList.add('bg-brand-100', 'dark:bg-brand-900/30', 'border-brand-400'));
   });
 
   ['dragleave', 'drop'].forEach(eventName => {
-    dropArea.addEventListener(eventName, () => dropArea.classList.remove('bg-blue-100', 'dark:bg-blue-900/30', 'border-blue-400'));
+    dropArea.addEventListener(eventName, () => dropArea.classList.remove('bg-brand-100', 'dark:bg-brand-900/30', 'border-brand-400'));
   });
 
   dropArea.addEventListener('drop', (e) => {
@@ -175,11 +175,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const isActive = state.activeYIndices.has(i);
       const color = COLOR_PALETTE[i % COLOR_PALETTE.length];
 
-      div.className = `flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-colors ${isActive ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-transparent border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`;
+      div.className = `flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-colors ${isActive ? 'bg-brand-50 dark:bg-brand-900/20 border-brand-200 dark:border-brand-800' : 'bg-transparent border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`;
 
       div.innerHTML = `
                 <div class="flex items-center gap-3 truncate">
-                    <input type="checkbox" value="${i}" class="y-toggle w-4 h-4 text-blue-600 rounded focus:ring-0" ${isActive ? 'checked' : ''}>
+                    <input type="checkbox" value="${i}" class="y-toggle w-4 h-4 text-brand-600 rounded focus:ring-0" ${isActive ? 'checked' : ''}>
                     <div class="w-3 h-3 rounded-full shrink-0" style="background-color: ${color}"></div>
                     <span class="text-xs font-bold text-slate-700 dark:text-slate-300 truncate" title="${state.headers[i]}">[Col ${i}] ${state.headers[i]}</span>
                 </div>
@@ -190,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.checked) state.activeYIndices.add(idx);
         else state.activeYIndices.delete(idx);
 
-        div.className = `flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-colors ${e.target.checked ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-transparent border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`;
+        div.className = `flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-colors ${e.target.checked ? 'bg-brand-50 dark:bg-brand-900/20 border-brand-200 dark:border-brand-800' : 'bg-transparent border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`;
 
         renderPlot();
       });

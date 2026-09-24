@@ -34,13 +34,14 @@
     </script>
     
     <meta name="author" content="STEMKit">
-    <meta name="theme-color" content="#4f46e5">
+    <meta name="theme-color" content="#1f5c96">
 
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://stemkit.net/assets/og-image.webp">
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp">
 
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
@@ -74,9 +75,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center gap-4 h-16 sm:h-20">
                 <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity" aria-label="STEMKit home">
-                    <div class="bg-indigo-600 text-white p-2 sm:p-2.5 rounded-lg shadow-sm flex items-center justify-center">
-                        <i class="fa-solid fa-flask text-lg sm:text-xl" aria-hidden="true"></i>
-                    </div>
+                    <svg class="stk-logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect width="32" height="32" rx="7.5"/><path d="M16 5.2 25.35 10.6v10.8L16 26.8 6.65 21.4V10.6ZM16.8 8.9l4.96 2.87M21.76 20.23 16.8 23.1M9.46 18.87v-5.74"/></svg>
                     <span class="text-xl sm:text-2xl font-black tracking-tighter text-slate-900 dark:text-white">STEMKit</span>
                 </a>
 
@@ -114,7 +113,7 @@
                 <a href="index.html#pub-tools" class="stk-navlink block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" data-stk-cat="pub">Writing</a>
                 <a href="index.html#focus-tools" class="stk-navlink block py-3 px-4 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800" data-stk-cat="focus">Focus</a>
                 <div class="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800">
-                    <button type="button" class="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl shadow-md transition-colors" data-stk-find aria-haspopup="dialog">
+                    <button type="button" class="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white py-3 rounded-xl shadow-md transition-colors" data-stk-find aria-haspopup="dialog">
                         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Find a tool
                     </button>
                 </div>
@@ -125,9 +124,9 @@
     <main id="main" class="stk-shell-tall flex-grow w-full flex flex-col relative">
         
         <section id="uploadZone" class="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-slate-950 transition-opacity duration-300">
-            <div class="w-full max-w-4xl flex flex-col items-center justify-center border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-3xl bg-blue-50/50 dark:bg-blue-900/10 cursor-pointer p-20 text-center group transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/20" id="dropArea">
+            <div class="w-full max-w-4xl flex flex-col items-center justify-center border-2 border-dashed border-brand-300 dark:border-brand-700 rounded-3xl bg-brand-50/50 dark:bg-brand-900/10 cursor-pointer p-20 text-center group transition-colors hover:bg-brand-50 dark:hover:bg-brand-900/20" id="dropArea">
                 <input type="file" id="fileInput" accept=".xvg,.csv,.txt,.dat" class="hidden">
-                <div class="w-24 h-24 bg-blue-100 dark:bg-blue-900/50 rounded-3xl flex items-center justify-center mb-8 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform shadow-sm">
+                <div class="w-24 h-24 bg-brand-100 dark:bg-brand-900/50 rounded-3xl flex items-center justify-center mb-8 text-brand-600 dark:text-brand-400 group-hover:scale-110 transition-transform shadow-sm">
                     <i class="fa-solid fa-chart-line text-5xl"></i>
                 </div>
                 <h1 class="text-4xl font-black mb-4 tracking-tight">XVG Visualizer</h1>
@@ -135,10 +134,10 @@
                     Drag and drop massive multi-column data logs. The parser natively ignores GROMACS metadata and renders standard CSVs instantly using WebGL.
                 </p>
                 <p class="text-xs font-bold text-slate-600 dark:text-slate-400 mb-8 uppercase tracking-wider">Supported formats: .xvg, .csv, .txt, .dat</p>
-                <button class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2">
+                <button class="bg-brand-600 hover:bg-brand-700 text-white px-8 py-3.5 rounded-xl font-bold shadow-lg transition-colors flex items-center gap-2">
                     <i class="fa-solid fa-file-arrow-up"></i> Select Data File
                 </button>
-                <button id="loadSampleXvg" class="mt-3 text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1.5"><i class="fa-solid fa-flask-vial"></i> Or load a sample .xvg (GROMACS RMSD)</button>
+                <button id="loadSampleXvg" class="mt-3 text-sm font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1.5"><i class="fa-solid fa-flask-vial"></i> Or load a sample .xvg (GROMACS RMSD)</button>
             </div>
         </section>
 
@@ -149,7 +148,7 @@
                 <div class="p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex justify-between items-center">
                     <div>
                         <h2 class="text-base font-black tracking-tight flex items-center gap-2">
-                            <i class="fa-solid fa-server text-blue-500"></i> Render Engine
+                            <i class="fa-solid fa-server text-brand-500"></i> Render Engine
                         </h2>
                         <p id="fileStats" class="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-1">No file loaded</p>
                     </div>
@@ -165,7 +164,7 @@
                             <span class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Independent Variable (X)</span>
                         </div>
                         <div class="p-3">
-                            <select id="xColSelect" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+                            <select id="xColSelect" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none">
                             </select>
                         </div>
                     </div>
@@ -173,7 +172,7 @@
                     <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900 flex flex-col max-h-[40vh]">
                         <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center shrink-0">
                             <span class="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Dependent Variables (Y)</span>
-                            <button id="btnToggleAll" class="text-[11px] text-blue-600 hover:text-blue-800 dark:text-blue-400 font-bold uppercase">Toggle All</button>
+                            <button id="btnToggleAll" class="text-[11px] text-brand-600 hover:text-brand-800 dark:text-brand-400 font-bold uppercase">Toggle All</button>
                         </div>
                         <div id="yColContainer" class="p-3 overflow-y-auto custom-scroll flex flex-col gap-2">
                         </div>
@@ -188,17 +187,17 @@
                             <div class="py-3 flex flex-col gap-3">
                                 <label class="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer">
                                     Logarithmic Y-Axis
-                                    <input type="checkbox" id="plotLogY" class="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500">
+                                    <input type="checkbox" id="plotLogY" class="w-4 h-4 text-brand-600 bg-slate-100 border-slate-300 rounded focus:ring-brand-500">
                                 </label>
                                 <label class="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-400 cursor-pointer">
                                     Show Data Markers
-                                    <input type="checkbox" id="plotMarkers" class="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500">
+                                    <input type="checkbox" id="plotMarkers" class="w-4 h-4 text-brand-600 bg-slate-100 border-slate-300 rounded focus:ring-brand-500">
                                 </label>
                                 <div>
                                     <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-bold">
                                         <span>Line Smoothing</span>
                                     </div>
-                                    <input type="range" id="plotSmoothing" min="0" max="1.3" step="0.1" value="0" class="w-full accent-blue-600">
+                                    <input type="range" id="plotSmoothing" min="0" max="1.3" step="0.1" value="0" class="w-full accent-brand-600">
                                 </div>
                             </div>
                         </div>
@@ -208,10 +207,10 @@
             </div>
 
             <div class="flex-grow bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-center overflow-hidden relative h-[65vh] lg:h-full">
-                <button id="xvgPyBtn" class="absolute top-3 right-3 z-20 px-3 py-1.5 bg-white/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-blue-600 transition-colors shadow-sm backdrop-blur" title="Copy matplotlib code to reproduce this plot"><i class="fa-brands fa-python mr-1"></i> Python</button>
+                <button id="xvgPyBtn" class="absolute top-3 right-3 z-20 px-3 py-1.5 bg-white/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-colors shadow-sm backdrop-blur" title="Copy matplotlib code to reproduce this plot"><i class="fa-brands fa-python mr-1"></i> Python</button>
                 <div id="plotContainer" class="w-full h-full p-2"></div>
                 <div id="plotLoader" class="absolute inset-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm z-10 hidden flex-col items-center justify-center">
-                    <i class="fa-solid fa-circle-notch fa-spin text-4xl text-blue-600 mb-4"></i>
+                    <i class="fa-solid fa-circle-notch fa-spin text-4xl text-brand-600 mb-4"></i>
                     <p class="text-sm font-bold text-slate-600 dark:text-slate-300">Parsing data array...</p>
                 </div>
             </div>
@@ -261,7 +260,7 @@
         <div class="max-w-7xl mx-auto px-6">
             <div class="stk-dir mb-12">
                 <div>
-                    <h4><i class="fa-solid fa-chart-pie text-indigo-500 text-xs"></i> Data &amp; Statistics</h4>
+                    <h4><i class="fa-solid fa-chart-pie text-brand-500 dark:text-brand-400 text-xs"></i> Data &amp; Statistics</h4>
                     <ul>
                         <li><a href="plot-digitizer.html">Plot Digitizer</a></li>
                         <li><a href="data-cleaner.html">Data Cleaner</a></li>
@@ -274,7 +273,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-microchip text-orange-500 text-xs"></i> Computational Chemistry</h4>
+                    <h4><i class="fa-solid fa-microchip text-brand-500 dark:text-brand-400 text-xs"></i> Computational Chemistry</h4>
                     <ul>
                         <li><a href="structure-inspector.html">Structure Inspector</a></li>
                         <li><a href="coordinate-manipulator.html">Coordinate Manipulator</a></li>
@@ -283,7 +282,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-book-open text-teal-500 text-xs"></i> Writing &amp; Citations</h4>
+                    <h4><i class="fa-solid fa-book-open text-brand-500 dark:text-brand-400 text-xs"></i> Writing &amp; Citations</h4>
                     <ul>
                         <li><a href="latex-formatter.html">Equation Formatter</a></li>
                         <li><a href="latex-tables.html">Visual LaTeX Tables</a></li>
@@ -294,7 +293,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-headphones text-fuchsia-500 text-xs"></i> Focus &amp; Flow</h4>
+                    <h4><i class="fa-solid fa-headphones text-brand-500 dark:text-brand-400 text-xs"></i> Focus &amp; Flow</h4>
                     <ul>
                         <li><a href="pomodoro.html">Ambient Pomodoro</a></li>
                         <li><a href="decision.html">Decision Matrix</a></li>
@@ -304,13 +303,13 @@
             </div>
             <div class="border-t border-slate-200 dark:border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between text-slate-500 dark:text-slate-400 gap-4">
                 <div class="flex items-center gap-2">
-                    <i class="fa-solid fa-flask text-xl text-slate-300 dark:text-slate-700"></i>
+                    <svg class="stk-logo stk-logo-foot" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect width="32" height="32" rx="7.5"/><path d="M16 5.2 25.35 10.6v10.8L16 26.8 6.65 21.4V10.6ZM16.8 8.9l4.96 2.87M21.76 20.23 16.8 23.1M9.46 18.87v-5.74"/></svg>
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                 </div>
-                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-indigo-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
+                <div class="text-center text-sm font-medium">&copy; 2026 STEMKit. Built by <a href="https://github.com/LD-Shell" target="_blank" rel="noopener" class="font-semibold hover:text-brand-500 transition-colors">Olanrewaju M. Daramola</a>.</div>
                 <div class="flex gap-6 text-sm font-medium">
-                    <a href="privacy.html#privacy" class="hover:text-indigo-500 transition-colors">Privacy Policy</a>
-                    <a href="privacy.html#terms" class="hover:text-indigo-500 transition-colors">Terms of Service</a>
+                    <a href="privacy.html#privacy" class="hover:text-brand-500 transition-colors">Privacy Policy</a>
+                    <a href="privacy.html#terms" class="hover:text-brand-500 transition-colors">Terms of Service</a>
                 </div>
             </div>
         </div>
@@ -321,9 +320,9 @@
     <div id="xvgCodeModal" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background:rgba(15,23,42,.6);">
         <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
             <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
-                <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-brands fa-python text-blue-500"></i> matplotlib code</h3>
+                <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-brands fa-python text-brand-500"></i> matplotlib code</h3>
                 <div class="flex items-center gap-2">
-                    <button id="xvgCopyCode" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold transition-colors"><i class="fa-solid fa-copy mr-1"></i> Copy</button>
+                    <button id="xvgCopyCode" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-md text-xs font-bold transition-colors"><i class="fa-solid fa-copy mr-1"></i> Copy</button>
                     <button id="xvgCloseCode" class="w-8 h-8 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><i class="fa-solid fa-xmark"></i></button>
                 </div>
             </div>

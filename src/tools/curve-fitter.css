@@ -13,29 +13,29 @@
 .cf-samples { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-top:.5rem; }
 .cf-samples-label { font-size:.68rem; font-weight:700; color:#64748b; white-space:nowrap; }
 .dark .cf-samples-label { color:#94a3b8; }
-.cf-samples-label i { color:#10b981; }
+.cf-samples-label i { color:#3574b0; }
 .cf-chips { display:flex; flex-wrap:wrap; gap:.35rem; }
-.cf-chip { font-size:.7rem; font-weight:600; padding:.3rem .6rem; border-radius:.45rem; cursor:pointer; color:#047857; background:#ecfdf5; border:1px solid #a7f3d0; transition:all .15s; }
-.cf-chip:hover { background:#10b981; color:#fff; border-color:#10b981; transform:translateY(-1px); }
-.dark .cf-chip { color:#6ee7b7; background:rgba(6,78,59,.4); border-color:#065f46; }
-.dark .cf-chip:hover { background:#10b981; color:#fff; border-color:#10b981; }
+.cf-chip { font-size:.7rem; font-weight:600; padding:.3rem .6rem; border-radius:.45rem; cursor:pointer; color:#1a4b7b; background:#f1f6fb; border:1px solid #c0d6ec; transition:all .15s; }
+.cf-chip:hover { background:#3574b0; color:#fff; border-color:#3574b0; transform:translateY(-1px); }
+.dark .cf-chip { color:#92b8dd; background:rgba(23, 53, 83,.4); border-color:#193f66; }
+.dark .cf-chip:hover { background:#3574b0; color:#fff; border-color:#3574b0; }
 .cf-samples.hint .cf-chip { animation: cfHint 1.8s ease-in-out 2; }
 .cf-pulse { animation: cfPulse 1.4s ease-out 1; }
 #cfCodeModal.open { display:flex; }
-.cf-upload-btn { display:inline-flex; align-items:center; gap:.4rem; font-size:.7rem; font-weight:700; padding:.3rem .65rem; border-radius:.45rem; cursor:pointer; color:#047857; background:#ecfdf5; border:1px solid #a7f3d0; transition:all .15s; }
-.cf-upload-btn:hover { background:#10b981; color:#fff; border-color:#10b981; }
-.dark .cf-upload-btn { color:#6ee7b7; background:rgba(6,78,59,.4); border-color:#065f46; }
-.dark .cf-upload-btn:hover { background:#10b981; color:#fff; }
+.cf-upload-btn { display:inline-flex; align-items:center; gap:.4rem; font-size:.7rem; font-weight:700; padding:.3rem .65rem; border-radius:.45rem; cursor:pointer; color:#1a4b7b; background:#f1f6fb; border:1px solid #c0d6ec; transition:all .15s; }
+.cf-upload-btn:hover { background:#3574b0; color:#fff; border-color:#3574b0; }
+.dark .cf-upload-btn { color:#92b8dd; background:rgba(23, 53, 83,.4); border-color:#193f66; }
+.dark .cf-upload-btn:hover { background:#3574b0; color:#fff; }
 
 @keyframes cfHint {
-  0%,100% { box-shadow:0 0 0 0 rgba(16,185,129,0); }
-  50% { box-shadow:0 0 0 4px rgba(16,185,129,.2); }
+  0%,100% { box-shadow:0 0 0 0 rgba(53, 116, 176,0); }
+  50% { box-shadow:0 0 0 4px rgba(53, 116, 176,.2); }
 }
 
 @keyframes cfPulse {
-  0% { box-shadow:0 0 0 0 rgba(16,185,129,.5); }
-  70% { box-shadow:0 0 0 10px rgba(16,185,129,0); }
-  100% { box-shadow:0 0 0 0 rgba(16,185,129,0); }
+  0% { box-shadow:0 0 0 0 rgba(53, 116, 176,.5); }
+  70% { box-shadow:0 0 0 10px rgba(53, 116, 176,0); }
+  100% { box-shadow:0 0 0 0 rgba(53, 116, 176,0); }
 }
 
 /* Symbol definitions beneath a rendered formula, matching the other tools. */

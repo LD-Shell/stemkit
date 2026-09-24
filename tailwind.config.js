@@ -26,6 +26,15 @@ module.exports = {
   darkMode: 'class',
   theme: {
     extend: {
+      // Prussian blue, the site's one accent. Change it here and in the
+      // --stk-accent tokens in src/tailwind/input.css.
+      colors: {
+        brand: {
+          50: '#f1f6fb', 100: '#e0ebf6', 200: '#c0d6ec', 300: '#92b8dd',
+          400: '#5c93c7', 500: '#3574b0', 600: '#1f5c96', 700: '#1a4b7b',
+          800: '#193f66', 900: '#173553', 950: '#0f2236'
+        }
+      },
       fontFamily: {
         sans: ['Inter', ...defaultTheme.fontFamily.sans]
       }

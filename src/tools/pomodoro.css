@@ -8,10 +8,10 @@
 
 :root {
     --pm-ring: 300px;                    /* dial diameter, desktop */
-    /* Inherit the site palette from home.css rather than restating it. */
-    --pm-accent: var(--stk-indigo, #4f46e5);
-    --pm-accent-dark: var(--stk-indigo-700, #4338ca);
-    --pm-accent-soft: rgb(79 70 229 / .35);   /* matches .stk-search:focus */
+    /* The site accent, from the tokens in src/tailwind/input.css. */
+    --pm-accent: var(--stk-accent);
+    --pm-accent-dark: var(--stk-accent-hover);
+    --pm-accent-soft: var(--stk-ring);
     --pm-emerald: #10b981;
     --pm-emerald-dark: #059669;
 }
@@ -68,7 +68,7 @@
 }
 .dark .pm-dot { background: #334155; }
 .pm-dot[data-on="true"] { background: var(--pm-accent); transform: scale(1.25); }
-.dark .pm-dot[data-on="true"] { background: #818cf8; }
+.dark .pm-dot[data-on="true"] { background: #5c93c7; }
 .pm-ctl {
     width: 3.25rem; height: 3.25rem;
     display: flex; align-items: center; justify-content: center;
@@ -84,7 +84,7 @@
     border-radius: 1rem;
     font-weight: 900; font-size: 1.0625rem; letter-spacing: -0.01em;
     color: #fff; background: var(--pm-accent);
-    box-shadow: 0 10px 22px -10px rgb(79 70 229 / .75);
+    box-shadow: 0 10px 22px -10px rgb(31 92 150 / .75);
     transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 .pm-primary:hover { background: var(--pm-accent-dark); transform: translateY(-2px); }
@@ -132,7 +132,7 @@
 }
 .pm-row-icon { text-align: center; color: var(--stk-fg-muted); transition: color 0.25s ease; }
 .pm-row[data-active="true"] .pm-row-icon { color: var(--pm-accent); }
-.dark .pm-row[data-active="true"] .pm-row-icon { color: #818cf8; }
+.dark .pm-row[data-active="true"] .pm-row-icon { color: #5c93c7; }
 .pm-row-val {
     text-align: right; font-size: 0.6875rem; font-weight: 700;
     font-variant-numeric: tabular-nums; color: var(--stk-fg-muted);
@@ -150,7 +150,7 @@
 }
 .dark .pm-slider::-webkit-slider-runnable-track {
     background: linear-gradient(to right,
-        #6366f1 0%, #6366f1 var(--pm-fill, 0%),
+        #3574b0 0%, #3574b0 var(--pm-fill, 0%),
         #334155 var(--pm-fill, 0%), #334155 100%);
 }
 .pm-slider::-webkit-slider-thumb {

@@ -82,11 +82,11 @@ document.addEventListener("DOMContentLoaded", () => {
     delimChips.forEach(chip => {
         chip.addEventListener("click", () => {
             delimChips.forEach(c => {
-                c.classList.remove("bg-indigo-100", "dark:bg-indigo-900/50", "text-indigo-700", "dark:text-indigo-400", "border-indigo-200", "dark:border-indigo-800", "active");
+                c.classList.remove("bg-brand-100", "dark:bg-brand-900/50", "text-brand-700", "dark:text-brand-400", "border-brand-200", "dark:border-brand-800", "active");
                 c.classList.add("bg-slate-100", "dark:bg-slate-800", "text-slate-600", "dark:text-slate-300", "border-slate-200", "dark:border-slate-700");
             });
             chip.classList.remove("bg-slate-100", "dark:bg-slate-800", "text-slate-600", "dark:text-slate-300", "border-slate-200", "dark:border-slate-700");
-            chip.classList.add("bg-indigo-100", "dark:bg-indigo-900/50", "text-indigo-700", "dark:text-indigo-400", "border-indigo-200", "dark:border-indigo-800", "active");
+            chip.classList.add("bg-brand-100", "dark:bg-brand-900/50", "text-brand-700", "dark:text-brand-400", "border-brand-200", "dark:border-brand-800", "active");
             selectedDelim = chip.dataset.delim;
         });
     });
@@ -487,7 +487,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const colorMap = {
             success: "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400",
             error:   "bg-red-50 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400",
-            info:    "bg-indigo-50 text-indigo-800 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400",
+            info:    "bg-brand-50 text-brand-800 border-brand-200 dark:bg-brand-900/30 dark:text-brand-400",
         };
         const iconMap = {
             success: "fa-check-circle",

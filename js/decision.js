@@ -83,7 +83,7 @@ function buildTableUI() {
                 <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                     Weight (${WEIGHT_MIN}-${WEIGHT_MAX}):
                     <input type="number" min="${WEIGHT_MIN}" max="${WEIGHT_MAX}" value="3"
-                           class="crit-weight w-16 p-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                           class="crit-weight w-16 p-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-brand-500"
                            data-crit-idx="${ci}" aria-label="Weight for ${esc(crit)}">
                 </div>
             </th>`;
@@ -93,14 +93,14 @@ function buildTableUI() {
 
     parsedOptions.forEach((opt, oi) => {
         html += `<tr class="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-            <td class="p-4 font-bold text-indigo-600 dark:text-indigo-400 text-lg">${esc(opt)}</td>`;
+            <td class="p-4 font-bold text-brand-600 dark:text-brand-400 text-lg">${esc(opt)}</td>`;
         parsedCriteria.forEach((crit, ci) => {
             html += `
                 <td class="p-4">
                     <div class="flex items-center gap-2">
                         <span class="text-xs text-slate-500 dark:text-slate-400">Score (${SCORE_MIN}-${SCORE_MAX}):</span>
                         <input type="number" min="${SCORE_MIN}" max="${SCORE_MAX}" value="5"
-                               class="opt-rating w-16 p-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                               class="opt-rating w-16 p-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-brand-500"
                                data-opt-idx="${oi}" data-crit-idx="${ci}"
                                aria-label="Score of ${esc(opt)} on ${esc(crit)}">
                     </div>
@@ -169,13 +169,13 @@ function renderResults(order, winners, maxPossible) {
         rows += `
             <div class="text-left">
                 <div class="flex justify-between items-baseline mb-1">
-                    <span class="font-semibold ${isTop ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-300'}">
+                    <span class="font-semibold ${isTop ? 'text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-300'}">
                         <span class="text-slate-500 dark:text-slate-400 font-mono text-xs mr-1">#${rank + 1}</span>${esc(o.name)}
                     </span>
                     <span class="text-sm font-mono text-slate-500 dark:text-slate-400">${o.total.toFixed(1)} / ${maxPossible} (${pct}%)</span>
                 </div>
                 <div class="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div class="h-full rounded-full ${isTop ? 'bg-gradient-to-r from-indigo-500 to-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                    <div class="h-full rounded-full ${isTop ? 'bg-gradient-to-r from-brand-500 to-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
                          style="width:${Math.max(2, o.pct)}%"></div>
                 </div>
             </div>`;
@@ -186,10 +186,10 @@ function renderResults(order, winners, maxPossible) {
             <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">
                 ${isTie ? 'Tied Top Choice' : 'Optimal Choice'}
             </h4>
-            <h2 class="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-emerald-500 mb-2 break-words">${headline}</h2>
+            <h2 class="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-brand-500 to-emerald-500 mb-2 break-words">${headline}</h2>
             <p class="text-xs text-slate-500 dark:text-slate-400 mb-6">Scored highest on your weighted criteria${isTie ? ' (multiple options tied)' : ''}.</p>
             <div class="space-y-4 border-t border-slate-100 dark:border-slate-800 pt-5">${rows}</div>
-            <button id="btn-copy-summary" class="mt-6 w-full text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+            <button id="btn-copy-summary" class="mt-6 w-full text-sm font-semibold text-brand-600 dark:text-brand-400 hover:underline">
                 <i class="fa-regular fa-copy mr-1"></i> Copy summary
             </button>
         </div>`;

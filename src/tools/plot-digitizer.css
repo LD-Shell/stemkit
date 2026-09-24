@@ -8,8 +8,8 @@
 
 #plotCanvas { cursor: crosshair; }
 .loupe-active { cursor: none !important; }
-.dataset-btn.active { border-color: #6366f1; background-color: #e0e7ff; }
-html.dark .dataset-btn.active { background-color: rgba(79, 70, 229, 0.2); border-color: #6366f1; }
+.dataset-btn.active { border-color: #3574b0; background-color: #e0ebf6; }
+html.dark .dataset-btn.active { background-color: rgba(31, 92, 150, 0.2); border-color: #3574b0; }
 input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
 input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
 .accordion-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; max-height: 0; opacity: 0; overflow: hidden; }

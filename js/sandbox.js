@@ -69,7 +69,7 @@ class Particle {
         this.orbitSpeed = (Math.random() * 0.02) + 0.005;
         this.orbitRadius = (Math.random() * 15) + 5;
         
-        const colors = ['#4f46e5', '#10b981', '#0ea5e9', '#8b5cf6', '#f43f5e'];
+        const colors = ['#3574b0', '#10b981', '#0ea5e9', '#8b5cf6', '#f43f5e'];
         this.baseColor = colors[Math.floor(Math.random() * colors.length)];
         this.color = this.baseColor;
     }

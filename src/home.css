@@ -15,12 +15,12 @@ html { scroll-behavior: smooth; }
 .dark .stk-dir h4 { color: #e2e8f0; }
 .stk-dir ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
 .stk-dir a { font-size: .875rem; color: var(--stk-fg-3); text-decoration: none; transition: color .2s; }
-.stk-dir a:hover { color: #4f46e5; }
-.dark .stk-dir a:hover { color: #a5b4fc; }
+.stk-dir a:hover { color: #1f5c96; }
+.dark .stk-dir a:hover { color: #92b8dd; }
 
 /* Search-term highlight, home page and finder. */
-mark.stk-hit { background: rgba(99, 102, 241, .22); color: inherit; border-radius: .2rem; padding: 0 .1em; }
-.dark mark.stk-hit { background: rgba(129, 140, 248, .3); }
+mark.stk-hit { background: rgba(53, 116, 176, .22); color: inherit; border-radius: .2rem; padding: 0 .1em; }
+.dark mark.stk-hit { background: rgba(92, 147, 199, .3); }
 
 /* ---- Hero ---------------------------------------------------------------
    Left-aligned, like the directory under it. The right column is a lookup
@@ -49,7 +49,7 @@ mark.stk-hit { background: rgba(99, 102, 241, .22); color: inherit; border-radiu
   outline: none; transition: border-color .15s, box-shadow .15s, background-color .15s;
 }
 .hm-search input::placeholder { color: var(--stk-fg-muted); }
-.hm-search input:focus { border-color: #4f46e5; background: var(--stk-surface); box-shadow: 0 0 0 4px rgb(79 70 229 / .18); }
+.hm-search input:focus { border-color: #1f5c96; background: var(--stk-surface); box-shadow: 0 0 0 4px rgb(31 92 150 / .18); }
 #searchHint {
   position: absolute; right: 1rem; top: 50%; transform: translateY(-50%);
   font-family: var(--stk-font-mono); font-size: .75rem; line-height: 1; padding: .3rem .5rem;
@@ -72,13 +72,13 @@ mark.stk-hit { background: rgba(99, 102, 241, .22); color: inherit; border-radiu
   display: inline-block; margin: 0 .15rem .2rem 0;
   font-family: var(--stk-font-mono); font-size: .8125rem; font-weight: 600; line-height: 1.2;
   padding: .15rem .4rem; border-radius: .35rem;
-  color: #4338ca; background: #eef2ff; border: 1px solid #c7d2fe;
+  color: #1a4b7b; background: #f1f6fb; border: 1px solid #c0d6ec;
 }
-.dark .hm-formats-list code { color: #c7d2fe; background: rgba(99, 102, 241, .16); border-color: rgba(129, 140, 248, .35); }
+.dark .hm-formats-list code { color: #c0d6ec; background: rgba(53, 116, 176, .16); border-color: rgba(92, 147, 199, .35); }
 .hm-formats-list dd { margin: 0; font-size: .9375rem; line-height: 1.5; color: var(--stk-fg-3); }
 .hm-formats-list a { color: var(--stk-fg); font-weight: 600; text-decoration: none; }
-.hm-formats-list a:hover { color: #4f46e5; text-decoration: underline; text-underline-offset: 3px; }
-.dark .hm-formats-list a:hover { color: #a5b4fc; }
+.hm-formats-list a:hover { color: #1f5c96; text-decoration: underline; text-underline-offset: 3px; }
+.dark .hm-formats-list a:hover { color: #92b8dd; }
 @media (max-width: 480px) {
   .hm-formats { padding: 1rem 1.1rem .35rem; }
   .hm-formats-list > div { grid-template-columns: 1fr; gap: .35rem; }
@@ -111,11 +111,14 @@ mark.stk-hit { background: rgba(99, 102, 241, .22); color: inherit; border-radiu
 .hm-tool[hidden] { display: none; }
 .hm-tool:hover { background: var(--stk-bg); }
 .hm-tool:focus-visible { outline-offset: -3px; }
-.hm-ico { flex-shrink: 0; width: 2.5rem; height: 2.5rem; border-radius: .7rem; display: inline-flex; align-items: center; justify-content: center; font-size: 1.05rem; }
+.hm-ico {
+  flex-shrink: 0; width: 2.5rem; height: 2.5rem; border-radius: .7rem; display: inline-flex; align-items: center; justify-content: center; font-size: 1.05rem;
+  background: var(--stk-accent-soft); color: var(--stk-accent-text); box-shadow: inset 0 0 0 1px var(--stk-accent-soft-border);
+}
 .hm-tool-txt { min-width: 0; }
 .hm-tool-name { font-size: 1rem; font-weight: 700; color: var(--stk-fg); transition: color .15s; }
-.hm-tool:hover .hm-tool-name { color: #4f46e5; }
-.dark .hm-tool:hover .hm-tool-name { color: #a5b4fc; }
+.hm-tool:hover .hm-tool-name { color: #1f5c96; }
+.dark .hm-tool:hover .hm-tool-name { color: #92b8dd; }
 .hm-tool-desc { margin-top: .2rem; font-size: .875rem; line-height: 1.5; color: var(--stk-fg-3); }
 
 .hm-empty { padding: 3rem 1rem 4rem; text-align: center; }
@@ -123,9 +126,9 @@ mark.stk-hit { background: rgba(99, 102, 241, .22); color: inherit; border-radiu
 .hm-empty-text { margin-top: .35rem; font-size: .9375rem; color: var(--stk-fg-3); }
 .hm-empty-btn {
   margin-top: 1.25rem; padding: .6rem 1.1rem; border: 0; border-radius: .6rem; cursor: pointer;
-  font: inherit; font-size: .875rem; font-weight: 700; color: #fff; background: #4f46e5;
+  font: inherit; font-size: .875rem; font-weight: 700; color: #fff; background: #1f5c96;
 }
-.hm-empty-btn:hover { background: #4338ca; }
+.hm-empty-btn:hover { background: #1a4b7b; }
 
 /* ---- Proof: what the numbers rest on ------------------------------------ */
 .hm-proof { border-top: 1px solid var(--stk-border); background: var(--stk-surface); }
@@ -135,8 +138,8 @@ mark.stk-hit { background: rgba(99, 102, 241, .22); color: inherit; border-radiu
 @media (min-width: 1024px) { .hm-proof-in { grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr); gap: 4rem; padding: 4.5rem 2rem 5rem; } }
 .hm-proof-main h2 { font-size: 1.875rem; font-weight: 800; letter-spacing: -.025em; color: var(--stk-fg); }
 .hm-proof-main > p { margin-top: 1rem; max-width: 40rem; font-size: 1rem; line-height: 1.7; color: var(--stk-fg-3); }
-.hm-proof-main a, .hm-fact a { color: #4338ca; font-weight: 600; text-underline-offset: 3px; }
-.dark .hm-proof-main a, .dark .hm-fact a { color: #a5b4fc; }
+.hm-proof-main a, .hm-fact a { color: #1a4b7b; font-weight: 600; text-underline-offset: 3px; }
+.dark .hm-proof-main a, .dark .hm-fact a { color: #92b8dd; }
 .hm-proof-main code, .hm-fact code { font-family: var(--stk-font-mono); font-size: .9em; color: var(--stk-fg-2); }
 .hm-bugs { margin-top: 1rem; max-width: 40rem; list-style: none; padding: 0; border-left: 3px solid #fcd34d; }
 .dark .hm-bugs { border-color: #b45309; }
@@ -161,7 +164,7 @@ mark.stk-hit { background: rgba(99, 102, 241, .22); color: inherit; border-radiu
 .hm-doi code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: .875rem; color: var(--stk-fg); }
 .hm-doi button {
   flex-shrink: 0; padding: .35rem .75rem; border: 0; border-radius: .45rem; cursor: pointer;
-  font: inherit; font-size: .8125rem; font-weight: 700; color: #fff; background: #4f46e5;
+  font: inherit; font-size: .8125rem; font-weight: 700; color: #fff; background: #1f5c96;
 }
-.hm-doi button:hover { background: #4338ca; }
+.hm-doi button:hover { background: #1a4b7b; }
 .hm-links { margin-top: .9rem; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: .4rem 1.25rem; font-size: .875rem; }

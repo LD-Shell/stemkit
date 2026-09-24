@@ -42,16 +42,21 @@ the colours. Hand-written CSS reads them (`var(--stk-border)`,
 `var(--stk-accent)`) rather than repeating hex values, so most rules no longer
 need a `.dark` twin.
 
-A tool page may re-point the accent tokens on `body` from its own stylesheet.
-The coordinate manipulator is purple and the script generator rose; the shared
-components pick the colour up without further rules:
+There is one accent, Prussian blue (`#1f5c96`), shared by every page. It is
+declared twice, as the `--stk-accent*` tokens for hand-written CSS and as the
+`brand` scale in `tailwind.config.js` for utilities (`bg-brand-600`,
+`text-brand-700`, `dark:text-brand-300`). Change both together. Tools used to
+re-point the accent to a colour of their own; they no longer do, so a primary
+action looks the same everywhere.
 
-```css
-body { --stk-accent: #e11d48; --stk-accent-hover: #be123c; --stk-accent-text: #be123c; }
-```
+Other hues carry meaning and stay out of decoration: red for errors and
+destructive actions, amber for warnings, emerald for success and significant
+results, blue for informational toasts. Chart series colours are data and
+live in each tool's script.
 
 The tokens are the place to change a colour site-wide. Changing one changes
-every page, which is the point, so look at a few pages afterwards.
+every page, which is the point, so look at a few pages afterwards and run the
+contrast check in both themes.
 
 ## Shared components
 
@@ -67,8 +72,9 @@ header, body and footer, `.stk-group`, `.stk-disclosure` (a `<details>`),
 
 The page chrome that `js/site.js` drives has its own classes in the same
 file: `.stk-navlink` and `.stk-find` in the header, `.stk-skip`, the
-`.stk-finder` dialog, and the `.stk-next` cards under each tool. The header
-keeps the brand indigo whatever accent a tool sets on `<body>`.
+`.stk-finder` dialog, the `.stk-next` cards under each tool, and `.stk-logo`,
+the benzene mark drawn inline in the header and footer. `assets/favicon.svg`
+is the same drawing; the PNG and ICO favicons are rendered from it.
 
 Prefer these over a new per-tool class. When a tool needs something they do
 not cover, add a rule to its own stylesheet using the tokens.

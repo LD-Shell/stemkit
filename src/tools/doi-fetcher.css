@@ -24,7 +24,7 @@
 .field-toggle:hover { background: rgba(0,0,0,0.04); }
 .dark .field-toggle:hover { background: rgba(255,255,255,0.05); }
 .field-toggle input[type="checkbox"] {
-    width: 15px; height: 15px; accent-color: #4f46e5; cursor: pointer; flex-shrink: 0;
+    width: 15px; height: 15px; accent-color: #1f5c96; cursor: pointer; flex-shrink: 0;
 }
 .collapse-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
 .progress-track { height: 6px; border-radius: 3px; overflow: hidden; }

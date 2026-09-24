@@ -38,8 +38,8 @@
    The hand-written stylesheets (src/stemkit-docs.css, src/tools/*.css) used to
    repeat the same slate and indigo hex values several hundred times, each with
    its own `.dark` twin. These custom properties are the single source for
-   those values. A tool page may re-point the accent tokens on <body> from its
-   own stylesheet so the shared components take on that tool's colour.
+   those values. Every page shares one accent, the brand's Prussian blue; tools
+   no longer re-point it, so a primary action looks the same on every page.
 --------------------------------------------------------------------------- */
 
 :root {
@@ -55,13 +55,13 @@
   --stk-fg-muted: #64748b;
   --stk-fg-faint: #94a3b8;
 
-  --stk-accent: #4f46e5;
-  --stk-accent-hover: #4338ca;
-  --stk-accent-text: #4f46e5;
-  --stk-accent-soft: #eef2ff;
-  --stk-accent-soft-border: #c7d2fe;
+  --stk-accent: #1f5c96;
+  --stk-accent-hover: #1a4b7b;
+  --stk-accent-text: #1f5c96;
+  --stk-accent-soft: #f1f6fb;
+  --stk-accent-soft-border: #c0d6ec;
   --stk-accent-fg: #ffffff;
-  --stk-ring: rgba(79, 70, 229, 0.35);
+  --stk-ring: rgba(31, 92, 150, 0.35);
 
   --stk-ok: #059669;
   --stk-ok-soft: #ecfdf5;
@@ -104,13 +104,13 @@
   --stk-fg-muted: #94a3b8;
   --stk-fg-faint: #64748b;
 
-  --stk-accent: #4f46e5;
-  --stk-accent-hover: #6366f1;
-  --stk-accent-text: #a5b4fc;
-  --stk-accent-soft: rgba(99, 102, 241, 0.16);
-  --stk-accent-soft-border: rgba(129, 140, 248, 0.35);
+  --stk-accent: #3574b0;
+  --stk-accent-hover: #1f5c96;
+  --stk-accent-text: #92b8dd;
+  --stk-accent-soft: rgba(53, 116, 176, 0.16);
+  --stk-accent-soft-border: rgba(92, 147, 199, 0.35);
   --stk-accent-fg: #ffffff;
-  --stk-ring: rgba(129, 140, 248, 0.45);
+  --stk-ring: rgba(92, 147, 199, 0.45);
 
   --stk-ok: #34d399;
   --stk-ok-soft: rgba(5, 150, 105, 0.16);
@@ -138,6 +138,10 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
+
+/* Native checkboxes, radios, sliders and progress bars take the site accent
+   instead of the browser's own blue. */
+input[type="checkbox"], input[type="radio"], input[type="range"], progress { accent-color: var(--stk-accent); }
 
 /* Keyboard focus is visible; mouse focus is not. Elements that opt out with
    Tailwind's `focus:outline-none` keep their own ring treatment because that
@@ -702,11 +706,22 @@ html {
 .stk-table-wrap > table { margin-top: 0; }
 
 /* Site header ---------------------------------------------------------------
-   The header is the same on every page and keeps the brand indigo whatever
-   accent a tool sets on <body>. js/site.js wires the buttons. */
+   The header is the same on every page. js/site.js wires the buttons. */
+
+/* The mark: benzene as a Kekule structure, white on a brand square. Inline
+   SVG so it follows the theme; assets/favicon.svg is the same drawing and
+   the PNG and ICO favicons are rendered from it. */
+.stk-logo { width: 2.25rem; height: 2.25rem; flex-shrink: 0; }
+@media (min-width: 640px) { .stk-logo { width: 2.5rem; height: 2.5rem; } }
+.stk-logo rect { fill: #1f5c96; }
+.dark .stk-logo rect { fill: #3574b0; }
+.stk-logo path { fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.stk-logo-foot, .stk-logo.stk-logo-foot { width: 1.5rem; height: 1.5rem; }
+.stk-logo-foot rect, .dark .stk-logo-foot rect { fill: var(--stk-border-strong); }
+.stk-logo-foot path { stroke: var(--stk-surface); }
 .stk-navlink { transition: color var(--stk-ease); }
-.stk-navlink:hover, .stk-navlink.is-current { color: #4f46e5; }
-.dark .stk-navlink:hover, .dark .stk-navlink.is-current { color: #a5b4fc; }
+.stk-navlink:hover, .stk-navlink.is-current { color: #1f5c96; }
+.dark .stk-navlink:hover, .dark .stk-navlink.is-current { color: #92b8dd; }
 
 /* "Find a tool" opener: reads as a search field, acts as a button. */
 .stk-find {
@@ -725,7 +740,7 @@ html {
   cursor: pointer;
   transition: border-color var(--stk-ease), background-color var(--stk-ease), color var(--stk-ease);
 }
-.stk-find:hover { border-color: #a5b4fc; background: #fff; color: #0f172a; }
+.stk-find:hover { border-color: #92b8dd; background: #fff; color: #0f172a; }
 .stk-find > span { flex: 1; text-align: left; }
 .stk-find kbd {
   font-family: var(--stk-font-mono);
@@ -739,7 +754,7 @@ html {
   color: #475569;
 }
 .dark .stk-find { border-color: #334155; background: #0f172a; color: #cbd5e1; }
-.dark .stk-find:hover { border-color: #6366f1; background: #1e293b; color: #f1f5f9; }
+.dark .stk-find:hover { border-color: #3574b0; background: #1e293b; color: #f1f5f9; }
 .dark .stk-find kbd { border-color: #334155; background: #1e293b; color: #cbd5e1; }
 
 /* Skip link: off-screen until focused. */
@@ -750,7 +765,7 @@ html {
   z-index: 100;
   padding: 0.55rem 1rem;
   border-radius: var(--stk-radius);
-  background: #4f46e5;
+  background: #1f5c96;
   color: #fff;
   font-size: 0.875rem;
   font-weight: 700;
@@ -833,6 +848,9 @@ html {
   height: 2.25rem;
   border-radius: 0.6rem;
   font-size: 0.95rem;
+  background: var(--stk-accent-soft);
+  color: var(--stk-accent-text);
+  box-shadow: inset 0 0 0 1px var(--stk-accent-soft-border);
 }
 .stk-finder-txt, .stk-next-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .stk-finder-name { font-size: 0.9rem; font-weight: 600; color: var(--stk-fg); }
