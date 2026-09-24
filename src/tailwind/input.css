@@ -63,12 +63,12 @@
   --stk-accent-fg: #ffffff;
   --stk-ring: rgba(31, 92, 150, 0.35);
 
-  --stk-ok: #059669;
+  --stk-ok: #047857;
   --stk-ok-soft: #ecfdf5;
   --stk-warn: #b45309;
   --stk-warn-soft: #fffbeb;
   --stk-warn-border: #fde68a;
-  --stk-danger: #dc2626;
+  --stk-danger: #b91c1c;
   --stk-danger-soft: #fef2f2;
   --stk-danger-border: #fecaca;
 
@@ -148,6 +148,11 @@ html {
 .js-plotly-plot .plotly .modebar-btn path { fill: var(--stk-fg-muted) !important; }
 .js-plotly-plot .plotly .modebar-btn:hover path,
 .js-plotly-plot .plotly .modebar-btn.active path { fill: var(--stk-accent-text) !important; }
+
+/* The hidden attribute always wins. A component that sets display (a button,
+   a callout, a Tailwind flex) otherwise outranks the browser's own [hidden]
+   rule, and an element the script had hidden stayed on screen. */
+[hidden] { display: none !important; }
 
 /* Native checkboxes, radios, sliders and progress bars take the site accent
    instead of the browser's own blue. */
@@ -755,7 +760,7 @@ input[type="checkbox"], input[type="radio"], input[type="range"], progress { acc
 
 /* Table wrapper: keeps a wide reference table scrollable inside the page
    instead of forcing the page itself to scroll sideways on a phone. */
-.stk-table-wrap { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
+.stk-table-wrap { position: relative; overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
 .stk-table-wrap > table { margin-top: 0; }
 
 /* Site header ---------------------------------------------------------------

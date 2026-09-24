@@ -141,7 +141,3 @@
 .error-item { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; padding: 6px 0; font-size: 12px; align-items: baseline; }
 .error-doi { font-family: var(--stk-font-mono); font-weight: 600; min-width: 0; word-break: break-all; flex: 1 1 12rem; }
 
-/* Red text on the pale red fill (Clear, "3 failed", the failure list) is
-   4.4:1 with the shared --stk-danger (#dc2626), under AA. This page takes the
-   next shade in the light theme; the dark theme's value already passes. */
-html:not(.dark) { --stk-danger: #b91c1c; }

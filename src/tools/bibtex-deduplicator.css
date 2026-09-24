@@ -91,10 +91,6 @@
 .dd-stat dd { font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--stk-fg); }
 .dd-stat .dd-stat-warn { color: var(--stk-warn); }
 
-/* Green text ("Every group has an entry kept", "Resolved") on the pale green
-   fill is 3.6:1 with the shared --stk-ok (#059669), under AA. This page takes
-   the next shade in the light theme; the dark theme's value already passes. */
-html:not(.dark) { --stk-ok: #047857; }
 
 /* Upload .bib is a label around a visually hidden file input: show the
    keyboard focus on the label. */
