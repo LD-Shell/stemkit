@@ -362,7 +362,10 @@
                 toggleAtomLabels: $('toggleAtomLabels'), toggleResLabels: $('toggleResLabels'),
                 toggleHydrogens: $('toggleHydrogens'), toggleAxis: $('toggleAxis'),
                 toggleSpin: $('toggleSpin'), toggleClickInspect: $('toggleClickInspect'),
-                toggleOutline: $('toggleOutline')
+                toggleOutline: $('toggleOutline'),
+                // Page head
+                pageHead: $('pageHead'), headActions: $('headActions'),
+                openAnotherBtn: $('openAnotherBtn'), headKeysBtn: $('headKeysBtn')
             };
         }
 
@@ -421,15 +424,36 @@
         }
 
         showWorkspace() {
+            const wasHidden = this.el.workspace.classList.contains('hidden');
             this.el.uploadZone.classList.add('hidden');
             this.el.workspace.classList.remove('hidden');
             this.el.workspace.classList.add('flex');
+            // With a structure open the page head shrinks to one line, so the
+            // workspace keeps the height it had when the head was not there.
+            this.el.pageHead?.classList.add('is-compact');
+            if (this.el.headActions) this.el.headActions.hidden = false;
+            if (wasHidden) this.scrollWorkspaceIntoView();
         }
 
         showUploadZone() {
             this.el.workspace.classList.add('hidden');
             this.el.workspace.classList.remove('flex');
             this.el.uploadZone.classList.remove('hidden');
+            this.el.pageHead?.classList.remove('is-compact');
+            if (this.el.headActions) this.el.headActions.hidden = true;
+        }
+
+        /**
+         * The workspace is sized to the viewport under the sticky nav; after a
+         * file opens, bring its top up to the nav so all of it is on screen.
+         * Instant, and only ever downwards from the loader.
+         */
+        scrollWorkspaceIntoView() {
+            const ws = this.el.workspace;
+            const nav = document.querySelector('nav');
+            const navH = nav ? nav.getBoundingClientRect().height : 0;
+            const top = ws.getBoundingClientRect().top + window.scrollY - navH - 12;
+            if (top > window.scrollY) window.scrollTo({ top, behavior: 'auto' });
         }
 
         populateDropdown(selectEl, items, defaultText) {
@@ -2468,6 +2492,10 @@
             e.tbFullscreen?.addEventListener('click', () => this.toggleFullscreen());
             e.tbHelp?.addEventListener('click', () => this.openShortcuts());
             document.addEventListener('fullscreenchange', () => this.syncToolbar());
+
+            // Page head, shown once a structure is open.
+            e.openAnotherBtn?.addEventListener('click', () => e.fileInput.click());
+            e.headKeysBtn?.addEventListener('click', () => this.openShortcuts());
             this.syncToolbar();
         }
 

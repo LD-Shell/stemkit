@@ -14,16 +14,22 @@
  * rule carries a `.hidden` (or `[hidden]`) guard beside it.
  */
 
-/* Upload zone ------------------------------------------------------------- */
+/* Page head --------------------------------------------------------------- */
 
-.si-drop { cursor: pointer; }
+/* With a structure open the head folds to its title and one line of facts,
+   so the viewport-sized workspace under it keeps its height. */
+.si-pagehead.is-compact { padding-bottom: 0.75rem; margin-bottom: 0; }
+.si-pagehead.is-compact .stk-pagehead-title { font-size: 1.375rem; }
+.si-pagehead.is-compact .stk-pagehead-lede { display: none; }
+.si-pagehead.is-compact .stk-pagehead-meta { margin-top: 0.3rem; }
+@media (min-width: 768px) { .si-pagehead.is-compact { align-items: center; } }
+.stk-pagehead-actions[hidden] { display: none; }
+
+/* File loader: the shared .stk-drop; only the PDB fetch pair and the row of
+   samples need a layout of their own. */
 .si-fetch { display: flex; gap: 0.5rem; }
 .si-fetch .stk-input { width: 11rem; }
-.si-samples { align-items: center; margin-top: 0.25rem; }
-.si-samples .stk-hint { width: 100%; }
-@media (min-width: 640px) {
-    .si-samples .stk-hint { width: auto; }
-}
+.stk-drop-actions.si-samples { margin-top: 0.25rem; }
 
 /* Workspace shell --------------------------------------------------------- */
 
@@ -462,3 +468,7 @@
 
 /* Toasts: the shared component, plus a fade-out the script triggers. */
 .stk-toast.is-leaving { opacity: 0; transition: opacity 300ms ease; }
+
+/* The shared button and callout set their own display, which outranks the
+   browser's rule for [hidden]; these are hidden with the attribute here. */
+.stk-btn[hidden], .stk-callout[hidden] { display: none; }
