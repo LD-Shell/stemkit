@@ -1,53 +1,154 @@
 /*
  * scientific-converter -- tool-specific styles.
  *
- * Extracted from the inline <style> block in scientific-converter.html. Shared
- * documentation styles live in src/stemkit-docs.css; Tailwind utilities are
- * generated into src/output.css and must not be hand-edited.
+ * The quantity tabs, the converter card and the unit tooltips. Colours are
+ * the tokens from src/tailwind/input.css, so the dark theme needs no twin
+ * rules. Shared documentation styles live in src/stemkit-docs.css.
  */
 
+/* Quantity tabs ---------------------------------------------------------------
+   Eleven of them. From 640 px they wrap onto a second line, so every one is
+   in view; on a phone they scroll sideways in one row, and a fade on the
+   edge that still has tabs behind it says so. The script sets data-start and
+   data-end on the wrapper as the row scrolls. */
+.sc-cats { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.cat-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--stk-radius-lg);
+  border: 1px solid var(--stk-border);
+  background: var(--stk-surface);
+  color: var(--stk-fg-3);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--stk-ease), border-color var(--stk-ease), color var(--stk-ease);
+}
+.cat-tab i { font-size: 0.8em; color: var(--stk-fg-muted); transition: color var(--stk-ease); }
+.cat-tab:hover { border-color: var(--stk-accent-soft-border); color: var(--stk-fg); }
+.cat-tab[aria-pressed="true"] {
+  background: var(--stk-accent-soft);
+  border-color: var(--stk-accent);
+  color: var(--stk-accent-text);
+}
+.cat-tab[aria-pressed="true"] i { color: inherit; }
+.cat-tab:focus-visible { outline: 2px solid var(--stk-accent); outline-offset: 2px; }
+
+@media (max-width: 639px) {
+  .sc-cats-wrap { position: relative; margin: 0 -1rem; }
+  .sc-cats {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0.15rem 1rem 0.6rem;
+    scroll-padding-inline: 1rem;
+    scroll-snap-type: x proximity;
+  }
+  .cat-tab { scroll-snap-align: start; }
+  .sc-cats-wrap::before,
+  .sc-cats-wrap::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0.6rem;
+    width: 3rem;
+    pointer-events: none;
+    transition: opacity var(--stk-ease);
+  }
+  .sc-cats-wrap::before { left: 0; background: linear-gradient(to left, transparent, var(--stk-bg)); opacity: 0; }
+  .sc-cats-wrap::after { right: 0; background: linear-gradient(to right, transparent, var(--stk-bg)); }
+  .sc-cats-wrap[data-start="false"]::before { opacity: 1; }
+  .sc-cats-wrap[data-end="true"]::after { opacity: 0; }
+}
+
+/* Converter card --------------------------------------------------------------- */
+.sc-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  border-radius: var(--stk-radius-xl);
+  border: 1px solid var(--stk-border);
+  background: var(--stk-surface);
+  box-shadow: var(--stk-shadow-sm);
+}
+@media (min-width: 640px) { .sc-card { padding: 1.75rem 2rem 2rem; } }
+.sc-card-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 0.75rem 1rem; }
+.sc-card-hint { margin-top: 0.3rem; font-size: 0.875rem; line-height: 1.5; color: var(--stk-fg-3); }
+.sc-card-hint code { font-family: var(--stk-font-mono); font-size: 0.9em; color: var(--stk-fg-2); }
+.sc-card-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.sc-card-actions sub, .sc-card-actions sup { line-height: 0; }
+
+.sc-note {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--stk-radius-lg);
+  background: var(--stk-surface-2);
+  border: 1px solid var(--stk-border);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--stk-fg-3);
+}
+.sc-note i { color: var(--stk-accent-text); margin-right: 0.3rem; }
+
+/* The unit name and symbol are one flex item, so a subscript or superscript
+   sits against its letters instead of taking the flex gap on each side. */
+.sc-unit { min-width: 0; }
+.sc-unit sub, .sc-unit sup { line-height: 0; }
+
+/* The field that was typed into, so the source of the numbers is clear. */
+.unit-input.is-source { border-color: var(--stk-accent); background-color: var(--stk-accent-soft); }
+
+.sc-source {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding-top: 1rem;
+  border-top: 1px solid var(--stk-border);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--stk-fg-3);
+}
+.sc-source > i { margin-top: 0.2rem; color: var(--stk-fg-muted); }
+.sc-source a { color: var(--stk-accent-text); font-weight: 600; text-decoration: none; }
+.sc-source a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Unit tooltips ------------------------------------------------------------------ */
 .info-trigger { position: relative; display: inline-flex; }
-.info-trigger .info-icon { color: var(--stk-fg-muted); transition: color 0.15s ease; cursor: help; }
-.info-trigger:hover .info-icon { color: #1f5c96; }
-.dark .info-trigger .info-icon { color: #64748b; }
-.dark .info-trigger:hover .info-icon { color: #5c93c7; }
+.info-trigger .info-icon { color: var(--stk-fg-muted); transition: color var(--stk-ease); cursor: help; }
+.info-trigger:hover .info-icon { color: var(--stk-accent-text); }
 .info-trigger .tooltip { visibility: hidden; opacity: 0; transition: opacity 0.2s ease, visibility 0.2s ease; }
 .info-trigger:hover .tooltip { visibility: visible; opacity: 1; }
-.custom-scroll::-webkit-scrollbar { height: 6px; }
-.custom-scroll::-webkit-scrollbar-track { background: transparent; }
-.custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
-.dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
-.tab-active { background-color: var(--tw-bg-opacity, #f3f4f6); font-weight: 700; }
-.toast-enter { animation: slideIn 0.3s forwards; }
-.hl { color:#1f5c96; font-weight:600; }
-.dark .hl { color:#5c93c7; }
-.doc-tabs { display:flex; flex-wrap:wrap; gap:.4rem; margin:1.25rem 0 1.75rem; border-bottom:1px solid rgba(148,163,184,.25); padding-bottom:.75rem; }
-.doc-tab { display:inline-flex; align-items:center; gap:.45rem; font-size:.85rem; font-weight:700; padding:.5rem .9rem; border-radius:.6rem; border:1px solid transparent; cursor:pointer; background:transparent; color:#64748b; transition:all .15s; }
-.doc-tab:hover { background:#f1f5f9; color:#0f172a; }
-.dark .doc-tab { color:#94a3b8; }
-.dark .doc-tab:hover { background:#1e293b; color:#f1f5f9; }
-.doc-tab.active { background:#1f5c96; color:#fff; border-color:#1f5c96; }
-.doc-tab.active:hover { background:#1a4b7b; color:#fff; }
-.doc-pane { display:none; }
-.doc-pane.active { display:block; animation:docfade .2s ease; }
 
-@keyframes slideIn {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+/* Documentation tabs (method and references) ------------------------------------ */
+.hl { color: var(--stk-accent-text); font-weight: 600; }
+.doc-tabs { display: flex; flex-wrap: wrap; gap: .4rem; margin: 1.25rem 0 1.75rem; border-bottom: 1px solid var(--stk-border); padding-bottom: .75rem; }
+.doc-tab { display: inline-flex; align-items: center; gap: .45rem; font-size: .85rem; font-weight: 700; padding: .5rem .9rem; border-radius: .6rem; border: 1px solid transparent; cursor: pointer; background: transparent; color: var(--stk-fg-muted); transition: background-color var(--stk-ease), color var(--stk-ease); }
+.doc-tab:hover { background: var(--stk-surface-2); color: var(--stk-fg); }
+.doc-tab.active { background: var(--stk-accent); color: var(--stk-accent-fg); border-color: var(--stk-accent); }
+.doc-tab.active:hover { background: var(--stk-accent-hover); color: var(--stk-accent-fg); }
+.doc-pane { display: none; }
+.doc-pane.active { display: block; }
+/* Only a pane the visitor switched to fades in; the first one is simply there. */
+@media (prefers-reduced-motion: no-preference) {
+  .doc-pane.active.doc-enter { animation: docfade .2s ease; }
 }
 
 @keyframes docfade {
-  from { opacity:0; transform:translateY(4px); }
-  to { opacity:1; transform:none; }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
 }
 
-@media (max-width:640px) {
-  .stk-section { padding:2rem 0; }
-  .stk-wrap { padding-left:1rem; padding-right:1rem; }
-  .stk-h2 { font-size:1.3rem; }
-  .stk-math { font-size:.9rem; padding:.8rem; }
-  .stk-table { font-size:.78rem; }
-  .stk-table th, .stk-table td { padding:.4rem .5rem; }
-  .doc-tab { font-size:.78rem; padding:.4rem .7rem; }
-  .stk-section code { white-space:normal; word-break:break-word; }
+@media (max-width: 640px) {
+  .stk-section { padding: 2rem 0; }
+  .stk-wrap { padding-left: 1rem; padding-right: 1rem; }
+  .stk-h2 { font-size: 1.3rem; }
+  .stk-math { font-size: .9rem; padding: .8rem; }
+  .stk-table { font-size: .78rem; }
+  .stk-table th, .stk-table td { padding: .4rem .5rem; }
+  .doc-tab { font-size: .78rem; padding: .4rem .7rem; }
+  .stk-section code { white-space: normal; word-break: break-word; }
 }

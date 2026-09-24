@@ -121,87 +121,75 @@
         </div>
     </nav>
 
-    <!--
-      Tailwind safelist. The converter builds its accent classes at run time
-      (bg-${activeColor}-100 and so on), and class names that appear only in
-      JS template literals are invisible to Tailwind's scanner. Every category
-      now uses the brand accent, so these are the only ones it can generate.
-    -->
-    <div class="hidden
-        bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400 border-brand-200 dark:border-brand-800/50
-        border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 text-brand-500 hover:text-brand-500 border-brand-400" aria-hidden="true"></div>
+    <main id="main" class="flex-grow max-w-5xl mx-auto px-4 sm:px-6 py-8 w-full flex flex-col gap-6">
 
-    <main id="main" class="flex-grow max-w-5xl mx-auto px-6 py-12 w-full flex flex-col items-center">
-        
-        <header class="mb-8 text-center">
-            <div id="categoryBadge" class="inline-flex items-center gap-2 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4 border border-orange-200 dark:border-orange-800/50 transition-colors">
-                <i id="categoryIcon" class="fa-solid fa-bolt"></i> <span id="categoryName">Energy & Thermodynamics</span>
+        <header class="stk-pagehead">
+            <div>
+                <h1 class="stk-pagehead-title">Scientific Converter</h1>
+                <p class="stk-pagehead-lede">Type a value in one unit and read it in every other unit of the same quantity, from hartrees and wavenumbers to debye and bar, on the 2018 CODATA constants.</p>
+                <ul class="stk-pagehead-meta">
+                    <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
+                    <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
+                </ul>
             </div>
-            <h1 class="text-4xl font-black mb-4 tracking-tight">Scientific Converter</h1>
-            <p class="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
-                Select a domain and enter a value. The matrix instantly computes all corresponding unit equivalents using strict scientific constants. Supports standard and exponential notation (e.g., 1.5e-3).
-            </p>
         </header>
 
-        <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
+        <div id="toastContainer" class="stk-toasts" aria-live="polite"></div>
 
-        <div class="w-full">
-            <div class="flex overflow-x-auto custom-scroll gap-2 mb-6 pb-2 justify-start md:justify-center">
-                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="energy">
-                    <i class="fa-solid fa-bolt mr-1 text-orange-500"></i> Energy
-                </button>
-                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="length">
-                    <i class="fa-solid fa-ruler mr-1 text-blue-500"></i> Length
-                </button>
-                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="time">
-                    <i class="fa-solid fa-clock mr-1 text-emerald-500"></i> Time
-                </button>
-                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="force">
-                    <i class="fa-solid fa-arrow-down-up-across-line mr-1 text-purple-500"></i> Force
-                </button>
-                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="pressure">
-                    <i class="fa-solid fa-compress mr-1 text-rose-500"></i> Pressure
-                </button>
-                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="dipole">
-                    <i class="fa-solid fa-magnet mr-1 text-cyan-500"></i> Dipole
-                </button>
-                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="charge">
-                    <i class="fa-solid fa-bolt-lightning mr-1 text-amber-500"></i> Charge
-                </button>
-                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="polarizability">
-                    <i class="fa-solid fa-atom mr-1 text-teal-500"></i> Polarizability
-                </button>
-                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="spectroscopy">
-                    <i class="fa-solid fa-wave-square mr-1 text-brand-500"></i> Spectroscopy
-                </button>
-                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="temperature">
-                    <i class="fa-solid fa-temperature-half mr-1 text-red-500"></i> Temperature
-                </button>
-                <button class="cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 dark:border-slate-800 whitespace-nowrap" data-cat="heatcap">
-                    <i class="fa-solid fa-fire mr-1 text-fuchsia-500"></i> Heat Cap. &amp; Entropy
-                </button>
+        <div class="w-full flex flex-col gap-4">
+            <div id="catScroller" class="sc-cats-wrap">
+                <div class="sc-cats stk-scroll" role="group" aria-label="Quantity">
+                    <button type="button" class="cat-tab" data-cat="energy" aria-pressed="true"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Energy</button>
+                    <button type="button" class="cat-tab" data-cat="length" aria-pressed="false"><i class="fa-solid fa-ruler" aria-hidden="true"></i> Length</button>
+                    <button type="button" class="cat-tab" data-cat="time" aria-pressed="false"><i class="fa-solid fa-clock" aria-hidden="true"></i> Time</button>
+                    <button type="button" class="cat-tab" data-cat="force" aria-pressed="false"><i class="fa-solid fa-arrow-down-up-across-line" aria-hidden="true"></i> Force</button>
+                    <button type="button" class="cat-tab" data-cat="pressure" aria-pressed="false"><i class="fa-solid fa-compress" aria-hidden="true"></i> Pressure</button>
+                    <button type="button" class="cat-tab" data-cat="dipole" aria-pressed="false"><i class="fa-solid fa-magnet" aria-hidden="true"></i> Dipole</button>
+                    <button type="button" class="cat-tab" data-cat="charge" aria-pressed="false"><i class="fa-solid fa-bolt-lightning" aria-hidden="true"></i> Charge</button>
+                    <button type="button" class="cat-tab" data-cat="polarizability" aria-pressed="false"><i class="fa-solid fa-atom" aria-hidden="true"></i> Polarizability</button>
+                    <button type="button" class="cat-tab" data-cat="spectroscopy" aria-pressed="false"><i class="fa-solid fa-wave-square" aria-hidden="true"></i> Spectroscopy</button>
+                    <button type="button" class="cat-tab" data-cat="temperature" aria-pressed="false"><i class="fa-solid fa-temperature-half" aria-hidden="true"></i> Temperature</button>
+                    <button type="button" class="cat-tab" data-cat="heatcap" aria-pressed="false"><i class="fa-solid fa-fire" aria-hidden="true"></i> Heat capacity &amp; entropy</button>
+                </div>
             </div>
 
-            <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl p-8 relative w-full">
-                
-                <div class="flex justify-end mb-6">
-                    <button id="btnReset" class="text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1">
-                        <i class="fa-solid fa-rotate-right"></i> Clear Matrix
-                    </button>
-                </div>
-
-                <p id="categoryNote" class="mb-6 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 leading-relaxed w-full"></p>
-
-                <div id="matrixGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+            <section class="sc-card" aria-labelledby="scCardTitle">
+                <div class="sc-card-head">
+                    <div class="min-w-0">
+                        <h2 id="scCardTitle" class="stk-ptitle">Energy</h2>
+                        <p class="sc-card-hint">Type a value in any field and the others fill in. Exponents work too, as in <code>1.5e-3</code>.</p>
                     </div>
-                
-                <div class="mt-8 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 w-full">
-                    <p class="font-bold mb-1"><i class="fa-solid fa-microchip mr-1"></i> Conversion logic</p>
-                    <p>All calculations run locally in your browser. Factors are the 2018 CODATA recommended values and exact SI (2019) definitions; hover any unit's <i class="fa-solid fa-circle-info"></i> for its definition and source, or see the full <a href="#method" class="text-brand-600 dark:text-brand-400 hover:underline font-semibold">method &amp; references</a> below.</p>
+                    <div class="sc-card-actions">
+                        <button type="button" id="btnExample" class="stk-btn stk-btn-sm stk-btn-soft"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span id="btnExampleText">Try 1 hartree</span></button>
+                        <button type="button" id="btnReset" class="stk-btn stk-btn-sm stk-btn-ghost"><i class="fa-solid fa-eraser" aria-hidden="true"></i>Clear values</button>
+                    </div>
                 </div>
 
-            </div>
+                <p id="categoryNote" class="sc-note"></p>
+
+                <div id="matrixGrid" class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 w-full"></div>
+
+                <div class="sc-source">
+                    <i class="fa-solid fa-book-bookmark" aria-hidden="true"></i>
+                    <p>Factors are the 2018 CODATA recommended values and the exact SI (2019) definitions. Hover a unit&rsquo;s <i class="fa-solid fa-circle-info" aria-label="information"></i> for its definition and source, or read the <a href="#method">method and references</a>.</p>
+                </div>
+            </section>
         </div>
+
+        <!-- ================= HOW TO USE ================= -->
+        <section class="stk-section w-full" id="how-to-use" aria-label="How to use this tool">
+            <div class="stk-wrap">
+                <span class="stk-chip"><i class="fa-solid fa-right-left"></i> How-To Guide</span>
+                <h2 class="stk-h2">How to convert a value</h2>
+                <p class="stk-lead">Every unit of the chosen quantity is on screen at once, so one entry gives you all of its equivalents, each computed from a single reference constant.</p>
+                <div class="stk-grid stk-grid-3">
+                    <div class="stk-step"><span class="stk-num">1</span><div><h3>Pick a quantity</h3><p>Energy, length, time, force, pressure, dipole moment, charge, polarizability, spectroscopy, temperature, or heat capacity and entropy.</p></div></div>
+                    <div class="stk-step"><span class="stk-num">2</span><div><h3>Type into any field</h3><p>Every other field updates as you type. Standard and exponential notation both work (<code>1.5e-3</code>), and grouping commas are ignored. In Spectroscopy, edit one field at a time: wavelength is the reciprocal of the others.</p></div></div>
+                    <div class="stk-step"><span class="stk-num">3</span><div><h3>Copy what you need</h3><p>Each field has a copy button. Results switch to exponential notation above 10<sup>7</sup> and below 10<sup>-4</sup>, and otherwise keep up to eight decimal places.</p></div></div>
+                </div>
+            </div>
+        </section>
+
         <!-- ================= METHOD & REFERENCES ================= -->
         <section class="stk-section w-full" id="method" aria-label="Method and references">
             <div class="stk-wrap">
@@ -210,10 +198,10 @@
                 <p class="stk-lead">Every conversion in this tool reduces to a single reference constant per category. The numbers are not rounded conveniences, they are the <strong>2018 CODATA recommended values</strong> and the <strong>exact SI (2019) definitions</strong>. Pick a domain below for the exact relations and the primary source of each constant.</p>
 
                 <div class="doc-tabs" role="tablist">
-                    <button class="doc-tab active" data-doc-tab="energy" role="tab"><i class="fa-solid fa-bolt"></i> Energy</button>
-                    <button class="doc-tab" data-doc-tab="atomic" role="tab"><i class="fa-solid fa-atom"></i> Atomic units</button>
-                    <button class="doc-tab" data-doc-tab="spectro" role="tab"><i class="fa-solid fa-wave-square"></i> Spectroscopy</button>
-                    <button class="doc-tab" data-doc-tab="thermo" role="tab"><i class="fa-solid fa-temperature-half"></i> Thermo</button>
+                    <button type="button" class="doc-tab active" data-doc-tab="energy" role="tab" aria-selected="true"><i class="fa-solid fa-bolt"></i> Energy</button>
+                    <button type="button" class="doc-tab" data-doc-tab="atomic" role="tab" aria-selected="false"><i class="fa-solid fa-atom"></i> Atomic units</button>
+                    <button type="button" class="doc-tab" data-doc-tab="spectro" role="tab" aria-selected="false"><i class="fa-solid fa-wave-square"></i> Spectroscopy</button>
+                    <button type="button" class="doc-tab" data-doc-tab="thermo" role="tab" aria-selected="false"><i class="fa-solid fa-temperature-half"></i> Thermo</button>
                 </div>
 
                 <!-- ENERGY PANE -->
