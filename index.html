@@ -15,7 +15,7 @@
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp">
     <script type="application/ld+json">
-        {"@context":"https://schema.org","@type":"WebApplication","name":"STEMKit","url":"https://stemkit.net/index.html","description":"21 free, privacy-first browser tools for scientists and students: plot digitizing, statistics, curve fitting, figure building, unit conversion, molecular viewing, and LaTeX/BibTeX formatting.","applicationCategory":"EducationalApplication","operatingSystem":"All","browserRequirements":"Requires JavaScript","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["100% client-side","No data uploads","No sign-up","Works offline"],"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","reviewCount":"128","bestRating":"5"}}
+        {"@context":"https://schema.org","@type":"WebApplication","name":"STEMKit","url":"https://stemkit.net/index.html","description":"21 free, privacy-first browser tools for scientists and students: plot digitizing, statistics, curve fitting, figure building, unit conversion, molecular viewing, and LaTeX/BibTeX formatting.","applicationCategory":"EducationalApplication","operatingSystem":"All","browserRequirements":"Requires JavaScript","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["100% client-side","No data uploads","No sign-up","Works offline"]}
     </script>
     <meta name="author" content="STEMKit">
     <meta name="theme-color" content="#4f46e5">
@@ -96,311 +96,282 @@
         </div>
     </nav>
 
-    <header class="pt-14 pb-12 px-6 text-center max-w-5xl mx-auto flex flex-col items-center w-full">
-        <p class="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 mb-5">
-            <i class="fa-solid fa-flask text-indigo-500"></i> Open-source tools for computational chemistry, MIT licensed
-        </p>
-        <h1 class="text-4xl md:text-6xl font-extrabold mb-5 tracking-tight leading-tight text-slate-900 dark:text-white">
-            Research tools that run<br class="hidden md:block" /> in your browser.
-        </h1>
-        <p class="text-lg md:text-xl text-slate-600 dark:text-slate-400 mb-8 max-w-2xl leading-relaxed">
-            Digitize plots, run statistics, fit curves, build figures, convert units, view molecules and format LaTeX and BibTeX: 21 tools, nothing uploaded, no account.
-        </p>
-        <div class="stk-search-wrap">
-            <label for="toolSearch" class="stk-skip">Search tools</label>
-            <i class="fa-solid fa-magnifying-glass stk-search-ico"></i>
-            <input id="toolSearch" type="search" autocomplete="off" spellcheck="false"
-                   placeholder="Search 21 tools, try &ldquo;curve&rdquo;, &ldquo;bibtex&rdquo;, or &ldquo;g(r)&rdquo;&hellip;" class="stk-search">
-            <kbd id="searchHint" class="stk-kbd">/</kbd>
-        </div>
-        <div id="filterChips" class="stk-chips">
-            <button data-filter="all"  aria-pressed="true"  class="stk-chip">All</button>
-            <button data-filter="data" aria-pressed="false" class="stk-chip"><i class="fa-solid fa-chart-pie text-indigo-500"></i>Data</button>
-            <button data-filter="comp" aria-pressed="false" class="stk-chip"><i class="fa-solid fa-microchip text-orange-500"></i>Compute</button>
-            <button data-filter="pub"  aria-pressed="false" class="stk-chip"><i class="fa-solid fa-book-open text-teal-500"></i>Writing</button>
-            <button data-filter="focus" aria-pressed="false" class="stk-chip"><i class="fa-solid fa-headphones text-fuchsia-500"></i>Focus</button>
-        </div>
-    </header>
+    <main id="main" class="w-full">
+        <section class="hm-hero" aria-labelledby="hm-title">
+            <div class="hm-hero-in">
+                <div class="hm-intro">
+                    <h1 id="hm-title" class="hm-title">Research tools that run in your browser.</h1>
+                    <p class="hm-lede">Plot, test, fit, convert, inspect structures and tidy citations: 18 research tools, free and open source. Files you open are read in your browser and never uploaded.</p>
+                    <div class="hm-search" role="search">
+                        <label for="toolSearch" class="sr-only">Search tools</label>
+                        <i class="fa-solid fa-magnifying-glass hm-search-ico" aria-hidden="true"></i>
+                        <input id="toolSearch" type="search" autocomplete="off" spellcheck="false" placeholder="Search: xvg, t-test, bibtex">
+                        <kbd id="searchHint" aria-hidden="true">/</kbd>
+                    </div>
+                    <p id="searchStatus" class="sr-only" aria-live="polite"></p>
+                </div>
 
-    <div class="max-w-7xl mx-auto px-6 w-full mb-20">
-        <div class="stk-trust">
-            <div class="stk-trust-card">
-                <div class="stk-trust-ico bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400"><i class="fa-solid fa-shield-halved"></i></div>
-                <div><p class="font-bold text-sm">100% client-side</p><p class="text-xs text-slate-500 dark:text-slate-400">Your data never leaves the browser.</p></div>
-            </div>
-            <div class="stk-trust-card">
-                <div class="stk-trust-ico bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400"><i class="fa-solid fa-bolt"></i></div>
-                <div><p class="font-bold text-sm">Instant, no sign-up</p><p class="text-xs text-slate-500 dark:text-slate-400">Open a tool and start working.</p></div>
-            </div>
-            <div class="stk-trust-card">
-                <div class="stk-trust-ico bg-teal-100 dark:bg-teal-900/50 text-teal-600 dark:text-teal-400"><i class="fa-solid fa-gift"></i></div>
-                <div><p class="font-bold text-sm">Free &amp; open</p><p class="text-xs text-slate-500 dark:text-slate-400">Every utility, no paywalls.</p></div>
-            </div>
-        </div>
-    </div>
-
-    <main id="main" class="max-w-7xl mx-auto px-6 pb-32 w-full">
-        <div id="noResults" class="tool-hidden">
-            <div class="stk-empty">
-                <div class="stk-empty-ico"><i class="fa-solid fa-magnifying-glass"></i></div>
-                <p class="text-lg font-bold mb-1">No tools match &ldquo;<span id="noResultsQuery"></span>&rdquo;</p>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Try a different keyword, or browse everything.</p>
-                <button id="clearSearch" class="stk-empty-btn">Clear search</button>
-            </div>
-        </div>
-
-        <section id="data-tools" data-category="data" class="scroll-mt-24 mb-20">
-            <h2 class="text-2xl font-bold mb-8 flex items-center gap-3 text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800 pb-4">
-                <i class="fa-solid fa-chart-pie text-indigo-500"></i> Data Processing &amp; Statistics
-                <span class="section-count stk-count"></span>
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 tool-grid">
-                <a href="plot-digitizer.html" data-name="Plot Digitizer" data-desc="Extract data points from a graph image by clicking or tracing curves, then export the numbers as CSV." data-tags="graph extract points curve trace image" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-indigo-400 relative overflow-hidden">
-                    <div class="absolute top-4 right-4 bg-indigo-100 text-indigo-700 text-[11px] font-black uppercase px-2 py-1 rounded">Popular</div>
-                    <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-xl flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-crosshairs text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Plot Digitizer</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Extract data points from a graph image by clicking or tracing curves, then export the numbers as CSV.</p>
-                </a>
-                <a href="data-cleaner.html" data-name="Data Cleaner" data-desc="Clean, normalize, and log-transform messy CSV datasets, then download the tidied file." data-tags="normalize log transform preprocess csv" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-blue-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-xl flex items-center justify-center mb-4 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-broom text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Data Cleaner</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Clean, normalize, and log-transform messy CSV datasets, then download the tidied file.</p>
-                </a>
-                <a href="stats-calculator.html" data-name="Statistics Calculator" data-desc="Run t-tests, ANOVA, correlation, and non-parametric tests with effect sizes, CIs, and assumption checks." data-tags="ttest anova correlation pvalue statistics significance" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-emerald-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/50 rounded-xl flex items-center justify-center mb-4 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-calculator text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Statistics Calculator</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Run t-tests, ANOVA, correlation, and non-parametric tests with effect sizes, CIs, and assumption checks.</p>
-                </a>
-                <a href="error-bar-generator.html" data-name="Error Bar Generator" data-desc="Compute mean, SD, SEM, median, IQR, and confidence intervals per group, then plot and export error bars." data-tags="mean sd sem confidence interval replicate deviation" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-teal-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-teal-100 dark:bg-teal-900/50 rounded-xl flex items-center justify-center mb-4 text-teal-600 dark:text-teal-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-chart-column text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Error Bar Generator</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Compute mean, SD, SEM, median, IQR, and confidence intervals per group, then plot and export error bars.</p>
-                </a>
-                <a href="outlier-detector.html" data-name="Outlier Detector" data-desc="Flag anomalies in your data using Z-score and interquartile-range (IQR) methods." data-tags="anomaly zscore iqr quartile clean" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-rose-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-rose-100 dark:bg-rose-900/50 rounded-xl flex items-center justify-center mb-4 text-rose-600 dark:text-rose-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-filter text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Outlier Detector</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Flag anomalies in your data using Z-score and interquartile-range (IQR) methods.</p>
-                </a>
-                <a href="curve-fitter.html" data-name="Curve Fitter" data-desc="Fit linear, polynomial, exponential, power, or log models and read off coefficients, R², and RMSE." data-tags="regression gaussian exponential fit least squares coefficients" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-green-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-green-100 dark:bg-green-900/50 rounded-xl flex items-center justify-center mb-4 text-green-600 dark:text-green-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-wave-square text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Curve Fitter</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Fit linear, polynomial, exponential, power, or log models and read off coefficients, R², and RMSE.</p>
-                </a>
-                <a href="plot-builder.html" data-name="Plot Builder" data-desc="Overlay multiple datasets into one figure, style it fully, and export PNG/SVG or matplotlib code." data-tags="chart graph svg publication figure export" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-sky-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-sky-100 dark:bg-sky-900/50 rounded-xl flex items-center justify-center mb-4 text-sky-600 dark:text-sky-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-chart-area text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Plot Builder</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Overlay multiple datasets into one figure, style it fully, and export PNG/SVG or matplotlib code.</p>
-                </a>
-                <a href="xvg-visualizer.html" data-name="XVG Visualizer" data-desc="Plot GROMACS .xvg and CSV logs interactively; select columns, smooth, and export the figure or Python code." data-tags="webgl csv xvg gromacs log timeseries plot" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-indigo-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-xl flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-file-csv text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">XVG Visualizer</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Plot GROMACS .xvg and CSV logs interactively; select columns, smooth, and export the figure or Python code.</p>
-                </a>
+                <aside class="hm-formats" aria-labelledby="hm-formats-h">
+                    <h2 id="hm-formats-h" class="hm-formats-title">Start from what you have</h2>
+                    <dl class="hm-formats-list">
+                        <div><dt><code>.xvg</code></dt><dd><a href="xvg-visualizer.html">XVG Visualizer</a></dd></div>
+                        <div><dt><code>.pdb</code> <code>.gro</code> <code>.xyz</code></dt><dd><a href="structure-inspector.html">Structure Inspector</a>, <a href="coordinate-manipulator.html">Coordinate Manipulator</a></dd></div>
+                        <div><dt><code>.csv</code></dt><dd><a href="data-cleaner.html">Data Cleaner</a>, <a href="stats-calculator.html">Statistics Calculator</a>, <a href="plot-builder.html">Plot Builder</a></dd></div>
+                        <div><dt>A plot image</dt><dd><a href="plot-digitizer.html">Plot Digitizer</a></dd></div>
+                        <div><dt><code>.bib</code></dt><dd><a href="bibtex-sanitizer.html">BibTeX Sanitizer</a>, <a href="bibtex-deduplicator.html">BibTeX Deduplicator</a></dd></div>
+                        <div><dt>A list of DOIs</dt><dd><a href="doi-fetcher.html">DOI to BibTeX</a></dd></div>
+                        <div><dt>A spreadsheet table</dt><dd><a href="latex-tables.html">Visual LaTeX Tables</a></dd></div>
+                    </dl>
+                </aside>
             </div>
         </section>
 
-        <section id="comp-tools" data-category="comp" class="scroll-mt-24 mb-20">
-            <h2 class="text-2xl font-bold mb-8 flex items-center gap-3 text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800 pb-4">
-                <i class="fa-solid fa-microchip text-orange-500"></i> Computational Chemistry
-                <span class="section-count stk-count"></span>
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 tool-grid">
-                <a href="structure-inspector.html" data-name="Structure Inspector" data-desc="View molecular structures and trajectories (PDB, GRO, XYZ) in an interactive 3D WebGL viewer." data-tags="3d viewer webgl pdb gro molecule visualize structure" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-amber-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-amber-100 dark:bg-amber-900/50 rounded-xl flex items-center justify-center mb-4 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-cube text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Structure Inspector</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">View molecular structures and trajectories (PDB, GRO, XYZ) in an interactive 3D WebGL viewer.</p>
-                </a>
-                <a href="coordinate-manipulator.html" data-name="Coordinate Manipulator" data-desc="Translate, center, and measure bounding boxes for PDB and GRO coordinate files." data-tags="translate vector bounding box pdb gro coordinates" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-purple-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/50 rounded-xl flex items-center justify-center mb-4 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-arrows-up-down-left-right text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Coordinate Manipulator</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Translate, center, and measure bounding boxes for PDB and GRO coordinate files.</p>
-                </a>
-                <a href="scientific-converter.html" data-name="Scientific Converter" data-desc="Convert energy, length, pressure, dipole, polarizability and spectroscopic units (Hartree, eV, kcal/mol, kJ/mol, cm⁻¹) against CODATA values." data-tags="hartree ev kcal kjmol wavenumber unit convert energy length pressure dipole polarizability spectroscopy temperature debye" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-orange-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900/50 rounded-xl flex items-center justify-center mb-4 text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-bolt text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Scientific Converter</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Convert energy, length, pressure, dipole, polarizability and spectroscopic units (Hartree, eV, kcal/mol, kJ/mol, cm⁻¹) against CODATA values.</p>
-                </a>
-                <a href="script-generator.html" data-name="MD Workflow Generator" data-desc="Generate ready-to-run SLURM job scripts and GROMACS command templates for HPC clusters." data-tags="slurm hpc gromacs job array cluster batch topology" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-rose-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-rose-100 dark:bg-rose-900/50 rounded-xl flex items-center justify-center mb-4 text-rose-600 dark:text-rose-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-terminal text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">MD Workflow Generator</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Generate ready-to-run SLURM job scripts and GROMACS command templates for HPC clusters.</p>
-                </a>
+        <div class="hm-dir">
+            <div id="noResults" class="hm-empty" hidden>
+                <p class="hm-empty-title">No tools match &ldquo;<span id="noResultsQuery"></span>&rdquo;</p>
+                <p class="hm-empty-text">Try a file type such as xvg, pdb or bib, or a task such as fit, convert or cite.</p>
+                <button type="button" id="clearSearch" class="hm-empty-btn">Clear search</button>
             </div>
-        </section>
 
-        <section id="pub-tools" data-category="pub" class="scroll-mt-24 mb-20">
-            <h2 class="text-2xl font-bold mb-8 flex items-center gap-3 text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800 pb-4">
-                <i class="fa-solid fa-book-open text-teal-500"></i> Writing &amp; Citations
-                <span class="section-count stk-count"></span>
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 tool-grid">
-                <a href="latex-formatter.html" data-name="Equation Formatter" data-desc="Build LaTeX equations and matrices visually with a live KaTeX preview, then copy the code." data-tags="latex katex equation matrix math formula symbols" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-sky-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-sky-100 dark:bg-sky-900/50 rounded-xl flex items-center justify-center mb-4 text-sky-600 dark:text-sky-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-square-root-variable text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Equation Formatter</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Build LaTeX equations and matrices visually with a live KaTeX preview, then copy the code.</p>
-                </a>
-                <a href="latex-tables.html" data-name="Visual LaTeX Tables" data-desc="Paste a table from Excel, edit and merge cells visually, and copy clean LaTeX (booktabs) output." data-tags="latex table excel merge cells booktabs tabular" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-teal-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-teal-100 dark:bg-teal-900/50 rounded-xl flex items-center justify-center mb-4 text-teal-600 dark:text-teal-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-table-cells text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Visual LaTeX Tables</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Paste a table from Excel, edit and merge cells visually, and copy clean LaTeX (booktabs) output.</p>
-                </a>
-                <a href="doi-fetcher.html" data-name="DOI to BibTeX" data-desc="Paste a DOI and get a ready-to-use BibTeX citation resolved from Crossref." data-tags="doi bibtex citation reference crossref resolve" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-indigo-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-xl flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-cloud-arrow-down text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">DOI to BibTeX</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Paste a DOI and get a ready-to-use BibTeX citation resolved from Crossref.</p>
-                </a>
-                <a href="bibtex-deduplicator.html" data-name="BibTeX Deduplicator" data-desc="Scan a .bib library and merge duplicate entries by DOI and title." data-tags="bibtex duplicate dedupe library references merge" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-violet-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-violet-100 dark:bg-violet-900/50 rounded-xl flex items-center justify-center mb-4 text-violet-600 dark:text-violet-400 group-hover:scale-110 transition-transform"><i class="fa-regular fa-copy text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">BibTeX Deduplicator</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Scan a .bib library and merge duplicate entries by DOI and title.</p>
-                </a>
-                <a href="bibtex-sanitizer.html" data-name="BibTeX Sanitizer" data-desc="Fix messy BibTeX exports: standardize capitalization, repair braces, and clean fields." data-tags="bibtex clean sanitize capitalization brackets fix export" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-sky-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-sky-100 dark:bg-sky-900/50 rounded-xl flex items-center justify-center mb-4 text-sky-600 dark:text-sky-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-broom text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">BibTeX Sanitizer</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Fix messy BibTeX exports: standardize capitalization, repair braces, and clean fields.</p>
-                </a>
-                <a href="journal-abbreviator.html" data-name="Journal Abbreviator" data-desc="Convert full journal names to their ISO 4 / CASSI standard abbreviations." data-tags="journal abbreviation cassi iso4 ltwa citation reference" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-pink-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-pink-100 dark:bg-pink-900/50 rounded-xl flex items-center justify-center mb-4 text-pink-600 dark:text-pink-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-spell-check text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Journal Abbreviator</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Convert full journal names to their ISO 4 / CASSI standard abbreviations.</p>
-                </a>
-            </div>
-        </section>
+            <section id="data-tools" class="hm-sec" data-category="data" aria-labelledby="data-tools-h">
+                <div class="hm-sec-head">
+                    <h2 id="data-tools-h">Data &amp; Statistics</h2>
+                    <span class="hm-count section-count">8 tools</span>
+                </div>
+                <p class="hm-sec-blurb">Clean, test, fit and plot experimental data.</p>
+                <div class="hm-list">
+                    <a href="plot-digitizer.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400"><i class="fa-solid fa-crosshairs" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Plot Digitizer</h3>
+                            <p class="hm-tool-desc tool-desc">Extract data points from a graph image by clicking or tracing curves, then export the numbers as CSV.</p>
+                        </div>
+                    </a>
+                    <a href="data-cleaner.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400"><i class="fa-solid fa-broom" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Data Cleaner</h3>
+                            <p class="hm-tool-desc tool-desc">Clean, normalize and log-transform messy CSV datasets, then download the tidied file.</p>
+                        </div>
+                    </a>
+                    <a href="stats-calculator.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400"><i class="fa-solid fa-calculator" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Statistics Calculator</h3>
+                            <p class="hm-tool-desc tool-desc">Run t-tests, ANOVA, correlation and non-parametric tests with effect sizes, CIs and assumption checks.</p>
+                        </div>
+                    </a>
+                    <a href="error-bar-generator.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-teal-100 text-teal-600 dark:bg-teal-900/50 dark:text-teal-400"><i class="fa-solid fa-chart-column" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Error Bar Generator</h3>
+                            <p class="hm-tool-desc tool-desc">Compute mean, SD, SEM, median, IQR and confidence intervals per group, then plot and export error bars.</p>
+                        </div>
+                    </a>
+                    <a href="outlier-detector.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400"><i class="fa-solid fa-filter" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Outlier Detector</h3>
+                            <p class="hm-tool-desc tool-desc">Flag anomalies with Z-scores, Tukey’s IQR fences or the robust modified Z-score.</p>
+                        </div>
+                    </a>
+                    <a href="curve-fitter.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-green-100 text-green-600 dark:bg-green-900/50 dark:text-green-400"><i class="fa-solid fa-wave-square" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Curve Fitter</h3>
+                            <p class="hm-tool-desc tool-desc">Fit linear, polynomial, exponential, power or log models and read off coefficients, R² and RMSE.</p>
+                        </div>
+                    </a>
+                    <a href="plot-builder.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400"><i class="fa-solid fa-chart-area" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Plot Builder</h3>
+                            <p class="hm-tool-desc tool-desc">Overlay multiple datasets in one figure, style it fully, and export PNG/SVG or matplotlib code.</p>
+                        </div>
+                    </a>
+                    <a href="xvg-visualizer.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400"><i class="fa-solid fa-file-csv" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">XVG Visualizer</h3>
+                            <p class="hm-tool-desc tool-desc">Plot GROMACS .xvg and CSV logs interactively; select columns, smooth, and export the figure or Python code.</p>
+                        </div>
+                    </a>
+                </div>
+            </section>
 
-        <section id="focus-tools" data-category="focus" class="scroll-mt-24">
-            <h2 class="text-2xl font-bold mb-8 flex items-center gap-3 text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800 pb-4">
-                <i class="fa-solid fa-headphones text-fuchsia-500"></i> Focus &amp; Flow
-                <span class="section-count stk-count"></span>
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 tool-grid">
-                <a href="pomodoro.html" data-name="Ambient Pomodoro" data-desc="A focus timer with adjustable ambient sounds like rain and cafe noise for deep work." data-tags="pomodoro timer focus ambient noise rain productivity" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-fuchsia-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-fuchsia-100 dark:bg-fuchsia-900/50 rounded-xl flex items-center justify-center mb-4 text-fuchsia-600 dark:text-fuchsia-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-stopwatch text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Ambient Pomodoro</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">A focus timer with adjustable ambient sounds like rain and cafe noise for deep work.</p>
-                </a>
-                <a href="decision.html" data-name="Decision Matrix" data-desc="Weigh options against criteria in a scored matrix to rank your best choice." data-tags="decision matrix weighted criteria choice compare" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-indigo-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-xl flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-code-branch text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Decision Matrix</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">Weigh options against criteria in a scored matrix to rank your best choice.</p>
-                </a>
-                <a href="sandbox.html" data-name="Kinetic Sandbox" data-desc="An interactive fluid and particle physics playground, a calm visual break." data-tags="particle fluid simulation physics sandbox relax" class="tool-card group block p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 hover:border-cyan-400 relative overflow-hidden">
-                    <div class="w-12 h-12 bg-cyan-100 dark:bg-cyan-900/50 rounded-xl flex items-center justify-center mb-4 text-cyan-600 dark:text-cyan-400 group-hover:scale-110 transition-transform"><i class="fa-solid fa-atom text-xl"></i></div>
-                    <h3 class="text-lg font-bold mb-2 tool-title">Kinetic Sandbox</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed tool-desc">An interactive fluid and particle physics playground, a calm visual break.</p>
-                </a>
+            <section id="comp-tools" class="hm-sec" data-category="comp" aria-labelledby="comp-tools-h">
+                <div class="hm-sec-head">
+                    <h2 id="comp-tools-h">Computational Chemistry</h2>
+                    <span class="hm-count section-count">4 tools</span>
+                </div>
+                <p class="hm-sec-blurb">Inspect structures, prepare coordinates and write the batch scripts for a run.</p>
+                <div class="hm-list">
+                    <a href="structure-inspector.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400"><i class="fa-solid fa-cube" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Structure Inspector</h3>
+                            <p class="hm-tool-desc tool-desc">Render PDB, CIF, GRO, XYZ and more in 3D; select atoms, measure geometry and export a figure.</p>
+                        </div>
+                    </a>
+                    <a href="coordinate-manipulator.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-400"><i class="fa-solid fa-arrows-up-down-left-right" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Coordinate Manipulator</h3>
+                            <p class="hm-tool-desc tool-desc">Translate, rotate and re-box PDB, GRO and XYZ coordinates, and convert between the formats.</p>
+                        </div>
+                    </a>
+                    <a href="scientific-converter.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-400"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Scientific Converter</h3>
+                            <p class="hm-tool-desc tool-desc">Convert energy, length, pressure, dipole, polarizability, spectroscopic and temperature units against CODATA values.</p>
+                        </div>
+                    </a>
+                    <a href="script-generator.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-400"><i class="fa-solid fa-terminal" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">MD Workflow Generator</h3>
+                            <p class="hm-tool-desc tool-desc">Build batch scripts for GROMACS and LAMMPS on SLURM, PBS, LSF or Grid Engine, and write PLUMED inputs.</p>
+                        </div>
+                    </a>
+                </div>
+            </section>
+
+            <section id="pub-tools" class="hm-sec" data-category="pub" aria-labelledby="pub-tools-h">
+                <div class="hm-sec-head">
+                    <h2 id="pub-tools-h">Writing &amp; Citations</h2>
+                    <span class="hm-count section-count">6 tools</span>
+                </div>
+                <p class="hm-sec-blurb">Equations, tables and a bibliography that builds.</p>
+                <div class="hm-list">
+                    <a href="latex-formatter.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400"><i class="fa-solid fa-square-root-variable" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Equation Formatter</h3>
+                            <p class="hm-tool-desc tool-desc">Build LaTeX equations and matrices visually with a live preview, then copy the code.</p>
+                        </div>
+                    </a>
+                    <a href="latex-tables.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-teal-100 text-teal-600 dark:bg-teal-900/50 dark:text-teal-400"><i class="fa-solid fa-table-cells" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Visual LaTeX Tables</h3>
+                            <p class="hm-tool-desc tool-desc">Paste a table from Excel, edit and merge cells visually, and copy clean LaTeX (booktabs) output.</p>
+                        </div>
+                    </a>
+                    <a href="doi-fetcher.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">DOI to BibTeX</h3>
+                            <p class="hm-tool-desc tool-desc">Paste DOIs and get ready-to-use BibTeX entries resolved from Crossref.</p>
+                        </div>
+                    </a>
+                    <a href="bibtex-deduplicator.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-400"><i class="fa-solid fa-copy" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">BibTeX Deduplicator</h3>
+                            <p class="hm-tool-desc tool-desc">Scan a .bib library and merge duplicate entries by DOI and title.</p>
+                        </div>
+                    </a>
+                    <a href="bibtex-sanitizer.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400"><i class="fa-solid fa-broom" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">BibTeX Sanitizer</h3>
+                            <p class="hm-tool-desc tool-desc">Fix messy BibTeX exports: standardize capitalization, repair braces and clean fields.</p>
+                        </div>
+                    </a>
+                    <a href="journal-abbreviator.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-pink-100 text-pink-600 dark:bg-pink-900/50 dark:text-pink-400"><i class="fa-solid fa-spell-check" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Journal Abbreviator</h3>
+                            <p class="hm-tool-desc tool-desc">Convert full journal names to their ISO 4 / CASSI standard abbreviations.</p>
+                        </div>
+                    </a>
+                </div>
+            </section>
+
+            <section id="focus-tools" class="hm-sec" data-category="focus" aria-labelledby="focus-tools-h">
+                <div class="hm-sec-head">
+                    <h2 id="focus-tools-h">Focus &amp; Flow</h2>
+                    <span class="hm-count section-count">3 tools</span>
+                </div>
+                <p class="hm-sec-blurb">Not research tools: a timer, a decision matrix and a physics toy for the breaks in between.</p>
+                <div class="hm-list is-odd">
+                    <a href="pomodoro.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-900/50 dark:text-fuchsia-400"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Ambient Pomodoro</h3>
+                            <p class="hm-tool-desc tool-desc">A focus timer with adjustable ambient sounds like rain and cafe noise for deep work.</p>
+                        </div>
+                    </a>
+                    <a href="decision.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400"><i class="fa-solid fa-code-branch" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Decision Matrix</h3>
+                            <p class="hm-tool-desc tool-desc">Weigh options against criteria in a scored matrix to rank your best choice.</p>
+                        </div>
+                    </a>
+                    <a href="sandbox.html" class="tool-card hm-tool">
+                        <span class="hm-ico bg-cyan-100 text-cyan-600 dark:bg-cyan-900/50 dark:text-cyan-400"><i class="fa-solid fa-atom" aria-hidden="true"></i></span>
+                        <div class="hm-tool-txt">
+                            <h3 class="hm-tool-name tool-title">Kinetic Sandbox</h3>
+                            <p class="hm-tool-desc tool-desc">An interactive fluid and particle physics playground, a calm visual break.</p>
+                        </div>
+                    </a>
+                </div>
+            </section>
+
+        </div>
+
+        <section class="hm-proof" aria-labelledby="hm-proof-h">
+            <div class="hm-proof-in">
+                <div class="hm-proof-main">
+                    <h2 id="hm-proof-h">Numbers you can check</h2>
+                    <p>The calculations behind the tools are a separate library, <code>@stemkit/core</code>: 17 modules covered by 1,128 tests, which also runs in Node, so a figure made here can be regenerated from a script. Moving the code there and testing it against reference values turned up four errors that had already shipped:</p>
+                    <ul class="hm-bugs">
+                        <li>Wavelength conversion returned a plausible but wrong number.</li>
+                        <li>Skewness used the sample, not the population, standard deviation.</li>
+                        <li>Virtual sites in water inflated the system mass by 67%.</li>
+                        <li>The D&rsquo;Agostino&ndash;Pearson test was fed the adjusted G1, a 21% error in K&sup2; at n&nbsp;=&nbsp;10.</li>
+                    </ul>
+                    <p>Each now has a regression test, and <a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md">the changelog</a> records every fix that changed an output.</p>
+                    <figure class="hm-code">
+                        <figcaption>The same code path from Node, in a clone of the repository:</figcaption>
+                        <pre><code>import { parseXvg, columnStats } from '@stemkit/core';
+
+const { matrix } = parseXvg(readFileSync('rmsd.xvg', 'utf8'));
+console.log(columnStats(matrix.map(r =&gt; r[1])));</code></pre>
+                    </figure>
+                </div>
+
+                <div class="hm-proof-side">
+                    <div class="hm-fact">
+                        <h3>What leaves your computer</h3>
+                        <p>Nothing you open. Files are read in the browser and never uploaded, there is no account, and a page keeps working offline once it has loaded.</p>
+                        <p>Two features go online, and only when you use them: DOI to BibTeX looks up the DOIs you give it, and the structure inspector can fetch an entry from the PDB by its ID.</p>
+                    </div>
+                    <div class="hm-fact">
+                        <h3>Cite STEMKit</h3>
+                        <p>This DOI always resolves to the current release.</p>
+                        <div class="hm-doi">
+                            <code>10.5281/zenodo.21543112</code>
+                            <button type="button" id="copyDoi" data-copy="10.5281/zenodo.21543112">Copy</button>
+                        </div>
+                        <ul class="hm-links">
+                            <li><a href="https://doi.org/10.5281/zenodo.21543112">Zenodo record</a></li>
+                            <li><a href="https://github.com/LD-Shell/stemkit">Source on GitHub</a></li>
+                            <li><a href="https://github.com/LD-Shell/stemkit/blob/main/LICENSE">MIT licence</a></li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </section>
     </main>
-
-    <!-- Why STEMKit: trust strip -->
-    <section aria-label="Why use STEMKit" class="stk-why-section">
-        <div class="stk-why-wrap">
-            <div class="stk-why-grid">
-                <div class="stk-why-item">
-                    <div class="stk-why-ico stk-why-ico--indigo"><i class="fa-solid fa-lock"></i></div>
-                    <h3>Private by design</h3>
-                    <p>Every tool runs entirely in your browser. Your data is never uploaded to a server.</p>
-                </div>
-                <div class="stk-why-item">
-                    <div class="stk-why-ico stk-why-ico--emerald"><i class="fa-solid fa-bolt"></i></div>
-                    <h3>Instant &amp; offline</h3>
-                    <p>No loading queues or round-trips. Tools work even with your network disconnected.</p>
-                </div>
-                <div class="stk-why-item">
-                    <div class="stk-why-ico stk-why-ico--amber"><i class="fa-solid fa-gift"></i></div>
-                    <h3>Free, no sign-up</h3>
-                    <p>All 21 tools are free to use with no account, no ads, and no paywalls.</p>
-                </div>
-                <div class="stk-why-item">
-                    <div class="stk-why-ico stk-why-ico--fuchsia"><i class="fa-solid fa-flask-vial"></i></div>
-                    <h3>Built for research</h3>
-                    <p>Rigorous methods, cited constants, and publication-ready, reproducible output.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Testimonials -->
-    <section aria-label="What researchers say" class="stk-quotes-section">
-        <div class="stk-quotes-wrap">
-            <div class="stk-quotes-head">
-                <h2>Loved by researchers and students</h2>
-                <p>From late-night thesis crunches to publication figures, STEMKit fits into real scientific workflows.</p>
-            </div>
-            <div class="stk-quotes-grid">
-                <figure class="stk-quote">
-                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-                    <blockquote>&ldquo;The Plot Digitizer saved me hours pulling numbers out of an old paper's figures. I had a clean CSV in about ten minutes.&rdquo;</blockquote>
-                    <figcaption>
-                        <div class="stk-quote-avatar stk-why-ico--indigo">PhD</div>
-                        <div><div class="stk-quote-name">Materials-science PhD student</div><div class="stk-quote-role">Digitizing literature data</div></div>
-                    </figcaption>
-                </figure>
-                <figure class="stk-quote">
-                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-                    <blockquote>&ldquo;I use the stats calculator to sanity-check results before writing them up, Welch's t-test, effect sizes and assumption checks in one place is exactly right.&rdquo;</blockquote>
-                    <figcaption>
-                        <div class="stk-quote-avatar stk-why-ico--emerald">PD</div>
-                        <div><div class="stk-quote-name">Postdoctoral researcher</div><div class="stk-quote-role">Biosciences</div></div>
-                    </figcaption>
-                </figure>
-                <figure class="stk-quote">
-                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-                    <blockquote>&ldquo;Being able to build a figure and copy the matplotlib code means my plots are reproducible. Everything staying in the browser is a big plus for sensitive data.&rdquo;</blockquote>
-                    <figcaption>
-                        <div class="stk-quote-avatar stk-why-ico--fuchsia">CB</div>
-                        <div><div class="stk-quote-name">Computational biologist</div><div class="stk-quote-role">Figures &amp; reproducibility</div></div>
-                    </figcaption>
-                </figure>
-                <figure class="stk-quote">
-                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-                    <blockquote>&ldquo;The XVG visualizer is the fastest way I've found to eyeball a GROMACS run. I drop in an RMSD file and immediately see if the simulation converged.&rdquo;</blockquote>
-                    <figcaption>
-                        <div class="stk-quote-avatar stk-why-ico--indigo">MD</div>
-                        <div><div class="stk-quote-name">Molecular-dynamics researcher</div><div class="stk-quote-role">Simulation analysis</div></div>
-                    </figcaption>
-                </figure>
-                <figure class="stk-quote">
-                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-                    <blockquote>&ldquo;DOI to BibTeX plus the sanitizer cleaned up a reference list that had been a mess for months. My bibliography finally builds without errors.&rdquo;</blockquote>
-                    <figcaption>
-                        <div class="stk-quote-avatar stk-why-ico--emerald">GR</div>
-                        <div><div class="stk-quote-name">Graduate researcher</div><div class="stk-quote-role">Thesis writing</div></div>
-                    </figcaption>
-                </figure>
-                <figure class="stk-quote">
-                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-                    <blockquote>&ldquo;I teach an undergrad lab and point students straight to the error-bar and curve-fitting tools. No installs, works on Chromebooks, and the methods are sound.&rdquo;</blockquote>
-                    <figcaption>
-                        <div class="stk-quote-avatar stk-why-ico--amber">LI</div>
-                        <div><div class="stk-quote-name">Lab instructor</div><div class="stk-quote-role">Undergraduate teaching</div></div>
-                    </figcaption>
-                </figure>
-                <figure class="stk-quote">
-                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-                    <blockquote>&ldquo;The unit converter with real CODATA constants is a small thing that saves me constantly, Hartree to kcal/mol without second-guessing the factor.&rdquo;</blockquote>
-                    <figcaption>
-                        <div class="stk-quote-avatar stk-why-ico--fuchsia">QC</div>
-                        <div><div class="stk-quote-name">Quantum-chemistry PhD</div><div class="stk-quote-role">Energy calculations</div></div>
-                    </figcaption>
-                </figure>
-                <figure class="stk-quote">
-                    <div class="stk-quote-stars" aria-label="5 out of 5 stars"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
-                    <blockquote>&ldquo;LaTeX tables used to eat an hour of my day. Paste from a spreadsheet, tidy it up, copy the booktabs code, done. It's become part of my paper workflow.&rdquo;</blockquote>
-                    <figcaption>
-                        <div class="stk-quote-avatar stk-why-ico--indigo">AP</div>
-                        <div><div class="stk-quote-name">Applied-physics postdoc</div><div class="stk-quote-role">Manuscript preparation</div></div>
-                    </figcaption>
-                </figure>
-            </div>
-        </div>
-    </section>
 
     <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
         <div class="max-w-7xl mx-auto px-6">
             <div class="stk-dir mb-12">
                 <div>
-                    <h4><i class="fa-solid fa-chart-pie text-indigo-500 text-xs"></i> Data &amp; Stats</h4>
+                    <h4><i class="fa-solid fa-chart-pie text-indigo-500 text-xs"></i> Data &amp; Statistics</h4>
                     <ul>
                         <li><a href="plot-digitizer.html">Plot Digitizer</a></li>
                         <li><a href="data-cleaner.html">Data Cleaner</a></li>
@@ -413,7 +384,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h4><i class="fa-solid fa-microchip text-orange-500 text-xs"></i> Compute</h4>
+                    <h4><i class="fa-solid fa-microchip text-orange-500 text-xs"></i> Computational Chemistry</h4>
                     <ul>
                         <li><a href="structure-inspector.html">Structure Inspector</a></li>
                         <li><a href="coordinate-manipulator.html">Coordinate Manipulator</a></li>
@@ -455,105 +426,89 @@
         </div>
     </footer>
 
-    <button id="backToTop" aria-label="Back to top" class="stk-top"><i class="fa-solid fa-arrow-up"></i></button>
 
     <script src="js/site.js"></script>
     <script>
+        // Home page search. Matching comes from the shared catalogue in
+        // js/site.js, so this box and the header's Find a tool agree.
         (function () {
-            const search = document.getElementById('toolSearch');
-            const chips = Array.from(document.querySelectorAll('#filterChips [data-filter]'));
-            const sections = Array.from(document.querySelectorAll('main section[data-category]'));
-            const noResults = document.getElementById('noResults');
-            const noResultsQuery = document.getElementById('noResultsQuery');
-            const clearBtn = document.getElementById('clearSearch');
-            const searchHint = document.getElementById('searchHint');
-            let activeFilter = 'all';
-
-            const tools = [];
-            sections.forEach(section => {
-                section.querySelectorAll('.tool-card, .tool-coming').forEach(el => {
-                    const titleEl = el.querySelector('.tool-title');
-                    const descEl = el.querySelector('.tool-desc');
-                    tools.push({
-                        el, section, titleEl, descEl,
-                        name: (el.dataset.name || '').toLowerCase(),
-                        desc: (el.dataset.desc || '').toLowerCase(),
-                        tags: (el.dataset.tags || '').toLowerCase(),
-                        origTitle: titleEl.textContent,
-                        origDesc: descEl.textContent
-                    });
-                });
+            var S = window.STEMKit;
+            var search = document.getElementById('toolSearch');
+            if (!S || !search) return;
+            var hint = document.getElementById('searchHint');
+            var status = document.getElementById('searchStatus');
+            var empty = document.getElementById('noResults');
+            var emptyQuery = document.getElementById('noResultsQuery');
+            var sections = Array.prototype.slice.call(document.querySelectorAll('.hm-sec'));
+            var cards = Array.prototype.slice.call(document.querySelectorAll('.hm-sec .tool-card')).map(function (el) {
+                var title = el.querySelector('.tool-title'), desc = el.querySelector('.tool-desc');
+                return { el: el, id: el.getAttribute('href').replace(/\.html$/, ''), title: title, desc: desc,
+                         t: title.textContent, d: desc.textContent };
             });
 
             function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-            function highlight(el, original, query) {
-                if (!query) { el.textContent = original; return; }
-                const re = new RegExp('(' + escapeRe(query) + ')', 'ig');
-                if (!re.test(original)) { el.textContent = original; return; }
-                el.innerHTML = original.replace(re, '<mark class="stk-hit">$1</mark>');
+            function escapeHtml(s) { return s.replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
+            function mark(el, text, words) {
+                if (!words.length) { el.textContent = text; return; }
+                var re = new RegExp('(' + words.map(escapeRe).join('|') + ')', 'ig');
+                el.innerHTML = escapeHtml(text).replace(re, '<mark class="stk-hit">$1</mark>');
             }
 
             function apply() {
-                const q = search.value.trim().toLowerCase();
-                let totalVisible = 0;
-                tools.forEach(t => {
-                    const matchesFilter = activeFilter === 'all' || t.section.dataset.category === activeFilter;
-                    const matchesQuery = !q || t.name.includes(q) || t.desc.includes(q) || t.tags.includes(q);
-                    const show = matchesFilter && matchesQuery;
-                    t.el.classList.toggle('tool-hidden', !show);
-                    if (show) {
-                        totalVisible++;
-                        highlight(t.titleEl, t.origTitle, q);
-                        highlight(t.descEl, t.origDesc, q);
-                    } else {
-                        t.titleEl.textContent = t.origTitle;
-                        t.descEl.textContent = t.origDesc;
-                    }
+                var q = search.value.trim();
+                var words = q.toLowerCase().split(/\s+/).filter(Boolean);
+                var hits = {};
+                S.match(q).forEach(function (t) { hits[t.id] = true; });
+                var total = 0;
+                cards.forEach(function (c) {
+                    var show = !q || hits[c.id];
+                    c.el.hidden = !show;
+                    if (show) total++;
+                    mark(c.title, c.t, show ? words : []);
+                    mark(c.desc, c.d, show ? words : []);
                 });
-                sections.forEach(section => {
-                    const visible = section.querySelectorAll('.tool-card:not(.tool-hidden), .tool-coming:not(.tool-hidden)').length;
-                    section.classList.toggle('tool-hidden', visible === 0);
-                    const counter = section.querySelector('.section-count');
-                    if (counter) counter.textContent = visible + (visible === 1 ? ' tool' : ' tools');
+                sections.forEach(function (sec) {
+                    var n = sec.querySelectorAll('.tool-card:not([hidden])').length;
+                    sec.hidden = n === 0;
+                    sec.querySelector('.section-count').textContent = n + (n === 1 ? ' tool' : ' tools');
+                    // An odd number of rows leaves a gap in the two-column list.
+                    sec.querySelector('.hm-list').classList.toggle('is-odd', n % 2 === 1);
                 });
-                noResults.classList.toggle('tool-hidden', totalVisible !== 0);
-                if (totalVisible === 0) noResultsQuery.textContent = search.value.trim();
+                empty.hidden = total !== 0;
+                if (!total) emptyQuery.textContent = q;
+                status.textContent = q ? (total === 1 ? '1 tool matches' : total + ' tools match') : '';
             }
 
-            chips.forEach(chip => {
-                chip.addEventListener('click', () => {
-                    activeFilter = chip.dataset.filter;
-                    chips.forEach(c => c.setAttribute('aria-pressed', c === chip ? 'true' : 'false'));
-                    apply();
-                });
-            });
             search.addEventListener('input', apply);
-            search.addEventListener('focus', () => { if (searchHint) searchHint.style.display = 'none'; });
-            search.addEventListener('blur', () => { if (!search.value && searchHint) searchHint.style.display = ''; });
-            clearBtn.addEventListener('click', () => {
+            search.addEventListener('focus', function () { hint.hidden = true; });
+            search.addEventListener('blur', function () { hint.hidden = !!search.value; });
+            search.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && search.value) { e.preventDefault(); search.value = ''; apply(); }
+            });
+            document.getElementById('clearSearch').addEventListener('click', function () {
                 search.value = '';
-                activeFilter = 'all';
-                chips.forEach(c => c.setAttribute('aria-pressed', c.dataset.filter === 'all' ? 'true' : 'false'));
                 apply();
                 search.focus();
             });
-            document.addEventListener('keydown', e => {
-                if (e.key === '/' && document.activeElement !== search &&
-                    !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) {
-                    e.preventDefault(); search.focus();
-                } else if (e.key === 'Escape' && document.activeElement === search) {
-                    search.value = ''; apply(); search.blur();
-                }
+            document.addEventListener('keydown', function (e) {
+                var t = e.target, tag = t && t.tagName;
+                if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+                e.preventDefault();
+                search.focus();
             });
-            apply();
-        })();
 
-        (function () {
-            const btn = document.getElementById('backToTop');
-            const onScroll = () => btn.classList.toggle('is-visible', window.scrollY > 600);
-            window.addEventListener('scroll', onScroll, { passive: true });
-            btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-            onScroll();
+            var copy = document.getElementById('copyDoi');
+            if (copy && navigator.clipboard) {
+                copy.addEventListener('click', function () {
+                    navigator.clipboard.writeText(copy.getAttribute('data-copy')).then(function () {
+                        copy.textContent = 'Copied';
+                        setTimeout(function () { copy.textContent = 'Copy'; }, 1600);
+                    });
+                });
+            } else if (copy) {
+                copy.hidden = true;
+            }
         })();
     </script>
 </body>
