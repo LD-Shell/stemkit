@@ -69,7 +69,7 @@
 
 
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "HowTo", "name": "How to fit a curve to your data", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Paste X/Y data", "text": "Enter two columns (X then Y) separated by spaces, tabs or commas, one point per line. Or click an example chip (Linear, Exponential, Power&hellip;)."}, {"@type": "HowToStep", "position": 2, "name": "Choose a model", "text": "Pick linear, polynomial, exponential, power or logarithmic from the dropdown, based on the shape you expect."}, {"@type": "HowToStep", "position": 3, "name": "Compute the fit", "text": "Click Compute Fit. The fitted curve is drawn over your points and the equation appears below."}, {"@type": "HowToStep", "position": 4, "name": "Check the fit quality", "text": "Read R² and RMSE, watch for the overfitting warning, then use Copy Eq to grab the equation and statistics."}]}
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to fit a curve to your data", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Paste X/Y data", "text": "Enter two columns (X then Y) separated by spaces, tabs or commas, one point per line. Or pick an example (Linear, Exponential, Power and more)."}, {"@type": "HowToStep", "position": 2, "name": "Choose a model", "text": "Pick linear, polynomial, exponential, power or logarithmic from the dropdown, based on the shape you expect."}, {"@type": "HowToStep", "position": 3, "name": "Compute the fit", "text": "Press Fit curve. The fitted curve is drawn over your points and the equation appears below."}, {"@type": "HowToStep", "position": 4, "name": "Check the fit quality", "text": "Read R² and RMSE, watch for the overfitting warning, then use Copy equation to take the equation and statistics."}]}
 </script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my data sent to a server?", "acceptedAnswer": {"@type": "Answer", "text": "No. Parsing, fitting and plotting all happen in your browser using regression.js and Plotly."}}, {"@type": "Question", "name": "Why does my exponential fit look slightly off?", "acceptedAnswer": {"@type": "Answer", "text": "Exponential/power/logarithmic models are fitted by linearisation (least squares in log-space), not true non-linear least squares, so the curve can look biased when data spans many orders of magnitude."}}, {"@type": "Question", "name": "What do R² and RMSE mean?", "acceptedAnswer": {"@type": "Answer", "text": "R² is the fraction of variance the model explains (1 is perfect). RMSE is the root-mean-square residual, in the same units as Y, smaller is better."}}, {"@type": "Question", "name": "Why did I get a warning about too few points?", "acceptedAnswer": {"@type": "Answer", "text": "If you have as many (or fewer) points as the model has parameters, the fit is exact or under-determined and R² is not informative. Add more data."}}, {"@type": "Question", "name": "Which model should I pick?", "acceptedAnswer": {"@type": "Answer", "text": "Match the expected shape: straight line → linear; growth/decay → exponential; curves through the origin → power; diminishing returns → logarithmic; one/two bends → polynomial 2/3."}}]}
@@ -136,116 +136,112 @@
 
     <main id="main" class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
         
-        <header class="mb-4">
-            <div class="inline-flex items-center gap-2 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4 border border-brand-200 dark:border-brand-800/50">
-                <i class="fa-solid fa-wave-square"></i> Data Analysis
+        <header class="stk-pagehead">
+            <div>
+                <h1 class="stk-pagehead-title">Curve Fitter</h1>
+                <p class="stk-pagehead-lede">Fit a linear, polynomial, exponential, power or logarithmic model to X&ndash;Y data and get the equation, R&sup2; and RMSE.</p>
+                <ul class="stk-pagehead-meta">
+                    <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
+                    <li><a href="#method"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Method and equations</a></li>
+                </ul>
             </div>
-            <h1 class="text-4xl font-black mb-2 tracking-tight">Curve Fitter</h1>
-            <p class="text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
-                Paste your raw X/Y coordinates to instantly perform least-squares regression modeling. Extract optimal coefficients and R² values securely in your browser.
-            </p>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">100% client-side</p>
         </header>
 
-        <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
+        <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none" role="status" aria-live="polite"></div>
 
         <div class="flex flex-col lg:flex-row gap-6 items-stretch">
-            
-            <div class="w-full lg:w-[400px] flex flex-col gap-4 shrink-0">
-                
-                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col flex-grow" style="min-height: 350px;">
-                    <div class="flex items-center justify-between mb-2 shrink-0">
-                        <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">1. Input Data</h2>
-                        <button id="btnUpload" class="cf-upload-btn"><i class="fa-solid fa-file-arrow-up"></i> Upload file</button>
+
+            <div class="w-full lg:w-[400px] flex flex-col gap-6 shrink-0">
+
+                <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-5 flex flex-col flex-grow cf-data-panel" data-stk-step="1" data-stk-done="filled:#dataInput" aria-labelledby="cf-step1">
+                    <div class="flex items-center justify-between gap-3 mb-3 shrink-0">
+                        <h2 id="cf-step1" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1: </span>Add your data</h2>
+                        <button type="button" id="btnUpload" class="stk-btn stk-btn-sm stk-btn-soft"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Upload file</button>
                         <input type="file" id="fileInput" accept=".csv,.txt,.dat,.tsv" class="hidden">
                     </div>
-                    
+
                     <div class="relative flex-grow w-full">
-                        <textarea id="dataInput" class="absolute inset-0 w-full h-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-brand-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" placeholder="Paste data columns here...&#10;&#10;Time   Yield   Temp&#10;0.5    1.2     300&#10;1.0    2.8     400&#10;1.5    4.5     500&#10;2.0    7.1     600"></textarea>
+                        <label for="dataInput" class="sr-only">Data columns</label>
+                        <textarea id="dataInput" class="absolute inset-0 w-full h-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-brand-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" placeholder="Paste columns of numbers, one point per line&#10;&#10;Time   Yield   Temp&#10;0.5    1.2     300&#10;1.0    2.8     400&#10;1.5    4.5     500&#10;2.0    7.1     600"></textarea>
                     </div>
 
-                    <!-- Column Mapping & Persistent Data Warnings -->
-                    <div class="mt-3 flex flex-col gap-2 border-t border-slate-100 dark:border-slate-800 pt-3 shrink-0">
-                        <div class="flex items-center justify-between gap-3">
-                            <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">Column Mapping</span>
+                    <div class="cf-samples">
+                        <span class="cf-samples-label">Try an example:</span>
+                        <button type="button" class="cf-chip" data-sample="linear">Linear</button>
+                        <button type="button" class="cf-chip" data-sample="exponential">Exponential</button>
+                        <button type="button" class="cf-chip" data-sample="power">Power</button>
+                        <button type="button" class="cf-chip" data-sample="logarithmic">Logarithmic</button>
+                        <button type="button" class="cf-chip" data-sample="polynomial2">Quadratic</button>
+                    </div>
+
+                    <div class="mt-4 flex flex-col gap-2 border-t border-slate-100 dark:border-slate-800 pt-3 shrink-0">
+                        <div class="flex items-center justify-between gap-3 flex-wrap">
+                            <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">Columns to fit</span>
                             <div class="flex items-center gap-3">
-                                <label class="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 whitespace-nowrap">
-                                    X <input type="number" id="colX" value="1" min="1" class="w-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-center outline-none focus:ring-2 focus:ring-brand-500 transition-colors">
+                                <label class="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 whitespace-nowrap">
+                                    X <input type="number" id="colX" value="1" min="1" class="w-14 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-1.5 text-center outline-none focus:ring-2 focus:ring-brand-500 transition-colors">
                                 </label>
-                                <label class="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 whitespace-nowrap">
-                                    Y <input type="number" id="colY" value="2" min="1" class="w-12 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-center outline-none focus:ring-2 focus:ring-brand-500 transition-colors">
+                                <label class="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 whitespace-nowrap">
+                                    Y <input type="number" id="colY" value="2" min="1" class="w-14 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-1.5 text-center outline-none focus:ring-2 focus:ring-brand-500 transition-colors">
                                 </label>
                             </div>
                         </div>
-                        <!-- Also updated warning colors to strictly match output.css -->
-                        <div id="parseWarnings" class="hidden text-[11px] text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/50 p-2 rounded-lg border border-orange-200 dark:border-orange-800/50 leading-tight">
-                        </div>
+                        <div id="parseWarnings" class="hidden text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 p-2 rounded-lg border border-amber-200 dark:border-amber-800/50 leading-snug"></div>
                     </div>
+                </section>
 
-                </div>
-
-                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 shrink-0">
-                    <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-3">2. Regression Model</h2>
-                    <div class="space-y-3">
-                        <div>
-                            <select id="modelSelect" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs font-bold text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-brand-500 outline-none">
-                                <option value="linear">Linear: y = mx + c</option>
-                                <option value="exponential">Exponential: y = a * e^(bx)</option>
-                                <option value="power">Power: y = a * x^b</option>
-                                <option value="logarithmic">Logarithmic: y = a + b * ln(x)</option>
-                                <option value="polynomial2">Polynomial (Degree 2): y = ax² + bx + c</option>
-                                <option value="polynomial3">Polynomial (Degree 3): y = ax³ + bx² + cx + d</option>
-                            </select>
-                    <details id="modelTheory" class="mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">
-                        <summary class="cursor-pointer text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 hover:text-brand-500">How this model is fitted and scored</summary>
+                <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-5 shrink-0" data-stk-step="2" data-stk-done="visible:#fitResult" aria-labelledby="cf-step2">
+                    <h2 id="cf-step2" class="stk-ptitle mb-3"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Choose a model</h2>
+                    <label for="modelSelect" class="sr-only">Model</label>
+                    <select id="modelSelect" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-sm text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-brand-500 outline-none">
+                        <option value="linear">Linear: y = mx + c</option>
+                        <option value="exponential">Exponential: y = a &middot; e^(bx)</option>
+                        <option value="power">Power: y = a &middot; x^b</option>
+                        <option value="logarithmic">Logarithmic: y = a + b &middot; ln(x)</option>
+                        <option value="polynomial2">Quadratic: y = ax² + bx + c</option>
+                        <option value="polynomial3">Cubic: y = ax³ + bx² + cx + d</option>
+                    </select>
+                    <details id="modelTheory" class="mt-3">
+                        <summary class="cursor-pointer text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-brand-700 dark:hover:text-brand-300">How this model is fitted and scored</summary>
                         <div id="theoryContainer" class="mt-2"></div>
                     </details>
-                        </div>
-                        <button id="btnFit" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 w-full text-white font-bold py-2.5 rounded-xl transition-all shadow-md transform hover:-translate-y-0.5 active:scale-95 text-sm">
-                            Compute Fit
-                        </button>
-                        <div class="cf-samples">
-                            <span class="cf-samples-label"><i class="fa-solid fa-flask-vial"></i> Examples:</span>
-                            <div class="cf-chips">
-                                <button class="cf-chip" data-sample="linear">Linear</button>
-                                <button class="cf-chip" data-sample="exponential">Exponential</button>
-                                <button class="cf-chip" data-sample="power">Power</button>
-                                <button class="cf-chip" data-sample="logarithmic">Log</button>
-                                <button class="cf-chip" data-sample="polynomial2">Quadratic</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                    <button type="button" id="btnFit" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 w-full mt-4 text-white font-bold py-2.5 rounded-xl transition-colors shadow-sm active:scale-[0.98] text-sm flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-wave-square text-xs" aria-hidden="true"></i> Fit curve
+                    </button>
+                </section>
 
             </div>
 
-            <div class="flex-grow flex flex-col gap-4">
-                
-                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-2 flex flex-col flex-grow relative" style="min-height: 500px;">
-                    <button id="btnPython" class="absolute top-3 right-3 z-10 px-3 py-1.5 bg-white/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-colors shadow-sm backdrop-blur" title="Copy matplotlib code to reproduce this fit"><i class="fa-brands fa-python mr-1"></i> Python</button>
-                    
-                    <div class="relative flex-grow w-full h-full">
-                        <div id="plotContainer" class="absolute inset-0"></div>
+            <section class="flex-grow min-w-0 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col" data-stk-step="3" data-stk-done="visible:#fitResult" aria-labelledby="cf-step3">
+                <div class="flex items-center justify-between gap-3 flex-wrap px-5 pt-5">
+                    <h2 id="cf-step3" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 3: </span>Fitted curve</h2>
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="btnCopyEquation" class="stk-btn stk-btn-sm" disabled><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy equation</button>
+                        <button type="button" id="btnPython" class="stk-btn stk-btn-sm" disabled title="matplotlib code that reproduces this fit"><i class="fa-brands fa-python" aria-hidden="true"></i> Python code</button>
                     </div>
                 </div>
 
-                <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col shrink-0 relative overflow-hidden">
-                    <div class="bg-slate-950 px-4 py-3 flex justify-between items-center border-b border-slate-800">
-                        <span class="text-sm font-bold text-brand-400 uppercase tracking-wider font-mono">Mathematical Model</span>
-                        <div class="flex gap-3 items-center">
-                            <span class="text-xs font-mono text-slate-400">R² = <span id="r2Value" class="text-white font-bold">, </span></span>
-                            <button id="btnCopyEquation" class="bg-brand-700 hover:bg-brand-600 text-white px-3 py-1 text-[11px] uppercase rounded font-bold transition-colors">
-                                Copy Eq
-                            </button>
-                        </div>
+                <div class="cf-stage">
+                    <div id="fitEmpty" class="cf-empty">
+                        <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                        <p class="cf-empty-title">Your points and the fitted curve will appear here</p>
+                        <p class="cf-empty-text">Add data in step 1 and press Fit curve, or try an example.</p>
+                        <button type="button" id="btnTryExample" class="stk-btn stk-btn-sm"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Try an example</button>
                     </div>
-                    <div class="p-5 overflow-auto custom-scroll flex flex-col items-center justify-center min-h-[80px] gap-1">
-                        <p id="equationOutput" class="text-white font-mono text-lg tracking-wide text-center">Awaiting data...</p>
-                        <p id="fitMeta" class="text-slate-500 dark:text-slate-400 text-xs font-mono text-center"></p>
-                    </div>
+                    <div id="plotContainer" class="cf-plot"></div>
                 </div>
 
-            </div>
+                <div id="fitResult" class="cf-result hidden" data-stk-reveal>
+                    <p class="cf-result-label">Equation</p>
+                    <p id="equationOutput" class="cf-equation"></p>
+                    <dl class="cf-stats">
+                        <div><dt>R&sup2;</dt><dd id="r2Value"></dd></div>
+                        <div><dt>RMSE</dt><dd id="rmseValue"></dd></div>
+                        <div><dt>Points</dt><dd id="nValue"></dd></div>
+                    </dl>
+                    <p id="fitMeta" class="cf-meta"></p>
+                </div>
+            </section>
 
         </div>
     
@@ -255,10 +251,10 @@
             <h2 class="stk-h2">How to fit a curve to your data</h2>
             <p class="stk-lead">Paste columns of numbers, choose a model, and read off the fitted equation, R² and RMSE, all computed locally in your browser.</p>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-step"><span class="stk-num">1</span><div><h3>Paste Data</h3><p>Enter your data columns separated by spaces, tabs or commas, one point per line. Or click <strong>Load example data</strong>.</p></div></div>
-                <div class="stk-step"><span class="stk-num">2</span><div><h3>Map Columns</h3><p>Tell the tool which columns represent your X (independent) and Y (dependent) variables.</p></div></div>
-                <div class="stk-step"><span class="stk-num">3</span><div><h3>Choose a model</h3><p>Pick linear, polynomial, exponential, power or logarithmic from the dropdown, based on the shape you expect.</p></div></div>
-                <div class="stk-step"><span class="stk-num">4</span><div><h3>Check the fit</h3><p>Click <strong>Compute Fit</strong>. Read R² and RMSE, watch for the overfitting warning, then use <strong>Copy Eq</strong> to grab the equation.</p></div></div>
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Paste data</h3><p>Enter your data columns separated by spaces, tabs or commas, one point per line, or upload a file. Or pick one of the examples under the box.</p></div></div>
+                <div class="stk-step"><span class="stk-num">2</span><div><h3>Pick the columns</h3><p>Under <strong>Columns to fit</strong>, give the column numbers of your X (independent) and Y (dependent) variables.</p></div></div>
+                <div class="stk-step"><span class="stk-num">3</span><div><h3>Choose a model</h3><p>Pick linear, polynomial, exponential, power or logarithmic from the list, based on the shape you expect.</p></div></div>
+                <div class="stk-step"><span class="stk-num">4</span><div><h3>Check the fit</h3><p>Press <strong>Fit curve</strong>. Read R² and RMSE, watch for the overfitting warning, then use <strong>Copy equation</strong> or <strong>Python code</strong> to take the result with you.</p></div></div>
             </div>
         </div>
     </section>

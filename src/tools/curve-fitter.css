@@ -8,40 +8,53 @@
 
 .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
 .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-.custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
-.dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
-.cf-samples { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; margin-top:.5rem; }
-.cf-samples-label { font-size:.68rem; font-weight:700; color:#64748b; white-space:nowrap; }
-.dark .cf-samples-label { color:#94a3b8; }
-.cf-samples-label i { color:#3574b0; }
-.cf-chips { display:flex; flex-wrap:wrap; gap:.35rem; }
-.cf-chip { font-size:.7rem; font-weight:600; padding:.3rem .6rem; border-radius:.45rem; cursor:pointer; color:#1a4b7b; background:#f1f6fb; border:1px solid #c0d6ec; transition:all .15s; }
-.cf-chip:hover { background:#3574b0; color:#fff; border-color:#3574b0; transform:translateY(-1px); }
-.dark .cf-chip { color:#92b8dd; background:rgba(23, 53, 83,.4); border-color:#193f66; }
-.dark .cf-chip:hover { background:#3574b0; color:#fff; border-color:#3574b0; }
-.cf-samples.hint .cf-chip { animation: cfHint 1.8s ease-in-out 2; }
-.cf-pulse { animation: cfPulse 1.4s ease-out 1; }
-#cfCodeModal.open { display:flex; }
-.cf-upload-btn { display:inline-flex; align-items:center; gap:.4rem; font-size:.7rem; font-weight:700; padding:.3rem .65rem; border-radius:.45rem; cursor:pointer; color:#1a4b7b; background:#f1f6fb; border:1px solid #c0d6ec; transition:all .15s; }
-.cf-upload-btn:hover { background:#3574b0; color:#fff; border-color:#3574b0; }
-.dark .cf-upload-btn { color:#92b8dd; background:rgba(23, 53, 83,.4); border-color:#193f66; }
-.dark .cf-upload-btn:hover { background:#3574b0; color:#fff; }
+.custom-scroll::-webkit-scrollbar-thumb { background-color: var(--stk-border-strong); border-radius: 20px; }
 
-@keyframes cfHint {
-  0%,100% { box-shadow:0 0 0 0 rgba(53, 116, 176,0); }
-  50% { box-shadow:0 0 0 4px rgba(53, 116, 176,.2); }
+/* Step 1: the paste box takes the height the column leaves it. */
+.cf-data-panel { min-height: 360px; }
+
+/* Example datasets, under the paste box because they fill it. */
+.cf-samples { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; margin-top: .75rem; }
+.cf-samples-label { font-size: .75rem; font-weight: 600; color: var(--stk-fg-muted); margin-right: .15rem; }
+.cf-chip { font-size: .75rem; font-weight: 600; padding: .3rem .6rem; border-radius: .45rem; cursor: pointer; color: var(--stk-fg-2); background: var(--stk-surface); border: 1px solid var(--stk-border-strong); transition: border-color var(--stk-ease), color var(--stk-ease), background-color var(--stk-ease); }
+.cf-chip:hover { border-color: var(--stk-accent); color: var(--stk-accent-text); }
+.cf-chip[aria-pressed="true"] { background: var(--stk-accent-soft); border-color: var(--stk-accent-soft-border); color: var(--stk-accent-text); }
+
+/* Step 3: the plot, or before the first fit an empty state saying what will
+   be drawn there. Plotly is only initialised once there is something to plot,
+   so the panel never shows an empty chart with a stray mode bar. */
+.cf-stage { position: relative; flex: 1 1 auto; min-height: 500px; margin: .75rem .75rem 0; }
+.cf-plot { position: absolute; inset: 0; }
+.cf-empty { position: absolute; inset: 0 0 .75rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .4rem; padding: 1.5rem; text-align: center; border: 1.5px dashed var(--stk-border-strong); border-radius: var(--stk-radius-lg); background: var(--stk-surface-2); }
+.cf-empty > i { font-size: 1.6rem; color: var(--stk-fg-faint); margin-bottom: .35rem; }
+.cf-empty-title { font-size: .95rem; font-weight: 600; color: var(--stk-fg-2); }
+.cf-empty-text { font-size: .8125rem; color: var(--stk-fg-3); margin-bottom: .5rem; }
+.cf-stage.has-plot .cf-empty { display: none; }
+.cf-stage:not(.has-plot) .cf-plot { display: none; }
+
+/* The fitted equation and its scores, under the plot. */
+.cf-result { margin: .75rem; padding: 1rem 1.1rem; border-radius: var(--stk-radius-lg); background: var(--stk-surface-2); border: 1px solid var(--stk-border); }
+.cf-result-label { font-size: .75rem; font-weight: 600; color: var(--stk-fg-3); }
+.cf-equation { margin-top: .2rem; font-family: var(--stk-font-mono); font-size: 1.05rem; line-height: 1.5; color: var(--stk-fg); overflow-wrap: anywhere; }
+.cf-stats { display: flex; flex-wrap: wrap; gap: .4rem 1.75rem; margin: .75rem 0 0; }
+.cf-stats > div { display: flex; align-items: baseline; gap: .45rem; }
+.cf-stats dt { font-size: .75rem; font-weight: 600; color: var(--stk-fg-3); }
+.cf-stats dd { margin: 0; font-family: var(--stk-font-mono); font-size: .9rem; font-weight: 700; color: var(--stk-fg); font-variant-numeric: tabular-nums; }
+.cf-meta { margin-top: .5rem; font-size: .8rem; line-height: 1.5; color: var(--stk-fg-3); }
+.cf-meta:empty { display: none; }
+.cf-meta .cf-warn { display: block; margin-top: .35rem; color: var(--stk-warn); }
+.cf-meta .cf-err { display: block; margin-top: .35rem; color: var(--stk-danger); }
+
+@media (max-width: 1023px) {
+  .cf-stage { min-height: 360px; }
 }
 
-@keyframes cfPulse {
-  0% { box-shadow:0 0 0 0 rgba(53, 116, 176,.5); }
-  70% { box-shadow:0 0 0 10px rgba(53, 116, 176,0); }
-  100% { box-shadow:0 0 0 0 rgba(53, 116, 176,0); }
-}
+#cfCodeModal.open { display: flex; }
 
 /* Symbol definitions beneath a rendered formula, matching the other tools. */
-.mf-defs { margin-top:1rem; padding-top:.85rem; border-top:1px solid rgba(148,163,184,.25); }
-.mf-defs-title { font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--stk-fg-muted); margin-bottom:.45rem; }
+.mf-defs { margin-top:1rem; padding-top:.85rem; border-top:1px solid var(--stk-border); }
+.mf-defs-title { font-size:.75rem; font-weight:600; color:var(--stk-fg-muted); margin-bottom:.45rem; }
 .mf-defs dl { display:grid; grid-template-columns:auto 1fr; gap:.35rem .8rem; margin:0; align-items:baseline; }
 .mf-def { display:contents; }
 .mf-defs dt { white-space:nowrap; text-align:right; }
-.mf-defs dd { margin:0; font-size:.75rem; color:#64748b; line-height:1.5; }
+.mf-defs dd { margin:0; font-size:.75rem; color:var(--stk-fg-muted); line-height:1.5; }

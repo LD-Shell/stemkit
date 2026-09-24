@@ -34,8 +34,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const plotContainer = document.getElementById('plotContainer');
   const equationOutput = document.getElementById('equationOutput');
   const r2Value = document.getElementById('r2Value');
+  const rmseValue = document.getElementById('rmseValue');
+  const nValue = document.getElementById('nValue');
   const fitMeta = document.getElementById('fitMeta');
+  const fitResult = document.getElementById('fitResult');
+  const plotStage = plotContainer.parentElement;
   const btnCopyEquation = document.getElementById('btnCopyEquation');
+  const btnPy = document.getElementById('btnPython');
+  const btnTryExample = document.getElementById('btnTryExample');
   const toastContainer = document.getElementById('toastContainer');
 
   const colXInput = document.getElementById('colX');
@@ -45,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentEquationString = '';
   let currentSummary = '';
   let lastFit = null;
+  let lastData = null;
 
   // --- 2. Event listeners ---
   btnFit.addEventListener('click', processRegression);
@@ -60,30 +67,40 @@ document.addEventListener('DOMContentLoaded', () => {
     polynomial2: { model: 'polynomial2', data: '-4\t18.1\n-3\t9.8\n-2\t4.2\n-1\t1.1\n0\t0.2\n1\t1.0\n2\t4.1\n3\t9.2\n4\t16.3' }
   };
 
-  document.querySelectorAll('.cf-chip').forEach(chip => chip.addEventListener('click', () => {
-    const s = SAMPLES[chip.getAttribute('data-sample')];
+  const chips = document.querySelectorAll('.cf-chip');
+
+  function loadSample(key) {
+    const s = SAMPLES[key];
     if (!s) return;
     colXInput.value = 1;
     colYInput.value = 2;
     dataInput.value = s.data;
     modelSelect.value = s.model;
-    const wrap = document.querySelector('.cf-samples');
-    if (wrap) wrap.classList.remove('hint');
+    chips.forEach(c => c.setAttribute('aria-pressed', String(c.getAttribute('data-sample') === key)));
+    const theory = document.getElementById('modelTheory');
+    if (theory && theory.open) renderTheory(modelSelect.value);
     processRegression();
-  }));
-
-  // When the tool opens with an empty input, pulse the sample chips once to
-  // point the user at them; stop as soon as they start typing their own data.
-  const cfSamplesWrap = document.querySelector('.cf-samples');
-  if (cfSamplesWrap && dataInput && !dataInput.value.trim()) {
-    cfSamplesWrap.classList.add('hint');
-    dataInput.addEventListener('input',
-      () => cfSamplesWrap.classList.remove('hint'), { once: true });
   }
 
-  // Re-render on theme change so the plot colours track it.
+  chips.forEach(chip => {
+    chip.setAttribute('aria-pressed', 'false');
+    chip.addEventListener('click', () => loadSample(chip.getAttribute('data-sample')));
+  });
+  if (btnTryExample) btnTryExample.addEventListener('click', () => loadSample('exponential'));
+
+  // Typing your own data unmarks the example; emptying the box clears the
+  // result, so a fit is never shown for data that is no longer there.
+  dataInput.addEventListener('input', () => {
+    chips.forEach(c => c.setAttribute('aria-pressed', 'false'));
+    if (dataInput.value.trim() === '') {
+      parseWarnings.classList.add('hidden');
+      showEmpty();
+    }
+  });
+
+  // Re-draw on theme change so the plot colours track it.
   const themeObserver = new MutationObserver(() => {
-    if (dataInput.value.trim() !== '') processRegression();
+    if (lastFit && lastData) renderPlot(lastData, lastFit);
   });
   themeObserver.observe(document.documentElement, {
     attributes: true, attributeFilter: ['class']
@@ -110,12 +127,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (parsed.data.length < 2) {
-      if (dataInput.value.trim() === '') return;
+      if (dataInput.value.trim() === '') { showEmpty(); return; }
       showToast(
-        `Found only ${parsed.data.length} valid point(s) in columns ` +
-        `${xIdx + 1} and ${yIdx + 1}. At least 2 are needed.`
+        `Found ${parsed.data.length} usable point${parsed.data.length === 1 ? '' : 's'} in columns ` +
+        `${xIdx + 1} and ${yIdx + 1}. A fit needs at least 2.`
       );
-      resetOutputs();
+      showEmpty();
       return;
     }
 
@@ -124,14 +141,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (fit.error) {
       showToast(fit.error);
-      resetOutputs();
+      showEmpty();
       return;
     }
 
     lastFit = fit;
+    lastData = parsed.data;
     currentEquationString = formatEquation(fit.equation, model);
     equationOutput.innerHTML = renderEquationHTML(fit.equation, model);
-    r2Value.textContent = Number.isFinite(fit.r2) ? fit.r2.toFixed(4) : ', ';
 
     currentSummary =
       `R2 = ${Number.isFinite(fit.r2) ? fit.r2.toFixed(4) : 'n/a'}, ` +
@@ -139,36 +156,40 @@ document.addEventListener('DOMContentLoaded', () => {
       `n = ${fit.n}`;
 
     renderFitMeta(fit);
+    plotStage.classList.add('has-plot');
+    fitResult.classList.remove('hidden');
+    btnCopyEquation.disabled = false;
+    if (btnPy) btnPy.disabled = false;
     renderPlot(parsed.data, fit);
   }
 
-  function resetOutputs() {
-    equationOutput.innerHTML = 'Invalid data selection';
-    if (fitMeta) fitMeta.innerHTML = '';
-    r2Value.textContent = ', ';
+  /** Back to the state before the first fit: no plot, no result. */
+  function showEmpty() {
     lastFit = null;
+    lastData = null;
+    currentEquationString = '';
+    currentSummary = '';
     Plotly.purge(plotContainer);
+    plotStage.classList.remove('has-plot');
+    fitResult.classList.add('hidden');
+    btnCopyEquation.disabled = true;
+    if (btnPy) btnPy.disabled = true;
   }
 
   // --- 4. Fit metadata and adequacy warnings ---
   function renderFitMeta(fit) {
-    if (!fitMeta) return;
-
     const adequacy = fit.adequacy || assessFitAdequacy(fit.n, fit.model);
-    const rmseTxt = Number.isFinite(fit.rmse) ? fit.rmse.toPrecision(4) : 'n/a';
-    const linNote = fit.linearised
-      ? ' &middot; fitted via linearization (log-space least squares)'
+    r2Value.textContent = Number.isFinite(fit.r2) ? fit.r2.toFixed(4) : 'n/a';
+    rmseValue.textContent = Number.isFinite(fit.rmse) ? fit.rmse.toPrecision(4) : 'n/a';
+    nValue.textContent = String(fit.n);
+
+    let html = fit.linearised
+      ? 'Fitted by linearisation: least squares in log space, not on the data as given.'
       : '';
-
-    let html = `<span class="font-mono">n = ${fit.n} points &middot; ` +
-               `RMSE = ${rmseTxt}${linNote}</span>`;
-
     if (adequacy.message) {
-      const colour = adequacy.level === 'error'
-        ? 'text-red-500 dark:text-red-400'
-        : 'text-amber-500 dark:text-amber-400';
-      html += `<span class="block mt-1 ${colour}">` +
-              `<i class="fa-solid fa-triangle-exclamation mr-1"></i>` +
+      const cls = adequacy.level === 'error' ? 'cf-err' : 'cf-warn';
+      html += `<span class="${cls}">` +
+              `<i class="fa-solid fa-triangle-exclamation mr-1" aria-hidden="true"></i>` +
               `${adequacy.message}</span>`;
     }
     fitMeta.innerHTML = html;
@@ -211,11 +232,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const traces = [
       {
-        x: rawX, y: rawY, mode: 'markers', type: 'scatter', name: 'Raw Data',
+        x: rawX, y: rawY, mode: 'markers', type: 'scatter', name: 'Data',
         marker: { size: 8, color: '#94a3b8' }
       },
       {
-        x: curve.x, y: curve.y, mode: 'lines', type: 'scatter', name: 'Fitted Model',
+        x: curve.x, y: curve.y, mode: 'lines', type: 'scatter', name: 'Fitted curve',
         line: { color: '#10b981', width: 3 }
       }
     ];
@@ -226,9 +247,14 @@ document.addEventListener('DOMContentLoaded', () => {
       font: { family: 'Inter, system-ui, sans-serif', color: fontColor },
       xaxis: { gridcolor: gridColor, zerolinecolor: gridColor },
       yaxis: { gridcolor: gridColor, zerolinecolor: gridColor },
-      margin: { t: 40, r: 40, b: 40, l: 60 },
+      margin: { t: 40, r: 20, b: 40, l: 60 },
       showlegend: true,
-      legend: { orientation: 'h', yanchor: 'bottom', y: 1.02, xanchor: 'right', x: 1 }
+      legend: { orientation: 'h', yanchor: 'bottom', y: 1.02, xanchor: 'left', x: 0 },
+      // Plotly derives the mode bar's background from paper_bgcolor, and a
+      // transparent paper gives it a half-black strip; set it outright.
+      modebar: isDark
+        ? { bgcolor: 'rgba(15,23,42,0.7)', color: '#94a3b8', activecolor: '#92b8dd' }
+        : { bgcolor: 'rgba(255,255,255,0.8)', color: '#64748b', activecolor: '#1f5c96' }
     };
 
     Plotly.react(plotContainer, traces, layout, { responsive: true, displaylogo: false });
@@ -241,18 +267,17 @@ document.addEventListener('DOMContentLoaded', () => {
       ? `${currentEquationString}\n${currentSummary}`
       : currentEquationString;
     navigator.clipboard.writeText(payload).then(() => {
-      showToast('Equation and fit statistics copied to clipboard!');
+      showToast('Copied the equation and fit statistics.');
       const original = btnCopyEquation.innerHTML;
-      btnCopyEquation.innerHTML = 'Copied!';
+      btnCopyEquation.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> Copied';
       setTimeout(() => { btnCopyEquation.innerHTML = original; }, 2000);
-    });
+    }).catch(() => showToast('Could not reach the clipboard. Select the equation and copy it.'));
   });
 
   const cfCodeModal = document.getElementById('cfCodeModal');
   const cfCodeBlock = document.getElementById('cfCodeBlock');
-  const btnPy = document.getElementById('btnPython');
-
   if (btnPy) btnPy.addEventListener('click', () => {
+    if (!lastFit) return;
     cfCodeBlock.textContent = generateMatplotlibCode(lastFit);
     cfCodeModal.classList.add('open');
   });
@@ -262,11 +287,16 @@ document.addEventListener('DOMContentLoaded', () => {
   if (cfCodeModal) cfCodeModal.addEventListener('click', e => {
     if (e.target === cfCodeModal) cfCodeModal.classList.remove('open');
   });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && cfCodeModal && cfCodeModal.classList.contains('open')) {
+      cfCodeModal.classList.remove('open');
+    }
+  });
 
   const cfCopy = document.getElementById('cfCopyCode');
   if (cfCopy) cfCopy.addEventListener('click', () => {
     navigator.clipboard.writeText(cfCodeBlock.textContent)
-      .then(() => showToast('matplotlib code copied!'));
+      .then(() => showToast('Copied the matplotlib code.'));
   });
 
   // --- 7. Toasts ---
@@ -288,14 +318,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2000);
   }
 
-  // Render an empty plot so the panel does not look broken on load.
-  Plotly.react(plotContainer, [], {
-    plot_bgcolor: 'transparent',
-    paper_bgcolor: 'transparent',
-    margin: { t: 40, r: 40, b: 40, l: 60 },
-    xaxis: { visible: false },
-    yaxis: { visible: false }
-  }, { responsive: true, displaylogo: false });
+  // No plot is drawn until there is a fit: before then the panel shows an
+  // empty state (#fitEmpty), not a blank chart with a mode bar in it.
 
   // The visible button proxies for the hidden native file input.
   if (btnUpload && fileInput) {
@@ -306,7 +330,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const reader = new FileReader();
       reader.onload = (ev) => {
         dataInput.value = ev.target.result;
-        showToast(`Loaded ${file.name}, press Compute Fit.`);
+        chips.forEach(c => c.setAttribute('aria-pressed', 'false'));
+        showToast(`Loaded ${file.name}. Press Fit curve.`);
       };
       reader.onerror = () => showToast('Could not read that file.', 'error');
       reader.readAsText(file);
@@ -353,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!tex) { host.innerHTML = ''; return; }
 
     if (!window.katex) {
-      host.innerHTML = '<span class="text-xs text-slate-500 dark:text-slate-400">Formula renderer unavailable.</span>';
+      host.innerHTML = '<span class="text-xs text-slate-500 dark:text-slate-400">The formula renderer did not load.</span>';
       return;
     }
     const kx = (t, d) => {
@@ -403,7 +428,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // a methods section; rendered output cannot be copied back out as LaTeX.
     host.innerHTML =
       `<div data-tex="${tex.replace(/"/g, '&quot;')}" title="LaTeX source in the data-tex attribute">${kx(tex, true)}</div>` +
-      notes.map(n => `<p class="text-[11px] leading-relaxed text-amber-700 dark:text-amber-400 mb-2">${n}</p>`).join('') +
+      notes.map(n => `<p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400 mb-2">${n}</p>`).join('') +
+
       `<div data-tex="${SCORE_TEX.replace(/"/g, '&quot;')}">${kx(SCORE_TEX, true)}</div>` +
       `<div class="mf-defs"><div class="mf-defs-title">Where:</div><dl>${defs}</dl></div>`;
   }
