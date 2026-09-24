@@ -152,6 +152,16 @@ mark.stk-hit { background: rgba(53, 116, 176, .22); color: inherit; border-radiu
 }
 .dark .hm-code pre { background: #020617; border: 1px solid var(--stk-border); }
 .hm-proof-main .hm-code code { color: inherit; font-size: inherit; }
+.hm-code-box { position: relative; }
+.hm-code-box pre { padding-right: 6.5rem; }
+.hm-code-copy {
+  position: absolute; top: .55rem; right: .55rem; display: inline-flex; align-items: center; gap: .4rem;
+  padding: .35rem .65rem; border-radius: .45rem; cursor: pointer;
+  font: inherit; font-size: .75rem; font-weight: 600; color: #e2e8f0;
+  background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .16);
+  transition: background-color .15s, border-color .15s;
+}
+.hm-code-copy:hover { background: rgba(255, 255, 255, .14); border-color: rgba(255, 255, 255, .28); }
 
 .hm-proof-side { display: flex; flex-direction: column; gap: 1rem; }
 .hm-fact { padding: 1.35rem 1.5rem; border: 1px solid var(--stk-border); border-radius: 1rem; background: var(--stk-bg); }

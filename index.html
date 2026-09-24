@@ -108,6 +108,7 @@
                         <kbd id="searchHint" aria-hidden="true">/</kbd>
                     </div>
                     <p id="searchStatus" class="sr-only" aria-live="polite"></p>
+                    <p id="copyStatus" class="sr-only" aria-live="polite"></p>
                 </div>
 
                 <aside class="hm-formats" aria-labelledby="hm-formats-h">
@@ -334,11 +335,17 @@
                     </ul>
                     <p>Each now has a regression test, and <a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md">the changelog</a> records every fix that changed an output.</p>
                     <figure class="hm-code">
-                        <figcaption>The same code path from Node, in a clone of the repository:</figcaption>
-                        <pre><code>import { parseXvg, columnStats } from '@stemkit/core';
+                        <figcaption id="hm-code-cap">The same code path from Node, in a clone of the repository:</figcaption>
+                        <div class="hm-code-box">
+                            <button type="button" class="hm-code-copy" data-copy-from="hm-snippet" aria-label="Copy code">
+                                <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copy</span>
+                            </button>
+                            <pre aria-labelledby="hm-code-cap"><code id="hm-snippet">import { readFileSync } from 'node:fs';
+import { parseXvg, columnStats } from '@stemkit/core';
 
 const { matrix } = parseXvg(readFileSync('rmsd.xvg', 'utf8'));
 console.log(columnStats(matrix.map(r =&gt; r[1])));</code></pre>
+                        </div>
                     </figure>
                 </div>
 
@@ -353,7 +360,7 @@ console.log(columnStats(matrix.map(r =&gt; r[1])));</code></pre>
                         <p>This DOI always resolves to the current release.</p>
                         <div class="hm-doi">
                             <code>10.5281/zenodo.21543112</code>
-                            <button type="button" id="copyDoi" data-copy="10.5281/zenodo.21543112">Copy</button>
+                            <button type="button" data-copy="10.5281/zenodo.21543112" aria-label="Copy DOI"><span>Copy</span></button>
                         </div>
                         <ul class="hm-links">
                             <li><a href="https://doi.org/10.5281/zenodo.21543112">Zenodo record</a></li>
@@ -497,17 +504,39 @@ console.log(columnStats(matrix.map(r =&gt; r[1])));</code></pre>
                 search.focus();
             });
 
-            var copy = document.getElementById('copyDoi');
-            if (copy && navigator.clipboard) {
-                copy.addEventListener('click', function () {
-                    navigator.clipboard.writeText(copy.getAttribute('data-copy')).then(function () {
-                        copy.textContent = 'Copied';
-                        setTimeout(function () { copy.textContent = 'Copy'; }, 1600);
-                    });
+            // Copy buttons: data-copy holds the text, data-copy-from names the
+            // element whose text to copy. Falls back to a hidden textarea where
+            // the Clipboard API is unavailable (an insecure context, older browsers).
+            var copyStatus = document.getElementById('copyStatus');
+            function writeClipboard(text) {
+                if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+                return new Promise(function (resolve, reject) {
+                    var ta = document.createElement('textarea');
+                    ta.value = text; ta.setAttribute('readonly', '');
+                    ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+                    document.body.appendChild(ta); ta.select();
+                    var ok = false;
+                    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+                    ta.remove();
+                    ok ? resolve() : reject(new Error('copy failed'));
                 });
-            } else if (copy) {
-                copy.hidden = true;
             }
+            document.querySelectorAll('[data-copy], [data-copy-from]').forEach(function (btn) {
+                var label = btn.querySelector('span');
+                btn.addEventListener('click', function () {
+                    var from = btn.getAttribute('data-copy-from');
+                    var text = from ? document.getElementById(from).textContent : btn.getAttribute('data-copy');
+                    writeClipboard(text).then(function () {
+                        label.textContent = 'Copied';
+                        copyStatus.textContent = from ? 'Code copied to the clipboard.' : 'DOI copied to the clipboard.';
+                    }, function () {
+                        label.textContent = 'Press Ctrl+C';
+                        copyStatus.textContent = 'Copying failed. Select the text and press Ctrl+C.';
+                    });
+                    clearTimeout(btn._t);
+                    btn._t = setTimeout(function () { label.textContent = 'Copy'; copyStatus.textContent = ''; }, 1800);
+                });
+            });
         })();
     </script>
 </body>
