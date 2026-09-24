@@ -6,7 +6,48 @@
  * generated into src/output.css and must not be hand-edited.
  */
 
-#plotCanvas { cursor: crosshair; }
+/* Once an image is open the page head shrinks to one line, and the
+   workspace keeps its viewport-high shell (.stk-shell). */
+.pd-main.is-loaded { padding-top: .75rem; }
+.pd-main.is-loaded .stk-pagehead { padding-bottom: .5rem; margin-bottom: 0; }
+.pd-main.is-loaded .stk-pagehead > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem 1.5rem; }
+.pd-main.is-loaded .stk-pagehead-title { font-size: 1.25rem; }
+.pd-main.is-loaded .stk-pagehead-lede { display: none; }
+.pd-main.is-loaded .stk-pagehead-meta { margin-top: 0; }
+
+/* The figure: a toolbar row above it (nothing is drawn over the image), and
+   a scrolling area that holds the canvas at the chosen zoom. */
+.pd-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; padding: .6rem .75rem; border-bottom: 1px solid var(--stk-border); }
+.pd-toolbar-sep { width: 1px; height: 1.25rem; background: var(--stk-border); }
+.pd-zoom { min-width: 3.25rem; text-align: center; font-family: var(--stk-font-mono); font-size: .75rem; font-weight: 700; color: var(--stk-fg-2); }
+.pd-status { margin-left: auto; font-size: .8125rem; color: var(--stk-fg-3); }
+.pd-status.is-active { color: var(--stk-accent-text); font-weight: 600; }
+.pd-canvas-wrap { background: var(--stk-surface-2); }
+@media (max-width: 1023px) {
+  .pd-canvas-wrap { min-height: 240px; }
+  .pd-status { margin-left: 0; flex-basis: 100%; }
+}
+
+#plotCanvas { cursor: crosshair; box-shadow: var(--stk-shadow); }
+.loupe-active { cursor: none !important; }
+
+/* The steps down the right. */
+.pd-card { padding: 1rem 1.1rem; border-radius: 1rem; border: 1px solid var(--stk-border); background: var(--stk-surface); box-shadow: var(--stk-shadow-sm); }
+.pd-filebar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.pd-filebar .stk-ptitle { min-width: 0; }
+.pd-meta { margin: .2rem 0 0 2.1rem; font-size: .8rem; color: var(--stk-fg-3); }
+.pd-hint { font-size: .8rem; line-height: 1.5; color: var(--stk-fg-3); margin-bottom: .75rem; }
+.pd-hint:empty { display: none; }
+#traceStatus, #resolutionNote { margin-bottom: 0; }
+
+/* A calibration button shows a tick once its point is set. */
+.calib-btn { justify-content: flex-start; min-width: 5.5rem; }
+.pd-calib-set { display: none; color: var(--stk-accent-text); }
+.calib-btn.is-set .pd-calib-set { display: inline; }
+.pd-calib-ok { margin-top: .75rem; font-size: .8125rem; font-weight: 600; color: #047857; }
+.dark .pd-calib-ok { color: var(--stk-ok); }
+.pd-calib-ok:empty { display: none; }
+.pd-calib-ok::before { content: "\2713\00a0"; }
 
 /* The button for the mode the canvas is in (setting a calibration point,
    adding points, erasing) is pressed; the rest are not. Erase keeps red. */
@@ -19,66 +60,37 @@
 #btnEraseMode[aria-pressed="true"] {
   border-color: var(--stk-danger);
   background: var(--stk-danger-soft);
-  color: var(--stk-danger);
+  color: #b91c1c; /* --stk-danger on --stk-danger-soft is 4.4:1, just short of AA */
   box-shadow: 0 0 0 2px var(--stk-danger-border);
 }
-.loupe-active { cursor: none !important; }
-.dataset-btn.active { border-color: #3574b0; background-color: #e0ebf6; }
-html.dark .dataset-btn.active { background-color: rgba(31, 92, 150, 0.2); border-color: #3574b0; }
-input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
-.accordion-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; max-height: 0; opacity: 0; overflow: hidden; }
-.accordion-content.expanded { max-height: 1000px; opacity: 1; overflow: visible; }
-.accordion-icon { transition: transform 0.3s ease; }
-.accordion-btn[aria-expanded="true"] .accordion-icon { transform: rotate(180deg); }
+.dark #btnEraseMode[aria-pressed="true"] { color: var(--stk-danger); }
+#toggleBackground[aria-pressed="false"] { color: var(--stk-fg-muted); }
+
+/* One row per series; the selected one takes the accent. */
+.pd-series { display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; border-radius: var(--stk-radius); border: 1px solid var(--stk-border); cursor: pointer; }
+.pd-series:hover { background: var(--stk-surface-2); }
+.pd-series.is-active { background: var(--stk-accent-soft); border-color: var(--stk-accent-soft-border); }
+.pd-series:focus-visible { outline: 2px solid var(--stk-accent); outline-offset: 2px; }
+.pd-series-colour { width: 1.25rem; height: 1.25rem; padding: 0; border: 0; background: transparent; cursor: pointer; flex-shrink: 0; }
+.pd-series-colour::-webkit-color-swatch-wrapper { padding: 0; }
+.pd-series-colour::-webkit-color-swatch { border: none; border-radius: 4px; }
+.pd-series-name { flex: 1 1 auto; min-width: 0; background: transparent; border: 1px solid transparent; border-radius: .3rem; padding: .1rem .3rem; font-size: .8125rem; font-weight: 600; color: var(--stk-fg); outline: none; }
+.pd-series-name:hover { border-color: var(--stk-border-strong); }
+.pd-series-name:focus { border-color: var(--stk-accent); background: var(--stk-surface); }
+.pd-series-count { flex-shrink: 0; font-family: var(--stk-font-mono); font-size: .75rem; color: var(--stk-fg-3); }
+
+.pd-export-note { margin-top: .6rem; font-size: .8125rem; color: #047857; }
+.dark .pd-export-note { color: var(--stk-ok); }
+.pd-export-note:empty { display: none; }
+
+/* Preview of the extracted points, drawn in a dialog on this page. */
+.pd-dialog { width: min(56rem, calc(100vw - 2rem)); max-width: none; padding: 0; border: 1px solid var(--stk-border); border-radius: 1rem; background: var(--stk-surface); color: var(--stk-fg); box-shadow: var(--stk-shadow-lg); }
+.pd-dialog::backdrop { background: var(--stk-overlay); }
+.pd-preview-plot { height: min(60vh, 520px); padding: .5rem; }
+
 .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
 .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-.custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
-.dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
-.plumed-help { position:relative; display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; border-radius:9999px; background:#fecdd3; color:#be123c; font-size:10px; font-weight:800; cursor:help; user-select:none; flex-shrink:0; line-height:1; }
-.dark .plumed-help { background:rgba(190,18,60,.35); color:#fda4af; }
-.plumed-help:hover { background:#fda4af; }
-#plumedTooltip { position:fixed; z-index:9999; width:260px; max-width:80vw; background:#0f172a; color:#f1f5f9; font-size:13px; font-weight:400; line-height:1.5; text-align:left; letter-spacing:0; padding:.65rem .75rem; border-radius:.55rem; border:1px solid rgba(148,163,184,.35); box-shadow:0 12px 30px rgba(0,0,0,.4); white-space:normal; text-transform:none; opacity:0; visibility:hidden; transition:opacity .12s ease; pointer-events:none; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-#plumedTooltip.show { opacity:1; visibility:visible; }
-.dark #plumedTooltip { background:#1e293b; border-color:rgba(51,65,85,.9); }
-#plumedCVList label, #plumedBiasParams label { font-size:9px; line-height:1.3; font-weight:700; }
-#plumedCVList label { color:#94a3b8; }
-#plumedCVList input[type="text"], #plumedCVList select, #plumedCVList textarea, #plumedBiasParams input[type="text"] { font-size:11px; line-height:1.3; padding:4px 6px; margin-top:2px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-#plumedCVList p, #plumedBiasParams p { font-size:9px; line-height:1.35; }
-#plumedCVList .plumed-cv-typelabel { font-size:10px; font-weight:800; text-transform:uppercase; }
-#plumedCVList .plumed-cv-example { font-size:10px; line-height:1.45; }
-#plumedCVList .plumed-cv-example code { font-size:9.5px; }
-#plumedCVDesc .plumed-cv-example { font-size:11px; line-height:1.5; }
-#plumedCVDesc .plumed-cv-gate, #plumedCVList .plumed-cv-gate { display:inline-block; font-size:10px; line-height:1.4; color:#b45309; }
-.dark #plumedCVDesc .plumed-cv-gate, .dark #plumedCVList .plumed-cv-gate { color:#fbbf24; }
-#plumedCVList .plumed-field-off { opacity:.45; }
-#plumedCVList .plumed-field-off input, #plumedCVList .plumed-field-off select { background:#e2e8f0 !important; color:#94a3b8 !important; cursor:not-allowed; text-decoration:line-through; }
-.dark #plumedCVList .plumed-field-off input, .dark #plumedCVList .plumed-field-off select { background:#1e293b !important; color:#64748b !important; }
-#plumedCVList .plumed-field-off label { text-decoration:line-through; }
-#plumedCVDesc a.plumed-doclink, #plumedCVList a.plumed-doclink { color:#be123c; font-weight:600; text-decoration:none; }
-#plumedCVDesc a.plumed-doclink:hover, #plumedCVList a.plumed-doclink:hover { text-decoration:underline; }
-.dark #plumedCVDesc a.plumed-doclink, .dark #plumedCVList a.plumed-doclink { color:#fda4af; }
-.hl { color:#e11d48; font-weight:600; }
-.dark .hl { color:#fb7185; }
-.doc-tabs { display:flex; flex-wrap:wrap; gap:.4rem; margin:1.25rem 0 1.75rem; border-bottom:1px solid rgba(148,163,184,.25); padding-bottom:.75rem; }
-.doc-tab { display:inline-flex; align-items:center; gap:.45rem; font-size:.85rem; font-weight:700; padding:.5rem .95rem; border-radius:.6rem; cursor:pointer; border:1px solid transparent; color:#64748b; background:transparent; transition:all .15s ease; }
-.doc-tab:hover { background:#f1f5f9; color:#0f172a; }
-.dark .doc-tab { color:#94a3b8; }
-.dark .doc-tab:hover { background:#1e293b; color:#f1f5f9; }
-.doc-tab.active { background:#e11d48; color:#fff; border-color:#e11d48; }
-.doc-tab.active:hover { background:#be123c; color:#fff; }
-.doc-pane { display:none; }
-.doc-pane.active { display:block; animation:docfade .2s ease; }
-
-@keyframes docfade {
-  from { opacity:0; transform:translateY(4px); }
-  to { opacity:1; transform:none; }
-}
-
-@media (max-width: 640px) {
-  .doc-tab { font-size: 0.78rem; padding: 0.4rem 0.7rem; }
-  .doc-tabs { gap: 0.3rem; }
-}
+.custom-scroll::-webkit-scrollbar-thumb { background-color: var(--stk-border-strong); border-radius: 20px; }
 
 /* The Python-script modal ships with Tailwind's `hidden` and is revealed by
    toggling `.open`. An id+class selector is needed so the rule outranks
@@ -90,4 +102,7 @@ input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
   from { transform: translateX(100%); opacity: 0; }
   to   { transform: translateX(0);    opacity: 1; }
 }
-.toast-enter { animation: slideIn 0.3s forwards; }
+@media (prefers-reduced-motion: no-preference) {
+  .toast-enter { animation: slideIn 0.3s forwards; }
+  .pd-dialog[open] { animation: stk-pop .18s cubic-bezier(.2, .8, .2, 1); }
+}
