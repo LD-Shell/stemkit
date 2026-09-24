@@ -888,6 +888,9 @@
 /* Toasts: the shared component, plus a fade-out the script triggers. */
 .stk-toast.is-leaving { opacity: 0; transition: opacity 300ms ease; }
 
+/* The simulation box, drawn in screen space over the WebGL canvas. */
+.si-box-overlay { position: absolute; inset: 0; z-index: 5; width: 100%; height: 100%; pointer-events: none; }
+
 /* The shared button and callout set their own display, which outranks the
    browser's rule for [hidden]; these are hidden with the attribute here. */
 .stk-btn[hidden], .stk-callout[hidden] { display: none; }

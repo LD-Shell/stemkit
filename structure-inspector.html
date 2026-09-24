@@ -336,6 +336,27 @@
                     </div>
 
                     <div class="stk-group">
+                        <h3 class="stk-group-t">Simulation box</h3>
+                        <p id="boxNone" class="stk-hint">This file carries no box. A GRO file's last line, or a CRYST1 record in a PDB file, defines one.</p>
+                        <div id="boxControls" class="si-stack hidden">
+                            <div class="stk-switch-row"><span>Show the box <span class="stk-key">B</span></span><button type="button" id="toggleBox" class="stk-switch" role="switch" aria-checked="false" aria-label="Show the box"></button></div>
+                            <div class="stk-switch-row"><span>Label edge lengths</span><button type="button" id="toggleBoxLabels" class="stk-switch" role="switch" aria-checked="true" aria-label="Label edge lengths"></button></div>
+                            <div class="stk-field">
+                                <label for="boxWeight">Line weight</label>
+                                <div class="si-btn-row">
+                                    <select id="boxWeight" class="stk-select stk-select-sm si-grow">
+                                        <option value="thin">Thin</option>
+                                        <option value="regular" selected>Regular</option>
+                                        <option value="bold">Bold</option>
+                                    </select>
+                                    <input type="color" id="boxColor" value="#1f5c96" class="si-color" aria-label="Box colour" title="Box colour">
+                                    <button type="button" id="boxColorAuto" class="stk-btn stk-btn-sm stk-btn-ghost" title="Go back to a colour picked to read on the background" aria-label="Automatic box colour">Auto</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stk-group">
                         <h3 class="stk-group-t">View</h3>
                         <div class="stk-switch-row"><span>Show hydrogens</span><button type="button" id="toggleHydrogens" class="stk-switch" role="switch" aria-checked="true" aria-label="Show hydrogens"></button></div>
                         <div class="stk-switch-row"><span>Axis indicator</span><button type="button" id="toggleAxis" class="stk-switch" role="switch" aria-checked="false" aria-label="Axis indicator"></button></div>
@@ -736,6 +757,7 @@
                 <div class="si-stagewrap">
                 <div id="stage" class="si-stage">
                     <div id="viewerCanvas" class="absolute inset-0 w-full h-full cursor-move" tabindex="0" role="application" aria-roledescription="3D viewer" aria-label="3D structure. Arrow keys rotate, plus and minus zoom, 0 resets the view." aria-describedby="viewerKeysNote"></div>
+                    <canvas id="boxOverlay" class="si-box-overlay" aria-hidden="true"></canvas>
                     <p id="viewerKeysNote" class="sr-only">Press question mark for every keyboard shortcut.</p>
                     <p id="viewerLive" class="sr-only" aria-live="polite"></p>
                     <div class="si-status">
@@ -823,6 +845,7 @@
                     <button type="button" id="tbMeasure" class="stk-btn stk-btn-icon" aria-label="Measure mode" aria-pressed="false" title="Measure mode (M)"><i class="fa-solid fa-ruler" aria-hidden="true"></i></button>
                     <button type="button" id="tbHydrogens" class="stk-btn stk-btn-icon" aria-label="Show hydrogens" aria-pressed="true" title="Show hydrogens (H)"><span class="si-glyph" aria-hidden="true">H</span></button>
                     <button type="button" id="tbLabels" class="stk-btn stk-btn-icon" aria-label="Atom labels" aria-pressed="false" title="Atom labels (L)"><i class="fa-solid fa-tag" aria-hidden="true"></i></button>
+                    <button type="button" id="tbBox" class="stk-btn stk-btn-icon" aria-label="Simulation box" aria-pressed="false" title="Simulation box (B)"><i class="fa-solid fa-cube" aria-hidden="true"></i></button>
                     <button type="button" id="tbWater" class="stk-btn stk-btn-icon" aria-label="Show water" aria-pressed="true" title="Show water (W)"><i class="fa-solid fa-droplet" aria-hidden="true"></i></button>
                     <span class="stk-toolbar-sep" aria-hidden="true"></span>
                     <button type="button" id="tbScreenshot" class="stk-btn stk-btn-icon" aria-label="Save PNG with the current export settings" title="Save PNG"><i class="fa-solid fa-camera" aria-hidden="true"></i></button>
@@ -1076,6 +1099,7 @@
                 <div>
                 <h3 class="si-keys-h">Show</h3>
                 <dl class="si-keys">
+                    <dt><span class="stk-key">B</span></dt><dd>Simulation box on or off</dd>
                     <dt><span class="stk-key">W</span><span class="stk-key">I</span></dt><dd>Water, ions on or off</dd>
                     <dt><span class="stk-key">H</span></dt><dd>Hydrogens on or off</dd>
                     <dt><span class="stk-key">L</span></dt><dd>Atom labels on or off</dd>

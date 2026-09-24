@@ -211,6 +211,58 @@
     };
 
     /**
+     * Edge vectors of a unit cell from its lengths and angles (degrees), with
+     * a along x and b in the xy plane: the PDB CRYST1 convention.
+     */
+    function cellVectors(a, b, c, al, be, ga) {
+        const r = Math.PI / 180;
+        const ca = Math.cos(al * r), cb = Math.cos(be * r), cg = Math.cos(ga * r), sg = Math.sin(ga * r) || 1;
+        const cx = c * cb, cy = c * (ca - cb * cg) / sg;
+        const cz = Math.sqrt(Math.max(0, c * c - cx * cx - cy * cy));
+        return [{ x: a, y: 0, z: 0 }, { x: b * cg, y: b * sg, z: 0 }, { x: cx, y: cy, z: cz }];
+    }
+
+    /**
+     * Every frame's box from GRO text, in Angstrom. A frame is a title line,
+     * the atom count, that many atom lines and the box line: v1(x) v2(y) v3(z),
+     * then, for a triclinic box, v1(y) v1(z) v2(x) v2(z) v3(x) v3(y), in nm.
+     * Walks the text by line offsets rather than splitting it, so a long
+     * trajectory is not copied into an array of lines.
+     */
+    function groBoxes(text) {
+        const boxes = [];
+        let pos = 0;
+        const skip = n => {
+            for (let i = 0; i < n && pos <= text.length; i++) {
+                const e = text.indexOf('\n', pos);
+                pos = e < 0 ? text.length + 1 : e + 1;
+            }
+        };
+        const line = () => {
+            const e = text.indexOf('\n', pos);
+            const s = text.slice(pos, e < 0 ? text.length : e);
+            pos = e < 0 ? text.length + 1 : e + 1;
+            return s;
+        };
+        while (pos < text.length && boxes.length < 100000) {
+            line();                                   // title
+            const n = parseInt(line(), 10);
+            if (!Number.isFinite(n) || n <= 0) break;
+            skip(n);
+            if (pos > text.length) break;
+            const v = line().trim().split(/\s+/).map(Number);
+            if (v.length < 3 || !v.slice(0, 3).every(Number.isFinite)) { boxes.push(null); continue; }
+            const g = i => (Number.isFinite(v[i]) ? v[i] : 0) * 10;
+            boxes.push([
+                { x: g(0), y: g(3), z: g(4) },
+                { x: g(5), y: g(1), z: g(6) },
+                { x: g(7), y: g(8), z: g(2) }
+            ]);
+        }
+        return boxes;
+    }
+
+    /**
      * Uniform grid for neighbour queries. Building this once and reusing it
      * turns `within:` from an O(n×m) scan into something closer to O(n).
      */
@@ -328,7 +380,7 @@
                 toggles: {
                     atomLabels: false, resLabels: false, hydrogens: true,
                     axis: false, spin: false, clickInspect: true, outline: false,
-                    clickCentre: true
+                    box: false, boxLabels: true, clickCentre: true
                 },
                 // Species keys ("res:SOL", "protein", "el:C") the list has hidden.
                 hiddenSpecies: new Set()
@@ -344,13 +396,17 @@
             this._spKey = [];                  // atom index -> species key
             this._lookup = null;               // names present, for Find
 
+            // Simulation box: one set of edge vectors per frame (Angstrom).
+            this.box = null;
+            this.boxStyle = { weight: 'regular', color: null };
+
             this._fitDist = null;              // camera distance at "fit everything"
             this._tween = null;
             this._lastAxis = null;
             this._lastAtomClick = { t: 0, atom: null };
             this._suppressClickUntil = 0;
 
-            this._shapes = { axis: [], iso: [], measure: [], find: [] };
+            this._shapes = { axis: [], iso: [], measure: [], box: [], find: [] };
             this._findLabels = [];
             this._measureLabels = [];
             this._trajInterval = null;
@@ -487,7 +543,11 @@
                 zoomRail: $('zoomRail'), zoomVal: $('zoomVal'), navFit: $('navFit'),
                 navZoomSel: $('navZoomSel'), navReset: $('navReset'), navSpin: $('navSpin'),
                 spinRow: $('spinRow'), spinSpeed: $('spinSpeed'),
-                tbWater: $('tbWater')
+                // Box
+                tbBox: $('tbBox'), tbWater: $('tbWater'), boxOverlay: $('boxOverlay'),
+                boxNone: $('boxNone'), boxControls: $('boxControls'), toggleBox: $('toggleBox'),
+                toggleBoxLabels: $('toggleBoxLabels'), boxWeight: $('boxWeight'),
+                boxColor: $('boxColor'), boxColorAuto: $('boxColorAuto')
             };
         }
 
@@ -614,7 +674,9 @@
         applyBackground() {
             if (!this.viewer) return;
             this.viewer.setBackgroundColor(this.getBackgroundColor());
-            // The faded context picks its colour from the background.
+            // The box and the faded context pick their colours from the
+            // background, so they follow it.
+            if (this.T.box) this.drawBox();
             if (this.find.active) this.applyStyles();
             else this.viewer.render();
         }
@@ -1488,8 +1550,10 @@
                 }
                 this.initViewerGestures();
                 // Every redraw, whatever moved the camera (wheel, pinch, drag,
-                // a button), keeps the zoom rail honest.
-                this.viewer.setViewChangeCallback(rafThrottle(() => this.syncZoomRail()));
+                // a button), keeps the zoom rail honest. The box overlay is
+                // repainted in the same frame, so it never trails the turn.
+                const rail = rafThrottle(() => this.syncZoomRail());
+                this.viewer.setViewChangeCallback(() => { this.paintBoxOverlay(); rail(); });
             }
             this.endFind({ restyle: false, restoreView: false });
 
@@ -1540,17 +1604,20 @@
             this.state.bounds = { xMin, xMax, yMin, yMax, zMin, zMax };
 
             // Shapes and labels went with viewer.clear(); forget the handles.
-            this._shapes = { axis: [], iso: [], measure: [], find: [] };
+            this._shapes = { axis: [], iso: [], measure: [], box: [], find: [] };
             this._findLabels = [];
             this.buildLookup(atoms);
             this.buildSpecies(atoms);
+            this.box = this.readBox();
+            this.T.box = !!this.box && this.box.source === 'GRO';
 
             const nRes = this._lookup.residueCount;
             const parts = [plural(atoms.length, 'atom')];
             if (nRes > 1 && nRes < atoms.length) parts.push(plural(nRes, 'residue'));
             if (chains.size > 1) parts.push(plural(chains.size, 'chain'));
             this.el.structureMeta.textContent = parts.join(', ');
-            const dims = `Extent ${(xMax - xMin).toFixed(1)} × ${(yMax - yMin).toFixed(1)} × ${(zMax - zMin).toFixed(1)} Å`;
+            let dims = `Extent ${(xMax - xMin).toFixed(1)} × ${(yMax - yMin).toFixed(1)} × ${(zMax - zMin).toFixed(1)} Å`;
+            if (this.box) dims = `Box ${this.boxDescription()}`;
             this.el.structureDims.textContent = dims;
 
             const sortedRes = Array.from(residues).sort();
@@ -1602,11 +1669,13 @@
 
             this.state.hiddenSpecies.clear();
             this.renderSpecies();
+            this.syncBoxControls();
             this.hideAtomInfo();
 
             this.applyStyles();
             this.viewer.setBackgroundColor(this.getBackgroundColor());
             this.setupClickInspect();
+            if (this.T.box) this.drawBox();
             if (this.T.axis) this.drawAxisIndicator();
             this.viewer.setView([0, 0, 0, 0, 0, 0, 0, 1]);
             this.viewer.zoomTo();
@@ -2481,6 +2550,224 @@
         }
 
         // ───────────────────────────────────────────────────────────
+        // SIMULATION BOX
+        // ───────────────────────────────────────────────────────────
+        /**
+         * The box the file carries, if any: every frame's box from a GRO file,
+         * the CRYST1 cell of a PDB file (not the 1 Å placeholder NMR entries
+         * carry), or the unit cell 3Dmol read from a CIF, VASP or extended XYZ.
+         */
+        readBox() {
+            const text = typeof this.currentModelData === 'string' ? this.currentModelData : '';
+            const ok = vecs => vecs && vecs.every(v => Math.hypot(v.x, v.y, v.z) > 1.5 && [v.x, v.y, v.z].every(Number.isFinite));
+            try {
+                if (this.currentExtension === 'gro') {
+                    const frames = groBoxes(text).map(v => (ok(v) ? v : null));
+                    return frames.some(Boolean) ? { source: 'GRO', unit: 'nm', frames } : null;
+                }
+                if (this.currentExtension === 'pdb') {
+                    const m = text.match(/^CRYST1\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/m);
+                    if (!m) return null;
+                    const [a, b, c, al, be, ga] = m.slice(1).map(parseFloat);
+                    if (![al, be, ga].every(x => x > 0 && x < 180)) return null;
+                    const vecs = cellVectors(a, b, c, al, be, ga);
+                    return ok(vecs) ? { source: 'CRYST1', unit: 'Å', frames: [vecs] } : null;
+                }
+                if (this.currentExtension === 'cube') return null;   // a grid, not a cell
+                const cryst = this.viewer.getModel()?.getCrystData?.();
+                if (!cryst) return null;
+                let vecs = null;
+                if (cryst.a && cryst.b && cryst.c) {
+                    vecs = cellVectors(cryst.a, cryst.b, cryst.c, cryst.alpha || 90, cryst.beta || 90, cryst.gamma || 90);
+                } else if (cryst.matrix && cryst.matrix.elements) {
+                    const m = cryst.matrix.elements;
+                    vecs = [{ x: m[0], y: m[1], z: m[2] }, { x: m[3], y: m[4], z: m[5] }, { x: m[6], y: m[7], z: m[8] }];
+                }
+                return ok(vecs) ? { source: 'cell', unit: 'Å', frames: [vecs] } : null;
+            } catch (err) {
+                console.warn('Could not read the box:', err);
+                return null;
+            }
+        }
+
+        frameBox() {
+            if (!this.box) return null;
+            const f = this.box.frames;
+            return f[Math.min(this._frame || 0, f.length - 1)] || f.find(Boolean);
+        }
+
+        boxLengths(vecs = this.frameBox()) {
+            const nm = this.box.unit === 'nm';
+            return vecs.map(v => {
+                const len = Math.hypot(v.x, v.y, v.z);
+                return nm ? (len / 10).toFixed(2) : len.toFixed(1);
+            });
+        }
+
+        boxDescription() {
+            const vecs = this.frameBox();
+            if (!vecs) return '';
+            const ang = (p, q) => Math.acos(clamp((p.x * q.x + p.y * q.y + p.z * q.z) /
+                (Math.hypot(p.x, p.y, p.z) * Math.hypot(q.x, q.y, q.z)), -1, 1)) * 180 / Math.PI;
+            const tric = [ang(vecs[1], vecs[2]), ang(vecs[0], vecs[2]), ang(vecs[0], vecs[1])].some(x => Math.abs(x - 90) > 0.5);
+            return `${this.boxLengths(vecs).join(' × ')} ${this.box.unit}${tric ? ', triclinic' : ''}`;
+        }
+
+        boxColor() {
+            if (this.boxStyle.color) return this.boxStyle.color;
+            if (this.el.bgSelect.value === 'grey') return '#f8fafc';
+            return this.darkBackground() ? '#92b8dd' : '#1f5c96';
+        }
+
+        boxCorners(vecs = this.frameBox()) {
+            if (!vecs) return null;
+            const [a, b, c] = vecs;
+            const add = (p, q) => ({ x: p.x + q.x, y: p.y + q.y, z: p.z + q.z });
+            return [{ x: 0, y: 0, z: 0 }, a, b, c, add(a, b), add(a, c), add(b, c), add(add(a, b), c)];
+        }
+
+        /**
+         * The box is drawn in screen space on a 2D canvas over the WebGL one,
+         * re-projected on every redraw: lines of a constant width with a halo
+         * in the background colour, so they read over atoms and on any
+         * background, where lit 3D cylinders go black end-on. Edges nearer
+         * the camera are drawn heavier, which tells front from back.
+         *
+         * In the scene the box is only eight hidden points, so "fit" frames it.
+         */
+        drawBox() {
+            this.removeBox();
+            if (!this.viewer) return;
+            const P = this.T.box && this.boxCorners();
+            if (P) {
+                for (const p of P) this._shapes.box.push(this.viewer.addSphere({ center: p, radius: 0.01, hidden: true }));
+            }
+            this.viewer.render();
+            this.paintBoxOverlay();
+        }
+
+        removeBox() {
+            for (const s of this._shapes.box) {
+                try { this.viewer.removeShape(s); } catch (e) { /* already gone */ }
+            }
+            this._shapes.box = [];
+            this.paintBoxOverlay();
+        }
+
+        /** Repaint the on-screen overlay, sized to the stage. */
+        paintBoxOverlay() {
+            const cv = this.el.boxOverlay;
+            if (!cv) return;
+            const host = this.el.viewerCanvas;
+            const w = host.clientWidth, h = host.clientHeight, dpr = window.devicePixelRatio || 1;
+            if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+                cv.width = Math.round(w * dpr);
+                cv.height = Math.round(h * dpr);
+            }
+            const ctx = cv.getContext('2d');
+            ctx.clearRect(0, 0, cv.width, cv.height);
+            if (!this.viewer || !this.T.box || !this.box) return;
+            const gl = host.querySelector('canvas');
+            if (!gl) return;
+            const r = gl.getBoundingClientRect();
+            this.paintBox(ctx, r, dpr);
+        }
+
+        /**
+         * Draw the box onto a 2D context whose pixels cover the WebGL canvas
+         * at `rect` (its client rectangle now) with `pr` pixels per CSS pixel.
+         */
+        paintBox(ctx, rect, pr) {
+            const P = this.boxCorners();
+            if (!P) return;
+            const ox = rect.left + window.pageXOffset, oy = rect.top + window.pageYOffset;
+            const S = this.viewer.modelToScreen(P).map(s => ({ x: (s.x - ox) * pr, y: (s.y - oy) * pr }));
+            if (!S.every(s => Number.isFinite(s.x) && Number.isFinite(s.y))) return;
+
+            // Depth of each corner towards the camera, from the model's world
+            // matrix; without it every edge is drawn the same.
+            let D = null;
+            try {
+                const m = this.viewer.modelGroup.matrixWorld.elements;
+                D = P.map(p => m[2] * p.x + m[6] * p.y + m[10] * p.z + m[14]);
+            } catch (err) { D = null; }
+            const dMin = D ? Math.min(...D) : 0, dMax = D ? Math.max(...D) : 1;
+            const near = (i, j) => (D && dMax - dMin > 1e-6 ? ((D[i] + D[j]) / 2 - dMin) / (dMax - dMin) : 1);
+
+            const E = [[0, 1], [0, 2], [0, 3], [1, 4], [1, 5], [2, 4], [2, 6], [3, 5], [3, 6], [4, 7], [5, 7], [6, 7]];
+            const base = ({ thin: 1.5, regular: 2.5, bold: 4 }[this.boxStyle.weight] || 2.5) * pr;
+            const dark = this.darkBackground() && this.el.bgSelect.value !== 'grey';
+            const halo = this.el.bgSelect.value === 'grey' ? 'rgba(15, 23, 42, 0.55)'
+                : dark ? 'rgba(2, 6, 23, 0.8)' : 'rgba(255, 255, 255, 0.85)';
+            const color = this.boxColor();
+            ctx.save();
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            // Far edges first, so near ones are drawn over them.
+            const order = E.map(([i, j]) => ({ i, j, t: near(i, j) })).sort((p, q) => p.t - q.t);
+            for (const { i, j, t } of order) {
+                const lw = base * (0.6 + 0.4 * t);
+                ctx.globalAlpha = 0.55 + 0.45 * t;
+                ctx.beginPath();
+                ctx.moveTo(S[i].x, S[i].y);
+                ctx.lineTo(S[j].x, S[j].y);
+                ctx.strokeStyle = halo;
+                ctx.lineWidth = lw + 2.5 * pr;
+                ctx.stroke();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = lw;
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+
+            if (this.T.boxLabels) {
+                const lens = this.boxLengths();
+                ctx.font = `600 ${12 * pr}px Inter, system-ui, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ['a', 'b', 'c'].forEach((n, k) => {
+                    const p = S[0], q = S[k + 1];
+                    const x = (p.x + q.x) / 2, y = (p.y + q.y) / 2;
+                    const text = `${n} = ${lens[k]} ${this.box.unit}`;
+                    const tw = ctx.measureText(text).width, padX = 6 * pr, bh = 20 * pr;
+                    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+                    ctx.beginPath();
+                    const rx = x - tw / 2 - padX, ry = y - bh / 2, rw = tw + 2 * padX, rad = 4 * pr;
+                    ctx.moveTo(rx + rad, ry);
+                    ctx.arcTo(rx + rw, ry, rx + rw, ry + bh, rad);
+                    ctx.arcTo(rx + rw, ry + bh, rx, ry + bh, rad);
+                    ctx.arcTo(rx, ry + bh, rx, ry, rad);
+                    ctx.arcTo(rx, ry, rx + rw, ry, rad);
+                    ctx.fill();
+                    ctx.fillStyle = '#f1f5f9';
+                    ctx.fillText(text, x, y + 0.5 * pr);
+                });
+            }
+            ctx.restore();
+        }
+
+        /** B, the cube on the toolbar and the switch all land here. */
+        toggleBox() {
+            if (!this.viewer) return;
+            if (!this.box) {
+                this.toast('This file carries no box. A GRO file\'s last line, or a CRYST1 record in a PDB file, defines one.');
+                return;
+            }
+            this.el.toggleBox?.click();
+        }
+
+        syncBoxControls() {
+            const e = this.el, has = !!this.box;
+            if (e.boxNone) e.boxNone.hidden = has;
+            e.boxControls?.classList.toggle('hidden', !has);
+            e.toggleBox?.setAttribute('aria-checked', String(this.T.box));
+            e.toggleBoxLabels?.setAttribute('aria-checked', String(this.T.boxLabels));
+            if (e.boxWeight) e.boxWeight.value = this.boxStyle.weight;
+            if (e.boxColor) e.boxColor.value = this.boxColor();
+            if (e.boxColorAuto) e.boxColorAuto.disabled = !this.boxStyle.color;
+        }
+
+        // ───────────────────────────────────────────────────────────
         // FIND
         //
         // Plain words first: a residue or species name (SOL, NA, ALA), a name
@@ -3113,7 +3400,14 @@
                 out = document.createElement('canvas');
                 out.width = canvas.width;
                 out.height = canvas.height;
-                out.getContext('2d').drawImage(canvas, 0, 0);
+                const octx = out.getContext('2d');
+                octx.drawImage(canvas, 0, 0);
+                // The box lives on its own 2D layer; draw it into the file at
+                // the export's own pixel density.
+                if (this.T.box && this.box) {
+                    const r = canvas.getBoundingClientRect();
+                    this.paintBox(octx, r, canvas.width / Math.max(1, r.width));
+                }
             } finally {
                 // Restore in a finally block: leaving the viewer parked
                 // off-screen because an export failed would take the tool down
@@ -3194,7 +3488,11 @@
         setFrame(f) {
             if (!this.viewer) return;
             this.viewer.setFrame(f);
-            this.viewer.render();
+            this._frame = f;
+            // A GRO trajectory from a constant-pressure run carries a box per
+            // frame; the drawn box follows it.
+            if (this.T.box && this.box && this.box.frames.length > 1) this.drawBox();
+            else this.viewer.render();
             this.el.trajFrame.textContent = `${f + 1}/${parseInt(this.el.trajSlider.max, 10) + 1}`;
         }
 
@@ -3265,6 +3563,8 @@
             this._speciesByKey = new Map();
             this._spKey = [];
             this._lookup = null;
+            this.box = null;
+            this._frame = 0;
             this._fitDist = null;
             this._findLabels = [];
             this.state.trajPlaying = false;
@@ -3276,7 +3576,7 @@
             this.surfaceID = null;
             this.currentModelData = null;
             this.currentExtension = null;
-            this._shapes = { axis: [], iso: [], measure: [], find: [] };
+            this._shapes = { axis: [], iso: [], measure: [], box: [], find: [] };
             this._measureLabels = [];
             this.state.measurements = [];
             this._labelJob.cancel();
@@ -3877,6 +4177,7 @@
             if (!this.viewer) return;
             this.viewer.resize();
             this.viewer.render();
+            this.paintBoxOverlay();
             this.updateExportNote();
         }
 
@@ -3889,8 +4190,14 @@
             press(e.tbLabels, this.T.atomLabels);
             press(e.navSpin, this.T.spin);
             if (e.spinRow) e.spinRow.hidden = !this.T.spin;
+            press(e.tbBox, this.T.box && !!this.box);
+            if (e.tbBox) {
+                e.tbBox.setAttribute('aria-disabled', String(!this.box));
+                e.tbBox.title = this.box ? 'Simulation box (B)' : 'This file carries no box';
+            }
             e.navZoomSel?.setAttribute('aria-disabled', String(!this.focusSelection()));
             this.syncSpeciesState();
+            this.syncBoxControls();
             const fs = !!document.fullscreenElement;
             press(e.tbFullscreen, fs);
             if (e.tbFullscreen) {
@@ -4035,6 +4342,7 @@
             e.tbScreenshot?.addEventListener('click', () => this.exportPNG());
             e.tbFullscreen?.addEventListener('click', () => this.toggleFullscreen());
             e.tbHelp?.addEventListener('click', () => this.openShortcuts());
+            e.tbBox?.addEventListener('click', () => this.toggleBox());
             e.tbWater?.addEventListener('click', () => this.setKindHidden('water', !this.kindHidden('water')));
             document.addEventListener('fullscreenchange', () => this.syncToolbar());
 
@@ -4063,6 +4371,22 @@
             e.viewHintClose?.addEventListener('click', () => {
                 this.dismissHint();
                 e.viewerCanvas?.focus({ preventScroll: true });
+            });
+
+            // Box appearance.
+            e.boxWeight?.addEventListener('change', () => {
+                this.boxStyle.weight = e.boxWeight.value;
+                if (this.T.box) this.drawBox();
+            });
+            e.boxColor?.addEventListener('input', rafThrottle(() => {
+                this.boxStyle.color = e.boxColor.value;
+                this.syncBoxControls();
+                if (this.T.box) this.drawBox();
+            }));
+            e.boxColorAuto?.addEventListener('click', () => {
+                this.boxStyle.color = null;
+                this.syncBoxControls();
+                if (this.T.box) this.drawBox();
             });
 
             this.syncToolbar();
@@ -4447,6 +4771,12 @@
             });
             this.setupToggle(e.toggleClickCentre, 'clickCentre');
             this.setupToggle(e.toggleOutline, 'outline', () => this.applyOutline());
+            this.setupToggle(e.toggleBox, 'box', on => {
+                if (!this.box) { this.T.box = false; this.syncToolbar(); return; }
+                this.drawBox();
+                this.announce(on ? 'Box shown.' : 'Box hidden.');
+            });
+            this.setupToggle(e.toggleBoxLabels, 'boxLabels', () => { if (this.T.box) this.drawBox(); });
 
             // ---- Camera ----
             document.querySelectorAll('.axis-btn').forEach(b => b.addEventListener('click', () => {
@@ -4569,6 +4899,7 @@
                     h: () => e.toggleHydrogens?.click(),
                     s: () => e.toggleSpin?.click(),
                     l: () => e.toggleAtomLabels?.click(),
+                    b: () => this.toggleBox(),
                     w: () => this.setKindHidden('water', !this.kindHidden('water')),
                     i: () => this.setKindHidden('ion', !this.kindHidden('ion')),
                     n: () => this.stepFind(ev.shiftKey ? -1 : 1),
