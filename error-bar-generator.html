@@ -67,7 +67,7 @@
     <script src="js/dependencies/papaparse.min.js"></script>
 
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "HowTo", "name": "How to compute error bars", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Arrange your data", "text": "One group per row: a text label in the first column, then its replicate measurements across the remaining columns. Or click one of the example chips to try sample data."}, {"@type": "HowToStep", "position": 2, "name": "Set options", "text": "Leave First row is a header on Auto-detect (it detects whether the top row names the columns), then choose a confidence level (90/95/99%) and number of decimals."}, {"@type": "HowToStep", "position": 3, "name": "Calculate and plot", "text": "Click Calculate Metrics for the stats table (mean, SD, SEM, median, IQR, CV, t*, CI) and the error-bar plot. Toggle bars between SD, SEM and CI; non-overlapping CIs are flagged as a significance cue."}, {"@type": "HowToStep", "position": 4, "name": "Export", "text": "Download the plot as PNG or SVG, or the full table with CI bounds as CSV."}]}
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to compute error bars", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Arrange your data", "text": "One group per row: a text label in the first column, then its replicate measurements across the remaining columns. Or click one of the example chips to try sample data."}, {"@type": "HowToStep", "position": 2, "name": "Set options", "text": "Leave First row is a header on Auto-detect (it detects whether the top row names the columns), then choose a confidence level (90/95/99%) and number of decimals."}, {"@type": "HowToStep", "position": 3, "name": "Calculate and plot", "text": "Press Calculate statistics for the stats table (mean, SD, SEM, median, IQR, CV, t*, CI) and the error-bar plot. Toggle bars between SD, SEM and CI; non-overlapping CIs are flagged as a significance cue."}, {"@type": "HowToStep", "position": 4, "name": "Export", "text": "Download the plot as PNG or SVG, or the full table with CI bounds as CSV."}]}
 </script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my data uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Parsing and all statistics run locally in your browser via PapaParse and jStat."}}, {"@type": "Question", "name": "Which standard deviation is used?", "acceptedAnswer": {"@type": "Answer", "text": "The sample standard deviation (Bessel's correction, dividing by n&minus;1), the usual choice for summarising experimental replicates."}}, {"@type": "Question", "name": "How is the confidence interval computed?", "acceptedAnswer": {"@type": "Answer", "text": "As mean &plusmn; t* &times; SEM, where t* is the two-tailed Student-t critical value for your chosen level with n&minus;1 degrees of freedom."}}, {"@type": "Question", "name": "What data layout is expected?", "acceptedAnswer": {"@type": "Answer", "text": "One group per row: a label in the first column followed by that group's replicate values. Wide (several replicate columns) and long (a single value column) layouts both work."}}, {"@type": "Question", "name": "Why is the CI blank or zero for a group?", "acceptedAnswer": {"@type": "Answer", "text": "A group needs at least two values to estimate variability; single-measurement groups report zero SD/SEM/CI."}}]}
@@ -133,28 +133,44 @@
 
     <main id="main" class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
         
-        <div class="mb-4">
-            <h1 class="text-3xl font-bold mb-2">Error Bar Generator</h1>
-            <p class="text-slate-500 dark:text-slate-400">Paste raw experimental replicates or upload a CSV to instantly compute the Mean, SD, SEM, median, IQR and Confidence Interval per group, then render a publication-ready error-bar plot with SD/SEM/CI toggle and export it as PNG or SVG.</p>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">100% client-side</p>
-        </div>
+        <header class="stk-pagehead">
+            <div>
+                <h1 class="stk-pagehead-title">Error Bar Generator</h1>
+                <p class="stk-pagehead-lede">Summarise each group of replicates (mean, SD, SEM, median, IQR and a confidence interval) and draw a bar chart with the error bars you choose.</p>
+                <ul class="stk-pagehead-meta">
+                    <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
+                    <li><a href="#method"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Method and equations</a></li>
+                </ul>
+            </div>
+        </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
+
             <div class="lg:col-span-4 flex flex-col gap-6">
-                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col flex-grow">
-                    
-                    <div class="flex justify-between items-end mb-4">
-                        <h2 class="text-lg font-semibold">1. Input Replicate Data</h2>
-                        <label class="cursor-pointer bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 px-3 py-1.5 rounded text-sm font-medium hover:bg-brand-100 dark:hover:bg-brand-900/50 transition-colors">
-                            <i class="fa-solid fa-upload mr-1"></i> Upload CSV
+                <section class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col flex-grow" data-stk-step="1" data-stk-done="filled:#dataInput" aria-labelledby="eb-step1">
+
+                    <div class="flex justify-between items-center gap-3 mb-4">
+                        <h2 id="eb-step1" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1: </span>Add your replicates</h2>
+                        <label class="stk-btn stk-btn-sm stk-btn-soft cursor-pointer">
+                            <i class="fa-solid fa-upload" aria-hidden="true"></i> Upload CSV
                             <input type="file" id="fileInput" accept=".csv,.txt" class="hidden">
                         </label>
                     </div>
-                    
-                    <textarea id="dataInput" class="w-full flex-grow min-h-[300px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-xs font-mono focus:ring-2 focus:ring-brand-500 outline-none resize-y whitespace-pre" placeholder="Label&#9;Rep1&#9;Rep2&#9;Rep3&#10;Ctrl&#9;4.5&#9;4.2&#9;4.8&#10;Trt1&#9;6.1&#9;6.5&#9;6.2&#10;Trt2&#9;8.3&#9;8.1&#9;8.9"></textarea>
-                    
-                    <div class="mt-4">
+
+                    <label for="dataInput" class="sr-only">Replicate data, one group per row</label>
+                    <textarea id="dataInput" class="w-full flex-grow min-h-[260px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-xs font-mono focus:ring-2 focus:ring-brand-500 outline-none resize-y whitespace-pre" placeholder="One group per row&#10;&#10;Label&#9;Rep1&#9;Rep2&#9;Rep3&#10;Ctrl&#9;4.5&#9;4.2&#9;4.8&#10;Trt1&#9;6.1&#9;6.5&#9;6.2&#10;Trt2&#9;8.3&#9;8.1&#9;8.9"></textarea>
+
+                    <div class="eb-samples">
+                        <span class="eb-samples-label">Try an example:</span>
+                        <button type="button" class="eb-chip" data-sample="basic" title="3 groups, clearly separated, so the significance cue fires.">Basic</button>
+                        <button type="button" class="eb-chip" data-sample="overlap" title="Groups close and variable: the CIs overlap, so no significance.">Overlapping CIs</button>
+                        <button type="button" class="eb-chip" data-sample="many" title="6 groups (a pH series), to show the palette cycling.">Many groups</button>
+                        <button type="button" class="eb-chip" data-sample="ragged" title="A different number of replicates in each group.">Ragged n</button>
+                        <button type="button" class="eb-chip" data-sample="negative" title="Negative means and a group crossing zero.">Negatives</button>
+                        <button type="button" class="eb-chip" data-sample="messy" title="Blank lines and a stray text row, to show robust parsing.">Messy data</button>
+                    </div>
+
+                    <div class="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800">
                         <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 mb-4">
                             <label for="hasHeaders">First row is a header:</label>
                             <select id="hasHeaders" class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
@@ -181,29 +197,18 @@
                                 </select>
                             </label>
                         </div>
-                        <div class="eb-samples">
-                            <span class="eb-samples-label"><i class="fa-solid fa-flask-vial"></i> Try an example:</span>
-                            <div class="eb-chips">
-                                <button class="eb-chip" data-sample="basic" title="3 groups, clearly separated, so the significance cue fires.">Basic</button>
-                                <button class="eb-chip" data-sample="overlap" title="Groups close &amp; variable, CIs overlap, no significance.">Overlapping CIs</button>
-                                <button class="eb-chip" data-sample="many" title="6 groups (pH series), to show palette cycling.">Many groups</button>
-                                <button class="eb-chip" data-sample="ragged" title="Different replicate counts per group.">Ragged n</button>
-                                <button class="eb-chip" data-sample="negative" title="Negative means and a group crossing zero.">Negatives</button>
-                                <button class="eb-chip" data-sample="messy" title="Blank lines and a stray text row, to show robust parsing.">Messy data</button>
-                            </div>
-                        </div>
-                        <button id="calculateBtn" class="bg-brand-600 hover:bg-brand-700 text-white w-full py-3 rounded-xl font-bold transition-all duration-150 shadow-sm hover:shadow-md active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-calculator text-sm"></i> Calculate Metrics
+                        <button type="button" id="calculateBtn" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white w-full py-3 rounded-xl font-bold transition-colors duration-150 shadow-sm hover:shadow-md active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-calculator text-sm" aria-hidden="true"></i> Calculate statistics
                         </button>
                     </div>
-                </div>
+                </section>
 
-                <div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800/50 rounded-xl p-5 text-sm text-brand-800 dark:text-brand-300">
-                    <strong class="block mb-2"><i class="fa-solid fa-graduation-cap mr-1"></i> Which error bar to use?</strong>
+                <div class="bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800/50 rounded-xl p-5 text-sm text-brand-800 dark:text-brand-200">
+                    <strong class="block mb-2"><i class="fa-solid fa-graduation-cap mr-1" aria-hidden="true"></i> Which error bar to use?</strong>
                     <ul class="list-disc pl-4 space-y-1">
-                        <li><strong>SD:</strong> Shows the variability/scatter of your raw data.</li>
-                        <li><strong>SEM:</strong> Shows the precision of your mean estimate.</li>
-                        <li><strong>95% CI:</strong> Shows the range where the true population mean lies with 95% certainty. Best for visual significance testing.</li>
+                        <li><strong>SD:</strong> how widely the replicates scatter.</li>
+                        <li><strong>SEM:</strong> how precisely the mean is estimated.</li>
+                        <li><strong>95% CI:</strong> a range built so that 95% of such intervals contain the true mean. The best of the three for comparing groups by eye.</li>
                     </ul>
                 </div>
             </div>
@@ -211,23 +216,23 @@
             <div class="lg:col-span-8 flex flex-col h-full gap-6">
 
                 <!-- PLOT PANEL -->
-                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
-                    <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex flex-wrap justify-between items-center gap-3">
-                        <h2 class="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Error Bar Plot</h2>
+                <section class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden" data-stk-step="2" data-stk-done="visible:#plotResult" aria-labelledby="eb-step2">
+                    <div class="border-b border-slate-200 dark:border-slate-800 px-5 py-4 flex flex-wrap justify-between items-center gap-3">
+                        <h2 id="eb-step2" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Choose the error bars</h2>
                         <div class="flex items-center gap-2 flex-wrap">
                             <div class="stk-seg" role="group" aria-label="Error bars show">
                                 <button type="button" data-errmode="sd" aria-pressed="false" title="Standard deviation">SD</button>
                                 <button type="button" data-errmode="sem" aria-pressed="false" title="Standard error of the mean">SEM</button>
                                 <button type="button" data-errmode="ci" aria-pressed="true" title="Confidence interval">CI</button>
                             </div>
-                            <button id="exportPngBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-colors shadow-sm"><i class="fa-solid fa-image mr-1"></i> PNG</button>
-                            <button id="exportSvgBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-colors shadow-sm"><i class="fa-solid fa-bezier-curve mr-1"></i> SVG</button>
+                            <button type="button" id="exportPngBtn" class="stk-btn stk-btn-sm" disabled title="Download the plot as a PNG image"><i class="fa-solid fa-image" aria-hidden="true"></i> PNG</button>
+                            <button type="button" id="exportSvgBtn" class="stk-btn stk-btn-sm" disabled title="Download the plot as an SVG file"><i class="fa-solid fa-bezier-curve" aria-hidden="true"></i> SVG</button>
                         </div>
                     </div>
                     <div class="p-4">
                         <details class="plot-customize group mb-4">
                             <summary class="cursor-pointer list-none flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                                <span><i class="fa-solid fa-sliders mr-2 text-brand-500"></i> Customize plot</span>
+                                <span><i class="fa-solid fa-sliders mr-2 text-brand-600 dark:text-brand-400" aria-hidden="true"></i> Customize plot</span>
                                 <i class="fa-solid fa-chevron-down text-slate-500 dark:text-slate-400 group-open:rotate-180 transition-transform"></i>
                             </summary>
                             <div class="cz-grid">
@@ -281,22 +286,26 @@
                                 </div>
                             </div>
                         </details>
-                        <div id="plotEmpty" class="py-20 text-center text-slate-500 dark:text-slate-400 text-sm">
-                            <i class="fa-solid fa-chart-column text-3xl mb-3 opacity-40"></i>
-                            <p>Calculate metrics to render the error-bar plot.</p>
+                        <div id="plotEmpty" class="eb-empty">
+                            <i class="fa-solid fa-chart-column" aria-hidden="true"></i>
+                            <p class="eb-empty-title">The bar chart appears here</p>
+                            <p class="eb-empty-text">One bar per group, with SD, SEM or confidence-interval error bars. Add replicates in step 1 and press Calculate statistics, or try an example.</p>
+                            <button type="button" class="stk-btn stk-btn-sm" data-sample="basic"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Try an example</button>
                         </div>
-                        <div id="plotHost" class="w-full"></div>
-                        <div id="sigNote" class="sig-note" style="display:none;"></div>
+                        <div id="plotResult" class="hidden" data-stk-reveal>
+                            <div id="plotHost" class="w-full"></div>
+                            <div id="sigNote" class="sig-note" style="display:none;"></div>
+                        </div>
                     </div>
-                </div>
+                </section>
 
                 <!-- TABLE PANEL -->
-                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col flex-grow overflow-hidden">
-                    
-                    <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex justify-between items-center">
-                        <h2 class="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Computed Statistics</h2>
-                        <button id="exportCsvBtn" class="px-4 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-colors shadow-sm disabled:opacity-50" disabled>
-                            <i class="fa-solid fa-download mr-1"></i> Export CSV
+                <section class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col flex-grow overflow-hidden" data-stk-step="3" data-stk-done="visible:#plotResult" aria-labelledby="eb-step3">
+
+                    <div class="border-b border-slate-200 dark:border-slate-800 px-5 py-4 flex justify-between items-center gap-3">
+                        <h2 id="eb-step3" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 3: </span>Statistics per group</h2>
+                        <button type="button" id="exportCsvBtn" class="stk-btn stk-btn-sm" disabled>
+                            <i class="fa-solid fa-download" aria-hidden="true"></i> Export CSV
                         </button>
                     </div>
 
@@ -320,7 +329,7 @@
                             <tbody id="resultsBody" class="divide-y divide-slate-100 dark:divide-slate-800/50">
                                 <tr>
                                     <td colspan="11" class="px-4 py-16 text-center text-slate-500 dark:text-slate-400">
-                                        Paste data or upload a CSV to view metrics.
+                                        N, mean, SD, SEM, median, IQR, CV and the confidence interval for each group appear here.
                                     </td>
                                 </tr>
                             </tbody>
@@ -329,7 +338,8 @@
 
                     <details class="group bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 transition-all mt-auto">
                         <summary class="px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer list-none flex justify-between items-center">
-                            <span><i class="fa-solid fa-square-root-variable mr-2 text-brand-500"></i> Mathematical Theory</span>
+                            <span><i class="fa-solid fa-square-root-variable mr-2 text-brand-600 dark:text-brand-400" aria-hidden="true"></i> Formulas used</span>
+
                             <i class="fa-solid fa-chevron-down text-slate-500 dark:text-slate-400 group-open:rotate-180 transition-transform"></i>
                         </summary>
                         <div class="px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400">
@@ -338,7 +348,7 @@
                         </div>
                     </details>
 
-                </div>
+                </section>
             </div>
 
         </div>
@@ -348,7 +358,7 @@
             <span class="stk-chip"><i class="fa-solid fa-chart-column"></i> How-To Guide</span>
             <h2 class="stk-h2">How to compute error bars</h2>
             <p class="stk-lead">Paste replicate measurements (or upload a CSV) with one group per row, and get the mean, SD, SEM, median, IQR and a Student-t confidence interval per group, plus a publication-ready error-bar plot.</p>
-            <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Arrange your data</h3><p>One group per row: a text label in the first column, then its replicate measurements across the remaining columns. Or click an example chip (Basic, Overlapping CIs, Many groups&hellip;) to load sample data.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Set options</h3><p>Leave <em>First row is a header</em> on <strong>Auto-detect</strong> (it figures out whether your top row names the columns), then choose a confidence level (90/95/99%) and the number of decimals.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Calculate &amp; plot</h3><p>Click <strong>Calculate Metrics</strong> for the full stats table and the error-bar plot. Toggle the bars between <strong>SD</strong>, <strong>SEM</strong> and <strong>CI</strong>; non-overlapping CIs are flagged as a significance cue.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Export</h3><p>Download the plot as <strong>PNG</strong> or <strong>SVG</strong> for papers and slides, or the full table (with CI bounds) as <strong>CSV</strong>.</p></div></div></div>
+            <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Arrange your data</h3><p>One group per row: a text label in the first column, then its replicate measurements across the remaining columns. Or pick one of the examples under the box (Basic, Overlapping CIs, Many groups and more).</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Set options</h3><p>Leave <em>First row is a header</em> on <strong>Auto-detect</strong> (it figures out whether your top row names the columns), then choose a confidence level (90/95/99%) and the number of decimals.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Calculate &amp; plot</h3><p>Press <strong>Calculate statistics</strong> for the full stats table and the error-bar plot. Toggle the bars between <strong>SD</strong>, <strong>SEM</strong> and <strong>CI</strong>; non-overlapping CIs are flagged as a significance cue.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Export</h3><p>Download the plot as <strong>PNG</strong> or <strong>SVG</strong> for papers and slides, or the full table (with CI bounds) as <strong>CSV</strong>.</p></div></div></div>
         </div>
     </section>
 

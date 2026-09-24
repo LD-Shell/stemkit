@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const plotHost = document.getElementById('plotHost');
   const plotEmpty = document.getElementById('plotEmpty');
+  const plotResult = document.getElementById('plotResult');
   const errModeTabs = document.querySelectorAll('[data-errmode]');
   const exportPngBtn = document.getElementById('exportPngBtn');
   const exportSvgBtn = document.getElementById('exportSvgBtn');
@@ -53,29 +54,46 @@ document.addEventListener('DOMContentLoaded', () => {
     messy: 'Label,Rep1,Rep2,Rep3\n\nControl,4.5,4.2,4.8\n\nTreatment,6.1,6.5,6.2\n\nNotes: run on 2026-03-01,,,'
   };
 
+  // The example chips under the box, and the one in the plot's empty state.
+  // The chip for the loaded example stays marked until the data is edited.
+  const chips = document.querySelectorAll('.eb-chip');
+  const markChip = (key) => chips.forEach(c =>
+    c.setAttribute('aria-pressed', String(c.getAttribute('data-sample') === key)));
+  markChip(null);
+
   document.querySelectorAll('[data-sample]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const s = SAMPLES[btn.getAttribute('data-sample')];
+      const key = btn.getAttribute('data-sample');
+      const s = SAMPLES[key];
       if (!s) return;
       dataInput.value = s;
-      const wrap = document.querySelector('.eb-samples');
-      if (wrap) wrap.classList.remove('hint');
+      markChip(key);
       calculate();
     });
   });
 
-  // Pulse the sample chips once on an empty input, then stop when the user
-  // begins entering their own data.
-  const ebSamplesWrap = document.querySelector('.eb-samples');
-  if (ebSamplesWrap && dataInput && !dataInput.value.trim()) {
-    ebSamplesWrap.classList.add('hint');
-    dataInput.addEventListener('input',
-      () => ebSamplesWrap.classList.remove('hint'), { once: true });
+  // Editing the data unmarks the example; emptying the box clears the
+  // results, so no statistics are shown for data that is no longer there.
+  dataInput.addEventListener('input', () => {
+    markChip(null);
+    if (!dataInput.value.trim()) clearResults();
+  });
+
+  /** Back to the state before the first calculation. */
+  function clearResults(message) {
+    computedResults = [];
+    resultsBody.innerHTML =
+      '<tr><td colspan="11" class="px-4 py-16 text-center text-slate-500 dark:text-slate-400">' +
+      (message || 'N, mean, SD, SEM, median, IQR, CV and the confidence interval for each group appear here.') +
+      '</td></tr>';
+    exportCsvBtn.disabled = true;
+    drawPlot();
+    if (sigNote) sigNote.style.display = 'none';
   }
 
   function calculate() {
     const rawText = dataInput.value.trim();
-    if (!rawText) return showToast('No data detected.', 'error');
+    if (!rawText) return showToast('Paste or upload some data first.', 'error');
 
     // Parsed without header mode so the core can decide for itself whether the
     // first row is a header; the control acts as an explicit override.
@@ -98,14 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
     computedResults = result.results;
 
     if (computedResults.length === 0) {
-      resultsBody.innerHTML =
-        '<tr><td colspan="11" class="px-4 py-16 text-center text-slate-500 dark:text-slate-400">' +
-        'No numeric groups found. Put a text label in the first column and ' +
-        'numeric replicates in the rest, or toggle the header setting.</td></tr>';
-      exportCsvBtn.disabled = true;
-      if (plotEmpty) plotEmpty.style.display = '';
-      if (plotHost) plotHost.innerHTML = '';
-      if (sigNote) sigNote.style.display = 'none';
+      clearResults('No numeric groups found. Put a text label in the first column and ' +
+        'numeric replicates in the rest, or change the header setting.');
       return;
     }
 
@@ -116,8 +128,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let msg = `Computed statistics for ${computedResults.length} ` +
               `group${computedResults.length > 1 ? 's' : ''}.`;
     if (result.skipped > 0) {
-      msg += ` (${result.skipped} row${result.skipped > 1 ? 's' : ''} skipped | ` +
-             `no label or no numbers.)`;
+      msg += ` Skipped ${result.skipped} row${result.skipped > 1 ? 's' : ''} ` +
+             `with no label or no numbers.`;
     }
     showToast(msg, 'success');
     exportCsvBtn.disabled = false;
@@ -129,8 +141,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => { dataInput.value = ev.target.result; calculate(); };
+    reader.onload = (ev) => { dataInput.value = ev.target.result; markChip(null); calculate(); };
     reader.readAsText(file);
+    fileInput.value = '';
   });
 
   if (ciLevelSelect) ciLevelSelect.addEventListener('change', () => {
@@ -263,12 +276,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function drawPlot() {
     if (!plotHost) return;
-    if (!computedResults.length) {
+    const has = computedResults.length > 0;
+    if (plotEmpty) plotEmpty.classList.toggle('hidden', has);
+    if (plotResult) plotResult.classList.toggle('hidden', !has);
+    if (exportPngBtn) exportPngBtn.disabled = !has;
+    if (exportSvgBtn) exportSvgBtn.disabled = !has;
+    if (!has) {
       plotHost.innerHTML = '';
-      if (plotEmpty) plotEmpty.style.display = '';
       return;
     }
-    if (plotEmpty) plotEmpty.style.display = 'none';
+
 
     const data = computedResults;
     const errs = data.map(errFor);
@@ -306,7 +323,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const axis = isDark ? '#94a3b8' : '#64748b';
     const grid = isDark ? 'rgba(148,163,184,.18)' : 'rgba(148,163,184,.25)';
     const txt = isDark ? '#e2e8f0' : '#1e293b';
-    const bg = isDark ? '#0f172a' : '#ffffff';
+    // Matches the panel behind it (slate-950 in the dark theme, white in light).
+    const bg = isDark ? '#020617' : '#ffffff';
     const opacity = plotOpts.barOpacity / 100;
     const clip = (s, max) => (s.length > max ? s.slice(0, max - 1) + '…' : s);
 

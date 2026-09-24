@@ -6,77 +6,56 @@
  * generated into src/output.css and must not be hand-edited.
  */
 
-.toast-enter { animation: slideIn 0.3s forwards; }
 .table-container::-webkit-scrollbar { width: 6px; height: 6px; }
 .table-container::-webkit-scrollbar-track { background: transparent; }
-.table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-.dark .table-container::-webkit-scrollbar-thumb { background: #475569; }
+.table-container::-webkit-scrollbar-thumb { background: var(--stk-border-strong); border-radius: 4px; }
+
+/* Example datasets, under the box they fill. */
+.eb-samples { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; margin-top: .75rem; }
+.eb-samples-label { font-size: .75rem; font-weight: 600; color: var(--stk-fg-muted); margin-right: .15rem; }
+.eb-chip { font-size: .75rem; font-weight: 600; padding: .3rem .6rem; border-radius: .45rem; cursor: pointer; color: var(--stk-fg-2); background: var(--stk-surface); border: 1px solid var(--stk-border-strong); transition: border-color var(--stk-ease), color var(--stk-ease), background-color var(--stk-ease); }
+.eb-chip:hover { border-color: var(--stk-accent); color: var(--stk-accent-text); }
+.eb-chip[aria-pressed="true"] { background: var(--stk-accent-soft); border-color: var(--stk-accent-soft-border); color: var(--stk-accent-text); }
+
+/* Step 2 before the first calculation: what the plot will show. */
+.eb-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .4rem; min-height: 320px; padding: 2rem 1.5rem; text-align: center; border: 1.5px dashed var(--stk-border-strong); border-radius: var(--stk-radius-lg); background: var(--stk-surface-2); }
+.eb-empty > i { font-size: 1.6rem; color: var(--stk-fg-faint); margin-bottom: .35rem; }
+.eb-empty-title { font-size: .95rem; font-weight: 600; color: var(--stk-fg-2); }
+.eb-empty-text { max-width: 30rem; font-size: .8125rem; line-height: 1.5; color: var(--stk-fg-3); margin-bottom: .5rem; }
+
+/* Non-overlapping confidence intervals: emerald for a suggested difference,
+   neutral when every interval overlaps. */
 .sig-note { margin-top:1rem; padding:.7rem .85rem; border-radius:.6rem; font-size:.8rem; line-height:1.5; display:flex; gap:.5rem; align-items:flex-start; }
 .sig-note i { margin-top:2px; }
-.sig-yes { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:#047857; }
-.dark .sig-yes { background:rgba(16,185,129,.14); border-color:rgba(16,185,129,.35); color:#6ee7b7; }
-.sig-no { background:rgba(100,116,139,.08); border:1px solid rgba(148,163,184,.3); color:#475569; }
-.dark .sig-no { background:rgba(30,41,59,.6); border-color:#334155; color:#cbd5e1; }
+.sig-yes { background:var(--stk-ok-soft); border:1px solid rgba(16,185,129,.3); color:#047857; }
+.dark .sig-yes { border-color:rgba(16,185,129,.35); color:#6ee7b7; }
+.sig-no { background:var(--stk-surface-2); border:1px solid var(--stk-border); color:var(--stk-fg-3); }
 .sig-note strong { font-weight:700; }
+
 #theoryContainer .katex-mathml, .katex .katex-mathml { position:absolute !important; clip:rect(1px,1px,1px,1px) !important; padding:0 !important; border:0 !important; height:1px !important; width:1px !important; overflow:hidden !important; }
 #theoryContainer .katex-display { margin:.35rem 0; }
-.mf-block-label { font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--stk-fg-muted); margin-bottom:.15rem; }
-.mf-defs { margin-top:1.1rem; padding-top:.9rem; border-top:1px solid rgba(148,163,184,.25); }
-.mf-defs-title { font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--stk-fg-muted); margin-bottom:.5rem; }
+.mf-block-label { font-size:.8rem; font-weight:600; color:var(--stk-fg-3); margin-bottom:.15rem; }
+.mf-defs { margin-top:1.1rem; padding-top:.9rem; border-top:1px solid var(--stk-border); }
+.mf-defs-title { font-size:.8rem; font-weight:600; color:var(--stk-fg-3); margin-bottom:.5rem; }
 .mf-defs dl { display:grid; grid-template-columns:auto 1fr; gap:.4rem .9rem; margin:0; align-items:baseline; }
 .mf-def { display:contents; }
 .mf-defs dt { white-space:nowrap; text-align:right; }
 .mf-defs dt .katex { font-size:1em; }
-.mf-defs dd { margin:0; font-size:.82rem; color:#64748b; line-height:1.5; }
-.dark .mf-defs dd { color:#94a3b8; }
-.run-pulse { animation: runPulse 1.4s ease-out 1; }
-#exampleBtn.run-pulse { animation: hintPulse 1.8s ease-in-out 3; }
-.eb-samples { display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; margin-bottom:1rem; }
-.eb-samples-label { font-size:.72rem; font-weight:700; color:#64748b; white-space:nowrap; }
-.dark .eb-samples-label { color:#94a3b8; }
-.eb-samples-label i { color:#3574b0; margin-right:.15rem; }
-.eb-chips { display:flex; flex-wrap:wrap; gap:.4rem; }
-.eb-chip { font-size:.74rem; font-weight:600; padding:.35rem .7rem; border-radius:.5rem; cursor:pointer; color:#1a4b7b; background:#f1f6fb; border:1px solid #c0d6ec; transition:all .15s; }
-.eb-chip:hover { background:#1f5c96; color:#fff; border-color:#1f5c96; box-shadow:0 2px 8px rgba(31, 92, 150,.25); transform:translateY(-1px); }
-.dark .eb-chip { color:#c0d6ec; background:rgba(23, 53, 83,.4); border-color:#1a4b7b; }
-.dark .eb-chip:hover { background:#1f5c96; color:#fff; border-color:#1f5c96; }
-.eb-samples.hint .eb-chip { animation: hintPulse2 1.8s ease-in-out 2; }
+.mf-defs dd { margin:0; font-size:.82rem; color:var(--stk-fg-3); line-height:1.5; }
+
+/* Customize plot. */
 .plot-customize summary::-webkit-details-marker { display:none; }
 .cz-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem 1rem; padding:1rem .25rem .25rem; }
-.cz-field { display:flex; flex-direction:column; gap:.3rem; font-size:.75rem; font-weight:600; color:#64748b; }
-.dark .cz-field { color:#94a3b8; }
-.cz-field b { color:#1f5c96; font-weight:700; }
-.dark .cz-field b { color:#92b8dd; }
+.cz-field { display:flex; flex-direction:column; gap:.3rem; font-size:.75rem; font-weight:600; color:var(--stk-fg-3); }
+.cz-field b { color:var(--stk-accent-text); font-weight:700; }
 .cz-span2 { grid-column:1 / -1; }
-.cz-input { font-size:.8rem; font-weight:500; padding:.4rem .55rem; border-radius:.5rem; color:#1e293b; background:#f8fafc; border:1px solid #e2e8f0; outline:none; }
-.cz-input:focus { border-color:#3574b0; box-shadow:0 0 0 2px rgba(53, 116, 176,.2); }
-.dark .cz-input { background:#1e293b; border-color:#334155; color:#e2e8f0; }
-.cz-range { width:100%; accent-color:#3574b0; }
+.cz-input { font-size:.8rem; font-weight:500; padding:.4rem .55rem; border-radius:.5rem; color:var(--stk-fg); background:var(--stk-bg); border:1px solid var(--stk-border-strong); outline:none; }
+.dark .cz-input { background:var(--stk-surface-2); }
+.cz-input:focus { border-color:var(--stk-accent); box-shadow:0 0 0 2px var(--stk-ring); }
+.cz-range { width:100%; accent-color:var(--stk-accent); }
 .cz-toggles { display:flex; flex-wrap:wrap; gap:.75rem 1.25rem; padding-top:.25rem; }
-.cz-check { display:flex; align-items:center; gap:.4rem; font-size:.78rem; font-weight:600; color:#475569; cursor:pointer; }
-.dark .cz-check { color:#cbd5e1; }
-.cz-check input { accent-color:#3574b0; }
-
-@keyframes slideIn {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-@keyframes runPulse {
-  0% { box-shadow:0 0 0 0 rgba(53, 116, 176,.55); }
-  70% { box-shadow:0 0 0 10px rgba(53, 116, 176,0); }
-  100% { box-shadow:0 0 0 0 rgba(53, 116, 176,0); }
-}
-
-@keyframes hintPulse {
-  0%, 100% { box-shadow:0 0 0 0 rgba(53, 116, 176,0); }
-  50% { box-shadow:0 0 0 5px rgba(53, 116, 176,.25); }
-}
-
-@keyframes hintPulse2 {
-  0%, 100% { box-shadow:0 0 0 0 rgba(53, 116, 176,0); }
-  50% { box-shadow:0 0 0 4px rgba(53, 116, 176,.22); }
-}
+.cz-check { display:flex; align-items:center; gap:.4rem; font-size:.8rem; font-weight:600; color:var(--stk-fg-3); cursor:pointer; }
+.cz-check input { accent-color:var(--stk-accent); }
 
 @media (max-width:520px) {
   .cz-grid { grid-template-columns:1fr; }
