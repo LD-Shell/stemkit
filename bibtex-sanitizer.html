@@ -66,10 +66,10 @@
 
 
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"HowTo","name":"BibTeX Sanitizer","totalTime":"PT2M","tool":{"@type":"HowToTool","name":"BibTeX Sanitizer"},"step":[{"@type":"HowToStep","position":1,"name":"Paste your raw .bib","text":"Drop in messy exports from Google Scholar, Zotero or Mendeley, or click Load example to see the tool in action."},{"@type":"HowToStep","position":2,"name":"Pick your rules","text":"Toggle title-case protection, page-dash repair and equals-sign alignment, then tick any bloated fields (url, abstract, file…) you want stripped."},{"@type":"HowToStep","position":3,"name":"Review the live output","text":"The sanitized .bib updates instantly on the right, with a running count of entries parsed and fields removed."},{"@type":"HowToStep","position":4,"name":"Copy or download","text":"Use Copy All to grab the result, or Download to save a sanitized.bib file."}]}
+{"@context":"https://schema.org","@type":"HowTo","name":"BibTeX Sanitizer","totalTime":"PT2M","tool":{"@type":"HowToTool","name":"BibTeX Sanitizer"},"step":[{"@type":"HowToStep","position":1,"name":"Paste your .bib","text":"Paste entries exported from Google Scholar, Zotero or Mendeley into step 1, or press Load example."},{"@type":"HowToStep","position":2,"name":"Check the rules","text":"Open Rules to choose which fixes run and which fields are removed. By default url, urldate, abstract, keywords, file and eprint go."},{"@type":"HowToStep","position":3,"name":"Read the result","text":"The sanitized .bib in step 2 updates as you type, with a count of the entries cleaned and the fields removed."},{"@type":"HowToStep","position":4,"name":"Copy or download","text":"Copy puts the result on the clipboard; Download saves it as sanitized.bib."}]}
 </script>
     <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does the sanitizer upload my references?","acceptedAnswer":{"@type":"Answer","text":"No. All parsing and formatting happen in your browser. Nothing is sent anywhere."}},{"@type":"Question","name":"Why did my titles gain an extra pair of braces?","acceptedAnswer":{"@type":"Answer","text":"The ‘Protect title casing’ rule wraps title and booktitle in {{…}} to stop the bibliography style from changing the capitalization. Turn it off if your style should control case, or brace only specific words manually."}},{"@type":"Question","name":"Can it handle nested braces in a value?","acceptedAnswer":{"@type":"Answer","text":"Yes. The parser is brace-aware, so nested groups such as {A study of {NaCl}} are preserved rather than truncated."}},{"@type":"Question","name":"What is the point of the en-dash fix?","acceptedAnswer":{"@type":"Answer","text":"In LaTeX, page ranges use an en-dash, written as two hyphens (100--110). The rule converts single hyphens between page numbers and is safe to run repeatedly."}},{"@type":"Question","name":"Which fields should I strip?","acceptedAnswer":{"@type":"Answer","text":"Fields that do not affect typesetting (such as abstract, url, urldate, file and keywords) are common culprits for bloated .bib files. Keep anything your citation style actually prints."}}]}
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does the sanitizer upload my references?","acceptedAnswer":{"@type":"Answer","text":"No. All parsing and formatting happen in your browser. Nothing is sent anywhere."}},{"@type":"Question","name":"Why did some words in my titles gain braces?","acceptedAnswer":{"@type":"Answer","text":"The ‘Protect capitals in titles’ rule braces acronyms, chemical formulae and words such as pH and mRNA, so a style that lower-cases titles leaves them as they are. Turn it off if you would rather brace words yourself."}},{"@type":"Question","name":"Can it handle nested braces in a value?","acceptedAnswer":{"@type":"Answer","text":"Yes. The parser is brace-aware, so nested groups such as {A study of {NaCl}} are preserved rather than truncated."}},{"@type":"Question","name":"What is the point of the en-dash fix?","acceptedAnswer":{"@type":"Answer","text":"In LaTeX, page ranges use an en-dash, written as two hyphens (100--110). The rule converts single hyphens between page numbers and is safe to run repeatedly."}},{"@type":"Question","name":"Which fields should I strip?","acceptedAnswer":{"@type":"Answer","text":"Fields that do not affect typesetting (such as abstract, url, urldate, file and keywords) are common culprits for bloated .bib files. Keep anything your citation style actually prints."}}]}
 </script>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
@@ -131,106 +131,108 @@
     </nav>
 
     <main id="main" class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
-        
-        <header class="mb-4">
-            <div class="inline-flex items-center gap-2 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4 border border-brand-200 dark:border-brand-800/50">
-                <i class="fa-solid fa-quote-right"></i> Publication Utility
+
+        <header class="stk-pagehead">
+            <div>
+                <h1 class="stk-pagehead-title">BibTeX Sanitizer</h1>
+                <p class="stk-pagehead-lede">Clean up BibTeX exported from Google Scholar, Zotero or Mendeley: strip bulky fields, fix page ranges, line up the equals signs and brace the acronyms in titles.</p>
+                <ul class="stk-pagehead-meta">
+                    <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
+                    <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
+                </ul>
             </div>
-            <h1 class="text-4xl font-black mb-2 tracking-tight">BibTeX Sanitizer</h1>
-            <p class="text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
-                Paste raw exports from Google Scholar or reference managers. This utility strips bloated fields, enforces standard indentation, and protects title capitalization.
-            </p>
+            <div class="stk-pagehead-actions">
+                <button type="button" class="stk-btn" data-load-example><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load example</button>
+            </div>
         </header>
 
-        <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
+        <div id="toastContainer" class="stk-toasts" aria-live="polite"></div>
 
-        <div class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-260px)] min-h-[600px]">
-            
-            <div class="w-full lg:w-[450px] flex flex-col gap-4 shrink-0">
-                
-                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
-                    <button class="accordion-btn w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center text-left focus:outline-none" aria-expanded="true" data-target="settingsContent">
-                        <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Sanitization Rules</span>
-                        <i class="fa-solid fa-chevron-down accordion-icon text-slate-500 dark:text-slate-400 text-xs"></i>
-                    </button>
-                    <div id="settingsContent" class="accordion-content expanded px-4 pb-4 pt-2">
-                        
+        <div class="flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-310px)] lg:min-h-[560px]">
+
+            <div class="w-full lg:w-[450px] flex flex-col gap-4 shrink-0 min-h-0">
+
+                <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col flex-grow min-h-0" data-stk-step="1" data-stk-done="filled:#dataInput">
+                    <div class="flex justify-between items-center gap-3 mb-3">
+                        <h2 id="inputTitle" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1: </span>Paste your .bib</h2>
+                        <button type="button" id="btnClear" class="stk-btn stk-btn-ghost stk-btn-sm" disabled><i class="fa-solid fa-xmark" aria-hidden="true"></i> Clear</button>
+                    </div>
+                    <textarea id="dataInput" aria-labelledby="inputTitle" class="w-full flex-grow min-h-[260px] lg:min-h-0 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-brand-500 outline-none resize-y lg:resize-none whitespace-pre overflow-auto custom-scroll" spellcheck="false" placeholder="Paste BibTeX entries here, for example&#10;&#10;@article{smith2024,&#10;  title={An Analysis of Molecular Dynamics},&#10;  pages={100-110},&#10;  url={https://tracking-link.example.com}&#10;}"></textarea>
+                </section>
+
+                <details class="san-rules bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm shrink-0">
+                    <summary>
+                        <h2 class="stk-ptitle">Rules</h2>
+                        <span id="rulesSummary" class="san-rules-sum"></span>
+                    </summary>
+                    <div class="px-4 pb-4">
                         <div class="space-y-3 mb-4">
-                            <label class="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer">
-                                <span>Protect title casing <span class="text-[11px] font-normal text-slate-500 dark:text-slate-400 block">Wraps titles in {{...}}</span></span>
-                                <input type="checkbox" id="optProtectTitle" checked class="w-4 h-4 text-brand-600 bg-slate-100 border-slate-300 rounded focus:ring-brand-500">
+                            <label class="flex items-center justify-between gap-4 text-sm font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
+                                <span>Protect capitals in titles <span class="text-xs font-normal text-slate-500 dark:text-slate-400 block">Braces words like {DNA}, {NaCl} and {pH} so the style keeps their case</span></span>
+                                <input type="checkbox" id="optProtectTitle" checked class="w-4 h-4 shrink-0">
                             </label>
-                            
-                            <label class="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer">
-                                <span>Fix page dashes <span class="text-[11px] font-normal text-slate-500 dark:text-slate-400 block">Converts '-' to '--'</span></span>
-                                <input type="checkbox" id="optFixPages" checked class="w-4 h-4 text-brand-600 bg-slate-100 border-slate-300 rounded focus:ring-brand-500">
+                            <label class="flex items-center justify-between gap-4 text-sm font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
+                                <span>Fix page ranges <span class="text-xs font-normal text-slate-500 dark:text-slate-400 block">Writes 100-110 as 100--110, an en-dash in LaTeX</span></span>
+                                <input type="checkbox" id="optFixPages" checked class="w-4 h-4 shrink-0">
                             </label>
-
-                            <label class="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer">
-                                <span>Align equal signs <span class="text-[11px] font-normal text-slate-500 dark:text-slate-400 block">Pads fields for vertical alignment</span></span>
-                                <input type="checkbox" id="optAlignEquals" checked class="w-4 h-4 text-brand-600 bg-slate-100 border-slate-300 rounded focus:ring-brand-500">
+                            <label class="flex items-center justify-between gap-4 text-sm font-semibold text-slate-700 dark:text-slate-200 cursor-pointer">
+                                <span>Line up the equals signs <span class="text-xs font-normal text-slate-500 dark:text-slate-400 block">Pads field names so the values start in one column</span></span>
+                                <input type="checkbox" id="optAlignEquals" checked class="w-4 h-4 shrink-0">
                             </label>
                         </div>
 
-                        <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
-                            <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Strip Redundant Fields</span>
-                            <div class="grid grid-cols-2 gap-2 mt-2">
-                                <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer"><input type="checkbox" class="strip-opt text-brand-600" value="url" checked> url</label>
-                                <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer"><input type="checkbox" class="strip-opt text-brand-600" value="urldate" checked> urldate</label>
-                                <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer"><input type="checkbox" class="strip-opt text-brand-600" value="abstract" checked> abstract</label>
-                                <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer"><input type="checkbox" class="strip-opt text-brand-600" value="keywords" checked> keywords</label>
-                                <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer"><input type="checkbox" class="strip-opt text-brand-600" value="file" checked> file</label>
-                                <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer"><input type="checkbox" class="strip-opt text-brand-600" value="note"> note</label>
-                                <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer"><input type="checkbox" class="strip-opt text-brand-600" value="issn"> issn</label>
-                                <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer"><input type="checkbox" class="strip-opt text-brand-600" value="eprint" checked> eprint</label>
+                        <fieldset class="border-t border-slate-100 dark:border-slate-800 pt-3">
+                            <legend class="sr-only">Fields to remove</legend>
+                            <p class="text-xs font-semibold text-slate-600 dark:text-slate-300" aria-hidden="true">Remove these fields</p>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+                                <label class="flex items-center gap-2 text-xs font-mono text-slate-600 dark:text-slate-300 cursor-pointer"><input type="checkbox" class="strip-opt" value="url" checked> url</label>
+                                <label class="flex items-center gap-2 text-xs font-mono text-slate-600 dark:text-slate-300 cursor-pointer"><input type="checkbox" class="strip-opt" value="urldate" checked> urldate</label>
+                                <label class="flex items-center gap-2 text-xs font-mono text-slate-600 dark:text-slate-300 cursor-pointer"><input type="checkbox" class="strip-opt" value="abstract" checked> abstract</label>
+                                <label class="flex items-center gap-2 text-xs font-mono text-slate-600 dark:text-slate-300 cursor-pointer"><input type="checkbox" class="strip-opt" value="keywords" checked> keywords</label>
+                                <label class="flex items-center gap-2 text-xs font-mono text-slate-600 dark:text-slate-300 cursor-pointer"><input type="checkbox" class="strip-opt" value="file" checked> file</label>
+                                <label class="flex items-center gap-2 text-xs font-mono text-slate-600 dark:text-slate-300 cursor-pointer"><input type="checkbox" class="strip-opt" value="eprint" checked> eprint</label>
+                                <label class="flex items-center gap-2 text-xs font-mono text-slate-600 dark:text-slate-300 cursor-pointer"><input type="checkbox" class="strip-opt" value="note"> note</label>
+                                <label class="flex items-center gap-2 text-xs font-mono text-slate-600 dark:text-slate-300 cursor-pointer"><input type="checkbox" class="strip-opt" value="issn"> issn</label>
                             </div>
-                        </div>
+                        </fieldset>
                     </div>
-                </div>
-
-                <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col flex-grow">
-                    <div class="flex justify-between items-center mb-2">
-                        <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Raw Input</h2>
-                        <button id="btnLoadExample" class="text-xs font-bold text-brand-700 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 transition-colors"><i class="fa-solid fa-flask-vial mr-1"></i>Load example</button>
-                    </div>
-                    <textarea id="dataInput" class="w-full flex-grow bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-brand-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" spellcheck="false" placeholder="@article{smith2024,&#10;  title={An Analysis of Molecular Dynamics},&#10;  author={Smith, John},&#10;  journal={Journal of Physics},&#10;  pages={100-110},&#10;  url={https://tracking-link.com},&#10;  abstract={Extremely long abstract...}&#10;}"></textarea>
-                </div>
+                </details>
 
             </div>
 
-            <div class="flex-grow flex flex-col gap-4">
-                
-                <div class="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl flex flex-col flex-grow relative overflow-hidden">
-                    <div class="bg-slate-950 px-4 py-3 flex justify-between items-center border-b border-slate-800 shrink-0">
-                        <div class="flex items-center gap-3">
-                            <span class="text-sm font-bold text-brand-400 uppercase tracking-wider font-mono">Sanitized .bib</span>
-                            <span id="statsLabel" class="text-[11px] text-slate-500 dark:text-slate-400 font-mono hidden sm:inline-block">Waiting for input...</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <button id="btnDownload" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1">
-                                <i class="fa-solid fa-download"></i> Download
-                            </button>
-                            <button id="btnCopyCode" class="bg-brand-700 hover:bg-brand-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md transform hover:-translate-y-0.5 active:scale-95 flex items-center gap-1">
-                                <i class="fa-regular fa-copy"></i> Copy All
-                            </button>
-                        </div>
+            <!-- The output reads as code, so it is dark in both themes. The
+                 `dark` class makes it a dark island: the tokens and dark:
+                 utilities inside it take their dark values. -->
+            <section class="dark san-out flex-grow min-w-0 min-h-[420px] lg:min-h-0 flex flex-col bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden" data-stk-step="2" data-stk-done="visible:#bibResult">
+                <div class="bg-slate-950 px-4 py-3 flex flex-wrap justify-between items-center gap-x-4 gap-y-2 border-b border-slate-800 shrink-0">
+                    <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 min-w-0">
+                        <h2 class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Sanitized .bib</h2>
+                        <span id="statsLabel" class="text-xs text-slate-400" aria-live="polite"></span>
                     </div>
-                    <div class="flex-grow p-4 overflow-auto custom-scroll relative">
-                        <pre><code id="bibOutput" class="text-slate-300 font-mono text-xs leading-relaxed whitespace-pre-wrap select-all">Processed syntax will appear here...</code></pre>
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="btnDownload" class="stk-btn stk-btn-sm" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> Download</button>
+                        <button type="button" id="btnCopyCode" class="stk-btn stk-btn-sm stk-btn-primary" disabled><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy</button>
                     </div>
                 </div>
-
-            </div>
+                <div class="flex-grow min-h-0 overflow-auto custom-scroll">
+                    <div id="bibEmpty" class="san-empty">
+                        <span class="san-empty-icon" aria-hidden="true"><i class="fa-solid fa-broom"></i></span>
+                        <p class="san-empty-title">The cleaned entries will appear here</p>
+                        <p class="san-empty-text">Paste BibTeX in step 1. With the rules as set, each entry comes back without url, abstract and the other ticked fields, with page ranges as 100--110 and acronyms in its title braced.</p>
+                        <button type="button" class="stk-btn" data-load-example><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load example</button>
+                    </div>
+                    <pre id="bibResult" class="p-4" hidden data-stk-reveal><code id="bibOutput" class="text-slate-200 font-mono text-xs leading-relaxed whitespace-pre-wrap"></code></pre>
+                </div>
+            </section>
 
         </div>
-
     <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
         <div class="stk-wrap">
             <span class="stk-chip"><i class="fa-solid fa-broom"></i> How-To Guide</span>
             <h2 class="stk-h2">How to clean and standardize a .bib file</h2>
             <p class="stk-lead">Reference managers export citations with tracking URLs, giant abstracts and inconsistent formatting. Here is how to sanitize them for a tidy LaTeX bibliography.</p>
-            <div class="stk-grid stk-grid-3">
-                <div class="stk-step"><span class="stk-num">1</span><div><h3>Paste your raw .bib</h3><p>Drop in messy exports from Google Scholar, Zotero or Mendeley, or click <strong>Load example</strong> to see the tool in action.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Pick your rules</h3><p>Toggle title-case protection, page-dash repair and equals-sign alignment, then tick any bloated fields (url, abstract, file…) you want stripped.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Review the live output</h3><p>The sanitized .bib updates instantly on the right, with a running count of entries parsed and fields removed.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Copy or download</h3><p>Use <strong>Copy All</strong> to grab the result, or <strong>Download</strong> to save a <code>sanitized.bib</code> file.</p></div></div>
+            <div class="stk-grid stk-grid-2">
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Paste your .bib</h3><p>Paste entries exported from Google Scholar, Zotero or Mendeley into step 1, or press <strong>Load example</strong>.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Check the rules</h3><p>Open <strong>Rules</strong> to choose which fixes run and which fields are removed. By default url, urldate, abstract, keywords, file and eprint go.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Read the result</h3><p>The sanitized .bib in step 2 updates as you type, with a count of the entries cleaned and the fields removed.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Copy or download</h3><p><strong>Copy</strong> puts the result on the clipboard; <strong>Download</strong> saves it as <code>sanitized.bib</code>.</p></div></div>
             </div>
         </div>
     </section>
@@ -243,7 +245,7 @@
                 <div class="stk-card">
                     <h3 style="font-weight:700;margin-bottom:.4rem;">What each rule does</h3>
                     <p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">
-                    <strong>Fix page dashes</strong> turns <code>100-110</code> into the LaTeX en-dash <code>100--110</code> (and leaves already-correct ranges untouched). <strong>Align equals</strong> pads keys so the <code>=</code> signs line up (purely cosmetic). <strong>Strip fields</strong> removes bulky, non-typesetting fields such as <code>abstract</code>, <code>url</code> and <code>file</code>.</p>
+                    <strong>Fix page ranges</strong> turns <code>100-110</code> into the LaTeX en-dash <code>100--110</code> and leaves ranges that are already right alone. <strong>Line up the equals signs</strong> pads field names so the <code>=</code> signs line up; it changes nothing LaTeX reads. <strong>Remove these fields</strong> drops bulky fields that are not typeset, such as <code>abstract</code>, <code>url</code> and <code>file</code>.</p>
                 </div>
                 <div class="stk-card">
                     <h3 style="font-weight:700;margin-bottom:.4rem;">Brace-aware parsing</h3>
@@ -252,7 +254,7 @@
             </div>
             <div class="stk-note" style="margin-top:1rem;">
                 <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>
-                <div><strong>A note on “Protect title casing”.</strong> This option wraps the whole title in double braces (<code>{{…}}</code>) so a bibliography style can’t re-case it. That guarantees your capitalization but also <em>forces</em> title-case, which many editors advise against. Best practice is usually to brace only the specific words that need it (acronyms, chemical formulae, proper nouns), e.g. <code>title = {The {THE} operating system}</code>. See the TeX FAQ link below.</div>
+                <div><strong>A note on “Protect capitals in titles”.</strong> Many bibliography styles lower-case titles, which turns <code>DNA</code> into “dna”. This rule braces only the words whose case matters: runs of capitals (<code>{DNA}</code>, <code>{NMR}</code>), words with a capital inside them (<code>{NaCl}</code>, <code>{McMurry}</code>) and a lower-case letter followed by capitals (<code>{pH}</code>, <code>{mRNA}</code>). The rest of the title is left for the style to case, as most editors prefer, and words already in braces are left alone, so running it twice changes nothing. A proper noun with a single capital, such as Einstein, is not caught: brace it yourself. See the TeX FAQ link below.</div>
             </div>
 
         </div>
@@ -262,7 +264,7 @@
         <div class="stk-wrap" style="max-width:52rem;">
             <h2 class="stk-h2">Frequently asked questions</h2>
             <div style="margin-top:1rem;">
-                <details class="stk-faq"><summary>Does the sanitizer upload my references?</summary><div>No. All parsing and formatting happen in your browser. Nothing is sent anywhere.</div></details><details class="stk-faq"><summary>Why did my titles gain an extra pair of braces?</summary><div>The ‘Protect title casing’ rule wraps title and booktitle in {{…}} to stop the bibliography style from changing the capitalization. Turn it off if your style should control case, or brace only specific words manually.</div></details><details class="stk-faq"><summary>Can it handle nested braces in a value?</summary><div>Yes. The parser is brace-aware, so nested groups such as {A study of {NaCl}} are preserved rather than truncated.</div></details><details class="stk-faq"><summary>What is the point of the en-dash fix?</summary><div>In LaTeX, page ranges use an en-dash, written as two hyphens (100--110). The rule converts single hyphens between page numbers and is safe to run repeatedly.</div></details><details class="stk-faq"><summary>Which fields should I strip?</summary><div>Fields that do not affect typesetting (such as abstract, url, urldate, file and keywords) are common culprits for bloated .bib files. Keep anything your citation style actually prints.</div></details>
+                <details class="stk-faq"><summary>Does the sanitizer upload my references?</summary><div>No. All parsing and formatting happen in your browser. Nothing is sent anywhere.</div></details><details class="stk-faq"><summary>Why did some words in my titles gain braces?</summary><div>The ‘Protect capitals in titles’ rule braces acronyms, chemical formulae and words such as pH and mRNA, so a style that lower-cases titles leaves them as they are. Turn it off if you would rather brace words yourself.</div></details><details class="stk-faq"><summary>Can it handle nested braces in a value?</summary><div>Yes. The parser is brace-aware, so nested groups such as {A study of {NaCl}} are preserved rather than truncated.</div></details><details class="stk-faq"><summary>What is the point of the en-dash fix?</summary><div>In LaTeX, page ranges use an en-dash, written as two hyphens (100--110). The rule converts single hyphens between page numbers and is safe to run repeatedly.</div></details><details class="stk-faq"><summary>Which fields should I strip?</summary><div>Fields that do not affect typesetting (such as abstract, url, urldate, file and keywords) are common culprits for bloated .bib files. Keep anything your citation style actually prints.</div></details>
             </div>
             <div class="stk-refs">
                 <a href="https://texfaq.org/FAQ-capbibtex" target="_blank" rel="noopener"><i class="fa-solid fa-font"></i> TeX FAQ: capitalization in BibTeX</a><a href="https://www.overleaf.com/learn/latex/Bibliography_management_with_bibtex" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> Overleaf: BibTeX guide</a>

@@ -1,16 +1,61 @@
 /*
  * bibtex-sanitizer -- tool-specific styles.
  *
- * Extracted from the inline <style> block in bibtex-sanitizer.html. Shared
- * documentation styles live in src/stemkit-docs.css; Tailwind utilities are
- * generated into src/output.css and must not be hand-edited.
+ * Shared documentation styles live in src/stemkit-docs.css; Tailwind
+ * utilities are generated into src/output.css and must not be hand-edited.
  */
 
-.accordion-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; max-height: 0; opacity: 0; overflow: hidden; }
-.accordion-content.expanded { max-height: 800px; opacity: 1; overflow: visible; }
-.accordion-icon { transition: transform 0.3s ease; }
-.accordion-btn[aria-expanded="true"] .accordion-icon { transform: rotate(180deg); }
-.custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-.custom-scroll::-webkit-scrollbar-track { background: transparent; }
-.custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
-.dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
+/* Rules: a closed <details> under the paste box that still says, in its
+   summary, how many fixes and removals are on. */
+.san-rules > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.san-rules > summary::-webkit-details-marker { display: none; }
+.san-rules > summary::after {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-left: auto;
+  flex-shrink: 0;
+  border-right: 1.5px solid var(--stk-fg-muted);
+  border-bottom: 1.5px solid var(--stk-fg-muted);
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform var(--stk-ease);
+}
+.san-rules[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.san-rules > summary:hover .stk-ptitle { color: var(--stk-accent-text); }
+.san-rules-sum { font-size: 0.8125rem; color: var(--stk-fg-muted); }
+
+/* Empty output: what will appear, and an example to try. Sits in the dark
+   pane, so it reads the dark tokens. */
+.san-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 100%;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+}
+.san-empty[hidden] { display: none; }
+.san-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 0.25rem;
+  border-radius: var(--stk-radius-lg);
+  background: var(--stk-accent-soft);
+  color: var(--stk-accent-text);
+  font-size: 1.2rem;
+}
+.san-empty-title { font-size: 1rem; font-weight: 650; color: var(--stk-fg); }
+.san-empty-text { max-width: 30rem; margin-bottom: 0.5rem; font-size: 0.875rem; line-height: 1.6; color: var(--stk-fg-muted); }

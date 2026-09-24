@@ -16,21 +16,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- 1. Interface bindings ---
   const dataInput = document.getElementById('dataInput');
   const bibOutput = document.getElementById('bibOutput');
+  const bibResult = document.getElementById('bibResult');
+  const bibEmpty = document.getElementById('bibEmpty');
   const btnCopyCode = document.getElementById('btnCopyCode');
   const btnDownload = document.getElementById('btnDownload');
-  const btnLoadExample = document.getElementById('btnLoadExample');
+  const btnClear = document.getElementById('btnClear');
   const toastContainer = document.getElementById('toastContainer');
   const statsLabel = document.getElementById('statsLabel');
+  const rulesSummary = document.getElementById('rulesSummary');
 
   const optProtectTitle = document.getElementById('optProtectTitle');
   const optFixPages = document.getElementById('optFixPages');
   const optAlignEquals = document.getElementById('optAlignEquals');
   const stripOpts = document.querySelectorAll('.strip-opt');
 
-  const PLACEHOLDER = 'Processed syntax will appear here...';
-
   const EXAMPLE = `@article{smith2024,
-  title={An analysis of {NaCl} molecular dynamics},
+  title={An analysis of NaCl hydration by NMR},
   author={Smith, John and Doe, Jane},
   journal={Journal of Physics},
   volume={12},
@@ -49,64 +50,93 @@ document.addEventListener('DOMContentLoaded', () => {
   inputs.forEach(el => el.addEventListener('change', processPipeline));
   stripOpts.forEach(opt => opt.addEventListener('change', processPipeline));
 
-  document.querySelectorAll('.accordion-btn').forEach(btn => {
+  // Offered twice: in the page head and in the empty output.
+  document.querySelectorAll('[data-load-example]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const expanded = btn.getAttribute('aria-expanded') === 'true';
-      btn.setAttribute('aria-expanded', !expanded);
-      const target = document.getElementById(btn.getAttribute('data-target'));
-      if (target) target.classList.toggle('expanded');
+      dataInput.value = EXAMPLE;
+      processPipeline();
+      showToast('Loaded an example entry.');
     });
   });
 
-  if (btnLoadExample) btnLoadExample.addEventListener('click', () => {
-    dataInput.value = EXAMPLE;
+  if (btnClear) btnClear.addEventListener('click', () => {
+    dataInput.value = '';
     processPipeline();
-    showToast('Loaded a sample entry.');
+    dataInput.focus();
   });
 
   // --- 3. Pipeline (delegated to the core) ---
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  function activeFields() {
+    return Array.from(stripOpts)
+      .filter(opt => opt.checked)
+      .map(opt => opt.value.toLowerCase());
+  }
+
+  /** The closed Rules panel still says what it will do. */
+  function updateRulesSummary() {
+    if (!rulesSummary) return;
+    const fixes = [optProtectTitle, optFixPages, optAlignEquals]
+      .filter(o => o && o.checked).length;
+    rulesSummary.textContent =
+      `${plural(fixes, 'fix', 'fixes')} on, ${plural(activeFields().length, 'field', 'fields')} removed`;
+  }
+
+  function showResult(text) {
+    const has = text !== '';
+    bibOutput.textContent = text;
+    bibResult.hidden = !has;
+    bibEmpty.hidden = has;
+    btnCopyCode.disabled = !has;
+    btnDownload.disabled = !has;
+  }
+
   function processPipeline() {
+    updateRulesSummary();
     const rawText = dataInput.value;
+    if (btnClear) btnClear.disabled = rawText === '';
 
     if (!rawText.trim()) {
-      bibOutput.textContent = PLACEHOLDER;
-      if (statsLabel) statsLabel.textContent = 'Waiting for input...';
+      showResult('');
+      if (statsLabel) statsLabel.textContent = '';
       return;
     }
 
-    const stripFields = Array.from(stripOpts)
-      .filter(opt => opt.checked)
-      .map(opt => opt.value.toLowerCase());
-
     const result = sanitiseText(rawText, {
-      stripFields,
+      stripFields: activeFields(),
       fixPages: optFixPages ? optFixPages.checked : false,
       protectTitle: optProtectTitle ? optProtectTitle.checked : false,
       alignEquals: optAlignEquals ? optAlignEquals.checked : false
     });
 
-    bibOutput.textContent = result.text.trim() || PLACEHOLDER;
+    const text = result.text.trim();
+    showResult(text);
 
     if (statsLabel) {
       const e = result.entriesProcessed;
       const f = result.fieldsRemoved;
-      statsLabel.textContent =
-        `${e} ${e === 1 ? 'entry' : 'entries'} processed` +
-        (f > 0 ? ` · ${f} ${f === 1 ? 'field' : 'fields'} removed` : '');
+      statsLabel.textContent = e === 0
+        ? 'No entries found yet'
+        : `${plural(e, 'entry', 'entries')} cleaned` +
+          (f > 0 ? `, ${plural(f, 'field', 'fields')} removed` : '');
     }
   }
 
   // --- 4. Export ---
   if (btnCopyCode) btnCopyCode.addEventListener('click', () => {
     const text = bibOutput.textContent;
-    if (!text || text === PLACEHOLDER) return;
-    navigator.clipboard.writeText(text).then(() => showToast('BibTeX copied.'));
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(
+      () => showToast('Copied the sanitized BibTeX.', 'success'),
+      () => showToast('The browser blocked the clipboard. Select the text and copy it instead.', 'error')
+    );
   });
 
   if (btnDownload) btnDownload.addEventListener('click', () => {
     const text = bibOutput.textContent;
-    if (!text || text === PLACEHOLDER) return;
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8;' });
+    if (!text) return;
+    const blob = new Blob([text + '\n'], { type: 'text/plain;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -115,22 +145,25 @@ document.addEventListener('DOMContentLoaded', () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast('Downloaded sanitized.bib');
+    showToast('Saved sanitized.bib.', 'success');
   });
 
-  // --- 5. Toasts ---
-  function showToast(message) {
+  // --- 5. Toasts (the shared .stk-toast component) ---
+  function showToast(message, type = 'info') {
     if (!toastContainer) return;
     const toast = document.createElement('div');
-    toast.className =
-      'bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-xl ' +
-      'transition-opacity duration-300';
-    toast.innerText = message;
+    toast.className = 'stk-toast' +
+      (type === 'success' ? ' stk-toast-ok' : type === 'error' ? ' stk-toast-danger' : '');
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    const icon = document.createElement('i');
+    icon.className = 'fa-solid ' + (type === 'success' ? 'fa-circle-check'
+      : type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-info');
+    icon.setAttribute('aria-hidden', 'true');
+    const body = document.createElement('span');
+    body.textContent = message;
+    toast.append(icon, body);
     toastContainer.appendChild(toast);
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      setTimeout(() => toast.remove(), 300);
-    }, 2000);
+    setTimeout(() => toast.remove(), type === 'error' ? 5000 : 2500);
   }
 
   processPipeline();
