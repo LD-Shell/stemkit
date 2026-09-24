@@ -588,8 +588,24 @@ input[type="checkbox"], input[type="radio"], input[type="range"], progress { acc
 .stk-callout-ok { background: var(--stk-ok-soft); border-color: transparent; color: var(--stk-ok); }
 .stk-callout-accent { background: var(--stk-accent-soft); border-color: var(--stk-accent-soft-border); color: var(--stk-accent-text); }
 
-/* Drop zone and empty state ------------------------------------------------ */
+/* File loader ---------------------------------------------------------------
+   One loader for every tool that starts from a file, so they all look and
+   measure the same. Full size is the tool's empty state, centred in the
+   workspace; .stk-drop-sm fits inside a panel. The page's h1 lives in the
+   page head, so the loader's title is an h2.
 
+     <section id="uploadZone" class="stk-drop" aria-labelledby="drop-h">
+       <span class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-file-arrow-up"></i></span>
+       <h2 id="drop-h" class="stk-drop-title">Drop an .xvg file here</h2>
+       <p class="stk-drop-text">or choose one from your computer.</p>
+       <div class="stk-drop-actions">
+         <button type="button" class="stk-btn stk-btn-primary">Choose file</button>
+         <button type="button" class="stk-btn stk-btn-ghost">Load a sample</button>
+       </div>
+       <p class="stk-drop-formats"><span>.xvg</span><span>.csv</span></p>
+     </section>
+
+   The tool's script adds .is-over while a file is dragged over it. */
 .stk-drop {
   display: flex;
   flex-direction: column;
@@ -597,13 +613,24 @@ input[type="checkbox"], input[type="radio"], input[type="range"], progress { acc
   justify-content: center;
   text-align: center;
   gap: 0.5rem;
-  padding: 2.5rem 1.5rem;
+  width: 100%;
+  max-width: 48rem;
+  min-height: 20rem;
+  margin-inline: auto;
+  padding: 2.5rem 2rem;
   border: 1.5px dashed var(--stk-border-strong);
   border-radius: var(--stk-radius-xl);
   background: var(--stk-surface);
-  transition: border-color var(--stk-ease), background-color var(--stk-ease);
+  transition: border-color var(--stk-ease), background-color var(--stk-ease), box-shadow var(--stk-ease);
 }
-.stk-drop.is-over, .stk-drop:hover { border-color: var(--stk-accent); background: var(--stk-accent-soft); }
+.stk-drop:hover { border-color: var(--stk-accent-soft-border); }
+.stk-drop.is-over {
+  border-style: solid;
+  border-color: var(--stk-accent);
+  background: var(--stk-accent-soft);
+  box-shadow: 0 0 0 4px var(--stk-accent-soft);
+}
+.stk-drop-sm { min-height: 9rem; max-width: none; padding: 1.25rem; gap: 0.35rem; }
 .stk-drop-icon {
   width: 3.25rem;
   height: 3.25rem;
@@ -613,13 +640,29 @@ input[type="checkbox"], input[type="radio"], input[type="range"], progress { acc
   border-radius: var(--stk-radius-lg);
   background: var(--stk-accent-soft);
   color: var(--stk-accent-text);
+  box-shadow: inset 0 0 0 1px var(--stk-accent-soft-border);
   font-size: 1.35rem;
   margin-bottom: 0.5rem;
+  transition: transform .2s ease;
 }
-.stk-drop h1, .stk-drop h2 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; color: var(--stk-fg); margin: 0; }
-.stk-drop p { max-width: 34rem; font-size: 0.875rem; color: var(--stk-fg-muted); line-height: 1.55; margin: 0; }
+.stk-drop-sm .stk-drop-icon { width: 2.5rem; height: 2.5rem; font-size: 1.05rem; margin-bottom: 0.25rem; }
+.stk-drop-title, .stk-drop h1, .stk-drop h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; color: var(--stk-fg); margin: 0; }
+.stk-drop-sm .stk-drop-title, .stk-drop-sm h2, .stk-drop-sm h3 { font-size: 0.95rem; }
+.stk-drop-text, .stk-drop p { max-width: 34rem; font-size: 0.9375rem; color: var(--stk-fg-3); line-height: 1.55; margin: 0; }
+.stk-drop-sm .stk-drop-text, .stk-drop-sm p { font-size: 0.8125rem; }
 .stk-drop-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; margin-top: 0.75rem; }
-.stk-drop-formats { display: flex; flex-wrap: wrap; gap: 0.3rem; justify-content: center; margin-top: 0.5rem; }
+.stk-drop-formats { display: flex; flex-wrap: wrap; gap: 0.3rem; justify-content: center; margin-top: 0.75rem; }
+.stk-drop-formats > span {
+  font-family: var(--stk-font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.12rem 0.4rem;
+  border-radius: var(--stk-radius-sm);
+  background: var(--stk-surface-2);
+  color: var(--stk-fg-3);
+  border: 1px solid var(--stk-border);
+}
+@media (max-width: 639px) { .stk-drop { min-height: 16rem; padding: 2rem 1.25rem; } }
 
 /* Toasts ------------------------------------------------------------------- */
 
@@ -1034,7 +1077,7 @@ input[type="checkbox"], input[type="radio"], input[type="range"], progress { acc
    load or on scroll, and nothing moves at all under reduced motion. */
 @keyframes stk-pop { from { opacity: 0; transform: translateY(-8px) scale(.985); } }
 @keyframes stk-fade { from { opacity: 0; } }
-@keyframes stk-drop { from { opacity: 0; transform: translateY(-6px); } }
+@keyframes stk-slide-down { from { opacity: 0; transform: translateY(-6px); } }
 @keyframes stk-rise { from { opacity: 0; transform: translateY(10px); } }
 @keyframes stk-tick { from { stroke-dashoffset: 16; } to { stroke-dashoffset: 0; } }
 @keyframes stk-bump { 0% { transform: scale(1); } 45% { transform: scale(1.18); } 100% { transform: scale(1); } }
@@ -1042,12 +1085,13 @@ input[type="checkbox"], input[type="radio"], input[type="range"], progress { acc
 @media (prefers-reduced-motion: no-preference) {
   .stk-finder[open] { animation: stk-pop .18s cubic-bezier(.2, .8, .2, 1); }
   .stk-finder[open]::backdrop { animation: stk-fade .18s ease-out; }
-  #mobile-menu:not(.hidden) { animation: stk-drop .18s ease-out; }
+  #mobile-menu:not(.hidden) { animation: stk-slide-down .18s ease-out; }
   .stk-toast { animation: stk-rise .22s cubic-bezier(.2, .8, .2, 1); }
   .stk-reveal { animation: stk-rise .32s cubic-bezier(.2, .8, .2, 1); }
   [data-stk-state="done"].stk-just-done .stk-stepn { animation: stk-bump .36s ease-out; }
   [data-stk-state="done"].stk-just-done .stk-stepn svg { animation: stk-tick .34s .06s ease-out both; }
   .themeToggle.is-turning i { animation: stk-turn .35s cubic-bezier(.2, .8, .2, 1); }
+  .stk-drop.is-over .stk-drop-icon { transform: translateY(-3px) scale(1.06); }
 }
 
 @tailwind utilities;
