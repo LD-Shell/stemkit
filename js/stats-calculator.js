@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => { dataInput.value = ev.target.result; parseData(); };
+    reader.onload = (ev) => { markSample(null); dataInput.value = ev.target.result; parseData(); };
     reader.readAsText(file);
   });
 
@@ -97,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // quiet: no toasts, and the status line under the box says what was read.
   let parseTimer = null;
   dataInput.addEventListener('input', () => {
+    markSample(null);
     clearTimeout(parseTimer);
     parseTimer = setTimeout(() => {
       if (dataInput.value.trim()) parseData({ quiet: true });
@@ -727,13 +728,31 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   });
 
-  document.querySelectorAll('.doc-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      const key = tab.getAttribute('data-doc-tab');
-      document.querySelectorAll('.doc-tab').forEach(x =>
-        x.classList.toggle('active', x === tab));
-      document.querySelectorAll('.doc-pane').forEach(pane =>
-        pane.classList.toggle('active', pane.getAttribute('data-doc-pane') === key));
+  // The method tabs follow the ARIA tabs pattern: the selected tab carries
+  // aria-selected (which is also what the stylesheet highlights, so the two
+  // cannot disagree), only it is in the tab order, and the arrow keys, Home
+  // and End move between tabs.
+  const docTabs = Array.from(document.querySelectorAll('.doc-tab'));
+  function selectDocTab(tab, focus) {
+    const key = tab.getAttribute('data-doc-tab');
+    docTabs.forEach(x => {
+      const on = x === tab;
+      x.classList.toggle('active', on);
+      x.setAttribute('aria-selected', on ? 'true' : 'false');
+      x.tabIndex = on ? 0 : -1;
+    });
+    document.querySelectorAll('.doc-pane').forEach(pane =>
+      pane.classList.toggle('active', pane.getAttribute('data-doc-pane') === key));
+    if (focus) tab.focus();
+  }
+  docTabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => selectDocTab(tab, false));
+    tab.addEventListener('keydown', (e) => {
+      const last = docTabs.length - 1;
+      const to = { ArrowRight: i === last ? 0 : i + 1, ArrowLeft: i === 0 ? last : i - 1, Home: 0, End: last }[e.key];
+      if (to === undefined) return;
+      e.preventDefault();
+      selectDocTab(docTabs[to], true);
     });
   });
 
@@ -869,9 +888,17 @@ document.addEventListener('DOMContentLoaded', () => {
       { heading: "Formats & robustness", keys: ["longtidy", "nonparam"] }
   ];
 
+  // The chip of the example in the box stays pressed until the data is
+  // edited, so it is clear what is loaded.
+  function markSample(key) {
+      document.querySelectorAll('.tut-chip[data-sample]').forEach(c =>
+          c.setAttribute('aria-pressed', c.getAttribute('data-sample') === key ? 'true' : 'false'));
+  }
+
   function loadSample(key) {
       const s = SAMPLES[key];
       if (!s) return;
+      markSample(key);
       // 1) fill data + format, then parse (synchronous for string input)
       if (formatSelect) formatSelect.value = s.format;
       dataInput.value = s.csv;

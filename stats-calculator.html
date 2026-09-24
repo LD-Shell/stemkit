@@ -156,12 +156,12 @@
                 <button id="tutorialDismiss" type="button" class="tut-strip-close" aria-label="Hide examples"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="tut-chips">
-                <button type="button" class="tut-chip" data-sample="welch" title="Control vs Treatment, a clear, significant difference."><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Two groups <span>t-test</span></button>
-                <button type="button" class="tut-chip" data-sample="paired" title="Repeated measures on the same subjects."><i class="fa-solid fa-arrows-left-right" aria-hidden="true"></i> Before / after <span>paired</span></button>
-                <button type="button" class="tut-chip" data-sample="anova" title="Placebo / LowDose / HighDose, with increasing means."><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Three groups <span>ANOVA</span></button>
-                <button type="button" class="tut-chip" data-sample="pearson" title="Height vs weight, strong positive relationship."><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Height vs weight <span>Pearson</span></button>
-                <button type="button" class="tut-chip" data-sample="longtidy" title="One value column split by a group label (R / pandas style)."><i class="fa-solid fa-table-list" aria-hidden="true"></i> Long / tidy data</button>
-                <button type="button" class="tut-chip" data-sample="nonparam" title="Skewed data: the t-test is fooled, Mann&ndash;Whitney isn&rsquo;t."><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Skewed data <span>Mann&ndash;Whitney</span></button>
+                <button type="button" class="tut-chip" aria-pressed="false" data-sample="welch" title="Control vs Treatment, a clear, significant difference."><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Two groups <span>t-test</span></button>
+                <button type="button" class="tut-chip" aria-pressed="false" data-sample="paired" title="Repeated measures on the same subjects."><i class="fa-solid fa-arrows-left-right" aria-hidden="true"></i> Before / after <span>paired</span></button>
+                <button type="button" class="tut-chip" aria-pressed="false" data-sample="anova" title="Placebo / LowDose / HighDose, with increasing means."><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Three groups <span>ANOVA</span></button>
+                <button type="button" class="tut-chip" aria-pressed="false" data-sample="pearson" title="Height vs weight, strong positive relationship."><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Height vs weight <span>Pearson</span></button>
+                <button type="button" class="tut-chip" aria-pressed="false" data-sample="longtidy" title="One value column split by a group label (R / pandas style)."><i class="fa-solid fa-table-list" aria-hidden="true"></i> Long / tidy data</button>
+                <button type="button" class="tut-chip" aria-pressed="false" data-sample="nonparam" title="Skewed data: the t-test is fooled, Mann&ndash;Whitney isn&rsquo;t."><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Skewed data <span>Mann&ndash;Whitney</span></button>
             </div>
         </section>
 
@@ -306,15 +306,15 @@
                 <h2 class="stk-h2">What each test computes, and how to read it</h2>
                 <p class="stk-lead">Every statistic is computed in your browser from its standard definition; the distribution tail probabilities (Student <em>t</em>, central <em>F</em>, &chi;², normal) come from jStat. The independent-samples default is <strong>Welch's t-test</strong>, which does not assume equal variances, and every parametric test reports an <strong>effect size</strong> and, where standard, a <strong>95% confidence interval</strong>. Assumptions are checked automatically and a non-parametric alternative is suggested when they fail.</p>
 
-                <div class="doc-tabs" role="tablist">
-                    <button class="doc-tab active" data-doc-tab="tests" role="tab"><i class="fa-solid fa-flask-vial"></i> Tests</button>
-                    <button class="doc-tab" data-doc-tab="effect" role="tab"><i class="fa-solid fa-ruler-horizontal"></i> Effect sizes</button>
-                    <button class="doc-tab" data-doc-tab="assume" role="tab"><i class="fa-solid fa-clipboard-check"></i> Assumptions</button>
-                    <button class="doc-tab" data-doc-tab="report" role="tab"><i class="fa-solid fa-file-lines"></i> Reporting</button>
+                <div class="doc-tabs" role="tablist" aria-label="Method">
+                    <button type="button" class="doc-tab active" id="doc-tab-tests" data-doc-tab="tests" role="tab" aria-selected="true" aria-controls="doc-pane-tests"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Tests</button>
+                    <button type="button" class="doc-tab" id="doc-tab-effect" data-doc-tab="effect" role="tab" aria-selected="false" aria-controls="doc-pane-effect" tabindex="-1"><i class="fa-solid fa-ruler-horizontal" aria-hidden="true"></i> Effect sizes</button>
+                    <button type="button" class="doc-tab" id="doc-tab-assume" data-doc-tab="assume" role="tab" aria-selected="false" aria-controls="doc-pane-assume" tabindex="-1"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Assumptions</button>
+                    <button type="button" class="doc-tab" id="doc-tab-report" data-doc-tab="report" role="tab" aria-selected="false" aria-controls="doc-pane-report" tabindex="-1"><i class="fa-solid fa-file-lines" aria-hidden="true"></i> Reporting</button>
                 </div>
 
                 <!-- TESTS -->
-                <div class="doc-pane active" data-doc-pane="tests">
+                <div class="doc-pane active" id="doc-pane-tests" data-doc-pane="tests" role="tabpanel" aria-labelledby="doc-tab-tests" tabindex="0">
                     <h2 class="stk-h2">The tests</h2>
                     <table class="stk-table">
                         <thead><tr><th>Test</th><th>Use when</th><th>Statistic &amp; df</th></tr></thead>
@@ -332,7 +332,7 @@
                 </div>
 
                 <!-- EFFECT SIZES -->
-                <div class="doc-pane" data-doc-pane="effect">
+                <div class="doc-pane" id="doc-pane-effect" data-doc-pane="effect" role="tabpanel" aria-labelledby="doc-tab-effect" tabindex="0">
                     <h2 class="stk-h2">Effect sizes &amp; intervals</h2>
                     <p class="stk-lead">A p-value tells you whether an effect is distinguishable from zero, not how big it is. Each test therefore reports a standardized effect size and, where standard, a confidence interval.</p>
                     <table class="stk-table">
@@ -349,7 +349,7 @@
                 </div>
 
                 <!-- ASSUMPTIONS -->
-                <div class="doc-pane" data-doc-pane="assume">
+                <div class="doc-pane" id="doc-pane-assume" data-doc-pane="assume" role="tabpanel" aria-labelledby="doc-tab-assume" tabindex="0">
                     <h2 class="stk-h2">Assumption checks</h2>
                     <p class="stk-lead">Two automatic checks run alongside each parametric comparison, and the tool tells you when to switch tests.</p>
                     <table class="stk-table">
@@ -363,7 +363,7 @@
                 </div>
 
                 <!-- REPORTING -->
-                <div class="doc-pane" data-doc-pane="report">
+                <div class="doc-pane" id="doc-pane-report" data-doc-pane="report" role="tabpanel" aria-labelledby="doc-tab-report" tabindex="0">
                     <h2 class="stk-h2">APA-style reporting</h2>
                     <p class="stk-lead">The publication summary follows APA conventions: test name, descriptives, the test statistic with df, an exact p-value (or p &lt; .001), a confidence interval, and an effect size with its interpretation. Example:</p>
                     <p class="stk-where" style="font-style:italic;">"Welch's independent-samples t-test compared Group A (M = 5.45, SD = 0.52, n = 8) and Group B (M = 6.78, SD = 0.40, n = 8). The difference was statistically significant, t(13.28) = −5.62, p &lt; .001, 95% CI [−1.84, −0.83], Cohen's d = −2.81 (large)."</p>

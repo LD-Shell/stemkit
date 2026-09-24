@@ -46,6 +46,9 @@
 .tut-chip span { font-weight:500; color:var(--stk-fg-muted); }
 .tut-chip:hover { border-color:var(--stk-accent); color:var(--stk-accent-text); transform:translateY(-1px); }
 .tut-chip:hover span { color:inherit; }
+/* The example that is loaded. */
+.tut-chip[aria-pressed="true"] { background:var(--stk-accent-soft); border-color:var(--stk-accent); color:var(--stk-accent-text); box-shadow:inset 0 0 0 1px var(--stk-accent); }
+.tut-chip[aria-pressed="true"] span { color:inherit; }
 /* Under Run Analysis while it is disabled: say why. */
 .run-hint { display:none; margin-top:.5rem; font-size:.8rem; text-align:center; color:var(--stk-fg-3); }
 #runTestBtn:disabled + .run-hint { display:block; }
@@ -57,7 +60,7 @@
 .doc-tab:hover { background:#f1f5f9; color:#0f172a; }
 .dark .doc-tab { color:#94a3b8; }
 .dark .doc-tab:hover { background:#1e293b; color:#f1f5f9; }
-.doc-tab.active { background:#1f5c96; color:#fff; border-color:#1f5c96; }
+.doc-tab[aria-selected="true"], .dark .doc-tab[aria-selected="true"] { background:var(--stk-accent); color:var(--stk-accent-fg); border-color:var(--stk-accent); }
 .doc-pane { display:none; }
 .doc-pane.active { display:block; animation:docfade .2s ease; }
 
