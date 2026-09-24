@@ -257,7 +257,12 @@ document.addEventListener('DOMContentLoaded', () => {
         : { bgcolor: 'rgba(255,255,255,0.8)', color: '#64748b', activecolor: '#1f5c96' }
     };
 
-    Plotly.react(plotContainer, traces, layout, { responsive: true, displaylogo: false });
+    Plotly.react(plotContainer, traces, layout, {
+      responsive: true,
+      displaylogo: false,
+      modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+      toImageButtonOptions: { format: 'png', filename: 'curve_fit', scale: 2 }
+    });
   }
 
   // --- 6. Copy and export ---
