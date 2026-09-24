@@ -9,7 +9,7 @@ import {
   pearsonCorrelation,
   leastSquaresLine, spearmanCorrelation,
   mannWhitneyU, wilcoxonSignedRank, oneSampleWilcoxon, kruskalWallis,
-  qUpperTail, adjustPValues, tukeyHSD, gamesHowell, dunnTest,
+  qUpperTail, adjustPValues, tukeyHSD, gamesHowell, dunnTest, recommendTest,
   alignPairs, formatP, interpretD, interpretEta, interpretR,
   classifyFields, pivotLongToGroups
 } from '../src/core/statistics.js';
@@ -1089,6 +1089,99 @@ describe('assumption checks', () => {
 
   test('requires at least two groups', () => {
     expect(leveneTest([[1, 2, 3]]).ok).toBeNull();
+  });
+});
+
+describe('recommendTest', () => {
+  // The decisions rest on dagostinoNormality and leveneTest, which match
+  // stats.normaltest and stats.levene(center='median'); the p-values quoted
+  // below are SciPy's.
+
+  test("two normal groups: Welch's t, whatever Levene says", () => {
+    // normaltest p: A .373, B .661; levene p = .247
+    const r = recommendTest({ design: 'independent', groups: [A, B], names: ['Control', 'Treated'] });
+    expect(r.test).toBe('welch-t');
+    expect(r.reason).toBe("Control and Treated look normal (D'Agostino p = .373, p = .661); " +
+      "Welch's t is the safe default whether or not the variances match.");
+    expect(r.levene.p).toBeCloseTo(0.24689534322848375, 6);
+  });
+
+  test('two groups, one skewed: Mann-Whitney, naming the group', () => {
+    // normaltest p: S1 4.8e-6, S2 1.2e-6
+    const r = recommendTest({ design: 'independent', groups: [S1, S2], names: ['X', 'Y'] });
+    expect(r.test).toBe('mann-whitney');
+    expect(r.reason).toBe("X and Y depart from normality (D'Agostino p < .001, p < .001), " +
+      'so a rank-based test is safer.');
+  });
+
+  test('three normal groups with similar spread: one-way ANOVA', () => {
+    // normaltest p .712, .875, .556; levene p = .513
+    const r = recommendTest({ design: 'independent', groups: [PLACEBO, LOWDOSE, HIGHDOSE] });
+    expect(r.test).toBe('anova');
+    expect(r.reason).toContain('Group 1, Group 2 and Group 3 look normal');
+    expect(r.reason).toContain('the variances are similar (Levene p = .513)');
+  });
+
+  test("unequal spreads: Welch's ANOVA, and says which groups were too small to check", () => {
+    // levene p = .0051; U2 normaltest p = .848; U1 (n = 7) and U3 (n = 6) untestable
+    const r = recommendTest({ design: 'independent', groups: [U1, U2, U3], names: ['U1', 'U2', 'U3'] });
+    expect(r.test).toBe('welch-anova');
+    expect(r.reason).toBe("U2 looks normal (D'Agostino p = .848); U1 and U3 have too few " +
+      "values to check (under 8); the variances differ (Levene p = .005), which Welch's ANOVA allows for.");
+  });
+
+  test('three skewed groups: Kruskal-Wallis', () => {
+    // normaltest p: S3 .0097
+    expect(recommendTest({ design: 'independent', groups: [S1, S2, S3] }).test).toBe('kruskal-wallis');
+  });
+
+  test('paired: t when the differences look normal, Wilcoxon when not', () => {
+    // normaltest(X1 - X2) p = .608; normaltest(S2 - S1) p = .0039
+    const t = recommendTest({ design: 'paired', groups: [X1, X2] });
+    expect(t.test).toBe('paired-t');
+    expect(t.reason).toBe("The paired differences look normal (D'Agostino p = .608).");
+    const w = recommendTest({ design: 'paired', groups: [S2, S1] });
+    expect(w.test).toBe('wilcoxon');
+    expect(w.reason).toContain('The paired differences depart from normality (D\'Agostino p = .004)');
+  });
+
+  test('one sample: t for normal replicates, the signed-rank test for skewed ones', () => {
+    // normaltest p: TITR .955, S1 4.8e-6
+    expect(recommendTest({ design: 'one-sample', groups: [TITR] }).test).toBe('one-sample-t');
+    expect(recommendTest({ design: 'one-sample', groups: [S1] }).test).toBe('one-sample-wilcoxon');
+  });
+
+  test('association: Pearson for normal variables, Spearman for a skewed one', () => {
+    const x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const y = [2.1, 3.9, 6.2, 7.8, 10.1, 12.2, 13.8, 16.1, 18.0, 20.2];
+    // normaltest p: x .363, y .625; conc .00078
+    expect(recommendTest({ design: 'association', groups: [x, y] }).test).toBe('pearson');
+    const conc = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100];
+    const resp = [0.4, 0.9, 1.9, 3.1, 4.6, 6.5, 7.6, 8.4, 9.0, 9.3];
+    const r = recommendTest({ design: 'association', groups: [conc, resp], names: ['Dose', 'Response'] });
+    expect(r.test).toBe('spearman');
+    expect(r.reason).toBe("Dose departs from normality (D'Agostino p < .001), so a rank correlation is safer.");
+  });
+
+  test('too small to test anything: says so rather than calling the data normal', () => {
+    const r = recommendTest({ design: 'independent', groups: [[1, 2, 3], [2, 3, 5]] });
+    expect(r.test).toBe('welch-t');
+    expect(r.reason).toMatch(/^There are too few values to check normality/);
+    expect(r.reason).not.toContain('look normal');
+  });
+
+  test('returns the checks it based the advice on', () => {
+    const r = recommendTest({ design: 'independent', groups: [A, B] });
+    expect(r.normality.map(x => x.n)).toEqual([10, 10]);
+    expect(r.normality[0].p).toBeCloseTo(0.3730767924710829, 12);
+  });
+
+  test('returns null for an unknown design or unusable samples', () => {
+    expect(recommendTest({ design: 'cohort', groups: [A, B] })).toBeNull();
+    expect(recommendTest({ design: 'independent', groups: [A] })).toBeNull();
+    expect(recommendTest({ design: 'paired', groups: [A, B, X1] })).toBeNull();
+    expect(recommendTest({ design: 'one-sample', groups: [[1]] })).toBeNull();
+    expect(recommendTest()).toBeNull();
   });
 });
 

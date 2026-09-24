@@ -176,6 +176,7 @@ export {
   tukeyHSD,
   gamesHowell,
   dunnTest,
+  recommendTest,
   alignPairs,
   formatP,
   interpretD,

@@ -1340,6 +1340,139 @@ export function dunnTest(groups, options = {}) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Choosing a test
+ * ------------------------------------------------------------------ */
+
+/** "p = .032", or "p < .001" rather than "p = < .001". */
+function pText(p) {
+  const f = formatP(p);
+  return f.startsWith('<') ? `p ${f}` : `p = ${f}`;
+}
+
+/** "A", "A and B", "A, B and C". */
+function listNames(names) {
+  if (names.length < 2) return names.join('');
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/**
+ * Suggest a test from the design of the study and the assumption checks.
+ *
+ * The rules are a defensible starting point, written down so that a reader
+ * can disagree with them:
+ *
+ *   - Normality is D'Agostino–Pearson at α = .05, for each group, each
+ *     variable, or the paired differences. A sample under 8 cannot be tested;
+ *     it counts as no evidence against normality, and the reason says it was
+ *     not checked rather than implying it passed.
+ *   - Any departure from normality: the rank-based counterpart (Mann–Whitney,
+ *     Wilcoxon, Kruskal–Wallis, Spearman).
+ *   - Two independent groups: Welch's t whatever Levene's test says. It costs
+ *     little when the variances are equal and protects when they are not
+ *     (Delacre, Lakens & Leys 2017), and a pre-test for equal variances is a
+ *     poor gatekeeper for a pooled test.
+ *   - Three or more: the one-way ANOVA (followed by Tukey's HSD) unless
+ *     Levene's test is significant, then Welch's ANOVA (and Games–Howell).
+ *
+ * The result is advice for a person to accept or not; nothing here changes
+ * which test is run.
+ *
+ * @param {{design: 'independent'|'paired'|'one-sample'|'association',
+ *          groups: number[][], names?: string[]}} input
+ *        `groups` holds two or more samples for 'independent', two for
+ *        'paired' and 'association', and one for 'one-sample'.
+ * @returns {{test:string, reason:string,
+ *            normality:Array<{name:string, n:number, p:number, ok:boolean|null}>,
+ *            levene:object|null}|null}
+ *          `test` is one of 'welch-t', 'mann-whitney', 'paired-t',
+ *          'wilcoxon', 'one-sample-t', 'one-sample-wilcoxon', 'anova',
+ *          'welch-anova', 'kruskal-wallis', 'pearson', 'spearman'. null when
+ *          the design is unknown or a sample has fewer than two values.
+ */
+export function recommendTest({ design, groups, names } = {}) {
+  if (!Array.isArray(groups) || groups.some(g => !Array.isArray(g) || g.length < 2)) return null;
+  const need = { independent: 2, paired: 2, association: 2, 'one-sample': 1 }[design];
+  if (!need || groups.length < need || (design !== 'independent' && groups.length !== need)) {
+    return null;
+  }
+  const label = (i) => (names && names[i] != null && String(names[i]) !== '' ? String(names[i]) : `Group ${i + 1}`);
+
+  let samples;
+  if (design === 'paired') {
+    const { a, b } = alignPairs(groups[0], groups[1]);
+    if (a.length < 2) return null;
+    samples = [{ name: 'the paired differences', values: a.map((v, i) => v - b[i]) }];
+  } else {
+    samples = groups.map((g, i) => ({ name: label(i), values: g }));
+  }
+
+  const normality = samples.map(s => {
+    const r = dagostinoNormality(s.values);
+    return { name: s.name, n: s.values.length, p: r.p, ok: r.ok };
+  });
+  const failed = normality.filter(x => x.ok === false);
+  const passed = normality.filter(x => x.ok === true);
+  const untested = normality.filter(x => x.ok === null);
+  const ps = (list) => list.map(x => pText(x.p)).join(', ');
+  const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  const levene = design === 'independent' ? leveneTest(groups) : null;
+  const k = groups.length;
+
+  if (failed.length) {
+    const test = {
+      independent: k === 2 ? 'mann-whitney' : 'kruskal-wallis',
+      paired: 'wilcoxon',
+      'one-sample': 'one-sample-wilcoxon',
+      association: 'spearman'
+    }[design];
+    const verb = failed.length === 1 && !/differences$/.test(failed[0].name) ? 'departs' : 'depart';
+    const safer = design === 'association' ? 'a rank correlation is safer' : 'a rank-based test is safer';
+    return {
+      test,
+      reason: `${cap(listNames(failed.map(x => x.name)))} ${verb} from normality ` +
+              `(D'Agostino ${ps(failed)}), so ${safer}.`,
+      normality, levene
+    };
+  }
+
+  // What the normality checks did and did not show.
+  const parts = [];
+  if (passed.length) {
+    const one = passed.length === 1 && !/differences$/.test(passed[0].name);
+    parts.push(`${listNames(passed.map(x => x.name))} ${one ? 'looks' : 'look'} normal ` +
+               `(D'Agostino ${ps(passed)})`);
+  }
+  if (untested.length) {
+    parts.push(passed.length
+      ? `${listNames(untested.map(x => x.name))} ${untested.length === 1 ? 'has' : 'have'} too few values to check (under 8)`
+      : 'there are too few values to check normality (under 8)');
+  }
+  const seen = cap(parts.join('; '));
+
+  const levP = levene && Number.isFinite(levene.p) ? pText(levene.p) : null;
+  let test;
+  let tail = '.';
+  if (design === 'independent' && k === 2) {
+    test = 'welch-t';
+    tail = levene && levene.ok === false
+      ? `; the variances differ (Levene ${levP}), and Welch's t does not assume they are equal.`
+      : "; Welch's t is the safe default whether or not the variances match.";
+  } else if (design === 'independent') {
+    if (levene && levene.ok === false) {
+      test = 'welch-anova';
+      tail = `; the variances differ (Levene ${levP}), which Welch's ANOVA allows for.`;
+    } else {
+      test = 'anova';
+      tail = levP ? `; the variances are similar (Levene ${levP}).` : '.';
+    }
+  } else {
+    test = { paired: 'paired-t', 'one-sample': 'one-sample-t', association: 'pearson' }[design];
+  }
+  return { test, reason: seen + tail, normality, levene };
+}
+
+/* ------------------------------------------------------------------ *
  * Helpers
  * ------------------------------------------------------------------ */
 
