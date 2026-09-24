@@ -139,6 +139,16 @@ html {
   text-size-adjust: 100%;
 }
 
+/* Plotly's toolbar. Preflight sets every svg to display:block, which put each
+   toolbar icon on its own line: the toolbar stacked into a vertical strip
+   over the plot, and Plotly shaded it with half-black because the charts'
+   paper is transparent. Restored to one quiet row that takes the theme. */
+.js-plotly-plot .plotly .modebar-group { display: inline-block; background: transparent !important; }
+.js-plotly-plot .plotly .modebar-btn svg { display: inline-block; }
+.js-plotly-plot .plotly .modebar-btn path { fill: var(--stk-fg-muted) !important; }
+.js-plotly-plot .plotly .modebar-btn:hover path,
+.js-plotly-plot .plotly .modebar-btn.active path { fill: var(--stk-accent-text) !important; }
+
 /* Native checkboxes, radios, sliders and progress bars take the site accent
    instead of the browser's own blue. */
 input[type="checkbox"], input[type="radio"], input[type="range"], progress { accent-color: var(--stk-accent); }
