@@ -141,7 +141,7 @@
                 <div class="bg-indigo-600 text-white p-2 rounded-lg shrink-0"><i class="fa-solid fa-graduation-cap"></i></div>
                 <div>
                     <h2 class="text-base font-bold text-slate-900 dark:text-white">New here? Try a worked example</h2>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">Each button loads real data and picks the matching test | just press <strong>Run Analysis</strong> to see the result. Explore how the output changes across tests and formats.</p>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Each button loads real data and picks the matching test. Press <strong>Run Analysis</strong> to see the result. Explore how the output changes across tests and formats.</p>
                 </div>
             </div>
             <div class="flex flex-col gap-3">
@@ -155,7 +155,7 @@
                 <div class="tut-group">
                     <span class="tut-heading">ANOVA</span>
                     <div class="tut-chips">
-                        <button class="tut-chip" data-sample="anova" title="Placebo / LowDose / HighDose | increasing means."><i class="fa-solid fa-layer-group"></i> Three groups</button>
+                        <button class="tut-chip" data-sample="anova" title="Placebo / LowDose / HighDose, with increasing means."><i class="fa-solid fa-layer-group"></i> Three groups</button>
                     </div>
                 </div>
                 <div class="tut-group">
@@ -237,8 +237,8 @@
                             <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Test Type</label>
                             <select id="testType" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
                                 <optgroup label="Parametric">
-                                    <option value="ttest_welch">Independent t-test | Welch (unequal variances)</option>
-                                    <option value="ttest_ind">Independent t-test | Student (pooled)</option>
+                                    <option value="ttest_welch">Independent t-test: Welch (unequal variances)</option>
+                                    <option value="ttest_ind">Independent t-test: Student (pooled)</option>
                                     <option value="ttest_pair">Paired t-test</option>
                                     <option value="anova">One-Way ANOVA (k groups)</option>
                                     <option value="pearson">Pearson Correlation</option>
@@ -423,7 +423,7 @@
                 <div style="margin-top:1rem;">
                     <details class="stk-faq"><summary>Why is Welch's t-test the default instead of the classic Student's t-test?</summary><div>Because the equal-variance assumption behind the pooled Student's t-test is often violated in real data, and when it is, the pooled test's error rates are wrong. Welch's t-test does not assume equal variances, controls the Type&nbsp;I error rate well across a wide range of conditions, and loses very little power when variances happen to be equal. It's the modern recommended default; the pooled version is still offered for when you've confirmed equal variances.</div></details>
                     <details class="stk-faq"><summary>What changed from a "p-value only" tool?</summary><div>Three things reviewers now expect: an <strong>effect size</strong> for every test (Cohen's d, η²/ω², r/r², or a rank-biserial correlation), a <strong>95% confidence interval</strong> where one is standard, and automatic <strong>assumption checks</strong> (normality and equality of variance) that recommend a non-parametric test when needed. The ANOVA is also a genuine k-group analysis rather than a two-column comparison.</div></details>
-                    <details class="stk-faq"><summary>What data layouts are supported | wide or long?</summary><div>Both. <strong>Wide</strong> format puts each group in its own column (e.g. columns <code>GroupA</code>, <code>GroupB</code>, <code>GroupC</code>). <strong>Long / tidy</strong> format, the default export from R, pandas and most statistical software, puts all the numbers in one <code>value</code> column and the group labels in another (e.g. <code>value</code>, <code>group</code>). The tool auto-detects which you've pasted; if the guess is wrong, use the Format dropdown to force Wide or Long, and in Long mode pick which column holds the values and which holds the group labels.</div></details>
+                    <details class="stk-faq"><summary>What data layouts are supported, wide or long?</summary><div>Both. <strong>Wide</strong> format puts each group in its own column (e.g. columns <code>GroupA</code>, <code>GroupB</code>, <code>GroupC</code>). <strong>Long / tidy</strong> format, the default export from R, pandas and most statistical software, puts all the numbers in one <code>value</code> column and the group labels in another (e.g. <code>value</code>, <code>group</code>). The tool auto-detects which you've pasted; if the guess is wrong, use the Format dropdown to force Wide or Long, and in Long mode pick which column holds the values and which holds the group labels.</div></details>
                     <details class="stk-faq"><summary>How do I run an ANOVA on more than two groups?</summary><div>Choose "One-Way ANOVA" and the group selector switches to a multi-select, hold Ctrl/Cmd (or Shift) to pick every column that represents a group. Each selected column is treated as one independent group, and the F-test uses df = (k−1, N−k). In long format, every level of your group column automatically becomes a selectable group.</div></details>
                     <details class="stk-faq"><summary>When should I trust the non-parametric tests instead?</summary><div>When the normality check flags a departure (especially with small samples), or when your data are ordinal or have heavy outliers. Mann–Whitney U replaces the independent t-test; Wilcoxon signed-rank replaces the paired t-test. Both test distributional shift via ranks and make no normality assumption. Here they use a normal approximation, which is accurate for moderate-to-large n; for very small samples, confirm against exact tables.</div></details>
                     <details class="stk-faq"><summary>Why are my p-values reported without a leading zero?</summary><div>That's APA style, probabilities that can't exceed 1 are written as p = .032, not 0.032. Values below .001 are shown as "&lt; .001" because the exact figure isn't meaningfully precise at that scale.</div></details>

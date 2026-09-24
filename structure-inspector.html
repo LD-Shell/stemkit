@@ -765,7 +765,7 @@
                     <tr><td><code>resn:HOH</code></td><td><p>Residue name. Accepts comma lists: <code>resn:ALA,GLY</code>.</p></td></tr>
                     <tr><td><code>resi:1-50</code></td><td><p>Residue number: a single value, a comma list, or an inclusive range.</p></td></tr>
                     <tr><td><code>elem:Fe</code></td><td><p>Element symbol, case sensitive as stored in the file.</p></td></tr>
-                    <tr><td><code>atom:CA</code></td><td><p>Atom name | more specific than element (<code>CA</code> is the alpha carbon).</p></td></tr>
+                    <tr><td><code>atom:CA</code></td><td><p>Atom name, more specific than element (<code>CA</code> is the alpha carbon).</p></td></tr>
                     <tr><td><code>ss:h</code></td><td><p>Secondary structure: <code>h</code> helix, <code>s</code> sheet, <code>c</code> coil.</p></td></tr>
                     <tr><td><code>b:&gt;30</code></td><td><p>B-factor. Supports <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code> and ranges like <code>b:20-50</code>.</p></td></tr>
                     <tr><td><code>serial:1-99</code></td><td><p>Atom serial number range.</p></td></tr>
@@ -782,7 +782,7 @@
                     <tr><td><code>ion:1</code></td><td><p>Frequently seen monatomic ions.</p></td></tr>
                     <tr><td><code>backbone:1</code></td><td><p>Protein backbone atoms N, CA, C, O.</p></td></tr>
                     <tr><td><code>sidechain:1</code></td><td><p>Amino-acid atoms that are not backbone.</p></td></tr>
-                    <tr><td><code>hetero:1</code></td><td><p>Atoms flagged as HETATM | ligands, cofactors, solvent.</p></td></tr>
+                    <tr><td><code>hetero:1</code></td><td><p>Atoms flagged as HETATM: ligands, cofactors, solvent.</p></td></tr>
                 </tbody>
             </table>
 
@@ -804,7 +804,7 @@
                 <tbody>
                     <tr><td><code>within:5,resn:HEM byres:1</code></td><td><p>The complete residues lining the haem pocket, the standard way to picture a binding site.</p></td></tr>
                     <tr><td><code>within:5,chain:A not:chain:A byres:1</code></td><td><p>The protein&ndash;protein interface: residues close to chain A that belong to a different chain.</p></td></tr>
-                    <tr><td><code>protein:1 not:solvent:1 b:&gt;60</code></td><td><p>The most mobile parts of the protein | often loops and termini.</p></td></tr>
+                    <tr><td><code>protein:1 not:solvent:1 b:&gt;60</code></td><td><p>The most mobile parts of the protein, often loops and termini.</p></td></tr>
                     <tr><td><code>ss:h chain:A</code></td><td><p>Helices of chain A only.</p></td></tr>
                     <tr><td><code>z:&gt;30 not:solvent:1</code></td><td><p>The upper leaflet of a membrane system with water stripped out.</p></td></tr>
                 </tbody>

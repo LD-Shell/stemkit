@@ -759,7 +759,7 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       anova: {
           label: "Three groups (ANOVA)",
-          desc: "Placebo / LowDose / HighDose | increasing means.",
+          desc: "Placebo / LowDose / HighDose, with increasing means.",
           format: "wide", test: "anova", groups: ["Placebo", "LowDose", "HighDose"],
           csv: `Placebo,LowDose,HighDose
 5.2,6.8,9.1
