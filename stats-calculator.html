@@ -6,8 +6,8 @@
     
     <title>Statistics Calculator | Welch t-test, ANOVA, Effect Sizes | STEMKit</title>
     <meta name="title" content="Statistics Calculator | Welch t-test, ANOVA, Effect Sizes | STEMKit">
-    <meta name="description" content="Run Welch's & Student's t-tests, one-way ANOVA (k groups), Pearson correlation, and Mann–Whitney / Wilcoxon tests in your browser. Reports effect sizes, 95% confidence intervals, normality & Levene assumption checks, and APA-style summaries, no data leaves your device.">
-    <meta name="keywords" content="statistical calculator, welch t-test, ANOVA calculator, effect size, cohen's d, confidence interval, levene test, mann-whitney, wilcoxon, p-value calculator, APA summary, client-side statistics">
+    <meta name="description" content="Run t-tests (Welch, Student, paired, one-sample), one-way and Welch's ANOVA with Tukey and Games–Howell, Kruskal–Wallis with Dunn, Pearson and Spearman correlation, and Mann–Whitney / Wilcoxon tests in your browser. Reports effect sizes, 95% confidence intervals, assumption checks, descriptive tables and plots, and APA-style summaries; no data leaves your device.">
+    <meta name="keywords" content="statistical calculator, welch t-test, one-sample t-test, ANOVA calculator, welch anova, tukey hsd, games-howell, kruskal-wallis, dunn test, spearman correlation, box plot, effect size, cohen's d, confidence interval, levene test, mann-whitney, wilcoxon, p-value calculator, APA summary, client-side statistics">
     
     <link rel="canonical" href="https://stemkit.net/stats-calculator.html">
     <meta property="og:url" content="https://stemkit.net/stats-calculator.html">
@@ -24,12 +24,12 @@
             "@type": "WebApplication",
             "name": "STEMKit Statistics Calculator",
             "url": "https://stemkit.net/stats-calculator.html",
-            "description": "Run Student's t-tests, one-way ANOVA, and Pearson correlations in the browser.",
+            "description": "Run t-tests, ANOVA with post-hoc comparisons, non-parametric tests and correlations in the browser, with descriptive tables and plots.",
             "applicationCategory": "UtilityApplication",
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "T-Test Processing", "ANOVA Generation", "Pearson Correlation", "Publication Summary Generator" ]
+            "featureList": [ "t-tests: Welch, Student, paired, one-sample", "One-way and Welch's ANOVA with Tukey HSD and Games–Howell", "Kruskal–Wallis with Dunn's test", "Pearson and Spearman correlation", "Descriptive statistics tables in CSV, Markdown and LaTeX", "Box plots and scatter plots as SVG and PNG", "Publication Summary Generator" ]
         }
     </script>
     
@@ -136,7 +136,7 @@
         <header class="stk-pagehead">
             <div>
                 <h1 class="stk-pagehead-title">Statistics Calculator</h1>
-                <p class="stk-pagehead-lede">Run t-tests, ANOVA, correlation and non-parametric tests on pasted or uploaded data, with effect sizes, confidence intervals and assumption checks.</p>
+                <p class="stk-pagehead-lede">Run t-tests, ANOVA with post-hoc comparisons, correlation and non-parametric tests on pasted or uploaded data, with effect sizes, confidence intervals, assumption checks, a descriptive table and a plot.</p>
                 <ul class="stk-pagehead-meta">
                     <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
                     <li><a href="#method"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Method and references</a></li>
@@ -375,13 +375,15 @@
             <div class="stk-wrap">
                 <span class="stk-chip"><i class="fa-solid fa-square-root-variable"></i> Method &amp; References</span>
                 <h2 class="stk-h2">What each test computes, and how to read it</h2>
-                <p class="stk-lead">Every statistic is computed in your browser from its standard definition; the distribution tail probabilities (Student <em>t</em>, central <em>F</em>, &chi;², normal) come from jStat. The independent-samples default is <strong>Welch's t-test</strong>, which does not assume equal variances, and every parametric test reports an <strong>effect size</strong> and, where standard, a <strong>95% confidence interval</strong>. Assumptions are checked automatically and a non-parametric alternative is suggested when they fail.</p>
+                <p class="stk-lead">Every statistic is computed in your browser from its standard definition; the distribution tail probabilities (Student <em>t</em>, central <em>F</em>, &chi;², normal, studentized range) come from jStat. The independent-samples default is <strong>Welch's t-test</strong>, which does not assume equal variances, and every test reports an <strong>effect size</strong> and, where standard, a <strong>95% confidence interval</strong>. Each result comes with a <strong>table of descriptive statistics</strong>, a <strong>plot of the data</strong>, and, for three or more groups, <strong>post-hoc pairwise comparisons</strong>. Assumptions are checked as you choose, and a suggestion appears when another test would suit the data better; the page never changes the test for you.</p>
 
                 <div class="doc-tabs" role="tablist" aria-label="Method">
                     <button type="button" class="doc-tab active" id="doc-tab-tests" data-doc-tab="tests" role="tab" aria-selected="true" aria-controls="doc-pane-tests"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Tests</button>
+                    <button type="button" class="doc-tab" id="doc-tab-posthoc" data-doc-tab="posthoc" role="tab" aria-selected="false" aria-controls="doc-pane-posthoc" tabindex="-1"><i class="fa-solid fa-code-compare" aria-hidden="true"></i> Post-hoc</button>
+                    <button type="button" class="doc-tab" id="doc-tab-choose" data-doc-tab="choose" role="tab" aria-selected="false" aria-controls="doc-pane-choose" tabindex="-1"><i class="fa-solid fa-signs-post" aria-hidden="true"></i> Which test?</button>
                     <button type="button" class="doc-tab" id="doc-tab-effect" data-doc-tab="effect" role="tab" aria-selected="false" aria-controls="doc-pane-effect" tabindex="-1"><i class="fa-solid fa-ruler-horizontal" aria-hidden="true"></i> Effect sizes</button>
                     <button type="button" class="doc-tab" id="doc-tab-assume" data-doc-tab="assume" role="tab" aria-selected="false" aria-controls="doc-pane-assume" tabindex="-1"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Assumptions</button>
-                    <button type="button" class="doc-tab" id="doc-tab-report" data-doc-tab="report" role="tab" aria-selected="false" aria-controls="doc-pane-report" tabindex="-1"><i class="fa-solid fa-file-lines" aria-hidden="true"></i> Reporting</button>
+                    <button type="button" class="doc-tab" id="doc-tab-report" data-doc-tab="report" role="tab" aria-selected="false" aria-controls="doc-pane-report" tabindex="-1"><i class="fa-solid fa-file-lines" aria-hidden="true"></i> Tables, plots and reporting</button>
                 </div>
 
                 <!-- TESTS -->
@@ -392,67 +394,121 @@
                         <tbody>
                             <tr><td><span class="hl">Welch's t-test</span> (default)</td><td>Two independent groups; variances may differ (the common real-world case).</td><td>t with Welch–Satterthwaite df</td></tr>
                             <tr><td>Student's pooled t-test</td><td>Two independent groups with equal variances (confirm with Levene).</td><td>t, df = n₁+n₂−2</td></tr>
-                            <tr><td>Paired t-test</td><td>Two measurements on the same units (before/after).</td><td>t on differences, df = n−1</td></tr>
-                            <tr><td>One-way ANOVA</td><td>Three or more independent groups (also valid for 2, where F = t²).</td><td>F, df = (k−1, N−k)</td></tr>
-                            <tr><td>Pearson correlation</td><td>Linear association between two continuous variables.</td><td>r, t = r√((n−2)/(1−r²))</td></tr>
                             <tr><td>Mann–Whitney U</td><td>Two independent groups when normality fails.</td><td>U, normal approximation (tie-corrected)</td></tr>
+                            <tr><td>Paired t-test</td><td>Two measurements on the same units (before/after).</td><td>t on differences, df = n−1</td></tr>
                             <tr><td>Wilcoxon signed-rank</td><td>Paired data when the differences aren't normal.</td><td>W, normal approximation</td></tr>
+                            <tr><td>One-sample t-test</td><td>One set of values against a stated value μ₀: a certified concentration, a literature value, zero change.</td><td>t = (x̄ − μ₀)/(s/√n), df = n−1</td></tr>
+                            <tr><td>One-sample Wilcoxon signed-rank</td><td>The same question when the values are skewed; tests the median against μ₀.</td><td>W on x − μ₀, normal approximation</td></tr>
+                            <tr><td>One-way ANOVA</td><td>Three or more independent groups with similar variances (also valid for 2, where F = t²). Followed by Tukey HSD.</td><td>F, df = (k−1, N−k)</td></tr>
+                            <tr><td><span class="hl">Welch's ANOVA</span></td><td>Three or more independent groups whose variances differ. Followed by Games–Howell.</td><td>F, df = (k−1, Welch df)</td></tr>
+                            <tr><td>Kruskal–Wallis H</td><td>Three or more independent groups that are skewed, ordinal or outlier-prone. Followed by Dunn's test.</td><td>H (tie-corrected), &chi;² on k−1 df</td></tr>
+                            <tr><td>Pearson correlation</td><td>Linear association between two continuous variables.</td><td>r, t = r√((n−2)/(1−r²))</td></tr>
+                            <tr><td>Spearman rank correlation</td><td>Any monotonic association, straight or curved, or when either variable is skewed.</td><td>ρ on ranks, t on n−2 df</td></tr>
                         </tbody>
                     </table>
-                    <p class="stk-where">The <span class="hl">Welch–Satterthwaite</span> degrees of freedom are generally non-integer and smaller than the pooled df, which is the price of not assuming equal variances. For two groups the one-way ANOVA reduces exactly to the pooled t-test (F = t²), a useful internal check.</p>
+                    <p class="stk-where">The <span class="hl">Welch–Satterthwaite</span> degrees of freedom are generally non-integer and smaller than the pooled df, which is the price of not assuming equal variances. For two groups the one-way ANOVA reduces exactly to the pooled t-test (F = t²), and Welch's ANOVA to Welch's t-test, useful internal checks. Welch's ANOVA weights each group by n/s² (Welch 1951). <span class="hl">Kruskal–Wallis</span> ranks all groups together, gives tied values their average rank and divides H by the tie correction C = 1 − Σ(t³ − t)/(N³ − N), as SciPy and R do; its p-value is the chi-squared approximation, rough with five or fewer values per group. <span class="hl">Spearman's ρ</span> is Pearson's r computed on the ranks, which stays exact when there are ties.</p>
+                </div>
+
+                <!-- POST-HOC -->
+                <div class="doc-pane" id="doc-pane-posthoc" data-doc-pane="posthoc" role="tabpanel" aria-labelledby="doc-tab-posthoc" tabindex="0">
+                    <h2 class="stk-h2">Post-hoc comparisons</h2>
+                    <p class="stk-lead">A significant ANOVA or Kruskal–Wallis test says the groups are not all alike; it does not say which differ. Each k-group test is followed by the pairwise comparison that matches its assumptions, adjusted so that the chance of any false positive across all pairs stays at 5%.</p>
+                    <table class="stk-table">
+                        <thead><tr><th>After</th><th>Comparison</th><th>How it works</th><th>Reports</th></tr></thead>
+                        <tbody>
+                            <tr><td>One-way ANOVA</td><td><span class="hl">Tukey HSD</span> (Tukey–Kramer)</td><td>q = |x̄ᵢ − x̄ⱼ| / √(MS<sub>W</sub>/2 × (1/nᵢ + 1/nⱼ)) against the studentized range for k means on N−k df; the pooled MS<sub>W</sub> assumes equal variances.</td><td>Difference, simultaneous 95% CI, q, adjusted p</td></tr>
+                            <tr><td>Welch's ANOVA</td><td><span class="hl">Games–Howell</span></td><td>Each pair keeps its own standard error and Welch df; |t| × √2 against the studentized range.</td><td>Difference, simultaneous 95% CI, t, df, adjusted p</td></tr>
+                            <tr><td>Kruskal–Wallis</td><td><span class="hl">Dunn's test</span>, Holm-adjusted</td><td>Mean ranks from the joint ranking, tie-corrected variance, two-sided normal p-values without continuity correction, then Holm's step-down adjustment across all pairs.</td><td>Mean-rank difference, z, p, Holm p</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="stk-where">Tukey's and Games–Howell's p-values and intervals are <span class="hl">simultaneous</span>: they already cover all k(k−1)/2 comparisons, so no further correction is applied, and an interval excludes zero exactly when its adjusted p is below .05. <span class="hl">Holm's method</span> sorts the p-values, multiplies the i-th smallest by (m − i + 1) and keeps them in order; it controls the family-wise error rate as Bonferroni does and is never less powerful. A difference in mean ranks has no confidence interval in the units of the data, so Dunn's table gives none. When the overall test is not significant the table still appears, with a warning, because the pairs are not evidence of a difference on their own. The studentized-range tail is accurate to about 10⁻⁹, so smaller adjusted p-values are written as "&lt;1e-9" in the CSV.</p>
+                </div>
+
+                <!-- WHICH TEST -->
+                <div class="doc-pane" id="doc-pane-choose" data-doc-pane="choose" role="tabpanel" aria-labelledby="doc-tab-choose" tabindex="0">
+                    <h2 class="stk-h2">How the suggestion is made</h2>
+                    <p class="stk-lead">The "Which test?" box under the test picker reads the design from the test you chose (independent groups, paired, one group against a value, or two variables), takes the columns you selected, and runs the same assumption checks the results use. It then suggests a test with one line of reasoning. The rules are deliberately simple and stated here so you can disagree with them:</p>
+                    <table class="stk-table">
+                        <thead><tr><th>Design</th><th>Normal (or too small to check)</th><th>Normality rejected</th></tr></thead>
+                        <tbody>
+                            <tr><td>Two independent groups</td><td>Welch's t-test, whatever Levene's test says</td><td>Mann–Whitney U</td></tr>
+                            <tr><td>Three or more groups</td><td>One-way ANOVA; Welch's ANOVA if Levene's test is significant</td><td>Kruskal–Wallis</td></tr>
+                            <tr><td>Paired</td><td>Paired t-test (normality of the differences)</td><td>Wilcoxon signed-rank</td></tr>
+                            <tr><td>One group against μ₀</td><td>One-sample t-test</td><td>One-sample Wilcoxon</td></tr>
+                            <tr><td>Two variables</td><td>Pearson correlation</td><td>Spearman rank correlation</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="stk-where">Normality is D'Agostino–Pearson K² at α = .05 for each group, each variable, or the paired differences. A group of fewer than 8 values cannot be tested; it counts as no evidence against normality, and the reason says it was not checked rather than calling it normal. For two groups Welch's t is suggested even when variances look equal, because it costs little then and protects when they are not, and a pre-test for equal variances is a poor gatekeeper for the pooled test (Delacre, Lakens &amp; Leys 2017). A suggestion is only applied when you press <em>Use this test</em>. Tests on normality lack power in small samples and flag trivial departures in large ones, so read the suggestion alongside the plot.</p>
                 </div>
 
                 <!-- EFFECT SIZES -->
                 <div class="doc-pane" id="doc-pane-effect" data-doc-pane="effect" role="tabpanel" aria-labelledby="doc-tab-effect" tabindex="0">
                     <h2 class="stk-h2">Effect sizes &amp; intervals</h2>
-                    <p class="stk-lead">A p-value tells you whether an effect is distinguishable from zero, not how big it is. Each test therefore reports a standardized effect size and, where standard, a confidence interval.</p>
+                    <p class="stk-lead">A p-value tells you whether an effect is distinguishable from zero, not how big it is. Each test therefore reports an effect size and, where standard, a confidence interval.</p>
                     <table class="stk-table">
                         <thead><tr><th>Test</th><th>Effect size</th><th>Rough benchmarks</th></tr></thead>
                         <tbody>
-                            <tr><td>Independent t</td><td>Cohen's d (pooled SD); Hedges' g corrects small-sample bias</td><td>0.2 small · 0.5 medium · 0.8 large</td></tr>
+                            <tr><td>Independent t</td><td>Cohen's d (pooled SD); Hedges' g corrects small-sample bias</td><td>0.2 small, 0.5 medium, 0.8 large</td></tr>
                             <tr><td>Paired t</td><td>Cohen's d<sub>z</sub> = d̄ / s<sub>d</sub></td><td>same d benchmarks</td></tr>
-                            <tr><td>ANOVA</td><td>&eta;² (variance explained); &omega;² is less biased</td><td>0.01 small · 0.06 medium · 0.14 large</td></tr>
-                            <tr><td>Pearson</td><td>r and r² (shared variance)</td><td>|r|: 0.1 weak · 0.3 moderate · 0.5 strong</td></tr>
+                            <tr><td>One-sample t</td><td>Cohen's d = (x̄ − μ₀)/s</td><td>same d benchmarks</td></tr>
+                            <tr><td>ANOVA and Welch's ANOVA</td><td>&eta;² (variance explained); &omega;² is less biased</td><td>0.01 small, 0.06 medium, 0.14 large</td></tr>
+                            <tr><td>Kruskal–Wallis</td><td>&epsilon;² = H/(N − 1), between 0 and 1</td><td>read as &eta;²</td></tr>
+                            <tr><td>Pearson</td><td>r and r² (shared variance)</td><td>|r|: 0.1 weak, 0.3 moderate, 0.5 strong</td></tr>
+                            <tr><td>Spearman</td><td>ρ itself</td><td>same r benchmarks</td></tr>
                             <tr><td>Mann–Whitney / Wilcoxon</td><td>rank-biserial r / z⁄√n</td><td>same r benchmarks</td></tr>
                         </tbody>
                     </table>
-                    <p class="stk-where">The <span class="hl">95% CI for the mean difference</span> uses the same standard error and df as the test. The CI for Pearson's r uses the <span class="hl">Fisher z-transformation</span>, which stabilises the variance of r before building a symmetric interval and transforming back. Benchmarks (Cohen) are conventions, not laws, interpret them against your field's typical effects.</p>
+                    <p class="stk-where">The <span class="hl">95% CI for the mean difference</span> uses the same standard error and df as the test. The CI for Pearson's r uses the <span class="hl">Fisher z-transformation</span>, which stabilises the variance of r before building a symmetric interval and transforming back. Spearman's ρ uses the same transformation with the <span class="hl">Bonett–Wright variance</span> (1 + ρ²/2)/(n − 3), since 1/(n − 3) is too narrow for ρ. Welch's ANOVA reports the ordinary &eta;², which describes the data rather than the test. Benchmarks (Cohen) are conventions, not laws: interpret them against your field's typical effects.</p>
                 </div>
 
                 <!-- ASSUMPTIONS -->
                 <div class="doc-pane" id="doc-pane-assume" data-doc-pane="assume" role="tabpanel" aria-labelledby="doc-tab-assume" tabindex="0">
                     <h2 class="stk-h2">Assumption checks</h2>
-                    <p class="stk-lead">Two automatic checks run alongside each parametric comparison, and the tool tells you when to switch tests.</p>
+                    <p class="stk-lead">Two automatic checks run with each comparison, and feed the "Which test?" suggestion.</p>
                     <table class="stk-table">
                         <thead><tr><th>Check</th><th>What it tests</th><th>If it fails</th></tr></thead>
                         <tbody>
-                            <tr><td><span class="hl">D'Agostino–Pearson K²</span></td><td>Normality, via combined skewness and kurtosis tests (omnibus). Needs n ≥ 8.</td><td>Use Mann–Whitney (independent) or Wilcoxon (paired).</td></tr>
-                            <tr><td><span class="hl">Levene's test</span> (Brown–Forsythe, median-centred)</td><td>Homogeneity of variance across groups.</td><td>Prefer Welch's t / Welch's ANOVA over pooled versions.</td></tr>
+                            <tr><td><span class="hl">D'Agostino–Pearson K²</span></td><td>Normality, via combined skewness and kurtosis tests (omnibus). Needs n ≥ 8.</td><td>Use the rank-based counterpart: Mann–Whitney, Wilcoxon, Kruskal–Wallis or Spearman.</td></tr>
+                            <tr><td><span class="hl">Levene's test</span> (Brown–Forsythe, median-centred)</td><td>Homogeneity of variance across groups.</td><td>Prefer Welch's t over the pooled t, and Welch's ANOVA with Games–Howell over the classic ANOVA with Tukey.</td></tr>
                         </tbody>
                     </table>
-                    <p class="stk-where">The median-centred (Brown–Forsythe) form of Levene's test is more robust to non-normality than the original mean-centred version, which is why it's used here. Normality is assessed per group (or on the paired differences); with n &lt; 8 the K² test is skipped and the tool says so rather than guessing.</p>
+                    <p class="stk-where">The median-centred (Brown–Forsythe) form of Levene's test is more robust to non-normality than the original mean-centred version, which is why it's used here. Normality is assessed per group (or on the paired differences); with n &lt; 8 the K² test is skipped and the tool says so rather than guessing. The rank-based tests make no normality assumption but are not assumption-free: the Wilcoxon tests assume the differences are roughly symmetric, and Kruskal–Wallis and Mann–Whitney compare medians only when the groups have similar shapes.</p>
                 </div>
 
-                <!-- REPORTING -->
+                <!-- TABLES, PLOTS AND REPORTING -->
                 <div class="doc-pane" id="doc-pane-report" data-doc-pane="report" role="tabpanel" aria-labelledby="doc-tab-report" tabindex="0">
-                    <h2 class="stk-h2">APA-style reporting</h2>
+                    <h2 class="stk-h2">Tables, plots and APA-style reporting</h2>
                     <p class="stk-lead">The publication summary follows APA conventions: test name, descriptives, the test statistic with df, an exact p-value (or p &lt; .001), a confidence interval, and an effect size with its interpretation. Example:</p>
                     <p class="stk-where" style="font-style:italic;">"Welch's independent-samples t-test compared Group A (M = 5.45, SD = 0.52, n = 8) and Group B (M = 6.78, SD = 0.40, n = 8). The difference was statistically significant, t(13.28) = −5.62, p &lt; .001, 95% CI [−1.84, −0.83], Cohen's d = −2.81 (large)."</p>
-                    <p class="stk-where">Leading zeros are dropped from p-values (APA style: p = .032, not 0.032). p-values below .001 are reported as "&lt; .001" rather than a spuriously precise figure. For a significant ANOVA with k &gt; 2 groups, the summary reminds you to run post-hoc pairwise tests (e.g. Tukey HSD) to locate <em>which</em> groups differ.</p>
+                    <p class="stk-where">Leading zeros are dropped from p-values (APA style: p = .032, not 0.032). p-values below .001 are reported as "&lt; .001" rather than a spuriously precise figure. For three or more groups the summary also names the pairs that differ after correction, and those that do not.</p>
+                    <p class="stk-where"><span class="hl">Descriptive statistics.</span> Each group gets n, mean, SD (n − 1), SEM = SD/√n, the 95% t interval of the mean, median, IQR, minimum and maximum; a paired design adds the differences as a row. Quartiles interpolate linearly between observations, NumPy's default and R's type 7 (Hyndman &amp; Fan 1996); SPSS and Minitab use type 6, which can differ in small samples. Values are shown to one decimal more than the data carry. <em>Copy CSV</em> gives full precision with the interval and quartiles in their own columns; <em>Markdown</em> and <em>LaTeX</em> give the rounded table, the LaTeX with booktabs rules, proper minus signs and the <code>booktabs</code> package named in a comment.</p>
+                    <p class="stk-where"><span class="hl">The plot.</span> For group comparisons, a box shows the median and quartiles and whiskers reach the furthest values within 1.5 × IQR of the box (Tukey 1977); every observation is drawn, jittered sideways by a fixed amount so the plot is the same each time, and joined by pair in a paired design; the diamond and bar beside each box are the mean and its 95% CI, so skew shows as a gap between the median and the mean. One-sample tests add a dashed line at μ₀. Correlations are a scatter with the ordinary least-squares line of y on x; for Spearman the line is for reference only. Hover a point or box for its values. The SVG and PNG downloads are always the light version on white, with a key line, sized for a journal column (the PNG at 3×).</p>
                 </div>
 
                 <h3 class="stk-refs-h">References</h3>
                 <ol class="stk-refs-list">
                     <li>Welch, B.&nbsp;L. (1947). The generalization of "Student's" problem when several different population variances are involved. <em>Biometrika</em>, 34(1–2), 28–35. <a href="https://doi.org/10.1093/biomet/34.1-2.28" target="_blank" rel="noopener">doi:10.1093/biomet/34.1-2.28</a>.</li>
+                    <li>Welch, B.&nbsp;L. (1951). On the comparison of several mean values: an alternative approach. <em>Biometrika</em>, 38(3–4), 330–336. <a href="https://doi.org/10.1093/biomet/38.3-4.330" target="_blank" rel="noopener">doi:10.1093/biomet/38.3-4.330</a>. (Welch's ANOVA.)</li>
                     <li>Student [W.&nbsp;S. Gosset] (1908). The probable error of a mean. <em>Biometrika</em>, 6(1), 1–25.</li>
                     <li>Fisher, R.&nbsp;A. (1925). <em>Statistical Methods for Research Workers.</em> Oliver &amp; Boyd. (ANOVA, F-distribution, and the z-transformation of the correlation coefficient.)</li>
+                    <li>Tukey, J.&nbsp;W. (1949). Comparing individual means in the analysis of variance. <em>Biometrics</em>, 5(2), 99–114. <a href="https://doi.org/10.2307/3001913" target="_blank" rel="noopener">doi:10.2307/3001913</a>. Kramer, C.&nbsp;Y. (1956). Extension of multiple range tests to group means with unequal numbers of replications. <em>Biometrics</em>, 12(3), 307–310. <a href="https://doi.org/10.2307/3001469" target="_blank" rel="noopener">doi:10.2307/3001469</a>.</li>
+                    <li>Games, P.&nbsp;A., &amp; Howell, J.&nbsp;F. (1976). Pairwise multiple comparison procedures with unequal n's and/or variances: a Monte Carlo study. <em>Journal of Educational Statistics</em>, 1(2), 113–125. <a href="https://doi.org/10.3102/10769986001002113" target="_blank" rel="noopener">doi:10.3102/10769986001002113</a>.</li>
+                    <li>Copenhaver, M.&nbsp;D., &amp; Holland, B. (1988). Computation of the distribution of the maximum studentized range statistic with application to multiple significance testing of simple effects. <em>Journal of Statistical Computation and Simulation</em>, 30(1), 1–15. (The studentized-range tail, as in R's ptukey and jStat.)</li>
+                    <li>Kruskal, W.&nbsp;H., &amp; Wallis, W.&nbsp;A. (1952). Use of ranks in one-criterion variance analysis. <em>Journal of the American Statistical Association</em>, 47(260), 583–621. <a href="https://doi.org/10.1080/01621459.1952.10483441" target="_blank" rel="noopener">doi:10.1080/01621459.1952.10483441</a>.</li>
+                    <li>Dunn, O.&nbsp;J. (1964). Multiple comparisons using rank sums. <em>Technometrics</em>, 6(3), 241–252. <a href="https://doi.org/10.1080/00401706.1964.10490181" target="_blank" rel="noopener">doi:10.1080/00401706.1964.10490181</a>.</li>
+                    <li>Holm, S. (1979). A simple sequentially rejective multiple test procedure. <em>Scandinavian Journal of Statistics</em>, 6(2), 65–70.</li>
+                    <li>Spearman, C. (1904). The proof and measurement of association between two things. <em>American Journal of Psychology</em>, 15(1), 72–101. <a href="https://doi.org/10.2307/1412159" target="_blank" rel="noopener">doi:10.2307/1412159</a>.</li>
+                    <li>Bonett, D.&nbsp;G., &amp; Wright, T.&nbsp;A. (2000). Sample size requirements for estimating Pearson, Kendall and Spearman correlations. <em>Psychometrika</em>, 65(1), 23–28. <a href="https://doi.org/10.1007/BF02294183" target="_blank" rel="noopener">doi:10.1007/BF02294183</a>.</li>
                     <li>Cohen, J. (1988). <em>Statistical Power Analysis for the Behavioral Sciences</em> (2nd ed.). Lawrence Erlbaum. (Cohen's d, η², and the small/medium/large benchmarks.)</li>
                     <li>Hedges, L.&nbsp;V. (1981). Distribution theory for Glass's estimator of effect size and related estimators. <em>Journal of Educational Statistics</em>, 6(2), 107–128. (Small-sample bias correction, "Hedges' g".)</li>
+                    <li>Tomczak, M., &amp; Tomczak, E. (2014). The need to report effect size estimates revisited. <em>Trends in Sport Sciences</em>, 21(1), 19–25. (Epsilon squared for Kruskal–Wallis.)</li>
                     <li>D'Agostino, R.&nbsp;B., &amp; Pearson, E.&nbsp;S. (1973). Tests for departure from normality. <em>Biometrika</em>, 60(3), 613–622. See also D'Agostino, Belanger &amp; D'Agostino (1990), <em>The American Statistician</em>, 44(4), 316–321.</li>
                     <li>Levene, H. (1960). Robust tests for equality of variances. In <em>Contributions to Probability and Statistics</em> (pp. 278–292). Stanford Univ. Press. Brown, M.&nbsp;B., &amp; Forsythe, A.&nbsp;B. (1974), <em>JASA</em>, 69, 364–367 (median-centred variant).</li>
+                    <li>Delacre, M., Lakens, D., &amp; Leys, C. (2017). Why psychologists should by default use Welch's t-test instead of Student's t-test. <em>International Review of Social Psychology</em>, 30(1), 92–101. <a href="https://doi.org/10.5334/irsp.82" target="_blank" rel="noopener">doi:10.5334/irsp.82</a>.</li>
                     <li>Mann, H.&nbsp;B., &amp; Whitney, D.&nbsp;R. (1947). On a test of whether one of two random variables is stochastically larger than the other. <em>Annals of Mathematical Statistics</em>, 18(1), 50–60. Wilcoxon, F. (1945). Individual comparisons by ranking methods. <em>Biometrics Bulletin</em>, 1(6), 80–83.</li>
+                    <li>Tukey, J.&nbsp;W. (1977). <em>Exploratory Data Analysis.</em> Addison-Wesley. (Box plots and the 1.5 × IQR whisker rule.) Hyndman, R.&nbsp;J., &amp; Fan, Y. (1996). Sample quantiles in statistical packages. <em>The American Statistician</em>, 50(4), 361–365. <a href="https://doi.org/10.1080/00031305.1996.10473566" target="_blank" rel="noopener">doi:10.1080/00031305.1996.10473566</a>.</li>
                     <li>American Psychological Association (2020). <em>Publication Manual of the APA</em> (7th ed.). (Statistical reporting conventions.)</li>
-                    <li>jStat, JavaScript statistical library (distribution CDFs and inverse CDFs). <a href="https://jstat.github.io/" target="_blank" rel="noopener">jstat.github.io</a>. Formulas typeset with <a href="https://katex.org/" target="_blank" rel="noopener">KaTeX</a>.</li>
+                    <li>jStat, JavaScript statistical library (distribution CDFs and inverse CDFs). <a href="https://jstat.github.io/" target="_blank" rel="noopener">jstat.github.io</a>. Formulas typeset with <a href="https://katex.org/" target="_blank" rel="noopener">KaTeX</a>. Every test is checked against SciPy in the <code>@stemkit/core</code> test suite.</li>
                 </ol>
 
                 <div class="stk-refs">
@@ -469,13 +525,16 @@
             <div class="stk-wrap">
                 <h2 class="stk-h2">Frequently asked questions</h2>
                 <div style="margin-top:1rem;">
+                    <details class="stk-faq"><summary>Which test should I use?</summary><div>Pick the test that matches your design (two groups, paired measurements, three or more groups, one group against a value, or two variables) and look at the <strong>Which test?</strong> box under the picker. It runs the normality and equal-variance checks on the columns you chose and suggests a test with one line of reasoning; <em>Use this test</em> switches to it. The rules are listed under Method, "Which test?". The suggestion is a starting point: it cannot know that your data are ordinal, or that a paired design was intended, so the choice stays yours.</div></details>
                     <details class="stk-faq"><summary>Why is Welch's t-test the default instead of the classic Student's t-test?</summary><div>Because the equal-variance assumption behind the pooled Student's t-test is often violated in real data, and when it is, the pooled test's error rates are wrong. Welch's t-test does not assume equal variances, controls the Type&nbsp;I error rate well across a wide range of conditions, and loses very little power when variances happen to be equal. It's the modern recommended default; the pooled version is still offered for when you've confirmed equal variances.</div></details>
-                    <details class="stk-faq"><summary>What changed from a "p-value only" tool?</summary><div>Three things reviewers now expect: an <strong>effect size</strong> for every test (Cohen's d, η²/ω², r/r², or a rank-biserial correlation), a <strong>95% confidence interval</strong> where one is standard, and automatic <strong>assumption checks</strong> (normality and equality of variance) that recommend a non-parametric test when needed. The ANOVA is also a genuine k-group analysis rather than a two-column comparison.</div></details>
+                    <details class="stk-faq"><summary>What does the tool report besides a p-value?</summary><div>An <strong>effect size</strong> for every test (Cohen's d, η²/ω², ε², r/r², ρ, or a rank-biserial correlation), a <strong>95% confidence interval</strong> where one is standard, automatic <strong>assumption checks</strong>, a <strong>table of descriptive statistics</strong> per group, a <strong>plot</strong> of the data, and, for three or more groups, <strong>post-hoc pairwise comparisons</strong>. The tables copy as CSV, Markdown or LaTeX, and the plot downloads as SVG or PNG.</div></details>
                     <details class="stk-faq"><summary>What data layouts are supported, wide or long?</summary><div>Both. <strong>Wide</strong> format puts each group in its own column (e.g. columns <code>GroupA</code>, <code>GroupB</code>, <code>GroupC</code>). <strong>Long / tidy</strong> format, the default export from R, pandas and most statistical software, puts all the numbers in one <code>value</code> column and the group labels in another (e.g. <code>value</code>, <code>group</code>). The tool auto-detects which you've pasted; if the guess is wrong, use the Format dropdown to force Wide or Long, and in Long mode pick which column holds the values and which holds the group labels.</div></details>
-                    <details class="stk-faq"><summary>How do I run an ANOVA on more than two groups?</summary><div>Choose "One-Way ANOVA" and the group selector switches to a multi-select, hold Ctrl/Cmd (or Shift) to pick every column that represents a group. Each selected column is treated as one independent group, and the F-test uses df = (k−1, N−k). In long format, every level of your group column automatically becomes a selectable group.</div></details>
-                    <details class="stk-faq"><summary>When should I trust the non-parametric tests instead?</summary><div>When the normality check flags a departure (especially with small samples), or when your data are ordinal or have heavy outliers. Mann–Whitney U replaces the independent t-test; Wilcoxon signed-rank replaces the paired t-test. Both test distributional shift via ranks and make no normality assumption. Here they use a normal approximation, which is accurate for moderate-to-large n; for very small samples, confirm against exact tables.</div></details>
+                    <details class="stk-faq"><summary>How do I compare more than two groups, and find out which ones differ?</summary><div>Choose one of the tests under "Three or more independent groups" and the group selector switches to a multi-select: hold Ctrl/Cmd (or Shift) to pick every column that represents a group. In long format, every level of your group column becomes a selectable group. With three or more groups the results add a <strong>pairwise comparisons</strong> table: Tukey HSD after the one-way ANOVA, Games–Howell after Welch's ANOVA, and Dunn's test with Holm's adjustment after Kruskal–Wallis. Running separate t-tests between every pair instead would inflate the chance of a false positive: with 5 groups there are 10 pairs, and at .05 each the chance of at least one false positive approaches 40%.</div></details>
+                    <details class="stk-faq"><summary>How do I test my measurements against a certified or theoretical value?</summary><div>Choose "One-sample t-test", pick the column, and enter the reference value in <strong>Compare with (μ₀)</strong>: a certified concentration, a literature melting point, or 0 for "no change". The result gives the mean's 95% CI and the difference from μ₀ with its CI, and the plot draws μ₀ as a dashed line. If the replicates are skewed, the one-sample Wilcoxon signed-rank test compares their median with μ₀ instead.</div></details>
+                    <details class="stk-faq"><summary>When should I trust the non-parametric tests instead?</summary><div>When the normality check flags a departure (especially with small samples), or when your data are ordinal or have heavy outliers. Mann–Whitney U replaces the independent t-test, Wilcoxon signed-rank the paired and one-sample t-tests, Kruskal–Wallis the ANOVA, and Spearman's ρ the Pearson correlation. They work on ranks and make no normality assumption. The two-group and signed-rank tests use a normal approximation, and Kruskal–Wallis a chi-squared one, which are accurate for moderate-to-large n; for very small samples, confirm against exact tables.</div></details>
+                    <details class="stk-faq"><summary>What does the plot show, and can I put it in a paper?</summary><div>For groups: a box plot (median, quartiles, whiskers to 1.5 × IQR), every observation as a dot, and the mean with its 95% CI beside each box, which together show the spread, the outliers, the sample size and the precision of the mean that a bar chart hides. For correlations: a scatter with the least-squares line. The SVG and PNG downloads use a white background and fixed colours whatever theme you are viewing in, so they can go straight into a manuscript; the SVG stays editable in Inkscape or Illustrator.</div></details>
                     <details class="stk-faq"><summary>Why are my p-values reported without a leading zero?</summary><div>That's APA style, probabilities that can't exceed 1 are written as p = .032, not 0.032. Values below .001 are shown as "&lt; .001" because the exact figure isn't meaningfully precise at that scale.</div></details>
-                    <details class="stk-faq"><summary>Is my data sent anywhere?</summary><div>No. Parsing (PapaParse) and all statistics run locally in your browser. Nothing you paste or upload is transmitted or stored.</div></details>
+                    <details class="stk-faq"><summary>Is my data sent anywhere?</summary><div>No. Parsing (PapaParse), all statistics and the plot run locally in your browser. Nothing you paste or upload is transmitted or stored.</div></details>
                 </div>
                 <p class="stk-credit">Built for reproducible, defensible statistical reporting.</p>
             </div>
