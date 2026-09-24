@@ -3,15 +3,26 @@
  * Method: Simple Additive Weighting (SAW), also called the Weighted Sum Model.
  * Each option's score = Sum over criteria of (rating x weight).
  * Author: Olanrewaju M. Daramola. Runs 100% client-side.
+ *
+ * The page is three steps: list the options and criteria, weight and score
+ * them in the matrix, read the ranking. js/site.js follows the steps from
+ * what is on screen (the matrix, the ranking), so nothing here drives them.
  */
 
 // --- 1. State and DOM ---
-const btnGenerate     = document.getElementById('btn-generate');
-const btnCalculate    = document.getElementById('btn-calculate');
-const matrixWrapper   = document.getElementById('matrix-wrapper');
-const matrixContainer = document.getElementById('matrix-container');
-const resultsContainer= document.getElementById('results-container');
-const btnExample      = document.getElementById('btn-example'); // optional
+const $ = id => document.getElementById(id);
+const btnGenerate      = $('btn-generate');
+const btnCalculate     = $('btn-calculate');
+const btnExample       = $('btn-example');
+const inputOptions     = $('input-options');
+const inputCriteria    = $('input-criteria');
+const errorBox         = $('dm-error');
+const errorText        = $('dm-error-text');
+const matrixEmpty      = $('matrix-empty');
+const matrixWrapper    = $('matrix-wrapper');
+const matrixContainer  = $('matrix-container');
+const resultsPanel     = $('results-panel');
+const resultsContainer = $('results-container');
 
 // Score/weight bounds (kept in sync with the input min/max attributes)
 const WEIGHT_MIN = 1, WEIGHT_MAX = 5;
@@ -27,6 +38,8 @@ function esc(s) {
     ));
 }
 function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+const scrollBehaviour = () =>
+    (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
 
 // De-duplicate names case-insensitively while preserving the first spelling/order
 function uniqueNames(list) {
@@ -39,71 +52,77 @@ function uniqueNames(list) {
     return out;
 }
 
-function showError(message) {
-    resultsContainer.innerHTML =
-        `<div class="text-red-600 dark:text-red-400 font-semibold flex items-center justify-center gap-2">
-            <i class="fa-solid fa-triangle-exclamation"></i><span>${esc(message)}</span>
-         </div>`;
+/** Say what is wrong next to the field it concerns; null clears it. */
+function showError(message, field) {
+    [inputOptions, inputCriteria].forEach(el => el.removeAttribute('aria-invalid'));
+    if (!message) { errorBox.hidden = true; errorText.textContent = ''; return; }
+    errorText.textContent = message;
+    errorBox.hidden = false;
+    if (field) { field.setAttribute('aria-invalid', 'true'); field.focus(); }
 }
 
 // --- 2. Input parsing and grid generation ---
 btnGenerate.addEventListener('click', () => {
-    const rawOptions  = document.getElementById('input-options').value;
-    const rawCriteria = document.getElementById('input-criteria').value;
+    const optRaw  = inputOptions.value.split(',').map(s => s.trim()).filter(Boolean);
+    const critRaw = inputCriteria.value.split(',').map(s => s.trim()).filter(Boolean);
 
-    const optRaw  = rawOptions.split(',').map(s => s.trim()).filter(Boolean);
-    const critRaw = rawCriteria.split(',').map(s => s.trim()).filter(Boolean);
+    const options  = uniqueNames(optRaw);
+    const criteria = uniqueNames(critRaw);
 
-    parsedOptions  = uniqueNames(optRaw);
-    parsedCriteria = uniqueNames(critRaw);
+    if (options.length < 2) {
+        return showError('List at least two different options, separated by commas.', inputOptions);
+    }
+    if (criteria.length < 1) {
+        return showError('List at least one criterion to judge the options by.', inputCriteria);
+    }
+    showError(null);
 
-    if (parsedOptions.length < 2)  return showError('Please provide at least 2 distinct options to compare.');
-    if (parsedCriteria.length < 1) return showError('Please provide at least 1 criterion to judge by.');
-
+    parsedOptions = options;
+    parsedCriteria = criteria;
     buildTableUI();
 
-    matrixWrapper.classList.remove('hidden');
-    resultsContainer.innerHTML =
-        `<h3 class="text-xl font-medium text-slate-500 dark:text-slate-400">Matrix generated, fill in the scores, then calculate.</h3>`;
-    matrixWrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    matrixEmpty.hidden = true;
+    matrixWrapper.hidden = false;
+    // A new matrix makes any earlier ranking stale.
+    resultsPanel.hidden = true;
+    resultsContainer.innerHTML = '';
+    matrixWrapper.scrollIntoView({ behavior: scrollBehaviour(), block: 'nearest' });
 });
+
+// Enter in either field builds the matrix.
+[inputOptions, inputCriteria].forEach(el => el.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); btnGenerate.click(); }
+}));
 
 function buildTableUI() {
     // Header: one column per criterion, each with a weight input (referenced by INDEX, not name)
     let html = `
-        <table class="w-full text-left border-collapse min-w-[600px]">
+        <table class="dm-table">
             <thead>
-                <tr class="border-b-2 border-slate-200 dark:border-slate-700">
-                    <th class="p-4 font-black text-lg w-1/4">Options</th>`;
+                <tr>
+                    <th scope="col" class="dm-corner">Option</th>`;
 
     parsedCriteria.forEach((crit, ci) => {
         html += `
-            <th class="p-4 align-bottom">
-                <span class="block font-bold mb-2">${esc(crit)}</span>
-                <div class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                    Weight (${WEIGHT_MIN}-${WEIGHT_MAX}):
-                    <input type="number" min="${WEIGHT_MIN}" max="${WEIGHT_MAX}" value="3"
-                           class="crit-weight w-16 p-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-brand-500"
-                           data-crit-idx="${ci}" aria-label="Weight for ${esc(crit)}">
-                </div>
+            <th scope="col">
+                <span class="dm-crit">${esc(crit)}</span>
+                <label class="dm-weight">Weight
+                    <input type="number" min="${WEIGHT_MIN}" max="${WEIGHT_MAX}" value="3" inputmode="numeric"
+                           class="dm-num crit-weight" data-crit-idx="${ci}" aria-label="Weight of ${esc(crit)}, ${WEIGHT_MIN} to ${WEIGHT_MAX}">
+                </label>
             </th>`;
     });
 
     html += `</tr></thead><tbody>`;
 
     parsedOptions.forEach((opt, oi) => {
-        html += `<tr class="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-            <td class="p-4 font-bold text-brand-600 dark:text-brand-400 text-lg">${esc(opt)}</td>`;
+        html += `<tr><th scope="row" class="dm-opt">${esc(opt)}</th>`;
         parsedCriteria.forEach((crit, ci) => {
             html += `
-                <td class="p-4">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-slate-500 dark:text-slate-400">Score (${SCORE_MIN}-${SCORE_MAX}):</span>
-                        <input type="number" min="${SCORE_MIN}" max="${SCORE_MAX}" value="5"
-                               class="opt-rating w-16 p-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-brand-500"
-                               data-opt-idx="${oi}" data-crit-idx="${ci}"
-                               aria-label="Score of ${esc(opt)} on ${esc(crit)}">
-                    </div>
+                <td>
+                    <input type="number" min="${SCORE_MIN}" max="${SCORE_MAX}" value="5" inputmode="numeric"
+                           class="dm-num opt-rating" data-opt-idx="${oi}" data-crit-idx="${ci}"
+                           aria-label="Score of ${esc(opt)} on ${esc(crit)}, ${SCORE_MIN} to ${SCORE_MAX}">
                 </td>`;
         });
         html += `</tr>`;
@@ -114,34 +133,34 @@ function buildTableUI() {
 }
 
 // --- 3. Calculation ---
-btnCalculate.addEventListener('click', () => {
+/**
+ * Read the matrix and rank the options. With writeBack, out-of-range entries
+ * are corrected in the fields so the visitor sees what was used; while they
+ * are still typing, the fields are left alone.
+ */
+function rank({ writeBack }) {
     if (!parsedCriteria.length || !parsedOptions.length) return;
 
-    // Read + clamp weights (reflect clamped values back so the user sees corrections)
     const weights = new Array(parsedCriteria.length).fill(WEIGHT_MIN);
     document.querySelectorAll('.crit-weight').forEach(inp => {
         const ci = Number(inp.dataset.critIdx);
         let w = parseFloat(inp.value);
         if (!isFinite(w)) w = WEIGHT_MIN;
         w = clamp(w, WEIGHT_MIN, WEIGHT_MAX);
-        inp.value = w;
+        if (writeBack) inp.value = w;
         weights[ci] = w;
     });
 
     // Read + clamp ratings, accumulate weighted totals per option index
-    const totals    = new Array(parsedOptions.length).fill(0);
-    const breakdown = parsedOptions.map(() => []);
-
+    const totals = new Array(parsedOptions.length).fill(0);
     document.querySelectorAll('.opt-rating').forEach(inp => {
         const oi = Number(inp.dataset.optIdx);
         const ci = Number(inp.dataset.critIdx);
         let r = parseFloat(inp.value);
         if (!isFinite(r)) r = SCORE_MIN;
         r = clamp(r, SCORE_MIN, SCORE_MAX);
-        inp.value = r;
-        const w = weights[ci];
-        totals[oi] += r * w;
-        breakdown[oi].push({ crit: parsedCriteria[ci], r, w });
+        if (writeBack) inp.value = r;
+        totals[oi] += r * weights[ci];
     });
 
     const weightSum   = weights.reduce((a, b) => a + b, 0);
@@ -156,66 +175,80 @@ btnCalculate.addEventListener('click', () => {
     const winners  = order.filter(o => Math.abs(o.total - topTotal) < 1e-9).map(o => o.name);
 
     renderResults(order, winners, maxPossible);
+}
+
+btnCalculate.addEventListener('click', () => {
+    rank({ writeBack: true });
+    resultsPanel.scrollIntoView({ behavior: scrollBehaviour(), block: 'nearest' });
 });
+
+// Once ranked, the ranking follows the matrix as it is edited.
+matrixContainer.addEventListener('input', () => {
+    if (!resultsPanel.hidden) rank({ writeBack: false });
+});
+
+const fmt = n => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 function renderResults(order, winners, maxPossible) {
     const isTie = winners.length > 1;
-    const headline = winners.map(esc).join(' / ');
+    const top = order[0];
 
-    let rows = '';
-    order.forEach((o, rank) => {
+    const rows = order.map((o, rank) => {
         const isTop = winners.includes(o.name);
-        const pct = o.pct.toFixed(0);
-        rows += `
-            <div class="text-left">
-                <div class="flex justify-between items-baseline mb-1">
-                    <span class="font-semibold ${isTop ? 'text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-300'}">
-                        <span class="text-slate-500 dark:text-slate-400 font-mono text-xs mr-1">#${rank + 1}</span>${esc(o.name)}
-                    </span>
-                    <span class="text-sm font-mono text-slate-500 dark:text-slate-400">${o.total.toFixed(1)} / ${maxPossible} (${pct}%)</span>
+        return `
+            <li class="${isTop ? 'is-top' : ''}">
+                <div class="dm-rank-row">
+                    <span class="dm-rank-name"><b>${rank + 1}</b> ${esc(o.name)}</span>
+                    <span class="dm-rank-score">${fmt(o.total)} of ${maxPossible} (${o.pct.toFixed(0)}%)</span>
                 </div>
-                <div class="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div class="h-full rounded-full ${isTop ? 'bg-gradient-to-r from-brand-500 to-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}"
-                         style="width:${Math.max(2, o.pct)}%"></div>
-                </div>
-            </div>`;
-    });
+                <div class="dm-bar" aria-hidden="true"><span style="width:${Math.max(2, o.pct)}%"></span></div>
+            </li>`;
+    }).join('');
 
     resultsContainer.innerHTML = `
-        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 w-full max-w-lg mx-auto">
-            <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">
-                ${isTie ? 'Tied Top Choice' : 'Optimal Choice'}
-            </h4>
-            <h2 class="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-brand-500 to-emerald-500 mb-2 break-words">${headline}</h2>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mb-6">Scored highest on your weighted criteria${isTie ? ' (multiple options tied)' : ''}.</p>
-            <div class="space-y-4 border-t border-slate-100 dark:border-slate-800 pt-5">${rows}</div>
-            <button id="btn-copy-summary" class="mt-6 w-full text-sm font-semibold text-brand-600 dark:text-brand-400 hover:underline">
-                <i class="fa-regular fa-copy mr-1"></i> Copy summary
-            </button>
-        </div>`;
+        <p class="dm-result-label">${isTie ? 'Tied for first' : 'First choice'}</p>
+        <p class="dm-result-name">${winners.map(esc).join(' and ')}</p>
+        <p class="dm-result-sub">${isTie ? 'Each scored' : 'Scored'} ${fmt(top.total)} of a possible ${maxPossible} on your weights (${top.pct.toFixed(0)}%).</p>
+        <ol class="dm-rank">${rows}</ol>
+        <button type="button" id="btn-copy-summary" class="stk-btn stk-btn-sm dm-copy">
+            <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copy the ranking</span>
+        </button>`;
+    resultsPanel.hidden = false;
 
-    const copyBtn = document.getElementById('btn-copy-summary');
-    if (copyBtn) {
-        copyBtn.addEventListener('click', () => {
-            const lines = order.map((o, r) => `${r + 1}. ${o.name}: ${o.total.toFixed(1)}/${maxPossible} (${o.pct.toFixed(0)}%)`);
-            const text = `Decision Matrix result\nWinner: ${winners.join(' / ')}\n\n` + lines.join('\n') +
-                         `\n\nGenerated with STEMKit Decision Matrix (stemkit.net).`;
-            navigator.clipboard.writeText(text).then(() => {
-                const origHTML = copyBtn.innerHTML;
-                copyBtn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Copied!';
-                setTimeout(() => { copyBtn.innerHTML = origHTML; }, 1800);
-            });
+    const copyBtn = $('btn-copy-summary');
+    copyBtn.addEventListener('click', () => {
+        const lines = order.map((o, r) => `${r + 1}. ${o.name}: ${fmt(o.total)}/${maxPossible} (${o.pct.toFixed(0)}%)`);
+        const text = `Decision Matrix result\n${isTie ? 'Tied for first' : 'First choice'}: ${winners.join(' and ')}\n\n` +
+                     lines.join('\n') + `\n\nGenerated with STEMKit Decision Matrix (stemkit.net).`;
+        const label = copyBtn.querySelector('span');
+        navigator.clipboard.writeText(text).then(() => {
+            label.textContent = 'Copied';
+            setTimeout(() => { label.textContent = 'Copy the ranking'; }, 1800);
+        }, () => {
+            label.textContent = 'The browser blocked the clipboard';
+            setTimeout(() => { label.textContent = 'Copy the ranking'; }, 2500);
         });
-    }
-
-    resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-// --- 4. Optional example loader ---
-if (btnExample) {
-    btnExample.addEventListener('click', () => {
-        document.getElementById('input-options').value  = 'Job A, Job B, Job C';
-        document.getElementById('input-criteria').value = 'Salary, Work-Life Balance, Growth, Commute';
-        btnGenerate.click();
     });
 }
+
+// --- 4. Example ---
+// Three job offers, weighted and scored so the ranking is close enough to be
+// worth reading: B wins on balance and commute, C on growth.
+const EXAMPLE = {
+    options: ['Job A', 'Job B', 'Job C'],
+    criteria: ['Salary', 'Work-life balance', 'Growth', 'Commute'],
+    weights: [4, 3, 5, 2],
+    scores: [[9, 4, 6, 5], [6, 8, 7, 8], [7, 6, 9, 3]]
+};
+btnExample.addEventListener('click', () => {
+    inputOptions.value  = EXAMPLE.options.join(', ');
+    inputCriteria.value = EXAMPLE.criteria.join(', ');
+    btnGenerate.click();
+    document.querySelectorAll('.crit-weight').forEach(inp => {
+        inp.value = EXAMPLE.weights[Number(inp.dataset.critIdx)];
+    });
+    document.querySelectorAll('.opt-rating').forEach(inp => {
+        inp.value = EXAMPLE.scores[Number(inp.dataset.optIdx)][Number(inp.dataset.critIdx)];
+    });
+    btnCalculate.focus({ preventScroll: true });
+});

@@ -65,7 +65,7 @@
     
 
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "HowTo", "name": "How to use the Weighted Decision Matrix", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "List your options", "text": "Enter the choices you are deciding between (e.g. Job A, Job B, Job C) in the Options box, separated by commas."}, {"@type": "HowToStep", "position": 2, "name": "List your criteria", "text": "Enter the factors that matter (e.g. Salary, Growth, Commute). Click Build Matrix to generate the grid."}, {"@type": "HowToStep", "position": 3, "name": "Weight and score", "text": "Give each criterion a weight (1–5) for how much it matters, then score every option on each criterion (1–10)."}, {"@type": "HowToStep", "position": 4, "name": "Calculate", "text": "Click Calculate Optimal Choice to see a ranked result with each option’s percentage of the maximum possible score."}]}
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to use the Weighted Decision Matrix", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "List your options", "text": "Enter the choices you are deciding between (e.g. Job A, Job B, Job C) in the Options box, separated by commas."}, {"@type": "HowToStep", "position": 2, "name": "List your criteria", "text": "Enter the factors that matter (e.g. Salary, Growth, Commute). Click Build the matrix to generate the grid."}, {"@type": "HowToStep", "position": 3, "name": "Weight and score", "text": "Give each criterion a weight (1–5) for how much it matters, then score every option on each criterion (1–10)."}, {"@type": "HowToStep", "position": 4, "name": "Rank", "text": "Click Rank the options to see a ranked result with each option’s percentage of the maximum possible score."}]}
 </script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my data uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Everything runs in your browser; nothing you type is sent to a server."}}, {"@type": "Question", "name": "What method is this based on?", "acceptedAnswer": {"@type": "Answer", "text": "The Simple Additive Weighting (SAW) / Weighted Sum Model, a standard multi-criteria decision analysis (MCDA) technique."}}, {"@type": "Question", "name": "How should I choose weights?", "acceptedAnswer": {"@type": "Answer", "text": "Weights express relative importance. A criterion weighted 4 counts twice as much as one weighted 2. Only the ratios matter."}}, {"@type": "Question", "name": "What happens with a tie?", "acceptedAnswer": {"@type": "Answer", "text": "If two or more options share the top weighted total, they are all shown as tied top choices."}}, {"@type": "Question", "name": "Can I handle “lower is better” criteria?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, invert them when scoring, so the most favourable option (lowest cost, shortest commute) gets the highest score."}}]}
@@ -129,62 +129,80 @@
         </div>
     </nav>
 
-    <main id="main" class="max-w-6xl mx-auto px-6 py-12 w-full flex-grow">
-        
-        <div class="text-center mb-12">
-            <h1 class="text-4xl md:text-5xl font-black mb-4 tracking-tight">Decision Matrix</h1>
-            <p class="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">Remove the emotion. Define your options, weight your criteria, and let the algorithm calculate the optimal path.</p>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Simple Additive Weighting · 100% client-side</p>
-        </div>
+    <main id="main" class="flex-grow max-w-6xl mx-auto px-4 sm:px-6 py-8 w-full flex flex-col gap-6">
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-            
-            <div class="lg:col-span-1 bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl">
-                <h2 class="text-xl font-bold mb-6 flex items-center gap-2"><i class="fa-solid fa-sliders text-brand-500"></i> Parameters</h2>
-                
-                <div class="mb-6">
-                    <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">1. Options (Comma separated)</label>
-                    <input type="text" id="input-options" placeholder="e.g. React, Vue, Angular" class="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-brand-500 outline-none transition-all">
+        <header class="stk-pagehead">
+            <div>
+                <h1 class="stk-pagehead-title">Decision Matrix</h1>
+                <p class="stk-pagehead-lede">Weight the criteria that matter, score each option against them, and get a ranking by the weighted-sum method with each option&rsquo;s share of the best possible score.</p>
+                <ul class="stk-pagehead-meta">
+                    <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
+                    <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
+                </ul>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start mb-6">
+
+            <section class="dm-panel lg:col-span-1" data-stk-step="1" data-stk-done="visible:#matrix-wrapper" aria-labelledby="dm-step1">
+                <h2 id="dm-step1" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1: </span>List the options and criteria</h2>
+
+                <div class="dm-field">
+                    <label for="input-options">Options</label>
+                    <input type="text" id="input-options" placeholder="e.g. Job A, Job B, Job C" autocomplete="off" aria-describedby="hint-options">
+                    <p id="hint-options" class="dm-hint">Two or more, separated by commas.</p>
                 </div>
-                
-                <div class="mb-8">
-                    <label class="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">2. Criteria (Comma separated)</label>
-                    <input type="text" id="input-criteria" placeholder="e.g. Salary, Learning Curve, Fun" class="w-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-brand-500 outline-none transition-all">
+
+                <div class="dm-field">
+                    <label for="input-criteria">Criteria</label>
+                    <input type="text" id="input-criteria" placeholder="e.g. Salary, Growth, Commute" autocomplete="off" aria-describedby="hint-criteria">
+                    <p id="hint-criteria" class="dm-hint">What the choice depends on, separated by commas.</p>
                 </div>
-                
-                <button id="btn-example" class="w-full mb-3 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline">Load an example</button>
-                <button id="btn-generate" class="w-full bg-brand-600 hover:bg-brand-700 text-white py-4 rounded-xl font-bold shadow-lg hover:shadow-xl transition-all hover:-translate-y-1">
-                    Build Matrix
+
+                <p id="dm-error" class="dm-error" role="alert" hidden><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span id="dm-error-text"></span></p>
+
+                <button type="button" id="btn-generate" class="w-full bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white py-3 rounded-xl font-bold shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950">
+                    Build the matrix
                 </button>
-            </div>
+            </section>
 
-            <div class="lg:col-span-2 bg-brand-50 dark:bg-brand-900/10 p-8 rounded-3xl border border-brand-100 dark:border-brand-500/20 flex flex-col items-center justify-center text-center min-h-[300px]">
-                <div id="results-container" class="w-full">
-                    <i class="fa-solid fa-calculator text-4xl text-brand-300 dark:text-brand-700 mb-4"></i>
-                    <h3 class="text-xl font-medium text-slate-600 dark:text-slate-400">Your calculated result will appear here.</h3>
-                </div>
-            </div>
+            <div class="lg:col-span-2 flex flex-col gap-6 min-w-0">
 
+                <section id="matrix-panel" class="dm-panel" data-stk-step="2" data-stk-done="visible:#results-panel" aria-labelledby="dm-step2">
+                    <h2 id="dm-step2" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Weight and score</h2>
+
+                    <div id="matrix-empty" class="dm-empty">
+                        <span class="dm-empty-icon" aria-hidden="true"><i class="fa-solid fa-table-cells"></i></span>
+                        <p>Your options become the rows and your criteria the columns. You then weight each criterion from 1 to 5 and score each option from 1 to 10.</p>
+                        <button type="button" id="btn-example" class="stk-btn stk-btn-soft"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>Load an example</button>
+                    </div>
+
+                    <div id="matrix-wrapper" hidden>
+                        <p class="dm-hint dm-legend">Weight: how much a criterion matters, 1 (a little) to 5 (decisive). Score: how well an option does on it, 1 (poorly) to 10 (best). For a criterion where less is better, such as cost, give the cheapest option the highest score.</p>
+                        <div id="matrix-container" class="dm-matrix stk-scroll"></div>
+                        <div class="dm-actions">
+                            <button type="button" id="btn-calculate" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950">
+                                Rank the options
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="results-panel" class="dm-panel" data-stk-step="3" data-stk-done="visible:#results-panel" data-stk-reveal aria-labelledby="dm-step3" hidden>
+                    <h2 id="dm-step3" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 3: </span>Ranking</h2>
+                    <div id="results-container" aria-live="polite"></div>
+                </section>
+
+            </div>
         </div>
 
-        <div id="matrix-wrapper" class="hidden bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
-            <div class="overflow-x-auto p-8" id="matrix-container">
-                </div>
-            <div class="bg-slate-50 dark:bg-slate-800 p-6 border-t border-slate-200 dark:border-slate-700 flex justify-end">
-                <button id="btn-calculate" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white px-8 py-3 rounded-xl font-bold shadow-md transition-all">
-                    Calculate Optimal Choice
-                </button>
-            </div>
-        </div>
-
-    
     <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
         <div class="stk-wrap">
             <span class="stk-chip"><i class="fa-solid fa-scale-balanced"></i> How-To Guide</span>
             <h2 class="stk-h2">How to use the Weighted Decision Matrix</h2>
             <p class="stk-lead">A decision matrix turns a messy “gut feeling” choice into a transparent, weighted calculation. Here is the workflow.</p>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-step"><span class="stk-num">1</span><div><h3>List your options</h3><p>Enter the choices you are deciding between (e.g. <em>Job A, Job B, Job C</em>) in the Options box, separated by commas.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>List your criteria</h3><p>Enter the factors that matter (e.g. <em>Salary, Growth, Commute</em>). Click <strong>Build Matrix</strong> to generate the grid.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Weight and score</h3><p>Give each criterion a weight (1–5) for how much it matters, then score every option on each criterion (1–10).</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Calculate</h3><p>Click <strong>Calculate Optimal Choice</strong> to see a ranked result with each option’s percentage of the maximum possible score.</p></div></div>
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>List your options</h3><p>Enter the choices you are deciding between (e.g. <em>Job A, Job B, Job C</em>) in the Options box, separated by commas.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>List your criteria</h3><p>Enter the factors that matter (e.g. <em>Salary, Growth, Commute</em>). Click <strong>Build the matrix</strong> to generate the grid.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Weight and score</h3><p>Give each criterion a weight (1–5) for how much it matters, then score every option on each criterion (1–10).</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Rank</h3><p>Click <strong>Rank the options</strong> to see a ranked result with each option’s percentage of the maximum possible score.</p></div></div>
             </div>
         </div>
     </section>
@@ -193,7 +211,7 @@
         <div class="stk-wrap">
             <h2 class="stk-h2">How the calculation works</h2>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Weighted Sum Model</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Each option’s total is the sum of <code>score × weight</code> across all criteria. This is the <strong>Simple Additive Weighting (SAW)</strong> method, one of the oldest and most widely used multi-criteria decision techniques. The option with the highest weighted total is highlighted as the optimal choice.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Normalised & ranked</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Because raw totals depend on how many criteria you use, results are also shown as a percentage of the maximum possible score, and every option is ranked so you can see runners-up and ties, not just the winner.</p></div>
+                <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Weighted Sum Model</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Each option’s total is the sum of <code>score × weight</code> across all criteria. This is the <strong>Simple Additive Weighting (SAW)</strong> method, one of the oldest and most widely used multi-criteria decision techniques. The option with the highest weighted total is ranked first.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Normalised & ranked</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Because raw totals depend on how many criteria you use, results are also shown as a percentage of the maximum possible score, and every option is ranked so you can see runners-up and ties, not just the winner.</p></div>
             </div>
             <div class="stk-note" style="margin-top:1rem;">
                 <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>
