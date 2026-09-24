@@ -215,10 +215,10 @@
                     <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex flex-wrap justify-between items-center gap-3">
                         <h2 class="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Error Bar Plot</h2>
                         <div class="flex items-center gap-2 flex-wrap">
-                            <div class="errmode-tabs">
-                                <button class="errmode-tab" data-errmode="sd">SD</button>
-                                <button class="errmode-tab" data-errmode="sem">SEM</button>
-                                <button class="errmode-tab errmode-active" data-errmode="ci">CI</button>
+                            <div class="stk-seg" role="group" aria-label="Error bars show">
+                                <button type="button" data-errmode="sd" aria-pressed="false" title="Standard deviation">SD</button>
+                                <button type="button" data-errmode="sem" aria-pressed="false" title="Standard error of the mean">SEM</button>
+                                <button type="button" data-errmode="ci" aria-pressed="true" title="Confidence interval">CI</button>
                             </div>
                             <button id="exportPngBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-colors shadow-sm"><i class="fa-solid fa-image mr-1"></i> PNG</button>
                             <button id="exportSvgBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-brand-600 transition-colors shadow-sm"><i class="fa-solid fa-bezier-curve mr-1"></i> SVG</button>

@@ -11,13 +11,6 @@
 .table-container::-webkit-scrollbar-track { background: transparent; }
 .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 .dark .table-container::-webkit-scrollbar-thumb { background: #475569; }
-.errmode-tabs { display:inline-flex; background:#f1f5f9; border-radius:.5rem; padding:2px; gap:2px; }
-.dark .errmode-tabs { background:#1e293b; }
-.errmode-tab { font-size:.72rem; font-weight:700; padding:.3rem .7rem; border-radius:.4rem; cursor:pointer; color:#475569; background:transparent; border:none; transition:all .15s; }
-.errmode-tab:hover { color:#1f5c96; }
-.dark .errmode-tab { color:#94a3b8; }
-.errmode-tab.errmode-active { background:#fff; color:#1f5c96; box-shadow:0 1px 2px rgba(0,0,0,.08); }
-.dark .errmode-tab.errmode-active { background:#334155; color:#92b8dd; }
 .sig-note { margin-top:1rem; padding:.7rem .85rem; border-radius:.6rem; font-size:.8rem; line-height:1.5; display:flex; gap:.5rem; align-items:flex-start; }
 .sig-note i { margin-top:2px; }
 .sig-yes { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:#047857; }

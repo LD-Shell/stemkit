@@ -144,9 +144,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (computedResults.length) { renderTable(); drawPlot(); }
   });
 
+  // One control, three states: exactly one button is pressed, and it is the
+  // error the plot is drawing.
   errModeTabs.forEach(tab => tab.addEventListener('click', () => {
     errorMode = tab.getAttribute('data-errmode');
-    errModeTabs.forEach(t => t.classList.toggle('active', t === tab));
+    errModeTabs.forEach(t => t.setAttribute('aria-pressed', String(t === tab)));
     drawPlot();
   }));
 
