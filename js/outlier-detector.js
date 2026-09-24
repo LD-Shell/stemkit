@@ -16,16 +16,27 @@ import {
 // Papa is loaded as a UMD global by the page's <script> tags.
 registerFromGlobals();
 
+const PREVIEW_ROWS = 200;
+
+const METHOD_NAMES = {
+  zscore: 'the Z-score',
+  iqr: 'the IQR fences',
+  modzscore: 'the modified Z-score'
+};
+
 document.addEventListener('DOMContentLoaded', () => {
 
   // # --- 1. State ---
   let rawData = [];
   let headers = [];
   let outlierIndices = new Set();
+  let scanned = false;
 
   // # --- 2. Interface bindings ---
   const uploadZone = document.getElementById('uploadZone');
   const fileInput = document.getElementById('fileInput');
+  const chooseFileBtn = document.getElementById('chooseFileBtn');
+  const changeFileBtn = document.getElementById('changeFileBtn');
   const workspace = document.getElementById('workspace');
   const colSelect = document.getElementById('colSelect');
   const methodSelect = document.getElementById('methodSelect');
@@ -33,27 +44,36 @@ document.addEventListener('DOMContentLoaded', () => {
   const thresholdValue = document.getElementById('thresholdValue');
   const methodHint = document.getElementById('methodHint');
   const outlierCountEl = document.getElementById('outlierCount');
+  const outlierCountLabel = document.getElementById('outlierCountLabel');
+  const scanSummary = document.getElementById('scanSummary');
+  const scanEmpty = document.getElementById('scanEmpty');
+  const scanDetail = document.getElementById('scanDetail');
+  const grubbsNote = document.getElementById('grubbsNote');
+  const previewNote = document.getElementById('previewNote');
   const exampleBtn = document.getElementById('exampleBtn');
 
   const scanBtn = document.getElementById('scanBtn');
   const exportCleanBtn = document.getElementById('exportCleanBtn');
   const exportFlaggedBtn = document.getElementById('exportFlaggedBtn');
 
-  // Dark-mode toggling is handled by the shared inline script in the page.
-
-  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    uploadZone.addEventListener(eventName, (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    }, false);
+  // The drop zone: drag a file on, click anywhere on it, or use its buttons.
+  ['dragenter', 'dragover'].forEach(evt => uploadZone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    uploadZone.classList.add('is-over');
+  }));
+  uploadZone.addEventListener('dragleave', (e) => {
+    if (!uploadZone.contains(e.relatedTarget)) uploadZone.classList.remove('is-over');
   });
-  uploadZone.addEventListener('dragover', () => uploadZone.classList.add('border-brand-500'));
-  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('border-brand-500'));
   uploadZone.addEventListener('drop', (e) => {
-    uploadZone.classList.remove('border-brand-500');
+    e.preventDefault();
+    uploadZone.classList.remove('is-over');
     if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
   });
-  uploadZone.addEventListener('click', () => fileInput.click());
+  uploadZone.addEventListener('click', (e) => {
+    if (!e.target.closest('button')) fileInput.click();
+  });
+  chooseFileBtn.addEventListener('click', () => fileInput.click());
+  changeFileBtn.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', (e) => {
     if (e.target.files.length) handleFile(e.target.files[0]);
   });
@@ -69,6 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const val = parseFloat(e.target.value).toFixed(1);
     thresholdValue.innerText = val;
     updateMethodHint(methodSelect.value, val);
+    if (scanned) runScan({ quiet: true });
   });
 
   methodSelect.addEventListener('change', (e) => {
@@ -78,21 +99,24 @@ document.addEventListener('DOMContentLoaded', () => {
     thresholdSlider.step = d.step;
     thresholdSlider.value = d.value;
     thresholdValue.innerText = d.value.toFixed(1);
-    updateMethodHint(e.target.value, d.value);
+    updateMethodHint(e.target.value, d.value.toFixed(1));
+    if (scanned) runScan({ quiet: true });
   });
+
+  colSelect.addEventListener('change', () => { if (scanned) runScan({ quiet: true }); });
 
   function updateMethodHint(method, threshold) {
     if (method === 'zscore') {
       methodHint.innerText =
-        `Flags values where the absolute Z-Score exceeds ${threshold}. Assumes roughly normal data.`;
+        `Flags values where the absolute Z-score exceeds ${threshold}. Assumes roughly normal data.`;
     } else if (method === 'modzscore') {
       methodHint.innerText =
-        `Flags values where the modified Z-Score (median/MAD based) exceeds ${threshold}. ` +
-        `Robust to existing outliers; 3.5 is the Iglewicz–Hoaglin default.`;
+        `Flags values where the modified Z-score (median and MAD) exceeds ${threshold}. ` +
+        `Robust to the outliers themselves; 3.5 is the Iglewicz–Hoaglin default.`;
     } else {
       methodHint.innerText =
-        `Flags values outside Q1 − ${threshold}×IQR and Q3 + ${threshold}×IQR (Tukey fences). ` +
-        `Good for skewed data.`;
+        `Flags values below Q1 − ${threshold} × IQR or above Q3 + ${threshold} × IQR (Tukey's fences). ` +
+        `Suits skewed data.`;
     }
   }
 
@@ -100,11 +124,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function handleFile(file) {
     const name = ((file && file.name) || '').toLowerCase();
     if (!file || !/\.(csv|tsv|txt)$/.test(name)) {
-      showToast('Please choose a .csv, .tsv or .txt file.', 'error');
+      showToast('Choose a .csv, .tsv or .txt file.', 'error');
       return;
     }
-    document.getElementById('fileName').innerText = file.name;
-
     Papa.parse(file, {
       header: true,
       dynamicTyping: true,
@@ -112,53 +134,70 @@ document.addEventListener('DOMContentLoaded', () => {
       delimiter: '',
       complete: (results) => {
         if (!results.data || results.data.length === 0) {
-          showToast('No rows could be parsed from that file.', 'error');
+          showToast('No rows could be read from that file.', 'error');
           return;
         }
-        rawData = results.data;
-        headers = (results.meta.fields || []).filter(h => h !== null && h !== undefined && h !== '');
-        outlierIndices.clear();
-
-        populateColumnSelector();
-        renderArrayView();
-
-        uploadZone.classList.add('hidden');
-        workspace.classList.remove('hidden');
-        document.getElementById('dataMeta').innerText =
-          `${rawData.length} Rows • ${headers.length} Columns`;
-      }
+        const fields = (results.meta.fields || []).filter(h => h !== null && h !== undefined && h !== '');
+        loadRows(results.data, fields, file.name);
+      },
+      error: () => showToast('Could not read that file.', 'error')
     });
     fileInput.value = '';
   }
 
+  // Fifteen readings near 80 with one far too high (250) and one far too low
+  // (3): the Z-score catches only the first, the modified Z-score both.
   function loadExample() {
     const rows = [78, 80, 79, 81, 77, 80, 79, 82, 78, 250, 80, 79, 3, 81, 79];
-    rawData = rows.map((v, i) => ({ sample_id: i + 1, measurement: v }));
-    headers = ['sample_id', 'measurement'];
-    outlierIndices.clear();
-    document.getElementById('fileName').innerText = 'example_data.csv';
-    populateColumnSelector();
-    colSelect.value = 'measurement';
-    renderArrayView();
-    uploadZone.classList.add('hidden');
-    workspace.classList.remove('hidden');
-    document.getElementById('dataMeta').innerText =
-      `${rawData.length} Rows • ${headers.length} Columns`;
+    loadRows(rows.map((v, i) => ({ sample_id: i + 1, measurement: v })),
+      ['sample_id', 'measurement'], 'sample_measurements.csv');
   }
   if (exampleBtn) exampleBtn.addEventListener('click', loadExample);
 
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + 's')}`;
+
+  function loadRows(rows, fields, fileName) {
+    rawData = rows;
+    headers = fields;
+    outlierIndices.clear();
+    scanned = false;
+
+    document.getElementById('fileName').textContent = fileName;
+    document.getElementById('dataMeta').textContent =
+      `${plural(rawData.length, 'row')}, ${plural(headers.length, 'column')}`;
+    populateColumnSelector();
+    showScanResult(null);
+    renderArrayView();
+
+    uploadZone.classList.add('hidden');
+    workspace.classList.remove('hidden');
+    workspace.classList.add('flex');
+  }
+
+  // Every column is offered, but the first one with numbers in it is chosen,
+  // so an ID or name column in front does not make the first scan fail.
   function populateColumnSelector() {
     colSelect.innerHTML = '';
+    let firstNumeric = null;
     headers.forEach(header => {
       const opt = document.createElement('option');
       opt.value = header;
-      opt.textContent = header;
+      const n = extractNumericColumn(rawData, header).values.length;
+      opt.textContent = n ? header : `${header} (no numbers)`;
+      if (n >= 4 && firstNumeric === null && !/^(id|sample_?id|index|#)$/i.test(header)) firstNumeric = header;
       colSelect.appendChild(opt);
     });
+    if (firstNumeric === null) {
+      const any = headers.find(h => extractNumericColumn(rawData, h).values.length >= 4);
+      if (any) firstNumeric = any;
+    }
+    if (firstNumeric !== null) colSelect.value = firstNumeric;
   }
 
   // # --- 5. Detection (delegated to the core) ---
-  scanBtn.addEventListener('click', () => {
+  scanBtn.addEventListener('click', () => runScan({ quiet: false }));
+
+  function runScan({ quiet }) {
     const targetCol = colSelect.value;
     const method = methodSelect.value;
     const threshold = parseFloat(thresholdSlider.value);
@@ -167,7 +206,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const { values, indexMap } = extractNumericColumn(rawData, targetCol);
 
     if (values.length < 4) {
-      showToast('Need at least 4 numeric values in the selected column.', 'error');
+      showScanResult(null);
+      renderArrayView();
+      showToast(`"${targetCol}" needs at least 4 numeric values; it has ${values.length}.`, 'error');
       return;
     }
 
@@ -177,40 +218,54 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (result.degenerate) {
-      showToast('Standard deviation is zero, no spread to flag.', 'info');
-    }
-    if (result.usedFallback) {
-      showToast('More than half the values are identical; using the mean ' +
-                'absolute deviation instead of the MAD.', 'info');
-    }
-
     for (const i of mapToRowIndices(result.indices, indexMap)) {
       outlierIndices.add(i);
     }
+    scanned = true;
 
-    outlierCountEl.innerText = outlierIndices.size;
+    const notes = [];
+    if (result.degenerate) notes.push('Every value is the same, so there is no spread to flag against.');
+    if (result.usedFallback) {
+      notes.push('More than half the values are identical, so the mean absolute deviation stands in for the MAD.');
+    }
+
+    // Grubbs gives a formal significance statement alongside the flag count.
+    const g = grubbsTest(values, 0.05);
+    const grubbs = g && g.isOutlier
+      ? `Grubbs' test agrees that the most extreme value is an outlier: G = ${g.G.toFixed(3)} ` +
+        `exceeds the critical ${g.critical.toFixed(3)} (p ${g.p < 0.001 ? '< 0.001' : '= ' + g.p.toFixed(3)}).`
+      : (g ? `Grubbs' test does not flag the most extreme value at the 5% level (G = ${g.G.toFixed(3)}, ` +
+             `critical ${g.critical.toFixed(3)}).` : '');
+
+    showScanResult({
+      count: outlierIndices.size,
+      detail: `${plural(outlierIndices.size, 'value')} of ${values.length} in "${targetCol}" ` +
+              `${outlierIndices.size === 1 ? 'lies' : 'lie'} beyond ${METHOD_NAMES[method]} threshold of ${threshold.toFixed(1)}.` +
+              (notes.length ? ' ' + notes.join(' ') : ''),
+      grubbs
+    });
     renderArrayView();
 
-    const has = outlierIndices.size > 0;
+    if (!quiet) {
+      showToast(outlierIndices.size
+        ? `Flagged ${plural(outlierIndices.size, 'outlier')}.`
+        : 'No outliers with these settings.', outlierIndices.size ? 'success' : 'info');
+    }
+  }
+
+  function showScanResult(r) {
+    scanSummary.classList.toggle('hidden', !r);
+    scanEmpty.classList.toggle('hidden', !!r);
+    const has = !!r && r.count > 0;
     exportCleanBtn.disabled = !has;
     exportFlaggedBtn.disabled = !has;
-
-    // Grubbs offers a formal significance statement alongside the flag count.
-    const g = grubbsTest(values, 0.05);
-    if (g && g.isOutlier) {
-      showToast(
-        `${outlierIndices.size} outlier${outlierIndices.size > 1 ? 's' : ''} flagged. ` +
-        `Grubbs' test: G = ${g.G.toFixed(3)} exceeds the critical ` +
-        `${g.critical.toFixed(3)} (p = ${g.p < 0.001 ? '< 0.001' : g.p.toFixed(3)}).`,
-        'success'
-      );
-    } else if (has) {
-      showToast(`${outlierIndices.size} outlier${outlierIndices.size > 1 ? 's' : ''} flagged.`, 'success');
-    } else {
-      showToast('No outliers detected with the current settings.', 'info');
-    }
-  });
+    if (!r) return;
+    outlierCountEl.textContent = r.count;
+    outlierCountLabel.textContent = r.count === 1 ? 'outlier' : 'outliers';
+    scanSummary.classList.toggle('is-none', r.count === 0);
+    scanDetail.textContent = r.detail;
+    grubbsNote.textContent = r.grubbs;
+  }
 
   // # --- 6. Table view ---
   function escapeHtml(s) {
@@ -221,11 +276,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderArrayView() {
     const thead = document.getElementById('tableHead');
     thead.innerHTML = '<tr>' + headers.map(h =>
-      `<th class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700 last:border-0">${escapeHtml(h)}</th>`
+      `<th scope="col" class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-700 last:border-0">${escapeHtml(h)}</th>`
     ).join('') + '</tr>';
 
     const tbody = document.getElementById('tableBody');
-    const previewLimit = Math.min(rawData.length, 200);
+    const previewLimit = Math.min(rawData.length, PREVIEW_ROWS);
     let rowsHtml = '';
     for (let i = 0; i < previewLimit; i++) {
       const row = rawData[i];
@@ -234,25 +289,31 @@ document.addEventListener('DOMContentLoaded', () => {
       headers.forEach(h => {
         let val = row[h];
         if (typeof val === 'number' && !Number.isInteger(val)) val = val.toFixed(4);
-        const textClass = isOutlier
-          ? 'text-red-700 dark:text-red-400 font-bold'
-          : 'text-slate-600 dark:text-slate-400';
-        const display = (val !== null && val !== undefined) ? escapeHtml(String(val)) : 'NaN';
-        tdHtml += `<td class="px-4 py-2 ${textClass} border-r border-slate-100 dark:border-slate-800/50 last:border-0">${display}</td>`;
+        const display = (val !== null && val !== undefined && val !== '')
+          ? escapeHtml(String(val))
+          : '<span class="od-missing" title="Missing value">–</span>';
+        tdHtml += `<td class="px-4 py-2 border-r border-slate-100 dark:border-slate-800/50 last:border-0">${display}</td>`;
       });
-      rowsHtml += `<tr class="${isOutlier ? 'outlier-row' : ''}">${tdHtml}</tr>`;
+      rowsHtml += `<tr class="${isOutlier ? 'outlier-row' : 'text-slate-700 dark:text-slate-300'}">${tdHtml}</tr>`;
     }
     tbody.innerHTML = rowsHtml;
+
+    const shown = rawData.length > previewLimit
+      ? `Showing the first ${previewLimit} of ${rawData.length} rows.`
+      : `All ${plural(rawData.length, 'row')}.`;
+    previewNote.textContent = outlierIndices.size
+      ? `${shown} Outliers are highlighted.`
+      : shown;
   }
 
   // # --- 7. Export ---
   exportCleanBtn.addEventListener('click', () => {
     const { clean } = partitionRows(rawData, [...outlierIndices]);
-    triggerDownload(clean, 'scrubbed_dataset.csv');
+    triggerDownload(clean, 'data_without_outliers.csv');
   });
   exportFlaggedBtn.addEventListener('click', () => {
     const { flagged } = partitionRows(rawData, [...outlierIndices]);
-    triggerDownload(flagged, 'isolated_anomalies.csv');
+    triggerDownload(flagged, 'outliers.csv');
   });
 
   function triggerDownload(dataArray, filename) {
@@ -267,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast(`Exported ${filename}`, 'success');
+    showToast(`Saved ${filename} (${plural(dataArray.length, 'row')}).`, 'success');
   }
 
   // # --- 8. Toasts ---
@@ -275,17 +336,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
     const colors = type === 'success'
-      ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400'
+      ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800'
       : type === 'error'
-        ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400'
-        : 'bg-brand-50 text-brand-800 border-brand-200 dark:bg-brand-900/30 dark:text-brand-400';
-    toast.className = `px-4 py-3 rounded-xl border shadow-lg toast-enter text-sm font-medium transition-all ${colors}`;
-    toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-triangle-exclamation' : 'fa-info-circle'} mr-2"></i> ${escapeHtml(msg)}`;
+        ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800'
+        : 'bg-blue-50 text-blue-800 border-blue-200 dark:bg-slate-900 dark:text-blue-200 dark:border-blue-800';
+    toast.className = `px-4 py-3 rounded-xl border shadow-lg toast-enter text-sm font-medium transition-all max-w-sm ${colors}`;
+    toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-triangle-exclamation' : 'fa-info-circle'} mr-2" aria-hidden="true"></i> ${escapeHtml(msg)}`;
     container.appendChild(toast);
     setTimeout(() => {
       toast.style.opacity = '0';
       setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, 3500);
   }
 
   /* --- What the method computes --------------------------------------------
@@ -342,7 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!formula) { host.innerHTML = ''; return; }
 
     if (!window.katex) {
-      host.innerHTML = '<span class="text-xs text-slate-500 dark:text-slate-400">Formula renderer unavailable.</span>';
+      host.innerHTML = '<span class="text-xs text-slate-500 dark:text-slate-400">The formula renderer did not load.</span>';
       return;
     }
 

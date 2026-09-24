@@ -69,10 +69,10 @@
     <script src="js/dependencies/jstat.min.js"></script>
 
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "HowTo", "name": "How to detect outliers in your data", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Load your data", "text": "Drag in a .csv/.tsv/.txt file (or click to browse). Or click Load example to try a sample with two planted outliers."}, {"@type": "HowToStep", "position": 2, "name": "Pick a column &amp; method", "text": "Choose the numeric column and one of Z-Score, IQR, or the robust Modified Z-Score."}, {"@type": "HowToStep", "position": 3, "name": "Set the threshold", "text": "Adjust the multiplier; the hint explains what the current setting flags. Defaults follow standard practice."}, {"@type": "HowToStep", "position": 4, "name": "Scan &amp; export", "text": "Run the scan to highlight outliers in the table, then export the cleaned dataset or the flagged rows."}]}
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to detect outliers in your data", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Load your data", "text": "Drag in a .csv/.tsv/.txt file, or choose one. Or press Load a sample to try a sample with two planted outliers."}, {"@type": "HowToStep", "position": 2, "name": "Pick a column &amp; method", "text": "Choose the numeric column and one of Z-Score, IQR, or the robust Modified Z-Score."}, {"@type": "HowToStep", "position": 3, "name": "Set the threshold", "text": "Adjust the multiplier; the hint explains what the current setting flags. Defaults follow standard practice."}, {"@type": "HowToStep", "position": 4, "name": "Find and download", "text": "Press Find outliers to highlight them in the table, then download the data without them or the outliers alone."}]}
 </script>
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my data uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Parsing and detection run locally in your browser via PapaParse and jStat."}}, {"@type": "Question", "name": "Which method should I use?", "acceptedAnswer": {"@type": "Answer", "text": "Z-Score for roughly normal data, IQR for skewed data, and the Modified Z-Score when you want robustness to the outliers themselves (a good general default)."}}, {"@type": "Question", "name": "What thresholds are typical?", "acceptedAnswer": {"@type": "Answer", "text": "k = 3 for Z-Score, k = 1.5 for Tukey's IQR fences, and k = 3.5 for the modified Z-Score (Iglewicz–Hoaglin)."}}, {"@type": "Question", "name": "How many values do I need?", "acceptedAnswer": {"@type": "Answer", "text": "At least four numeric values in the chosen column for a meaningful estimate of spread."}}, {"@type": "Question", "name": "Does 'Export Cleaned' change my original file?", "acceptedAnswer": {"@type": "Answer", "text": "No. It downloads a new CSV with the flagged rows removed; your source file is untouched."}}]}
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my data uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Parsing and detection run locally in your browser via PapaParse and jStat."}}, {"@type": "Question", "name": "Which method should I use?", "acceptedAnswer": {"@type": "Answer", "text": "Z-Score for roughly normal data, IQR for skewed data, and the Modified Z-Score when you want robustness to the outliers themselves (a good general default)."}}, {"@type": "Question", "name": "What thresholds are typical?", "acceptedAnswer": {"@type": "Answer", "text": "k = 3 for Z-Score, k = 1.5 for Tukey's IQR fences, and k = 3.5 for the modified Z-Score (Iglewicz–Hoaglin)."}}, {"@type": "Question", "name": "How many values do I need?", "acceptedAnswer": {"@type": "Answer", "text": "At least four numeric values in the chosen column for a meaningful estimate of spread."}}, {"@type": "Question", "name": "Does downloading without outliers change my original file?", "acceptedAnswer": {"@type": "Answer", "text": "No. It downloads a new CSV with the flagged rows removed; your source file is untouched."}}]}
 </script>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
@@ -135,82 +135,100 @@
     </nav>
 
     <main id="main" class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
-        
-        <section id="uploadZone" class="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-brand-300 dark:border-brand-700 rounded-3xl bg-brand-50/50 dark:bg-brand-900/10 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-all cursor-pointer p-12 text-center group">
-            <input type="file" id="fileInput" accept=".csv" class="hidden" aria-label="Upload CSV dataset">
-            <div class="w-20 h-20 bg-brand-100 dark:bg-brand-900/50 rounded-2xl flex items-center justify-center mb-6 text-brand-600 dark:text-brand-400 group-hover:scale-110 transition-transform">
-                <i class="fa-solid fa-bullseye text-4xl"></i>
+
+        <header class="stk-pagehead">
+            <div>
+                <h1 class="stk-pagehead-title">Outlier Detector</h1>
+                <p class="stk-pagehead-lede">Flag unusual values in a column with the Z-score, Tukey&rsquo;s IQR fences or the robust <span class="whitespace-nowrap">modified Z-score</span>, then download the data with or without them.</p>
+                <ul class="stk-pagehead-meta">
+                    <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
+                    <li><a href="#method"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Method and equations</a></li>
+                </ul>
             </div>
-            <h1 class="text-3xl font-bold mb-3">Outlier Detector</h1>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">100% client-side</p>
-            <p class="text-slate-600 dark:text-slate-400 mb-6 max-w-md">Identify and isolate statistical anomalies in your experimental data or MD trajectories locally.</p>
-            <button class="bg-brand-600 hover:bg-brand-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-sm">
-                Select CSV Data
-            </button>
+        </header>
+
+        <section id="uploadZone" class="stk-drop" aria-labelledby="od-drop-title">
+            <input type="file" id="fileInput" accept=".csv,.tsv,.txt" class="hidden" aria-label="Choose a data file">
+            <div class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-bullseye"></i></div>
+            <h2 id="od-drop-title" class="stk-drop-title">Drop a CSV file here</h2>
+            <p class="stk-drop-text">Comma-, tab- or semicolon-separated columns under a header row.</p>
+            <div class="stk-drop-actions">
+                <button type="button" id="chooseFileBtn" class="stk-btn stk-btn-primary"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Choose file</button>
+                <button type="button" id="exampleBtn" class="stk-btn stk-btn-ghost"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load a sample</button>
+            </div>
+            <div class="stk-drop-formats"><span>.csv</span><span>.tsv</span><span>.txt</span></div>
         </section>
 
-        <section id="workspace" class="hidden flex-col gap-6 w-full">
-            
-            <div class="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                
-                <div class="lg:col-span-3">
-                    <h2 id="fileName" class="font-bold text-lg truncate">dataset.csv</h2>
-                    <p id="dataMeta" class="text-sm text-slate-500 dark:text-slate-400 mb-4">0 Rows</p>
-                    
-                    <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
-                        <span class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Anomalies Detected</span>
-                        <span class="text-3xl font-black text-red-600 dark:text-red-500" id="outlierCount">0</span>
-                    </div>
+        <section id="workspace" class="hidden flex-col gap-6 w-full" aria-label="Your data">
+
+            <div class="od-filebar" data-stk-step="1" data-stk-done="hidden:#uploadZone">
+                <div class="min-w-0">
+                    <h2 class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1, file loaded: </span><span id="fileName" class="truncate">dataset.csv</span></h2>
+                    <p id="dataMeta" class="od-meta"></p>
                 </div>
-                
-                <div class="lg:col-span-6 flex flex-col gap-4 bg-slate-50 dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <div class="grid grid-cols-2 gap-4">
+                <button type="button" id="changeFileBtn" class="stk-btn stk-btn-sm"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Load another file</button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+                <section class="lg:col-span-7 bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-4" data-stk-step="2" data-stk-done="visible:#scanSummary" aria-labelledby="od-step2">
+                    <h2 id="od-step2" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Choose a column and a rule</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase">Target Variable</label>
+                            <label for="colSelect" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Column</label>
                             <select id="colSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none"></select>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase">Algorithm</label>
+                            <label for="methodSelect" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Rule</label>
                             <select id="methodSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
-                                <option value="zscore">Z-Score (Parametric)</option>
-                                <option value="iqr">Interquartile Range (Non-parametric)</option>
-                                <option value="modzscore">Modified Z-Score (Robust, MAD)</option>
+                                <option value="zscore">Z-score</option>
+                                <option value="iqr">IQR fences (Tukey)</option>
+                                <option value="modzscore">Modified Z-score (robust)</option>
                             </select>
                         </div>
                     </div>
-                    
+
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase">Threshold Multiplier</label>
+                        <label for="thresholdSlider" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Threshold</label>
                         <div class="flex items-center gap-4">
                             <input type="range" id="thresholdSlider" min="1" max="5" step="0.1" value="3" class="w-full">
-                            <span id="thresholdValue" class="font-mono font-bold text-brand-600 dark:text-brand-400 w-12 text-right">3.0</span>
+                            <span id="thresholdValue" class="font-mono font-bold text-brand-700 dark:text-brand-300 w-12 text-right" aria-live="polite">3.0</span>
                         </div>
-                        <p id="methodHint" class="text-xs text-slate-500 dark:text-slate-400 mt-2">Flags values where |Z| > 3.0.</p>
-                    <details id="methodTheory" class="mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">
-                        <summary class="cursor-pointer text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 hover:text-brand-500">How this method decides</summary>
-                        <div id="theoryContainer" class="mt-2"></div>
-                    </details>
+                        <p id="methodHint" class="text-xs text-slate-600 dark:text-slate-400 mt-2">Flags values where the absolute Z-score exceeds 3.0. Assumes roughly normal data.</p>
+                        <details id="methodTheory" class="mt-3">
+                            <summary class="cursor-pointer text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-brand-700 dark:hover:text-brand-300">How this rule decides</summary>
+                            <div id="theoryContainer" class="mt-2"></div>
+                        </details>
                     </div>
 
-                    <button id="exampleBtn" class="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline self-start">Load example</button>
-                    <button id="scanBtn" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white px-5 py-2.5 rounded-lg font-bold transition-colors shadow-sm w-full mt-2">
-                        Execute Scan
+                    <button type="button" id="scanBtn" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white px-5 py-2.5 rounded-lg font-bold transition-colors shadow-sm w-full flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-magnifying-glass-chart" aria-hidden="true"></i> Find outliers
                     </button>
-                </div>
+                </section>
 
-                <div class="lg:col-span-3 flex flex-col gap-3">
-                    <button id="exportCleanBtn" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white px-5 py-3 rounded-xl font-bold transition-colors shadow-sm flex items-center justify-center w-full disabled:opacity-50" disabled>
-                        <i class="fa-solid fa-download mr-2"></i> Export Cleaned
-                    </button>
-                    <button id="exportFlaggedBtn" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-brand-600 px-5 py-3 rounded-xl font-bold transition-colors shadow-sm flex items-center justify-center w-full disabled:opacity-50" disabled>
-                        Export Anomalies Only
-                    </button>
-                </div>
+                <section class="lg:col-span-5 bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm" data-stk-step="3" data-stk-done="visible:#scanSummary" aria-labelledby="od-step3">
+                    <h2 id="od-step3" class="stk-ptitle mb-3"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 3: </span>Review and download</h2>
+                    <p id="scanEmpty" class="text-sm text-slate-600 dark:text-slate-400">Press Find outliers to see how many values the rule flags. Flagged rows are highlighted in the preview below.</p>
+                    <div id="scanSummary" class="hidden" data-stk-reveal aria-live="polite">
+                        <p class="od-count"><span id="outlierCount">0</span> <span id="outlierCountLabel">outliers</span></p>
+                        <p id="scanDetail" class="text-sm text-slate-700 dark:text-slate-300"></p>
+                        <p id="grubbsNote" class="text-xs text-slate-600 dark:text-slate-400 mt-2"></p>
+                    </div>
+                    <div class="flex flex-col gap-2 mt-5">
+                        <button type="button" id="exportCleanBtn" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white px-5 py-2.5 rounded-lg font-semibold transition-colors shadow-sm flex items-center justify-center gap-2 w-full disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                            <i class="fa-solid fa-download" aria-hidden="true"></i> Download without outliers
+                        </button>
+                        <button type="button" id="exportFlaggedBtn" class="stk-btn w-full" disabled>
+                            <i class="fa-solid fa-download" aria-hidden="true"></i> Download the outliers only
+                        </button>
+                    </div>
+                </section>
             </div>
 
-            <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col h-[500px]">
-                <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 flex justify-between items-center">
-                    <span class="text-sm font-semibold text-slate-600 dark:text-slate-300">Data Array Preview</span>
+            <section class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col h-[500px]" aria-labelledby="od-preview">
+                <div class="border-b border-slate-200 dark:border-slate-800 px-5 py-3 flex flex-wrap justify-between items-center gap-2">
+                    <h2 id="od-preview" class="stk-ptitle">Preview</h2>
+                    <span id="previewNote" class="text-xs text-slate-600 dark:text-slate-400"></span>
                 </div>
                 <div class="table-container overflow-auto flex-grow relative">
                     <table class="w-full text-left text-sm whitespace-nowrap">
@@ -218,16 +236,15 @@
                         <tbody id="tableBody" class="divide-y divide-slate-100 dark:divide-slate-800/50"></tbody>
                     </table>
                 </div>
-            </div>
+            </section>
 
         </section>
-    
     <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
         <div class="stk-wrap">
             <span class="stk-chip"><i class="fa-solid fa-magnifying-glass-chart"></i> How-To Guide</span>
             <h2 class="stk-h2">How to detect outliers in your data</h2>
             <p class="stk-lead">Upload a CSV, pick a column and a detection rule, and flag anomalous values, then export either the cleaned data or just the anomalies.</p>
-            <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Load your data</h3><p>Drag in a .csv/.tsv/.txt file (or click to browse). Or click <strong>Load example</strong> to try a sample with two planted outliers.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Pick a column &amp; method</h3><p>Choose the numeric column and one of Z-Score, IQR, or the robust Modified Z-Score.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Set the threshold</h3><p>Adjust the multiplier; the hint explains what the current setting flags. Defaults follow standard practice.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Scan &amp; export</h3><p>Run the scan to highlight outliers in the table, then export the cleaned dataset or the flagged rows.</p></div></div></div>
+            <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Load your data</h3><p>Drag in a .csv/.tsv/.txt file, or press <strong>Choose file</strong>. Or press <strong>Load a sample</strong> to try fifteen measurements with two planted outliers.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Pick a column &amp; method</h3><p>Choose the numeric column and one of Z-Score, IQR, or the robust Modified Z-Score.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Set the threshold</h3><p>Adjust the multiplier; the hint explains what the current setting flags. Defaults follow standard practice.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Find and download</h3><p>Press <strong>Find outliers</strong> to highlight them in the table. Changing the column, rule or threshold afterwards updates the result. Then download the data without the outliers, or the outliers alone.</p></div></div></div>
         </div>
     </section>
 
@@ -263,7 +280,7 @@
     <section class="stk-section" id="faq" aria-label="Frequently asked questions">
         <div class="stk-wrap" style="max-width:52rem;">
             <h2 class="stk-h2">Frequently asked questions</h2>
-            <div style="margin-top:1rem;"><details class="stk-faq"><summary>Is my data uploaded anywhere?</summary><div>No. Parsing and detection run locally in your browser via PapaParse and jStat.</div></details><details class="stk-faq"><summary>Which method should I use?</summary><div>Z-Score for roughly normal data, IQR for skewed data, and the Modified Z-Score when you want robustness to the outliers themselves (a good general default).</div></details><details class="stk-faq"><summary>What thresholds are typical?</summary><div>k = 3 for Z-Score, k = 1.5 for Tukey's IQR fences, and k = 3.5 for the modified Z-Score (Iglewicz–Hoaglin).</div></details><details class="stk-faq"><summary>How many values do I need?</summary><div>At least four numeric values in the chosen column for a meaningful estimate of spread.</div></details><details class="stk-faq"><summary>Does 'Export Cleaned' change my original file?</summary><div>No. It downloads a new CSV with the flagged rows removed; your source file is untouched.</div></details></div>
+            <div style="margin-top:1rem;"><details class="stk-faq"><summary>Is my data uploaded anywhere?</summary><div>No. Parsing and detection run locally in your browser via PapaParse and jStat.</div></details><details class="stk-faq"><summary>Which method should I use?</summary><div>Z-Score for roughly normal data, IQR for skewed data, and the Modified Z-Score when you want robustness to the outliers themselves (a good general default).</div></details><details class="stk-faq"><summary>What thresholds are typical?</summary><div>k = 3 for Z-Score, k = 1.5 for Tukey's IQR fences, and k = 3.5 for the modified Z-Score (Iglewicz–Hoaglin).</div></details><details class="stk-faq"><summary>How many values do I need?</summary><div>At least four numeric values in the chosen column for a meaningful estimate of spread.</div></details><details class="stk-faq"><summary>Does downloading without outliers change my original file?</summary><div>No. It downloads a new CSV with the flagged rows removed; your source file is untouched.</div></details></div>
             <div class="stk-refs"><a href="https://www.itl.nist.gov/div898/handbook/" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> NIST e-Handbook</a><a href="https://en.wikipedia.org/wiki/Interquartile_range" target="_blank" rel="noopener"><i class="fa-solid fa-ruler-horizontal"></i> Interquartile range</a><a href="https://en.wikipedia.org/wiki/Median_absolute_deviation" target="_blank" rel="noopener"><i class="fa-solid fa-chart-simple"></i> Median absolute deviation</a></div>
             <p class="stk-credit">Detection runs entirely in your browser, no data leaves your device.</p>
         </div>
@@ -271,7 +288,8 @@
 
     </main>
 
-    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3" role="status" aria-live="polite"></div>
+
 
     <section class="stk-next" data-stk-next hidden aria-label="Next steps"></section>
 

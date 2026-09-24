@@ -7,13 +7,26 @@
  */
 
 .table-container::-webkit-scrollbar { width: 8px; height: 8px; }
-.table-container::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 8px; }
-.table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
-.dark .table-container::-webkit-scrollbar-track { background: #0f172a; }
-.dark .table-container::-webkit-scrollbar-thumb { background: #334155; }
-.toast-enter { animation: slideIn 0.3s forwards; }
-.outlier-row { background-color: rgba(239, 68, 68, 0.1); }
-.dark .outlier-row { background-color: rgba(239, 68, 68, 0.15); }
+.table-container::-webkit-scrollbar-track { background: var(--stk-surface-2); border-radius: 8px; }
+.table-container::-webkit-scrollbar-thumb { background: var(--stk-border-strong); border-radius: 8px; }
+
+/* Step 1 once a file is in: its name, its size, and a way to swap it. */
+.od-filebar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: .9rem 1.25rem; border-radius: 1rem; border: 1px solid var(--stk-border); background: var(--stk-surface); box-shadow: var(--stk-shadow-sm); }
+.od-filebar .stk-ptitle { min-width: 0; }
+.od-meta { margin: .2rem 0 0 2.1rem; font-size: .8125rem; color: var(--stk-fg-3); }
+
+/* An outlier is something to look at, not an error: amber, not red. */
+.od-count { display: flex; align-items: baseline; gap: .5rem; margin-bottom: .35rem; font-size: .95rem; font-weight: 600; color: #b45309; }
+.od-count #outlierCount { font-size: 2.25rem; line-height: 1; font-weight: 800; font-variant-numeric: tabular-nums; }
+.dark .od-count { color: #fcd34d; }
+#scanSummary.is-none .od-count { color: var(--stk-fg-2); }
+.outlier-row { background-color: #fffbeb; color: #92400e; font-weight: 600; }
+.dark .outlier-row { background-color: rgba(245, 158, 11, 0.14); color: #fcd34d; }
+.od-missing { color: var(--stk-fg-muted); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .toast-enter { animation: slideIn 0.3s forwards; }
+}
 
 @keyframes slideIn {
   from { transform: translateY(100%); opacity: 0; }
@@ -21,9 +34,9 @@
 }
 
 /* Symbol definitions beneath a rendered formula, matching the other tools. */
-.mf-defs { margin-top:1rem; padding-top:.85rem; border-top:1px solid rgba(148,163,184,.25); }
-.mf-defs-title { font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--stk-fg-muted); margin-bottom:.45rem; }
+.mf-defs { margin-top:1rem; padding-top:.85rem; border-top:1px solid var(--stk-border); }
+.mf-defs-title { font-size:.75rem; font-weight:600; color:var(--stk-fg-3); margin-bottom:.45rem; }
 .mf-defs dl { display:grid; grid-template-columns:auto 1fr; gap:.35rem .8rem; margin:0; align-items:baseline; }
 .mf-def { display:contents; }
 .mf-defs dt { white-space:nowrap; text-align:right; }
-.mf-defs dd { margin:0; font-size:.75rem; color:#64748b; line-height:1.5; }
+.mf-defs dd { margin:0; font-size:.75rem; color:var(--stk-fg-3); line-height:1.5; }
