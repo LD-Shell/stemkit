@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let rawEntries = [];        // Raw bibtex strings returned by the API
     let failedDOIs = [];        // Array of { doi, error } objects
-    let selectedDelim = null;
+    let selectedDelim = "auto";
     let isFetching = false;
 
     // BibTeX fields available for toggling
@@ -42,6 +42,14 @@ document.addEventListener("DOMContentLoaded", () => {
     ];
     let enabledFields = new Set(ALL_FIELDS.map(f => f.key));
 
+    // Three real DOIs: a Nature paper, a J. Phys. Chem. C paper given as a
+    // doi.org link, and a Science paper.
+    const EXAMPLE = [
+        "10.1038/s41586-020-2649-2",
+        "https://doi.org/10.1021/acs.jpcc.9b03054",
+        "10.1126/science.288.5468.1029",
+    ].join("\n");
+
 
     // ═══════════════════════════════════════════
     // 2. DOM REFERENCES
@@ -50,6 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const doiInput          = document.getElementById("doiInput");
     const fetchBtn          = document.getElementById("fetchBtn");
     const bibOutput         = document.getElementById("bibOutput");
+    const bibEmpty          = document.getElementById("bibEmpty");
     const entryCountBadge   = document.getElementById("entryCount");
     const failCountBadge    = document.getElementById("failCount");
     const copyBtn           = document.getElementById("copyBtn");
@@ -57,36 +66,32 @@ document.addEventListener("DOMContentLoaded", () => {
     const clearBtn          = document.getElementById("clearBtn");
     const retryBtn          = document.getElementById("retryBtn");
     const progressWrapper   = document.getElementById("progressWrapper");
+    const progressBar       = document.getElementById("progressBar");
     const progressFill      = document.getElementById("progressFill");
     const progressText      = document.getElementById("progressText");
-    const loadingOverlay    = document.getElementById("loadingOverlay");
     const errorReport       = document.getElementById("errorReport");
-    const errorReportToggle = document.getElementById("errorReportToggle");
     const errorReportBody   = document.getElementById("errorReportBody");
     const errorReportTitle  = document.getElementById("errorReportTitle");
-    const errorArrow        = document.getElementById("errorArrow");
     const dedupInfo         = document.getElementById("dedupInfo");
     const dedupText         = document.getElementById("dedupText");
     const statsRow          = document.getElementById("statsRow");
     const fieldsGrid        = document.getElementById("fieldsGrid");
-    const fieldsTrigger     = document.getElementById("fieldsTrigger");
-    const fieldsBody        = document.getElementById("fieldsBody");
-    const fieldsArrow       = document.getElementById("fieldsArrow");
+    const fieldsSummary     = document.getElementById("fieldsSummary");
+
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 
     // ═══════════════════════════════════════════
-    // 3. DELIMITER CHIP SELECTION
+    // 3. SEPARATOR CHIPS
+    //
+    //  One pressed at a time; the state lives in
+    //  aria-pressed, which the stylesheet reads.
     // ═══════════════════════════════════════════
 
     const delimChips = document.querySelectorAll(".delim-chip");
     delimChips.forEach(chip => {
         chip.addEventListener("click", () => {
-            delimChips.forEach(c => {
-                c.classList.remove("bg-brand-100", "dark:bg-brand-900/50", "text-brand-700", "dark:text-brand-400", "border-brand-200", "dark:border-brand-800", "active");
-                c.classList.add("bg-slate-100", "dark:bg-slate-800", "text-slate-600", "dark:text-slate-300", "border-slate-200", "dark:border-slate-700");
-            });
-            chip.classList.remove("bg-slate-100", "dark:bg-slate-800", "text-slate-600", "dark:text-slate-300", "border-slate-200", "dark:border-slate-700");
-            chip.classList.add("bg-brand-100", "dark:bg-brand-900/50", "text-brand-700", "dark:text-brand-400", "border-brand-200", "dark:border-brand-800", "active");
+            delimChips.forEach(c => c.setAttribute("aria-pressed", String(c === chip)));
             selectedDelim = chip.dataset.delim;
         });
     });
@@ -96,23 +101,20 @@ document.addEventListener("DOMContentLoaded", () => {
     // 4. FIELD FILTER PANEL
     // ═══════════════════════════════════════════
 
-    fieldsTrigger.addEventListener("click", () => {
-        const isOpen = fieldsBody.style.maxHeight && fieldsBody.style.maxHeight !== "0px";
-        if (isOpen) {
-            fieldsBody.style.maxHeight = "0px";
-            fieldsArrow.style.transform = "";
-        } else {
-            fieldsBody.style.maxHeight = (fieldsBody.scrollHeight + 50) + "px";
-            fieldsArrow.style.transform = "rotate(180deg)";
-        }
-    });
-
     ALL_FIELDS.forEach(f => {
         const lbl = document.createElement("label");
         lbl.className = "field-toggle";
         lbl.innerHTML = `<input type="checkbox" data-field="${f.key}" checked> ${f.key}`;
         fieldsGrid.appendChild(lbl);
     });
+
+    function syncFieldsSummary() {
+        if (!fieldsSummary) return;
+        const n = enabledFields.size;
+        fieldsSummary.textContent = n === ALL_FIELDS.length
+            ? `All ${n} kept`
+            : `${n} of ${ALL_FIELDS.length} kept`;
+    }
 
     fieldsGrid.addEventListener("change", (e) => {
         const cb = e.target;
@@ -139,38 +141,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ═══════════════════════════════════════════
-    // 5. ERROR REPORT TOGGLE
+    // 5. DOI PARSING & DEDUPLICATION
     // ═══════════════════════════════════════════
 
-    errorReportToggle.addEventListener("click", () => {
-        errorReportBody.classList.toggle("open");
-        if (errorArrow) {
-            errorArrow.style.transform = errorReportBody.classList.contains("open") ? "rotate(180deg)" : "";
-        }
-    });
-
-
-    // ═══════════════════════════════════════════
-    // 6. DOI PARSING & DEDUPLICATION
-    // ═══════════════════════════════════════════
+    // A DOI (after any doi.org prefix) starts "10.", has a registrant code,
+    // a slash and a suffix, and contains no whitespace.
+    const DOI_PREFIX = /^(?:https?:\/\/)?(?:dx\.)?doi\.org\/|^doi:\s*/i;
+    const LOOKS_LIKE_DOI = /^10\.\d{4,9}\/\S+$/;
 
     function parseDOIs(text) {
         let parts;
 
         if (selectedDelim === "auto") {
-            if (text.includes(";"))       parts = text.split(";");
-            else if (text.includes(","))  parts = text.split(",");
-            else                          parts = text.split(/\n/);
+            // Split on whitespace, and on a comma or semicolon only where the
+            // next DOI begins. Older Wiley DOIs contain a semicolon
+            // (…3.0.CO;2-T), which a plain split on ";" would cut in two.
+            parts = text.split(/\s+|[,;]+(?=\s*(?:https?:\/\/)?(?:dx\.)?(?:doi\.org\/|doi:\s*)?10\.)/i);
         } else if (selectedDelim === "comma")     parts = text.split(",");
           else if (selectedDelim === "semicolon") parts = text.split(";");
           else if (selectedDelim === "space")     parts = text.split(/\s+/);
           else                                    parts = text.split(/\n/);
 
-        const cleaned = parts
-            .map(s => s.trim())
-            .filter(Boolean)
-            .map(s => s.replace(/^(https?:\/\/)?(dx\.)?doi\.org\//i, "").trim())
+        let cleaned = parts
+            .map(s => s.trim().replace(DOI_PREFIX, "").trim())
             .filter(Boolean);
+
+        // Auto-detect also drops words that are not DOIs (a pasted
+        // reference, "doi:" on its own), rather than asking doi.org for them.
+        let skipped = 0;
+        if (selectedDelim === "auto") {
+            cleaned = cleaned
+                .map(s => s.replace(/[,;.]+$/, ""))
+                .filter(s => {
+                    if (LOOKS_LIKE_DOI.test(s)) return true;
+                    skipped++;
+                    return false;
+                });
+        }
 
         const seen = new Set();
         const unique = [];
@@ -183,12 +190,12 @@ document.addEventListener("DOMContentLoaded", () => {
             unique.push(d);
         }
 
-        return { dois: unique, dupes };
+        return { dois: unique, dupes, skipped };
     }
 
 
     // ═══════════════════════════════════════════
-    // 7. BIBTEX FIELD FILTERING
+    // 6. BIBTEX FIELD FILTERING
     // ═══════════════════════════════════════════
 
     /**
@@ -205,38 +212,42 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ═══════════════════════════════════════════
-    // 8. OUTPUT, Full rebuild (field filter changes)
+    // 7. OUTPUT
     // ═══════════════════════════════════════════
 
+    /** Full rebuild, after a field filter change. */
     function rebuildOutput() {
         bibOutput.value = rawEntries.map(e => filterBibtex(e)).join("\n\n");
-        syncEntryCount();
+        syncFieldsSummary();
+        syncOutput();
     }
 
-
-    // ═══════════════════════════════════════════
-    // 9. OUTPUT, Stream-append a single entry
-    // ═══════════════════════════════════════════
-
+    /** Stream-append a single entry as it arrives. */
     function streamAppendEntry(rawBib) {
         const filtered = filterBibtex(rawBib);
         if (bibOutput.value.trim() !== "") {
             bibOutput.value += "\n\n";
         }
         bibOutput.value += filtered;
-
-        // Auto-scroll to bottom so user watches entries arrive
+        syncOutput();
+        // Auto-scroll to bottom so the user watches entries arrive
         bibOutput.scrollTop = bibOutput.scrollHeight;
-        syncEntryCount();
     }
 
-    function syncEntryCount() {
-        entryCountBadge.innerText = `${rawEntries.length} ${rawEntries.length === 1 ? "Entry" : "Entries"}`;
+    /** The empty state until there is an entry, then the entries. */
+    function syncOutput() {
+        const n = rawEntries.length;
+        entryCountBadge.textContent = n ? plural(n, "entry", "entries") : "";
+        bibOutput.hidden = n === 0;
+        bibEmpty.hidden = n > 0;
+        copyBtn.disabled = n === 0;
+        downloadBtn.disabled = n === 0;
+        clearBtn.disabled = n === 0 && failedDOIs.length === 0;
     }
 
 
     // ═══════════════════════════════════════════
-    // 10. SINGLE DOI FETCH
+    // 8. SINGLE DOI FETCH
     // ═══════════════════════════════════════════
 
     async function fetchSingleDOI(doi) {
@@ -246,8 +257,8 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         if (!response.ok) {
-            if (response.status === 404) throw new Error("DOI not found in the global registry.");
-            throw new Error(`Server returned status: ${response.status}`);
+            if (response.status === 404) throw new Error("Not found at doi.org");
+            throw new Error(`doi.org answered ${response.status}`);
         }
 
         return await response.text();
@@ -255,7 +266,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ═══════════════════════════════════════════
-    // 11. MAIN BATCH FETCH | STREAMING PIPELINE
+    // 9. MAIN BATCH FETCH | STREAMING PIPELINE
     //
     //  Each result streams into the textarea the
     //  instant it arrives. No spinner blocks the
@@ -264,6 +275,13 @@ document.addEventListener("DOMContentLoaded", () => {
     //  current-DOI label update live.
     // ═══════════════════════════════════════════
 
+    function setProgress(done, total, text) {
+        const pct = total ? Math.round((done / total) * 100) : 0;
+        progressFill.style.width = `${pct}%`;
+        progressBar.setAttribute("aria-valuenow", String(pct));
+        progressText.textContent = text;
+    }
+
     async function executeFetch(retryDoisArray) {
         if (isFetching) return;
 
@@ -271,84 +289,62 @@ document.addEventListener("DOMContentLoaded", () => {
         const inputText = isRetry ? null : doiInput.value.trim();
 
         if (!isRetry && !inputText) {
-            showToast("Please enter at least one DOI.", "error");
+            showToast("Paste at least one DOI first.", "error");
+            doiInput.focus();
             return;
         }
 
-        if (!selectedDelim) {
-            showToast("Please select how your DOIs are separated.", "error");
-            // Briefly highlight the delimiter row
-            const row = document.getElementById("delimRow");
-            if (row) {
-                row.style.outline = "2px solid #ef4444";
-                row.style.outlineOffset = "4px";
-                row.style.borderRadius = "12px";
-                setTimeout(() => { row.style.outline = ""; row.style.outlineOffset = ""; }, 2000);
-            }
-            return;
-        }
-
-        const { dois, dupes } = isRetry
-            ? { dois: retryDoisArray, dupes: 0 }
+        const { dois, dupes, skipped } = isRetry
+            ? { dois: retryDoisArray, dupes: 0, skipped: 0 }
             : parseDOIs(inputText);
 
         if (dois.length === 0) {
-            showToast("No valid DOIs found.", "error");
+            showToast("None of that looks like a DOI. A DOI starts with 10., such as 10.1038/s41586-020-2649-2.", "error");
             return;
         }
 
-        // Dedup notice
-        if (dupes > 0) {
-            dedupInfo.classList.remove("hidden");
-            dedupText.textContent = `${dupes} duplicate DOI${dupes > 1 ? "s" : ""} removed.`;
-        } else if (!isRetry) {
-            dedupInfo.classList.add("hidden");
+        // What was left out, and why
+        if (!isRetry) {
+            const notes = [];
+            if (dupes > 0) notes.push(`${plural(dupes, "repeated DOI", "repeated DOIs")}`);
+            if (skipped > 0) notes.push(`${plural(skipped, "piece", "pieces")} of text that ${skipped === 1 ? "is" : "are"} not a DOI`);
+            dedupInfo.classList.toggle("hidden", notes.length === 0);
+            dedupText.textContent = notes.length ? `Skipped ${notes.join(" and ")}.` : "";
         }
 
-        // Lock UI, but do NOT show the blocking spinner overlay
         isFetching = true;
         fetchBtn.disabled = true;
-        loadingOverlay.classList.add("hidden");
+        retryBtn.disabled = true;
 
         // Reset failures for this batch
         failedDOIs = [];
         let fetched = 0;
         const startTime = performance.now();
 
-        // Show progress bar
         progressWrapper.classList.remove("hidden");
-        progressFill.style.width = "0%";
-        progressText.textContent = `0 / ${dois.length}, starting…`;
+        setProgress(0, dois.length, `Starting ${plural(dois.length, "DOI", "DOIs")}…`);
 
         // Clear input early so the field is ready for more DOIs
         if (!isRetry) doiInput.value = "";
 
-        // ── Stream loop ──
         for (let i = 0; i < dois.length; i++) {
             const doi = dois[i];
-
-            // Live: show which DOI is currently being fetched
-            progressText.textContent = `${i + 1} / ${dois.length}, ${truncate(doi, 40)}`;
+            progressText.textContent = `Fetching ${i + 1} of ${dois.length}: ${truncate(doi, 40)}`;
 
             try {
                 const bib = await fetchSingleDOI(doi);
                 const trimmed = bib.trim();
                 rawEntries.push(trimmed);
                 fetched++;
-
-                // ★ STREAM: append this entry to the output textarea immediately
                 streamAppendEntry(trimmed);
-
             } catch (err) {
-                failedDOIs.push({ doi: doi, error: err.message });
-
-                // Live: update fail badge as errors happen
-                failCountBadge.classList.remove("hidden");
-                failCountBadge.innerText = `${failedDOIs.length} Failed`;
+                // A network failure surfaces as a TypeError with a browser-specific message.
+                const reason = err instanceof TypeError ? "Could not reach doi.org" : err.message;
+                failedDOIs.push({ doi: doi, error: reason });
+                failCountBadge.textContent = `${failedDOIs.length} failed`;
             }
 
-            // Progress bar
-            progressFill.style.width = `${((i + 1) / dois.length) * 100}%`;
+            setProgress(i + 1, dois.length, progressText.textContent);
 
             // Rate limit: ~150ms between requests to respect Crossref
             if (i < dois.length - 1) await sleep(150);
@@ -356,59 +352,57 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // ── Batch complete ──
         const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-        progressText.textContent = `${dois.length} / ${dois.length}, done in ${elapsed}s`;
+        setProgress(dois.length, dois.length, `Fetched ${fetched} of ${dois.length} in ${elapsed} s`);
 
-        // Final failure UI
         if (failedDOIs.length > 0) {
-            failCountBadge.classList.remove("hidden");
-            failCountBadge.innerText = `${failedDOIs.length} Failed`;
+            failCountBadge.textContent = `${failedDOIs.length} failed`;
             retryBtn.classList.remove("hidden");
             buildErrorReport();
         } else {
-            failCountBadge.classList.add("hidden");
+            failCountBadge.textContent = "";
             retryBtn.classList.add("hidden");
             errorReport.classList.add("hidden");
         }
 
-        // Stats row
         statsRow.classList.remove("hidden");
-        document.getElementById("statFetched").textContent = fetched;
-        document.getElementById("statFailed").textContent  = failedDOIs.length;
-        document.getElementById("statDupes").textContent   = dupes;
-        document.getElementById("statTime").textContent    = elapsed + "s";
+        statsRow.textContent =
+            `Last batch: ${fetched} fetched, ${failedDOIs.length} failed` +
+            (dupes ? `, ${plural(dupes, "repeat", "repeats")} skipped` : "") +
+            `, in ${elapsed} s.`;
 
-        // Summary toast
-        const toastType = failedDOIs.length === 0 ? "success" : "info";
-        showToast(`${fetched} of ${dois.length} citations retrieved in ${elapsed}s.`, toastType);
+        showToast(`Fetched ${fetched} of ${plural(dois.length, "DOI", "DOIs")} in ${elapsed} s.`,
+            failedDOIs.length === 0 ? "success" : "warn");
 
-        // Unlock UI
         isFetching = false;
         fetchBtn.disabled = false;
+        retryBtn.disabled = false;
+        syncOutput();
         doiInput.focus();
 
-        // Fade out the progress bar after a moment
-        setTimeout(() => { progressWrapper.classList.add("hidden"); }, 2500);
+        // Hide the progress bar after a moment
+        setTimeout(() => { if (!isFetching) progressWrapper.classList.add("hidden"); }, 2500);
     }
 
 
     // ═══════════════════════════════════════════
-    // 12. ERROR REPORT BUILDER
+    // 10. ERROR REPORT
     // ═══════════════════════════════════════════
 
     function buildErrorReport() {
         errorReport.classList.remove("hidden");
-        errorReportTitle.textContent = `${failedDOIs.length} failed`;
+        errorReportTitle.textContent =
+            `${plural(failedDOIs.length, "DOI", "DOIs")} could not be fetched`;
         errorReportBody.innerHTML = failedDOIs.map(f =>
             `<div class="error-item border-b border-slate-100 dark:border-slate-800 last:border-0">
                 <span class="error-doi text-slate-800 dark:text-slate-200">${escapeHtml(f.doi)}</span>
-                <span class="text-red-500 dark:text-red-400 text-xs whitespace-nowrap flex-shrink-0">${escapeHtml(f.error)}</span>
+                <span class="text-red-700 dark:text-red-400 text-xs">${escapeHtml(f.error)}</span>
             </div>`
         ).join("");
     }
 
 
     // ═══════════════════════════════════════════
-    // 13. EVENT BINDINGS
+    // 11. EVENT BINDINGS
     // ═══════════════════════════════════════════
 
     fetchBtn.addEventListener("click", () => executeFetch());
@@ -423,33 +417,33 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    // Offered twice: in the page head and in the empty bibliography.
+    document.querySelectorAll("[data-load-example]").forEach(btn => {
+        btn.addEventListener("click", () => {
+            doiInput.value = EXAMPLE;
+            doiInput.dispatchEvent(new Event("input", { bubbles: true }));
+            showToast("Added three example DOIs. Press Fetch BibTeX to look them up.");
+            fetchBtn.focus();
+        });
+    });
+
     retryBtn.addEventListener("click", () => {
         if (failedDOIs.length === 0) return;
-        const retryDois = failedDOIs.map(f => f.doi);
-        executeFetch(retryDois);
+        executeFetch(failedDOIs.map(f => f.doi));
     });
 
     copyBtn.addEventListener("click", () => {
-        if (!bibOutput.value.trim()) {
-            showToast("Nothing to copy.", "error");
-            return;
-        }
+        if (!bibOutput.value.trim()) return;
         navigator.clipboard.writeText(bibOutput.value).then(() => {
-            showToast("Bibliography copied to clipboard.", "info");
+            showToast("Copied the bibliography.", "success");
         }).catch(() => {
-            bibOutput.select();
-            document.execCommand("copy");
-            window.getSelection().removeAllRanges();
-            showToast("Bibliography copied to clipboard.", "info");
+            showToast("The browser blocked the clipboard. Select the text and copy it instead.", "error");
         });
     });
 
     downloadBtn.addEventListener("click", () => {
-        if (!bibOutput.value.trim()) {
-            showToast("Bibliography is empty.", "error");
-            return;
-        }
-        const blob = new Blob([bibOutput.value], { type: "text/plain;charset=utf-8;" });
+        if (!bibOutput.value.trim()) return;
+        const blob = new Blob([bibOutput.value + "\n"], { type: "text/plain;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
@@ -458,59 +452,51 @@ document.addEventListener("DOMContentLoaded", () => {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        showToast("Saved as references.bib", "success");
+        showToast("Saved references.bib.", "success");
     });
 
     clearBtn.addEventListener("click", () => {
+        if (isFetching) return;
+        const n = rawEntries.length;
         rawEntries = [];
         failedDOIs = [];
         bibOutput.value = "";
-        entryCountBadge.innerText = "0 Entries";
-        failCountBadge.classList.add("hidden");
+        failCountBadge.textContent = "";
         retryBtn.classList.add("hidden");
         errorReport.classList.add("hidden");
         errorReportBody.innerHTML = "";
         dedupInfo.classList.add("hidden");
         statsRow.classList.add("hidden");
-        showToast("Workspace cleared.", "info");
+        syncOutput();
+        showToast(`Removed ${plural(n, "entry", "entries")} from the bibliography.`);
     });
 
 
     // ═══════════════════════════════════════════
-    // 14. TOAST NOTIFICATION SYSTEM
+    // 12. TOASTS (the shared .stk-toast component)
     // ═══════════════════════════════════════════
 
-    function showToast(msg, type) {
+    function showToast(msg, type = "info") {
         const container = document.getElementById("toastContainer");
+        if (!container) return;
         const toast = document.createElement("div");
-
-        const colorMap = {
-            success: "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400",
-            error:   "bg-red-50 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400",
-            info:    "bg-brand-50 text-brand-800 border-brand-200 dark:bg-brand-900/30 dark:text-brand-400",
-        };
-        const iconMap = {
-            success: "fa-check-circle",
-            error:   "fa-triangle-exclamation",
-            info:    "fa-info-circle",
-        };
-
-        const colors = colorMap[type] || colorMap.info;
-        const icon = iconMap[type] || iconMap.info;
-
-        toast.className = `px-4 py-3 rounded-xl border shadow-lg toast-enter text-sm font-medium transition-all ${colors}`;
-        toast.innerHTML = `<i class="fa-solid ${icon} mr-2"></i> ${escapeHtml(msg)}`;
-
+        toast.className = "stk-toast" + (type === "success" ? " stk-toast-ok"
+            : type === "error" ? " stk-toast-danger" : type === "warn" ? " stk-toast-warn" : "");
+        toast.setAttribute("role", type === "error" ? "alert" : "status");
+        const icon = document.createElement("i");
+        icon.className = "fa-solid " + (type === "success" ? "fa-circle-check"
+            : type === "error" || type === "warn" ? "fa-triangle-exclamation" : "fa-circle-info");
+        icon.setAttribute("aria-hidden", "true");
+        const body = document.createElement("span");
+        body.textContent = msg;
+        toast.append(icon, body);
         container.appendChild(toast);
-        setTimeout(() => {
-            toast.style.opacity = "0";
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
+        setTimeout(() => toast.remove(), type === "error" ? 5000 : 3000);
     }
 
 
     // ═══════════════════════════════════════════
-    // 15. UTILITY HELPERS
+    // 13. UTILITY HELPERS
     // ═══════════════════════════════════════════
 
     function sleep(ms) {
@@ -527,4 +513,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return str.length > max ? str.slice(0, max) + "…" : str;
     }
 
+    syncFieldsSummary();
+    syncOutput();
 });

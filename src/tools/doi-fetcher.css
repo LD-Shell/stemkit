@@ -1,35 +1,147 @@
 /*
  * doi-fetcher -- tool-specific styles.
  *
- * Extracted from the inline <style> block in doi-fetcher.html. Shared
- * documentation styles live in src/stemkit-docs.css; Tailwind utilities are
- * generated into src/output.css and must not be hand-edited.
+ * Shared documentation styles live in src/stemkit-docs.css; Tailwind
+ * utilities are generated into src/output.css and must not be hand-edited.
  */
 
-@keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-.toast-enter { animation: slideIn 0.3s forwards; }
+/* Separator chips: one pressed at a time, read from aria-pressed. */
 .delim-chip {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 600;
-    cursor: pointer; user-select: none; transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  color: var(--stk-fg-3);
+  background: var(--stk-surface-2);
+  border: 1px solid var(--stk-border);
+  transition: background-color var(--stk-ease), border-color var(--stk-ease), color var(--stk-ease);
 }
-.fields-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 4px;
+.delim-chip:hover { color: var(--stk-fg); border-color: var(--stk-border-strong); }
+.delim-chip[aria-pressed="true"] {
+  color: var(--stk-accent-text);
+  background: var(--stk-accent-soft);
+  border-color: var(--stk-accent);
+  box-shadow: inset 0 0 0 1px var(--stk-accent);
 }
+.delim-chip code { font-family: var(--stk-font-mono); font-size: 0.7rem; }
+
+/* Step 2: fields to keep, a <details> with its count in the summary. */
+.doi-fields > summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  padding: 1.5rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.doi-fields[open] > summary { padding-bottom: 1rem; }
+.doi-fields > summary::-webkit-details-marker { display: none; }
+.doi-fields > summary::after {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-left: auto;
+  flex-shrink: 0;
+  border-right: 1.5px solid var(--stk-fg-muted);
+  border-bottom: 1.5px solid var(--stk-fg-muted);
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform var(--stk-ease);
+}
+.doi-fields[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.doi-fields > summary:hover .stk-ptitle { color: var(--stk-accent-text); }
+.doi-fields-sum { font-size: 0.8125rem; color: var(--stk-fg-muted); }
+
+.fields-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 4px; }
 .field-toggle {
-    display: flex; align-items: center; gap: 7px;
-    padding: 5px 8px; border-radius: 6px; cursor: pointer;
-    font-size: 12px; font-weight: 500; user-select: none; transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--stk-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  user-select: none;
+  transition: background var(--stk-ease);
 }
-.field-toggle:hover { background: rgba(0,0,0,0.04); }
-.dark .field-toggle:hover { background: rgba(255,255,255,0.05); }
-.field-toggle input[type="checkbox"] {
-    width: 15px; height: 15px; accent-color: #1f5c96; cursor: pointer; flex-shrink: 0;
-}
-.collapse-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+.field-toggle:hover { background: var(--stk-surface-2); }
+.field-toggle input[type="checkbox"] { width: 15px; height: 15px; cursor: pointer; flex-shrink: 0; }
+
 .progress-track { height: 6px; border-radius: 3px; overflow: hidden; }
-.progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; width: 0%; }
-.error-report-body { max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; padding: 0 14px; }
-.error-report-body.open { max-height: 400px; padding: 10px 14px; overflow-y: auto; }
-.error-item { display: flex; gap: 10px; padding: 6px 0; font-size: 12px; align-items: flex-start; }
-.error-doi { font-family: monospace; font-weight: 600; min-width: 0; word-break: break-all; flex: 1; }
+.progress-fill { height: 100%; border-radius: 3px; width: 0%; }
+@media (prefers-reduced-motion: no-preference) {
+  .progress-fill { transition: width 0.3s ease; }
+}
+
+/* Empty bibliography: what will collect here, and an example to try. */
+.doi-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  border: 1.5px dashed var(--stk-border-strong);
+  border-radius: var(--stk-radius-lg);
+}
+.doi-empty[hidden] { display: none; }
+.doi-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 0.25rem;
+  border-radius: var(--stk-radius-lg);
+  background: var(--stk-accent-soft);
+  color: var(--stk-accent-text);
+  font-size: 1.2rem;
+}
+.doi-empty-title { font-size: 1rem; font-weight: 650; color: var(--stk-fg); }
+.doi-empty-text { max-width: 30rem; margin-bottom: 0.5rem; font-size: 0.875rem; line-height: 1.6; color: var(--stk-fg-muted); }
+
+.doi-retry { color: var(--stk-warn); background: var(--stk-warn-soft); border-color: var(--stk-warn-border); }
+.doi-retry:hover { color: var(--stk-warn); background: var(--stk-warn-soft); border-color: var(--stk-warn); }
+
+/* Failed DOIs, listed under the bibliography with the reason. */
+.doi-errors { border: 1px solid var(--stk-danger-border); border-radius: var(--stk-radius-lg); overflow: hidden; }
+.doi-errors > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--stk-danger);
+  background: var(--stk-danger-soft);
+}
+.doi-errors > summary::-webkit-details-marker { display: none; }
+.doi-errors > summary::after {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-left: auto;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+}
+.doi-errors[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.error-report-body { max-height: 400px; overflow-y: auto; padding: 0.5rem 1rem; }
+.error-item { display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; padding: 6px 0; font-size: 12px; align-items: baseline; }
+.error-doi { font-family: var(--stk-font-mono); font-weight: 600; min-width: 0; word-break: break-all; flex: 1 1 12rem; }
+
+/* Red text on the pale red fill (Clear, "3 failed", the failure list) is
+   4.4:1 with the shared --stk-danger (#dc2626), under AA. This page takes the
+   next shade in the light theme; the dark theme's value already passes. */
+html:not(.dark) { --stk-danger: #b91c1c; }
