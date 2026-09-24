@@ -121,6 +121,7 @@
                 </div>
             </div>
             <div class="stk-drop-actions si-samples" role="group" aria-label="Samples">
+                <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost si-sample" data-sample="solvated"><i class="fa-solid fa-droplet" aria-hidden="true"></i>Helix in a water box</button>
                 <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost si-sample" data-sample="assets/samples/helix-ala15.pdb"><i class="fa-solid fa-dna" aria-hidden="true"></i>Poly-alanine helix</button>
                 <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost si-sample" data-sample="assets/samples/benzene.xyz"><i class="fa-solid fa-ring" aria-hidden="true"></i>Benzene</button>
             </div>
@@ -135,9 +136,12 @@
 
                 <div class="si-head">
                     <div class="si-head-main">
-                        <h2 id="fileName" class="si-file">structure.pdb</h2>
-                        <p id="structureMeta" class="si-meta stk-tnum">0 Atoms</p>
-                        <span id="formatBadge" class="stk-badge stk-badge-accent"></span>
+                        <div class="si-file-row">
+                            <h2 id="fileName" class="si-file">structure.pdb</h2>
+                            <span id="formatBadge" class="stk-badge stk-badge-accent"></span>
+                        </div>
+                        <p id="structureMeta" class="si-meta stk-tnum"></p>
+                        <p id="structureDims" class="si-meta stk-tnum"></p>
                     </div>
                     <div class="si-head-actions">
                         <button type="button" id="collapseSidebarBtn" class="stk-btn stk-btn-ghost stk-btn-icon stk-btn-sm si-desktop-only" aria-label="Hide panel" title="Hide panel"><i class="fa-solid fa-chevron-left"></i></button>
@@ -199,6 +203,20 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- What the structure is made of, with a show/hide per species -->
+                <section class="si-species" aria-labelledby="speciesTitle">
+                    <div class="si-species-h">
+                        <h3 id="speciesTitle" class="stk-group-t">In this structure</h3>
+                        <div class="si-species-quick">
+                            <button type="button" id="hideWaterBtn" class="stk-btn stk-btn-sm" aria-pressed="false" hidden><i class="fa-solid fa-droplet" aria-hidden="true"></i><span>Hide water</span></button>
+                            <button type="button" id="hideIonsBtn" class="stk-btn stk-btn-sm" aria-pressed="false" hidden><i class="fa-solid fa-circle-dot" aria-hidden="true"></i><span>Hide ions</span></button>
+                        </div>
+                    </div>
+                    <ul id="speciesList" class="si-species-list"></ul>
+                    <button type="button" id="speciesMore" class="stk-btn stk-btn-sm stk-btn-ghost si-self-start" aria-expanded="false" hidden></button>
+                    <p class="stk-hint">Click a name to find it in the viewer. The eye hides or shows it.</p>
+                </section>
 
                 <div class="si-tabs-wrap">
                     <div class="stk-tabs stk-tabs-fill" role="tablist" aria-label="Viewer settings">
@@ -323,7 +341,7 @@
                         <div class="stk-switch-row"><span>Axis indicator</span><button type="button" id="toggleAxis" class="stk-switch" role="switch" aria-checked="false" aria-label="Axis indicator"></button></div>
                         <div class="stk-switch-row"><span>Spin</span><button type="button" id="toggleSpin" class="stk-switch" role="switch" aria-checked="false" aria-label="Spin"></button></div>
                         <div class="stk-switch-row"><span>Click to inspect atoms</span><button type="button" id="toggleClickInspect" class="stk-switch" role="switch" aria-checked="true" aria-label="Click to inspect atoms"></button></div>
-                        <div class="stk-switch-row"><span>Outline</span><button type="button" id="toggleOutline" class="stk-switch" role="switch" aria-checked="false" aria-label="Outline"></button></div>
+                        <div class="stk-switch-row"><span>Click centres on the atom</span><button type="button" id="toggleClickCentre" class="stk-switch" role="switch" aria-checked="true" aria-label="Click centres on the atom"></button></div>                        <div class="stk-switch-row"><span>Outline</span><button type="button" id="toggleOutline" class="stk-switch" role="switch" aria-checked="false" aria-label="Outline"></button></div>
                     </div>
 
                     <div class="stk-group">
@@ -387,7 +405,7 @@
 
                     <div class="stk-group">
                         <h3 class="stk-group-t">Camera</h3>
-                        <button type="button" id="centerBtn" class="stk-btn stk-btn-sm"><i class="fa-solid fa-arrows-to-dot"></i>Recentre</button>
+                        <button type="button" id="centerBtn" class="stk-btn stk-btn-sm si-self-start"><i class="fa-solid fa-house" aria-hidden="true"></i>Reset view</button>
                         <div class="si-grid-3">
                             <button type="button" data-axis="xy-pos" class="axis-btn stk-btn stk-btn-sm">XY <span class="si-dim">+Z</span></button>
                             <button type="button" data-axis="xz-pos" class="axis-btn stk-btn stk-btn-sm">XZ <span class="si-dim">+Y</span></button>
@@ -696,31 +714,123 @@
 
             <!-- VIEWER -->
             <div id="viewerColumn" class="si-viewer stk-shell-main">
-                <div class="si-stage">
-                    <div id="viewerCanvas" class="absolute inset-0 w-full h-full cursor-move" aria-label="3D structure" role="img"></div>
+
+                <!-- Quick find: type a residue, chain, atom or species -->
+                <div class="si-findbar" role="search" aria-label="Find in the structure">
+                    <div class="si-find">
+                        <i class="fa-solid fa-magnifying-glass si-find-icon" aria-hidden="true"></i>
+                        <input id="findInput" type="text" class="si-find-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="findList" aria-describedby="findStatus" placeholder="Find a residue, chain, atom or species" aria-label="Find a residue, chain, atom or species" autocomplete="off" spellcheck="false">
+                        <button type="button" id="findClear" class="si-find-clear" aria-label="Clear the search (Esc)" title="Clear the search (Esc)" hidden><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                        <ul id="findList" class="si-find-list" role="listbox" aria-label="Suggestions" hidden></ul>
+                    </div>
+                    <div id="findNav" class="si-find-nav" hidden data-stk-reveal>
+                        <p id="findStatus" class="si-find-status stk-tnum" role="status" aria-live="polite"></p>
+                        <div class="si-find-steps" role="group" aria-label="Step through the matches">
+                            <button type="button" id="findPrev" class="stk-btn stk-btn-sm stk-btn-icon" aria-label="Previous match (Shift+Enter)" title="Previous match (Shift+Enter)"><i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
+                            <button type="button" id="findNext" class="stk-btn stk-btn-sm stk-btn-icon" aria-label="Next match (Enter)" title="Next match (Enter)"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                            <button type="button" id="findOnly" class="stk-btn stk-btn-sm" aria-pressed="false" title="Hide everything that does not match">Only matches</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="si-stagewrap">
+                <div id="stage" class="si-stage">
+                    <div id="viewerCanvas" class="absolute inset-0 w-full h-full cursor-move" tabindex="0" role="application" aria-roledescription="3D viewer" aria-label="3D structure. Arrow keys rotate, plus and minus zoom, 0 resets the view." aria-describedby="viewerKeysNote"></div>
+                    <p id="viewerKeysNote" class="sr-only">Press question mark for every keyboard shortcut.</p>
+                    <p id="viewerLive" class="sr-only" aria-live="polite"></p>
                     <div class="si-status">
                         <div id="modeBadge" class="si-badge hidden" role="status"></div>
                         <div id="labelProgress" class="si-progress stk-tnum hidden" role="status"></div>
                     </div>
-                    <dl id="atomInfo" class="si-overlay si-atom stk-kv" aria-live="polite"></dl>
+
+                    <!-- Compact card for the atom that was clicked -->
+                    <div id="atomInfo" class="si-overlay si-atom" role="region" aria-label="Clicked atom" hidden data-stk-reveal>
+                        <div class="si-atom-h">
+                            <p id="atomTitle" class="si-atom-t"></p>
+                            <button type="button" id="atomClose" class="si-overlay-btn" aria-label="Close the atom card" title="Close (Esc)"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                        </div>
+                        <dl id="atomFacts" class="si-atom-facts stk-tnum"></dl>
+                        <div class="si-atom-actions">
+                            <button type="button" id="atomCentre" class="si-overlay-btn"><i class="fa-solid fa-crosshairs" aria-hidden="true"></i>Centre</button>
+                            <button type="button" id="atomZoom" class="si-overlay-btn"><i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>Zoom to residue</button>
+                            <button type="button" id="atomFind" class="si-overlay-btn"><i class="fa-solid fa-highlighter" aria-hidden="true"></i><span>Find all</span></button>
+                        </div>
+                    </div>
+
+                    <!-- First-use hint, dismissed once and remembered -->
+                    <div id="viewHint" class="si-hint" role="note" aria-labelledby="viewHintTitle" hidden>
+                        <p id="viewHintTitle" class="si-hint-t">Moving the structure</p>
+                        <ul class="si-hint-list">
+                            <li><i class="fa-solid fa-hand-pointer" aria-hidden="true"></i><span class="si-mouse">Drag to rotate</span><span class="si-touch">Drag with one finger to rotate</span></li>
+                            <li><i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i><span class="si-mouse">Scroll to zoom</span><span class="si-touch">Pinch to zoom</span></li>
+                            <li><i class="fa-solid fa-up-down-left-right" aria-hidden="true"></i><span class="si-mouse">Right-drag to pan</span><span class="si-touch">Drag with two fingers to pan</span></li>
+                            <li><i class="fa-solid fa-crosshairs" aria-hidden="true"></i><span class="si-mouse">Click an atom to centre on it, double-click to zoom to its residue</span><span class="si-touch">Tap an atom to centre on it, double-tap to zoom to its residue</span></li>
+                        </ul>
+                        <p class="si-hint-foot">The controls in the corner do the same. Press <span class="stk-key">?</span> for the keyboard.</p>
+                        <button type="button" id="viewHintClose" class="stk-btn stk-btn-sm stk-btn-primary">Got it</button>
+                    </div>
+
+                    <!-- On-canvas view controls -->
+                    <div id="navDock" class="si-nav" role="group" aria-label="View controls">
+                        <div id="navBody" class="si-nav-body">
+                            <div class="si-nav-main">
+                                <div class="si-pad" role="group" aria-label="Rotate">
+                                    <button type="button" class="si-pad-btn si-pad-up" data-rot="up" aria-label="Rotate up" title="Rotate up. Hold to keep turning."><i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
+                                    <button type="button" class="si-pad-btn si-pad-left" data-rot="left" aria-label="Rotate left" title="Rotate left. Hold to keep turning."><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+                                    <button type="button" class="si-pad-btn si-pad-right" data-rot="right" aria-label="Rotate right" title="Rotate right. Hold to keep turning."><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                                    <button type="button" class="si-pad-btn si-pad-down" data-rot="down" aria-label="Rotate down" title="Rotate down. Hold to keep turning."><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                    <button type="button" class="si-pad-btn si-pad-ccw" data-rot="ccw" aria-label="Roll anticlockwise" title="Roll anticlockwise (Q)"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+                                    <button type="button" class="si-pad-btn si-pad-cw" data-rot="cw" aria-label="Roll clockwise" title="Roll clockwise (E)"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i></button>
+                                    <div id="navBall" class="si-pad-ball" title="Drag to rotate" aria-hidden="true"><span class="si-pad-knob"><i class="fa-solid fa-arrows-up-down-left-right"></i></span></div>
+                                    <button type="button" id="navReset" class="si-pad-btn si-pad-reset" aria-label="Reset view" title="Reset view (0 or R)"><i class="fa-solid fa-house" aria-hidden="true"></i></button>
+                                    <button type="button" id="navFit" class="si-pad-btn si-pad-fit" aria-label="Zoom to fit everything" title="Zoom to fit everything"><i class="fa-solid fa-expand" aria-hidden="true"></i></button>
+                                </div>
+                                <div class="si-zoom" role="group" aria-label="Zoom">
+                                    <button type="button" id="zoomIn" class="si-nav-btn" aria-label="Zoom in" title="Zoom in (+). Hold to keep zooming."><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
+                                    <div id="zoomRail" class="si-zoom-rail" role="slider" tabindex="0" aria-label="Zoom" aria-orientation="vertical" aria-valuemin="-2" aria-valuemax="5" aria-valuenow="0" aria-valuetext="1.0 times, fits the structure">
+                                        <span class="si-zoom-track" aria-hidden="true"><span class="si-zoom-fill"></span><span class="si-zoom-fit" title="Fit"></span></span>
+                                        <span class="si-zoom-thumb" aria-hidden="true"></span>
+                                    </div>
+                                    <button type="button" id="zoomOut" class="si-nav-btn" aria-label="Zoom out" title="Zoom out (&minus;). Hold to keep zooming."><i class="fa-solid fa-minus" aria-hidden="true"></i></button>
+                                    <span id="zoomVal" class="si-zoom-val stk-tnum" aria-hidden="true">1.0&times;</span>
+                                </div>
+                            </div>
+                            <div class="si-nav-row">
+                                <div class="si-nav-axes" role="group" aria-label="Look along an axis">
+                                    <button type="button" class="si-nav-btn si-nav-axis" data-view="x" aria-label="Look along X" title="Look along X (X). Again to look from the other side.">X</button>
+                                    <button type="button" class="si-nav-btn si-nav-axis" data-view="y" aria-label="Look along Y" title="Look along Y (Y). Again to look from the other side.">Y</button>
+                                    <button type="button" class="si-nav-btn si-nav-axis" data-view="z" aria-label="Look along Z" title="Look along Z (Z). Again to look from the other side.">Z</button>
+                                </div>
+                                <button type="button" id="navZoomSel" class="si-nav-btn" aria-label="Zoom to the matches or selection" title="Zoom to the matches or selection (F)" aria-disabled="true"><i class="fa-solid fa-crosshairs" aria-hidden="true"></i></button>
+                                <button type="button" id="navSpin" class="si-nav-btn" aria-label="Auto-spin" aria-pressed="false" title="Auto-spin (S)"><i class="fa-solid fa-arrows-spin" aria-hidden="true"></i></button>
+                            </div>
+                            <div id="spinRow" class="si-nav-spin" hidden>
+                                <label for="spinSpeed">Spin speed</label>
+                                <input type="range" id="spinSpeed" class="stk-range" min="0.2" max="4" step="0.1" value="1">
+                            </div>
+                        </div>
+                        <button type="button" id="navToggle" class="si-nav-toggle" aria-expanded="true" aria-controls="navBody" title="Hide the view controls"><i class="fa-solid fa-minus" aria-hidden="true"></i><span class="si-nav-toggle-t">View controls</span></button>
+                    </div>
+
                     <div id="busyOverlay" class="hidden" role="status">
                         <div class="busy-card"><span class="busy-spin" aria-hidden="true"></span><span id="busyText">Working</span></div>
                     </div>
                 </div>
                 <div id="measureInfo" class="si-measure" hidden></div>
                 <div class="stk-toolbar si-toolbar" role="toolbar" aria-label="Viewer controls">
-                    <button type="button" id="tbReset" class="stk-btn stk-btn-icon" aria-label="Reset view" title="Reset view (R)"><i class="fa-solid fa-arrows-to-dot"></i></button>
-                    <button type="button" id="tbSpin" class="stk-btn stk-btn-icon" aria-label="Spin" aria-pressed="false" title="Spin (S)"><i class="fa-solid fa-rotate"></i></button>
+                    <button type="button" id="tbReset" class="stk-btn stk-btn-icon" aria-label="Reset view" title="Reset view (R)"><i class="fa-solid fa-house" aria-hidden="true"></i></button>
                     <span class="stk-toolbar-sep" aria-hidden="true"></span>
-                    <button type="button" id="tbMeasure" class="stk-btn stk-btn-icon" aria-label="Measure mode" aria-pressed="false" title="Measure mode (M)"><i class="fa-solid fa-ruler"></i></button>
+                    <button type="button" id="tbMeasure" class="stk-btn stk-btn-icon" aria-label="Measure mode" aria-pressed="false" title="Measure mode (M)"><i class="fa-solid fa-ruler" aria-hidden="true"></i></button>
                     <button type="button" id="tbHydrogens" class="stk-btn stk-btn-icon" aria-label="Show hydrogens" aria-pressed="true" title="Show hydrogens (H)"><span class="si-glyph" aria-hidden="true">H</span></button>
-                    <button type="button" id="tbLabels" class="stk-btn stk-btn-icon" aria-label="Atom labels" aria-pressed="false" title="Atom labels (L)"><i class="fa-solid fa-tag"></i></button>
+                    <button type="button" id="tbLabels" class="stk-btn stk-btn-icon" aria-label="Atom labels" aria-pressed="false" title="Atom labels (L)"><i class="fa-solid fa-tag" aria-hidden="true"></i></button>
+                    <button type="button" id="tbWater" class="stk-btn stk-btn-icon" aria-label="Show water" aria-pressed="true" title="Show water (W)"><i class="fa-solid fa-droplet" aria-hidden="true"></i></button>
                     <span class="stk-toolbar-sep" aria-hidden="true"></span>
-                    <button type="button" id="tbScreenshot" class="stk-btn stk-btn-icon" aria-label="Save PNG with the current export settings" title="Save PNG"><i class="fa-solid fa-camera"></i></button>
-                    <button type="button" id="tbFullscreen" class="stk-btn stk-btn-icon" aria-label="Fullscreen" aria-pressed="false" title="Fullscreen (F)"><i class="fa-solid fa-expand"></i></button>
-                    <button type="button" id="tbPanel" class="stk-btn stk-btn-icon si-desktop-only" aria-label="Show panel" aria-pressed="true" title="Show or hide the panel"><i class="fa-solid fa-table-columns"></i></button>
+                    <button type="button" id="tbScreenshot" class="stk-btn stk-btn-icon" aria-label="Save PNG with the current export settings" title="Save PNG"><i class="fa-solid fa-camera" aria-hidden="true"></i></button>
+                    <button type="button" id="tbFullscreen" class="stk-btn stk-btn-icon" aria-label="Fullscreen" aria-pressed="false" title="Fullscreen (Shift+F)"><i class="fa-solid fa-expand" aria-hidden="true"></i></button>
+                    <button type="button" id="tbPanel" class="stk-btn stk-btn-icon si-desktop-only" aria-label="Show panel" aria-pressed="true" title="Show or hide the panel"><i class="fa-solid fa-table-columns" aria-hidden="true"></i></button>
                     <span class="stk-toolbar-sep" aria-hidden="true"></span>
-                    <button type="button" id="tbHelp" class="stk-btn stk-btn-icon" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)"><i class="fa-solid fa-question"></i></button>
+                    <button type="button" id="tbHelp" class="stk-btn stk-btn-icon" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)"><i class="fa-solid fa-question" aria-hidden="true"></i></button>
+                </div>
                 </div>
             </div>
 
@@ -942,17 +1052,42 @@
                 <button type="button" id="shortcutClose" class="stk-btn stk-btn-ghost stk-btn-icon stk-btn-sm" aria-label="Close" title="Close"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="stk-panel-b">
+                <div class="si-keys-cols">
+                <div>
+                <h3 class="si-keys-h">Move</h3>
                 <dl class="si-keys">
-                    <dt><span class="stk-key">R</span></dt><dd>Reset the view</dd>
-                    <dt><span class="stk-key">S</span></dt><dd>Spin on or off</dd>
-                    <dt><span class="stk-key">M</span></dt><dd>Measure mode on or off</dd>
-                    <dt><span class="stk-key">H</span></dt><dd>Show or hide hydrogens</dd>
-                    <dt><span class="stk-key">L</span></dt><dd>Atom labels on or off</dd>
-                    <dt><span class="stk-key">F</span></dt><dd>Fullscreen viewer</dd>
-                    <dt><span class="stk-key">?</span></dt><dd>This sheet</dd>
-                    <dt><span class="stk-key">Esc</span></dt><dd>Leave measure mode, close this sheet</dd>
+                    <dt><span class="stk-key">&larr;</span><span class="stk-key">&rarr;</span><span class="stk-key">&uarr;</span><span class="stk-key">&darr;</span></dt><dd>Rotate, with the viewer focused. Shift for bigger steps.</dd>
+                    <dt><span class="stk-key">Q</span><span class="stk-key">E</span></dt><dd>Roll anticlockwise, clockwise</dd>
+                    <dt><span class="stk-key">+</span><span class="stk-key">&minus;</span></dt><dd>Zoom in, out</dd>
+                    <dt><span class="stk-key">F</span></dt><dd>Zoom to fit the matches, or everything</dd>
+                    <dt><span class="stk-key">0</span><span class="stk-key">R</span></dt><dd>Reset the view</dd>
+                    <dt><span class="stk-key">X</span><span class="stk-key">Y</span><span class="stk-key">Z</span></dt><dd>Look along an axis; again for the other side</dd>
+                    <dt><span class="stk-key">S</span></dt><dd>Auto-spin on or off</dd>
                 </dl>
-                <p class="stk-hint si-mt-3">Shortcuts are ignored while a text field or a select has focus, and when a modifier key is held. Drag to rotate, scroll or right-drag to zoom, and drag with the middle button or with Ctrl held to translate.</p>
+                <h3 class="si-keys-h">Mouse and touch</h3>
+                <dl class="si-keys">
+                    <dt><span class="si-keys-g">Drag</span></dt><dd>Rotate</dd>
+                    <dt><span class="si-keys-g">Scroll, pinch</span></dt><dd>Zoom</dd>
+                    <dt><span class="si-keys-g">Right-drag, two fingers</span></dt><dd>Pan</dd>
+                    <dt><span class="si-keys-g">Click</span></dt><dd>Inspect an atom and make it the centre of rotation</dd>
+                    <dt><span class="si-keys-g">Double-click</span></dt><dd>Zoom to that atom's residue</dd>
+                </dl>
+                </div>
+                <div>
+                <h3 class="si-keys-h">Show</h3>
+                <dl class="si-keys">
+                    <dt><span class="stk-key">W</span><span class="stk-key">I</span></dt><dd>Water, ions on or off</dd>
+                    <dt><span class="stk-key">H</span></dt><dd>Hydrogens on or off</dd>
+                    <dt><span class="stk-key">L</span></dt><dd>Atom labels on or off</dd>
+                    <dt><span class="stk-key">N</span></dt><dd>Next match; Shift+N for the previous</dd>
+                    <dt><span class="stk-key">M</span></dt><dd>Measure mode on or off</dd>
+                    <dt><span class="stk-key">Shift</span><span class="stk-key">F</span></dt><dd>Fullscreen viewer</dd>
+                    <dt><span class="stk-key">?</span></dt><dd>This sheet</dd>
+                    <dt><span class="stk-key">Esc</span></dt><dd>Clear the search, leave measure mode, close a card or this sheet</dd>
+                </dl>
+                </div>
+                </div>
+                <p class="stk-hint si-mt-3">Shortcuts are ignored while a text field or a select has focus, and when Ctrl, Alt or Cmd is held.</p>
             </div>
         </div>
     </div>
