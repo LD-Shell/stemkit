@@ -6,7 +6,6 @@
  * generated into src/output.css and must not be hand-edited.
  */
 
-.toast-enter { animation: slideIn 0.3s forwards; }
 #theoryContainer .katex-mathml, .katex .katex-mathml { position:absolute !important; clip:rect(1px,1px,1px,1px) !important; padding:0 !important; border:0 !important; height:1px !important; width:1px !important; overflow:hidden !important; }
 #theoryContainer .katex-display { margin:.35rem 0; }
 .mf-defs { margin-top:1.25rem; padding-top:1rem; border-top:1px solid rgba(148,163,184,.25); }
@@ -44,7 +43,7 @@
 .tut-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.82rem; font-weight:600; padding:.45rem .8rem; border-radius:.6rem; cursor:pointer; transition:background-color .15s, color .15s, border-color .15s, transform .15s; background:var(--stk-surface); color:var(--stk-fg-2); border:1px solid var(--stk-border); }
 .tut-chip i { color:var(--stk-accent-text); }
 .tut-chip span { font-weight:500; color:var(--stk-fg-muted); }
-.tut-chip:hover { border-color:var(--stk-accent); color:var(--stk-accent-text); transform:translateY(-1px); }
+.tut-chip:hover { border-color:var(--stk-accent); color:var(--stk-accent-text); }
 .tut-chip:hover span { color:inherit; }
 /* The example that is loaded. */
 .tut-chip[aria-pressed="true"] { background:var(--stk-accent-soft); border-color:var(--stk-accent); color:var(--stk-accent-text); box-shadow:inset 0 0 0 1px var(--stk-accent); }
@@ -52,7 +51,6 @@
 /* Under Run Analysis while it is disabled: say why. */
 .run-hint { display:none; margin-top:.5rem; font-size:.8rem; text-align:center; color:var(--stk-fg-3); }
 #runTestBtn:disabled + .run-hint { display:block; }
-.run-pulse { animation: runPulse 1.4s ease-out 1; }
 .hl { color:#1f5c96; font-weight:600; }
 .dark .hl { color:#5c93c7; }
 .doc-tabs { display:flex; flex-wrap:wrap; gap:.4rem; margin:1.25rem 0 1.75rem; border-bottom:1px solid rgba(148,163,184,.25); padding-bottom:.75rem; }
@@ -62,7 +60,7 @@
 .dark .doc-tab:hover { background:#1e293b; color:#f1f5f9; }
 .doc-tab[aria-selected="true"], .dark .doc-tab[aria-selected="true"] { background:var(--stk-accent); color:var(--stk-accent-fg); border-color:var(--stk-accent); }
 .doc-pane { display:none; }
-.doc-pane.active { display:block; animation:docfade .2s ease; }
+.doc-pane.active { display:block; }
 
 @keyframes slideIn {
   from { transform: translateY(100%); opacity: 0; }
@@ -96,4 +94,115 @@
   .tut-chips { flex-wrap: nowrap; overflow-x: auto; margin: .8rem -1.25rem 0; padding: 0 1.25rem .2rem; scroll-snap-type: x proximity; scrollbar-width: none; }
   .tut-chips::-webkit-scrollbar { display: none; }
   .tut-chip { flex-shrink: 0; scroll-snap-align: start; }
+}
+
+/* Motion, only in answer to something the visitor did: a toast, the Run
+   button after an example loads or a suggestion is taken, a method tab, a
+   chip under the pointer. */
+@media (prefers-reduced-motion: no-preference) {
+  .toast-enter { animation: slideIn 0.3s forwards; }
+  .run-pulse { animation: runPulse 1.4s ease-out 1; }
+  .doc-pane.active { animation: docfade .2s ease; }
+  .tut-chip:hover { transform: translateY(-1px); }
+}
+
+/* Anything the script hides with the hidden attribute stays hidden, even
+   where a class or utility sets display. */
+#main [hidden] { display: none !important; }
+
+.mu0-hint { margin-top: -.5rem; }
+#pubSummary { padding-right: 2.75rem; resize: vertical; }
+
+/* Which test? The advice under the test picker. Accent while it suggests
+   another test, emerald once the choice fits. */
+.advice { display:flex; flex-wrap:wrap; align-items:flex-start; gap:.4rem .65rem; padding:.75rem .85rem; border-radius:var(--stk-radius-lg); background:var(--stk-accent-soft); border:1px solid var(--stk-accent-soft-border); font-size:.8rem; line-height:1.5; }
+.advice-ico { color:var(--stk-accent-text); margin-top:.2rem; }
+.advice-body { flex:1 1 13rem; min-width:0; }
+.advice-title { font-weight:700; color:var(--stk-fg); }
+.advice-kicker { color:var(--stk-accent-text); margin-right:.2rem; }
+.advice-text { margin-top:.15rem; color:var(--stk-fg-3); }
+.advice-use { align-self:center; margin-left:auto; }
+.advice.is-match { background:var(--stk-ok-soft); border-color:transparent; }
+.advice.is-match .advice-ico { color:var(--stk-ok); }
+.advice.is-match .advice-kicker { color:#047857; }
+.dark .advice.is-match .advice-kicker { color:var(--stk-ok); }
+
+/* Results ------------------------------------------------------------------ */
+.res-head { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:.25rem 1rem; margin-bottom:1rem; }
+.res-method { font-size:.85rem; color:var(--stk-fg-3); }
+.res-stale { margin-bottom:1rem; }
+.res-grid { display:grid; grid-template-columns:minmax(0,1fr); gap:1.5rem; }
+@media (min-width:1024px) { .res-grid { grid-template-columns:minmax(0,5fr) minmax(0,6fr); align-items:start; } }
+.res-main { display:flex; flex-direction:column; gap:1rem; min-width:0; }
+.res-main .ci-box, .res-main .assume-box { margin-bottom:0; }
+.ci-box > i { color:var(--stk-accent-text); margin-right:.2rem; }
+
+.res-trio { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); padding:1rem .5rem; text-align:center; border-radius:var(--stk-radius-lg); background:var(--stk-surface-2); border:1px solid var(--stk-border); }
+.res-trio > div { padding:0 .5rem; min-width:0; }
+.res-trio > div + div { border-left:1px solid var(--stk-border-strong); }
+.res-trio-label { display:block; margin-bottom:.25rem; font-size:.75rem; font-weight:600; color:var(--stk-fg-3); }
+.res-trio-value { display:block; font-size:1.5rem; font-weight:800; line-height:1.2; font-variant-numeric:tabular-nums; color:var(--stk-fg-2); overflow-wrap:anywhere; }
+#statValue { color:var(--stk-accent-text); }
+.res-trio-value.is-sig { color:var(--stk-ok); }
+
+.res-figure { margin:0; min-width:0; }
+.res-sub-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.6rem; }
+.res-h { font-size:.95rem; font-weight:700; color:var(--stk-fg); }
+.res-actions { display:flex; flex-wrap:wrap; gap:.35rem; }
+.plot-host { width:100%; min-height:16rem; border:1px solid var(--stk-border); border-radius:var(--stk-radius-lg); background:var(--stk-surface); overflow:hidden; }
+.plot-host svg { display:block; width:100%; height:auto; }
+.plot-caption { margin-top:.5rem; font-size:.78rem; line-height:1.5; color:var(--stk-fg-3); }
+
+/* The plot's marks. Every colour is a token, so the plot follows the theme;
+   the download embeds the light values instead (EXPORT_CSS in the script). */
+.sp-grid { stroke:var(--stk-border); }
+.sp-axis { stroke:var(--stk-fg-faint); }
+.sp-tick { fill:var(--stk-fg-3); }
+.sp-title { fill:var(--stk-fg-2); }
+.sp-lab { fill:var(--stk-fg); }
+.sp-n { fill:var(--stk-fg-muted); }
+.sp-box { fill:var(--stk-accent-soft); stroke:var(--stk-fg-3); }
+.sp-whisk { stroke:var(--stk-fg-3); }
+.sp-med { stroke:var(--stk-fg); }
+.sp-pt { fill:var(--stk-accent); fill-opacity:.72; stroke:var(--stk-surface); }
+.dark .sp-pt { fill:var(--stk-accent-text); fill-opacity:.7; }
+.sp-pair { stroke:var(--stk-fg-faint); }
+.sp-mean { fill:var(--stk-fg); stroke:var(--stk-surface); }
+.sp-ci { stroke:var(--stk-fg); }
+.sp-ref { stroke:var(--stk-fg-muted); }
+.sp-reflab { fill:var(--stk-fg-2); }
+.sp-fit { stroke:var(--stk-fg-2); }
+
+/* Result tables, ruled like booktabs: heavier rules above the head and below
+   the last row, hairlines between. */
+.res-section { margin-top:1.75rem; }
+.res-table { width:100%; border-collapse:collapse; font-size:.82rem; font-variant-numeric:tabular-nums; border-top:1.5px solid var(--stk-fg-muted); border-bottom:1.5px solid var(--stk-fg-muted); }
+.res-table th, .res-table td { padding:.45rem .65rem; text-align:left; white-space:nowrap; border-bottom:1px solid var(--stk-border); }
+.res-table thead th { font-size:.75rem; font-weight:700; color:var(--stk-fg-3); border-bottom:1px solid var(--stk-fg-muted); }
+.res-table tbody tr:last-child > * { border-bottom:0; }
+.res-table tbody th { font-weight:600; color:var(--stk-fg); }
+.res-table td { color:var(--stk-fg-2); }
+.res-table .num { text-align:right; }
+.res-table td.is-sig { color:#047857; font-weight:700; }
+.dark .res-table td.is-sig { color:var(--stk-ok); }
+.res-note { margin-top:.6rem; font-size:.75rem; line-height:1.55; color:var(--stk-fg-muted); }
+#pairwiseWarn { margin-bottom:.75rem; }
+.res-theory { margin-top:1.75rem; }
+
+/* The groups picker: chosen groups in the accent, focused or not, in both
+   themes (Chrome otherwise greys them out once the list loses focus). */
+#groupSelect option { padding: .15rem .35rem; border-radius: .25rem; }
+#groupSelect option:checked { background: var(--stk-accent) linear-gradient(0deg, var(--stk-accent) 0%, var(--stk-accent) 100%); color: var(--stk-accent-fg); }
+.dark .sp-pt { fill-opacity: .8; }
+/* The screen-reader text inside the tables is absolutely positioned; without
+   a positioned scroller around it, it escapes the scroll box and widens the
+   page on a phone. */
+.res-section .stk-table-wrap { position: relative; }
+@media (max-width: 639px) {
+  .res-trio { padding: .85rem .25rem; }
+  .res-trio > div { padding: 0 .3rem; }
+  .res-trio-value { font-size: 1.05rem; overflow-wrap: normal; }
+}
+@media (max-width: 639px) {
+  #toastContainer { left: 1rem; right: 1rem; bottom: 1rem; }
 }

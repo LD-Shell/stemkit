@@ -158,8 +158,12 @@
             <div class="tut-chips">
                 <button type="button" class="tut-chip" aria-pressed="false" data-sample="welch" title="Control vs Treatment, a clear, significant difference."><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Two groups <span>t-test</span></button>
                 <button type="button" class="tut-chip" aria-pressed="false" data-sample="paired" title="Repeated measures on the same subjects."><i class="fa-solid fa-arrows-left-right" aria-hidden="true"></i> Before / after <span>paired</span></button>
+                <button type="button" class="tut-chip" aria-pressed="false" data-sample="onesample" title="Ten titrations against a certified 0.1000 M standard."><i class="fa-solid fa-bullseye" aria-hidden="true"></i> Against a certified value <span>one-sample t</span></button>
                 <button type="button" class="tut-chip" aria-pressed="false" data-sample="anova" title="Placebo / LowDose / HighDose, with increasing means."><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Three groups <span>ANOVA</span></button>
+                <button type="button" class="tut-chip" aria-pressed="false" data-sample="welchanova" title="Three suppliers, one far more variable than the others."><i class="fa-solid fa-arrows-up-down" aria-hidden="true"></i> Unequal spreads <span>Welch's ANOVA</span></button>
+                <button type="button" class="tut-chip" aria-pressed="false" data-sample="kruskal" title="Colony counts at three sites: skewed, with a few very high plates."><i class="fa-solid fa-arrow-down-wide-short" aria-hidden="true"></i> Skewed groups <span>Kruskal&ndash;Wallis</span></button>
                 <button type="button" class="tut-chip" aria-pressed="false" data-sample="pearson" title="Height vs weight, strong positive relationship."><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Height vs weight <span>Pearson</span></button>
+                <button type="button" class="tut-chip" aria-pressed="false" data-sample="spearman" title="A reaction rate that climbs ever faster with temperature: monotonic, not straight."><i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i> Rate vs temperature <span>Spearman</span></button>
                 <button type="button" class="tut-chip" aria-pressed="false" data-sample="longtidy" title="One value column split by a group label (R / pandas style)."><i class="fa-solid fa-table-list" aria-hidden="true"></i> Long / tidy data</button>
                 <button type="button" class="tut-chip" aria-pressed="false" data-sample="nonparam" title="Skewed data: the t-test is fooled, Mann&ndash;Whitney isn&rsquo;t."><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Skewed data <span>Mann&ndash;Whitney</span></button>
             </div>
@@ -175,6 +179,7 @@
                         <input type="file" id="fileInput" accept=".csv" class="hidden">
                     </label>
                 </div>
+                <label for="dataInput" class="sr-only">Data</label>
                 <textarea id="dataInput" class="w-full flex-grow min-h-[300px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-sm font-mono focus:ring-2 focus:ring-brand-500 outline-none resize-y" placeholder="Paste data here (columns separated by tabs or commas)...&#10;Group A&#9;Group B&#10;4.5&#9;6.1&#10;5.1&#9;5.8&#10;4.9&#9;6.3"></textarea>
 
                 <div class="mt-4 flex flex-wrap items-center gap-3">
@@ -191,11 +196,11 @@
 
                 <div id="longControls" class="mt-3 grid grid-cols-2 gap-3" style="display:none;">
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Value column</label>
+                        <label for="valueColSelect" class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Value column</label>
                         <select id="valueColSelect" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none"></select>
                     </div>
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Group column</label>
+                        <label for="groupColSelect" class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Group column</label>
                         <select id="groupColSelect" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none"></select>
                     </div>
                 </div>
@@ -203,99 +208,165 @@
                 <p class="mt-4 text-xs text-slate-500 dark:text-slate-400 font-medium" aria-live="polite"><span id="dataMeta">Read as you type or paste.</span></p>
             </div>
 
-            <div class="flex flex-col gap-6">
-                
-                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm" data-stk-step="2" data-stk-done="visible:#resultsContainer">
-                    <div class="mb-4"><h2 class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Choose a test</h2></div>
-                    
-                    <div class="flex flex-col gap-4">
+            <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col" data-stk-step="2" data-stk-done="visible:#resultsContainer">
+                <div class="mb-4"><h2 class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Choose a test</h2></div>
+
+                <div class="flex flex-col gap-4">
+                    <div>
+                        <label for="testType" class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Test</label>
+                        <select id="testType" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                            <optgroup label="Two independent groups">
+                                <option value="ttest_welch">Welch's t-test (unequal variances)</option>
+                                <option value="ttest_ind">Student's t-test (pooled variance)</option>
+                                <option value="mannwhitney">Mann–Whitney U</option>
+                            </optgroup>
+                            <optgroup label="Two measurements on the same subjects">
+                                <option value="ttest_pair">Paired t-test</option>
+                                <option value="wilcoxon">Wilcoxon signed-rank</option>
+                            </optgroup>
+                            <optgroup label="Three or more independent groups">
+                                <option value="anova">One-way ANOVA, then Tukey HSD</option>
+                                <option value="welch_anova">Welch's ANOVA, then Games–Howell</option>
+                                <option value="kruskal">Kruskal–Wallis H, then Dunn</option>
+                            </optgroup>
+                            <optgroup label="One group against a value">
+                                <option value="ttest_one">One-sample t-test</option>
+                                <option value="wilcoxon_one">One-sample Wilcoxon signed-rank</option>
+                            </optgroup>
+                            <optgroup label="Relationship between two variables">
+                                <option value="pearson">Pearson correlation</option>
+                                <option value="spearman">Spearman rank correlation</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <div id="twoVarRow" class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Test Type</label>
-                            <select id="testType" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
-                                <optgroup label="Parametric">
-                                    <option value="ttest_welch">Independent t-test: Welch (unequal variances)</option>
-                                    <option value="ttest_ind">Independent t-test: Student (pooled)</option>
-                                    <option value="ttest_pair">Paired t-test</option>
-                                    <option value="anova">One-Way ANOVA (k groups)</option>
-                                    <option value="pearson">Pearson Correlation</option>
-                                </optgroup>
-                                <optgroup label="Non-parametric">
-                                    <option value="mannwhitney">Mann–Whitney U (independent)</option>
-                                    <option value="wilcoxon">Wilcoxon signed-rank (paired)</option>
-                                </optgroup>
-                            </select>
+                            <label for="var1" id="var1Label" class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Group 1</label>
+                            <select id="var1" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50" disabled></select>
                         </div>
-
-                        <div id="twoVarRow" class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Variable 1</label>
-                                <select id="var1" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50" disabled></select>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Variable 2</label>
-                                <select id="var2" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50" disabled></select>
-                            </div>
+                        <div id="var2Field">
+                            <label for="var2" id="var2Label" class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Group 2</label>
+                            <select id="var2" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50" disabled></select>
                         </div>
-
-                        <div id="groupRow" style="display:none;">
-                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Groups (select 2 or more columns)</label>
-                            <select id="groupSelect" multiple size="5" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50" disabled></select>
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Hold Ctrl/Cmd (or Shift) to select multiple columns. Each selected column is treated as one group.</p>
+                        <div id="mu0Field" hidden>
+                            <label for="mu0" class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Compare with (μ₀)</label>
+                            <input id="mu0" type="number" step="any" value="0" inputmode="decimal" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 outline-none" aria-describedby="mu0Hint">
                         </div>
-
-                        <button id="runTestBtn" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 mt-2 text-white w-full py-3 rounded-xl font-bold active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 transition-all duration-150 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-sm flex items-center justify-center gap-2" disabled>
-                            <i class="fa-solid fa-play text-sm"></i> Run Analysis
-                        </button>
-                        <p class="run-hint">Add data in step 1 to run a test.</p>
+                        <p id="mu0Hint" class="mu0-hint col-span-2 text-[11px] text-slate-500 dark:text-slate-400" hidden>The reference value: a certified concentration, a literature value, or 0 for no change.</p>
                     </div>
+
+                    <div id="groupRow" hidden>
+                        <label for="groupSelect" class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Groups (select 2 or more columns)</label>
+                        <select id="groupSelect" multiple size="5" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50" disabled aria-describedby="groupHint"></select>
+                        <p id="groupHint" class="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Hold Ctrl/Cmd (or Shift) to select multiple columns. Each selected column is treated as one group.</p>
+                    </div>
+
+                    <div id="adviceBox" class="advice" hidden data-stk-reveal>
+                        <i class="fa-solid fa-signs-post advice-ico" aria-hidden="true"></i>
+                        <div class="advice-body" aria-live="polite">
+                            <p class="advice-title"><span class="advice-kicker">Which test?</span> <span id="adviceTitle"></span></p>
+                            <p class="advice-text" id="adviceText"></p>
+                        </div>
+                        <button type="button" id="adviceUse" class="stk-btn stk-btn-sm stk-btn-primary advice-use" hidden>Use this test</button>
+                    </div>
+
+                    <button id="runTestBtn" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 mt-2 text-white w-full py-3 rounded-xl font-bold active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 transition-all duration-150 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-sm flex items-center justify-center gap-2" disabled>
+                        <i class="fa-solid fa-play text-sm" aria-hidden="true"></i> Run analysis
+                    </button>
+                    <p class="run-hint">Add data in step 1 to run a test.</p>
                 </div>
-
-                <div id="resultsContainer" class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm hidden" data-stk-step="3" data-stk-done="visible:#resultsContainer" data-stk-reveal>
-                    <div class="mb-4"><h2 class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 3: </span>Results</h2></div>
-                    
-                    <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mb-4">
-                        <div class="grid grid-cols-3 gap-4 text-center">
-                            <div>
-                                <span class="block text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1" id="statLabel">T-Statistic</span>
-                                <span class="text-2xl font-black text-brand-600 dark:text-brand-400" id="statValue">--</span>
-                            </div>
-                            <div class="border-l border-slate-200 dark:border-slate-800">
-                                <span class="block text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">P-Value</span>
-                                <span class="text-2xl font-black text-emerald-600 dark:text-emerald-400" id="pValue">--</span>
-                            </div>
-                            <div class="border-l border-slate-200 dark:border-slate-800">
-                                <span class="block text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1" id="effectLabel">Effect size</span>
-                                <span class="text-2xl font-black text-slate-700 dark:text-slate-300" id="effectValue">--</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="ciBox" class="ci-box" style="display:none;"></div>
-
-                    <div id="assumptionsBox" class="assume-box" style="display:none;"></div>
-
-                    <div class="mb-4">
-                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Publication Summary</label>
-                        <div class="relative">
-                            <textarea id="pubSummary" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none" rows="3" readonly></textarea>
-                            <button id="copyBtn" class="absolute top-2 right-2 text-slate-500 dark:text-slate-400 hover:text-brand-600 transition-colors bg-white dark:bg-slate-800 p-1.5 rounded shadow-sm border border-slate-200 dark:border-slate-700" title="Copy to clipboard">
-                                <i class="fa-regular fa-copy"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <details class="group bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg open:shadow-sm transition-all">
-                        <summary class="px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer list-none flex justify-between items-center">
-                            <span><i class="fa-solid fa-square-root-variable mr-2 text-brand-500"></i> Mathematical Theory</span>
-                            <i class="fa-solid fa-chevron-down text-slate-500 dark:text-slate-400 group-open:rotate-180 transition-transform"></i>
-                        </summary>
-                        <div class="px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400">
-                            <div id="theoryContainer" class="overflow-x-auto py-2"></div>
-                        </div>
-                    </details>
-                </div>
-
             </div>
+
+            <section id="resultsContainer" class="lg:col-span-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm hidden" data-stk-step="3" data-stk-done="visible:#resultsContainer" data-stk-reveal aria-labelledby="results-h">
+                <div class="res-head">
+                    <h2 class="stk-ptitle" id="results-h"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 3: </span>Results</h2>
+                    <p class="res-method" id="resultMethod"></p>
+                </div>
+                <p id="staleNote" class="stk-callout stk-callout-warn res-stale" hidden><i class="fa-solid fa-rotate" aria-hidden="true"></i><span>The data or the test changed after this run. Run the analysis again to update these results.</span></p>
+
+                <div class="res-grid">
+                    <div class="res-main">
+                        <div class="res-trio">
+                            <div>
+                                <span class="res-trio-label" id="statLabel">t statistic</span>
+                                <span class="res-trio-value" id="statValue">--</span>
+                            </div>
+                            <div>
+                                <span class="res-trio-label"><i>p</i>-value</span>
+                                <span class="res-trio-value" id="pValue">--</span>
+                            </div>
+                            <div>
+                                <span class="res-trio-label" id="effectLabel">Effect size</span>
+                                <span class="res-trio-value res-trio-effect" id="effectValue">--</span>
+                            </div>
+                        </div>
+
+                        <div id="ciBox" class="ci-box" hidden></div>
+
+                        <div id="assumptionsBox" class="assume-box" hidden></div>
+
+                        <div>
+                            <label for="pubSummary" class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Publication summary</label>
+                            <div class="relative">
+                                <textarea id="pubSummary" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none" rows="5" readonly></textarea>
+                                <button type="button" id="copyBtn" class="absolute top-2 right-2 text-slate-500 dark:text-slate-400 hover:text-brand-600 transition-colors bg-white dark:bg-slate-800 p-1.5 rounded shadow-sm border border-slate-200 dark:border-slate-700" title="Copy the summary" aria-label="Copy the summary">
+                                    <i class="fa-regular fa-copy" aria-hidden="true"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <figure class="res-figure" id="plotFigure">
+                        <div class="res-sub-head">
+                            <h3 class="res-h">Plot</h3>
+                            <div class="res-actions" role="group" aria-label="Download the plot">
+                                <button type="button" class="stk-btn stk-btn-sm" data-plot-download="svg"><i class="fa-solid fa-download" aria-hidden="true"></i> SVG</button>
+                                <button type="button" class="stk-btn stk-btn-sm" data-plot-download="png"><i class="fa-solid fa-download" aria-hidden="true"></i> PNG</button>
+                            </div>
+                        </div>
+                        <div class="plot-host" id="plotHost"></div>
+                        <figcaption class="plot-caption" id="plotCaption"></figcaption>
+                    </figure>
+                </div>
+
+                <section class="res-section" aria-labelledby="desc-h">
+                    <div class="res-sub-head">
+                        <h3 class="res-h" id="desc-h">Descriptive statistics</h3>
+                        <div class="res-actions" role="group" aria-label="Copy the descriptive statistics">
+                            <button type="button" class="stk-btn stk-btn-sm" data-copy-table="desc" data-format="csv"><i class="fa-regular fa-copy" aria-hidden="true"></i> CSV</button>
+                            <button type="button" class="stk-btn stk-btn-sm" data-copy-table="desc" data-format="md"><i class="fa-regular fa-copy" aria-hidden="true"></i> Markdown</button>
+                            <button type="button" class="stk-btn stk-btn-sm" data-copy-table="desc" data-format="latex"><i class="fa-regular fa-copy" aria-hidden="true"></i> LaTeX</button>
+                        </div>
+                    </div>
+                    <div class="stk-table-wrap"><table class="res-table" id="descTable"></table></div>
+                    <p class="res-note" id="descNote"></p>
+                </section>
+
+                <section class="res-section" id="pairwiseSection" aria-labelledby="pair-h" hidden data-stk-reveal>
+                    <div class="res-sub-head">
+                        <h3 class="res-h" id="pair-h">Pairwise comparisons</h3>
+                        <div class="res-actions" role="group" aria-label="Copy the pairwise comparisons">
+                            <button type="button" class="stk-btn stk-btn-sm" data-copy-table="pairs" data-format="csv"><i class="fa-regular fa-copy" aria-hidden="true"></i> CSV</button>
+                            <button type="button" class="stk-btn stk-btn-sm" data-copy-table="pairs" data-format="md"><i class="fa-regular fa-copy" aria-hidden="true"></i> Markdown</button>
+                            <button type="button" class="stk-btn stk-btn-sm" data-copy-table="pairs" data-format="latex"><i class="fa-regular fa-copy" aria-hidden="true"></i> LaTeX</button>
+                        </div>
+                    </div>
+                    <p id="pairwiseWarn" class="stk-callout stk-callout-warn" hidden><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span></span></p>
+                    <div class="stk-table-wrap"><table class="res-table" id="pairTable"></table></div>
+                    <p class="res-note" id="pairNote"></p>
+                </section>
+
+                <details class="res-theory group bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg open:shadow-sm transition-all">
+                    <summary class="px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer list-none flex justify-between items-center">
+                        <span><i class="fa-solid fa-square-root-variable mr-2 text-brand-500" aria-hidden="true"></i> Mathematical theory</span>
+                        <i class="fa-solid fa-chevron-down text-slate-500 dark:text-slate-400 group-open:rotate-180 transition-transform" aria-hidden="true"></i>
+                    </summary>
+                    <div class="px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400">
+                        <div id="theoryContainer" class="overflow-x-auto py-2"></div>
+                    </div>
+                </details>
+            </section>
         </div>
     </main>
 
