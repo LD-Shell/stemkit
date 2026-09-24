@@ -87,6 +87,13 @@ classes, and no page loads a stylesheet, font or script from another host, so
 every tool keeps working offline. Check a change at 375, 768, 1280 and
 1920 px in both themes before opening a pull request.
 
+The header, the theme script and the tool names are shared by every page but
+copied into each one, since the pages have no build step. `js/site.js` holds
+the one catalogue of tools, with each tool's name, description, search terms
+and next steps. A new tool needs an entry there, a card on the home page and a
+link in the footer of every page; `npm run check:chrome` fails until the three
+agree and the header matches the other pages.
+
 ## Pull requests
 
 Keep them focused; a reviewer can assess one change well and five changes

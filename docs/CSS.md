@@ -65,6 +65,11 @@ header, body and footer, `.stk-group`, `.stk-disclosure` (a `<details>`),
 `.stk-table-wrap`, and the app-shell classes `.stk-shell`, `.stk-shell-pane`,
 `.stk-shell-main`, `.stk-shell-tall`. Each is documented where it is defined.
 
+The page chrome that `js/site.js` drives has its own classes in the same
+file: `.stk-navlink` and `.stk-find` in the header, `.stk-skip`, the
+`.stk-finder` dialog, and the `.stk-next` cards under each tool. The header
+keeps the brand indigo whatever accent a tool sets on `<body>`.
+
 Prefer these over a new per-tool class. When a tool needs something they do
 not cover, add a rule to its own stylesheet using the tokens.
 

@@ -19,6 +19,7 @@
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "check:links": "node tools/check-links.mjs",
     "check:links:internal": "node tools/check-links.mjs --internal-only",
+    "check:chrome": "node tools/check-chrome.mjs",
     "build:css": "tailwindcss -c tailwind.config.js -i src/tailwind/input.css -o src/output.css --minify",
     "watch:css": "tailwindcss -c tailwind.config.js -i src/tailwind/input.css -o src/output.css --watch",
     "build:sitemap": "node tools/build-sitemap.mjs",

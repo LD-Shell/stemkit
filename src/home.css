@@ -12,8 +12,6 @@
 html { scroll-behavior:smooth; }
 @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} .tool-card{transition:none} }
 
-.stk-skip { position:absolute; left:-9999px; top:0; z-index:60; background:var(--stk-indigo); color:#fff; padding:.55rem 1rem; border-radius:.5rem; font-weight:700; font-size:.875rem; }
-.stk-skip:focus { left:.75rem; top:.75rem; }
 
 .stk-search-wrap { position:relative; width:100%; max-width:40rem; margin:0 auto; }
 .stk-search-ico { position:absolute; left:1.15rem; top:50%; transform:translateY(-50%); color:#94a3b8; pointer-events:none; }

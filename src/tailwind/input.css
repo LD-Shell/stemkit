@@ -701,6 +701,212 @@ html {
 .stk-table-wrap { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
 .stk-table-wrap > table { margin-top: 0; }
 
+/* Site header ---------------------------------------------------------------
+   The header is the same on every page and keeps the brand indigo whatever
+   accent a tool sets on <body>. js/site.js wires the buttons. */
+.stk-navlink { transition: color var(--stk-ease); }
+.stk-navlink:hover, .stk-navlink.is-current { color: #4f46e5; }
+.dark .stk-navlink:hover, .dark .stk-navlink.is-current { color: #a5b4fc; }
+
+/* "Find a tool" opener: reads as a search field, acts as a button. */
+.stk-find {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  height: 2.375rem;
+  min-width: 13rem;
+  padding: 0 0.5rem 0 0.8rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color var(--stk-ease), background-color var(--stk-ease), color var(--stk-ease);
+}
+.stk-find:hover { border-color: #a5b4fc; background: #fff; color: #0f172a; }
+.stk-find > span { flex: 1; text-align: left; }
+.stk-find kbd {
+  font-family: var(--stk-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.3rem 0.45rem;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+}
+.dark .stk-find { border-color: #334155; background: #0f172a; color: #cbd5e1; }
+.dark .stk-find:hover { border-color: #6366f1; background: #1e293b; color: #f1f5f9; }
+.dark .stk-find kbd { border-color: #334155; background: #1e293b; color: #cbd5e1; }
+
+/* Skip link: off-screen until focused. */
+.stk-skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.55rem 1rem;
+  border-radius: var(--stk-radius);
+  background: #4f46e5;
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+.stk-skip:focus { left: 0.75rem; top: 0.75rem; }
+
+/* Tool finder ---------------------------------------------------------------
+   A native <dialog>, so focus is held inside it and Esc closes it for free.
+   Built on first use by js/site.js. */
+.stk-finder {
+  width: min(40rem, calc(100vw - 2rem));
+  max-height: min(34rem, calc(100vh - 6rem));
+  margin: 12vh auto auto;
+  padding: 0;
+  border: 1px solid var(--stk-border);
+  border-radius: var(--stk-radius-xl);
+  background: var(--stk-surface);
+  color: var(--stk-fg);
+  box-shadow: var(--stk-shadow-lg);
+  overflow: hidden;
+}
+.stk-finder[open] { display: flex; }
+.stk-finder::backdrop { background: rgba(2, 6, 23, 0.5); backdrop-filter: blur(2px); }
+.stk-finder-box { display: flex; flex-direction: column; width: 100%; min-height: 0; }
+.stk-finder-field {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 0.75rem 0 1.1rem;
+  border-bottom: 1px solid var(--stk-border);
+  color: var(--stk-fg-muted);
+}
+.stk-finder-field input {
+  flex: 1;
+  min-width: 0;
+  height: 3.5rem;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--stk-fg);
+  font-size: 1rem;
+}
+.stk-finder-field input::placeholder { color: var(--stk-fg-muted); }
+.stk-finder-close {
+  font-family: var(--stk-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--stk-radius-sm);
+  border: 1px solid var(--stk-border-strong);
+  background: var(--stk-surface-2);
+  color: var(--stk-fg-3);
+  cursor: pointer;
+}
+.stk-finder-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0.4rem; margin: 0; list-style: none; }
+.stk-finder-group {
+  padding: 0.75rem 0.7rem 0.3rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--stk-fg-3);
+}
+.stk-finder-opt > a {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--stk-radius-lg);
+  color: inherit;
+  text-decoration: none;
+}
+.stk-finder-opt[aria-selected="true"] > a { background: var(--stk-accent-soft); box-shadow: inset 0 0 0 1px var(--stk-accent-soft-border); }
+.stk-finder-ico, .stk-next-ico {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.6rem;
+  font-size: 0.95rem;
+}
+.stk-finder-txt, .stk-next-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.stk-finder-name { font-size: 0.9rem; font-weight: 600; color: var(--stk-fg); }
+.stk-finder-desc {
+  font-size: 0.78rem;
+  color: var(--stk-fg-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stk-finder-tag {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  background: var(--stk-surface-2);
+  color: var(--stk-fg-3);
+}
+.stk-finder-empty { padding: 2rem 1.25rem; text-align: center; font-size: 0.875rem; color: var(--stk-fg-3); }
+.stk-finder-foot {
+  display: flex;
+  gap: 1.1rem;
+  padding: 0.6rem 1.1rem;
+  border-top: 1px solid var(--stk-border);
+  background: var(--stk-surface-2);
+  font-size: 0.72rem;
+  color: var(--stk-fg-3);
+}
+.stk-finder-foot kbd {
+  display: inline-block;
+  min-width: 1.25rem;
+  margin-right: 0.2rem;
+  padding: 0.05rem 0.3rem;
+  border: 1px solid var(--stk-border-strong);
+  border-radius: 0.3rem;
+  background: var(--stk-surface);
+  font-family: var(--stk-font-mono);
+  font-size: 0.68rem;
+  text-align: center;
+}
+@media (max-width: 640px) {
+  .stk-finder { margin-top: 1rem; max-height: calc(100vh - 2rem); }
+  .stk-finder-foot { display: none; }
+  .stk-finder-tag { display: none; }
+}
+
+/* Next steps -----------------------------------------------------------------
+   Filled from the catalogue in js/site.js; the host <section> stays hidden
+   without JavaScript. */
+.stk-next { width: 100%; }
+.stk-next-wrap { max-width: 80rem; margin: 0 auto; padding: 2.5rem 1.5rem 3.5rem; }
+.stk-next-title { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.01em; color: var(--stk-fg); }
+.stk-next-sub { margin-top: 0.25rem; font-size: 0.875rem; color: var(--stk-fg-3); }
+.stk-next-grid { display: grid; gap: 0.75rem; margin-top: 1.25rem; }
+@media (min-width: 768px) { .stk-next-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.stk-next-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--stk-border);
+  border-radius: var(--stk-radius-lg);
+  background: var(--stk-surface);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color var(--stk-ease), box-shadow var(--stk-ease), transform var(--stk-ease);
+}
+.stk-next-card:hover { border-color: var(--stk-border-strong); box-shadow: var(--stk-shadow); transform: translateY(-1px); }
+.stk-next-name { font-size: 0.9rem; font-weight: 700; color: var(--stk-fg); }
+.stk-next-why { font-size: 0.8rem; color: var(--stk-fg-3); }
+.stk-next-go { color: var(--stk-fg-muted); font-size: 0.8rem; transition: transform var(--stk-ease), color var(--stk-ease); }
+.stk-next-card:hover .stk-next-go { color: var(--stk-accent-text); transform: translateX(2px); }
+
 @tailwind utilities;
 
 /* ---------------------------------------------------------------------------

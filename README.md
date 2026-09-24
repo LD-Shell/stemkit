@@ -46,6 +46,7 @@ console.log(columnStats(matrix.map(r => r[1])));
 | `npm run test:coverage` | coverage report (see `docs/COVERAGE.md`) |
 | `npm run check:links` | internal and external link check |
 | `npm run check:links:internal` | internal only, no network |
+| `npm run check:chrome` | shared header, theme script and tool names agree across pages |
 | `npm run build:css` | rebuild Tailwind after editing `src/tailwind/input.css` |
 | `npm run watch:css` | same, on change |
 

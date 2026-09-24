@@ -51,6 +51,8 @@ stemkit/
 │   ├── home.css            landing page
 │   └── script-generator.css
 ├── js/
+│   ├── site.js             shared chrome on every page: theme toggle, menu,
+│   │                       the tool finder, next steps, and the tool catalogue
 │   ├── *.js                one script per tool, DOM wiring only
 │   ├── *-slurm.js          adapters for partially converted tools
 │   │   *-selection.js

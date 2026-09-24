@@ -2587,29 +2587,11 @@
             e.busyOverlay?.addEventListener('click', () => this.setBusy(false));
 
             // ---- Theme ----
+            // js/site.js flips the class and saves the choice; this listener
+            // runs after it and only repaints a background that follows it.
             document.querySelectorAll('.themeToggle').forEach(b => b.addEventListener('click', () => {
-                document.documentElement.classList.toggle('dark');
-                try {
-                    localStorage.setItem('theme',
-                        document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-                } catch (err) { /* private mode */ }
                 if (e.bgSelect.value === 'theme') this.applyBackground();
             }));
-
-            // ---- Mobile menu ----
-            const mmb = $('mobile-menu-btn'), mm = $('mobile-menu'), mi = $('menu-icon');
-            if (mmb) {
-                mmb.addEventListener('click', () => {
-                    mm.classList.toggle('hidden');
-                    mi.classList.toggle('fa-bars');
-                    mi.classList.toggle('fa-xmark');
-                });
-                document.querySelectorAll('.mobile-link').forEach(l => l.addEventListener('click', () => {
-                    mm.classList.add('hidden');
-                    mi.classList.add('fa-bars');
-                    mi.classList.remove('fa-xmark');
-                }));
-            }
 
             // ---- Style / colour ----
             e.colorSelect.addEventListener('change', () => {
