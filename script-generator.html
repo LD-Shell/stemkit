@@ -130,19 +130,24 @@
 
     <main id="main" class="flex-grow w-full flex flex-col max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
-        <header class="mb-6">
-            <div class="inline-flex items-center gap-2 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4 border border-brand-200 dark:border-brand-800/50">
-                <i class="fa-solid fa-server"></i> HPC Environment
+        <header class="stk-pagehead">
+            <div>
+                <h1 class="stk-pagehead-title">MD Workflow Generator</h1>
+                <p class="stk-pagehead-lede">Build a ready-to-submit batch script for GROMACS or LAMMPS on SLURM, PBS, LSF or Grid Engine, or a PLUMED input for enhanced sampling.</p>
+                <ul class="stk-pagehead-meta">
+                    <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
+                    <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
+                </ul>
             </div>
-            <h1 class="text-2xl sm:text-4xl font-black mb-2 tracking-tight">MD Workflow Generator</h1>
-            <p class="text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
-                Build a ready-to-submit batch script for <strong>GROMACS</strong> or <strong>LAMMPS</strong> on SLURM, PBS Pro / OpenPBS, LSF or Grid Engine, or compose a <strong>PLUMED</strong> <code>plumed.dat</code> with collective variables and metadynamics. For GROMACS, chain a full staged workflow (EM &rarr; NVT &rarr; NPT &rarr; Production) with restraint and checkpoint wiring and GPU-offload flags; for LAMMPS, pick the right accelerator package; for PLUMED, choose CVs by category and set the bias and speed options, all from source-verified keywords.
-            </p>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Runs entirely in your browser &middot; <a href="#method" class="sg-link">See method &amp; references</a></p>
+            <div class="stk-pagehead-actions">
+                <button type="button" id="exportSettings" class="stk-btn stk-btn-sm" title="Save every setting to a JSON file"><i class="fa-solid fa-file-export" aria-hidden="true"></i> Export settings</button>
+                <button type="button" id="importSettings" class="stk-btn stk-btn-sm" title="Load settings from a JSON file"><i class="fa-solid fa-file-import" aria-hidden="true"></i> Import settings</button>
+                <input type="file" id="importSettingsFile" accept="application/json,.json" hidden>
+                <button type="button" id="resetSettings" class="stk-btn stk-btn-sm stk-btn-ghost" title="Restore the defaults and forget the saved settings"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset to defaults</button>
+            </div>
         </header>
 
         <div id="toastContainer" class="stk-toasts" aria-live="polite"></div>
-
 
         <!-- Engine selector -->
         <div class="sg-strip">
@@ -150,12 +155,6 @@
                 <button type="button" role="tab" data-engine-tab="gromacs" aria-selected="true" aria-controls="gromacsPanel"><i class="fa-solid fa-atom"></i> GROMACS</button>
                 <button type="button" role="tab" data-engine-tab="lammps" aria-selected="false" aria-controls="lammpsPanel"><i class="fa-solid fa-cubes"></i> LAMMPS</button>
                 <button type="button" role="tab" data-engine-tab="plumed" aria-selected="false" aria-controls="plumedPanel"><i class="fa-solid fa-wave-square"></i> PLUMED</button>
-            </div>
-            <div class="sg-strip-actions">
-                <button type="button" id="exportSettings" class="stk-btn stk-btn-sm" title="Save every setting to a JSON file"><i class="fa-solid fa-file-export"></i> Export settings</button>
-                <button type="button" id="importSettings" class="stk-btn stk-btn-sm" title="Load settings from a JSON file"><i class="fa-solid fa-file-import"></i> Import settings</button>
-                <input type="file" id="importSettingsFile" accept="application/json,.json" hidden>
-                <button type="button" id="resetSettings" class="stk-btn stk-btn-sm stk-btn-ghost" title="Restore the defaults and forget the saved settings"><i class="fa-solid fa-rotate-left"></i> Reset to defaults</button>
             </div>
         </div>
 
@@ -530,10 +529,9 @@
                     <div id="plumedWarnings" class="stk-callout stk-callout-warn" role="status" hidden></div>
 
                     <!-- Bias method -->
-                    <section class="stk-panel" aria-labelledby="biasTitle">
+                    <section class="stk-panel" aria-labelledby="biasTitle" data-stk-step="1" data-stk-done="filled:#plumedBias">
                         <div class="stk-panel-h">
-                            <h2 class="stk-panel-t" id="biasTitle"><i class="fa-solid fa-mountain"></i> Bias and sampling method</h2>
-                            <span class="stk-badge stk-badge-accent">Step 1</span>
+                            <h2 class="stk-panel-t" id="biasTitle"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1: </span>Choose the bias and sampling method</h2>
                         </div>
                         <div class="stk-panel-b sg-form">
                             <div class="stk-field">
@@ -603,11 +601,10 @@
                     </section>
 
                     <!-- CV builder -->
-                    <section class="stk-panel" aria-labelledby="cvTitle">
+                    <section class="stk-panel" aria-labelledby="cvTitle" data-stk-step="2" data-stk-done="visible:#plumedCVList > div">
                         <div class="stk-panel-h">
-                            <h2 class="stk-panel-t" id="cvTitle"><i class="fa-solid fa-wave-square"></i> Collective variables</h2>
+                            <h2 class="stk-panel-t" id="cvTitle"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Add collective variables</h2>
                             <span class="sg-panel-tools">
-                                <span class="stk-badge stk-badge-accent">Step 2</span>
                                 <label class="sg-inline-select">PLUMED <select id="plumedVersion" class="stk-select stk-select-sm stk-mono"><option value="2.9">2.9</option><option value="2.10">2.10</option></select></label>
                             </span>
                         </div>
@@ -768,7 +765,7 @@
             <div class="stk-wrap">
                 <span class="stk-chip"><i class="fa-solid fa-server"></i> How-To Guide</span>
                 <h2 class="stk-h2">How to generate a batch script and topology header</h2>
-                <p class="stk-lead">Pick the scheduler and set the cluster resources, choose a force field, and copy or download the files the generator writes as you type. It keeps the physics consistent so you do not ship a silently broken topology, and it remembers your settings between visits.</p>
+                <p class="stk-lead">Pick an engine and a scheduler, set the cluster resources, and copy or download the files the generator writes as you type. For GROMACS it chains a staged workflow (EM &rarr; NVT &rarr; NPT &rarr; production) with restraint and checkpoint wiring and GPU-offload flags; for LAMMPS it adds the flags of the accelerator package you choose; for PLUMED it composes a <code>plumed.dat</code> from collective variables picked by category, with the bias and speed options, all from keywords checked against each engine&rsquo;s documentation. It keeps the physics consistent so you do not ship a silently broken topology, and it remembers your settings between visits.</p>
                 <div class="stk-grid stk-grid-2">
                     <div class="stk-step"><span class="stk-num">1</span><div><h3>Pick a scheduler, an engine and resources</h3><p>Choose <strong>GROMACS</strong> or <strong>LAMMPS</strong> at the top and the scheduler in the cluster card (SLURM, PBS Pro / OpenPBS, LSF or Grid Engine), then set nodes, GPUs, wall time and memory. GROMACS uses CPUs per task (threaded); LAMMPS uses MPI tasks per node. The summary line under the form totals the cores, GPUs and core-hours.</p></div></div>
                     <div class="stk-step"><span class="stk-num">2</span><div><h3>Define the workflow</h3><p>For GROMACS, toggle the stages you need (EM &rarr; NVT &rarr; NPT &rarr; Production), each with its own <code>.mdp</code> and <code>-deffnm</code>. The tool chains <code>grompp</code> &rarr; <code>mdrun</code> and wires restraints and checkpoints between stages.</p></div></div>
@@ -801,10 +798,10 @@
                 <p class="stk-lead">The parameters and best practices below are grouped by tool. Switch tabs to see the details relevant to your workflow.</p>
 
                 <div class="doc-tabs" role="tablist">
-                    <button class="doc-tab active" data-doc-tab="gromacs" role="tab"><i class="fa-solid fa-atom"></i> GROMACS</button>
-                    <button class="doc-tab" data-doc-tab="lammps" role="tab"><i class="fa-solid fa-cubes"></i> LAMMPS</button>
-                    <button class="doc-tab" data-doc-tab="plumed" role="tab"><i class="fa-solid fa-wave-square"></i> PLUMED</button>
-                    <button class="doc-tab" data-doc-tab="general" role="tab"><i class="fa-solid fa-server"></i> Schedulers</button>
+                    <button type="button" class="doc-tab active" data-doc-tab="gromacs" role="tab" aria-selected="true"><i class="fa-solid fa-atom"></i> GROMACS</button>
+                    <button type="button" class="doc-tab" data-doc-tab="lammps" role="tab" aria-selected="false"><i class="fa-solid fa-cubes"></i> LAMMPS</button>
+                    <button type="button" class="doc-tab" data-doc-tab="plumed" role="tab" aria-selected="false"><i class="fa-solid fa-wave-square"></i> PLUMED</button>
+                    <button type="button" class="doc-tab" data-doc-tab="general" role="tab" aria-selected="false"><i class="fa-solid fa-server"></i> Schedulers</button>
                 </div>
 
                 <div class="doc-pane active" data-doc-pane="gromacs">
@@ -1062,7 +1059,10 @@
         document.querySelectorAll('.doc-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 const key = tab.getAttribute('data-doc-tab');
-                document.querySelectorAll('.doc-tab').forEach(t => t.classList.toggle('active', t === tab));
+                document.querySelectorAll('.doc-tab').forEach(t => {
+                    t.classList.toggle('active', t === tab);
+                    t.setAttribute('aria-selected', String(t === tab));
+                });
                 document.querySelectorAll('.doc-pane').forEach(p =>
                     p.classList.toggle('active', p.getAttribute('data-doc-pane') === key));
             });

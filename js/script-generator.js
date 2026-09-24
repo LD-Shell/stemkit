@@ -2233,7 +2233,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!host) return;
         host.innerHTML = '';
         if (!plumedCVs.length) {
-            host.innerHTML = '<p class="text-[11px] text-slate-500 dark:text-slate-400 italic px-1">No CVs yet. Pick a category and CV above, then “Add”.</p>';
+            host.innerHTML = '<p class="sg-cv-empty">Each variable you add appears here with its own settings and a Bias switch. Pick a category and a variable above, then press Add collective variable.</p>';
             return;
         }
         plumedCVs.forEach(inst => {
