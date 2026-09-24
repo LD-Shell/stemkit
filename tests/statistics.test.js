@@ -2,9 +2,11 @@ import { describe, test, expect } from '@jest/globals';
 import '../tests/setup.js';
 import {
   mean, variance, sd, median, skewness, kurtosis, ranks, describe as summarise,
+  descriptives, boxPlotStats,
   tTwoSided, tCritical, fUpperTail, zTwoSided, chiSquaredUpperTail,
   dagostinoNormality, leveneTest,
   independentTTest, pairedTTest, oneWayAnova, pearsonCorrelation,
+  leastSquaresLine,
   mannWhitneyU, wilcoxonSignedRank,
   alignPairs, formatP, interpretD, interpretEta, interpretR,
   classifyFields, pivotLongToGroups
@@ -79,6 +81,133 @@ describe('descriptive statistics', () => {
     expect(d.min).toBeCloseTo(22.6, 12);
     expect(d.max).toBeCloseTo(24.2, 12);
     expect(summarise([])).toBeNull();
+  });
+});
+
+/*
+ * The functions from here on were validated against SciPy 1.11.4 (with
+ * NumPy 1.26.4, statsmodels 0.14.1 and matplotlib 3.6.3 where SciPy has no
+ * equivalent). Each block names the call that produced its reference values.
+ */
+
+// A skewed sample with an outlier and a tie, and two more like it.
+const S1 = [1.2, 1.5, 1.1, 2.0, 1.3, 1.2, 4.8, 1.4, 1.6, 1.2];
+const S2 = [2.1, 2.4, 1.9, 2.2, 7.5, 2.0, 2.3, 2.6, 1.9, 2.1];
+const S3 = [3.3, 2.9, 3.8, 3.1, 9.9, 3.4, 3.0, 3.6, 3.2, 12.4];
+// Unequal sizes and unequal spreads.
+const U1 = [10.2, 11.1, 9.8, 10.5, 10.9, 10.1, 10.4];
+const U2 = [12.5, 14.9, 9.7, 16.2, 11.8, 13.4, 15.1, 10.6, 12.9];
+const U3 = [11.0, 11.4, 10.8, 11.9, 11.2, 10.7];
+// Ten replicate titrations of a nominal 0.1000 M solution.
+const TITR = [0.1012, 0.1008, 0.1015, 0.1003, 0.1011, 0.1009, 0.1017, 0.1006, 0.1013, 0.1010];
+
+describe('descriptives', () => {
+  test('matches numpy and scipy.stats for a group of ten', () => {
+    // a.std(ddof=1); stats.sem(a); stats.t.interval(0.95, n-1, loc=m, scale=sem);
+    // np.percentile(a, [25, 50, 75])
+    const d = descriptives(A);
+    expect(d.n).toBe(10);
+    expect(d.mean).toBeCloseTo(23.42, 12);
+    expect(d.sd).toBeCloseTo(0.5672545969648704, 12);
+    expect(d.sem).toBeCloseTo(0.1793816539609827, 12);
+    expect(d.ci[0]).toBeCloseTo(23.01421050662784, 7);
+    expect(d.ci[1]).toBeCloseTo(23.825789493372163, 7);
+    expect(d.q1).toBeCloseTo(22.95, 12);
+    expect(d.median).toBeCloseTo(23.4, 12);
+    expect(d.q3).toBeCloseTo(23.875, 12);
+    expect(d.iqr).toBeCloseTo(0.9250000000000007, 12);
+    expect(d.min).toBe(22.6);
+    expect(d.max).toBe(24.2);
+    expect(d.conf).toBe(0.95);
+  });
+
+  test('keeps full precision for small magnitudes', () => {
+    const d = descriptives(TITR);
+    expect(d.sd).toBeCloseTo(0.00041686661868969366, 15);
+    expect(d.ci[0]).toBeCloseTo(0.10074179158545922, 10);
+    expect(d.ci[1]).toBeCloseTo(0.10133820841454076, 10);
+    expect(d.q1).toBeCloseTo(0.100825, 15);
+    expect(d.q3).toBeCloseTo(0.101275, 15);
+  });
+
+  test('interpolates quartiles for n = 6 (type 7)', () => {
+    const d = descriptives(U3);
+    expect(d.q1).toBeCloseTo(10.850000000000001, 12);
+    expect(d.q3).toBeCloseTo(11.35, 12);
+    expect(d.ci[0]).toBeCloseTo(10.703644689051707, 7);
+    expect(d.ci[1]).toBeCloseTo(11.629688644281625, 7);
+  });
+
+  test('a single value has no spread: SD, SEM and CI are NaN, not zero', () => {
+    const d = descriptives([4.2]);
+    expect(d.n).toBe(1);
+    expect(d.mean).toBe(4.2);
+    expect(d.median).toBe(4.2);
+    expect(Number.isNaN(d.sd)).toBe(true);
+    expect(Number.isNaN(d.sem)).toBe(true);
+    expect(Number.isNaN(d.ci[0])).toBe(true);
+  });
+
+  test('the interval widens with the confidence level', () => {
+    const d95 = descriptives(A);
+    const d99 = descriptives(A, { conf: 0.99 });
+    expect(d99.ci[1] - d99.ci[0]).toBeGreaterThan(d95.ci[1] - d95.ci[0]);
+  });
+
+  test('returns null for empty or invalid input', () => {
+    expect(descriptives([])).toBeNull();
+    expect(descriptives(null)).toBeNull();
+  });
+});
+
+describe('boxPlotStats', () => {
+  test('matches matplotlib.cbook.boxplot_stats(whis=1.5) with two high outliers', () => {
+    const b = boxPlotStats(S3);
+    expect(b.q1).toBeCloseTo(3.125, 12);
+    expect(b.median).toBeCloseTo(3.3499999999999996, 12);
+    expect(b.q3).toBeCloseTo(3.75, 12);
+    expect(b.whiskerLow).toBe(2.9);
+    expect(b.whiskerHigh).toBe(3.8);
+    expect(b.outliers).toEqual([9.9, 12.4]);
+  });
+
+  test('matches matplotlib with one outlier and a tie at the lower quartile', () => {
+    const b = boxPlotStats(S1);
+    expect(b.q1).toBeCloseTo(1.2, 12);
+    expect(b.median).toBeCloseTo(1.35, 12);
+    expect(b.q3).toBeCloseTo(1.5750000000000002, 12);
+    expect(b.whiskerLow).toBe(1.1);
+    expect(b.whiskerHigh).toBe(2.0);
+    expect(b.outliers).toEqual([4.8]);
+  });
+
+  test('whiskers reach the extremes when nothing is outlying', () => {
+    const b = boxPlotStats(A);
+    expect(b.whiskerLow).toBe(22.6);
+    expect(b.whiskerHigh).toBe(24.2);
+    expect(b.outliers).toEqual([]);
+  });
+
+  test('fences sit 1.5 IQR beyond the quartiles, or as asked', () => {
+    const b = boxPlotStats(S3, { whisker: 3 });
+    expect(b.upperFence).toBeCloseTo(3.75 + 3 * 0.625, 12);
+    // 9.9 is beyond 3.75 + 3 * 0.625 = 5.625 still.
+    expect(b.outliers).toEqual([9.9, 12.4]);
+  });
+
+  test('a constant sample collapses to a line with no outliers', () => {
+    const b = boxPlotStats([2, 2, 2, 2]);
+    expect(b.iqr).toBe(0);
+    expect(b.whiskerLow).toBe(2);
+    expect(b.whiskerHigh).toBe(2);
+    expect(b.outliers).toEqual([]);
+  });
+
+  test('does not reorder its argument and returns null for empty input', () => {
+    const input = [3, 1, 2];
+    boxPlotStats(input);
+    expect(input).toEqual([3, 1, 2]);
+    expect(boxPlotStats([])).toBeNull();
   });
 });
 
@@ -348,6 +477,29 @@ describe('pearsonCorrelation', () => {
 
   test('returns null with fewer than three pairs', () => {
     expect(pearsonCorrelation([1, 2], [1, 2])).toBeNull();
+  });
+});
+
+describe('leastSquaresLine', () => {
+  const sx = [0.5, 1, 2, 3, 4, 6, 8, 10, 15, 20, 30, 40];
+  const sy = [0.9, 1.7, 2.9, 3.6, 4.3, 5.0, 5.4, 5.6, 6.0, 6.1, 6.25, 6.3];
+
+  test('slope and intercept match scipy.stats.linregress', () => {
+    const l = leastSquaresLine(sx, sy);
+    expect(l.slope).toBeCloseTo(0.1086310704113639, 12);
+    expect(l.intercept).toBeCloseTo(3.2413304731345614, 12);
+    expect(l.n).toBe(12);
+  });
+
+  test('recovers an exact line', () => {
+    const l = leastSquaresLine([1, 2, 3, 4], [5, 7, 9, 11]);
+    expect(l.slope).toBeCloseTo(2, 12);
+    expect(l.intercept).toBeCloseTo(3, 12);
+  });
+
+  test('is undefined for a constant x and null for fewer than two pairs', () => {
+    expect(Number.isNaN(leastSquaresLine([2, 2, 2], [1, 2, 3]).slope)).toBe(true);
+    expect(leastSquaresLine([1], [2])).toBeNull();
   });
 });
 

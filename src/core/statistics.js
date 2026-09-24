@@ -20,6 +20,7 @@
  */
 
 import { requireVendor } from './vendor.js';
+import { quantile } from './error-bars.js';
 
 /* ------------------------------------------------------------------ *
  * Descriptive statistics
@@ -194,6 +195,92 @@ export function describe(a) {
     max: Math.max(...a),
     skewness: skewness(a),
     kurtosis: kurtosis(a)
+  };
+}
+
+/**
+ * The per-group summary a results table reports.
+ *
+ * Quartiles, and so the IQR, interpolate linearly between order statistics:
+ * R's type 7 and NumPy's default `percentile`. Other definitions (Minitab and
+ * SPSS use type 6) give slightly different values for small n, so a table
+ * built from this says which it used. The interval is the t interval for the
+ * mean, mean ± t(n−1) × SEM, with SEM = SD/√n and the (n−1) SD.
+ *
+ * A single observation has no spread: SD, SEM and the interval are NaN, not
+ * zero, so a table shows them as missing rather than as perfectly precise.
+ *
+ * @param {number[]} a
+ * @param {{conf?: number}} [options] - Confidence level, default 0.95.
+ * @returns {{n:number, mean:number, sd:number, sem:number,
+ *            ci:[number,number], conf:number, median:number,
+ *            q1:number, q3:number, iqr:number, min:number, max:number}|null}
+ */
+export function descriptives(a, options = {}) {
+  const { conf = 0.95 } = options;
+  if (!Array.isArray(a) || a.length === 0) return null;
+  const n = a.length;
+  const m = mean(a);
+  const s = sd(a);
+  const sem = s / Math.sqrt(n);
+  const tc = n > 1 ? tCritical(n - 1, conf) : NaN;
+  const q1 = quantile(a, 0.25);
+  const q3 = quantile(a, 0.75);
+
+  // A loop rather than Math.min(...a), which overflows the call stack on a
+  // column of a few hundred thousand values.
+  let min = Infinity;
+  let max = -Infinity;
+  for (const x of a) {
+    if (x < min) min = x;
+    if (x > max) max = x;
+  }
+
+  return {
+    n, mean: m, sd: s, sem,
+    ci: [m - tc * sem, m + tc * sem], conf,
+    median: median(a), q1, q3, iqr: q3 - q1,
+    min, max
+  };
+}
+
+/**
+ * Box-plot statistics in Tukey's convention.
+ *
+ * The box spans the first to third quartile (type 7, as `descriptives` and
+ * matplotlib's `boxplot` use), the whiskers reach the most extreme
+ * observations lying within `whisker` × IQR of the box (1.5 by convention;
+ * Tukey 1977), and every observation beyond a whisker is returned as an
+ * outlier. Where no observation lies between a fence and its quartile, the
+ * whisker stops at the quartile, as matplotlib's does.
+ *
+ * @param {number[]} a
+ * @param {{whisker?: number}} [options]
+ * @returns {{n:number, q1:number, median:number, q3:number, iqr:number,
+ *            lowerFence:number, upperFence:number,
+ *            whiskerLow:number, whiskerHigh:number,
+ *            outliers:number[], min:number, max:number}|null}
+ */
+export function boxPlotStats(a, options = {}) {
+  const { whisker = 1.5 } = options;
+  if (!Array.isArray(a) || a.length === 0) return null;
+  const s = [...a].sort((x, y) => x - y);
+  const q1 = quantile(s, 0.25);
+  const q3 = quantile(s, 0.75);
+  const iqr = q3 - q1;
+  const lowerFence = q1 - whisker * iqr;
+  const upperFence = q3 + whisker * iqr;
+
+  const inLow = s.find(x => x >= lowerFence);
+  const inHigh = [...s].reverse().find(x => x <= upperFence);
+  const whiskerLow = inLow === undefined || inLow > q1 ? q1 : inLow;
+  const whiskerHigh = inHigh === undefined || inHigh < q3 ? q3 : inHigh;
+
+  return {
+    n: s.length, q1, median: quantile(s, 0.5), q3, iqr,
+    lowerFence, upperFence, whiskerLow, whiskerHigh,
+    outliers: s.filter(x => x < whiskerLow || x > whiskerHigh),
+    min: s[0], max: s[s.length - 1]
   };
 }
 
@@ -623,6 +710,35 @@ export function pearsonCorrelation(arr1, arr2, options = {}) {
   const ci = [Math.tanh(z - zc * sez), Math.tanh(z + zc * sez)];
 
   return { r, r2: r * r, t, df, p, ci, n };
+}
+
+/**
+ * Ordinary least-squares line of y on x, the line a scatter plot draws.
+ *
+ * It minimises vertical distances only, so swapping x and y gives a
+ * different line; that is the regression of y on x, not a symmetric fit.
+ *
+ * @param {number[]} arr1 - x values.
+ * @param {number[]} arr2 - y values, paired with x by position.
+ * @returns {{slope:number, intercept:number, n:number}|null}
+ *          null with fewer than two pairs; slope and intercept NaN when x is
+ *          constant, since no line is defined.
+ */
+export function leastSquaresLine(arr1, arr2) {
+  const { a: x, b: y } = alignPairs(arr1, arr2);
+  const n = x.length;
+  if (n < 2) return null;
+  const mx = mean(x);
+  const my = mean(y);
+  let sxy = 0;
+  let sxx = 0;
+  for (let i = 0; i < n; i++) {
+    sxy += (x[i] - mx) * (y[i] - my);
+    sxx += (x[i] - mx) * (x[i] - mx);
+  }
+  if (sxx === 0) return { slope: NaN, intercept: NaN, n };
+  const slope = sxy / sxx;
+  return { slope, intercept: my - slope * mx, n };
 }
 
 /* ------------------------------------------------------------------ *
