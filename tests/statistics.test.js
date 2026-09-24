@@ -9,6 +9,7 @@ import {
   pearsonCorrelation,
   leastSquaresLine, spearmanCorrelation,
   mannWhitneyU, wilcoxonSignedRank, oneSampleWilcoxon, kruskalWallis,
+  qUpperTail, adjustPValues, tukeyHSD, gamesHowell, dunnTest,
   alignPairs, formatP, interpretD, interpretEta, interpretR,
   classifyFields, pivotLongToGroups
 } from '../src/core/statistics.js';
@@ -844,6 +845,186 @@ describe('wilcoxonSignedRank', () => {
   test('a uniformly positive shift drives W to zero', () => {
     const r = wilcoxonSignedRank([10, 20, 30, 40], [1, 2, 3, 4]);
     expect(r.W).toBe(0);
+  });
+});
+
+describe('qUpperTail', () => {
+  test('matches scipy studentized_range.sf to 1e-9', () => {
+    // stats.studentized_range.sf(q, k, df)
+    expect(qUpperTail(3.5, 3, 21)).toBeCloseTo(0.05489508733888482, 9);
+    expect(qUpperTail(5.0, 4, 30)).toBeCloseTo(0.006966833686719909, 9);
+    expect(qUpperTail(2.0, 5, 10)).toBeCloseTo(0.6330822625273638, 9);
+    expect(qUpperTail(4.2, 6, 57)).toBeCloseTo(0.047424360502407836, 9);
+  });
+
+  test('is 1 at zero and NaN for invalid parameters', () => {
+    expect(qUpperTail(0, 3, 10)).toBe(1);
+    expect(Number.isNaN(qUpperTail(3, 1, 10))).toBe(true);
+    expect(Number.isNaN(qUpperTail(3, 3, 0))).toBe(true);
+    expect(Number.isNaN(qUpperTail(NaN, 3, 10))).toBe(true);
+  });
+});
+
+describe('adjustPValues', () => {
+  const P = [0.01, 0.04, 0.03, 0.005, 0.2];
+
+  test('Holm matches statsmodels multipletests(method="holm")', () => {
+    const adj = adjustPValues(P, 'holm');
+    [0.04, 0.09, 0.09, 0.025, 0.2].forEach((v, i) => expect(adj[i]).toBeCloseTo(v, 14));
+  });
+
+  test('defaults to Holm, which is never larger than Bonferroni', () => {
+    const holm = adjustPValues(P);
+    const bonf = adjustPValues(P, 'bonferroni');
+    expect(bonf).toEqual([0.05, 0.2, 0.15, 0.025, 1]);
+    holm.forEach((p, i) => expect(p).toBeLessThanOrEqual(bonf[i] + 1e-15));
+  });
+
+  test('keeps NaN out of the family and in place', () => {
+    const adj = adjustPValues([0.01, NaN, 0.02]);
+    expect(adj[0]).toBeCloseTo(0.02, 14);
+    expect(Number.isNaN(adj[1])).toBe(true);
+    expect(adj[2]).toBeCloseTo(0.02, 14);
+  });
+
+  test("'none' leaves them alone and an unknown method throws", () => {
+    expect(adjustPValues(P, 'none')).toEqual(P);
+    expect(() => adjustPValues(P, 'sidak')).toThrow('unknown method');
+  });
+});
+
+describe('tukeyHSD', () => {
+  test('differences, p and intervals match scipy tukey_hsd for equal n', () => {
+    // res = stats.tukey_hsd(PLACEBO, LOWDOSE, HIGHDOSE); res.confidence_interval(0.95)
+    const r = tukeyHSD([PLACEBO, LOWDOSE, HIGHDOSE]);
+    expect(r.comparisons.map(c => [c.i, c.j])).toEqual([[0, 1], [0, 2], [1, 2]]);
+    const [c01, c02, c12] = r.comparisons;
+    expect(c01.diff).toBeCloseTo(-1.7874999999999996, 12);
+    expect(c01.pAdjusted).toBeCloseTo(7.906864052387164e-11, 9);
+    expect(c01.ci[0]).toBeCloseTo(-2.143298799419772, 6);
+    expect(c01.ci[1]).toBeCloseTo(-1.4317012005802274, 6);
+    // SciPy's own tail underflows to 0 here; both are far below any threshold.
+    expect(c02.pAdjusted).toBeLessThan(1e-9);
+    expect(c02.ci[0]).toBeCloseTo(-4.23079879941977, 6);
+    expect(c12.diff).toBeCloseTo(-2.0874999999999986, 12);
+    expect(c12.ci[1]).toBeCloseTo(-1.7317012005802264, 6);
+  });
+
+  test('uses the Tukey-Kramer standard error for unequal n', () => {
+    // res = stats.tukey_hsd(U1, U2, U3)
+    const [c01, c02, c12] = tukeyHSD([U1, U2, U3]).comparisons;
+    expect(c01.diff).toBeCloseTo(-2.582539682539684, 12);
+    expect(c01.pAdjusted).toBeCloseTo(0.0054307191349254325, 9);
+    expect(c01.ci[0]).toBeCloseTo(-4.416226009440969, 6);
+    expect(c01.ci[1]).toBeCloseTo(-0.7488533556383996, 6);
+    expect(c02.pAdjusted).toBeCloseTo(0.6307888690029692, 9);
+    expect(c02.ci[0]).toBeCloseTo(-2.762430130976139, 6);
+    expect(c02.ci[1]).toBeCloseTo(1.2862396547856645, 6);
+    expect(c12.diff).toBeCloseTo(1.8444444444444468, 12);
+    expect(c12.pAdjusted).toBeCloseTo(0.06066040199718725, 9);
+    expect(c12.ci[0]).toBeCloseTo(-0.07327061920605371, 6);
+    expect(c12.ci[1]).toBeCloseTo(3.762159508094947, 6);
+  });
+
+  test('uses the ANOVA error term and df', () => {
+    const r = tukeyHSD([U1, U2, U3]);
+    const a = oneWayAnova([U1, U2, U3]);
+    expect(r.df).toBe(a.dfWithin);
+    expect(r.msWithin).toBeCloseTo(a.msWithin, 14);
+    // stats.studentized_range.ppf(0.95, 3, 19); jStat's inverse is good to
+    // about 1e-7, which moves an interval end by less than 1e-6 here.
+    expect(r.qCrit).toBeCloseTo(3.5927389736224056, 6);
+  });
+
+  test('an interval excludes zero exactly when the pair is significant', () => {
+    for (const c of tukeyHSD([U1, U2, U3]).comparisons) {
+      const excludesZero = c.ci[0] > 0 || c.ci[1] < 0;
+      expect(excludesZero).toBe(c.pAdjusted < 0.05);
+    }
+  });
+
+  test('returns null when the ANOVA would', () => {
+    expect(tukeyHSD([[1, 2, 3]])).toBeNull();
+    expect(tukeyHSD([[1], [2, 3]])).toBeNull();
+  });
+});
+
+describe('gamesHowell', () => {
+  test('matches the Games-Howell formula with scipy studentized_range', () => {
+    // t = diff / sqrt(va/na + vb/nb); df Welch; p = studentized_range.sf(|t|*sqrt(2), 3, df);
+    // CI = diff -/+ studentized_range.ppf(0.95, 3, df) / sqrt(2) * se
+    const [c01, c02, c12] = gamesHowell([U1, U2, U3]).comparisons;
+    expect(c01.diff).toBeCloseTo(-2.582539682539684, 12);
+    expect(c01.df).toBeCloseTo(8.907903195372821, 10);
+    expect(c01.t).toBeCloseTo(-3.5141741226315912, 10);
+    expect(c01.pAdjusted).toBeCloseTo(0.01656383555773855, 9);
+    expect(c01.ci[0]).toBeCloseTo(-4.638276603366926, 6);
+    expect(c01.ci[1]).toBeCloseTo(-0.526802761712442, 6);
+    expect(c02.df).toBeCloseTo(10.785787067301756, 10);
+    expect(c02.pAdjusted).toBeCloseTo(0.032192502605808526, 9);
+    expect(c02.ci[0]).toBeCloseTo(-1.4116711225161764, 6);
+    expect(c02.ci[1]).toBeCloseTo(-0.06451935367429817, 6);
+    expect(c12.t).toBeCloseTo(2.5027432497635123, 10);
+    expect(c12.pAdjusted).toBeCloseTo(0.07844328001636203, 9);
+    expect(c12.ci[0]).toBeCloseTo(-0.21356790293536632, 6);
+    expect(c12.ci[1]).toBeCloseTo(3.90245679182426, 6);
+  });
+
+  test('finds the U1-U3 difference that the pooled Tukey test misses', () => {
+    // Tukey pools U2's large variance into the U1-U3 comparison (p = .63);
+    // Games-Howell does not (p = .032).
+    const gh = gamesHowell([U1, U2, U3]).comparisons[1];
+    const tk = tukeyHSD([U1, U2, U3]).comparisons[1];
+    expect(gh.pAdjusted).toBeLessThan(0.05);
+    expect(tk.pAdjusted).toBeGreaterThan(0.5);
+  });
+
+  test('gives NaN for a pair with no spread, and null for degenerate input', () => {
+    const r = gamesHowell([[1, 1, 1], [1, 1, 1], [2, 3, 4]]);
+    expect(Number.isNaN(r.comparisons[0].pAdjusted)).toBe(true);
+    expect(Number.isFinite(r.comparisons[1].pAdjusted)).toBe(true);
+    expect(gamesHowell([[1, 2]])).toBeNull();
+    expect(gamesHowell([[1], [2, 3]])).toBeNull();
+  });
+});
+
+describe('dunnTest', () => {
+  test('z, p and Holm-adjusted p match the formula on skewed, tied data', () => {
+    // Joint ranks from stats.rankdata; sigma with the tie term; p = 2*norm.sf(|z|);
+    // multipletests(p, method='holm')
+    const r = dunnTest([S1, S2, S3]);
+    expect(r.meanRanks[0]).toBeCloseTo(7.45, 12);
+    expect(r.meanRanks[1]).toBeCloseTo(15.15, 12);
+    expect(r.meanRanks[2]).toBeCloseTo(23.9, 12);
+    const [c01, c02, c12] = r.comparisons;
+    expect(c01.meanRankDiff).toBeCloseTo(-7.7, 12);
+    expect(c01.z).toBeCloseTo(-1.9573266081521479, 12);
+    expect(c01.p).toBeCloseTo(0.050309081093342825, 12);
+    expect(c01.pAdjusted).toBeCloseTo(0.05226530406164814, 12);
+    expect(c02.z).toBeCloseTo(-4.181561390143225, 12);
+    expect(c02.p).toBeCloseTo(2.8951405676544472e-05, 15);
+    expect(c02.pAdjusted).toBeCloseTo(8.685421702963342e-05, 15);
+    expect(c12.z).toBeCloseTo(-2.224234781991077, 12);
+    expect(c12.pAdjusted).toBeCloseTo(0.05226530406164814, 12);
+  });
+
+  test('matches the formula without ties, where equal gaps give equal p', () => {
+    const [c01, c02, c12] = dunnTest([PLACEBO, LOWDOSE, HIGHDOSE]).comparisons;
+    expect(c01.z).toBeCloseTo(-2.262741699796952, 12);
+    expect(c01.pAdjusted).toBeCloseTo(0.047303233310711956, 12);
+    expect(c02.pAdjusted).toBeCloseTo(1.8077283455286244e-05, 15);
+    expect(c12.pAdjusted).toBeCloseTo(c01.pAdjusted, 15);
+  });
+
+  test('can use Bonferroni or no adjustment', () => {
+    const none = dunnTest([S1, S2, S3], { adjust: 'none' }).comparisons;
+    const bonf = dunnTest([S1, S2, S3], { adjust: 'bonferroni' }).comparisons;
+    expect(none[0].pAdjusted).toBe(none[0].p);
+    expect(bonf[0].pAdjusted).toBeCloseTo(Math.min(1, 3 * none[0].p), 14);
+  });
+
+  test('returns null when Kruskal-Wallis would', () => {
+    expect(dunnTest([[1, 2, 3]])).toBeNull();
   });
 });
 

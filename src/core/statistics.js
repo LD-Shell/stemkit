@@ -1133,6 +1133,213 @@ export function kruskalWallis(groups) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Post-hoc pairwise comparisons
+ * ------------------------------------------------------------------ */
+
+/**
+ * Upper-tail probability of the studentized range, P(Q ≥ q) for k means and
+ * df error degrees of freedom.
+ *
+ * Taken as 1 − cdf from jStat's `tukey.cdf`, a port of R's `ptukey`
+ * (Copenhaver & Holland 1988). It agrees with
+ * `scipy.stats.studentized_range.sf` to about 1e-9 absolute, including for
+ * non-integer df, so a tail below that carries no relative precision. Such
+ * p-values are reported as "< .001" in any case.
+ *
+ * @param {number} q
+ * @param {number} k - Number of means, ≥ 2.
+ * @param {number} df
+ * @returns {number}
+ */
+export function qUpperTail(q, k, df) {
+  const jStat = requireVendor('jStat');
+  if (!Number.isFinite(q) || !Number.isFinite(k) || !Number.isFinite(df) || k < 2 || df <= 0) {
+    return NaN;
+  }
+  if (q <= 0) return 1;
+  return Math.min(1, Math.max(0, 1 - jStat.tukey.cdf(q, k, df)));
+}
+
+/**
+ * Adjust a family of p-values for multiple comparisons.
+ *
+ * `holm` is Holm's (1979) step-down procedure: sort ascending, multiply the
+ * i-th smallest by (m − i + 1), carry the running maximum so the order is
+ * kept, cap at 1. It controls the family-wise error rate exactly as
+ * Bonferroni does and is never less powerful, so it is the default.
+ * `bonferroni` multiplies every p by m; `none` returns them unchanged.
+ * Non-finite entries stay NaN and do not count towards m.
+ *
+ * @param {number[]} pvalues
+ * @param {'holm'|'bonferroni'|'none'} [method='holm']
+ * @returns {number[]} Adjusted p-values in the input order.
+ */
+export function adjustPValues(pvalues, method = 'holm') {
+  if (!Array.isArray(pvalues)) return [];
+  const out = pvalues.map(p => (Number.isFinite(p) ? p : NaN));
+  const idx = out.map((p, i) => i).filter(i => Number.isFinite(out[i]));
+  const m = idx.length;
+  if (method === 'none' || m === 0) return out;
+  if (method === 'bonferroni') {
+    for (const i of idx) out[i] = Math.min(1, out[i] * m);
+    return out;
+  }
+  if (method !== 'holm') throw new Error(`adjustPValues: unknown method "${method}"`);
+  idx.sort((x, y) => out[x] - out[y]);
+  let running = 0;
+  idx.forEach((i, rank) => {
+    running = Math.max(running, Math.min(1, out[i] * (m - rank)));
+    out[i] = running;
+  });
+  return out;
+}
+
+/**
+ * Tukey's honestly significant difference test: every pairwise difference of
+ * means after a one-way ANOVA.
+ *
+ * The Tukey–Kramer form (Kramer 1956), which allows unequal group sizes:
+ * with the ANOVA's pooled within-group mean square MS_W on N − k df,
+ *
+ *   q = |x̄_i − x̄_j| / √(MS_W/2 · (1/n_i + 1/n_j)),
+ *
+ * referred to the studentized range for k means. The interval is
+ * (x̄_i − x̄_j) ± q_crit · SE. Both are simultaneous for the whole family of
+ * k(k − 1)/2 comparisons, so `pAdjusted` needs no further correction. Because
+ * MS_W is pooled, this assumes equal variances; with unequal variances use
+ * `gamesHowell`. Matches `scipy.stats.tukey_hsd`.
+ *
+ * @param {number[][]} groups
+ * @param {{conf?: number}} [options]
+ * @returns {{method:string, comparisons:Array<{i:number, j:number,
+ *            diff:number, se:number, q:number, df:number, pAdjusted:number,
+ *            ci:[number,number]}>, k:number, df:number, msWithin:number,
+ *            qCrit:number, conf:number}|null}
+ *          `diff` is mean i minus mean j, for i < j.
+ */
+export function tukeyHSD(groups, options = {}) {
+  const { conf = 0.95 } = options;
+  const a = oneWayAnova(groups);
+  if (!a) return null;
+  const jStat = requireVendor('jStat');
+  const { k, dfWithin: df, msWithin: ms, groupMeans: m, groupNs: n } = a;
+  const qCrit = jStat.tukey.inv(conf, k, df);
+
+  const comparisons = [];
+  for (let i = 0; i < k; i++) {
+    for (let j = i + 1; j < k; j++) {
+      const diff = m[i] - m[j];
+      const se = Math.sqrt((ms / 2) * (1 / n[i] + 1 / n[j]));
+      const q = se > 0 ? Math.abs(diff) / se : NaN;
+      comparisons.push({
+        i, j, diff, se, q, df,
+        pAdjusted: qUpperTail(q, k, df),
+        ci: [diff - qCrit * se, diff + qCrit * se]
+      });
+    }
+  }
+  return { method: 'Tukey HSD', comparisons, k, df, msWithin: ms, qCrit, conf };
+}
+
+/**
+ * Games–Howell pairwise comparisons, the counterpart of Tukey's HSD when
+ * variances differ, as after Welch's ANOVA (Games & Howell 1976).
+ *
+ * Each pair keeps its own standard error and Welch–Satterthwaite df:
+ *
+ *   SE = √(s_i²/n_i + s_j²/n_j),  t = (x̄_i − x̄_j)/SE,
+ *
+ * and |t|·√2 is referred to the studentized range for k means on that df.
+ * The interval is (x̄_i − x̄_j) ± q_crit/√2 · SE. Like Tukey's, the p-values
+ * and intervals already cover the whole family. SciPy has no Games–Howell;
+ * the tests check it against the formula with
+ * `scipy.stats.studentized_range`.
+ *
+ * @param {number[][]} groups
+ * @param {{conf?: number}} [options]
+ * @returns {{method:string, comparisons:Array<{i:number, j:number,
+ *            diff:number, se:number, t:number, df:number, pAdjusted:number,
+ *            ci:[number,number]}>, k:number, conf:number}|null}
+ */
+export function gamesHowell(groups, options = {}) {
+  const { conf = 0.95 } = options;
+  if (!Array.isArray(groups) || groups.length < 2) return null;
+  if (groups.some(g => !Array.isArray(g) || g.length < 2)) return null;
+  const jStat = requireVendor('jStat');
+  const k = groups.length;
+  const n = groups.map(g => g.length);
+  const m = groups.map(mean);
+  const v = groups.map(variance);
+
+  const comparisons = [];
+  for (let i = 0; i < k; i++) {
+    for (let j = i + 1; j < k; j++) {
+      const vi = v[i] / n[i];
+      const vj = v[j] / n[j];
+      const se = Math.sqrt(vi + vj);
+      const diff = m[i] - m[j];
+      if (!(se > 0)) {
+        comparisons.push({ i, j, diff, se, t: NaN, df: NaN, pAdjusted: NaN, ci: [NaN, NaN] });
+        continue;
+      }
+      const df = (vi + vj) ** 2 / (vi * vi / (n[i] - 1) + vj * vj / (n[j] - 1));
+      const t = diff / se;
+      const half = (jStat.tukey.inv(conf, k, df) / Math.SQRT2) * se;
+      comparisons.push({
+        i, j, diff, se, t, df,
+        pAdjusted: qUpperTail(Math.abs(t) * Math.SQRT2, k, df),
+        ci: [diff - half, diff + half]
+      });
+    }
+  }
+  return { method: 'Games-Howell', comparisons, k, conf };
+}
+
+/**
+ * Dunn's test of every pairwise difference after a Kruskal–Wallis test
+ * (Dunn 1964).
+ *
+ * It uses the mean ranks from the joint ranking of all groups, not a fresh
+ * ranking of each pair, so it stays consistent with the omnibus H. With the
+ * tie-corrected variance
+ *
+ *   σ² = [N(N+1)/12 − Σ(t³ − t)/(12(N − 1))] · (1/n_i + 1/n_j)
+ *      = C · N(N+1)/12 · (1/n_i + 1/n_j),
+ *
+ * where C is Kruskal–Wallis' tie correction, z = (R̄_i − R̄_j)/σ gives a
+ * two-sided normal p-value, with no continuity correction. The p-values are
+ * then adjusted across all k(k − 1)/2 pairs, by Holm's method unless asked
+ * otherwise (see `adjustPValues`). A difference in mean ranks has no
+ * confidence interval in the units of the data, so none is given.
+ *
+ * @param {number[][]} groups
+ * @param {{adjust?: 'holm'|'bonferroni'|'none'}} [options]
+ * @returns {{method:string, adjust:string, comparisons:Array<{i:number,
+ *            j:number, meanRankDiff:number, z:number, p:number,
+ *            pAdjusted:number}>, k:number, N:number,
+ *            meanRanks:number[]}|null}
+ */
+export function dunnTest(groups, options = {}) {
+  const { adjust = 'holm' } = options;
+  const kw = kruskalWallis(groups);
+  if (!kw) return null;
+  const { k, N, meanRanks, groupNs: n, tieCorrection: C } = kw;
+
+  const comparisons = [];
+  for (let i = 0; i < k; i++) {
+    for (let j = i + 1; j < k; j++) {
+      const d = meanRanks[i] - meanRanks[j];
+      const sigma = Math.sqrt(C * (N * (N + 1) / 12) * (1 / n[i] + 1 / n[j]));
+      const z = sigma > 0 ? d / sigma : NaN;
+      comparisons.push({ i, j, meanRankDiff: d, z, p: zTwoSided(z), pAdjusted: NaN });
+    }
+  }
+  const adj = adjustPValues(comparisons.map(c => c.p), adjust);
+  comparisons.forEach((c, idx) => { c.pAdjusted = adj[idx]; });
+  return { method: "Dunn's test", adjust, comparisons, k, N, meanRanks };
+}
+
+/* ------------------------------------------------------------------ *
  * Helpers
  * ------------------------------------------------------------------ */
 
