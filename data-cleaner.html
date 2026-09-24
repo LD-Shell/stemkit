@@ -67,10 +67,10 @@
 
 
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "HowTo", "name": "How to clean and transform a CSV", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Load your file", "text": "Drag a .csv, .tsv or .txt file onto the drop zone, or click to browse. The delimiter is detected automatically."}, {"@type": "HowToStep", "position": 2, "name": "Pick a column & operation", "text": "Choose a target column (or all numeric columns) and a transformation: drop missing values, remove duplicates, log/ln, absolute value, min–max or Z-score."}, {"@type": "HowToStep", "position": 3, "name": "Execute & inspect", "text": "Click Execute. Live per-column statistics (mean, median, σ, min, max, missing) update so you can sanity-check the result."}, {"@type": "HowToStep", "position": 4, "name": "Export", "text": "Use Revert State to undo everything, or Export to download cleaned_dataset.csv."}]}
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to clean and transform a CSV", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Load your file", "text": "Drag a .csv, .tsv or .txt file onto the drop zone, or choose one. The delimiter is detected automatically. Or load the sample to try the tool."}, {"@type": "HowToStep", "position": 2, "name": "Pick a column and an operation", "text": "Choose a column (or all columns) and an operation: drop missing values, remove duplicates, log/ln, absolute value, min–max or Z-score."}, {"@type": "HowToStep", "position": 3, "name": "Apply and inspect", "text": "Press Apply. Each change is listed in order, and per-column statistics (mean, median, σ, min, max, missing) update so you can check the result."}, {"@type": "HowToStep", "position": 4, "name": "Download", "text": "Use Undo all changes to go back to the file as loaded, or Download CSV to save cleaned_dataset.csv."}]}
 </script>
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my file uploaded to a server?", "acceptedAnswer": {"@type": "Answer", "text": "No. PapaParse reads the file in your browser and all processing stays in memory (RAM). Nothing is transmitted."}}, {"@type": "Question", "name": "Which file types work?", "acceptedAnswer": {"@type": "Answer", "text": "Comma-, tab- or semicolon-delimited text with a header row: .csv, .tsv or .txt. The delimiter is auto-detected."}}, {"@type": "Question", "name": "How is Z-Score calculated?", "acceptedAnswer": {"@type": "Answer", "text": "(value − column mean) / population standard deviation. Non-numeric and missing cells are ignored when computing the statistics."}}, {"@type": "Question", "name": "What does Min–Max do to a constant column?", "acceptedAnswer": {"@type": "Answer", "text": "If every value is identical there is no range to scale, so the column is set to 0."}}, {"@type": "Question", "name": "Why does the preview show only 100 rows?", "acceptedAnswer": {"@type": "Answer", "text": "Only the first 100 rows are rendered to keep the interface responsive; every row is still transformed and included in the export."}}]}
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my file uploaded to a server?", "acceptedAnswer": {"@type": "Answer", "text": "No. PapaParse reads the file in your browser and all processing stays in memory (RAM). Nothing is transmitted."}}, {"@type": "Question", "name": "Which file types work?", "acceptedAnswer": {"@type": "Answer", "text": "Comma-, tab- or semicolon-delimited text with a header row: .csv, .tsv or .txt. The delimiter is auto-detected."}}, {"@type": "Question", "name": "How is Z-Score calculated?", "acceptedAnswer": {"@type": "Answer", "text": "(value − column mean) / population standard deviation. Non-numeric and missing cells are ignored when computing the statistics."}}, {"@type": "Question", "name": "What does Min–Max do to a constant column?", "acceptedAnswer": {"@type": "Answer", "text": "If every value is identical there is no range to scale, so the column is set to 0."}}, {"@type": "Question", "name": "Why does the preview show only 200 rows?", "acceptedAnswer": {"@type": "Answer", "text": "Only the first 200 rows are drawn, to keep the page responsive; every row is still transformed and included in the download."}}]}
 </script>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
@@ -132,84 +132,109 @@
     </nav>
 
     <main id="main" class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
-        
-        <section id="uploadZone" class="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-brand-300 dark:border-brand-700 rounded-3xl bg-brand-50/50 dark:bg-brand-900/10 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-all cursor-pointer p-12 text-center group">
-            <input type="file" id="fileInput" accept=".csv" class="hidden" aria-label="Upload CSV dataset">
-            <div class="w-20 h-20 bg-brand-100 dark:bg-brand-900/50 rounded-2xl flex items-center justify-center mb-6 text-brand-600 dark:text-brand-400 group-hover:scale-110 transition-transform">
-                <i class="fa-solid fa-file-csv text-4xl"></i>
+
+        <header class="stk-pagehead">
+            <div>
+                <h1 class="stk-pagehead-title">Data Cleaner</h1>
+                <p class="stk-pagehead-lede">Drop missing values and duplicate rows, rescale or log-transform columns, and download the cleaned CSV.</p>
+                <ul class="stk-pagehead-meta">
+                    <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
+                    <li><a href="#method"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Method and equations</a></li>
+                </ul>
             </div>
-            <h1 class="text-3xl font-bold mb-3">Data Cleaner</h1>
-            <p class="text-slate-600 dark:text-slate-400 mb-6 max-w-md">Drag and drop raw data arrays here. Execute mathematical operations and drop null values entirely in RAM.</p>
-            <button class="bg-brand-600 hover:bg-brand-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-sm">
-                Select CSV Dataset
-            </button>
+        </header>
+
+        <section id="uploadZone" class="stk-drop" aria-labelledby="dc-drop-title">
+            <input type="file" id="fileInput" accept=".csv,.tsv,.txt" class="hidden" aria-label="Choose a data file">
+            <div class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-file-csv"></i></div>
+            <h2 id="dc-drop-title" class="stk-drop-title">Drop a CSV file here</h2>
+            <p class="stk-drop-text">Comma-, tab- or semicolon-separated columns under a header row.</p>
+            <div class="stk-drop-actions">
+                <button type="button" id="chooseFileBtn" class="stk-btn stk-btn-primary"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Choose file</button>
+                <button type="button" id="loadSampleBtn" class="stk-btn stk-btn-ghost"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load a sample</button>
+            </div>
+            <div class="stk-drop-formats"><span>.csv</span><span>.tsv</span><span>.txt</span></div>
         </section>
 
-        <section id="workspace" class="hidden flex-col gap-6 w-full">
-            
-            <div class="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm grid grid-cols-1 lg:grid-cols-12 gap-6 items-end">
-                
-                <div class="lg:col-span-3">
-                    <h2 id="fileName" class="font-bold text-lg truncate" title="Dataset Name">dataset.csv</h2>
-                    <p id="dataMeta" class="text-sm text-slate-500 dark:text-slate-400">0 Rows • 0 Columns</p>
-                </div>
-                
-                <div class="lg:col-span-7 flex flex-wrap gap-4 items-end bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <div class="flex-grow min-w-[150px]">
-                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wider">Target Column</label>
-                        <select id="colSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none"></select>
-                    </div>
-                    
-                    <div class="flex-grow min-w-[200px]">
-                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wider">Transformation</label>
-                        <select id="opSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
-                            <option value="drop_na">Drop Missing Values (NaN)</option>
-                            <option value="log10">Log10 Transform</option>
-                            <option value="ln">Natural Log (ln)</option>
-                            <option value="minmax">Min-Max Normalization (0-1)</option>
-                            <option value="zscore">Z-Score Standardization</option>
-                            <option value="abs">Absolute Value</option>
-                            <option value="dedupe">Remove Duplicate Rows</option>
-                        </select>
-                    </div>
+        <section id="workspace" class="hidden flex-col gap-6 w-full" aria-label="Your data">
 
-                    <button id="applyBtn" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white px-5 py-2 rounded-lg font-medium transition-colors shadow-sm">
-                        Execute
-                    </button>
+            <div class="dc-filebar" data-stk-step="1" data-stk-done="hidden:#uploadZone">
+                <div class="min-w-0">
+                    <h2 class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1, file loaded: </span><span id="fileName" class="truncate">dataset.csv</span></h2>
+                    <p id="dataMeta" class="dc-meta"></p>
                 </div>
-
-                <div class="lg:col-span-2 flex justify-end">
-                    <button id="exportBtn" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white px-5 py-2 rounded-lg font-medium transition-colors shadow-sm flex items-center w-full justify-center">
-                        <i class="fa-solid fa-download mr-2"></i> Export
-                    </button>
-                </div>
+                <button type="button" id="changeFileBtn" class="stk-btn stk-btn-sm"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Load another file</button>
             </div>
 
-            <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col h-[500px]">
-                <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 flex justify-between items-center">
-                    <span class="text-sm font-semibold text-slate-600 dark:text-slate-300">Data Array Preview (100 Rows Max)</span>
-                    <button id="resetDataBtn" class="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium transition-colors">
-                        <i class="fa-solid fa-rotate-left mr-1"></i> Revert State
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+                <section class="lg:col-span-8 bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm" data-stk-step="2" data-stk-done="text:#changeLog" aria-labelledby="dc-step2">
+                    <h2 id="dc-step2" class="stk-ptitle mb-4"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Clean and transform</h2>
+                    <div class="flex flex-wrap gap-4 items-end">
+                        <div class="flex-grow min-w-[150px]">
+                            <label for="colSelect" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Column</label>
+                            <select id="colSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none"></select>
+                        </div>
+                        <div class="flex-grow min-w-[200px]">
+                            <label for="opSelect" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Operation</label>
+                            <select id="opSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                                <option value="drop_na">Drop rows with missing values</option>
+                                <option value="dedupe">Remove duplicate rows</option>
+                                <option value="log10">Log10 transform</option>
+                                <option value="ln">Natural log (ln)</option>
+                                <option value="minmax">Min&ndash;max normalise (0 to 1)</option>
+                                <option value="zscore">Z-score standardise</option>
+                                <option value="abs">Absolute value</option>
+                            </select>
+                        </div>
+                        <button type="button" id="applyBtn" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white px-5 py-2 rounded-lg font-semibold transition-colors shadow-sm">
+                            Apply
+                        </button>
+                    </div>
+                    <div id="colStats" class="hidden dc-colstats"></div>
+                    <div class="dc-log">
+                        <div class="flex items-center justify-between gap-3">
+                            <h3 class="text-xs font-semibold text-slate-600 dark:text-slate-400">Changes so far</h3>
+                            <button type="button" id="resetDataBtn" class="text-xs font-semibold text-red-700 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+                                <i class="fa-solid fa-rotate-left mr-1" aria-hidden="true"></i> Undo all changes
+                            </button>
+                        </div>
+                        <p id="changeLogEmpty" class="dc-log-empty">None yet. Each operation you apply is listed here, in order.</p>
+                        <ol id="changeLog" class="dc-log-list" aria-live="polite"></ol>
+                    </div>
+                </section>
+
+                <section class="lg:col-span-4 bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm" data-stk-step="3" data-stk-done="text:#exportNote" aria-labelledby="dc-step3">
+                    <h2 id="dc-step3" class="stk-ptitle mb-2"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 3: </span>Download the result</h2>
+                    <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">Every row goes into the file, not only the ones in the preview.</p>
+                    <button type="button" id="exportBtn" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white px-5 py-2.5 rounded-lg font-semibold transition-colors shadow-sm flex items-center w-full justify-center gap-2">
+                        <i class="fa-solid fa-download" aria-hidden="true"></i> Download CSV
                     </button>
+                    <p id="exportNote" class="dc-export-note" aria-live="polite"></p>
+                </section>
+            </div>
+
+            <section class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col h-[500px]" aria-labelledby="dc-preview">
+                <div class="border-b border-slate-200 dark:border-slate-800 px-5 py-3 flex flex-wrap justify-between items-center gap-2">
+                    <h2 id="dc-preview" class="stk-ptitle">Preview</h2>
+                    <span id="previewNote" class="text-xs text-slate-600 dark:text-slate-400"></span>
                 </div>
-                <div id="colStats" class="hidden flex flex-wrap gap-x-5 gap-y-2 px-4 py-2 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-600 dark:text-slate-300 empty:hidden"></div>
                 <div class="table-container overflow-auto flex-grow relative">
                     <table class="w-full text-left text-sm whitespace-nowrap">
                         <thead id="tableHead" class="bg-slate-100 dark:bg-slate-800 sticky top-0 shadow-sm"></thead>
                         <tbody id="tableBody" class="divide-y divide-slate-100 dark:divide-slate-800/50"></tbody>
                     </table>
                 </div>
-            </div>
+            </section>
 
         </section>
-    
     <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
         <div class="stk-wrap">
             <span class="stk-chip"><i class="fa-solid fa-broom"></i> How-To Guide</span>
             <h2 class="stk-h2">How to clean and transform a CSV</h2>
             <p class="stk-lead">Load a CSV (or TSV) file, apply column transformations and drop missing rows, then export a tidy dataset, without opening Python, R or a spreadsheet.</p>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-step"><span class="stk-num">1</span><div><h3>Load your file</h3><p>Drag a <code>.csv</code>, <code>.tsv</code> or <code>.txt</code> file onto the drop zone, or click to browse. The delimiter is detected automatically.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Pick a column & operation</h3><p>Choose a target column (or all numeric columns) and a transformation: drop missing values, remove duplicates, log/ln, absolute value, min–max or Z-score.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Execute & inspect</h3><p>Click <strong>Execute</strong>. Live per-column statistics (mean, median, σ, min, max, missing) update so you can sanity-check the result.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Export</h3><p>Use <strong>Revert State</strong> to undo everything, or <strong>Export</strong> to download <code>cleaned_dataset.csv</code>.</p></div></div>
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Load your file</h3><p>Drag a <code>.csv</code>, <code>.tsv</code> or <code>.txt</code> file onto the drop zone, or press <strong>Choose file</strong>. The delimiter is detected automatically. <strong>Load a sample</strong> gives you a small file with gaps, a duplicate row and a skewed column to practise on.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Pick a column and an operation</h3><p>Choose a column (or all columns) and an operation: drop missing values, remove duplicates, log/ln, absolute value, min–max or Z-score.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Apply and inspect</h3><p>Press <strong>Apply</strong>. Each change is listed in order under <em>Changes so far</em>, and picking a single column shows its statistics (mean, median, σ, min, max, missing) so you can check the result.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Download</h3><p>Use <strong>Undo all changes</strong> to go back to the file as loaded, or <strong>Download CSV</strong> to save <code>cleaned_dataset.csv</code>.</p></div></div>
             </div>
         </div>
     </section>
@@ -252,7 +277,7 @@
         <div class="stk-wrap" style="max-width:52rem;">
             <h2 class="stk-h2">Frequently asked questions</h2>
             <div style="margin-top:1rem;">
-                <details class="stk-faq"><summary>Is my file uploaded to a server?</summary><div>No. PapaParse reads the file in your browser and all processing stays in memory (RAM). Nothing is transmitted.</div></details><details class="stk-faq"><summary>Which file types work?</summary><div>Comma-, tab- or semicolon-delimited text with a header row: .csv, .tsv or .txt. The delimiter is auto-detected.</div></details><details class="stk-faq"><summary>How is Z-Score calculated?</summary><div>(value − column mean) / population standard deviation. Non-numeric and missing cells are ignored when computing the statistics.</div></details><details class="stk-faq"><summary>What does Min–Max do to a constant column?</summary><div>If every value is identical there is no range to scale, so the column is set to 0.</div></details><details class="stk-faq"><summary>Why does the preview show only 100 rows?</summary><div>Only the first 100 rows are rendered to keep the interface responsive; every row is still transformed and included in the export.</div></details>
+                <details class="stk-faq"><summary>Is my file uploaded to a server?</summary><div>No. PapaParse reads the file in your browser and all processing stays in memory (RAM). Nothing is transmitted.</div></details><details class="stk-faq"><summary>Which file types work?</summary><div>Comma-, tab- or semicolon-delimited text with a header row: .csv, .tsv or .txt. The delimiter is auto-detected.</div></details><details class="stk-faq"><summary>How is Z-Score calculated?</summary><div>(value − column mean) / population standard deviation. Non-numeric and missing cells are ignored when computing the statistics.</div></details><details class="stk-faq"><summary>What does Min–Max do to a constant column?</summary><div>If every value is identical there is no range to scale, so the column is set to 0.</div></details><details class="stk-faq"><summary>Why does the preview show only 200 rows?</summary><div>Only the first 200 rows are drawn, to keep the page responsive; every row is still transformed and included in the download.</div></details>
             </div>
             <div class="stk-refs">
                 <a href="https://en.wikipedia.org/wiki/Feature_scaling" target="_blank" rel="noopener"><i class="fa-solid fa-ruler"></i> Feature scaling (min–max, standardization)</a><a href="https://en.wikipedia.org/wiki/Standard_score" target="_blank" rel="noopener"><i class="fa-solid fa-chart-simple"></i> Standard score (Z-score)</a><a href="https://www.papaparse.com/" target="_blank" rel="noopener"><i class="fa-solid fa-file-csv"></i> PapaParse CSV library</a>
@@ -324,7 +349,8 @@
         </div>
     </footer>
 
-    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
+    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3" role="status" aria-live="polite"></div>
+
 
     <script src="js/site.js"></script>
     <script type="module" src="js/data-cleaner.js"></script>
