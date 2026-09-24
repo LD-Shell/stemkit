@@ -6,12 +6,44 @@
  * generated into src/output.css and must not be hand-edited.
  */
 
-.accordion-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; max-height: 0; opacity: 0; overflow: hidden; }
+/* Once a file is open the page head shrinks to one line, and the workspace
+   below it keeps the viewport-high shell (.stk-shell-tall) it always had. */
+.xvg-main.is-loaded .xvg-head { padding-top: .75rem; }
+.xvg-main.is-loaded .stk-pagehead { padding-bottom: .5rem; margin-bottom: 0; }
+.xvg-main.is-loaded .stk-pagehead > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem 1.5rem; }
+.xvg-main.is-loaded .stk-pagehead-title { font-size: 1.25rem; }
+.xvg-main.is-loaded .stk-pagehead-lede { display: none; }
+.xvg-main.is-loaded .stk-pagehead-meta { margin-top: 0; }
+
+/* Side panel groups. */
+.xvg-group { display: flex; flex-direction: column; gap: .5rem; }
+.xvg-group + .xvg-group { padding-top: 1rem; border-top: 1px solid var(--stk-border); }
+.xvg-group-t { font-size: .8125rem; font-weight: 650; color: var(--stk-fg); }
+
+/* One row per series: tick to plot it, and send it to the right-hand axis. */
+.xvg-series { display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; border-radius: var(--stk-radius); border: 1px solid var(--stk-border); transition: background-color var(--stk-ease), border-color var(--stk-ease); }
+.xvg-series.is-on { background: var(--stk-accent-soft); border-color: var(--stk-accent-soft-border); }
+.xvg-series-main { display: flex; align-items: center; gap: .55rem; flex: 1 1 auto; min-width: 0; cursor: pointer; font-size: .8125rem; font-weight: 600; color: var(--stk-fg-2); }
+.xvg-series-main input { width: 1rem; height: 1rem; flex-shrink: 0; }
+.xvg-swatch { width: .7rem; height: .7rem; border-radius: 9999px; flex-shrink: 0; }
+.xvg-colno { margin-left: auto; flex-shrink: 0; font-size: .7rem; font-weight: 500; color: var(--stk-fg-muted); }
+.xvg-series.is-on .xvg-colno { color: var(--stk-fg-3); }
+.xvg-axis-btn { flex-shrink: 0; font-size: .7rem; font-weight: 600; padding: .15rem .45rem; border-radius: .35rem; border: 1px solid var(--stk-border-strong); background: var(--stk-surface); color: var(--stk-fg-3); cursor: pointer; }
+.xvg-axis-btn:hover { border-color: var(--stk-accent); color: var(--stk-accent-text); }
+.xvg-axis-btn[aria-pressed="true"] { background: var(--stk-accent); border-color: var(--stk-accent); color: var(--stk-accent-fg); }
+
+.xvg-plot-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 1.5rem; text-align: center; font-size: .875rem; color: var(--stk-fg-3); }
+.xvg-plot-empty.hidden { display: none; }
+
+.accordion-content { max-height: 0; opacity: 0; overflow: hidden; }
 .accordion-content.expanded { max-height: 800px; opacity: 1; overflow: visible; }
-.accordion-icon { transition: transform 0.3s ease; }
 .accordion-btn[aria-expanded="true"] .accordion-icon { transform: rotate(180deg); }
+@media (prefers-reduced-motion: no-preference) {
+  .accordion-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; }
+  .accordion-icon { transition: transform 0.3s ease; }
+}
+
 .custom-scroll::-webkit-scrollbar { width: 6px; }
 .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-.custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
-.dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
+.custom-scroll::-webkit-scrollbar-thumb { background-color: var(--stk-border-strong); border-radius: 20px; }
 #xvgCodeModal.open { display:flex; }

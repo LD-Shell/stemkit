@@ -10,8 +10,16 @@ import {
   extractColumn,
   defaultActiveColumns,
   generateSampleXvg,
-  generateMatplotlibCode
+  generateMatplotlibCode,
+  pythonLiteral
 } from '../src/core/xvg-parser.js';
+
+// Font Awesome's Python mark, for the button added to Plotly's toolbar.
+const PYTHON_ICON = {
+  width: 448,
+  height: 512,
+  path: 'M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6zM286.2 404c11.1 0 20.1 9.1 20.1 20.3 0 11.3-9 20.4-20.1 20.4-11 0-20.1-9.2-20.1-20.4.1-11.3 9.1-20.3 20.1-20.3zM167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4zm-6.7-142.6c-11.1 0-20.1-9.1-20.1-20.3.1-11.3 9-20.4 20.1-20.4 11 0 20.1 9.2 20.1 20.4s-9 20.3-20.1 20.3z'
+};
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -21,15 +29,20 @@ document.addEventListener('DOMContentLoaded', () => {
     headers: [],
     xIndex: 0,
     activeYIndices: new Set([1]),
+    rightAxis: new Set(),
+    fileName: 'your_file.xvg',
     title: 'Log Data',
     xAxisLabel: 'X',
     yAxisLabel: 'Y'
   };
 
   // # --- 2. Interface bindings ---
+  const main = document.getElementById('main');
+  const stage = document.getElementById('xvgStage');
+  const uploadWrap = document.getElementById('uploadWrap');
   const uploadZone = document.getElementById('uploadZone');
-  const dropArea = document.getElementById('dropArea');
   const fileInput = document.getElementById('fileInput');
+  const chooseFileBtn = document.getElementById('chooseFileBtn');
   const workspace = document.getElementById('workspace');
   const btnCloseWorkspace = document.getElementById('btnCloseWorkspace');
 
@@ -43,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const plotSmoothing = document.getElementById('plotSmoothing');
   const plotContainer = document.getElementById('plotContainer');
   const plotLoader = document.getElementById('plotLoader');
+  const plotEmptyNote = document.getElementById('plotEmptyNote');
 
   const showLoader = (on) => {
     plotLoader.classList.toggle('hidden', !on);
@@ -52,38 +66,32 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.accordion-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const isExpanded = btn.getAttribute('aria-expanded') === 'true';
-      btn.setAttribute('aria-expanded', !isExpanded);
+      btn.setAttribute('aria-expanded', String(!isExpanded));
       document.getElementById(btn.getAttribute('data-target')).classList.toggle('expanded');
     });
   });
 
-  // The HTML toggle already flips the .dark class; here we only need to re-render
-  // the plot so its colours track the new theme (toggling again would cancel out).
-  document.querySelectorAll('.themeToggle').forEach(btn => btn.addEventListener('click', () => {
-    if (state.rawData.length > 0) setTimeout(renderPlot, 30);
+  // Re-draw when the theme changes so the plot's colours follow it.
+  new MutationObserver(() => { if (state.rawData.length > 0) renderPlot(); })
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+  // # --- 3. The file loader ---
+  ['dragenter', 'dragover'].forEach(evt => uploadZone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    uploadZone.classList.add('is-over');
   }));
-
-  // # --- 3. I/O and drop handlers ---
-  dropArea.addEventListener('click', () => fileInput.click());
-
-  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-    dropArea.addEventListener(eventName, preventDefaults, false);
+  uploadZone.addEventListener('dragleave', (e) => {
+    if (!uploadZone.contains(e.relatedTarget)) uploadZone.classList.remove('is-over');
   });
-
-  function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
-
-  ['dragenter', 'dragover'].forEach(eventName => {
-    dropArea.addEventListener(eventName, () => dropArea.classList.add('bg-brand-100', 'dark:bg-brand-900/30', 'border-brand-400'));
+  uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('is-over');
+    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
   });
-
-  ['dragleave', 'drop'].forEach(eventName => {
-    dropArea.addEventListener(eventName, () => dropArea.classList.remove('bg-brand-100', 'dark:bg-brand-900/30', 'border-brand-400'));
+  uploadZone.addEventListener('click', (e) => {
+    if (!e.target.closest('button')) fileInput.click();
   });
-
-  dropArea.addEventListener('drop', (e) => {
-    const files = e.dataTransfer.files;
-    if (files.length > 0) handleFile(files[0]);
-  });
+  chooseFileBtn.addEventListener('click', () => fileInput.click());
 
   fileInput.addEventListener('change', (e) => {
     if (e.target.files.length > 0) handleFile(e.target.files[0]);
@@ -91,37 +99,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Built-in sample: a synthetic GROMACS RMSD .xvg generated by the core module.
   const sampleXvgBtn = document.getElementById('loadSampleXvg');
-  if (sampleXvgBtn) sampleXvgBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showLoader(true);
-    uploadZone.classList.add('opacity-0', 'pointer-events-none');
-    workspace.classList.remove('hidden');
+  if (sampleXvgBtn) sampleXvgBtn.addEventListener('click', () => {
+    openWorkspace();
     loadBuffer(generateSampleXvg({ seed: Date.now() >>> 0 }), 'sample_rmsd.xvg');
-    showLoader(false);
   });
 
   btnCloseWorkspace.addEventListener('click', () => {
     workspace.classList.add('hidden');
-    uploadZone.classList.remove('opacity-0', 'pointer-events-none');
+    uploadWrap.classList.remove('hidden');
+    stage.classList.remove('stk-shell-tall');
+    main.classList.remove('is-loaded');
     fileInput.value = '';
     state.rawData = [];
     Plotly.purge(plotContainer);
+    window.scrollTo(0, 0);
+    chooseFileBtn.focus();
   });
+
+  /**
+   * Swap the loader for the workspace. The head shrinks to one line and the
+   * workspace keeps the viewport-high shell it always had; the page scrolls
+   * so the workspace fills the screen under the site header.
+   */
+  function openWorkspace() {
+    main.classList.add('is-loaded');
+    uploadWrap.classList.add('hidden');
+    stage.classList.add('stk-shell-tall');
+    workspace.classList.remove('hidden');
+    const nav = document.querySelector('nav');
+    const top = stage.getBoundingClientRect().top + window.scrollY - (nav ? nav.offsetHeight : 0);
+    window.scrollTo(0, Math.max(0, top));
+  }
 
   // # --- 4. File intake (delegates all parsing to the core) ---
   function handleFile(file) {
+    openWorkspace();
     showLoader(true);
-    uploadZone.classList.add('opacity-0', 'pointer-events-none');
-    workspace.classList.remove('hidden');
-
     // FileReader keeps even very large GROMACS/PMF outputs entirely client-side.
     const reader = new FileReader();
     reader.onload = (e) => loadBuffer(e.target.result, file.name);
     reader.onerror = () => {
       showLoader(false);
-      fileStats.innerText = 'Could not read file';
+      fileStats.innerText = `Could not read ${file.name}.`;
     };
     reader.readAsText(file);
+    fileInput.value = '';
   }
 
   function loadBuffer(rawText, filename) {
@@ -129,24 +151,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     state.rawData = result.matrix;
     state.headers = result.headers;
+    state.fileName = filename;
     state.title = result.title;
     state.xAxisLabel = result.xAxisLabel;
     state.yAxisLabel = result.yAxisLabel;
     state.xIndex = 0;
     state.activeYIndices = new Set(defaultActiveColumns(result.colCount));
+    state.activeYIndices.delete(0);
+    state.rightAxis = new Set();
 
     if (result.rowCount === 0) {
-      fileStats.innerText = 'No numeric data found';
+      fileStats.innerText = `${filename}: no numeric data found.`;
       yColContainer.innerHTML = '';
       xColSelect.innerHTML = '';
       Plotly.purge(plotContainer);
+      plotEmptyNote.textContent = 'This file has no rows of numbers to plot.';
+      plotEmptyNote.classList.remove('hidden');
       showLoader(false);
       return;
     }
 
-    let summary = `${result.rowCount.toLocaleString()} rows × ${result.colCount} cols`;
-    if (result.skippedLines > 0) summary += ` · ${result.skippedLines} line(s) skipped`;
-    fileStats.innerText = summary;
+    let summary = `${filename}: ${result.rowCount.toLocaleString()} rows, ${result.colCount} columns`;
+    if (result.skippedLines > 0) {
+      summary += `, ${result.skippedLines} line${result.skippedLines === 1 ? '' : 's'} skipped`;
+    }
+    fileStats.innerText = summary + '.';
 
     buildControlsUI(result.colCount);
     renderPlot();
@@ -154,58 +183,99 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // # --- 5. User interface mapping ---
+  const colName = (i) => state.headers[i] || `Column ${i}`;
+  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
   function buildControlsUI(colCount) {
+    state.colCount = colCount;
     xColSelect.innerHTML = '';
     state.headers.forEach((hdr, idx) => {
       const opt = document.createElement('option');
       opt.value = idx;
-      opt.textContent = `[Col ${idx}] ${hdr}`;
+      opt.textContent = `${colName(idx)} (column ${idx})`;
       xColSelect.appendChild(opt);
     });
     xColSelect.value = state.xIndex;
 
     xColSelect.onchange = (e) => {
       state.xIndex = parseInt(e.target.value, 10);
+      // The X column cannot also be a series against itself.
+      state.activeYIndices.delete(state.xIndex);
+      state.rightAxis.delete(state.xIndex);
+      renderSeriesList(colCount);
       renderPlot();
     };
 
-    yColContainer.innerHTML = '';
-    for (let i = 0; i < colCount; i++) {
-      const div = document.createElement('label');
-      const isActive = state.activeYIndices.has(i);
-      const color = COLOR_PALETTE[i % COLOR_PALETTE.length];
-
-      div.className = `flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-colors ${isActive ? 'bg-brand-50 dark:bg-brand-900/20 border-brand-200 dark:border-brand-800' : 'bg-transparent border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`;
-
-      div.innerHTML = `
-                <div class="flex items-center gap-3 truncate">
-                    <input type="checkbox" value="${i}" class="y-toggle w-4 h-4 text-brand-600 rounded focus:ring-0" ${isActive ? 'checked' : ''}>
-                    <div class="w-3 h-3 rounded-full shrink-0" style="background-color: ${color}"></div>
-                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300 truncate" title="${state.headers[i]}">[Col ${i}] ${state.headers[i]}</span>
-                </div>
-            `;
-
-      div.querySelector('input').addEventListener('change', (e) => {
-        const idx = parseInt(e.target.value, 10);
-        if (e.target.checked) state.activeYIndices.add(idx);
-        else state.activeYIndices.delete(idx);
-
-        div.className = `flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-colors ${e.target.checked ? 'bg-brand-50 dark:bg-brand-900/20 border-brand-200 dark:border-brand-800' : 'bg-transparent border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'}`;
-
-        renderPlot();
-      });
-      yColContainer.appendChild(div);
-    }
+    renderSeriesList(colCount);
   }
 
-  btnToggleAll.addEventListener('click', () => {
-    const checkboxes = document.querySelectorAll('.y-toggle');
-    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+  /** One row per column except the X column: tick to plot, and an axis toggle. */
+  function renderSeriesList(colCount) {
+    yColContainer.innerHTML = '';
+    for (let i = 0; i < colCount; i++) {
+      if (i === state.xIndex) continue;
+      const color = COLOR_PALETTE[i % COLOR_PALETTE.length];
+      const row = document.createElement('div');
+      row.className = 'xvg-series';
+      row.innerHTML = `
+        <label class="xvg-series-main">
+          <input type="checkbox" value="${i}" class="y-toggle">
+          <span class="xvg-swatch" style="background-color:${color}" aria-hidden="true"></span>
+          <span class="truncate" title="${escapeHtml(colName(i))}">${escapeHtml(colName(i))}</span>
+          <span class="xvg-colno">col ${i}</span>
+        </label>
+        <button type="button" class="xvg-axis-btn" aria-pressed="false" title="Plot this series against a second y-axis on the right">Right axis</button>`;
 
-    checkboxes.forEach(cb => {
-      cb.checked = !allChecked;
-      cb.dispatchEvent(new Event('change'));
-    });
+      const box = row.querySelector('input');
+      const axisBtn = row.querySelector('.xvg-axis-btn');
+      const sync = () => {
+        box.checked = state.activeYIndices.has(i);
+        row.classList.toggle('is-on', box.checked);
+        axisBtn.hidden = !box.checked;
+        axisBtn.setAttribute('aria-pressed', String(state.rightAxis.has(i)));
+        axisBtn.setAttribute('aria-label', `Plot ${colName(i)} on the right-hand y-axis`);
+      };
+      box.addEventListener('change', () => {
+        if (box.checked) state.activeYIndices.add(i);
+        else { state.activeYIndices.delete(i); state.rightAxis.delete(i); }
+        sync();
+        syncToggleAll();
+        renderPlot();
+      });
+      axisBtn.addEventListener('click', () => {
+        if (state.rightAxis.has(i)) state.rightAxis.delete(i);
+        else state.rightAxis.add(i);
+        sync();
+        renderPlot();
+      });
+      sync();
+      yColContainer.appendChild(row);
+    }
+    syncToggleAll();
+  }
+
+  const seriesBoxes = () => Array.from(yColContainer.querySelectorAll('.y-toggle'));
+
+  function syncToggleAll() {
+    const boxes = seriesBoxes();
+    btnToggleAll.textContent = boxes.length && boxes.every(cb => cb.checked) ? 'Clear all' : 'Select all';
+  }
+
+  // Select all / Clear all changes the state once and draws once; firing a
+  // change per checkbox made Plotly re-render in a burst and trip over itself.
+  btnToggleAll.addEventListener('click', () => {
+    const ids = [];
+    for (let i = 0; i < (state.colCount || 0); i++) if (i !== state.xIndex) ids.push(i);
+    const allOn = ids.length > 0 && ids.every(i => state.activeYIndices.has(i));
+    if (allOn) {
+      state.activeYIndices.clear();
+      state.rightAxis.clear();
+    } else {
+      ids.forEach(i => state.activeYIndices.add(i));
+    }
+    renderSeriesList(state.colCount);
+    renderPlot();
   });
 
   [plotLogY, plotMarkers, plotSmoothing].forEach(ctrl => {
@@ -213,11 +283,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // # --- 6. Rendering ---
+  /** Series that go on the right axis; none unless something stays on the left. */
+  function rightSeries() {
+    const active = [...state.activeYIndices];
+    const right = active.filter(i => state.rightAxis.has(i));
+    return right.length && right.length < active.length ? new Set(right) : new Set();
+  }
+
   function renderPlot() {
     if (state.rawData.length === 0 || state.activeYIndices.size === 0) {
       Plotly.purge(plotContainer);
+      plotEmptyNote.textContent = 'Tick at least one series to plot.';
+      plotEmptyNote.classList.toggle('hidden', state.rawData.length === 0);
       return;
     }
+    plotEmptyNote.classList.add('hidden');
 
     const isDark = document.documentElement.classList.contains('dark');
     const fontColor = isDark ? '#cbd5e1' : '#334155';
@@ -226,11 +306,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const xData = extractColumn(state.rawData, state.xIndex);
     const traces = [];
+    const right = rightSeries();
 
     const showMarkers = plotMarkers.checked;
     const smoothing = parseFloat(plotSmoothing.value);
 
-    state.activeYIndices.forEach(yIdx => {
+    [...state.activeYIndices].sort((a, b) => a - b).forEach(yIdx => {
       const yData = extractColumn(state.rawData, yIdx);
 
       const lineConfig = { color: COLOR_PALETTE[yIdx % COLOR_PALETTE.length], width: 2 };
@@ -244,7 +325,8 @@ document.addEventListener('DOMContentLoaded', () => {
         y: yData,
         mode: showMarkers ? 'lines+markers' : 'lines',
         type: 'scatter',
-        name: state.headers[yIdx],
+        name: right.has(yIdx) ? `${colName(yIdx)} (right axis)` : colName(yIdx),
+        yaxis: right.has(yIdx) ? 'y2' : 'y',
         line: lineConfig,
         marker: { size: 4 }
       });
@@ -256,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
       paper_bgcolor: bgColor,
       font: { family: 'Inter', color: fontColor },
       xaxis: {
-        title: state.headers[state.xIndex],
+        title: colName(state.xIndex),
         gridcolor: gridColor,
         zerolinecolor: gridColor
       },
@@ -266,51 +348,121 @@ document.addEventListener('DOMContentLoaded', () => {
         gridcolor: gridColor,
         zerolinecolor: gridColor
       },
-      margin: { t: 60, r: 40, b: 60, l: 60 },
+      margin: { t: 70, r: right.size ? 70 : 30, b: 60, l: 60 },
       showlegend: true,
-      legend: { orientation: 'h', yanchor: 'bottom', y: 1.02, xanchor: 'right', x: 1 },
+      // Top left, under the title: the toolbar owns the top-right corner.
+      legend: { orientation: 'h', yanchor: 'bottom', y: 1.01, xanchor: 'left', x: 0 },
       hovermode: 'closest'
     };
+    if (right.size) {
+      layout.yaxis2 = {
+        title: [...right].map(colName).join(', '),
+        overlaying: 'y',
+        side: 'right',
+        type: plotLogY.checked ? 'log' : 'linear',
+        showgrid: false,
+        zerolinecolor: gridColor
+      };
+    }
 
     const config = {
       responsive: true,
       displaylogo: false,
       modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-      toImageButtonOptions: { format: 'png', filename: 'extracted_plot', height: 600, width: 800, scale: 2 }
+      modeBarButtonsToAdd: [{
+        name: 'Python (matplotlib) code',
+        icon: PYTHON_ICON,
+        click: openPythonCode
+      }],
+      toImageButtonOptions: { format: 'png', filename: 'xvg_plot', height: 600, width: 900, scale: 2 }
     };
 
     Plotly.react(plotContainer, traces, layout, config);
   }
+
+  const pngBtn = document.getElementById('xvgPngBtn');
+  if (pngBtn) pngBtn.addEventListener('click', () => {
+    if (!state.rawData.length || !state.activeYIndices.size) return;
+    Plotly.downloadImage(plotContainer, { format: 'png', filename: 'xvg_plot', height: 600, width: 900, scale: 2 });
+  });
 
   // # --- 7. matplotlib code export (generation delegated to the core) ---
   const xvgModal = document.getElementById('xvgCodeModal');
   const xvgCodeBlock = document.getElementById('xvgCodeBlock');
   const xvgPyBtn = document.getElementById('xvgPyBtn');
 
-  if (xvgPyBtn) xvgPyBtn.addEventListener('click', () => {
-    xvgCodeBlock.textContent = generateMatplotlibCode({
+  /**
+   * The core writes one axis. Series on the right-hand axis are added here on
+   * a twinx() axis, and the legend is rebuilt from both, so the script draws
+   * what the page shows.
+   */
+  function pythonCode() {
+    const right = rightSeries();
+    const active = [...state.activeYIndices].sort((a, b) => a - b);
+    const left = active.filter(i => !right.has(i));
+    const columnsLine = `# Columns: ${state.xIndex} = ${colName(state.xIndex)}` +
+      active.map(i => `, ${i} = ${colName(i)}`).join('');
+    let code = generateMatplotlibCode({
       headers: state.headers,
       xIndex: state.xIndex,
-      yIndices: [...state.activeYIndices],
+      yIndices: left,
       title: state.title,
       xAxisLabel: state.xAxisLabel,
       yAxisLabel: state.yAxisLabel,
       showMarkers: plotMarkers.checked,
-      logY: plotLogY.checked
+      logY: plotLogY.checked,
+      filename: state.fileName
     });
-    xvgModal.classList.add('open');
-  });
+    code = code.replace(/^# Columns: .*$/m, () => columnsLine);
+    if (!right.size) return code;
 
+
+    const style = plotMarkers.checked ? ", marker='o', markersize=3" : '';
+    let twin = '\n# Second y-axis, on the right, for series on a different scale\nax2 = ax.twinx()\n';
+    for (const i of right) {
+      twin += `ax2.plot(x, data[:, ${i}], color='${COLOR_PALETTE[i % COLOR_PALETTE.length]}', ` +
+              `lw=1.5${style}, label=${pythonLiteral(colName(i))})\n`;
+    }
+    twin += `ax2.set_ylabel(${pythonLiteral([...right].map(colName).join(', '))})\n`;
+    if (plotLogY.checked) twin += "ax2.set_yscale('log')\n";
+    twin += "ax2.spines['top'].set_visible(False)\n";
+
+    // After the last ax.plot line, and one legend listing both axes' lines.
+    const lines = code.split('\n');
+    const last = lines.map(l => l.startsWith('ax.plot(')).lastIndexOf(true);
+    lines.splice(last + 1, 0, twin.trimEnd());
+    code = lines.join('\n')
+      .replace('ax.legend(frameon=True)',
+        'handles = ax.get_lines() + ax2.get_lines()\nax.legend(handles, [h.get_label() for h in handles], frameon=True)')
+      .replace("ax.spines['right'].set_visible(False)\n", '');
+    return code;
+  }
+
+  function openPythonCode() {
+    if (!state.rawData.length) return;
+    xvgCodeBlock.textContent = pythonCode();
+    xvgModal.classList.add('open');
+    const copy = document.getElementById('xvgCopyCode');
+    if (copy) copy.focus();
+  }
+
+  if (xvgPyBtn) xvgPyBtn.addEventListener('click', openPythonCode);
+
+  const closeModal = () => { xvgModal.classList.remove('open'); if (xvgPyBtn) xvgPyBtn.focus(); };
   const xvgClose = document.getElementById('xvgCloseCode');
-  if (xvgClose) xvgClose.addEventListener('click', () => xvgModal.classList.remove('open'));
-  if (xvgModal) xvgModal.addEventListener('click', e => { if (e.target === xvgModal) xvgModal.classList.remove('open'); });
+  if (xvgClose) xvgClose.addEventListener('click', closeModal);
+  if (xvgModal) xvgModal.addEventListener('click', e => { if (e.target === xvgModal) closeModal(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && xvgModal && xvgModal.classList.contains('open')) closeModal();
+  });
 
   const xvgCopy = document.getElementById('xvgCopyCode');
   if (xvgCopy) xvgCopy.addEventListener('click', () => {
     navigator.clipboard.writeText(xvgCodeBlock.textContent).then(() => {
       const t = document.createElement('div');
-      t.className = 'fixed bottom-6 right-6 bg-emerald-600 text-white text-sm font-bold px-4 py-2 rounded-lg shadow-xl z-[70]';
-      t.textContent = 'matplotlib code copied!';
+      t.setAttribute('role', 'status');
+      t.className = 'fixed bottom-6 right-6 bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-lg shadow-xl z-[70]';
+      t.textContent = 'Copied the matplotlib code.';
       document.body.appendChild(t);
       setTimeout(() => t.remove(), 2000);
     });
