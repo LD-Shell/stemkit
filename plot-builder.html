@@ -124,183 +124,246 @@
     </nav>
 
     <div class="flex-grow w-full flex flex-col relative">
-        <main id="main" class="stk-shell flex-grow max-w-[1600px] mx-auto px-4 py-6 w-full flex flex-col lg:flex-row gap-6">
-        <h1 class="sr-only">Plot Builder</h1>
-            
-            <aside class="stk-shell-pane w-full lg:w-[450px] flex flex-col gap-6 lg:pr-2 pb-8 scrollbar-hide flex-shrink-0">
-                
-                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-                    <h2 class="text-base font-bold mb-3 flex items-center justify-between">
-                        <span>1. Data pool</span>
-                        <span class="text-xs font-normal text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">CSV format</span>
-                    </h2>
-                    
-                    <div id="uploadZone" class="border-2 border-dashed border-brand-300 dark:border-brand-700 rounded-xl bg-brand-50/50 dark:bg-brand-900/10 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-all cursor-pointer p-4 text-center group">
-                        <input type="file" id="fileInput" accept=".csv" multiple class="hidden">
-                        <p class="text-sm font-medium text-slate-600 dark:text-slate-300"><i class="fa-solid fa-file-csv mr-1 text-brand-500"></i> Drop files or click to add</p>
-                    </div>
-                    <div class="mt-2 text-center">
-                        <button id="loadSampleBtn" class="pb-sample-btn"><i class="fa-solid fa-flask-vial"></i> Load sample dataset</button>
-                    </div>
-                    <div id="fileInventory" class="mt-3 flex flex-col gap-2 empty:hidden"></div>
-                </div>
+        <main id="main" class="stk-shell pb-shell flex-grow max-w-[1600px] mx-auto px-4 py-6 w-full flex flex-col lg:flex-row gap-6">
+            <h1 class="sr-only">Plot Builder</h1>
 
-                <div id="datasetContainer" class="flex flex-col gap-4 hidden">
-                    <div class="flex justify-between items-center">
-                        <h2 class="text-base font-bold">2. Active traces</h2>
-                        <button id="addTraceBtn" class="text-xs font-bold text-brand-600 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 transition-colors">
-                            <i class="fa-solid fa-plus mr-1"></i> Add trace
-                        </button>
-                    </div>
-                    <div id="traceList" class="flex flex-col gap-3"></div>
-                </div>
+            <aside class="stk-shell-pane pb-pane w-full lg:w-[450px] flex flex-col gap-5 lg:pr-2 pb-8 flex-shrink-0" aria-label="Figure settings">
 
-                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-                    <h2 class="text-base font-bold mb-4">3. Aesthetics & layout</h2>
-                    
-                    <div class="flex flex-col gap-4">
-                        <div>
-                            <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Titles</label>
-                            <input type="text" id="plotTitle" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-500 mb-2" placeholder="Main Plot Title">
-                            <div class="grid grid-cols-2 gap-2">
-                                <input type="text" id="xAxisLabel" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-500" placeholder="X-Axis Label">
-                                <input type="text" id="yAxisLabel" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-500" placeholder="Y-Axis Label">
+                <section class="pb-panel" data-stk-step="1" data-stk-done="text:#fileInventory" aria-labelledby="pb-s1">
+                    <h2 id="pb-s1" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1: </span>Add data</h2>
+
+                    <div id="uploadZone" class="stk-drop stk-drop-sm">
+                        <input type="file" id="fileInput" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" multiple hidden>
+                        <span class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-file-csv"></i></span>
+                        <h3 class="stk-drop-title">Drop CSV files here</h3>
+                        <p class="stk-drop-text">A header row, then columns of numbers.</p>
+                        <div class="stk-drop-actions">
+                            <button type="button" id="chooseFileBtn" class="stk-btn stk-btn-sm stk-btn-primary"><i class="fa-solid fa-folder-open" aria-hidden="true"></i> Choose files</button>
+                            <button type="button" id="loadSampleBtn" class="stk-btn stk-btn-sm stk-btn-ghost" data-pb-sample><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load example</button>
+                        </div>
+                        <p class="stk-drop-formats"><span>.csv</span><span>.tsv</span><span>.txt</span></p>
+                    </div>
+
+                    <ul id="fileInventory" class="pb-files" aria-label="Loaded files"></ul>
+                </section>
+
+                <section class="pb-panel" data-stk-step="2" data-stk-done="text:#traceList" aria-labelledby="pb-s2">
+                    <div class="pb-panel-h">
+                        <h2 id="pb-s2" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Traces</h2>
+                        <button type="button" id="addTraceBtn" class="stk-btn stk-btn-sm stk-btn-soft" disabled><i class="fa-solid fa-plus" aria-hidden="true"></i> Add trace</button>
+                    </div>
+                    <p id="traceEmpty" class="pb-note">Each trace plots one column against another. The first is drawn as soon as a file loads.</p>
+                    <div id="traceList" class="pb-traces"></div>
+                </section>
+
+                <section class="pb-panel" data-stk-step="3" data-stk-done="text:#exportStatus" aria-labelledby="pb-s3">
+                    <h2 id="pb-s3" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 3: </span>Style and export</h2>
+
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">Labels</h3>
+                        <div class="stk-field">
+                            <label for="plotTitle">Title</label>
+                            <input type="text" id="plotTitle" class="stk-input stk-input-sm" placeholder="None" autocomplete="off">
+                        </div>
+                        <div class="pb-grid2">
+                            <div class="stk-field">
+                                <label for="xAxisLabel">X-axis label</label>
+                                <input type="text" id="xAxisLabel" class="stk-input stk-input-sm" placeholder="Column name" autocomplete="off">
+                            </div>
+                            <div class="stk-field">
+                                <label for="yAxisLabel">Y-axis label</label>
+                                <input type="text" id="yAxisLabel" class="stk-input stk-input-sm" placeholder="Column name" autocomplete="off">
                             </div>
                         </div>
-                        
-                        <div class="grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-800 pt-4">
-                            <div>
-                                <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Axes & grid</label>
-                                <label class="flex items-center gap-2 text-sm cursor-pointer mb-2">
-                                    <input type="checkbox" id="showFrame" class="rounded text-brand-600" checked> Boxed frame
-                                </label>
-                                <label class="flex items-center gap-2 text-sm cursor-pointer mb-2">
-                                    <input type="checkbox" id="showGridX" class="rounded text-brand-600"> Inner X grid
-                                </label>
-                                <label class="flex items-center gap-2 text-sm cursor-pointer">
-                                    <input type="checkbox" id="showGridY" class="rounded text-brand-600"> Inner Y grid
-                                </label>
+                        <p class="stk-hint">Blank axis labels use the column names. Write <code>OD&lt;sub&gt;600&lt;/sub&gt;</code> or <code>m&lt;sup&gt;2&lt;/sup&gt;</code> for sub- and superscripts.</p>
+                    </div>
+
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">Figure size</h3>
+                        <div class="stk-field">
+                            <label for="sizePreset">Size</label>
+                            <select id="sizePreset" class="stk-select stk-select-sm">
+                                <option value="single" selected>Single column, 3.5 × 2.6 in</option>
+                                <option value="double">Double column, 7.2 × 4.5 in</option>
+                                <option value="slide">Slide 16:9, 10 × 5.6 in</option>
+                                <option value="square">Square, 4 × 4 in</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                        </div>
+                        <div class="pb-grid3">
+                            <div class="stk-field">
+                                <label for="exportWidth">Width</label>
+                                <input type="number" id="exportWidth" class="stk-input stk-input-sm" value="3.5" min="0" step="any" inputmode="decimal">
                             </div>
-                            
-                            <div>
-                                <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Scale & ticks</label>
-                                <label class="flex items-center gap-2 text-sm cursor-pointer mb-2">
-                                    <input type="checkbox" id="xLogScale" class="rounded text-brand-600"> X log scale
-                                </label>
-                                <label class="flex items-center gap-2 text-sm cursor-pointer mb-3">
-                                    <input type="checkbox" id="yLogScale" class="rounded text-brand-600"> Y log scale
-                                </label>
-                                <select id="tickStyle" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs outline-none focus:border-brand-500">
-                                    <option value="inside">Ticks: Inside</option>
-                                    <option value="outside">Ticks: Outside</option>
-                                    <option value="">Ticks: Hidden</option>
+                            <div class="stk-field">
+                                <label for="exportHeight">Height</label>
+                                <input type="number" id="exportHeight" class="stk-input stk-input-sm" value="2.63" min="0" step="any" inputmode="decimal">
+                            </div>
+                            <div class="stk-field">
+                                <label for="exportDpi">Resolution</label>
+                                <select id="exportDpi" class="stk-select stk-select-sm">
+                                    <option value="72">72 dpi</option>
+                                    <option value="150">150 dpi</option>
+                                    <option value="300" selected>300 dpi</option>
+                                    <option value="600">600 dpi</option>
                                 </select>
                             </div>
                         </div>
-
-                        <div class="border-t border-slate-100 dark:border-slate-800 pt-4">
-                            <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Legend configuration</label>
-                            <select id="legendPosition" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-brand-500">
-                                <option value="top-right">Inner Top Right</option>
-                                <option value="top-left">Inner Top Left</option>
-                                <option value="bottom-right">Inner Bottom Right</option>
-                                <option value="outside">Outside Right</option>
-                                <option value="hidden">Hidden</option>
-                            </select>
-                        </div>
-
-                        <div class="border-t border-slate-100 dark:border-slate-800 pt-4">
-                            <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Typography &amp; style</label>
-                            <div class="grid grid-cols-2 gap-2 mb-2 min-w-0">
-                                <label class="pb-lbl">Font family
-                                    <select id="fontFamily" class="pb-input">
-                                        <option value="Inter, system-ui, sans-serif">Inter (sans)</option>
-                                        <option value="Georgia, 'Times New Roman', serif">Serif</option>
-                                        <option value="'Courier New', monospace">Monospace</option>
-                                        <option value="Arial, sans-serif">Arial</option>
-                                        <option value="Helvetica, Arial, sans-serif">Helvetica</option>
-                                    </select>
-                                </label>
-                                <label class="pb-lbl">Color theme
-                                    <select id="colorTheme" class="pb-input">
-                                        <option value="auto">Match app</option>
-                                        <option value="light">Light (print)</option>
-                                        <option value="dark">Dark</option>
-                                    </select>
-                                </label>
-                                <label class="pb-lbl">Title size <b id="titleSizeVal">18</b>
-                                    <input id="titleSize" type="range" min="10" max="32" value="18" class="pb-range">
-                                </label>
-                                <label class="pb-lbl">Axis label size <b id="axisSizeVal">14</b>
-                                    <input id="axisSize" type="range" min="8" max="24" value="14" class="pb-range">
-                                </label>
-                                <label class="pb-lbl">Tick size <b id="tickSizeVal">12</b>
-                                    <input id="tickSize" type="range" min="6" max="20" value="12" class="pb-range">
-                                </label>
-                                <label class="pb-lbl">Marker size <b id="markerSizeVal">6</b>
-                                    <input id="markerSize" type="range" min="2" max="16" value="6" class="pb-range">
-                                </label>
-                                <label class="pb-lbl">Line width <b id="lineWidthVal">2</b>
-                                    <input id="lineWidth" type="range" min="1" max="8" value="2" class="pb-range">
-                                </label>
-                                <label class="pb-lbl">Grid opacity <b id="gridOpacityVal">100</b>%
-                                    <input id="gridOpacity" type="range" min="0" max="100" value="100" class="pb-range">
-                                </label>
+                        <div class="pb-segrow">
+                            <span id="unitLabel" class="stk-label-sm">Units</span>
+                            <div class="stk-seg" role="group" aria-labelledby="unitLabel" data-pb-seg="unit">
+                                <button type="button" data-value="in" aria-pressed="true">in</button>
+                                <button type="button" data-value="cm" aria-pressed="false">cm</button>
+                                <button type="button" data-value="mm" aria-pressed="false">mm</button>
+                                <button type="button" data-value="px" aria-pressed="false">px</button>
                             </div>
                         </div>
+                        <p id="sizeNote" class="stk-hint" aria-live="polite"></p>
+                    </div>
 
-                        <div class="border-t border-slate-100 dark:border-slate-800 pt-4">
-                            <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Export dimensions</label>
-                            <div class="grid grid-cols-3 gap-2 min-w-0">
-                                <label class="pb-lbl">Width px
-                                    <input id="exportWidth" type="number" value="1200" min="200" max="5000" class="pb-input">
-                                </label>
-                                <label class="pb-lbl">Height px
-                                    <input id="exportHeight" type="number" value="800" min="200" max="5000" class="pb-input">
-                                </label>
-                                <label class="pb-lbl">Scale (DPI)
-                                    <select id="exportScale" class="pb-input">
-                                        <option value="1">1×</option>
-                                        <option value="2" selected>2×</option>
-                                        <option value="3">3×</option>
-                                        <option value="4">4×</option>
-                                    </select>
-                                </label>
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">Axes</h3>
+                        <div class="pb-axisrow">
+                            <span class="pb-axisname">X</span>
+                            <input type="number" id="xMin" class="stk-input stk-input-sm" placeholder="Auto" step="any" aria-label="X axis from">
+                            <span class="pb-to" aria-hidden="true">to</span>
+                            <input type="number" id="xMax" class="stk-input stk-input-sm" placeholder="Auto" step="any" aria-label="X axis to">
+                            <label class="stk-check"><input type="checkbox" id="xLogScale"> Log</label>
+                        </div>
+                        <div class="pb-axisrow">
+                            <span class="pb-axisname">Y</span>
+                            <input type="number" id="yMin" class="stk-input stk-input-sm" placeholder="Auto" step="any" aria-label="Y axis from">
+                            <span class="pb-to" aria-hidden="true">to</span>
+                            <input type="number" id="yMax" class="stk-input stk-input-sm" placeholder="Auto" step="any" aria-label="Y axis to">
+                            <label class="stk-check"><input type="checkbox" id="yLogScale"> Log</label>
+                        </div>
+                        <p id="rangeNote" class="stk-hint">Blank limits fit the data. Drag across the preview to zoom, double-click it to fit again.</p>
+                        <div class="pb-segrow">
+                            <span id="frameLabel" class="stk-label-sm">Frame</span>
+                            <div class="stk-seg" role="group" aria-labelledby="frameLabel" data-pb-seg="frame">
+                                <button type="button" data-value="box" aria-pressed="true">Box</button>
+                                <button type="button" data-value="open" aria-pressed="false">Open</button>
                             </div>
+                        </div>
+                        <div class="pb-segrow">
+                            <span id="ticksLabel" class="stk-label-sm">Ticks</span>
+                            <div class="stk-seg" role="group" aria-labelledby="ticksLabel" data-pb-seg="ticks">
+                                <button type="button" data-value="inside" aria-pressed="true">Inside</button>
+                                <button type="button" data-value="outside" aria-pressed="false">Outside</button>
+                                <button type="button" data-value="" aria-pressed="false">None</button>
+                            </div>
+                        </div>
+                        <div class="pb-segrow">
+                            <span class="stk-label-sm">Grid</span>
+                            <div class="pb-checks">
+                                <label class="stk-check"><input type="checkbox" id="showGridX"> Vertical</label>
+                                <label class="stk-check"><input type="checkbox" id="showGridY"> Horizontal</label>
+                            </div>
+                        </div>
+                        <div class="stk-field" id="gridOpacityField">
+                            <div class="pb-slider-h"><label for="gridOpacity">Grid strength</label><span class="pb-val" aria-hidden="true"><span id="gridOpacityVal">50</span>%</span></div>
+                            <input id="gridOpacity" type="range" class="stk-range" min="10" max="100" step="5" value="50" data-unit="%">
                         </div>
                     </div>
 
-                    <button id="updatePlotBtn" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white w-full py-3 rounded-xl font-bold transition-all duration-150 shadow-sm hover:shadow-md active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 mt-6 flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-chart-line text-sm"></i> Render Graph
-                    </button>
-                </div>
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">Legend</h3>
+                        <div class="stk-field">
+                            <label for="legendPosition">Position</label>
+                            <select id="legendPosition" class="stk-select stk-select-sm">
+                                <option value="top-left" selected>Inside, top left</option>
+                                <option value="top-right">Inside, top right</option>
+                                <option value="bottom-left">Inside, bottom left</option>
+                                <option value="bottom-right">Inside, bottom right</option>
+                                <option value="outside">Outside, right</option>
+                                <option value="hidden">No legend</option>
+                            </select>
+                        </div>
+                        <p class="stk-hint">A single trace needs no legend; it appears with the second.</p>
+                    </div>
+
+                    <div class="stk-group">
+                        <h3 class="stk-group-t">Text and lines</h3>
+                        <div class="pb-grid2">
+                            <div class="stk-field">
+                                <label for="fontFamily">Font</label>
+                                <select id="fontFamily" class="stk-select stk-select-sm">
+                                    <option value="arial" selected>Arial / Helvetica</option>
+                                    <option value="times">Times New Roman</option>
+                                    <option value="dejavu">DejaVu Sans</option>
+                                    <option value="courier">Courier New</option>
+                                </select>
+                            </div>
+                            <div class="stk-field">
+                                <span id="bgLabel" class="stk-label-sm">Background</span>
+                                <div class="stk-seg stk-seg-fill" role="group" aria-labelledby="bgLabel" data-pb-seg="background">
+                                    <button type="button" data-value="white" aria-pressed="true">White</button>
+                                    <button type="button" data-value="transparent" aria-pressed="false">None</button>
+                                    <button type="button" data-value="dark" aria-pressed="false">Dark</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pb-grid2 pb-sliders">
+                            <div class="stk-field">
+                                <div class="pb-slider-h"><label for="titleSize">Title</label><span class="pb-val" aria-hidden="true"><span id="titleSizeVal">10</span> pt</span></div>
+                                <input id="titleSize" type="range" class="stk-range" min="6" max="28" step="0.5" value="10" data-unit="pt">
+                            </div>
+                            <div class="stk-field">
+                                <div class="pb-slider-h"><label for="axisSize">Axis labels</label><span class="pb-val" aria-hidden="true"><span id="axisSizeVal">9</span> pt</span></div>
+                                <input id="axisSize" type="range" class="stk-range" min="5" max="24" step="0.5" value="9" data-unit="pt">
+                            </div>
+                            <div class="stk-field">
+                                <div class="pb-slider-h"><label for="tickSize">Tick labels</label><span class="pb-val" aria-hidden="true"><span id="tickSizeVal">8</span> pt</span></div>
+                                <input id="tickSize" type="range" class="stk-range" min="5" max="20" step="0.5" value="8" data-unit="pt">
+                            </div>
+                            <div class="stk-field">
+                                <div class="pb-slider-h"><label for="legendSize">Legend</label><span class="pb-val" aria-hidden="true"><span id="legendSizeVal">8</span> pt</span></div>
+                                <input id="legendSize" type="range" class="stk-range" min="5" max="20" step="0.5" value="8" data-unit="pt">
+                            </div>
+                            <div class="stk-field">
+                                <div class="pb-slider-h"><label for="lineWidth">Line width</label><span class="pb-val" aria-hidden="true"><span id="lineWidthVal">1.25</span> pt</span></div>
+                                <input id="lineWidth" type="range" class="stk-range" min="0.25" max="6" step="0.25" value="1.25" data-unit="pt">
+                            </div>
+                            <div class="stk-field">
+                                <div class="pb-slider-h"><label for="markerSize">Marker size</label><span class="pb-val" aria-hidden="true"><span id="markerSizeVal">4</span> pt</span></div>
+                                <input id="markerSize" type="range" class="stk-range" min="1" max="16" step="0.5" value="4" data-unit="pt">
+                            </div>
+                        </div>
+                        <p class="stk-hint">Sizes are in points at the printed size, as a journal asks for them: 7 to 9 pt for text in a single-column figure.</p>
+                    </div>
+                </section>
 
             </aside>
 
-            <section class="stk-shell-main flex-grow flex flex-col bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden h-[70vh] lg:h-full">
-                
-                <div class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 flex justify-between items-center z-10 flex-shrink-0">
-                    <h2 class="text-sm font-bold text-slate-700 dark:text-slate-300">Plot viewport</h2>
-                    <div class="flex gap-2">
-                        <button id="copyPyBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold hover:text-brand-600 transition-colors shadow-sm" title="Copy matplotlib code to reproduce this figure">
-                            <i class="fa-brands fa-python mr-1"></i> Python
-                        </button>
-                        <button id="downloadSvgBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold hover:text-brand-600 transition-colors shadow-sm">
-                            <i class="fa-solid fa-download mr-1"></i> SVG
-                        </button>
-                        <button id="downloadPngBtn" class="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs font-semibold hover:text-brand-600 transition-colors shadow-sm">
-                            <i class="fa-solid fa-download mr-1"></i> PNG
-                        </button>
+            <section class="stk-shell-main pb-view flex-grow" aria-labelledby="pb-view-h">
+                <div class="pb-view-h">
+                    <div class="pb-view-t">
+                        <h2 id="pb-view-h" class="stk-ptitle">Preview</h2>
+                        <p id="sizeReadout" class="pb-readout"></p>
+                    </div>
+                    <div class="pb-actions">
+                        <button type="button" id="copyPyBtn" class="stk-btn stk-btn-sm" disabled title="A matplotlib script that draws this figure"><i class="fa-brands fa-python" aria-hidden="true"></i> <span>Python<span class="pb-long"> script</span></span></button>
+                        <button type="button" id="downloadSvgBtn" class="stk-btn stk-btn-sm" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> <span><span class="pb-long">Download </span>SVG</span></button>
+                        <button type="button" id="downloadPngBtn" class="stk-btn stk-btn-sm stk-btn-primary" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> <span><span class="pb-long">Download </span>PNG</span></button>
                     </div>
                 </div>
 
-                <div id="plotlyCanvas" class="flex-grow w-full relative">
-                    <div id="emptyPlotState" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
-                        <i class="fa-solid fa-chart-line text-6xl mb-4 opacity-20" aria-hidden="true"></i>
-                        <p class="font-medium">Upload datasets and add traces to begin</p>
+                <div id="pbStage" class="pb-stage">
+                    <div id="pbSheet" class="pb-sheet is-empty">
+                        <div class="pb-plotwrap" data-stk-reveal><div id="plotlyCanvas" class="pb-plot" role="img" aria-label="Figure preview"></div></div>
+                        <div id="emptyPlotState" class="pb-emptyfig">
+                            <span class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span>
+                            <p class="pb-emptyfig-t">Your figure appears here</p>
+                            <p class="pb-emptyfig-s">This frame is the figure at its export size, <span data-pb-size>3.5 × 2.63 in</span>, scaled to fit. It redraws as you change anything.</p>
+                            <button type="button" class="stk-btn stk-btn-primary" data-pb-sample><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load example</button>
+                        </div>
                     </div>
                 </div>
 
+                <div class="pb-view-f">
+                    <span class="pb-hint"><span id="viewScale"></span><span id="viewHint" hidden> Drag to zoom, double-click to fit.</span></span>
+                    <span id="exportStatus" class="pb-status" role="status" aria-live="polite"></span>
+                </div>
             </section>
         </main>
         
@@ -403,22 +466,23 @@
     </footer>
     </div>
 
-    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
+    <div id="toastContainer" class="stk-toasts" aria-live="polite"></div>
 
-    <!-- Python code modal -->
-    <div id="codeModal" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background:rgba(15,23,42,.6);">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col">
-            <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
-                <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-brands fa-python text-brand-500"></i> matplotlib code</h3>
-                <div class="flex items-center gap-2">
-                    <button id="copyCodeBtn" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-md text-xs font-bold transition-colors"><i class="fa-solid fa-copy mr-1"></i> Copy</button>
-                    <button id="closeCodeBtn" class="w-8 h-8 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><i class="fa-solid fa-xmark"></i></button>
+    <div id="codeModal" class="stk-modal" role="dialog" aria-modal="true" aria-labelledby="codeModalTitle" hidden>
+        <div class="stk-modal-box pb-code-box">
+            <div class="stk-panel-h">
+                <h2 id="codeModalTitle" class="stk-panel-t"><i class="fa-brands fa-python" aria-hidden="true"></i> Python script</h2>
+                <div class="pb-actions">
+                    <button type="button" id="copyCodeBtn" class="stk-btn stk-btn-sm stk-btn-primary"><i class="fa-solid fa-copy" aria-hidden="true"></i> Copy</button>
+                    <button type="button" id="downloadPyBtn" class="stk-btn stk-btn-sm"><i class="fa-solid fa-download" aria-hidden="true"></i> Download .py</button>
+                    <button type="button" id="closeCodeBtn" class="stk-btn stk-btn-sm stk-btn-ghost stk-btn-icon" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
                 </div>
             </div>
-            <div class="p-1 overflow-auto"><pre id="codeBlock" class="text-xs leading-relaxed p-4 font-mono text-slate-800 dark:text-slate-200 whitespace-pre overflow-x-auto"></pre></div>
-            <div class="px-4 py-2.5 border-t border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400">
-                Reproduces this figure with your data. Requires <code>pandas</code> and <code>matplotlib</code>. Point each <code>read_csv</code> at your file(s).
+            <div class="stk-panel-b pb-code-body">
+                <label class="stk-check" id="embedDataRow"><input type="checkbox" id="embedData"> <span id="embedDataText">Put the data in the script, so it runs on its own</span></label>
+                <pre id="codeBlock" class="stk-code" tabindex="0"></pre>
             </div>
+            <p class="pb-code-foot">Draws this figure with pandas and matplotlib 3.5 or later: the same size, dpi, fonts, colours, limits, ticks and legend.</p>
         </div>
     </div>
 

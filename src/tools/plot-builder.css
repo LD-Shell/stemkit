@@ -1,28 +1,221 @@
 /*
  * plot-builder -- tool-specific styles.
  *
- * Extracted from the inline <style> block in plot-builder.html. Shared
- * documentation styles live in src/stemkit-docs.css; Tailwind utilities are
- * generated into src/output.css and must not be hand-edited.
+ * The workspace: three step panels in a scrolling side pane, and a preview
+ * that shows the figure at its export proportions. Shared components (.stk-*)
+ * live in src/tailwind/input.css; everything here reads the same tokens, so
+ * it follows the theme without .dark twins.
  */
 
-@keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-.toast-enter { animation: slideIn 0.3s forwards; }
-.scrollbar-hide::-webkit-scrollbar { display: none; }
-.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-.pb-lbl { display:flex; flex-direction:column; gap:.2rem; font-size:.68rem; font-weight:600; color:#64748b; min-width:0; }
-.dark .pb-lbl { color:#94a3b8; }
-.pb-lbl b { color:#1f5c96; font-weight:700; }
-.dark .pb-lbl b { color:#92b8dd; }
-.pb-input { font-size:.75rem; font-weight:500; padding:.3rem .45rem; border-radius:.45rem; color:#1e293b;
-    background:#f8fafc; border:1px solid #e2e8f0; outline:none; }
-.pb-input:focus { border-color:#3574b0; }
-.dark .pb-input { background:#0f172a; border-color:#334155; color:#e2e8f0; }
-.pb-range { width:100%; accent-color:#3574b0; }
-#codeModal.open { display:flex; }
-.pb-sample-btn { display:inline-flex; align-items:center; gap:.4rem; font-size:.72rem; font-weight:700;
-    padding:.35rem .7rem; border-radius:.5rem; cursor:pointer; color:#1a4b7b; background:#f1f6fb;
-    border:1px solid #c0d6ec; transition:all .15s; }
-.pb-sample-btn:hover { background:#1f5c96; color:#fff; border-color:#1f5c96; }
-.dark .pb-sample-btn { color:#c0d6ec; background:rgba(23, 53, 83,.4); border-color:#1a4b7b; }
-.dark .pb-sample-btn:hover { background:#1f5c96; color:#fff; }
+/* Side pane ----------------------------------------------------------------- */
+
+.pb-pane { scrollbar-width: thin; scrollbar-color: var(--stk-border-strong) transparent; }
+
+.pb-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: var(--stk-surface);
+    border: 1px solid var(--stk-border);
+    border-radius: var(--stk-radius-xl);
+    box-shadow: var(--stk-shadow-sm);
+    min-width: 0;
+}
+.pb-panel-h { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.pb-panel .stk-group + .stk-group { margin-top: .25rem; }
+.pb-panel .stk-group-t { font-size: .8125rem; color: var(--stk-fg-2); font-weight: 650; }
+.pb-panel .stk-hint code { font-family: var(--stk-font-mono); font-size: .92em; color: var(--stk-fg-2); }
+.pb-note { font-size: .8125rem; line-height: 1.5; color: var(--stk-fg-3); }
+
+.pb-grid2, .pb-grid3 { display: grid; gap: .6rem; min-width: 0; }
+.pb-grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pb-grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pb-sliders { row-gap: .8rem; column-gap: 1rem; }
+
+/* Loaded files */
+.pb-files { display: flex; flex-direction: column; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.pb-files:empty { display: none; }
+.pb-file {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .45rem .5rem .45rem .7rem;
+    border: 1px solid var(--stk-border);
+    border-radius: var(--stk-radius);
+    background: var(--stk-surface-2);
+    font-size: .8125rem;
+    min-width: 0;
+}
+.pb-file > i { color: var(--stk-accent-text); flex-shrink: 0; }
+.pb-file-name { font-weight: 600; color: var(--stk-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.pb-file-meta { margin-left: auto; color: var(--stk-fg-3); font-size: .75rem; white-space: nowrap; }
+
+/* Traces */
+.pb-traces { display: flex; flex-direction: column; gap: .75rem; }
+.pb-traces:empty { display: none; }
+.pb-trace {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    padding: .75rem;
+    border: 1px solid var(--stk-border);
+    border-radius: var(--stk-radius-lg);
+    background: var(--stk-surface-2);
+    min-width: 0;
+}
+.pb-trace-h { display: flex; align-items: center; gap: .5rem; }
+.pb-trace-h .stk-input { flex: 1 1 auto; min-width: 0; font-weight: 600; }
+.pb-swatch {
+    flex-shrink: 0;
+    width: var(--stk-control-h-sm);
+    height: var(--stk-control-h-sm);
+    padding: 0;
+    border: 1px solid var(--stk-border-strong);
+    border-radius: var(--stk-radius);
+    background: var(--stk-surface);
+    cursor: pointer;
+}
+.pb-swatch::-webkit-color-swatch-wrapper { padding: 3px; }
+.pb-swatch::-webkit-color-swatch { border: 0; border-radius: calc(var(--stk-radius) - 3px); }
+.pb-swatch::-moz-color-swatch { border: 0; border-radius: calc(var(--stk-radius) - 3px); }
+.pb-trace-note { font-size: .75rem; line-height: 1.45; color: var(--stk-warn); }
+.pb-trace-note:empty { display: none; }
+
+/* Figure size, axes */
+.pb-segrow { display: flex; align-items: center; justify-content: space-between; gap: .75rem; min-width: 0; }
+.pb-segrow > .stk-label-sm { flex-shrink: 0; }
+.pb-checks { display: flex; gap: 1rem; flex-wrap: wrap; }
+.pb-axisrow { display: grid; grid-template-columns: 1rem minmax(0, 1fr) auto minmax(0, 1fr) auto; align-items: center; gap: .5rem; }
+.pb-axisname { font-size: .8125rem; font-weight: 700; color: var(--stk-fg-2); text-align: center; }
+.pb-to { font-size: .75rem; color: var(--stk-fg-3); }
+.pb-axisrow .stk-check { font-size: .8125rem; }
+#sizeNote:empty { display: none; }
+.pb-warn { color: var(--stk-warn); }
+.pb-slider-h { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
+.pb-slider-h label { font-size: .75rem; font-weight: 600; color: var(--stk-fg-3); }
+.pb-val { font-size: .75rem; font-weight: 600; color: var(--stk-accent-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stk-field.is-off { opacity: .5; }
+
+/* Preview ------------------------------------------------------------------- */
+
+.pb-view {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--stk-surface);
+    border: 1px solid var(--stk-border);
+    border-radius: var(--stk-radius-xl);
+    box-shadow: var(--stk-shadow-sm);
+    overflow: hidden;
+}
+.pb-view-h {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .6rem 1rem;
+    padding: .75rem 1rem;
+    border-bottom: 1px solid var(--stk-border);
+}
+.pb-view-t { display: flex; align-items: baseline; flex-wrap: wrap; gap: .25rem .75rem; min-width: 0; }
+.pb-readout { font-size: .75rem; color: var(--stk-fg-3); font-variant-numeric: tabular-nums; }
+.pb-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+
+/* The stage holds the sheet, the figure at its export aspect ratio scaled to
+   fit. The plot inside is laid out at the export size and scaled with a CSS
+   transform, so what is on screen is the exported figure, enlarged. */
+.pb-stage {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    overflow: hidden;
+    background: var(--stk-surface-2);
+}
+.pb-sheet {
+    position: relative;
+    flex: none;
+    background: #fff;
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, .08), 0 6px 20px rgba(15, 23, 42, .10);
+}
+.pb-sheet.is-dark { background: #0f172a; }
+.pb-sheet.is-transparent {
+    background-color: #fff;
+    background-image:
+        linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%),
+        linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 8px 8px;
+}
+.pb-sheet.is-empty { background: var(--stk-surface); box-shadow: none; }
+/* The wrapper carries the reveal animation, so it never fights the scale on the plot. */
+.pb-plotwrap { position: absolute; inset: 0; overflow: hidden; }
+.pb-sheet.is-empty .pb-plotwrap { visibility: hidden; }
+.pb-plot { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+
+.pb-emptyfig {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    padding: 1.25rem;
+    text-align: center;
+    border: 1.5px dashed var(--stk-border-strong);
+    overflow: hidden;
+}
+.pb-emptyfig[hidden] { display: none; }
+.pb-emptyfig .stk-drop-icon { margin-bottom: .25rem; }
+.pb-emptyfig-t { font-size: 1.05rem; font-weight: 700; color: var(--stk-fg); }
+.pb-emptyfig-s { max-width: 26rem; font-size: .8125rem; line-height: 1.5; color: var(--stk-fg-3); margin-bottom: .5rem; }
+
+.pb-view-f {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    min-height: 2.25rem;
+    padding: .4rem 1rem;
+    border-top: 1px solid var(--stk-border);
+    font-size: .75rem;
+    color: var(--stk-fg-3);
+}
+.pb-status { margin-left: auto; text-align: right; color: var(--stk-fg-2); }
+
+/* Python script dialog */
+.pb-code-box { width: min(56rem, 100%); max-height: min(88vh, 48rem); }
+.pb-code-body { display: flex; flex-direction: column; gap: .75rem; min-height: 0; overflow: hidden; }
+.pb-code-body .stk-code { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.pb-code-body [hidden] { display: none; }
+.pb-code-foot { padding: .6rem 1rem; border-top: 1px solid var(--stk-border); font-size: .75rem; color: var(--stk-fg-3); }
+
+/* Narrow screens: the preview comes first and stays in view while the
+   settings scroll under it, so every change can be seen as it is made. */
+@media (max-width: 1023px) {
+    .pb-view {
+        order: -1;
+        position: sticky;
+        top: 65px;              /* under the 64 px header and its border */
+        z-index: 20;
+        box-shadow: var(--stk-shadow);
+    }
+    .pb-stage { height: min(36vh, 20rem); flex: none; padding: .75rem; }
+    .pb-view-h { padding: .6rem .75rem; }
+    .pb-view-f { display: none; }
+}
+@media (min-width: 640px) and (max-width: 1023px) {
+    .pb-view { top: 81px; }
+    .pb-stage { height: min(42vh, 24rem); }
+}
+@media (max-width: 480px) {
+    .pb-view-h { gap: .4rem .75rem; }
+    .pb-emptyfig .stk-drop-icon, .pb-emptyfig-s { display: none; }
+    /* "Download PNG" reads "PNG" on a phone; the full name stays for screen readers. */
+    .pb-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
