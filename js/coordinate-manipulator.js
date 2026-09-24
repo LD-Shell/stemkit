@@ -44,14 +44,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // What has been applied, in the source unit, so the equivalent
     // `gmx editconf` command can be written out. Tracked as a net effect
     // rather than a history: editconf takes one -translate and one -rotate.
-    applied: { tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: 0, centre: null, order: [] },
+    applied: { tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: 0, centre: null, order: [], pivots: [] },
     // Bumped whenever the coordinates change, so the preview cache knows to
     // rebuild without having to compare the atom list itself.
     revision: 0
   };
 
   const resetApplied = () => {
-    state.applied = { tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: 0, centre: null, order: [] };
+    state.applied = { tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: 0, centre: null, order: [], pivots: [] };
   };
 
   // --- 2. Bindings ---
@@ -114,6 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const rotX = $('rotX');
   const rotY = $('rotY');
   const rotZ = $('rotZ');
+  const rotPivot = $('rotPivot');
   const transX = $('transX');
   const transY = $('transY');
   const transZ = $('transZ');
@@ -313,6 +314,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (workspace) {
       workspace.hidden = false;
       workspace.focus({ preventScroll: true });
+      // The page head sits above the workspace; bring the whole workspace
+      // (it is one viewport tall on a desktop) up under the navigation bar.
+      workspace.scrollIntoView({ block: 'start' });
     }
     setStructureLoaded(true);
 
@@ -340,15 +344,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const bb = s.boundingBox;
     const com = centreOfMass(state.atoms);
     const u = state.unit === 'nm' ? 'nm' : 'Å';
-    const f = (n) => Number.isFinite(n) ? n.toFixed(3) : '0.000';
+    // A centred structure sits at a few 1e-16 either side of zero; that is
+    // 0.000, not -0.000.
+    const f = (n) => {
+      const t = Number.isFinite(n) ? n.toFixed(3) : '0.000';
+      return t === '-0.000' ? '0.000' : t;
+    };
     const triple = (x, y, z) => `${f(x)}, ${f(y)}, ${f(z)}`;
 
     statAtomCount.textContent = s.nAtoms;
 
+    // The mean of the coordinates, the same centre "Centre on origin" and the
+    // rotation pivot use, so centring reads 0, 0, 0 here. (It showed the
+    // bounding-box midpoint, which is a different point.)
     if (statGeoCenter) {
-      statGeoCenter.textContent = s.nAtoms
-        ? triple((bb.minX + bb.maxX) / 2, (bb.minY + bb.maxY) / 2, (bb.minZ + bb.maxZ) / 2)
-        : '0.0, 0.0, 0.0';
+      const g = s.geometricCentre;
+      statGeoCenter.textContent = s.nAtoms ? triple(g.x, g.y, g.z) : '0.0, 0.0, 0.0';
     }
 
     if (statMassCenter) {
@@ -501,13 +512,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const dy = Number(rotY.value) || 0;
     const dz = Number(rotZ.value) || 0;
 
-    // Rotate about the geometric centre so the structure does not swing away
-    // from the origin; velocities rotate with the frame but are not translated.
+    // Rotate about the pivot chosen under "Rotate about": the geometric
+    // centre (the default, so the structure does not swing away), the centre
+    // of mass, or the origin. Velocities rotate with the frame but are not
+    // translated.
+    const pivotMode = rotPivot && ['mass', 'origin'].includes(rotPivot.value) ? rotPivot.value : 'geometric';
+    const pivot = pivotMode === 'origin' ? { x: 0, y: 0, z: 0 }
+      : pivotMode === 'mass' ? centreOfMass(state.atoms)
+        : geometricCentre(state.atoms);
     pushUndo('rotation');
-    state.atoms = rotateAtoms(state.atoms, dx, dy, dz, geometricCentre(state.atoms));
+    state.atoms = rotateAtoms(state.atoms, dx, dy, dz, pivot);
     state.revision++;
     state.applied.rx += dx; state.applied.ry += dy; state.applied.rz += dz;
     state.applied.order.push('rotate');
+    if (!state.applied.pivots) state.applied.pivots = [];
+    state.applied.pivots.push(pivotMode);
     afterTransform(`Rotated by (${dx}°, ${dy}°, ${dz}°).`);
 
     // The cell is not rotated with the contents, and it defines the lattice.
@@ -537,7 +556,7 @@ document.addEventListener('DOMContentLoaded', () => {
     afterTransform(`Translated by (${dx}, ${dy}, ${dz}).`);
   });
 
-  // The page offers one "Align Origin" button plus a mode select, rather than
+  // The page offers one "Centre on origin" button plus a mode select, rather than
   // a separate button per centring method.
   if (btnCentre) btnCentre.addEventListener('click', () => {
     if (!requireStructure()) return;
@@ -1153,8 +1172,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (a.rx || a.ry || a.rz) {
       parts.push(`-rotate ${a.rx} ${a.ry} ${a.rz}`);
-      if (!a.centre) {
-        notes.push('This tool rotates about the geometric centre; editconf rotates ' +
+      // Only a rotation about a centre, not about the origin, displaces the
+      // structure relative to editconf.
+      const offOrigin = (a.pivots || ['geometric']).filter(p => p !== 'origin');
+      if (!a.centre && offOrigin.length) {
+        const about = offOrigin.every(p => p === 'mass') ? 'the centre of mass'
+          : offOrigin.every(p => p === 'geometric') ? 'the geometric centre'
+            : 'the geometric centre and the centre of mass';
+        notes.push(`This tool rotated about ${about}; editconf rotates ` +
                    'about the origin, so the structure will also be displaced. ' +
                    'editconf applies -center after -rotate, so adding -center 0 0 0 ' +
                    'removes that displacement and makes the two agree.');

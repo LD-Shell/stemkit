@@ -17,17 +17,15 @@
    one guard for all of them. */
 .cm-main [hidden], .cm-drop-indicator[hidden] { display: none; }
 
-/* Empty state --------------------------------------------------------------- */
+/* Empty state ------------------------------------------------------------------
+   The shared file loader (.stk-drop) sets its size and look; nothing here
+   changes either. The whole loader is a click target for the file picker,
+   and it says so while a file is being read. */
 
-.cm-drop { cursor: pointer; }
-.cm-samples { align-items: center; margin-top: 0.25rem; }
-.cm-samples .stk-hint { width: 100%; }
-@media (min-width: 640px) {
-    .cm-samples .stk-hint { width: auto; }
-}
+#uploadZone { cursor: pointer; }
 .cm-drop-status { display: inline-flex; align-items: center; gap: 0.4rem; margin-top: 0.25rem; }
-.cm-drop[aria-busy="true"] { cursor: progress; }
-.cm-drop[aria-busy="true"] .stk-btn { pointer-events: none; opacity: 0.6; }
+#uploadZone[aria-busy="true"] { cursor: progress; }
+#uploadZone[aria-busy="true"] .stk-btn { pointer-events: none; opacity: 0.6; }
 
 /* Workspace ------------------------------------------------------------------
    Below the desktop breakpoint the panes stack: the viewer first, so a phone
@@ -35,7 +33,7 @@
    buffer. Each keeps a share of the viewport rather than its natural height,
    so a long buffer scrolls inside its box instead of stretching the page. */
 
-.cm-shell { display: flex; flex-direction: column; gap: 1rem; }
+.cm-shell { display: flex; flex-direction: column; gap: 1rem; scroll-margin-top: 5.5rem; }
 .cm-shell:focus { outline: none; }
 
 .cm-viewer {
