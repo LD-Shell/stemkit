@@ -228,7 +228,11 @@
     syncThemeButtons();
   }
   document.querySelectorAll('.themeToggle').forEach(function (b) {
-    b.addEventListener('click', function () { setTheme(!root.classList.contains('dark'), true); });
+    b.addEventListener('click', function () {
+      setTheme(!root.classList.contains('dark'), true);
+      b.classList.remove('is-turning'); void b.offsetWidth; b.classList.add('is-turning');
+      setTimeout(function () { b.classList.remove('is-turning'); }, 400);
+    });
   });
   syncThemeButtons();
   // Follow the system setting live until the visitor picks one here.
@@ -437,7 +441,73 @@
     nextHost.hidden = false;
   }
 
+  // --------------------------------------------------------------- steps
+  // Numbered panels follow the visitor's progress without any code in the
+  // tool: each panel names, in data-stk-done, what "done" looks like, and the
+  // page is re-read whenever something changes. See .stk-stepn in
+  // src/tailwind/input.css for the rule syntax.
+  var stepPanels = Array.prototype.slice.call(document.querySelectorAll('[data-stk-step]'))
+    .sort(function (a, b) { return +a.getAttribute('data-stk-step') - +b.getAttribute('data-stk-step'); });
+  var revealables = Array.prototype.slice.call(document.querySelectorAll('[data-stk-reveal]'));
+
+  function shown(el) {
+    if (!el || el.hidden || el.closest('[hidden]') || !el.getClientRects().length) return false;
+    return getComputedStyle(el).visibility !== 'hidden';
+  }
+  function holds(rules) {
+    return rules.split(',').some(function (rule) {
+      var i = rule.indexOf(':');
+      var kind = rule.slice(0, i).trim();
+      var el = document.querySelector(rule.slice(i + 1).trim());
+      if (!el) return false;
+      if (kind === 'filled') return String(el.value || '').trim() !== '';
+      if (kind === 'visible') return shown(el);
+      if (kind === 'hidden') return !shown(el);
+      if (kind === 'text') return shown(el) && el.textContent.trim() !== '';
+      return false;
+    });
+  }
+  function syncSteps() {
+    var seenOpen = false;
+    stepPanels.forEach(function (p) {
+      var rule = p.getAttribute('data-stk-done');
+      var done = !!rule && holds(rule);
+      var state = done ? 'done' : (seenOpen ? 'pending' : 'current');
+      if (!done) seenOpen = true;
+      var prev = p.getAttribute('data-stk-state');
+      if (state === prev) return;
+      p.setAttribute('data-stk-state', state);
+      p.classList.remove('stk-just-done');
+      // Animate a step the visitor just completed, not one done on arrival.
+      if (state === 'done' && prev) { void p.offsetWidth; p.classList.add('stk-just-done'); }
+    });
+    revealables.forEach(function (el) {
+      var now = shown(el);
+      if (now && el._stkShown === false) {
+        el.classList.remove('stk-reveal'); void el.offsetWidth; el.classList.add('stk-reveal');
+      }
+      el._stkShown = now;
+    });
+  }
+  if (stepPanels.length || revealables.length) {
+    var queued = false;
+    var queue = function () {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(function () { queued = false; syncSteps(); });
+    };
+    syncSteps();
+    ['input', 'change', 'click', 'keyup', 'drop'].forEach(function (t) { document.addEventListener(t, queue, true); });
+    new MutationObserver(queue).observe(document.body, {
+      subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'hidden', 'style']
+    });
+    revealables.forEach(function (el) {
+      el.addEventListener('animationend', function () { el.classList.remove('stk-reveal'); });
+    });
+  }
+
   window.STEMKit = {
+    refreshSteps: stepPanels.length ? syncSteps : function () {},
     tools: TOOLS,
     categories: CATS,
     byId: byId,

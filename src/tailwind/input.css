@@ -925,6 +925,131 @@ input[type="checkbox"], input[type="radio"], input[type="range"], progress { acc
 .stk-next-go { color: var(--stk-fg-muted); font-size: 0.8rem; transition: transform var(--stk-ease), color var(--stk-ease); }
 .stk-next-card:hover .stk-next-go { color: var(--stk-accent-text); transform: translateX(2px); }
 
+/* Page head -----------------------------------------------------------------
+   The same opening on every tool: the name, one sentence on what it does,
+   and two facts a visitor checks first. Actions (Load example, Examples) sit
+   on the right from 768 px, under the text below that. */
+.stk-pagehead {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--stk-border);
+}
+@media (min-width: 768px) {
+  .stk-pagehead { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 2rem; }
+}
+.stk-pagehead-title {
+  font-size: clamp(1.75rem, 1.35rem + 1.4vw, 2.25rem);
+  line-height: 1.12;
+  font-weight: 800;
+  letter-spacing: -0.028em;
+  color: var(--stk-fg);
+}
+.stk-pagehead-lede { margin-top: 0.5rem; max-width: 46rem; font-size: 1rem; line-height: 1.6; color: var(--stk-fg-3); }
+.stk-pagehead-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8125rem;
+  color: var(--stk-fg-3);
+}
+.stk-pagehead-meta li { display: inline-flex; align-items: center; gap: 0.4rem; }
+.stk-pagehead-meta i { color: var(--stk-fg-muted); font-size: 0.75rem; }
+.stk-pagehead-meta a { color: var(--stk-accent-text); font-weight: 600; text-decoration: none; }
+.stk-pagehead-meta a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.stk-pagehead-meta a i { color: inherit; }
+.stk-pagehead-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; flex-shrink: 0; }
+
+/* Steps -----------------------------------------------------------------------
+   A tool whose panels are a sequence numbers them. The panel carries
+   data-stk-step="n" and data-stk-done="rule"; js/site.js marks each panel
+   done when its rule holds and the first unfinished one current, and the
+   badge in the panel title follows:
+     pending  grey number    current  accent number    done  accent tick
+   Rules: filled:#id (a field has a value), visible:#id (an element is shown),
+   hidden:#id (an element has gone, e.g. a drop zone after a file loads),
+   text:#id (an element has text). Several, comma-separated, mean any. */
+.stk-ptitle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+  color: var(--stk-fg);
+}
+.stk-stepn {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--stk-surface-2);
+  color: var(--stk-fg-3);
+  box-shadow: inset 0 0 0 1px var(--stk-border-strong);
+  transition: background-color .2s ease, color .2s ease, box-shadow .2s ease;
+}
+.stk-stepn svg {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 0.85rem;
+  height: 0.85rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 16;
+  stroke-dashoffset: 16;
+  opacity: 0;
+}
+[data-stk-state="current"] .stk-stepn {
+  background: var(--stk-accent-soft);
+  color: var(--stk-accent-text);
+  box-shadow: inset 0 0 0 1.5px var(--stk-accent);
+}
+[data-stk-state="done"] .stk-stepn { background: var(--stk-accent); color: var(--stk-accent-fg); box-shadow: none; }
+[data-stk-state="done"] .stk-stepn > span { opacity: 0; }
+[data-stk-state="done"] .stk-stepn svg { opacity: 1; stroke-dashoffset: 0; }
+
+/* The panel being worked in is outlined, softly. */
+[data-stk-step] { transition: border-color .2s ease, box-shadow .2s ease; }
+[data-stk-step]:focus-within { border-color: var(--stk-accent-soft-border); box-shadow: 0 0 0 4px var(--stk-accent-soft); }
+
+/* Motion -----------------------------------------------------------------------
+   Only in answer to something the visitor did: opening the finder or the
+   menu, a step completing, a result appearing, a toast. Nothing moves on
+   load or on scroll, and nothing moves at all under reduced motion. */
+@keyframes stk-pop { from { opacity: 0; transform: translateY(-8px) scale(.985); } }
+@keyframes stk-fade { from { opacity: 0; } }
+@keyframes stk-drop { from { opacity: 0; transform: translateY(-6px); } }
+@keyframes stk-rise { from { opacity: 0; transform: translateY(10px); } }
+@keyframes stk-tick { from { stroke-dashoffset: 16; } to { stroke-dashoffset: 0; } }
+@keyframes stk-bump { 0% { transform: scale(1); } 45% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes stk-turn { from { transform: rotate(-100deg) scale(.6); opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+  .stk-finder[open] { animation: stk-pop .18s cubic-bezier(.2, .8, .2, 1); }
+  .stk-finder[open]::backdrop { animation: stk-fade .18s ease-out; }
+  #mobile-menu:not(.hidden) { animation: stk-drop .18s ease-out; }
+  .stk-toast { animation: stk-rise .22s cubic-bezier(.2, .8, .2, 1); }
+  .stk-reveal { animation: stk-rise .32s cubic-bezier(.2, .8, .2, 1); }
+  [data-stk-state="done"].stk-just-done .stk-stepn { animation: stk-bump .36s ease-out; }
+  [data-stk-state="done"].stk-just-done .stk-stepn svg { animation: stk-tick .34s .06s ease-out both; }
+  .themeToggle.is-turning i { animation: stk-turn .35s cubic-bezier(.2, .8, .2, 1); }
+}
+
 @tailwind utilities;
 
 /* ---------------------------------------------------------------------------

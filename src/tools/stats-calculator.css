@@ -33,14 +33,22 @@
 .assume-box .ico-ok { color:#10b981; margin-top:1px; }
 .assume-box .assume-title i { color:#3574b0; }
 .dark .assume-box .assume-title i { color:#5c93c7; }
-.tut-group { display:flex; align-items:center; gap:1rem; padding:.6rem 0; border-top:1px solid rgba(148,163,184,.18); }
-.tut-group:first-child { border-top:none; padding-top:0; }
-.tut-heading { flex:0 0 8.5rem; font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--stk-fg-3); }
-.tut-chips { display:flex; flex-wrap:wrap; gap:.5rem; }
-.tut-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.82rem; font-weight:600; padding:.5rem .85rem; border-radius:.6rem; cursor:pointer; transition:all .15s; background:#fff; color:#1f5c96; border:1px solid rgba(53, 116, 176,.3); }
-.tut-chip:hover { background:#1f5c96; color:#fff; border-color:#1f5c96; box-shadow:0 2px 8px rgba(31, 92, 150,.25); transform:translateY(-1px); }
-.dark .tut-chip { background:rgba(15,23,42,.6); color:#92b8dd; border-color:rgba(92, 147, 199,.35); }
-.dark .tut-chip:hover { background:#1f5c96; color:#fff; border-color:#1f5c96; }
+/* Worked examples: one strip under the page head, dismissable. */
+.tut-strip { padding:1rem 1.25rem 1.1rem; border-radius:1rem; background:var(--stk-accent-soft); border:1px solid var(--stk-accent-soft-border); }
+.tut-strip-head { display:flex; align-items:baseline; gap:.75rem; flex-wrap:wrap; padding-right:2rem; position:relative; }
+.tut-strip-title { font-size:.95rem; font-weight:700; color:var(--stk-fg); }
+.tut-strip-text { font-size:.85rem; color:var(--stk-fg-3); }
+.tut-strip-close { position:absolute; right:-.4rem; top:-.3rem; width:2rem; height:2rem; border-radius:.5rem; color:var(--stk-fg-3); display:inline-flex; align-items:center; justify-content:center; }
+.tut-strip-close:hover { background:var(--stk-surface); color:var(--stk-fg); }
+.tut-chips { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.8rem; }
+.tut-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.82rem; font-weight:600; padding:.45rem .8rem; border-radius:.6rem; cursor:pointer; transition:background-color .15s, color .15s, border-color .15s, transform .15s; background:var(--stk-surface); color:var(--stk-fg-2); border:1px solid var(--stk-border); }
+.tut-chip i { color:var(--stk-accent-text); }
+.tut-chip span { font-weight:500; color:var(--stk-fg-muted); }
+.tut-chip:hover { border-color:var(--stk-accent); color:var(--stk-accent-text); transform:translateY(-1px); }
+.tut-chip:hover span { color:inherit; }
+/* Under Run Analysis while it is disabled: say why. */
+.run-hint { display:none; margin-top:.5rem; font-size:.8rem; text-align:center; color:var(--stk-fg-3); }
+#runTestBtn:disabled + .run-hint { display:block; }
 .run-pulse { animation: runPulse 1.4s ease-out 1; }
 .hl { color:#1f5c96; font-weight:600; }
 .dark .hl { color:#5c93c7; }
@@ -77,4 +85,12 @@
 @keyframes docfade {
   from { opacity:0; transform:translateY(4px); }
   to { opacity:1; transform:none; }
+}
+/* On a phone the examples scroll sideways in one row rather than stacking
+   six deep above the tool. */
+@media (max-width: 639px) {
+  .tut-strip { padding-bottom: .9rem; }
+  .tut-chips { flex-wrap: nowrap; overflow-x: auto; margin: .8rem -1.25rem 0; padding: 0 1.25rem .2rem; scroll-snap-type: x proximity; scrollbar-width: none; }
+  .tut-chips::-webkit-scrollbar { display: none; }
+  .tut-chip { flex-shrink: 0; scroll-snap-align: start; }
 }

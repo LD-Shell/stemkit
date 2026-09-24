@@ -90,11 +90,32 @@ document.addEventListener('DOMContentLoaded', () => {
     reader.readAsText(file);
   });
 
-  if (parseBtn) parseBtn.addEventListener('click', parseData);
+  if (parseBtn) parseBtn.addEventListener('click', () => parseData());
 
-  function parseData() {
+  // The data is read as it is typed or pasted, so there is no separate parse
+  // step. While typing, a half-finished table is expected, so parsing stays
+  // quiet: no toasts, and the status line under the box says what was read.
+  let parseTimer = null;
+  dataInput.addEventListener('input', () => {
+    clearTimeout(parseTimer);
+    parseTimer = setTimeout(() => {
+      if (dataInput.value.trim()) parseData({ quiet: true });
+      else clearParsed();
+    }, 300);
+  });
+
+  function clearParsed() {
+    parsedData = {}; variables = []; rawRows = []; rawFields = [];
+    [var1, var2, groupSelect].forEach(el => { el.innerHTML = ''; el.disabled = true; });
+    runTestBtn.disabled = true;
+    dataMeta.innerText = 'Read as you type or paste.';
+    if (resultsContainer) resultsContainer.classList.add('hidden');
+  }
+
+  function parseData(opts = {}) {
+    const quiet = !!opts.quiet;
     const rawText = dataInput.value.trim();
-    if (!rawText) return showToast('Please input some data first.', 'error');
+    if (!rawText) return quiet ? clearParsed() : showToast('Please input some data first.', 'error');
 
     Papa.parse(rawText, {
       header: true,
@@ -103,7 +124,8 @@ document.addEventListener('DOMContentLoaded', () => {
       delimitersToGuess: ['\t', ',', ';', '|', ' '],
       complete: (results) => {
         if (results.errors.length > 0 && results.data.length === 0) {
-          showToast('Error parsing data. Ensure the first row is a header.', 'error');
+          if (quiet) dataMeta.innerText = 'Could not read a table yet. The first row should be a header.';
+          else showToast('Error parsing data. Ensure the first row is a header.', 'error');
           return;
         }
 
@@ -131,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
           buildWideGroups();
         }
 
-        showToast(
+        if (!quiet) showToast(
           `Parsed as ${activeFormat === 'long' ? 'long / tidy' : 'wide'} format.`,
           'success'
         );
@@ -155,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     dataMeta.innerText =
-      `${rawRows.length} rows • ${variables.length} numeric ` +
+      `${rawRows.length} rows, ${variables.length} numeric ` +
       `column${variables.length === 1 ? '' : 's'} (wide)`;
     updateDropdowns();
   }
@@ -174,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     variables = order;
 
     dataMeta.innerText =
-      `${rawRows.length} rows • ${variables.length} ` +
+      `${rawRows.length} rows, ${variables.length} ` +
       `group${variables.length === 1 ? '' : 's'} of "${valueCol}" by "${groupCol}" (long)`;
     updateDropdowns();
   }
