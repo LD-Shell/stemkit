@@ -32,12 +32,6 @@ import {
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  // The nav's toggle only writes the preference; nothing on this page read it
-  // back, so a visitor who chose dark elsewhere arrived here in light.
-  try {
-    document.documentElement.classList.toggle('dark', localStorage.getItem('theme') === 'dark');
-  } catch (e) { /* private mode */ }
-
   // --- 1. State ---
   const state = {
     atoms: [],

@@ -6,6 +6,19 @@
     <title>3D Structure Inspector | WebGL Molecular Viewer | STEMKit</title>
     <meta name="description" content="Free browser-based 3D molecular viewer. Load PDB, GRO, XYZ, CIF, MOL2 or CUBE files, select atoms by chain, residue, element or distance, measure bonds and angles, and export publication-quality images, all rendered locally with WebGL.">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <script>
+        // Apply the saved theme, or the system preference, before first paint.
+        (function () {
+            try {
+                var t = localStorage.theme;
+                if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                    document.documentElement.classList.remove('light');
+                }
+            } catch (e) {}
+        })();
+    </script>
+
     <link rel="stylesheet" href="css/all.min.css">
     <script src="js/dependencies/3Dmol-min.js"></script>
 

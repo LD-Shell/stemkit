@@ -47,6 +47,19 @@
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
     
     <script src="js/dependencies/3Dmol-min.js"></script>
+    <script>
+        // Apply the saved theme, or the system preference, before first paint.
+        (function () {
+            try {
+                var t = localStorage.theme;
+                if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                    document.documentElement.classList.remove('light');
+                }
+            } catch (e) {}
+        })();
+    </script>
+
     <link rel="stylesheet" href="css/all.min.css">
     
 

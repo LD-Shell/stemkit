@@ -266,7 +266,6 @@
 
             this.cacheElements();
             this.bindEvents();
-            this.initTheme();
         }
 
         // Convenience alias
@@ -2280,15 +2279,6 @@
             this.el.fileInput.value = '';
             if (this.state.measureMode) this.setMeasureMode(false);
             this.syncToolbar();
-        }
-
-        // ───────────────────────────────────────────────────────────
-        // THEME
-        // ───────────────────────────────────────────────────────────
-        initTheme() {
-            let stored = null;
-            try { stored = localStorage.getItem('theme'); } catch (e) { /* private mode */ }
-            document.documentElement.classList.toggle('dark', stored === 'dark');
         }
 
         // ───────────────────────────────────────────────────────────

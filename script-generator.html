@@ -54,6 +54,19 @@
     <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 
+    <script>
+        // Apply the saved theme, or the system preference, before first paint.
+        (function () {
+            try {
+                var t = localStorage.theme;
+                if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                    document.documentElement.classList.remove('light');
+                }
+            } catch (e) {}
+        })();
+    </script>
+
     <link rel="stylesheet" href="css/all.min.css">
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
