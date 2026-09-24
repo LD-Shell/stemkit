@@ -608,6 +608,52 @@ export function pairedTTest(arr1, arr2, options = {}) {
 }
 
 /**
+ * One-sample t-test of a mean against a stated value.
+ *
+ * Two-sided, t = (x̄ − μ₀)/(s/√n) on n − 1 df, matching
+ * `scipy.stats.ttest_1samp`. The effect size is Cohen's d for one sample,
+ * (x̄ − μ₀)/s. Both the interval of the mean and the interval of the
+ * difference from μ₀ are returned, since a methods section may want either.
+ *
+ * @param {number[]} a
+ * @param {number} [mu0=0] - The hypothesised mean.
+ * @param {{conf?: number}} [options]
+ * @returns {{t:number, df:number, p:number, mean:number, mu0:number,
+ *            meanDiff:number, sd:number, se:number, d:number,
+ *            ci:[number,number], ciDiff:[number,number], n:number}|null}
+ *          null with fewer than two values or a non-finite μ₀.
+ */
+export function oneSampleTTest(a, mu0 = 0, options = {}) {
+  const { conf = 0.95 } = options;
+  if (!Array.isArray(a) || a.length < 2 || !Number.isFinite(mu0)) return null;
+  const n = a.length;
+  const m = mean(a);
+  const s = sd(a);
+  const df = n - 1;
+  const diff = m - mu0;
+
+  // A constant sample has no standard error; t is undefined, as for the
+  // paired test with a constant difference.
+  if (s === 0) {
+    return {
+      t: NaN, df, p: NaN, mean: m, mu0, meanDiff: diff, sd: 0, se: 0,
+      d: NaN, ci: [m, m], ciDiff: [diff, diff], n
+    };
+  }
+
+  const se = s / Math.sqrt(n);
+  const t = diff / se;
+  const tc = tCritical(df, conf);
+  return {
+    t, df, p: tTwoSided(t, df), mean: m, mu0, meanDiff: diff, sd: s, se,
+    d: diff / s,
+    ci: [m - tc * se, m + tc * se],
+    ciDiff: [diff - tc * se, diff + tc * se],
+    n
+  };
+}
+
+/**
  * One-way analysis of variance across k >= 2 independent groups.
  *
  * @param {number[][]} groups
@@ -837,6 +883,29 @@ export function wilcoxonSignedRank(arr1, arr2) {
   const effectR = Math.abs(z) / Math.sqrt(n);
 
   return { W, wPositive, wNegative, z, p, effectR, n, nDropped };
+}
+
+/**
+ * One-sample Wilcoxon signed-rank test of a location against a stated value.
+ *
+ * The signed-rank test on the differences x − μ₀, with the conventions of
+ * `wilcoxonSignedRank`: values equal to μ₀ are dropped, ties among the
+ * absolute differences get average ranks, and z uses the normal approximation
+ * with no continuity correction and no tie correction to its variance. It
+ * assumes the distribution is symmetric about its median, and tests that
+ * median against μ₀.
+ *
+ * @param {number[]} a
+ * @param {number} [mu0=0]
+ * @returns {{W:number, wPositive:number, wNegative:number, z:number,
+ *            p:number, effectR:number, n:number, nDropped:number,
+ *            mu0:number, median:number}|null}
+ *          wPositive sums the ranks of values above μ₀.
+ */
+export function oneSampleWilcoxon(a, mu0 = 0) {
+  if (!Array.isArray(a) || !Number.isFinite(mu0)) return null;
+  const r = wilcoxonSignedRank(a, a.map(() => mu0));
+  return r ? { ...r, mu0, median: median(a) } : null;
 }
 
 /* ------------------------------------------------------------------ *

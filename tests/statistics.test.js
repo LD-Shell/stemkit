@@ -5,9 +5,9 @@ import {
   descriptives, boxPlotStats,
   tTwoSided, tCritical, fUpperTail, zTwoSided, chiSquaredUpperTail,
   dagostinoNormality, leveneTest,
-  independentTTest, pairedTTest, oneWayAnova, pearsonCorrelation,
+  independentTTest, pairedTTest, oneSampleTTest, oneWayAnova, pearsonCorrelation,
   leastSquaresLine,
-  mannWhitneyU, wilcoxonSignedRank,
+  mannWhitneyU, wilcoxonSignedRank, oneSampleWilcoxon,
   alignPairs, formatP, interpretD, interpretEta, interpretR,
   classifyFields, pivotLongToGroups
 } from '../src/core/statistics.js';
@@ -377,6 +377,85 @@ describe('pairedTTest', () => {
 
   test('returns null with fewer than two pairs', () => {
     expect(pairedTTest([1], [2])).toBeNull();
+  });
+});
+
+describe('oneSampleTTest', () => {
+  test('t, df and p match scipy ttest_1samp', () => {
+    // stats.ttest_1samp(TITR, 0.1)
+    const r = oneSampleTTest(TITR, 0.1);
+    expect(r.t).toBeCloseTo(7.889259103816982, 8);
+    expect(r.df).toBe(9);
+    expect(r.p).toBeCloseTo(2.473809945507378e-05, 12);
+    expect(r.n).toBe(10);
+  });
+
+  test('the interval of the mean matches ttest_1samp(...).confidence_interval()', () => {
+    const r = oneSampleTTest(TITR, 0.1);
+    expect(r.ci[0]).toBeCloseTo(0.10074179158545922, 10);
+    expect(r.ci[1]).toBeCloseTo(0.10133820841454076, 10);
+    // The interval of the difference is the same interval shifted by mu0.
+    expect(r.ciDiff[0]).toBeCloseTo(r.ci[0] - 0.1, 14);
+    expect(r.ciDiff[1]).toBeCloseTo(r.ci[1] - 0.1, 14);
+  });
+
+  test('matches scipy for a p-value near .05 and reports d', () => {
+    // stats.ttest_1samp(A, 23.0); d = (mean - mu0) / std(ddof=1)
+    const r = oneSampleTTest(A, 23.0);
+    expect(r.t).toBeCloseTo(2.341376560678585, 10);
+    // jStat's incomplete beta agrees with SciPy to about 2e-10 here, as in
+    // the paired test above; eight places is the honest tolerance.
+    expect(r.p).toBeCloseTo(0.04392113865543809, 8);
+    expect(r.d).toBeCloseTo(0.7404082791875761, 10);
+    expect(r.meanDiff).toBeCloseTo(0.42, 12);
+  });
+
+  test('a mean equal to mu0 gives t = 0 and p = 1', () => {
+    const r = oneSampleTTest(A, 23.42);
+    expect(r.t).toBeCloseTo(0, 10);
+    expect(r.p).toBeCloseTo(1, 10);
+  });
+
+  test('defaults mu0 to zero', () => {
+    expect(oneSampleTTest([1, 2, 3]).mu0).toBe(0);
+  });
+
+  test('a constant sample yields NaN rather than an infinite t', () => {
+    const r = oneSampleTTest([5, 5, 5], 4);
+    expect(Number.isNaN(r.t)).toBe(true);
+    expect(r.meanDiff).toBe(1);
+  });
+
+  test('returns null with fewer than two values or a non-finite mu0', () => {
+    expect(oneSampleTTest([1], 0)).toBeNull();
+    expect(oneSampleTTest([1, 2, 3], NaN)).toBeNull();
+    expect(oneSampleTTest(null, 0)).toBeNull();
+  });
+});
+
+describe('oneSampleWilcoxon', () => {
+  test('W and p match scipy wilcoxon on x - mu0', () => {
+    // stats.wilcoxon(TITR - 0.1, zero_method='wilcox', correction=False, method='approx')
+    // The absolute differences are all distinct, so SciPy's tie correction
+    // to the variance is inactive and the two agree exactly.
+    const r = oneSampleWilcoxon(TITR, 0.1);
+    expect(r.W).toBe(0);
+    expect(r.p).toBeCloseTo(0.005062032126267864, 12);
+    expect(r.wPositive).toBe(55);
+    expect(r.mu0).toBe(0.1);
+    expect(r.median).toBeCloseTo(0.10105, 14);
+  });
+
+  test('drops values equal to mu0', () => {
+    const r = oneSampleWilcoxon([1, 2, 3, 4, 5], 3);
+    expect(r.nDropped).toBe(1);
+    expect(r.n).toBe(4);
+  });
+
+  test('returns null when every value equals mu0 or input is invalid', () => {
+    expect(oneSampleWilcoxon([2, 2, 2], 2)).toBeNull();
+    expect(oneSampleWilcoxon([1, 2], NaN)).toBeNull();
+    expect(oneSampleWilcoxon(null)).toBeNull();
   });
 });
 
