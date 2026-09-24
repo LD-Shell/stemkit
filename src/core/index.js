@@ -169,6 +169,7 @@ export {
   wilcoxonSignedRank,
   oneSampleWilcoxon,
   spearmanCorrelation,
+  kruskalWallis,
   alignPairs,
   formatP,
   interpretD,

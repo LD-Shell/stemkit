@@ -7,7 +7,7 @@ import {
   dagostinoNormality, leveneTest,
   independentTTest, pairedTTest, oneSampleTTest, oneWayAnova, pearsonCorrelation,
   leastSquaresLine, spearmanCorrelation,
-  mannWhitneyU, wilcoxonSignedRank, oneSampleWilcoxon,
+  mannWhitneyU, wilcoxonSignedRank, oneSampleWilcoxon, kruskalWallis,
   alignPairs, formatP, interpretD, interpretEta, interpretR,
   classifyFields, pivotLongToGroups
 } from '../src/core/statistics.js';
@@ -283,6 +283,28 @@ describe('distribution tails', () => {
 
   test('chi-squared tail is 1 at and below zero', () => {
     expect(chiSquaredUpperTail(0, 3)).toBe(1);
+  });
+
+  test('chi-squared tail matches scipy chi2.sf on either side of x = df + 2', () => {
+    // stats.chi2.sf(x, df). (0.5, 4) takes the 1 - P branch, the rest the
+    // continued fraction.
+    expect(chiSquaredUpperTail(0.5, 4)).toBeCloseTo(0.9735009788392561, 13);
+    expect(chiSquaredUpperTail(3.0, 1)).toBeCloseTo(0.08326451666355042, 13);
+    expect(chiSquaredUpperTail(7.8147279032511765, 3)).toBeCloseTo(0.05, 13);
+    expect(chiSquaredUpperTail(44.0, 3) / 1.5091823835869955e-09).toBeCloseTo(1, 12);
+  });
+
+  test('chi-squared tail keeps relative precision where 1 - cdf would give 0', () => {
+    // stats.chi2.sf(100, 5), stats.chi2.sf(60, 1), stats.chi2.sf(500, 7).
+    // The previous 1 - lowRegGamma form gave the 5e-324 floor for the first
+    // and third, and 9.437e-15 for the second, 0.5% low.
+    expect(chiSquaredUpperTail(100, 5) / 5.285148360943219e-20).toBeCloseTo(1, 11);
+    expect(chiSquaredUpperTail(60, 1) / 9.485737571073857e-15).toBeCloseTo(1, 11);
+    expect(chiSquaredUpperTail(500, 7) / 8.0167910013494e-104).toBeCloseTo(1, 10);
+  });
+
+  test('a tail that underflows even so is floored above zero', () => {
+    expect(chiSquaredUpperTail(5000, 3)).toBe(Number.MIN_VALUE);
   });
 
   test('invalid parameters yield NaN', () => {
@@ -674,6 +696,70 @@ describe('mannWhitneyU', () => {
 
   test('returns null for empty input', () => {
     expect(mannWhitneyU([], [1, 2])).toBeNull();
+  });
+});
+
+describe('kruskalWallis', () => {
+  test('H and p match scipy kruskal for three well-separated groups', () => {
+    // stats.kruskal(PLACEBO, LOWDOSE, HIGHDOSE); no value repeats, so C = 1.
+    const r = kruskalWallis([PLACEBO, LOWDOSE, HIGHDOSE]);
+    expect(r.H).toBeCloseTo(20.480000000000004, 10);
+    expect(r.df).toBe(2);
+    expect(r.p).toBeCloseTo(3.571284964163516e-05, 14);
+    expect(r.meanRanks).toEqual([4.5, 12.5, 20.5]);
+  });
+
+  test('applies the tie correction, matching scipy on skewed data with ties', () => {
+    // stats.kruskal(S1, S2, S3): 1.2 appears three times, 1.9 and 2.1 twice.
+    const r = kruskalWallis([S1, S2, S3]);
+    expect(r.tieCorrection).toBeLessThan(1);
+    expect(r.H).toBeCloseTo(17.509202317290555, 10);
+    expect(r.p).toBeCloseTo(0.0001577338942155893, 13);
+    // H / (N - 1)
+    expect(r.epsilonSquared).toBeCloseTo(0.6037655971479502, 10);
+  });
+
+  test('handles unequal group sizes', () => {
+    // stats.kruskal(U1, U2, U3)
+    const r = kruskalWallis([U1, U2, U3]);
+    expect(r.H).toBeCloseTo(8.548089591567845, 10);
+    expect(r.p).toBeCloseTo(0.013925343915331161, 12);
+    expect(r.N).toBe(22);
+    expect(r.groupNs).toEqual([7, 9, 6]);
+  });
+
+  test('four groups use the chi-squared tail on 3 df', () => {
+    // stats.kruskal(PLACEBO, LOWDOSE, HIGHDOSE, HIGHDOSE + 5)
+    const r = kruskalWallis([PLACEBO, LOWDOSE, HIGHDOSE, HIGHDOSE.map(x => x + 5)]);
+    expect(r.H).toBeCloseTo(29.090909090909093, 10);
+    expect(r.df).toBe(3);
+    expect(r.p / 2.1430569913908513e-06).toBeCloseTo(1, 10);
+  });
+
+  test('agrees with the Mann-Whitney z for two groups', () => {
+    // For k = 2, H is the square of the tie-corrected Mann-Whitney z.
+    const kw = kruskalWallis([S1, S2]);
+    const mw = mannWhitneyU(S1, S2);
+    expect(kw.H).toBeCloseTo(mw.z * mw.z, 10);
+    expect(kw.p).toBeCloseTo(mw.p, 10);
+  });
+
+  test('identical groups give H = 0 and p = 1', () => {
+    const r = kruskalWallis([[1, 2, 3], [1, 2, 3], [1, 2, 3]]);
+    expect(r.H).toBeCloseTo(0, 12);
+    expect(r.p).toBeCloseTo(1, 12);
+  });
+
+  test('is undefined when every observation is equal', () => {
+    const r = kruskalWallis([[4, 4], [4, 4, 4]]);
+    expect(Number.isNaN(r.H)).toBe(true);
+    expect(Number.isNaN(r.p)).toBe(true);
+  });
+
+  test('returns null for fewer than two groups or an empty group', () => {
+    expect(kruskalWallis([[1, 2, 3]])).toBeNull();
+    expect(kruskalWallis([[1, 2], []])).toBeNull();
+    expect(kruskalWallis(null)).toBeNull();
   });
 });
 

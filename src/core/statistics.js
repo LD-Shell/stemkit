@@ -376,28 +376,65 @@ export function zTwoSided(z) {
 }
 
 /**
+ * Upper regularised incomplete gamma function, Q(a, x) = Γ(a, x)/Γ(a).
+ *
+ * jStat has only the lower function P, and 1 − P loses every significant
+ * figure once P rounds to 1: for chi-squared on 3 df that happens near
+ * x = 80, where p is about 1e-17. For x ≥ a + 1 the continued fraction for Q
+ * (Numerical Recipes, 3rd ed., §6.2, evaluated by the modified Lentz method)
+ * converges in a few dozen terms and keeps full relative precision far into
+ * the tail. Below a + 1, P is not close to 1 and the subtraction is safe.
+ *
+ * @param {number} a - Shape, > 0.
+ * @param {number} x - > 0.
+ * @returns {number}
+ */
+function upperRegGamma(a, x) {
+  const jStat = requireVendor('jStat');
+  if (x < a + 1) return 1 - jStat.lowRegGamma(a, x);
+
+  const TINY = 1e-300;
+  let b = x + 1 - a;
+  let c = 1 / TINY;
+  let d = 1 / b;
+  let h = d;
+  for (let i = 1; i <= 500; i++) {
+    const an = -i * (i - a);
+    b += 2;
+    d = an * d + b;
+    if (Math.abs(d) < TINY) d = TINY;
+    c = b + an / c;
+    if (Math.abs(c) < TINY) c = TINY;
+    d = 1 / d;
+    const step = d * c;
+    h *= step;
+    if (Math.abs(step - 1) < 1e-15) break;
+  }
+  return Math.exp(-x + a * Math.log(x) - jStat.gammaln(a)) * h;
+}
+
+/**
  * Upper-tail p-value from the chi-squared distribution.
  *
- * jStat exposes only the lower regularised incomplete gamma, so the upper tail
- * is obtained by subtraction and saturates at 0 once the lower tail rounds to
- * 1. For the common df = 2 case the closed form Q(1, x/2) = exp(-x/2) is used
- * instead, which stays exact; other degrees of freedom fall back to the
- * subtraction and are floored at the smallest representable positive double so
- * that a p-value is never reported as identically zero.
+ * Q(df/2, x/2), from `upperRegGamma` above rather than as 1 − the lower
+ * tail, so a strong Kruskal–Wallis effect on four groups reports p ~ 1e-20
+ * instead of 0. For the common df = 2 case the closed form Q(1, x/2) =
+ * exp(−x/2) is used. A tail that underflows even so (x in the thousands) is
+ * floored at the smallest positive double, so that a p-value is never
+ * reported as identically zero.
  *
  * @param {number} x
  * @param {number} df
  * @returns {number} P(X >= x).
  */
 export function chiSquaredUpperTail(x, df) {
-  const jStat = requireVendor('jStat');
   if (!Number.isFinite(x) || !Number.isFinite(df) || df <= 0) return NaN;
   if (x <= 0) return 1;
 
   // Exact closed form for two degrees of freedom (the D'Agostino K^2 case).
   if (df === 2) return Math.exp(-x / 2);
 
-  const q = 1 - jStat.lowRegGamma(df / 2, x / 2);
+  const q = upperRegGamma(df / 2, x / 2);
   return q > 0 ? q : Number.MIN_VALUE;
 }
 
@@ -956,6 +993,73 @@ export function spearmanCorrelation(arr1, arr2, options = {}) {
     ci = [Math.tanh(z - zc * se), Math.tanh(z + zc * se)];
   }
   return { rho, t: pr.t, df, p: pr.p, ci, n, ties };
+}
+
+/**
+ * Kruskal–Wallis H test for k ≥ 2 independent groups.
+ *
+ * All observations are ranked together, ties taking their average rank, and
+ *
+ *   H = [12/(N(N+1)) Σ R_i²/n_i − 3(N+1)] / C,  C = 1 − Σ(t³ − t)/(N³ − N),
+ *
+ * where R_i is group i's rank sum and t runs over the sizes of the tied
+ * runs. Dividing by C is the tie correction that `scipy.stats.kruskal` and
+ * R's `kruskal.test` apply. The p-value is the chi-squared approximation on
+ * k − 1 df; there is no exact small-sample distribution here, so with five
+ * or fewer observations per group it is approximate.
+ *
+ * The effect size is epsilon squared, ε² = H/(N − 1), between 0 and 1
+ * (Tomczak & Tomczak 2014).
+ *
+ * @param {number[][]} groups
+ * @returns {{H:number, df:number, p:number, k:number, N:number,
+ *            epsilonSquared:number, meanRanks:number[], rankSums:number[],
+ *            groupNs:number[], groupMedians:number[],
+ *            tieCorrection:number}|null}
+ *          null with fewer than two groups or an empty group; H and p NaN
+ *          when every observation is equal, since nothing can be ranked.
+ */
+export function kruskalWallis(groups) {
+  if (!Array.isArray(groups) || groups.length < 2) return null;
+  if (groups.some(g => !Array.isArray(g) || g.length < 1)) return null;
+
+  const k = groups.length;
+  const all = groups.flat();
+  const N = all.length;
+  const r = ranks(all);
+
+  const groupNs = groups.map(g => g.length);
+  const rankSums = [];
+  let offset = 0;
+  for (const n of groupNs) {
+    let s = 0;
+    for (let i = offset; i < offset + n; i++) s += r[i];
+    rankSums.push(s);
+    offset += n;
+  }
+  const meanRanks = rankSums.map((s, i) => s / groupNs[i]);
+
+  const counts = new Map();
+  for (const v of all) counts.set(v, (counts.get(v) || 0) + 1);
+  let tieSum = 0;
+  for (const t of counts.values()) tieSum += t * t * t - t;
+  const C = 1 - tieSum / (N * N * N - N);
+
+  const base = {
+    df: k - 1, k, N, meanRanks, rankSums, groupNs,
+    groupMedians: groups.map(median), tieCorrection: C
+  };
+  if (!(C > 0)) return { H: NaN, p: NaN, epsilonSquared: NaN, ...base };
+
+  let s = 0;
+  for (let i = 0; i < k; i++) s += (rankSums[i] * rankSums[i]) / groupNs[i];
+  const H = ((12 / (N * (N + 1))) * s - 3 * (N + 1)) / C;
+  // Rounding can leave H a hair below zero when the groups are identical.
+  const Hc = Math.max(0, H);
+  return {
+    H: Hc, p: chiSquaredUpperTail(Hc, k - 1),
+    epsilonSquared: Hc / (N - 1), ...base
+  };
 }
 
 /* ------------------------------------------------------------------ *
