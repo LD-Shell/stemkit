@@ -16,9 +16,9 @@
 
 .stk-section { padding: 3rem 0; border-top: 1px solid var(--stk-border); }
 .stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
-.stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.6875rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; padding:.35rem .7rem; border-radius:9999px; background:var(--stk-accent-soft); color:var(--stk-accent-text); border:1px solid var(--stk-accent-soft-border); }
+.stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.8125rem; font-weight:600; padding:.3rem .75rem; border-radius:9999px; background:var(--stk-accent-soft); color:var(--stk-accent-text); border:1px solid var(--stk-accent-soft-border); }
 .stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
-.stk-lead { max-width:48rem; color:var(--stk-fg-muted); line-height:1.6; }
+.stk-lead { max-width:48rem; font-size:1rem; color:var(--stk-fg-3); line-height:1.65; }
 .stk-grid { display:grid; gap:1rem; grid-template-columns:1fr; margin-top:1.5rem; }
 /* Multi-column only from the tablet breakpoint up. The per-tool stylesheets
    used to carry this media query themselves because the shared file set the
@@ -30,9 +30,9 @@
 .stk-card { border-radius:var(--stk-radius-xl); border:1px solid var(--stk-border); padding:1.4rem; background:var(--stk-surface); min-width:0; }
 .stk-step { display:flex; gap:.85rem; align-items:flex-start; min-width:0; }
 .stk-num { width:2rem; height:2rem; border-radius:9999px; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:.85rem; flex-shrink:0; background:var(--stk-accent); color:var(--stk-accent-fg); }
-.stk-step h3 { font-weight:700; font-size:.95rem; margin-bottom:.15rem; }
-.stk-step p { font-size:.85rem; color:var(--stk-fg-muted); line-height:1.5; }
-.stk-note { display:flex; gap:.6rem; align-items:flex-start; font-size:.82rem; line-height:1.55; background:var(--stk-warn-soft); border:1px solid var(--stk-warn-border); color:var(--stk-warn); border-radius:.75rem; padding:.9rem 1rem; }
+.stk-step h3 { font-weight:700; font-size:1rem; margin-bottom:.2rem; }
+.stk-step p { font-size:.9375rem; color:var(--stk-fg-3); line-height:1.6; }
+.stk-note { display:flex; gap:.6rem; align-items:flex-start; font-size:.875rem; line-height:1.55; background:var(--stk-warn-soft); border:1px solid var(--stk-warn-border); color:var(--stk-warn); border-radius:.75rem; padding:.9rem 1rem; }
 .stk-faq { border-bottom:1px solid var(--stk-border); }
 /* Laid out as a block, not a flex row. As a flex container the summary turns
    each run of text and every inline tag into a separate flex item, so
@@ -40,25 +40,28 @@
    a question containing e.g. <sup>3</sup> was torn into three pieces. The
    marker is absolutely positioned, so it needs `position:relative` here for a
    containing block, and padding-right to reserve its space. */
-.stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 2rem 1rem 0; font-weight:600; font-size:.95rem; display:block; position:relative; }
+.stk-faq > summary { list-style:none; cursor:pointer; padding:1rem 2rem 1rem 0; font-weight:600; font-size:1rem; display:block; position:relative; }
 .stk-faq > summary::-webkit-details-marker { display:none; }
 .stk-faq > summary::after { content:"+"; position:absolute; right:.25rem; top:1rem; font-weight:700; color:var(--stk-accent-text); font-size:1.2rem; line-height:1; }
 .stk-faq[open] > summary::after { content:"\2212"; }
-.stk-faq > div { padding:0 0 1.1rem; font-size:.88rem; line-height:1.6; color:var(--stk-fg-3); }
+.stk-faq > div { padding:0 0 1.1rem; font-size:.9375rem; line-height:1.65; color:var(--stk-fg-3); }
 .stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1.25rem; }
-.stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600; color:var(--stk-accent-text); background:var(--stk-accent-soft); border:1px solid var(--stk-accent-soft-border); padding:.4rem .8rem; border-radius:9999px; text-decoration:none; }
+.stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.875rem; font-weight:600; color:var(--stk-accent-text); background:var(--stk-accent-soft); border:1px solid var(--stk-accent-soft-border); padding:.4rem .8rem; border-radius:9999px; text-decoration:none; }
 .stk-refs a:hover { text-decoration:underline; }
-.stk-byline { font-size:.8rem; color:var(--stk-fg-muted); margin-top:.35rem; }
-.stk-credit { margin-top:2rem; font-size:.8rem; color:var(--stk-fg-muted); }
-.stk-math { overflow-x:auto; padding:1rem 1.1rem; margin:.6rem 0 1rem; border:1px solid var(--stk-border); border-radius:.6rem; font-family:var(--stk-font-mono); font-size:.9rem; background:var(--stk-surface-2); color:var(--stk-fg); }
+.stk-byline { font-size:.8125rem; color:var(--stk-fg-muted); margin-top:.35rem; }
+.stk-credit { margin-top:2rem; font-size:.8125rem; color:var(--stk-fg-muted); }
+.stk-math { overflow-x:auto; padding:1rem 1.1rem; margin:.6rem 0 1rem; border:1px solid var(--stk-border); border-radius:.6rem; font-size:1rem; background:var(--stk-surface-2); color:var(--stk-fg); }
 .stk-math math { color:inherit; }
-.stk-eqn-label { font-size:.9rem; font-weight:600; color:var(--stk-fg-3); margin-top:1.1rem; }
-.stk-where { font-size:.85rem; color:var(--stk-fg-3); line-height:1.75; margin-top:.5rem; }
+/* A block of literal file content (a topology header, an input line) is code,
+   not an equation, and keeps the monospace face. */
+.stk-math.is-code, .stk-math pre { font-family:var(--stk-font-mono); font-size:.875rem; white-space:pre; }
+.stk-eqn-label { font-size:.875rem; font-weight:600; color:var(--stk-fg-3); margin-top:1.1rem; }
+.stk-where { font-size:.9375rem; color:var(--stk-fg-3); line-height:1.75; margin-top:.5rem; }
 .stk-model-list { list-style:none; padding:0; margin:.6rem 0 0; display:grid; gap:.55rem; }
-.stk-model-list li { font-size:.92rem; display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
+.stk-model-list li { font-size:.9375rem; display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
 .stk-model-list b { min-width:9rem; color:var(--stk-fg-3); font-weight:600; }
 .stk-refs-h { font-weight:700; font-size:1rem; margin-top:1.9rem; margin-bottom:.5rem; }
-.stk-refs-list { font-size:.82rem; color:var(--stk-fg-muted); line-height:1.75; padding-left:1.2rem; }
+.stk-refs-list { font-size:.875rem; color:var(--stk-fg-muted); line-height:1.75; padding-left:1.2rem; }
 .stk-refs-list li { margin-bottom:.45rem; }
 .stk-refs-list a { color:var(--stk-accent-text); text-decoration:none; }
 .stk-refs-list a:hover { text-decoration:underline; }
@@ -70,13 +73,13 @@
 .stk-note code { background:rgba(180,83,9,.1); color:#92400e; border-color:rgba(180,83,9,.25); }
 .dark .stk-note code { background:rgba(180,83,9,.2); border-color:rgba(180,83,9,.4); }
 
-.stk-table { width:100%; border-collapse:collapse; margin-top:1rem; font-size:.85rem; }
+.stk-table { width:100%; border-collapse:collapse; margin-top:1rem; font-size:.875rem; }
 .stk-table th, .stk-table td { border:1px solid var(--stk-border); padding:.4rem .5rem; text-align:left; vertical-align:top; }
 .stk-table th { background:var(--stk-surface-2); font-weight:700; }
 .stk-table code { font-size:.8rem; }
-.stk-card h3 { font-weight:700; margin-bottom:.4rem; }
-.stk-card p { font-size:.88rem; color:var(--stk-fg-muted); line-height:1.6; }
-.stk-syntax { width:100%; border-collapse:collapse; font-size:.85rem; margin-top:.75rem; }
+.stk-card h3 { font-weight:700; font-size:1rem; margin-bottom:.4rem; }
+.stk-card p { font-size:.9375rem; color:var(--stk-fg-3); line-height:1.6; }
+.stk-syntax { width:100%; border-collapse:collapse; font-size:.875rem; margin-top:.75rem; }
 .stk-syntax th { text-align:left; font-size:.6875rem; text-transform:uppercase; letter-spacing:.08em; color:var(--stk-fg-muted); padding:.5rem .6rem; border-bottom:2px solid var(--stk-border-strong); }
 .stk-syntax td { padding:.55rem .6rem; border-bottom:1px solid var(--stk-border); vertical-align:top; }
 .stk-syntax td:first-child { white-space:nowrap; }
@@ -99,7 +102,7 @@
   .stk-section { padding:2rem 0; }
   .stk-wrap { padding-left:1rem; padding-right:1rem; }
   .stk-h2 { font-size:1.3rem; }
-  .stk-math { font-size:.85rem; padding:.8rem; }
+  .stk-math { font-size:.9375rem; padding:.8rem; }
   .stk-table { font-size:.78rem; }
   .stk-section code, .stk-faq code, .stk-card code, .stk-step p code { white-space:normal; overflow-wrap:anywhere; }
   .stk-model-list b { min-width:0; }
