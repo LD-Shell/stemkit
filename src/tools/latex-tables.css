@@ -1,33 +1,37 @@
 /*
  * latex-tables -- tool-specific styles.
  *
- * Extracted from the inline <style> block in latex-tables.html. Shared
- * documentation styles live in src/stemkit-docs.css; Tailwind utilities are
- * generated into src/output.css and must not be hand-edited.
+ * Shared documentation styles live in src/stemkit-docs.css; Tailwind
+ * utilities are generated into src/output.css and must not be hand-edited.
  */
 
-.accordion-content { transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; max-height: 0; opacity: 0; overflow: hidden; }
-.accordion-content.expanded { max-height: 800px; opacity: 1; overflow: visible; }
-.accordion-icon { transition: transform 0.3s ease; }
-.accordion-btn[aria-expanded="true"] .accordion-icon { transform: rotate(180deg); }
-.custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-.custom-scroll::-webkit-scrollbar-track { background: transparent; }
-.custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
-.dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
-.preview-table { border-collapse: collapse; width: 100%; text-align: left; font-size: 0.875rem; }
-.preview-table th, .preview-table td { padding: 0.5rem 0.75rem; border: 1px solid #e2e8f0; }
-.dark .preview-table th, .dark .preview-table td { border-color: #334155; }
-.preview-table th { background-color: #f8fafc; font-weight: 700; }
-.dark .preview-table th { background-color: #0f172a; }
-.preview-table.booktabs { border: none; }
-.preview-table.booktabs th, .preview-table.booktabs td { border: none; }
-.preview-table.booktabs thead { border-top: 2px solid #334155; border-bottom: 1px solid #334155; }
-.dark .preview-table.booktabs thead { border-top: 2px solid #cbd5e1; border-bottom: 1px solid #cbd5e1; }
-.preview-table.booktabs tbody tr:last-child { border-bottom: 2px solid #334155; }
-.dark .preview-table.booktabs tbody tr:last-child { border-bottom: 2px solid #cbd5e1; }
-.toast-enter { animation: slideIn 0.3s forwards; }
+/* Preview: the lines follow the chosen style, as LaTeX will draw them. */
+.preview-table { border-collapse: collapse; width: 100%; font-size: 0.875rem; color: var(--stk-fg); }
+.preview-table caption { caption-side: top; padding-bottom: 0.5rem; font-size: 0.8125rem; color: var(--stk-fg-3); }
+.preview-table th, .preview-table td { padding: 0.45rem 0.75rem; }
+.preview-table th { font-weight: 700; }
+/* booktabs: a heavy top and bottom rule and a light one under the header */
+.preview-table.lt-booktabs thead { border-top: 2px solid var(--stk-fg-2); border-bottom: 1px solid var(--stk-fg-2); }
+.preview-table.lt-booktabs tbody tr:last-child { border-bottom: 2px solid var(--stk-fg-2); }
+/* \hline above, under the header and below; no vertical lines */
+.preview-table.lt-standard thead { border-top: 1px solid var(--stk-fg-2); border-bottom: 1px solid var(--stk-fg-2); }
+.preview-table.lt-standard tbody tr:last-child { border-bottom: 1px solid var(--stk-fg-2); }
+/* every cell boxed */
+.preview-table.lt-grid th, .preview-table.lt-grid td { border: 1px solid var(--stk-fg-2); }
+.preview-table[hidden], #tablePreview[hidden] { display: none; }
 
-@keyframes slideIn {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+/* Empty preview and source: what will appear. */
+.lt-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 100%;
+  padding: 1rem;
+  text-align: center;
 }
+.lt-empty[hidden] { display: none; }
+.lt-empty-code { padding: 2rem 1.5rem; }
+.lt-empty-title { font-size: 0.95rem; font-weight: 650; color: var(--stk-fg); }
+.lt-empty-text { max-width: 28rem; margin-bottom: 0.4rem; font-size: 0.8125rem; line-height: 1.55; color: var(--stk-fg-muted); }
