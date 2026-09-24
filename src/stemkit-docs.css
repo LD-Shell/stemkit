@@ -54,6 +54,11 @@
 .stk-math math { color:inherit; }
 /* A block of literal file content (a topology header, an input line) is code,
    not an equation, and keeps the monospace face. */
+/* TeX typeset by js/site.js. A display equation sits in its .stk-math block
+   without KaTeX's own margins. */
+.stk-tex[data-display] { display:block; }
+.stk-math .katex-display { margin:0; }
+.stk-math .katex { font-size:1.12em; }
 .stk-math.is-code, .stk-math pre { font-family:var(--stk-font-mono); font-size:.875rem; white-space:pre; }
 .stk-eqn-label { font-size:.875rem; font-weight:600; color:var(--stk-fg-3); margin-top:1.1rem; }
 .stk-where { font-size:.9375rem; color:var(--stk-fg-3); line-height:1.75; margin-top:.5rem; }

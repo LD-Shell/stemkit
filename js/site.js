@@ -441,6 +441,30 @@
     nextHost.hidden = false;
   }
 
+  // ----------------------------------------------------------- equations
+  // Explainer formulas are written as TeX, <span class="stk-tex">x_i</span>
+  // inline or with data-display for a display equation, and typeset here by
+  // the vendored KaTeX, so every formula on the site has the same face.
+  // KaTeX also writes MathML for screen readers. A page without KaTeX shows
+  // the TeX source, which is still readable.
+  function typeset() {
+    if (!window.katex) return;
+    document.querySelectorAll('.stk-tex:not([data-tex])').forEach(function (el) {
+      var tex = el.textContent;
+      try {
+        window.katex.render(tex, el, {
+          displayMode: el.hasAttribute('data-display'), throwOnError: false, output: 'htmlAndMathml'
+        });
+        el.setAttribute('data-tex', tex);
+      } catch (e) { /* leave the source visible */ }
+    });
+  }
+  if (document.querySelector('.stk-tex')) {
+    // KaTeX is loaded with defer, so it is ready by DOMContentLoaded.
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', typeset);
+    else typeset();
+  }
+
   // --------------------------------------------------------------- steps
   // Numbered panels follow the visitor's progress without any code in the
   // tool: each panel names, in data-stk-done, what "done" looks like, and the
@@ -507,6 +531,7 @@
   }
 
   window.STEMKit = {
+    typeset: typeset,
     refreshSteps: stepPanels.length ? syncSteps : function () {},
     tools: TOOLS,
     categories: CATS,
