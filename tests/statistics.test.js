@@ -5,7 +5,8 @@ import {
   descriptives, boxPlotStats,
   tTwoSided, tCritical, fUpperTail, zTwoSided, chiSquaredUpperTail,
   dagostinoNormality, leveneTest,
-  independentTTest, pairedTTest, oneSampleTTest, oneWayAnova, pearsonCorrelation,
+  independentTTest, pairedTTest, oneSampleTTest, oneWayAnova, welchAnova,
+  pearsonCorrelation,
   leastSquaresLine, spearmanCorrelation,
   mannWhitneyU, wilcoxonSignedRank, oneSampleWilcoxon, kruskalWallis,
   alignPairs, formatP, interpretD, interpretEta, interpretR,
@@ -531,6 +532,61 @@ describe('oneWayAnova', () => {
     expect(oneWayAnova([[1, 2, 3]])).toBeNull();
     expect(oneWayAnova([[1], [2]])).toBeNull();
     expect(oneWayAnova(null)).toBeNull();
+  });
+});
+
+describe('welchAnova', () => {
+  test('F, df and p match statsmodels anova_oneway(use_var="unequal")', () => {
+    // anova_oneway([U1, U2, U3], use_var='unequal', welch_correction=True);
+    // the same F and df by hand, and p = stats.f.sf(F, 2, df2).
+    const r = welchAnova([U1, U2, U3]);
+    expect(r.F).toBeCloseTo(8.670827891642329, 10);
+    expect(r.df1).toBe(2);
+    expect(r.df2).toBeCloseTo(12.349506180261182, 10);
+    expect(r.p).toBeCloseTo(0.0044417833655213245, 10);
+  });
+
+  test('matches statsmodels for equal sizes and a strong effect', () => {
+    const r = welchAnova([PLACEBO, LOWDOSE, HIGHDOSE]);
+    expect(r.F).toBeCloseTo(346.97706866003296, 8);
+    expect(r.df2).toBeCloseTo(13.817740426947656, 10);
+    expect(r.p / 1.547349706525509e-12).toBeCloseTo(1, 6);
+  });
+
+  test("for two groups F is Welch's t squared on the Welch-Satterthwaite df", () => {
+    const w = welchAnova([A, B]);
+    const t = independentTTest(A, B);
+    expect(w.F).toBeCloseTo(t.t * t.t, 8);
+    expect(w.df2).toBeCloseTo(t.df, 10);
+    expect(w.p).toBeCloseTo(t.p, 15);
+  });
+
+  test('reports the ordinary eta squared, the same as the classic ANOVA', () => {
+    const w = welchAnova([U1, U2, U3]);
+    expect(w.etaSquared).toBeCloseTo(oneWayAnova([U1, U2, U3]).etaSquared, 12);
+  });
+
+  test('a noisy group no longer hides a difference between two precise ones', () => {
+    // The classic F pools the noisy group's variance into every comparison:
+    // stats.f_oneway -> p = 0.364397295357027, while
+    // anova_oneway(use_var='unequal') -> p = 0.003285465665046123.
+    const noisy = [3, 18, 7, 25];
+    const tight = [10.1, 10.3, 9.9, 10.0, 10.2, 10.1, 9.8, 10.0, 10.2, 9.9];
+    const tight2 = tight.map(x => x + 0.4);
+    expect(oneWayAnova([noisy, tight, tight2]).p).toBeCloseTo(0.364397295357027, 8);
+    expect(welchAnova([noisy, tight, tight2]).p).toBeCloseTo(0.003285465665046123, 8);
+  });
+
+  test('is undefined with a zero-variance group, and says why', () => {
+    const r = welchAnova([[5, 5, 5], [1, 2, 3], [4, 6, 8]]);
+    expect(Number.isNaN(r.F)).toBe(true);
+    expect(r.note).toContain('zero variance');
+  });
+
+  test('returns null for degenerate designs', () => {
+    expect(welchAnova([[1, 2, 3]])).toBeNull();
+    expect(welchAnova([[1], [2, 3]])).toBeNull();
+    expect(welchAnova(null)).toBeNull();
   });
 });
 

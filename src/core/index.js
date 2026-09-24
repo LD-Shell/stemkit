@@ -163,6 +163,7 @@ export {
   pairedTTest,
   oneSampleTTest,
   oneWayAnova,
+  welchAnova,
   pearsonCorrelation,
   leastSquaresLine,
   mannWhitneyU,

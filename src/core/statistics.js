@@ -743,6 +743,76 @@ export function oneWayAnova(groups) {
 }
 
 /**
+ * Welch's one-way ANOVA for k ≥ 2 independent groups whose variances may
+ * differ (Welch 1951).
+ *
+ * Each group is weighted by w_i = n_i/s_i², and with W = Σw_i and the
+ * weighted grand mean x̄_w = Σw_i x̄_i / W,
+ *
+ *   F = [Σ w_i (x̄_i − x̄_w)² / (k − 1)] / [1 + 2(k − 2)/(k² − 1) · Λ],
+ *   Λ = Σ (1 − w_i/W)² / (n_i − 1),
+ *
+ * on k − 1 and (k² − 1)/(3Λ) degrees of freedom. This is R's
+ * `oneway.test(var.equal = FALSE)` and statsmodels'
+ * `anova_oneway(use_var='unequal')`; for two groups F is the square of
+ * Welch's t and the second df is Welch–Satterthwaite's.
+ *
+ * The effect size is the ordinary eta squared, SS_between/SS_total: it
+ * describes how much of the variation the groups account for, which does not
+ * depend on the test. A group with zero variance would carry infinite weight,
+ * so the statistic is then NaN with a note.
+ *
+ * @param {number[][]} groups
+ * @returns {{F:number, df1:number, df2:number, p:number, k:number, N:number,
+ *            etaSquared:number, groupMeans:number[], groupSds:number[],
+ *            groupNs:number[], note:string|null}|null}
+ *          null with fewer than two groups or a group of fewer than two.
+ */
+export function welchAnova(groups) {
+  if (!Array.isArray(groups) || groups.length < 2) return null;
+  if (groups.some(g => !Array.isArray(g) || g.length < 2)) return null;
+
+  const k = groups.length;
+  const ns = groups.map(g => g.length);
+  const ms = groups.map(mean);
+  const vs = groups.map(variance);
+  const N = ns.reduce((s, n) => s + n, 0);
+
+  const grand = mean(groups.flat());
+  let ssB = 0;
+  let ssT = 0;
+  groups.forEach((g, i) => {
+    ssB += ns[i] * (ms[i] - grand) * (ms[i] - grand);
+    for (const x of g) ssT += (x - grand) * (x - grand);
+  });
+
+  const base = {
+    k, N, etaSquared: ssT === 0 ? NaN : ssB / ssT,
+    groupMeans: ms, groupSds: vs.map(Math.sqrt), groupNs: ns
+  };
+  if (vs.some(v => v === 0)) {
+    return {
+      F: NaN, df1: k - 1, df2: NaN, p: NaN, ...base,
+      note: 'a group has zero variance, so its weight is undefined'
+    };
+  }
+
+  const w = ns.map((n, i) => n / vs[i]);
+  const W = w.reduce((s, x) => s + x, 0);
+  const xw = w.reduce((s, wi, i) => s + wi * ms[i], 0) / W;
+  let num = 0;
+  let lambda = 0;
+  for (let i = 0; i < k; i++) {
+    num += w[i] * (ms[i] - xw) * (ms[i] - xw);
+    lambda += ((1 - w[i] / W) ** 2) / (ns[i] - 1);
+  }
+  const F = (num / (k - 1)) / (1 + ((2 * (k - 2)) / (k * k - 1)) * lambda);
+  const df1 = k - 1;
+  const df2 = (k * k - 1) / (3 * lambda);
+  return { F, df1, df2, p: fUpperTail(F, df1, df2), ...base, note: null };
+}
+
+/**
  * Pearson product–moment correlation with a Fisher-z confidence interval.
  *
  * @param {number[]} arr1
