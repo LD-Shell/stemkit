@@ -152,7 +152,8 @@ mark.stk-hit { background: rgba(53, 116, 176, .22); color: inherit; border-radiu
 }
 .dark .hm-code pre { background: #020617; border: 1px solid var(--stk-border); }
 .hm-proof-main .hm-code code { color: inherit; font-size: inherit; }
-.hm-code-box { position: relative; }
+.hm-code-box { position: relative; border-radius: .75rem; background: #0f172a; }
+.dark .hm-code-box { background: #020617; }
 .hm-code-box pre { padding-right: 6.5rem; }
 .hm-code-copy {
   position: absolute; top: .55rem; right: .55rem; display: inline-flex; align-items: center; gap: .4rem;
