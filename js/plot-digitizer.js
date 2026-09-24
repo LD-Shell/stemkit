@@ -160,12 +160,17 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCalibY1: 'pxY1', btnCalibY2: 'pxY2'
   };
 
+  // Each mode button is a toggle: pressing the one already on returns to
+  // idle, and so does Esc, so there is always a way out of a mode.
   Object.entries(CALIB_BUTTONS).forEach(([id, key]) => {
     const btn = document.getElementById(id);
-    if (btn) btn.addEventListener('click', () => setMode(`calib:${key}`, btn));
+    if (btn) btn.addEventListener('click', () => {
+      setMode(state.mode === `calib:${key}` ? 'idle' : `calib:${key}`, btn);
+    });
   });
 
   if (btnManualMode) btnManualMode.addEventListener('click', () => {
+    if (state.mode === 'digitize') { setMode('idle'); return; }
     if (!requireCalibration()) return;
     setMode('digitize', btnManualMode);
   });
@@ -174,16 +179,32 @@ document.addEventListener('DOMContentLoaded', () => {
     setMode(state.mode === 'erase' ? 'idle' : 'erase', btnEraseMode);
   });
 
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || state.mode === 'idle') return;
+    if (pythonModal && pythonModal.classList.contains('open')) return;
+    setMode('idle');
+  });
+
   if (eraseRadiusSlider) eraseRadiusSlider.addEventListener('input', (e) => {
     state.eraseRadius = parseInt(e.target.value, 10) || 10;
     if (eraseRadiusVal) eraseRadiusVal.innerText = state.eraseRadius;
     renderViewport();
   });
 
+  /**
+   * Switch mode and show it: the button for the current mode is pressed
+   * (aria-pressed, styled in plot-digitizer.css) and every other one is not.
+   * Idle presses none.
+   */
   function setMode(newMode, activeBtn) {
     state.mode = newMode;
+    const pressed = newMode === 'idle' ? null : activeBtn;
     document.querySelectorAll('[data-modebtn]').forEach(b =>
-      b.classList.toggle('active', b === activeBtn));
+      b.setAttribute('aria-pressed', String(b === pressed)));
+    if (newMode === 'idle' && loupe) {
+      loupe.classList.add('hidden');
+      canvas.classList.remove('loupe-active');
+    }
     if (eraseControls) {
       eraseControls.classList.toggle('hidden', newMode !== 'erase');
     }
@@ -287,9 +308,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (toggleBackground) toggleBackground.addEventListener('click', () => {
     state.showBackground = !state.showBackground;
+    toggleBackground.setAttribute('aria-pressed', String(state.showBackground));
     if (eyeIcon) {
-      eyeIcon.className = state.showBackground
-        ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
+      eyeIcon.className = (state.showBackground ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash') +
+        ' text-slate-600 dark:text-slate-400';
     }
     renderViewport();
   });

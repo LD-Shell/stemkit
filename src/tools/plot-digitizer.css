@@ -7,6 +7,21 @@
  */
 
 #plotCanvas { cursor: crosshair; }
+
+/* The button for the mode the canvas is in (setting a calibration point,
+   adding points, erasing) is pressed; the rest are not. Erase keeps red. */
+[data-modebtn][aria-pressed="true"] {
+  border-color: var(--stk-accent);
+  background: var(--stk-accent-soft);
+  color: var(--stk-accent-text);
+  box-shadow: 0 0 0 2px var(--stk-ring);
+}
+#btnEraseMode[aria-pressed="true"] {
+  border-color: var(--stk-danger);
+  background: var(--stk-danger-soft);
+  color: var(--stk-danger);
+  box-shadow: 0 0 0 2px var(--stk-danger-border);
+}
 .loupe-active { cursor: none !important; }
 .dataset-btn.active { border-color: #3574b0; background-color: #e0ebf6; }
 html.dark .dataset-btn.active { background-color: rgba(31, 92, 150, 0.2); border-color: #3574b0; }

@@ -182,11 +182,12 @@
                                 <button id="btnUndo" class="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-300 transition-colors flex items-center justify-center"><i class="fa-solid fa-rotate-left"></i></button>
                                 <div class="absolute right-0 top-full mt-2 hidden group-hover:block bg-slate-800 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-50">Undo last point</div>
                             </div>
-                            <label class="relative group cursor-pointer w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                                <input type="checkbox" id="toggleBackground" checked class="hidden">
-                                <i id="eyeIcon" class="fa-solid fa-eye text-slate-600 dark:text-slate-400"></i>
-                                <div class="absolute right-0 top-full mt-2 hidden group-hover:block bg-slate-800 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-50">Toggle background image</div>
-                            </label>
+                            <div class="relative group">
+                                <button type="button" id="toggleBackground" aria-pressed="true" aria-label="Show the figure behind the points" class="w-8 h-8 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                                    <i id="eyeIcon" class="fa-solid fa-eye text-slate-600 dark:text-slate-400" aria-hidden="true"></i>
+                                </button>
+                                <div class="absolute right-0 top-full mt-2 hidden group-hover:block bg-slate-800 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-50" aria-hidden="true">Show or hide the figure</div>
+                            </div>
                         </div>
                     </div>
 
@@ -222,13 +223,13 @@
                                     </label>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2">
-                                    <button id="btnCalibX1" class="calib-btn bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-brand-400 text-xs py-1.5 rounded-lg font-medium text-slate-700 dark:text-slate-300 transition-colors">Set X1</button>
+                                    <button type="button" id="btnCalibX1" data-modebtn aria-pressed="false" class="calib-btn bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-brand-400 text-xs py-1.5 rounded-lg font-medium text-slate-700 dark:text-slate-300 transition-colors">Set X1</button>
                                     <input type="number" id="valX1" placeholder="Value" class="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 rounded-lg px-2 text-xs">
-                                    <button id="btnCalibX2" class="calib-btn bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-brand-400 text-xs py-1.5 rounded-lg font-medium text-slate-700 dark:text-slate-300 transition-colors">Set X2</button>
+                                    <button type="button" id="btnCalibX2" data-modebtn aria-pressed="false" class="calib-btn bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-brand-400 text-xs py-1.5 rounded-lg font-medium text-slate-700 dark:text-slate-300 transition-colors">Set X2</button>
                                     <input type="number" id="valX2" placeholder="Value" class="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 rounded-lg px-2 text-xs">
-                                    <button id="btnCalibY1" class="calib-btn bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-brand-400 text-xs py-1.5 rounded-lg font-medium text-slate-700 dark:text-slate-300 transition-colors mt-2">Set Y1</button>
+                                    <button type="button" id="btnCalibY1" data-modebtn aria-pressed="false" class="calib-btn bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-brand-400 text-xs py-1.5 rounded-lg font-medium text-slate-700 dark:text-slate-300 transition-colors mt-2">Set Y1</button>
                                     <input type="number" id="valY1" placeholder="Value" class="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 rounded-lg px-2 text-xs mt-2">
-                                    <button id="btnCalibY2" class="calib-btn bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-brand-400 text-xs py-1.5 rounded-lg font-medium text-slate-700 dark:text-slate-300 transition-colors mt-2">Set Y2</button>
+                                    <button type="button" id="btnCalibY2" data-modebtn aria-pressed="false" class="calib-btn bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-brand-400 text-xs py-1.5 rounded-lg font-medium text-slate-700 dark:text-slate-300 transition-colors mt-2">Set Y2</button>
                                     <input type="number" id="valY2" placeholder="Value" class="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 rounded-lg px-2 text-xs mt-2">
                                 </div>
                                 <p id="resolutionNote" class="hidden mt-3 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700 pt-2" aria-live="polite"></p>
@@ -248,8 +249,8 @@
                                 <div id="datasetList" class="flex flex-col gap-1.5 max-h-24 overflow-y-auto mb-3 pr-1 custom-scroll"></div>
                                 
                                 <div class="grid grid-cols-2 gap-2 mb-2">
-                                    <button id="btnManualMode" class="border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200"><i class="fa-solid fa-pen-nib mr-1"></i> Manual</button>
-                                    <button id="btnEraseMode" class="border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-700 dark:text-red-400 font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200"><i class="fa-solid fa-eraser mr-1"></i> Erase</button>
+                                    <button type="button" id="btnManualMode" data-modebtn aria-pressed="false" class="border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200"><i class="fa-solid fa-pen-nib mr-1"></i> Manual</button>
+                                    <button type="button" id="btnEraseMode" data-modebtn aria-pressed="false" class="border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-1.5 rounded-lg text-[11px] transition-all duration-200"><i class="fa-solid fa-eraser mr-1"></i> Erase</button>
                                 </div>
                                 
                                 <div id="eraseControls" class="hidden flex-col gap-1 mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-800">
