@@ -858,6 +858,10 @@
 .si-keys-h:first-child { margin-top: 0; }
 .si-keys-g { font-size: 0.75rem; font-weight: 600; color: var(--stk-fg-2); text-align: right; }
 
+/* The keyboard table in the guide. */
+.si-keytable td:first-child { white-space: nowrap; }
+.si-keytable .stk-kbd + .stk-kbd { margin-left: 0.2rem; }
+
 /* Full-page drop target ---------------------------------------------------- */
 
 .si-drop-indicator {
