@@ -70,6 +70,8 @@
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my data uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Everything runs in your browser; nothing you type is sent to a server."}}, {"@type": "Question", "name": "What method is this based on?", "acceptedAnswer": {"@type": "Answer", "text": "The Simple Additive Weighting (SAW) / Weighted Sum Model, a standard multi-criteria decision analysis (MCDA) technique."}}, {"@type": "Question", "name": "How should I choose weights?", "acceptedAnswer": {"@type": "Answer", "text": "Weights express relative importance. A criterion weighted 4 counts twice as much as one weighted 2. Only the ratios matter."}}, {"@type": "Question", "name": "What happens with a tie?", "acceptedAnswer": {"@type": "Answer", "text": "If two or more options share the top weighted total, they are all shown as tied top choices."}}, {"@type": "Question", "name": "Can I handle “lower is better” criteria?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, invert them when scoring, so the most favourable option (lowest cost, shortest commute) gets the highest score."}}]}
 </script>
+    <link rel="stylesheet" href="css/dependencies/katex.min.css">
+    <script defer src="js/dependencies/katex.min.js"></script>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
@@ -227,14 +229,14 @@
             <p class="stk-lead">This tool implements <strong>Simple Additive Weighting (SAW)</strong> (also called the Weighted Sum Model) the most widely used compensatory multi-criteria decision method.</p>
             
             <p class="stk-eqn-label">Weighted score of option <em>i</em> (Simple Additive Weighting):</p>
-            <div class="stk-math"><math display="block"><msub><mi>S</mi><mi>i</mi></msub><mo>=</mo><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mrow><mi>n</mi></mrow></munderover><msub><mi>w</mi><mi>j</mi></msub><mo>·</mo><msub><mi>r</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub></math></div>
+            <div class="stk-math"><span class="stk-tex" data-display>{S}_{i}=\sum_{j=1}^{n}{w}_{j}\cdot{r}_{ij}</span></div>
             <p class="stk-eqn-label">Expressed as a percentage of the maximum attainable score:</p>
-            <div class="stk-math"><math display="block"><msubsup><mi>S</mi><mi>i</mi><mrow><mo>(%)</mo></mrow></msubsup><mo>=</mo><mn>100</mn><mo>×</mo><mfrac><msub><mi>S</mi><mi>i</mi></msub><mrow><msub><mi>r</mi><mi>max</mi></msub><mo>·</mo><munderover><mo>∑</mo><mrow><mi>j</mi><mo>=</mo><mn>1</mn></mrow><mrow><mi>n</mi></mrow></munderover><msub><mi>w</mi><mi>j</mi></msub></mrow></mfrac></math></div>
-            <p class="stk-where">where <math><msub><mi>S</mi><mi>i</mi></msub></math> is the total score of option <em>i</em>;
-            <math><msub><mi>w</mi><mi>j</mi></msub></math> the weight of criterion <em>j</em> (1&ndash;5);
-            <math><msub><mi>r</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub></math> the rating of option <em>i</em> on criterion <em>j</em> (1&ndash;10);
-            <math><msub><mi>r</mi><mi>max</mi></msub></math> = 10 the maximum rating; and <em>n</em> the number of criteria.
-            The recommended option is the one that maximises <math><msub><mi>S</mi><mi>i</mi></msub></math>.</p>
+            <div class="stk-math"><span class="stk-tex" data-display>{S}_{i}^{(\%)}=100\times\frac{{S}_{i}}{{r}_{\max }\cdot\sum_{j=1}^{n}{w}_{j}}</span></div>
+            <p class="stk-where">where <span class="stk-tex">{S}_{i}</span> is the total score of option <em>i</em>;
+            <span class="stk-tex">{w}_{j}</span> the weight of criterion <em>j</em> (1&ndash;5);
+            <span class="stk-tex">{r}_{ij}</span> the rating of option <em>i</em> on criterion <em>j</em> (1&ndash;10);
+            <span class="stk-tex">{r}_{\max }</span> = 10 the maximum rating; and <em>n</em> the number of criteria.
+            The recommended option is the one that maximises <span class="stk-tex">{S}_{i}</span>.</p>
             <h3 class="stk-refs-h">References &amp; documentation</h3>
             <ol class="stk-refs-list">
                 

@@ -809,7 +809,7 @@
                 <p class="stk-lead">A GROMACS <code>[ defaults ]</code> directive declares the non-bonded function, the combination rule, whether 1&#8209;4 pairs are generated, and the 1&#8209;4 scaling factors <code>fudgeLJ</code> and <code>fudgeQQ</code>. These are properties of the force field and must match it.</p>
 
                 <p class="stk-eqn-label">The <code>[ defaults ]</code> line has the form:</p>
-                <div class="stk-math">[ defaults ]<br>; nbfunc&nbsp;&nbsp;comb-rule&nbsp;&nbsp;gen-pairs&nbsp;&nbsp;fudgeLJ&nbsp;&nbsp;fudgeQQ</div>
+                <div class="stk-math is-code">[ defaults ]<br>; nbfunc&nbsp;&nbsp;comb-rule&nbsp;&nbsp;gen-pairs&nbsp;&nbsp;fudgeLJ&nbsp;&nbsp;fudgeQQ</div>
 
                 <p class="stk-where">
                     <span class="hl">nbfunc</span> selects the non-bonded form (1 = Lennard-Jones). <span class="hl">comb-rule</span> selects how pair parameters are combined: rule&nbsp;2 is Lorentz&ndash;Berthelot (arithmetic&ndash;geometric), while rules&nbsp;1 and&nbsp;3 are geometric. <span class="hl">gen-pairs</span> = <code>yes</code> generates missing 1&#8209;4 pairs from the normal LJ parameters scaled by <span class="hl">fudgeLJ</span>. <span class="hl">fudgeLJ</span> scales 1&#8209;4 Lennard-Jones interactions (used only when <code>gen-pairs</code> is <code>yes</code>); <span class="hl">fudgeQQ</span> scales 1&#8209;4 electrostatics and is always applied.
