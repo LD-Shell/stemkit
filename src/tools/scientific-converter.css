@@ -7,7 +7,7 @@
  */
 
 .info-trigger { position: relative; display: inline-flex; }
-.info-trigger .info-icon { color: #94a3b8; transition: color 0.15s ease; cursor: help; }
+.info-trigger .info-icon { color: var(--stk-fg-muted); transition: color 0.15s ease; cursor: help; }
 .info-trigger:hover .info-icon { color: #4f46e5; }
 .dark .info-trigger .info-icon { color: #64748b; }
 .dark .info-trigger:hover .info-icon { color: #818cf8; }

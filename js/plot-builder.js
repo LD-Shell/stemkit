@@ -211,7 +211,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <input type="text" class="trace-name text-sm font-bold bg-transparent outline-none border-b border-transparent focus:border-indigo-500 w-full truncate" value="${trace.config.name}" data-id="${trace.id}">
                 </div>
                 
-                <button class="remove-trace absolute top-3 right-3 text-slate-400 hover:text-red-500 transition-colors" data-id="${trace.id}">
+                <button class="remove-trace absolute top-3 right-3 text-slate-500 dark:text-slate-400 hover:text-red-500 transition-colors" data-id="${trace.id}">
                     <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                 </button>
 
@@ -223,13 +223,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label class="text-[11px] uppercase font-bold text-slate-500">X-Axis</label>
+                        <label class="text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400">X-Axis</label>
                         <select class="trace-x w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs py-1 px-2 outline-none" data-id="${trace.id}">
                             ${xOptions}
                         </select>
                     </div>
                     <div>
-                        <label class="text-[11px] uppercase font-bold text-slate-500">Y-Axis</label>
+                        <label class="text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400">Y-Axis</label>
                         <select class="trace-y w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs py-1 px-2 outline-none" data-id="${trace.id}">
                             ${yOptions}
                         </select>
@@ -238,7 +238,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label class="text-[11px] uppercase font-bold text-slate-500">Style</label>
+                        <label class="text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400">Style</label>
                         <select class="trace-mode w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded text-xs py-1 px-2 outline-none" data-id="${trace.id}">
                             <option value="lines" ${trace.config.mode === 'lines' ? 'selected' : ''}>Line</option>
                             <option value="markers" ${trace.config.mode === 'markers' ? 'selected' : ''}>Scatter</option>
@@ -246,7 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         </select>
                     </div>
                     <div>
-                        <label class="text-[11px] uppercase font-bold text-slate-500">Color</label>
+                        <label class="text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400">Color</label>
                         <input type="color" class="trace-color w-full h-6 rounded cursor-pointer border-none bg-transparent p-0" value="${trace.config.color}" data-id="${trace.id}">
                     </div>
                 </div>

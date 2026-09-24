@@ -660,7 +660,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!window.katex) {
       theoryContainer.innerHTML =
-        '<span class="text-slate-400 text-sm">Formula renderer unavailable.</span>';
+        '<span class="text-slate-500 dark:text-slate-400 text-sm">Formula renderer unavailable.</span>';
       return;
     }
 
@@ -671,7 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderDefinitions(type);
     } catch {
       theoryContainer.innerHTML =
-        '<span class="text-slate-400 text-sm">Formula renderer unavailable.</span>';
+        '<span class="text-slate-500 dark:text-slate-400 text-sm">Formula renderer unavailable.</span>';
     }
   }
 

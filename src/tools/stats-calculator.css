@@ -10,7 +10,7 @@
 #theoryContainer .katex-mathml, .katex .katex-mathml { position:absolute !important; clip:rect(1px,1px,1px,1px) !important; padding:0 !important; border:0 !important; height:1px !important; width:1px !important; overflow:hidden !important; }
 #theoryContainer .katex-display { margin:.35rem 0; }
 .mf-defs { margin-top:1.25rem; padding-top:1rem; border-top:1px solid rgba(148,163,184,.25); }
-.mf-defs-title { font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:#94a3b8; margin-bottom:.6rem; }
+.mf-defs-title { font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--stk-fg-muted); margin-bottom:.6rem; }
 .mf-defs dl { display:grid; grid-template-columns:auto 1fr; gap:.45rem .9rem; margin:0; align-items:baseline; }
 .mf-def { display:contents; }
 .mf-defs dt { white-space:nowrap; text-align:right; }
@@ -35,7 +35,7 @@
 .dark .assume-box .assume-title i { color:#818cf8; }
 .tut-group { display:flex; align-items:center; gap:1rem; padding:.6rem 0; border-top:1px solid rgba(148,163,184,.18); }
 .tut-group:first-child { border-top:none; padding-top:0; }
-.tut-heading { flex:0 0 8.5rem; font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:#94a3b8; }
+.tut-heading { flex:0 0 8.5rem; font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--stk-fg-3); }
 .tut-chips { display:flex; flex-wrap:wrap; gap:.5rem; }
 .tut-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.82rem; font-weight:600; padding:.5rem .85rem; border-radius:.6rem; cursor:pointer; transition:all .15s; background:#fff; color:#4f46e5; border:1px solid rgba(99,102,241,.3); }
 .tut-chip:hover { background:#4f46e5; color:#fff; border-color:#4f46e5; box-shadow:0 2px 8px rgba(79,70,229,.25); transform:translateY(-1px); }

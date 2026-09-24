@@ -19,8 +19,8 @@ body {
   --stk-ring: rgba(225, 29, 72, .35);
 }
 .dark body {
-  --stk-accent: #f43f5e;
-  --stk-accent-hover: #fb7185;
+  --stk-accent: #e11d48;
+  --stk-accent-hover: #f43f5e;
   --stk-accent-text: #fda4af;
   --stk-accent-soft: rgba(244, 63, 94, .16);
   --stk-accent-soft-border: rgba(251, 113, 133, .35);
@@ -79,7 +79,7 @@ body {
 /* Resource summary under the cluster form. */
 .sg-summary { display: flex; flex-wrap: wrap; gap: .3rem 1rem; margin: 0; padding: .6rem .8rem; border-radius: var(--stk-radius); background: var(--stk-surface-2); border: 1px solid var(--stk-border); font-size: .75rem; line-height: 1.4; }
 .sg-summary > div { display: flex; gap: .35rem; align-items: baseline; }
-.sg-summary dt { color: var(--stk-fg-muted); }
+.sg-summary dt { color: var(--stk-fg-3); }
 .sg-summary dd { margin: 0; color: var(--stk-fg); font-weight: 600; }
 
 /* ---------------------------------------------------------------------------

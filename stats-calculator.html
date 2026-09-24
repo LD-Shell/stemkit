@@ -134,7 +134,7 @@
     <main class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
         
         <div id="tutorialBanner" class="relative bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-950/40 dark:to-slate-950 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl p-5 sm:p-6 shadow-sm">
-            <button id="tutorialDismiss" class="absolute top-3 right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors" aria-label="Dismiss tutorial">
+            <button id="tutorialDismiss" class="absolute top-3 right-3 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors" aria-label="Dismiss tutorial">
                 <i class="fa-solid fa-xmark text-lg"></i>
             </button>
             <div class="flex items-start gap-3 mb-4">
@@ -198,23 +198,23 @@
 
                 <div class="mt-4 flex flex-wrap items-center gap-3">
                     <div class="flex items-center gap-2 min-w-0 max-w-full">
-                        <label for="formatSelect" class="text-xs font-bold text-slate-500 uppercase tracking-wider">Format</label>
+                        <label for="formatSelect" class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Format</label>
                         <select id="formatSelect" class="min-w-0 max-w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
                             <option value="auto">Auto-detect</option>
                             <option value="wide">Wide (one column per group)</option>
                             <option value="long">Long / tidy (value + group columns)</option>
                         </select>
                     </div>
-                    <span class="text-[11px] text-slate-400">Wide = each column is a group. Long = one value column split by a label column.</span>
+                    <span class="text-[11px] text-slate-500 dark:text-slate-400">Wide = each column is a group. Long = one value column split by a label column.</span>
                 </div>
 
                 <div id="longControls" class="mt-3 grid grid-cols-2 gap-3" style="display:none;">
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Value column</label>
+                        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Value column</label>
                         <select id="valueColSelect" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></select>
                     </div>
                     <div>
-                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Group column</label>
+                        <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Group column</label>
                         <select id="groupColSelect" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></select>
                     </div>
                 </div>
@@ -234,7 +234,7 @@
                     
                     <div class="flex flex-col gap-4">
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Test Type</label>
+                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Test Type</label>
                             <select id="testType" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
                                 <optgroup label="Parametric">
                                     <option value="ttest_welch">Independent t-test: Welch (unequal variances)</option>
@@ -252,19 +252,19 @@
 
                         <div id="twoVarRow" class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Variable 1</label>
+                                <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Variable 1</label>
                                 <select id="var1" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50" disabled></select>
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Variable 2</label>
+                                <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Variable 2</label>
                                 <select id="var2" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50" disabled></select>
                             </div>
                         </div>
 
                         <div id="groupRow" style="display:none;">
-                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Groups (select 2 or more columns)</label>
+                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Groups (select 2 or more columns)</label>
                             <select id="groupSelect" multiple size="5" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50" disabled></select>
-                            <p class="text-[11px] text-slate-400 mt-1.5">Hold Ctrl/Cmd (or Shift) to select multiple columns. Each selected column is treated as one group.</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">Hold Ctrl/Cmd (or Shift) to select multiple columns. Each selected column is treated as one group.</p>
                         </div>
 
                         <button id="runTestBtn" class="mt-2 bg-slate-900 dark:bg-indigo-600 text-white w-full py-3 rounded-xl font-bold hover:bg-slate-800 dark:hover:bg-indigo-700 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 transition-all duration-150 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-sm flex items-center justify-center gap-2" disabled>
@@ -279,15 +279,15 @@
                     <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 mb-4">
                         <div class="grid grid-cols-3 gap-4 text-center">
                             <div>
-                                <span class="block text-xs text-slate-500 uppercase tracking-widest mb-1" id="statLabel">T-Statistic</span>
+                                <span class="block text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1" id="statLabel">T-Statistic</span>
                                 <span class="text-2xl font-black text-indigo-600 dark:text-indigo-400" id="statValue">--</span>
                             </div>
                             <div class="border-l border-slate-200 dark:border-slate-800">
-                                <span class="block text-xs text-slate-500 uppercase tracking-widest mb-1">P-Value</span>
+                                <span class="block text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">P-Value</span>
                                 <span class="text-2xl font-black text-emerald-600 dark:text-emerald-400" id="pValue">--</span>
                             </div>
                             <div class="border-l border-slate-200 dark:border-slate-800">
-                                <span class="block text-xs text-slate-500 uppercase tracking-widest mb-1" id="effectLabel">Effect size</span>
+                                <span class="block text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1" id="effectLabel">Effect size</span>
                                 <span class="text-2xl font-black text-slate-700 dark:text-slate-300" id="effectValue">--</span>
                             </div>
                         </div>
@@ -298,10 +298,10 @@
                     <div id="assumptionsBox" class="assume-box" style="display:none;"></div>
 
                     <div class="mb-4">
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Publication Summary</label>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Publication Summary</label>
                         <div class="relative">
                             <textarea id="pubSummary" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" rows="3" readonly></textarea>
-                            <button id="copyBtn" class="absolute top-2 right-2 text-slate-400 hover:text-indigo-600 transition-colors bg-white dark:bg-slate-800 p-1.5 rounded shadow-sm border border-slate-200 dark:border-slate-700" title="Copy to clipboard">
+                            <button id="copyBtn" class="absolute top-2 right-2 text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-colors bg-white dark:bg-slate-800 p-1.5 rounded shadow-sm border border-slate-200 dark:border-slate-700" title="Copy to clipboard">
                                 <i class="fa-regular fa-copy"></i>
                             </button>
                         </div>
@@ -310,7 +310,7 @@
                     <details class="group bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg open:shadow-sm transition-all">
                         <summary class="px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer list-none flex justify-between items-center">
                             <span><i class="fa-solid fa-square-root-variable mr-2 text-indigo-500"></i> Mathematical Theory</span>
-                            <i class="fa-solid fa-chevron-down text-slate-400 group-open:rotate-180 transition-transform"></i>
+                            <i class="fa-solid fa-chevron-down text-slate-500 dark:text-slate-400 group-open:rotate-180 transition-transform"></i>
                         </summary>
                         <div class="px-4 pb-4 pt-2 border-t border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-400">
                             <div id="theoryContainer" class="overflow-x-auto py-2"></div>

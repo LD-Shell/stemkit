@@ -143,11 +143,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!syntaxStatus) return;
     if (isValid) {
       syntaxStatus.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Valid Syntax';
-      syntaxStatus.className = 'text-xs font-bold text-emerald-500';
+      syntaxStatus.className = 'text-xs font-bold text-emerald-700 dark:text-emerald-400';
     } else {
       syntaxStatus.innerHTML =
         '<i class="fa-solid fa-triangle-exclamation mr-1"></i> Compilation Error';
-      syntaxStatus.className = 'text-xs font-bold text-red-500';
+      syntaxStatus.className = 'text-xs font-bold text-red-700 dark:text-red-400';
     }
   }
 

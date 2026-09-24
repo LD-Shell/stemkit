@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         emptyState.classList.remove('hidden');
       } else {
         conflictList.innerHTML =
-          '<div class="text-center py-10 text-slate-400 text-sm">' +
+          '<div class="text-center py-10 text-slate-500 dark:text-slate-400 text-sm">' +
           'No duplicates found, every entry is unique.</div>';
       }
       if (autoResolveBtn) autoResolveBtn.classList.add('hidden');
@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-4';
 
       const heading = document.createElement('div');
-      heading.className = 'text-xs font-bold uppercase tracking-wider text-slate-400 mb-3';
+      heading.className = 'text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3';
       heading.textContent = `Conflict ${gi + 1}, ${group.members.length} entries`;
       wrapper.appendChild(heading);
 
@@ -160,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="text-slate-500 dark:text-slate-500 mb-1">
             ${escapeHtml(getField(tags, 'title') || 'No title')}
           </div>
-          <div class="font-mono text-[11px] text-slate-400">
+          <div class="font-mono text-[11px] text-slate-500 dark:text-slate-400">
             ${escapeHtml(getField(tags, 'journal') || '')} ${escapeHtml(getField(tags, 'year') || '')}
             ${getField(tags, 'doi') ? '· DOI' : ''}
             · score ${completenessScore(entry)}

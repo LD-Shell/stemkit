@@ -143,7 +143,7 @@
                         <math-field id="mathField" class="bg-transparent outline-none">H = \sum_{i=1}^{N} \frac{p_i^2}{2m} + V(q_1, \ldots, q_N)</math-field>
                     </div>
 
-                    <p class="text-xs text-slate-500 mb-2"><i class="fa-solid fa-keyboard mr-1"></i> You can type standard LaTeX commands (e.g., \alpha) directly into the box, or click to open the virtual math keyboard.</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-2"><i class="fa-solid fa-keyboard mr-1"></i> You can type standard LaTeX commands (e.g., \alpha) directly into the box, or click to open the virtual math keyboard.</p>
                 </div>
 
                 <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
@@ -151,15 +151,15 @@
                     
                     <div class="grid grid-cols-3 gap-4 mb-4">
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Rows</label>
+                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Rows</label>
                             <input type="number" id="matrixRows" min="1" max="10" value="3" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Columns</label>
+                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Columns</label>
                             <input type="number" id="matrixCols" min="1" max="10" value="3" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Bracket Style</label>
+                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Bracket Style</label>
                             <select id="matrixStyle" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500">
                                 <option value="bmatrix">[ ] bmatrix</option>
                                 <option value="pmatrix">( ) pmatrix</option>
@@ -190,8 +190,8 @@
 
                 <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col h-[200px]">
                     <div class="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
-                        <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider">Live Compilation Output</h2>
-                        <span id="syntaxStatus" class="text-xs font-bold text-emerald-500"><i class="fa-solid fa-check mr-1"></i> Valid Syntax</span>
+                        <h2 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Live Compilation Output</h2>
+                        <span id="syntaxStatus" class="text-xs font-bold text-emerald-700 dark:text-emerald-400"><i class="fa-solid fa-check mr-1"></i> Valid Syntax</span>
                     </div>
                     
                     <div class="flex-grow flex items-center justify-center overflow-auto">

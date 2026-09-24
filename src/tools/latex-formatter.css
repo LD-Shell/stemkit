@@ -8,7 +8,7 @@
 
 .toast-enter { animation: slideIn 0.3s forwards; }
 math-field { --contains-highlight-backround: transparent; font-size: 1.5rem; width: 100%; border-radius: 0.5rem; padding: 1rem; }
-.dark math-field { --text-color: #f1f5f9; --keyboard-background: #0f172a; }
+.dark math-field { color: #f1f5f9; --text-color: #f1f5f9; --keyboard-background: #0f172a; }
 
 @keyframes slideIn {
   from { transform: translateY(100%); opacity: 0; }

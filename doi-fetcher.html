@@ -135,8 +135,8 @@
         
         <div class="mb-4">
             <h1 class="text-3xl font-bold mb-2">DOI to BibTeX</h1>
-            <p class="text-slate-500 dark:text-slate-400">Batch-resolve DOIs into formatted BibTeX. Paste one or hundreds, choose your delimiter, filter fields, and export a clean <code class="text-xs bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">.bib</code> file.</p>
-            <p class="text-xs text-slate-400 mt-3">Resolves via doi.org</p>
+            <p class="text-slate-500 dark:text-slate-400">Batch-resolve DOIs into formatted BibTeX. Paste one or hundreds, choose your delimiter, filter fields, and export a clean <code class="text-xs text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">.bib</code> file.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Resolves via doi.org</p>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -150,14 +150,14 @@
                     
                     <div class="flex flex-col gap-4">
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Paste DOIs (one per line, or use a delimiter below)</label>
+                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Paste DOIs (one per line, or use a delimiter below)</label>
                             <textarea id="doiInput" rows="7" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-4 py-3 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none resize-y" placeholder="10.1038/s41586-020-2649-2&#10;10.1021/acs.jpcc.9b03054&#10;10.1126/science.288.5468.1029&#10;&#10;Or paste comma-separated:&#10;10.xxxx/abc, 10.yyyy/def, 10.zzzz/ghi"></textarea>
-                            <p class="text-[11px] text-slate-400 mt-2">Supports raw DOIs or full URLs (e.g., https://doi.org/10…). Duplicates are auto-removed.</p>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-2">Supports raw DOIs or full URLs (e.g., https://doi.org/10…). Duplicates are auto-removed.</p>
                         </div>
 
                         <!-- Delimiter selector -->
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">How are your DOIs separated?</label>
+                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">How are your DOIs separated?</label>
                             <div class="flex flex-wrap gap-2" id="delimRow">
                                 <button class="delim-chip bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700" data-delim="newline">New line</button>
                                 <button class="delim-chip bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700" data-delim="comma">Comma <code class="text-[11px]">,</code></button>
@@ -176,7 +176,7 @@
                             <div class="progress-track bg-slate-200 dark:bg-slate-700 w-full">
                                 <div class="progress-fill bg-indigo-600" id="progressFill"></div>
                             </div>
-                            <p class="text-xs text-slate-400 mt-1.5 font-medium tabular-nums" id="progressText">0 / 0</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1.5 font-medium tabular-nums" id="progressText">0 / 0</p>
                         </div>
                     </div>
                 </div>
@@ -185,14 +185,14 @@
                 <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
                     <div class="flex justify-between items-center cursor-pointer select-none" id="fieldsTrigger">
                         <h2 class="text-lg font-semibold">2. Filter BibTeX Fields</h2>
-                        <i class="fa-solid fa-chevron-down text-xs text-slate-400 transition-transform duration-200" id="fieldsArrow"></i>
+                        <i class="fa-solid fa-chevron-down text-xs text-slate-500 dark:text-slate-400 transition-transform duration-200" id="fieldsArrow"></i>
                     </div>
                     <div class="collapse-body" id="fieldsBody">
-                        <p class="text-[11px] text-slate-400 mt-3 mb-3">Uncheck fields to strip from every entry. Changes apply to existing and future entries.</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-3 mb-3">Uncheck fields to strip from every entry. Changes apply to existing and future entries.</p>
                         <div class="fields-grid text-slate-600 dark:text-slate-300" id="fieldsGrid"></div>
                         <div class="flex gap-2 mt-3">
                             <button id="selectAllFields" class="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">Select all</button>
-                            <span class="text-slate-300 dark:text-slate-600">|</span>
+                            <span class="text-slate-300 dark:text-slate-600" aria-hidden="true">|</span>
                             <button id="deselectOptional" class="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline">Essential only</button>
                         </div>
                     </div>
@@ -238,7 +238,7 @@
                         <button id="retryBtn" class="hidden bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-400 py-2.5 rounded-lg font-medium transition-colors border border-amber-200 dark:border-amber-800/50 text-sm">
                             <i class="fa-solid fa-rotate-right mr-1"></i> Retry
                         </button>
-                        <button id="clearBtn" class="bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 py-2.5 rounded-lg font-medium transition-colors border border-red-200 dark:border-red-800/50 text-sm">
+                        <button id="clearBtn" class="bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-700 dark:text-red-400 py-2.5 rounded-lg font-medium transition-colors border border-red-200 dark:border-red-800/50 text-sm">
                             <i class="fa-solid fa-trash-can mr-1"></i> Clear
                         </button>
                     </div>
@@ -253,7 +253,7 @@
                     </div>
 
                     <!-- Stats row -->
-                    <div id="statsRow" class="hidden flex flex-wrap gap-4 pt-3 mt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400">
+                    <div id="statsRow" class="hidden flex flex-wrap gap-4 pt-3 mt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
                         <span>Fetched: <strong class="text-slate-700 dark:text-slate-200" id="statFetched">0</strong></span>
                         <span>Failed: <strong class="text-slate-700 dark:text-slate-200" id="statFailed">0</strong></span>
                         <span>Dupes removed: <strong class="text-slate-700 dark:text-slate-200" id="statDupes">0</strong></span>
@@ -277,7 +277,7 @@
     <section class="stk-section" id="how-it-works" aria-label="How it works">
         <div class="stk-wrap">
             <h2 class="stk-h2">How resolution works</h2>
-            <div class="stk-grid stk-grid-2"><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">DOI content negotiation</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Each DOI is requested from <code>doi.org</code> with an <code>Accept: application/x-bibtex</code> header. The DOI system routes to the registering agency (Crossref, DataCite, mEDRA) and returns BibTeX, the same mechanism reference managers use.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Batching, dedup &amp; retry</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">DOIs are de-duplicated, fetched sequentially with a short delay to respect the service, and any failures are collected into a report you can retry in one click. Field filtering is applied locally to the returned entries.</p></div></div>
+            <div class="stk-grid stk-grid-2"><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">DOI content negotiation</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Each DOI is requested from <code>doi.org</code> with an <code>Accept: application/x-bibtex</code> header. The DOI system routes to the registering agency (Crossref, DataCite, mEDRA) and returns BibTeX, the same mechanism reference managers use.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Batching, dedup &amp; retry</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">DOIs are de-duplicated, fetched sequentially with a short delay to respect the service, and any failures are collected into a report you can retry in one click. Field filtering is applied locally to the returned entries.</p></div></div>
             <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>Privacy note: formatting and filtering happen in your browser, but resolving a DOI necessarily sends it to <code>doi.org</code> to retrieve the metadata, that network step is how DOI resolution works. No account or tracking is involved.</div></div>
         </div>
     </section>

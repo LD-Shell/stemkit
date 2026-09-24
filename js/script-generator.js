@@ -2096,10 +2096,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const cur = plumedBiasVals[method][p.k] !== undefined ? plumedBiasVals[method][p.k] : p.def;
             const help = (p.help || '').replace(/"/g, '&quot;');
             const badge = help ? `<span class="plumed-help" tabindex="0" data-tip="${help}">?</span>` : '';
-            const perTag = p.perCV ? '<span class="text-[11px] text-slate-400 font-normal">/CV</span>' : '';
+            const perTag = p.perCV ? '<span class="text-[11px] text-slate-500 dark:text-slate-400 font-normal">/CV</span>' : '';
             const cell = document.createElement('div');
             cell.innerHTML = `
-                <label class="text-[11px] font-bold text-slate-400 flex items-center gap-1">${p.label}${perTag}${badge}</label>
+                <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">${p.label}${perTag}${badge}</label>
                 <input type="text" data-bias-key="${p.k}" value="${cur ?? ''}" ${p.def === '' ? 'placeholder="(optional)"' : ''}
                        class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">`;
             wrap.appendChild(cell);
@@ -2107,8 +2107,8 @@ document.addEventListener('DOMContentLoaded', () => {
         host.appendChild(wrap);
         if (def.params.some(p => p.perCV)) {
             const note = document.createElement('p');
-            note.className = 'text-[11px] text-slate-400 mt-2 leading-snug';
-            note.innerHTML = '<span class="text-slate-400">/CV</span> fields apply one value to every biased CV. To set them individually, type a comma-separated list (one per biased CV).';
+            note.className = 'text-[11px] text-slate-500 dark:text-slate-400 mt-2 leading-snug';
+            note.innerHTML = '<span class="text-slate-500 dark:text-slate-400">/CV</span> fields apply one value to every biased CV. To set them individually, type a comma-separated list (one per biased CV).';
             host.appendChild(note);
         }
 
@@ -2233,7 +2233,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!host) return;
         host.innerHTML = '';
         if (!plumedCVs.length) {
-            host.innerHTML = '<p class="text-[11px] text-slate-400 italic px-1">No CVs yet. Pick a category and CV above, then “Add”.</p>';
+            host.innerHTML = '<p class="text-[11px] text-slate-500 dark:text-slate-400 italic px-1">No CVs yet. Pick a category and CV above, then “Add”.</p>';
             return;
         }
         plumedCVs.forEach(inst => {
@@ -2255,19 +2255,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!inst.isGroup && !inst.noBias) {
                 const biasLbl = document.createElement('label');
                 biasLbl.className = 'flex items-center gap-1 text-[11px] font-bold uppercase cursor-pointer ' +
-                    (inst.bias ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400');
+                    (inst.bias ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400');
                 biasLbl.title = 'Feed this CV to the bias (unchecked = tracked/printed only)';
                 biasLbl.innerHTML = `<input type="checkbox" data-cv="${inst.id}" data-field="__bias" ${inst.bias ? 'checked' : ''} class="w-3.5 h-3.5 text-rose-600 rounded focus:ring-rose-500"> Bias`;
                 right.appendChild(biasLbl);
             } else if (inst.noBias) {
                 const tag = document.createElement('span');
-                tag.className = 'text-[11px] font-bold uppercase text-slate-400';
+                tag.className = 'text-[11px] font-bold uppercase text-slate-500 dark:text-slate-400';
                 tag.title = 'This action is a reference value, not a bias target. It is printed and can be used as an ARG in a CUSTOM combination.';
                 tag.textContent = 'ref only';
                 right.appendChild(tag);
             }
             const rm = document.createElement('button');
-            rm.className = 'text-slate-400 hover:text-rose-500 text-xs';
+            rm.className = 'text-slate-500 dark:text-slate-400 hover:text-rose-500 text-xs';
             rm.innerHTML = '<i class="fa-solid fa-trash"></i>';
             rm.addEventListener('click', () => removePlumedCV(inst.id));
             right.appendChild(rm);
@@ -2332,12 +2332,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (f.type === 'select') {
                     const opts = f.options.map(o => `<option value="${o}" ${o===inst.values[f.k]?'selected':''}>${o}</option>`).join('');
                     wrap.innerHTML = `
-                        <label class="text-[11px] font-bold text-slate-400 flex items-center gap-1">${f.label}${off ? `<span class="plumed-help" tabindex="0"${dTip}>?</span>` : helpFor(f)}</label>
+                        <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">${f.label}${off ? `<span class="plumed-help" tabindex="0"${dTip}>?</span>` : helpFor(f)}</label>
                         <select data-cv="${inst.id}" data-field="${f.k}" ${dis}
                                 class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 outline-none focus:ring-2 focus:ring-rose-500">${opts}</select>`;
                 } else {
                     wrap.innerHTML = `
-                        <label class="text-[11px] font-bold text-slate-400 flex items-center gap-1">${f.label}${off ? `<span class="plumed-help" tabindex="0"${dTip}>?</span>` : helpFor(f)}</label>
+                        <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">${f.label}${off ? `<span class="plumed-help" tabindex="0"${dTip}>?</span>` : helpFor(f)}</label>
                         <input type="text" data-cv="${inst.id}" data-field="${f.k}" value="${inst.values[f.k] ?? ''}" ${dis}
                                class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">`;
                 }
@@ -2351,7 +2351,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const shared = reductionFieldsFor(def);
             if (shared.length) {
                 const secLbl = document.createElement('p');
-                secLbl.className = 'text-[11px] font-bold text-slate-400 uppercase mt-2 mb-1 flex items-center gap-1';
+                secLbl.className = 'text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase mt-2 mb-1 flex items-center gap-1';
                 secLbl.innerHTML = `Reductions <span class="plumed-help" tabindex="0" data-tip="Reduce the per-atom vector to scalar CVs. Toggle a flag (MEAN, SUM, HIGHEST, LOWEST) or give a switching/kernel block (MORE_THAN, LESS_THAN, BETWEEN, MIN, MAX). Each enabled reduction becomes a selectable component (${inst.label}${(componentsForCV(inst)[0]||(def.compStyle==='underscore'?'_mean':'.mean'))}).">?</span>`;
                 card.appendChild(secLbl);
                 const rgrid = document.createElement('div');
@@ -2361,7 +2361,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (disCount) {
                 const hn = document.createElement('p');
-                hn.className = 'text-[11px] text-slate-400 italic mt-1.5 leading-snug';
+                hn.className = 'text-[11px] text-slate-500 dark:text-slate-400 italic mt-1.5 leading-snug';
                 hn.innerHTML = `<i class="fa-solid fa-ban mr-1"></i>${disCount} field${disCount > 1 ? 's' : ''} greyed out, managed by the selected bias method and left out of the output.`;
                 card.appendChild(hn);
             }
@@ -2390,7 +2390,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <select data-cv-bias="${inst.id}" data-field="comp"
                                 class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">${opts}</select>`;
                 } else if (isScalarCV(inst)) {
-                    compControl = `<p class="text-[11px] text-slate-400 italic mt-0.5">Scalar CV, bias uses the bare label <code>${inst.label}</code> (no component).</p>`;
+                    compControl = `<p class="text-[11px] text-slate-500 dark:text-slate-400 italic mt-0.5">Scalar CV, bias uses the bare label <code>${inst.label}</code> (no component).</p>`;
                 } else {
                     compControl = `<input type="text" data-cv-bias="${inst.id}" data-field="comp" value="${inst.biasValues.comp || ''}" placeholder="e.g. .sss" class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-rose-500">`;
                 }

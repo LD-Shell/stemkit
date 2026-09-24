@@ -142,8 +142,8 @@
                 <i class="fa-solid fa-bullseye text-4xl"></i>
             </div>
             <h1 class="text-3xl font-bold mb-3">Outlier Detector</h1>
-            <p class="text-xs text-slate-400 mt-1">100% client-side</p>
-            <p class="text-slate-500 dark:text-slate-400 mb-6 max-w-md">Identify and isolate statistical anomalies in your experimental data or MD trajectories locally.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">100% client-side</p>
+            <p class="text-slate-600 dark:text-slate-400 mb-6 max-w-md">Identify and isolate statistical anomalies in your experimental data or MD trajectories locally.</p>
             <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-medium transition-colors shadow-sm">
                 Select CSV Data
             </button>
@@ -158,7 +158,7 @@
                     <p id="dataMeta" class="text-sm text-slate-500 dark:text-slate-400 mb-4">0 Rows</p>
                     
                     <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
-                        <span class="block text-xs font-bold text-slate-500 uppercase mb-1">Anomalies Detected</span>
+                        <span class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Anomalies Detected</span>
                         <span class="text-3xl font-black text-red-600 dark:text-red-500" id="outlierCount">0</span>
                     </div>
                 </div>
@@ -166,11 +166,11 @@
                 <div class="lg:col-span-6 flex flex-col gap-4 bg-slate-50 dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-700">
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Target Variable</label>
+                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase">Target Variable</label>
                             <select id="colSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></select>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Algorithm</label>
+                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase">Algorithm</label>
                             <select id="methodSelect" class="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
                                 <option value="zscore">Z-Score (Parametric)</option>
                                 <option value="iqr">Interquartile Range (Non-parametric)</option>
@@ -180,12 +180,12 @@
                     </div>
                     
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Threshold Multiplier</label>
+                        <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase">Threshold Multiplier</label>
                         <div class="flex items-center gap-4">
                             <input type="range" id="thresholdSlider" min="1" max="5" step="0.1" value="3" class="w-full">
                             <span id="thresholdValue" class="font-mono font-bold text-indigo-600 dark:text-indigo-400 w-12 text-right">3.0</span>
                         </div>
-                        <p id="methodHint" class="text-xs text-slate-500 mt-2">Flags values where |Z| > 3.0.</p>
+                        <p id="methodHint" class="text-xs text-slate-500 dark:text-slate-400 mt-2">Flags values where |Z| > 3.0.</p>
                     <details id="methodTheory" class="mt-3 border-t border-slate-200 dark:border-slate-800 pt-3">
                         <summary class="cursor-pointer text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 hover:text-indigo-500">How this method decides</summary>
                         <div id="theoryContainer" class="mt-2"></div>
@@ -234,7 +234,7 @@
     <section class="stk-section" id="how-it-works" aria-label="How it works">
         <div class="stk-wrap">
             <h2 class="stk-h2">How it works</h2>
-            <div class="stk-grid stk-grid-2"><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Three complementary rules</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;"><strong>Z-Score</strong> assumes roughly normal data. <strong>IQR</strong> (Tukey) is non-parametric and good for skew. <strong>Modified Z-Score</strong> uses the median and MAD, so it is robust, a few extreme values don't hide the rest.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Why robustness matters</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">The mean and standard deviation are themselves distorted by outliers, so a single huge value can mask others. Median/MAD-based detection avoids this, which is why 3.5 on the modified Z-Score is a widely recommended default.</p></div></div>
+            <div class="stk-grid stk-grid-2"><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Three complementary rules</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;"><strong>Z-Score</strong> assumes roughly normal data. <strong>IQR</strong> (Tukey) is non-parametric and good for skew. <strong>Modified Z-Score</strong> uses the median and MAD, so it is robust, a few extreme values don't hide the rest.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Why robustness matters</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">The mean and standard deviation are themselves distorted by outliers, so a single huge value can mask others. Median/MAD-based detection avoids this, which is why 3.5 on the modified Z-Score is a widely recommended default.</p></div></div>
             <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>A quick illustration: in the built-in example the classic Z-Score (k=3) flags only the value 250, while the Modified Z-Score (k=3.5) also catches the low value 3, because the mean and SD were inflated by 250 itself. The preview highlights up to 200 rows; export always covers the full dataset.</div></div>
         </div>
     </section>

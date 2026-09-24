@@ -135,14 +135,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!s || s.n === 0) {
       colStats.innerHTML =
-        `<span class="text-slate-400">"${escapeHtml(col)}" has no numeric ` +
+        `<span class="text-slate-500 dark:text-slate-400">"${escapeHtml(col)}" has no numeric ` +
         `values (${s ? s.missing : 0} missing).</span>`;
       return;
     }
 
     const fmt = (x) => (Number.isInteger(x) ? x : x.toPrecision(5));
     const cell = (label, value) =>
-      `<div class="px-2"><span class="block text-[11px] uppercase tracking-wider text-slate-400">${label}</span>
+      `<div class="px-2"><span class="block text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">${label}</span>
        <span class="font-mono font-semibold">${value}</span></div>`;
 
     colStats.innerHTML =

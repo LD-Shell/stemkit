@@ -263,7 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
       name.addEventListener('input', e => { ds.name = e.target.value; });
 
       const count = document.createElement('span');
-      count.className = 'text-[11px] text-slate-400 font-mono';
+      count.className = 'text-[11px] text-slate-500 dark:text-slate-400 font-mono';
       count.textContent = `${ds.points.length} pts`;
 
       row.append(swatch, name, count);

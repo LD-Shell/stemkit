@@ -353,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!tex) { host.innerHTML = ''; return; }
 
     if (!window.katex) {
-      host.innerHTML = '<span class="text-xs text-slate-400">Formula renderer unavailable.</span>';
+      host.innerHTML = '<span class="text-xs text-slate-500 dark:text-slate-400">Formula renderer unavailable.</span>';
       return;
     }
     const kx = (t, d) => {

@@ -163,7 +163,7 @@
                     <h2 class="text-lg font-semibold mb-4">Library Diagnostics</h2>
                     <div class="grid grid-cols-3 gap-4">
                         <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 text-center">
-                            <span class="block text-xs text-slate-500 uppercase tracking-widest mb-1">Total Entries</span>
+                            <span class="block text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">Total Entries</span>
                             <span class="text-2xl font-black text-slate-700 dark:text-slate-200" id="totalEntriesCount">0</span>
                         </div>
                         <div class="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl p-4 text-center">
@@ -194,7 +194,7 @@
                         </button>
                     </div>
 
-                    <div id="emptyState" class="flex-grow flex flex-col items-center justify-center text-slate-400">
+                    <div id="emptyState" class="flex-grow flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
                         <i class="fa-solid fa-check-double text-6xl mb-4 opacity-20"></i>
                         <p class="font-medium">Upload a library to scan for duplicate citations.</p>
                     </div>
@@ -223,11 +223,11 @@
             <div class="stk-grid stk-grid-2">
                 <div class="stk-card">
                     <h3 style="font-weight:700;margin-bottom:.4rem;">Two-stage matching</h3>
-                    <p style="font-size:.88rem;color:#64748b;line-height:1.6;">A <strong>DOI</strong> is a globally unique identifier, so two entries sharing one (after lower-casing and stripping any <code>doi.org</code> prefix) are treated as the same work. Entries are <em>also</em> merged when their <strong>normalized titles</strong> match, lower-cased, with LaTeX braces, commands, math and punctuation removed. This catches duplicates where one copy is missing its DOI, a common result of merging databases.</p>
+                    <p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">A <strong>DOI</strong> is a globally unique identifier, so two entries sharing one (after lower-casing and stripping any <code>doi.org</code> prefix) are treated as the same work. Entries are <em>also</em> merged when their <strong>normalized titles</strong> match, lower-cased, with LaTeX braces, commands, math and punctuation removed. This catches duplicates where one copy is missing its DOI, a common result of merging databases.</p>
                 </div>
                 <div class="stk-card">
                     <h3 style="font-weight:700;margin-bottom:.4rem;">Transitive grouping &amp; privacy</h3>
-                    <p style="font-size:.88rem;color:#64748b;line-height:1.6;">Matches are combined with a union-find structure, so a chain such as <code>A(doi)=B(title)=C</code> collapses into a single conflict. Nothing is auto-merged field-by-field, <strong>you</strong> choose which record survives. All parsing happens locally in your browser; your library is never uploaded.</p>
+                    <p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Matches are combined with a union-find structure, so a chain such as <code>A(doi)=B(title)=C</code> collapses into a single conflict. Nothing is auto-merged field-by-field, <strong>you</strong> choose which record survives. All parsing happens locally in your browser; your library is never uploaded.</p>
                 </div>
             </div>
 

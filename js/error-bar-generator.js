@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (computedResults.length === 0) {
       resultsBody.innerHTML =
-        '<tr><td colspan="11" class="px-4 py-16 text-center text-slate-400">' +
+        '<tr><td colspan="11" class="px-4 py-16 text-center text-slate-500 dark:text-slate-400">' +
         'No numeric groups found. Put a text label in the first column and ' +
         'numeric replicates in the rest, or toggle the header setting.</td></tr>';
       exportCsvBtn.disabled = true;
@@ -430,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
           \qquad \text{range} = [\,x_{\min},\, x_{\max}\,]
       \end{aligned}`;
       if (typeof katex !== 'undefined') {
-          const kxBlock = tex => { try { return katex.renderToString(tex, { displayMode: true, throwOnError: false, output: "html" }); } catch (e) { return '<span class="text-slate-400 text-sm">Formula unavailable.</span>'; } };
+          const kxBlock = tex => { try { return katex.renderToString(tex, { displayMode: true, throwOnError: false, output: "html" }); } catch (e) { return '<span class="text-slate-500 dark:text-slate-400 text-sm">Formula unavailable.</span>'; } };
           theoryContainer.innerHTML =
               `<div class="mf-block-label">Central tendency &amp; inference</div>${kxBlock(texMain)}
                <div class="mf-block-label" style="margin-top:1rem;">Spread &amp; robustness</div>${kxBlock(texSpread)}`;

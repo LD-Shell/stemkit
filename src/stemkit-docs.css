@@ -48,12 +48,12 @@
 .stk-refs { display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1.25rem; }
 .stk-refs a { display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:600; color:var(--stk-accent-text); background:var(--stk-accent-soft); border:1px solid var(--stk-accent-soft-border); padding:.4rem .8rem; border-radius:9999px; text-decoration:none; }
 .stk-refs a:hover { text-decoration:underline; }
-.stk-byline { font-size:.8rem; color:var(--stk-fg-faint); margin-top:.35rem; }
-.stk-credit { margin-top:2rem; font-size:.8rem; color:var(--stk-fg-faint); }
+.stk-byline { font-size:.8rem; color:var(--stk-fg-muted); margin-top:.35rem; }
+.stk-credit { margin-top:2rem; font-size:.8rem; color:var(--stk-fg-muted); }
 .stk-math { overflow-x:auto; padding:1rem 1.1rem; margin:.6rem 0 1rem; border:1px solid var(--stk-border); border-radius:.6rem; font-family:var(--stk-font-mono); font-size:.9rem; background:var(--stk-surface-2); color:var(--stk-fg); }
 .stk-math math { color:inherit; }
 .stk-eqn-label { font-size:.9rem; font-weight:600; color:var(--stk-fg-3); margin-top:1.1rem; }
-.stk-where { font-size:.85rem; color:var(--stk-fg-muted); line-height:1.75; margin-top:.5rem; }
+.stk-where { font-size:.85rem; color:var(--stk-fg-3); line-height:1.75; margin-top:.5rem; }
 .stk-model-list { list-style:none; padding:0; margin:.6rem 0 0; display:grid; gap:.55rem; }
 .stk-model-list li { font-size:.92rem; display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
 .stk-model-list b { min-width:9rem; color:var(--stk-fg-3); font-weight:600; }
@@ -67,7 +67,7 @@
    the reader might type; the note variant keeps to the note's amber. */
 .stk-section code, .stk-faq code, .stk-note code, .stk-where code, .stk-lead code, .stk-step p code, .stk-refs-list code, .stk-table code, .stk-card code { font-family:var(--stk-font-mono); font-size:.85em; background:#fff1f2; color:#be123c; border:1px solid #fecdd3; border-radius:.3rem; padding:.05em .35em; white-space:nowrap; }
 .dark .stk-section code, .dark .stk-faq code, .dark .stk-note code, .dark .stk-where code, .dark .stk-lead code, .dark .stk-step p code, .dark .stk-refs-list code, .dark .stk-table code, .dark .stk-card code { background:rgba(190,18,60,.15); color:#fda4af; border-color:rgba(244,63,94,.3); }
-.stk-note code { background:rgba(180,83,9,.1); color:var(--stk-warn); border-color:rgba(180,83,9,.25); }
+.stk-note code { background:rgba(180,83,9,.1); color:#92400e; border-color:rgba(180,83,9,.25); }
 .dark .stk-note code { background:rgba(180,83,9,.2); border-color:rgba(180,83,9,.4); }
 
 .stk-table { width:100%; border-collapse:collapse; margin-top:1rem; font-size:.85rem; }

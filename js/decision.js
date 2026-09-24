@@ -98,7 +98,7 @@ function buildTableUI() {
             html += `
                 <td class="p-4">
                     <div class="flex items-center gap-2">
-                        <span class="text-xs text-slate-400">Score (${SCORE_MIN}-${SCORE_MAX}):</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">Score (${SCORE_MIN}-${SCORE_MAX}):</span>
                         <input type="number" min="${SCORE_MIN}" max="${SCORE_MAX}" value="5"
                                class="opt-rating w-16 p-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500"
                                data-opt-idx="${oi}" data-crit-idx="${ci}"
@@ -170,7 +170,7 @@ function renderResults(order, winners, maxPossible) {
             <div class="text-left">
                 <div class="flex justify-between items-baseline mb-1">
                     <span class="font-semibold ${isTop ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-300'}">
-                        <span class="text-slate-400 font-mono text-xs mr-1">#${rank + 1}</span>${esc(o.name)}
+                        <span class="text-slate-500 dark:text-slate-400 font-mono text-xs mr-1">#${rank + 1}</span>${esc(o.name)}
                     </span>
                     <span class="text-sm font-mono text-slate-500 dark:text-slate-400">${o.total.toFixed(1)} / ${maxPossible} (${pct}%)</span>
                 </div>
@@ -183,11 +183,11 @@ function renderResults(order, winners, maxPossible) {
 
     resultsContainer.innerHTML = `
         <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 w-full max-w-lg mx-auto">
-            <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">
+            <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">
                 ${isTie ? 'Tied Top Choice' : 'Optimal Choice'}
             </h4>
             <h2 class="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-emerald-500 mb-2 break-words">${headline}</h2>
-            <p class="text-xs text-slate-400 mb-6">Scored highest on your weighted criteria${isTie ? ' (multiple options tied)' : ''}.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-6">Scored highest on your weighted criteria${isTie ? ' (multiple options tied)' : ''}.</p>
             <div class="space-y-4 border-t border-slate-100 dark:border-slate-800 pt-5">${rows}</div>
             <button id="btn-copy-summary" class="mt-6 w-full text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
                 <i class="fa-regular fa-copy mr-1"></i> Copy summary

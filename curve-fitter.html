@@ -144,7 +144,7 @@
             <p class="text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
                 Paste your raw X/Y coordinates to instantly perform least-squares regression modeling. Extract optimal coefficients and R² values securely in your browser.
             </p>
-            <p class="text-xs text-slate-400 mt-3">100% client-side</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">100% client-side</p>
         </header>
 
         <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
@@ -201,7 +201,7 @@
                         <div id="theoryContainer" class="mt-2"></div>
                     </details>
                         </div>
-                        <button id="btnFit" class="w-full bg-slate-800 hover:bg-slate-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl transition-all shadow-md transform hover:-translate-y-0.5 active:scale-95 text-sm">
+                        <button id="btnFit" class="w-full bg-slate-800 hover:bg-slate-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white font-bold py-2.5 rounded-xl transition-all shadow-md transform hover:-translate-y-0.5 active:scale-95 text-sm">
                             Compute Fit
                         </button>
                         <div class="cf-samples">
@@ -234,14 +234,14 @@
                         <span class="text-sm font-bold text-emerald-400 uppercase tracking-wider font-mono">Mathematical Model</span>
                         <div class="flex gap-3 items-center">
                             <span class="text-xs font-mono text-slate-400">R² = <span id="r2Value" class="text-white font-bold">, </span></span>
-                            <button id="btnCopyEquation" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 text-[11px] uppercase rounded font-bold transition-colors">
+                            <button id="btnCopyEquation" class="bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1 text-[11px] uppercase rounded font-bold transition-colors">
                                 Copy Eq
                             </button>
                         </div>
                     </div>
                     <div class="p-5 overflow-auto custom-scroll flex flex-col items-center justify-center min-h-[80px] gap-1">
                         <p id="equationOutput" class="text-white font-mono text-lg tracking-wide text-center">Awaiting data...</p>
-                        <p id="fitMeta" class="text-slate-400 text-xs font-mono text-center"></p>
+                        <p id="fitMeta" class="text-slate-500 dark:text-slate-400 text-xs font-mono text-center"></p>
                     </div>
                 </div>
 
@@ -267,7 +267,7 @@
         <div class="stk-wrap">
             <h2 class="stk-h2">How the fitting works</h2>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Least-squares regression</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Linear and polynomial models are fitted by ordinary least squares. R² (coefficient of determination) reports the fraction of variance explained; RMSE is the typical residual size in the units of Y. Both are computed on your original data.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Linearised non-linear models</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Exponential, power and logarithmic fits are obtained by transforming the data (fitting a straight line in log-space). This is fast and standard, but it minimises error on the <em>transformed</em> data, so parameters can differ from a true non-linear least-squares fit when values span several orders of magnitude.</p></div>
+                <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Least-squares regression</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Linear and polynomial models are fitted by ordinary least squares. R² (coefficient of determination) reports the fraction of variance explained; RMSE is the typical residual size in the units of Y. Both are computed on your original data.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Linearised non-linear models</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Exponential, power and logarithmic fits are obtained by transforming the data (fitting a straight line in log-space). This is fast and standard, but it minimises error on the <em>transformed</em> data, so parameters can differ from a true non-linear least-squares fit when values span several orders of magnitude.</p></div>
             </div>
             <div class="stk-note" style="margin-top:1rem;">
                 <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>
@@ -426,7 +426,7 @@
                 <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-brands fa-python text-emerald-500"></i> matplotlib code</h3>
                 <div class="flex items-center gap-2">
                     <button id="cfCopyCode" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md text-xs font-bold transition-colors"><i class="fa-solid fa-copy mr-1"></i> Copy</button>
-                    <button id="cfCloseCode" class="w-8 h-8 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><i class="fa-solid fa-xmark"></i></button>
+                    <button id="cfCloseCode" class="w-8 h-8 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><i class="fa-solid fa-xmark"></i></button>
                 </div>
             </div>
             <div class="p-1 overflow-auto"><pre id="cfCodeBlock" class="text-xs leading-relaxed p-4 font-mono text-slate-800 dark:text-slate-200 whitespace-pre overflow-x-auto"></pre></div>

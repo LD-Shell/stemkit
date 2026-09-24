@@ -151,29 +151,29 @@
                 <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden shrink-0">
                     <button class="accordion-btn w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center text-left focus:outline-none" aria-expanded="true" data-target="settingsContent">
                         <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Sanitization Rules</span>
-                        <i class="fa-solid fa-chevron-down accordion-icon text-slate-400 text-xs"></i>
+                        <i class="fa-solid fa-chevron-down accordion-icon text-slate-500 dark:text-slate-400 text-xs"></i>
                     </button>
                     <div id="settingsContent" class="accordion-content expanded px-4 pb-4 pt-2">
                         
                         <div class="space-y-3 mb-4">
                             <label class="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer">
-                                <span>Protect title casing <span class="text-[11px] font-normal text-slate-400 block">Wraps titles in {{...}}</span></span>
+                                <span>Protect title casing <span class="text-[11px] font-normal text-slate-500 dark:text-slate-400 block">Wraps titles in {{...}}</span></span>
                                 <input type="checkbox" id="optProtectTitle" checked class="w-4 h-4 text-sky-600 bg-slate-100 border-slate-300 rounded focus:ring-sky-500">
                             </label>
                             
                             <label class="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer">
-                                <span>Fix page dashes <span class="text-[11px] font-normal text-slate-400 block">Converts '-' to '--'</span></span>
+                                <span>Fix page dashes <span class="text-[11px] font-normal text-slate-500 dark:text-slate-400 block">Converts '-' to '--'</span></span>
                                 <input type="checkbox" id="optFixPages" checked class="w-4 h-4 text-sky-600 bg-slate-100 border-slate-300 rounded focus:ring-sky-500">
                             </label>
 
                             <label class="flex items-center justify-between text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer">
-                                <span>Align equal signs <span class="text-[11px] font-normal text-slate-400 block">Pads fields for vertical alignment</span></span>
+                                <span>Align equal signs <span class="text-[11px] font-normal text-slate-500 dark:text-slate-400 block">Pads fields for vertical alignment</span></span>
                                 <input type="checkbox" id="optAlignEquals" checked class="w-4 h-4 text-sky-600 bg-slate-100 border-slate-300 rounded focus:ring-sky-500">
                             </label>
                         </div>
 
                         <div class="border-t border-slate-100 dark:border-slate-800 pt-3">
-                            <span class="text-[11px] font-bold text-slate-500 uppercase">Strip Redundant Fields</span>
+                            <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Strip Redundant Fields</span>
                             <div class="grid grid-cols-2 gap-2 mt-2">
                                 <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer"><input type="checkbox" class="strip-opt text-sky-600" value="url" checked> url</label>
                                 <label class="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer"><input type="checkbox" class="strip-opt text-sky-600" value="urldate" checked> urldate</label>
@@ -191,7 +191,7 @@
                 <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col flex-grow">
                     <div class="flex justify-between items-center mb-2">
                         <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Raw Input</h2>
-                        <button id="btnLoadExample" class="text-xs font-bold text-sky-600 hover:text-sky-500 transition-colors"><i class="fa-solid fa-flask-vial mr-1"></i>Load example</button>
+                        <button id="btnLoadExample" class="text-xs font-bold text-sky-700 hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300 transition-colors"><i class="fa-solid fa-flask-vial mr-1"></i>Load example</button>
                     </div>
                     <textarea id="dataInput" class="w-full flex-grow bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-sky-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" spellcheck="false" placeholder="@article{smith2024,&#10;  title={An Analysis of Molecular Dynamics},&#10;  author={Smith, John},&#10;  journal={Journal of Physics},&#10;  pages={100-110},&#10;  url={https://tracking-link.com},&#10;  abstract={Extremely long abstract...}&#10;}"></textarea>
                 </div>
@@ -204,13 +204,13 @@
                     <div class="bg-slate-950 px-4 py-3 flex justify-between items-center border-b border-slate-800 shrink-0">
                         <div class="flex items-center gap-3">
                             <span class="text-sm font-bold text-sky-400 uppercase tracking-wider font-mono">Sanitized .bib</span>
-                            <span id="statsLabel" class="text-[11px] text-slate-500 font-mono hidden sm:inline-block">Waiting for input...</span>
+                            <span id="statsLabel" class="text-[11px] text-slate-500 dark:text-slate-400 font-mono hidden sm:inline-block">Waiting for input...</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <button id="btnDownload" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1">
                                 <i class="fa-solid fa-download"></i> Download
                             </button>
-                            <button id="btnCopyCode" class="bg-sky-600 hover:bg-sky-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md transform hover:-translate-y-0.5 active:scale-95 flex items-center gap-1">
+                            <button id="btnCopyCode" class="bg-sky-700 hover:bg-sky-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md transform hover:-translate-y-0.5 active:scale-95 flex items-center gap-1">
                                 <i class="fa-regular fa-copy"></i> Copy All
                             </button>
                         </div>
@@ -242,12 +242,12 @@
             <div class="stk-grid stk-grid-2">
                 <div class="stk-card">
                     <h3 style="font-weight:700;margin-bottom:.4rem;">What each rule does</h3>
-                    <p style="font-size:.88rem;color:#64748b;line-height:1.6;">
+                    <p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">
                     <strong>Fix page dashes</strong> turns <code>100-110</code> into the LaTeX en-dash <code>100--110</code> (and leaves already-correct ranges untouched). <strong>Align equals</strong> pads keys so the <code>=</code> signs line up (purely cosmetic). <strong>Strip fields</strong> removes bulky, non-typesetting fields such as <code>abstract</code>, <code>url</code> and <code>file</code>.</p>
                 </div>
                 <div class="stk-card">
                     <h3 style="font-weight:700;margin-bottom:.4rem;">Brace-aware parsing</h3>
-                    <p style="font-size:.88rem;color:#64748b;line-height:1.6;">The parser tracks brace depth, so a value like <code>title = {A study of {NaCl}}</code> is read correctly instead of being cut off at the first inner brace. <code>@string</code>, <code>@preamble</code> and <code>@comment</code> blocks pass through untouched. Everything runs locally in your browser.</p>
+                    <p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">The parser tracks brace depth, so a value like <code>title = {A study of {NaCl}}</code> is read correctly instead of being cut off at the first inner brace. <code>@string</code>, <code>@preamble</code> and <code>@comment</code> blocks pass through untouched. Everything runs locally in your browser.</p>
                 </div>
             </div>
             <div class="stk-note" style="margin-top:1rem;">

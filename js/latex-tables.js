@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderPreview(matrix) {
     if (matrix.length === 0) {
       tablePreview.innerHTML =
-        '<span class="text-slate-400">Paste data to render preview.</span>';
+        '<span class="text-slate-500 dark:text-slate-400">Paste data to render preview.</span>';
       return;
     }
 

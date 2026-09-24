@@ -104,8 +104,8 @@
   --stk-fg-muted: #94a3b8;
   --stk-fg-faint: #64748b;
 
-  --stk-accent: #6366f1;
-  --stk-accent-hover: #818cf8;
+  --stk-accent: #4f46e5;
+  --stk-accent-hover: #6366f1;
   --stk-accent-text: #a5b4fc;
   --stk-accent-soft: rgba(99, 102, 241, 0.16);
   --stk-accent-soft-border: rgba(129, 140, 248, 0.35);
@@ -374,7 +374,7 @@ html {
   background: transparent;
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--stk-fg-muted);
+  color: var(--stk-fg-3);
   cursor: pointer;
   white-space: nowrap;
   transition: background-color var(--stk-ease), color var(--stk-ease);
@@ -525,7 +525,7 @@ html {
   font-size: 0.75rem;
   line-height: 1.45;
 }
-.stk-kv dt { color: var(--stk-fg-muted); white-space: nowrap; }
+.stk-kv dt { color: var(--stk-fg-3); white-space: nowrap; }
 .stk-kv dd { margin: 0; color: var(--stk-fg); font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
 
 .stk-badge {

@@ -139,7 +139,7 @@
             <p class="text-slate-500 dark:text-slate-400 max-w-3xl leading-relaxed">
                 Paste your reference list or BibTeX file below. The engine will instantly parse the text and replace full journal titles with their standardized CASSI abbreviations. Titles it doesn't recognise are flagged, and you can add your own rules.
             </p>
-            <p class="text-xs text-slate-400 mt-3">100% client-side</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">100% client-side</p>
         </header>
 
         <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
@@ -150,8 +150,8 @@
                 <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col flex-grow">
                     <div class="flex justify-between items-center mb-2">
                         <h2 class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Raw Input</h2>
-                        <button id="btnExample" class="text-[11px] text-slate-400 hover:text-pink-500 uppercase font-bold transition-colors mr-3">Example</button>
-                        <button id="btnClear" class="text-[11px] text-slate-400 hover:text-red-500 uppercase font-bold transition-colors">Clear</button>
+                        <button id="btnExample" class="text-[11px] text-slate-500 dark:text-slate-400 hover:text-pink-500 uppercase font-bold transition-colors mr-3">Example</button>
+                        <button id="btnClear" class="text-[11px] text-slate-500 dark:text-slate-400 hover:text-red-500 uppercase font-bold transition-colors">Clear</button>
                     </div>
                     <textarea id="dataInput" class="w-full flex-grow bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-pink-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" spellcheck="false" placeholder="Paste bibliography here...&#10;&#10;E.g., Smith, J. et al., Journal of the American Chemical Society, 2024."></textarea>
                 </div>
@@ -161,10 +161,10 @@
                         <span class="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
                             <i class="fa-solid fa-pen-to-square text-pink-500 mr-1"></i> Custom abbreviations
                         </span>
-                        <span id="dictLabel" class="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 text-[11px] px-2 py-0.5 rounded font-mono"></span>
+                        <span id="dictLabel" class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px] px-2 py-0.5 rounded font-mono"></span>
                     </summary>
-                    <p class="text-xs text-slate-400 mt-3 mb-2 leading-relaxed">
-                        One rule per line: <code class="text-pink-500">Full Journal Name = Abbrev.</code>, lines starting with <code>#</code> are ignored.
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-3 mb-2 leading-relaxed">
+                        One rule per line: <code class="text-pink-700 dark:text-pink-400">Full Journal Name = Abbrev.</code>, lines starting with <code>#</code> are ignored.
                         Custom rules override the built-in list and are saved in this browser only.
                     </p>
                     <textarea id="customRules" rows="4" spellcheck="false" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-pink-500 outline-none resize-y custom-scroll" placeholder="# Example:&#10;Journal of Fictional Chemistry = J. Fict. Chem."></textarea>
@@ -210,7 +210,7 @@
     <section class="stk-section" id="how-it-works" aria-label="How it works">
         <div class="stk-wrap">
             <h2 class="stk-h2">How the matching works</h2>
-            <div class="stk-grid stk-grid-2"><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Variant-tolerant, longest-match replacement</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Titles are matched case-insensitively against a curated list of ~200 journals, longest entries first, so a full title always beats any shorter fragment. Matching also tolerates a leading <em>The</em>, "&amp;" written as "and", missing colons, hyphen vs. en-dash, and titles wrapped across lines in a .bib file. Everything runs in your browser.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Extensible, and honest about gaps</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">The built-in list is a hand-checked subset of CASSI, not the full database. Anything that <em>looks</em> like a journal title but isn't recognised is flagged in amber and left untouched, verify it against the official sources below, or add it yourself in the <strong>Custom abbreviations</strong> panel (the whole built-in list lives in a single, easy-to-edit data file).</p></div></div>
+            <div class="stk-grid stk-grid-2"><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Variant-tolerant, longest-match replacement</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Titles are matched case-insensitively against a curated list of ~200 journals, longest entries first, so a full title always beats any shorter fragment. Matching also tolerates a leading <em>The</em>, "&amp;" written as "and", missing colons, hyphen vs. en-dash, and titles wrapped across lines in a .bib file. Everything runs in your browser.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Extensible, and honest about gaps</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">The built-in list is a hand-checked subset of CASSI, not the full database. Anything that <em>looks</em> like a journal title but isn't recognised is flagged in amber and left untouched, verify it against the official sources below, or add it yourself in the <strong>Custom abbreviations</strong> panel (the whole built-in list lives in a single, easy-to-edit data file).</p></div></div>
             <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>Common single-word titles whose abbreviation equals the full name (<strong>Nature</strong>, <strong>Science</strong>, <strong>Small</strong>, <strong>Langmuir</strong>&hellip;) are recognised but never altered or highlighted, so ordinary English words in your text are safe. Abbreviation style follows CASSI for chemistry and ISO&nbsp;4 / the LTWA more generally.</div></div>
         </div>
     </section>

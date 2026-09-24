@@ -158,7 +158,7 @@
 .si-mt-3 { margin-top: 0.75rem; }
 .si-w-axis { width: 4.25rem; flex: 0 0 auto; }
 .si-w-unit { width: 4.5rem; flex: 0 0 auto; height: 1.75rem; }
-.si-dim { color: var(--stk-fg-faint); font-weight: 500; margin-left: 0.15rem; }
+.si-dim { color: var(--stk-fg-muted); font-weight: 500; margin-left: 0.15rem; }
 .si-transport { display: flex; gap: 0.4rem; align-items: center; }
 
 /* A slider with its label on the left and the live value on the right. */

@@ -138,7 +138,7 @@
         <div class="text-center mb-12">
             <h1 class="text-4xl md:text-5xl font-black mb-4 tracking-tight">Ambient Pomodoro</h1>
             <p class="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">Set an interval, raise a soundscape, and work until the chime. The countdown is anchored to a real clock time, so it stays accurate in a background tab.</p>
-            <p class="text-xs text-slate-400 mt-3">Cirillo intervals · 100% client-side</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Cirillo intervals · 100% client-side</p>
         </div>
 
         <div class="w-full max-w-md mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-8 relative">
@@ -172,7 +172,7 @@
                 </button>
             </div>
 
-            <p class="text-center text-xs text-slate-400 mb-8">
+            <p class="text-center text-xs text-slate-500 dark:text-slate-400 mb-8">
                 <span class="pm-kbd">Space</span> start ·
                 <span class="pm-kbd">R</span> reset ·
                 <span class="pm-kbd">S</span> skip
@@ -181,11 +181,11 @@
             <div class="border-t border-slate-200 dark:border-slate-800 pt-6">
 
                 <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                    <h2 class="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex items-center gap-2">
                         <i class="fa-solid fa-sliders" aria-hidden="true"></i> Ambient mixer
                     </h2>
                     <button id="btn-settings" aria-expanded="false" aria-controls="settings-panel"
-                            class="text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1.5">
+                            class="text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1.5">
                         <i class="fa-solid fa-gear" aria-hidden="true"></i> Intervals
                     </button>
                 </div>
@@ -208,7 +208,7 @@
                     </div>
                 </div>
 
-                <p class="text-xs text-slate-400 mt-6">
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-6">
                     Recordings used under Creative Commons:
                     <a href="#faq" class="pm-underline hover:text-indigo-600 transition-colors">see credits</a>.
                 </p>
@@ -236,7 +236,7 @@
                         <input type="checkbox" id="set-autostart" checked class="w-4 h-4 rounded accent-indigo-600">
                         Start the next session automatically
                     </label>
-                    <p class="text-xs text-slate-400 mt-4">Applies to the next session. Saved in this browser.</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-4">Applies to the next session. Saved in this browser.</p>
                 </div>
             </div>
         </div>
@@ -258,7 +258,7 @@
         <div class="stk-wrap">
             <h2 class="stk-h2">How the timer and mixer work</h2>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Absolute-time countdown</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Browsers throttle timers in inactive tabs, so a naive tick-by-tick countdown drifts badly in the background. This timer records the <strong>absolute finish timestamp</strong> when you press start and derives the remaining time from the system clock on every frame. Switching tabs, sleeping the display, or leaving it running for an hour does not accumulate error.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Layered ambient mixer</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Rain and cafe are looped field recordings that load lazily, nothing is fetched until you raise that channel. Brown noise is <strong>synthesised live</strong> in the Web Audio API from a filtered random walk, so it costs no bandwidth and has no audible loop point. All three mix independently.</p></div>
+                <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Absolute-time countdown</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Browsers throttle timers in inactive tabs, so a naive tick-by-tick countdown drifts badly in the background. This timer records the <strong>absolute finish timestamp</strong> when you press start and derives the remaining time from the system clock on every frame. Switching tabs, sleeping the display, or leaving it running for an hour does not accumulate error.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Layered ambient mixer</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Rain and cafe are looped field recordings that load lazily, nothing is fetched until you raise that channel. Brown noise is <strong>synthesised live</strong> in the Web Audio API from a filtered random walk, so it costs no bandwidth and has no audible loop point. All three mix independently.</p></div>
             </div>
             <div class="stk-note" style="margin-top:1rem;">
                 <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>

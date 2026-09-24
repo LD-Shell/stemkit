@@ -137,8 +137,8 @@
                     <i class="fa-solid fa-microscope text-4xl"></i>
                 </div>
                 <h1 class="text-3xl font-bold mb-3">Plot Digitizer</h1>
-                <p class="text-slate-500 dark:text-slate-400 mb-2">Upload a reference plot to extract coordinate data and generate automated Matplotlib rendering scripts.</p>
-                <p class="text-xs font-bold text-slate-400 dark:text-slate-500 mb-6 uppercase tracking-wider">Supported formats: PNG, JPEG, WEBP</p>
+                <p class="text-slate-600 dark:text-slate-400 mb-2">Upload a reference plot to extract coordinate data and generate automated Matplotlib rendering scripts.</p>
+                <p class="text-xs font-bold text-slate-600 dark:text-slate-400 mb-6 uppercase tracking-wider">Supported formats: PNG, JPEG, WEBP</p>
                 <button class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-medium shadow-sm transition-colors">Select graph image</button>
             </section>
 
@@ -146,13 +146,13 @@
                 <div class="bg-slate-950 p-6 rounded-3xl max-w-4xl w-full flex flex-col shadow-2xl border border-slate-800">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-xl font-black text-white"><i class="fa-brands fa-python text-blue-400 mr-2"></i>Matplotlib rendering script</h3>
-                        <button id="closePythonModal" class="text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
+                        <button id="closePythonModal" class="text-slate-500 dark:text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-xmark text-xl"></i></button>
                     </div>
                     <div class="relative flex-grow">
                         <pre><code id="pythonCodeBlock" class="block bg-slate-900 text-emerald-400 p-4 rounded-xl text-sm font-mono overflow-y-auto max-h-[60vh] border border-slate-800 custom-scroll"></code></pre>
                         <button id="copyPythonBtn" class="absolute top-4 right-4 bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-lg">Copy code</button>
                     </div>
-                    <p class="text-xs text-slate-500 mt-4">Save this script in the same directory as your exported CSV to reproduce the plot.</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-4">Save this script in the same directory as your exported CSV to reproduce the plot.</p>
                 </div>
             </div>
 
@@ -192,7 +192,7 @@
                         <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-slate-50 dark:bg-slate-800/50">
                             <button class="accordion-btn w-full px-4 py-3 flex justify-between items-center text-left focus:outline-none" aria-expanded="false" data-target="guideContent">
                                 <span class="text-sm font-bold text-slate-800 dark:text-slate-200"><i class="fa-solid fa-circle-info text-indigo-500 mr-2"></i>How to digitize</span>
-                                <i class="fa-solid fa-chevron-down accordion-icon text-slate-400 text-xs"></i>
+                                <i class="fa-solid fa-chevron-down accordion-icon text-slate-500 dark:text-slate-400 text-xs"></i>
                             </button>
                             <div id="guideContent" class="accordion-content bg-white dark:bg-slate-900 px-4 pb-3">
                                 <ol class="list-decimal pl-4 text-xs text-slate-600 dark:text-slate-400 space-y-1 mt-2">
@@ -207,7 +207,7 @@
                         <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900 mt-2">
                             <button class="accordion-btn w-full px-4 py-3 flex justify-between items-center text-left focus:outline-none" aria-expanded="true" data-target="calibContent">
                                 <span class="text-sm font-bold text-slate-800 dark:text-slate-200">1. Spatial calibration</span>
-                                <i class="fa-solid fa-chevron-down accordion-icon text-slate-400 text-xs"></i>
+                                <i class="fa-solid fa-chevron-down accordion-icon text-slate-500 dark:text-slate-400 text-xs"></i>
                             </button>
                             <div id="calibContent" class="accordion-content expanded px-4 pb-4">
                                 <div class="flex items-center gap-4 mb-3">
@@ -235,7 +235,7 @@
                         <div class="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
                             <button class="accordion-btn w-full px-4 py-3 flex justify-between items-center text-left focus:outline-none" aria-expanded="true" data-target="extractContent">
                                 <span class="text-sm font-bold text-slate-800 dark:text-slate-200">2. Data extraction</span>
-                                <i class="fa-solid fa-chevron-down accordion-icon text-slate-400 text-xs"></i>
+                                <i class="fa-solid fa-chevron-down accordion-icon text-slate-500 dark:text-slate-400 text-xs"></i>
                             </button>
                             <div id="extractContent" class="accordion-content expanded px-4 pb-4">
                                 <div class="flex justify-between items-center mb-2">
@@ -267,25 +267,25 @@
                             <div id="plotContent" class="accordion-content px-4 pb-4">
                                 <div class="grid grid-cols-2 gap-2 mb-2">
                                     <div>
-                                        <span class="text-[11px] font-bold text-slate-500 uppercase">X-Axis Label</span>
+                                        <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">X-Axis Label</span>
                                         <input type="text" id="pyXLabel" value="Distance (Å)" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs">
                                     </div>
                                     <div>
-                                        <span class="text-[11px] font-bold text-slate-500 uppercase">Y-Axis Label</span>
+                                        <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Y-Axis Label</span>
                                         <input type="text" id="pyYLabel" value="Density (g/cm³)" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs">
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2 mb-2">
                                     <div>
-                                        <span class="text-[11px] font-bold text-slate-500 uppercase">Dimensions (Inches)</span>
+                                        <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Dimensions (Inches)</span>
                                         <div class="flex items-center gap-1">
                                             <input type="number" id="pyFigWidth" value="8" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center" placeholder="W">
-                                            <span class="text-xs text-slate-400">x</span>
+                                            <span class="text-xs text-slate-500 dark:text-slate-400">x</span>
                                             <input type="number" id="pyFigHeight" value="6" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs text-center" placeholder="H">
                                         </div>
                                     </div>
                                     <div>
-                                        <span class="text-[11px] font-bold text-slate-500 uppercase">Plot Layout</span>
+                                        <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Plot Layout</span>
                                         <select id="pyPlotLayout" class="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded p-1.5 text-xs">
                                             <option value="single">Single plot</option>
                                             <option value="subplots">Separate subplots</option>
@@ -313,10 +313,10 @@
 
                     <div class="mt-auto p-4 bg-slate-50 dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-3 rounded-b-3xl">
                         <div>
-                            <span class="text-[11px] font-bold text-slate-500 uppercase">Output filename</span>
+                            <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase">Output filename</span>
                             <div class="flex items-center mt-1 relative">
                                 <input type="text" id="csvFilename" value="extracted_data" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-2.5 text-sm pr-12 focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow">
-                                <span class="absolute right-3 text-slate-400 text-sm font-mono">.csv</span>
+                                <span class="absolute right-3 text-slate-500 dark:text-slate-400 text-sm font-mono">.csv</span>
                             </div>
                         </div>
                         <button id="exportCsvBtn" class="w-full bg-slate-800 hover:bg-slate-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl active:scale-95 shadow-md text-sm flex justify-center items-center">
@@ -350,10 +350,10 @@
             <div class="stk-wrap">
                 <h2 class="stk-h2">What the digitizer does, and what limits it</h2>
                 <div class="stk-grid stk-grid-2">
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Two-point affine calibration</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Each axis is mapped from pixels to data by a straight line through your two calibration marks. On a log axis the same interpolation is done in log<sub>10</sub> space and then exponentiated, which is why both log values must be strictly positive.</p></div>
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">You place every point</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Coordinates come from where you click, so every point in your dataset is one you saw on the curve. Where a series doubles back on itself or crosses another, you decide which branch to follow rather than leaving it to a threshold.</p></div>
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Exports stay consistent</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">The CSV, the Matplotlib script and the interactive preview all sort points by <em>x</em> and use the same values, so the curve you see on screen is the curve you get in the file, even if you traced right-to-left or patched a gap in the middle.</p></div>
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Everything stays local</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">The image never leaves your machine. It is read with the browser's <code>FileReader</code> and drawn to a canvas, nothing is uploaded, so unpublished figures and confidential data are safe to work with.</p></div>
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Two-point affine calibration</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Each axis is mapped from pixels to data by a straight line through your two calibration marks. On a log axis the same interpolation is done in log<sub>10</sub> space and then exponentiated, which is why both log values must be strictly positive.</p></div>
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">You place every point</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Coordinates come from where you click, so every point in your dataset is one you saw on the curve. Where a series doubles back on itself or crosses another, you decide which branch to follow rather than leaving it to a threshold.</p></div>
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Exports stay consistent</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">The CSV, the Matplotlib script and the interactive preview all sort points by <em>x</em> and use the same values, so the curve you see on screen is the curve you get in the file, even if you traced right-to-left or patched a gap in the middle.</p></div>
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Everything stays local</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">The image never leaves your machine. It is read with the browser's <code>FileReader</code> and drawn to a canvas, nothing is uploaded, so unpublished figures and confidential data are safe to work with.</p></div>
                 </div>
                 <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-triangle-exclamation" style="margin-top:.15rem;"></i><div>Digitized data is an <em>estimate</em> of the original, never a substitute for it. Where the authors have published their numbers, or you can request them, use those instead. If you do digitize, say so in your methods and cite the source figure.</div></div>
             </div>
@@ -376,9 +376,9 @@
 
                 <h3 style="font-weight:700;margin:1.6rem 0 .6rem;">Where the error actually comes from</h3>
                 <div class="stk-grid stk-grid-3">
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Calibration span</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">Error scales with 1&thinsp;/&thinsp;(p<sub>2</sub>&minus;p<sub>1</sub>). Two marks a few pixels apart amplify every subsequent click; marks at opposite ends of the axis divide the error down. This is the single biggest lever you control.</p></div>
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Image resolution</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">One screen pixel is the floor on precision. A 400&nbsp;px-wide figure spanning 0&ndash;100 gives you no better than &plusmn;0.25 per pixel, before any human error. Start from the largest version of the figure available.</p></div>
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Line thickness</h3><p style="font-size:.88rem;color:#64748b;line-height:1.6;">A curve drawn 3&nbsp;px thick is ambiguous by &plusmn;1.5&nbsp;px wherever you click on it. Aim consistently for the centre of the stroke; the magnifier exists to make that possible.</p></div>
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Calibration span</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Error scales with 1&thinsp;/&thinsp;(p<sub>2</sub>&minus;p<sub>1</sub>). Two marks a few pixels apart amplify every subsequent click; marks at opposite ends of the axis divide the error down. This is the single biggest lever you control.</p></div>
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Image resolution</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">One screen pixel is the floor on precision. A 400&nbsp;px-wide figure spanning 0&ndash;100 gives you no better than &plusmn;0.25 per pixel, before any human error. Start from the largest version of the figure available.</p></div>
+                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Line thickness</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">A curve drawn 3&nbsp;px thick is ambiguous by &plusmn;1.5&nbsp;px wherever you click on it. Aim consistently for the centre of the stroke; the magnifier exists to make that possible.</p></div>
                 </div>
 
                 <div class="stk-note" style="margin-top:1.2rem;"><i class="fa-solid fa-lightbulb" style="margin-top:.15rem;"></i><div><strong>Sanity check your calibration.</strong> After calibrating, hover over a gridline whose value you already know and see whether the readout matches. If it does not, one of your four marks or values is wrong, and every point you trace afterwards will inherit that error.</div></div>

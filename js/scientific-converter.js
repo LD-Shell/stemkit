@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tab.className = isActive
         ? `cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-${tColor}-300 ` +
           `dark:border-${tColor}-700 bg-${tColor}-50 dark:bg-${tColor}-900/20 text-${tColor}-700 ` +
-          `dark:text-${tColor}-300 font-bold whitespace-nowrap shadow-sm`
+          `dark:text-${tColor}-400 font-bold whitespace-nowrap shadow-sm`
         : 'cat-tab px-5 py-2.5 rounded-xl text-sm transition-all border border-slate-200 ' +
           'dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 ' +
           'hover:bg-slate-50 dark:hover:bg-slate-800 whitespace-nowrap';
@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="relative flex items-center">
                     <input type="text" inputmode="decimal" id="val_${unitKey}" data-unit="${unitKey}" class="unit-input w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 pr-12 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-${activeColor}-500 transition-all" placeholder="0.0">
-                    <button class="copy-btn absolute right-3 text-slate-400 hover:text-${activeColor}-500 transition-colors" data-target="val_${unitKey}" title="Copy value" aria-label="Copy value"><i class="fa-regular fa-copy"></i></button>
+                    <button class="copy-btn absolute right-3 text-slate-500 dark:text-slate-400 hover:text-${activeColor}-500 transition-colors" data-target="val_${unitKey}" title="Copy value" aria-label="Copy value"><i class="fa-regular fa-copy"></i></button>
                 </div>
             `;
       matrixGrid.appendChild(wrapper);

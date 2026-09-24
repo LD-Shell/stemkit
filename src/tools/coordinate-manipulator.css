@@ -19,8 +19,8 @@ body {
     --stk-ring: rgba(124, 58, 237, 0.35);
 }
 .dark body {
-    --stk-accent: #8b5cf6;
-    --stk-accent-hover: #a78bfa;
+    --stk-accent: #7c3aed;
+    --stk-accent-hover: #8b5cf6;
     --stk-accent-text: #c4b5fd;
     --stk-accent-soft: rgba(139, 92, 246, 0.16);
     --stk-accent-soft-border: rgba(167, 139, 250, 0.35);

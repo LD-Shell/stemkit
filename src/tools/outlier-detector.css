@@ -22,7 +22,7 @@
 
 /* Symbol definitions beneath a rendered formula, matching the other tools. */
 .mf-defs { margin-top:1rem; padding-top:.85rem; border-top:1px solid rgba(148,163,184,.25); }
-.mf-defs-title { font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:#94a3b8; margin-bottom:.45rem; }
+.mf-defs-title { font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--stk-fg-muted); margin-bottom:.45rem; }
 .mf-defs dl { display:grid; grid-template-columns:auto 1fr; gap:.35rem .8rem; margin:0; align-items:baseline; }
 .mf-def { display:contents; }
 .mf-defs dt { white-space:nowrap; text-align:right; }
