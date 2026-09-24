@@ -1,16 +1,101 @@
 /*
  * bibtex-deduplicator -- tool-specific styles.
  *
- * Extracted from the inline <style> block in bibtex-deduplicator.html. Shared
- * documentation styles live in src/stemkit-docs.css; Tailwind utilities are
- * generated into src/output.css and must not be hand-edited.
+ * Shared documentation styles live in src/stemkit-docs.css; Tailwind
+ * utilities are generated into src/output.css and must not be hand-edited.
  */
 
-.toast-enter { animation: slideIn 0.3s forwards; }
-.duplicate-group { transition: all 0.3s ease; }
-.duplicate-group.resolved { opacity: 0.5; filter: grayscale(100%); pointer-events: none; }
+/* Under Scan for duplicates while it is disabled: say why. */
+.dd-hint { display: none; margin-top: 0.5rem; font-size: 0.8rem; text-align: center; color: var(--stk-fg-3); }
+#scanBtn:disabled + .dd-hint { display: block; }
 
-@keyframes slideIn {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+/* .stk-callout and the flex utility set display, which beats the hidden
+   attribute; these two are shown and hidden by it. */
+#allResolved[hidden], #conflictList[hidden] { display: none; }
+
+/* Step 2 before a scan: what will appear, and an example to try. */
+.dd-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
 }
+.dd-empty[hidden] { display: none; }
+.dd-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 0.25rem;
+  border-radius: var(--stk-radius-lg);
+  background: var(--stk-accent-soft);
+  color: var(--stk-accent-text);
+  font-size: 1.2rem;
+}
+.dd-empty-title { font-size: 1rem; font-weight: 650; color: var(--stk-fg); }
+.dd-empty-text { max-width: 30rem; margin-bottom: 0.5rem; font-size: 0.875rem; line-height: 1.6; color: var(--stk-fg-muted); }
+
+/* A group of entries for one work. Each entry is a button: pressing it keeps
+   that entry, and aria-pressed carries the choice for the stylesheet and for
+   assistive technology alike. */
+.dd-group { border: 1px solid var(--stk-border); border-radius: var(--stk-radius-lg); padding: 1rem; }
+.dd-group-title { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; font-size: 0.8125rem; font-weight: 600; color: var(--stk-fg-3); }
+.dd-group.is-resolved .dd-group-title::after {
+  content: "Resolved";
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--stk-radius-sm);
+  background: var(--stk-ok-soft);
+  color: var(--stk-ok);
+}
+
+.dd-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  text-align: left;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  border: 1px solid var(--stk-border-strong);
+  border-radius: var(--stk-radius);
+  background: var(--stk-surface);
+  cursor: pointer;
+  transition: border-color var(--stk-ease), background-color var(--stk-ease), box-shadow var(--stk-ease);
+}
+.dd-card:hover { border-color: var(--stk-accent); background: var(--stk-surface-2); }
+.dd-card[aria-pressed="true"] {
+  border-color: var(--stk-accent);
+  background: var(--stk-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--stk-accent);
+}
+.dd-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding-right: 3.5rem; }
+.dd-key { font-family: var(--stk-font-mono); font-weight: 700; color: var(--stk-accent-text); }
+.dd-title { font-weight: 600; color: var(--stk-fg); }
+.dd-author { color: var(--stk-fg-2); }
+.dd-meta { color: var(--stk-fg-3); }
+.dd-keep { display: none; position: absolute; top: 0.7rem; right: 0.75rem; align-items: center; gap: 0.3rem; font-weight: 700; color: var(--stk-accent-text); }
+.dd-card[aria-pressed="true"] .dd-keep { display: inline-flex; }
+
+/* Step 3 counts. */
+.dd-stat { padding: 0.85rem 0.5rem; text-align: center; border: 1px solid var(--stk-border); border-radius: var(--stk-radius-lg); background: var(--stk-surface-2); }
+.dd-stat dt { margin-bottom: 0.2rem; font-size: 0.75rem; color: var(--stk-fg-3); }
+.dd-stat dd { font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--stk-fg); }
+.dd-stat .dd-stat-warn { color: var(--stk-warn); }
+
+/* Green text ("Every group has an entry kept", "Resolved") on the pale green
+   fill is 3.6:1 with the shared --stk-ok (#059669), under AA. This page takes
+   the next shade in the light theme; the dark theme's value already passes. */
+html:not(.dark) { --stk-ok: #047857; }
+
+/* Upload .bib is a label around a visually hidden file input: show the
+   keyboard focus on the label. */
+label.stk-btn:focus-within { outline: 2px solid var(--stk-accent); outline-offset: 2px; }

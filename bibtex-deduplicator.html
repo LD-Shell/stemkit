@@ -69,7 +69,7 @@
 
 
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"HowTo","name":"BibTeX Deduplicator","totalTime":"PT2M","tool":{"@type":"HowToTool","name":"BibTeX Deduplicator"},"step":[{"@type":"HowToStep","position":1,"name":"Add your library","text":"Paste BibTeX entries into the input box, or click Upload .bib to load a file. Merged exports from Zotero, Mendeley or EndNote are ideal candidates."},{"@type":"HowToStep","position":2,"name":"Scan for duplicates","text":"Press Scan for Duplicates. Entries are matched by DOI first, then by a normalized title, and grouped into conflicts."},{"@type":"HowToStep","position":3,"name":"Resolve each conflict","text":"For every group, click Keep This Entry on the version you want to retain, or use Auto-Keep First to keep the earliest copy of each."},{"@type":"HowToStep","position":4,"name":"Export the clean file","text":"Once all conflicts are resolved, click Export Cleaned .bib to download a de-duplicated bibliography with the original entry order preserved."}]}
+{"@context": "https://schema.org", "@type": "HowTo", "name": "BibTeX Deduplicator", "totalTime": "PT2M", "tool": {"@type": "HowToTool", "name": "BibTeX Deduplicator"}, "step": [{"@type": "HowToStep", "position": 1, "name": "Add your library", "text": "Paste BibTeX entries into step 1, or press Upload .bib to load a file. Merged exports from Zotero, Mendeley or EndNote are the usual source of duplicates. Load example gives you five entries to try."}, {"@type": "HowToStep", "position": 2, "name": "Scan for duplicates", "text": "Press Scan for duplicates. Entries that share a DOI, or whose titles match once case, braces and punctuation are ignored, are put in one group."}, {"@type": "HowToStep", "position": 3, "name": "Keep one of each", "text": "In each group, click the entry to keep. Keep the most complete in each picks, in every group, the entry with a DOI and the most fields filled in."}, {"@type": "HowToStep", "position": 4, "name": "Download the clean file", "text": "When every group has an entry kept, press Download cleaned .bib. The file keeps the order of your original library."}]}
 </script>
     <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is my bibliography uploaded to a server?","acceptedAnswer":{"@type":"Answer","text":"No. Parsing and de-duplication run entirely in your browser using client-side JavaScript. Your .bib data never leaves your device."}},{"@type":"Question","name":"How are duplicates detected?","acceptedAnswer":{"@type":"Answer","text":"By DOI first (the most reliable signal), then by a normalized title comparison. Matches are grouped transitively, so overlapping DOI and title links are collapsed into one conflict."}},{"@type":"Question","name":"Will it automatically merge fields from both copies?","acceptedAnswer":{"@type":"Answer","text":"No. The tool never silently combines records. For each conflict you keep exactly one entry, so you stay in control of which metadata is retained."}},{"@type":"Question","name":"Why were two different papers flagged as duplicates?","acceptedAnswer":{"@type":"Answer","text":"They likely share an identical normalized title (for example, generic titles like ‘Introduction’). Review the conflict and keep both by choosing one, then re-adding the other if needed. DOIs prevent most false matches."}},{"@type":"Question","name":"What input does it accept?","acceptedAnswer":{"@type":"Answer","text":"Standard BibTeX (.bib) entries such as @article, @inproceedings and @book. String macros and comments are ignored during matching."}}]}
@@ -134,85 +134,99 @@
     </nav>
 
     <main id="main" class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
-        
-        <div class="mb-4">
-            <h1 class="text-3xl font-bold mb-2">BibTeX Deduplicator</h1>
-            <p class="text-slate-500 dark:text-slate-400">Scan your bibliography for duplicate entries caused by merging multiple libraries. Resolves conflicts locally without uploading your research data.</p>
-        </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
-            <div class="lg:col-span-5 flex flex-col gap-6">
-                
-                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col">
-                    <div class="flex justify-between items-end mb-4">
-                        <h2 class="text-lg font-semibold">1. Input Bibliography</h2>
-                        <label class="cursor-pointer bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 px-3 py-1.5 rounded text-sm font-medium hover:bg-brand-100 dark:hover:bg-brand-900/50 transition-colors">
-                            <i class="fa-solid fa-upload mr-1"></i> Upload .bib
-                            <input type="file" id="fileInput" accept=".bib,.txt" class="hidden">
+        <header class="stk-pagehead">
+            <div>
+                <h1 class="stk-pagehead-title">BibTeX Deduplicator</h1>
+                <p class="stk-pagehead-lede">Find the entries in a .bib file that describe the same work, keep one of each and download the result.</p>
+                <ul class="stk-pagehead-meta">
+                    <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
+                    <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
+                </ul>
+            </div>
+            <div class="stk-pagehead-actions">
+                <button type="button" class="stk-btn" data-load-example><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load example</button>
+            </div>
+        </header>
+
+        <!-- One grid so the steps read 1, 2, 3 in the page and on a phone;
+             from 1024 px step 2 takes the right column and step 3 sits
+             under step 1. -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-[auto_1fr] gap-6 lg:gap-8">
+
+            <section class="lg:col-span-5 lg:col-start-1 lg:row-start-1 self-start bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col min-w-0" data-stk-step="1" data-stk-done="filled:#bibInput">
+                <div class="flex flex-wrap justify-between items-center gap-x-3 gap-y-2 mb-4">
+                    <h2 id="inputTitle" class="stk-ptitle shrink-0"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1: </span>Add your library</h2>
+                    <div class="flex items-center gap-1">
+                        <button type="button" id="clearBtn" class="stk-btn stk-btn-ghost stk-btn-sm" disabled><i class="fa-solid fa-xmark" aria-hidden="true"></i> Clear</button>
+                        <label class="stk-btn stk-btn-soft stk-btn-sm cursor-pointer">
+                            <i class="fa-solid fa-upload" aria-hidden="true"></i> Upload .bib
+                            <input type="file" id="fileInput" accept=".bib,.txt" class="sr-only">
                         </label>
                     </div>
-                    <textarea id="bibInput" class="w-full flex-grow min-h-[250px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-xs font-mono focus:ring-2 focus:ring-brand-500 outline-none resize-y" placeholder="Paste your BibTeX entries here..."></textarea>
-                    
-                    <button id="scanBtn" class="mt-4 bg-brand-600 hover:bg-brand-700 text-white w-full py-3 rounded-xl font-bold transition-colors shadow-sm">
-                        Scan for Duplicates
+                </div>
+                <textarea id="bibInput" aria-labelledby="inputTitle" spellcheck="false" class="w-full flex-grow min-h-[250px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-xs font-mono focus:ring-2 focus:ring-brand-500 outline-none resize-y" placeholder="Paste your BibTeX entries here, or upload a .bib file"></textarea>
+
+                <button type="button" id="scanBtn" class="mt-4 bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white w-full py-3 rounded-xl font-bold transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Scan for duplicates
+                </button>
+                <p class="dd-hint">Paste or upload a library in step 1 to scan it.</p>
+            </section>
+
+            <section class="lg:col-span-7 lg:col-start-6 lg:row-start-1 lg:row-span-2 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm min-h-[420px] lg:min-h-[520px] flex flex-col min-w-0" data-stk-step="2" data-stk-done="visible:#allResolved">
+                <div class="flex flex-wrap justify-between items-center gap-3 mb-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+                    <h2 class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Keep one of each</h2>
+                    <button type="button" id="autoResolveBtn" class="stk-btn stk-btn-soft stk-btn-sm hidden">
+                        <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Keep the most complete in each
                     </button>
                 </div>
 
-                <div id="diagnosticsCard" class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm hidden">
-                    <h2 class="text-lg font-semibold mb-4">Library Diagnostics</h2>
-                    <div class="grid grid-cols-3 gap-4">
-                        <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 text-center">
-                            <span class="block text-xs text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">Total Entries</span>
-                            <span class="text-2xl font-black text-slate-700 dark:text-slate-200" id="totalEntriesCount">0</span>
-                        </div>
-                        <div class="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl p-4 text-center">
-                            <span class="block text-xs text-red-500 uppercase tracking-widest mb-1">Duplicates Found</span>
-                            <span class="text-2xl font-black text-red-600 dark:text-red-400" id="duplicateCount">0</span>
-                        </div>
-                        <div class="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 text-center">
-                            <span class="block text-xs text-emerald-600 dark:text-emerald-500 uppercase tracking-widest mb-1">Unique Works</span>
-                            <span class="text-2xl font-black text-emerald-600 dark:text-emerald-400" id="uniqueCount">0</span>
-                        </div>
-                    </div>
-
-                    <p id="progressLabel" class="mt-4 text-xs text-center text-slate-500 dark:text-slate-400" aria-live="polite"></p>
-                    
-                    <button id="exportBtn" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 mt-6 text-white w-full py-3 rounded-xl font-bold transition-colors shadow-sm flex items-center justify-center disabled:opacity-50" disabled>
-                        <i class="fa-solid fa-download mr-2"></i> Export Cleaned .bib
-                    </button>
+                <div id="emptyState" class="dd-empty flex-grow">
+                    <span class="dd-empty-icon" aria-hidden="true"><i class="fa-solid fa-clone"></i></span>
+                    <p class="dd-empty-title">Duplicate entries will be grouped here</p>
+                    <p class="dd-empty-text">Scan your library and entries that share a DOI, or have the same title once case, braces and punctuation are ignored, are shown side by side. You pick the one to keep in each group; nothing is merged for you.</p>
+                    <button type="button" class="stk-btn" data-load-example><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load example</button>
                 </div>
 
-            </div>
+                <p id="allResolved" class="stk-callout stk-callout-ok mb-4" hidden><i class="fa-solid fa-circle-check" aria-hidden="true"></i> <span id="allResolvedText"></span></p>
 
-            <div class="lg:col-span-7 flex flex-col">
-                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm min-h-[500px] flex flex-col">
-                    <div class="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-                        <h2 class="text-lg font-semibold">2. Resolve Conflicts</h2>
-                        <button id="autoResolveBtn" class="text-sm font-medium text-brand-600 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 hidden">
-                            <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Auto-Keep First
-                        </button>
+                <div id="conflictList" class="flex flex-col gap-4" hidden data-stk-reveal></div>
+            </section>
+
+            <section id="diagnosticsCard" class="hidden lg:col-span-5 lg:col-start-1 lg:row-start-2 self-start bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm min-w-0" data-stk-step="3" data-stk-done="visible:#exportedNote" data-stk-reveal>
+                <h2 class="stk-ptitle mb-4"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 3: </span>Download the clean .bib</h2>
+                <dl class="grid grid-cols-3 gap-3">
+                    <div class="dd-stat">
+                        <dt>Entries</dt>
+                        <dd id="totalEntriesCount">0</dd>
                     </div>
-
-                    <div id="emptyState" class="flex-grow flex flex-col items-center justify-center text-slate-500 dark:text-slate-400">
-                        <i class="fa-solid fa-check-double text-6xl mb-4 opacity-20"></i>
-                        <p class="font-medium">Upload a library to scan for duplicate citations.</p>
+                    <div class="dd-stat">
+                        <dt>Duplicates</dt>
+                        <dd id="duplicateCount" class="dd-stat-warn">0</dd>
                     </div>
+                    <div class="dd-stat">
+                        <dt>Unique works</dt>
+                        <dd id="uniqueCount">0</dd>
+                    </div>
+                </dl>
 
-                    <div id="conflictList" class="flex flex-col gap-6 overflow-y-auto pr-2"></div>
-                </div>
-            </div>
+                <p id="progressLabel" class="mt-4 text-sm text-center text-slate-600 dark:text-slate-300" aria-live="polite"></p>
+
+                <button type="button" id="exportBtn" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 mt-4 text-white w-full py-3 rounded-xl font-bold transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <i class="fa-solid fa-download" aria-hidden="true"></i> Download cleaned .bib
+                </button>
+                <p id="exportedNote" class="mt-3 text-sm text-center text-emerald-700 dark:text-emerald-400" hidden aria-live="polite"></p>
+            </section>
 
         </div>
 
+        <div id="toastContainer" class="stk-toasts" aria-live="polite"></div>
     <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
         <div class="stk-wrap">
             <span class="stk-chip"><i class="fa-solid fa-list-check"></i> How-To Guide</span>
             <h2 class="stk-h2">How to de-duplicate a BibTeX library</h2>
             <p class="stk-lead">Merging reference libraries almost always creates duplicate citations. Here is the fastest way to find and remove them without uploading your research data.</p>
-            <div class="stk-grid stk-grid-3">
-                <div class="stk-step"><span class="stk-num">1</span><div><h3>Add your library</h3><p>Paste BibTeX entries into the input box, or click <strong>Upload .bib</strong> to load a file. Merged exports from Zotero, Mendeley or EndNote are ideal candidates.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Scan for duplicates</h3><p>Press <strong>Scan for Duplicates</strong>. Entries are matched by DOI first, then by a normalized title, and grouped into conflicts.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Resolve each conflict</h3><p>For every group, click <strong>Keep This Entry</strong> on the version you want to retain, or use <strong>Auto-Keep First</strong> to keep the earliest copy of each.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Export the clean file</h3><p>Once all conflicts are resolved, click <strong>Export Cleaned .bib</strong> to download a de-duplicated bibliography with the original entry order preserved.</p></div></div>
-            </div>
+            <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Add your library</h3><p>Paste BibTeX entries into step 1, or press <strong>Upload .bib</strong> to load a file. Merged exports from Zotero, Mendeley or EndNote are the usual source of duplicates. <strong>Load example</strong> gives you five entries to try.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Scan for duplicates</h3><p>Press <strong>Scan for duplicates</strong>. Entries that share a DOI, or whose titles match once case, braces and punctuation are ignored, are put in one group.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Keep one of each</h3><p>In each group, click the entry to keep. <strong>Keep the most complete in each</strong> picks, in every group, the entry with a DOI and the most fields filled in.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Download the clean file</h3><p>When every group has an entry kept, press <strong>Download cleaned .bib</strong>. The file keeps the order of your original library.</p></div></div></div>
         </div>
     </section>
 
@@ -248,7 +262,6 @@
     </section>
     </main>
 
-    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
 
     <section class="stk-next" data-stk-next hidden aria-label="Next steps"></section>
 

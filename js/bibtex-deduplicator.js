@@ -9,7 +9,6 @@ import { registerFromGlobals } from '../src/core/vendor.js';
 import {
   parseBibtex,
   findDuplicates,
-  completenessScore,
   chooseBest,
   serialiseLibrary,
   getField,
@@ -19,115 +18,195 @@ import {
 // bibtexParse is loaded as a UMD global by the page's <script> tags.
 registerFromGlobals();
 
+// Five real papers' worth of entries, as a merged export looks: NumPy twice
+// (one with a doi.org link for its DOI), SciPy twice (one with no DOI, so it
+// is matched on its title), and Matplotlib once.
+const EXAMPLE = `@article{harris2020numpy,
+  title = {Array programming with {NumPy}},
+  author = {Harris, Charles R. and Millman, K. Jarrod and van der Walt, St{\\'e}fan J.},
+  journal = {Nature},
+  volume = {585},
+  pages = {357--362},
+  year = {2020},
+  doi = {10.1038/s41586-020-2649-2}
+}
+
+@article{Harris_2020,
+  title = {Array programming with NumPy},
+  author = {Harris, Charles R. and Millman, K. Jarrod},
+  journal = {Nature},
+  year = {2020},
+  doi = {https://doi.org/10.1038/s41586-020-2649-2}
+}
+
+@article{virtanen2020scipy,
+  title = {{SciPy} 1.0: fundamental algorithms for scientific computing in {Python}},
+  author = {Virtanen, Pauli and Gommers, Ralf and Oliphant, Travis E.},
+  journal = {Nature Methods},
+  volume = {17},
+  pages = {261--272},
+  year = {2020},
+  doi = {10.1038/s41592-019-0686-2}
+}
+
+@article{scipy2020,
+  title = {SciPy 1.0: Fundamental Algorithms for Scientific Computing in Python},
+  author = {Virtanen, P. and others},
+  journal = {Nat. Methods},
+  year = {2020}
+}
+
+@article{hunter2007matplotlib,
+  title = {Matplotlib: A {2D} graphics environment},
+  author = {Hunter, John D.},
+  journal = {Computing in Science \\& Engineering},
+  volume = {9},
+  number = {3},
+  pages = {90--95},
+  year = {2007},
+  doi = {10.1109/MCSE.2007.55}
+}`;
+
 document.addEventListener('DOMContentLoaded', () => {
 
   // --- 1. State ---
   let parsedEntries = [];
   let conflictGroups = [];
   let keptSingletons = [];
+  let scanned = false;
   const resolutions = {};
 
   // --- 2. Bindings ---
   const bibInput = document.getElementById('bibInput');
   const fileInput = document.getElementById('fileInput');
   const scanBtn = document.getElementById('scanBtn');
+  const clearBtn = document.getElementById('clearBtn');
   const exportBtn = document.getElementById('exportBtn');
+  const exportedNote = document.getElementById('exportedNote');
   const diagnosticsCard = document.getElementById('diagnosticsCard');
   const conflictList = document.getElementById('conflictList');
   const emptyState = document.getElementById('emptyState');
+  const allResolved = document.getElementById('allResolved');
+  const allResolvedText = document.getElementById('allResolvedText');
   const totalEntriesCount = document.getElementById('totalEntriesCount');
   const duplicateCount = document.getElementById('duplicateCount');
   const uniqueCount = document.getElementById('uniqueCount');
   const progressLabel = document.getElementById('progressLabel');
   const autoResolveBtn = document.getElementById('autoResolveBtn');
 
-  document.querySelectorAll('.accordion-btn').forEach(btn => {
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  // --- 3. Input ---
+  function syncInputButtons() {
+    const has = bibInput.value.trim() !== '';
+    scanBtn.disabled = !has;
+    clearBtn.disabled = !has && !scanned;
+  }
+  bibInput.addEventListener('input', syncInputButtons);
+
+  // Offered twice: in the page head and in the empty step 2.
+  document.querySelectorAll('[data-load-example]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const expanded = btn.getAttribute('aria-expanded') === 'true';
-      btn.setAttribute('aria-expanded', !expanded);
-      const target = document.getElementById(btn.getAttribute('data-target'));
-      if (target) target.classList.toggle('expanded');
+      bibInput.value = EXAMPLE;
+      syncInputButtons();
+      showToast('Loaded five example entries. Press Scan for duplicates.');
+      scanBtn.focus();
     });
   });
 
-  // --- 3. Scan (delegated to the core) ---
-  if (scanBtn) scanBtn.addEventListener('click', scanForDuplicates);
+  clearBtn.addEventListener('click', () => {
+    bibInput.value = '';
+    resetResults();
+    syncInputButtons();
+    bibInput.focus();
+  });
+
+  // Reading a .bib from disk fills the same textarea the paste path uses, so
+  // everything downstream is identical whichever way the data arrived.
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      bibInput.value = event.target.result;
+      syncInputButtons();
+      // Set from a callback, not typed: tell the step badges.
+      if (window.STEMKit) window.STEMKit.refreshSteps();
+      showToast(`Loaded ${file.name}. Press Scan for duplicates.`, 'success');
+    };
+    reader.onerror = () => showToast('Could not read that file.', 'error');
+    reader.readAsText(file);
+    fileInput.value = '';
+  });
+
+  // --- 4. Scan (delegated to the core) ---
+  scanBtn.addEventListener('click', scanForDuplicates);
+
+  function resetResults() {
+    scanned = false;
+    parsedEntries = [];
+    conflictGroups = [];
+    keptSingletons = [];
+    Object.keys(resolutions).forEach(k => delete resolutions[k]);
+    conflictList.innerHTML = '';
+    conflictList.hidden = true;
+    emptyState.hidden = false;
+    allResolved.hidden = true;
+    exportedNote.hidden = true;
+    autoResolveBtn.classList.add('hidden');
+    diagnosticsCard.classList.add('hidden');
+  }
 
   function scanForDuplicates() {
     const raw = bibInput.value.trim();
-    if (!raw) return showToast('Please input BibTeX data first.', 'error');
+    if (!raw) return;
 
     const parsed = parseBibtex(raw);
-
-    if (parsed.error) {
-      showToast(parsed.error, 'error');
-      return;
-    }
+    if (parsed.error) return showToast(parsed.error, 'error');
     if (parsed.entries.length === 0) {
-      showToast('No valid BibTeX entries detected.', 'error');
-      return;
+      return showToast('No BibTeX entries found. Each should start like @article{key, …}.', 'error');
     }
 
+    resetResults();
+    scanned = true;
     parsedEntries = parsed.entries;
-    Object.keys(resolutions).forEach(k => delete resolutions[k]);
 
     const result = findDuplicates(parsedEntries);
     conflictGroups = result.groups;
     keptSingletons = result.singletons;
 
-    if (totalEntriesCount) totalEntriesCount.innerText = parsedEntries.length;
-    if (duplicateCount) duplicateCount.innerText = result.duplicateCount;
-    if (uniqueCount) {
-      uniqueCount.innerText = keptSingletons.length + conflictGroups.length;
-    }
+    totalEntriesCount.textContent = parsedEntries.length;
+    duplicateCount.textContent = result.duplicateCount;
+    uniqueCount.textContent = keptSingletons.length + conflictGroups.length;
 
     if (parsed.strippedBlocks > 0) {
-      showToast(
-        `Skipped ${parsed.strippedBlocks} @string/@comment/@preamble block(s).`,
-        'info'
-      );
+      showToast(`Skipped ${plural(parsed.strippedBlocks, '@string, @comment or @preamble block', '@string, @comment and @preamble blocks')}.`);
     }
 
+    emptyState.hidden = true;
     renderConflictList();
-    if (diagnosticsCard) diagnosticsCard.classList.remove('hidden');
+    diagnosticsCard.classList.remove('hidden');
     updateProgress();
+    syncInputButtons();
   }
 
-  // --- 4. Conflict rendering ---
+  // --- 5. Groups ---
   function renderConflictList() {
-    if (!conflictList) return;
     conflictList.innerHTML = '';
-
-    if (conflictGroups.length === 0) {
-      // The page ships a dedicated empty-state panel; using it keeps the
-      // initial placeholder from lingering behind the result.
-      if (emptyState) {
-        emptyState.innerHTML =
-          '<i class="fa-solid fa-circle-check text-6xl mb-4 text-emerald-500"></i>' +
-          '<p class="font-medium text-emerald-600 dark:text-emerald-400">' +
-          'Library is clean. No duplicates found.</p>';
-        emptyState.classList.remove('hidden');
-      } else {
-        conflictList.innerHTML =
-          '<div class="text-center py-10 text-slate-500 dark:text-slate-400 text-sm">' +
-          'No duplicates found, every entry is unique.</div>';
-      }
-      if (autoResolveBtn) autoResolveBtn.classList.add('hidden');
-      if (exportBtn) exportBtn.disabled = false;
-      return;
-    }
-
-    if (emptyState) emptyState.classList.add('hidden');
-    if (autoResolveBtn) autoResolveBtn.classList.remove('hidden');
+    const total = conflictGroups.length;
+    conflictList.hidden = total === 0;
+    autoResolveBtn.classList.toggle('hidden', total === 0);
 
     conflictGroups.forEach((group, gi) => {
       const wrapper = document.createElement('div');
-      wrapper.className =
-        'border border-slate-200 dark:border-slate-700 rounded-xl p-4 mb-4';
+      wrapper.className = 'dd-group';
+      wrapper.setAttribute('role', 'group');
+      wrapper.setAttribute('aria-labelledby', `dd-g${gi}`);
 
-      const heading = document.createElement('div');
-      heading.className = 'text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3';
-      heading.textContent = `Conflict ${gi + 1}, ${group.members.length} entries`;
+      const heading = document.createElement('p');
+      heading.className = 'dd-group-title';
+      heading.id = `dd-g${gi}`;
+      heading.textContent = `Group ${gi + 1} of ${total}: ${plural(group.members.length, 'entry', 'entries')} for one work`;
       wrapper.appendChild(heading);
 
       const grid = document.createElement('div');
@@ -139,81 +218,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
       for (const member of group.members) {
         const entry = member.data;
-        const isBest = entry === best;
-        const card = document.createElement('div');
-        card.className =
-          'p-3 rounded-lg border cursor-pointer transition-colors text-xs ' +
-          (isBest
-            ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-900/10'
-            : 'border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800');
-
         const tags = entry.entryTags || {};
         const missing = missingFields(entry);
+        const where = [getField(tags, 'journal') || getField(tags, 'booktitle'), getField(tags, 'year')]
+          .filter(Boolean).join(', ');
 
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'dd-card' + (entry === best ? ' is-best' : '');
+        card.setAttribute('aria-pressed', String(resolutions[gi] === entry));
         card.innerHTML = `
-          <div class="font-bold text-brand-600 dark:text-brand-400 mb-1">
-            ${escapeHtml(entry.citationKey)}${isBest ? ' <span class="text-emerald-600">· most complete</span>' : ''}
-          </div>
-          <div class="text-slate-600 dark:text-slate-400 mb-1">
-            ${escapeHtml(getField(tags, 'author') || 'No author')}
-          </div>
-          <div class="text-slate-500 dark:text-slate-500 mb-1">
-            ${escapeHtml(getField(tags, 'title') || 'No title')}
-          </div>
-          <div class="font-mono text-[11px] text-slate-500 dark:text-slate-400">
-            ${escapeHtml(getField(tags, 'journal') || '')} ${escapeHtml(getField(tags, 'year') || '')}
-            ${getField(tags, 'doi') ? '· DOI' : ''}
-            · score ${completenessScore(entry)}
-          </div>
-          ${missing.length ? `<div class="text-[11px] text-amber-600 mt-1">missing: ${missing.join(', ')}</div>` : ''}
-        `;
+          <span class="dd-card-head">
+            <span class="dd-key">${escapeHtml(entry.citationKey)}</span>
+            ${entry === best ? '<span class="stk-badge stk-badge-accent">Most complete</span>' : ''}
+          </span>
+          <span class="dd-title">${escapeHtml(getField(tags, 'title') || 'No title')}</span>
+          <span class="dd-author">${escapeHtml(getField(tags, 'author') || 'No author')}</span>
+          ${where ? `<span class="dd-meta">${escapeHtml(where)}</span>` : ''}
+          <span class="dd-meta">${getField(tags, 'doi') ? 'Has a DOI' : 'No DOI'}${missing.length ? `; missing ${escapeHtml(missing.join(', '))}` : ''}</span>
+          <span class="dd-keep" aria-hidden="true"><i class="fa-solid fa-circle-check"></i> Kept</span>`;
 
         card.addEventListener('click', () => {
           resolutions[gi] = entry;
-          for (const sib of grid.children) {
-            sib.classList.remove('ring-2', 'ring-brand-500');
-          }
-          card.classList.add('ring-2', 'ring-brand-500');
+          for (const sib of grid.children) sib.setAttribute('aria-pressed', String(sib === card));
+          wrapper.classList.add('is-resolved');
           updateProgress();
         });
 
         grid.appendChild(card);
       }
 
+      if (resolutions[gi]) wrapper.classList.add('is-resolved');
       wrapper.appendChild(grid);
       conflictList.appendChild(wrapper);
     });
   }
 
-  // --- 5. Resolution ---
-  if (autoResolveBtn) autoResolveBtn.addEventListener('click', () => {
+  autoResolveBtn.addEventListener('click', () => {
     conflictGroups.forEach((group, gi) => {
       resolutions[gi] = chooseBest(group.members);
     });
     renderConflictList();
-    // Re-mark the chosen cards after the rebuild.
-    conflictGroups.forEach((group, gi) => {
-      const cards = conflictList.children[gi];
-      if (!cards) return;
-      const idx = group.members.findIndex(m => m.data === resolutions[gi]);
-      const grid = cards.querySelector('.grid');
-      if (grid && grid.children[idx]) {
-        grid.children[idx].classList.add('ring-2', 'ring-brand-500');
-      }
-    });
     updateProgress();
-    showToast('Kept the most complete entry in every conflict.', 'success');
+    showToast('Kept the most complete entry in every group.', 'success');
   });
 
   function updateProgress() {
     const resolved = Object.keys(resolutions).length;
     const total = conflictGroups.length;
-    if (progressLabel) {
-      progressLabel.innerText = total === 0
-        ? 'Nothing to resolve.'
-        : `${resolved} of ${total} conflicts resolved`;
-    }
-    if (exportBtn) exportBtn.disabled = total > 0 && resolved < total;
+    const unique = keptSingletons.length + total;
+    const done = scanned && resolved >= total;
+
+    progressLabel.textContent = !scanned ? ''
+      : total === 0 ? 'Nothing to choose: no entry has a duplicate.'
+      : `${resolved} of ${plural(total, 'group', 'groups')} resolved.`;
+
+    allResolved.hidden = !done;
+    allResolvedText.textContent = total === 0
+      ? `No duplicates: all ${plural(parsedEntries.length, 'entry is', 'entries are')} unique.`
+      : `Every group has an entry kept. The clean file will hold ${plural(unique, 'entry', 'entries')}.`;
+
+    exportBtn.disabled = !done;
+    // A choice changed after a download: that file is out of date.
+    exportedNote.hidden = true;
   }
 
   // --- 6. Export ---
@@ -229,9 +296,9 @@ document.addEventListener('DOMContentLoaded', () => {
       .sort((a, b) => (indexOf.get(a) ?? 0) - (indexOf.get(b) ?? 0));
   }
 
-  if (exportBtn) exportBtn.addEventListener('click', () => {
+  exportBtn.addEventListener('click', () => {
     const finalList = buildFinalList();
-    if (finalList.length === 0) return showToast('Nothing to export.', 'error');
+    if (finalList.length === 0) return showToast('There is nothing to download.', 'error');
 
     const output = serialiseLibrary(finalList);
     const blob = new Blob([output], { type: 'text/plain;charset=utf-8;' });
@@ -244,7 +311,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    showToast(`Exported ${finalList.length} unique entries.`, 'success');
+    exportedNote.textContent = `Saved cleaned_references.bib with ${plural(finalList.length, 'entry', 'entries')}.`;
+    exportedNote.hidden = false;
   });
 
   // --- 7. Utilities ---
@@ -253,38 +321,24 @@ document.addEventListener('DOMContentLoaded', () => {
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  function showToast(msg, type) {
+  // Toasts use the shared .stk-toast component.
+  function showToast(msg, type = 'info') {
     const container = document.getElementById('toastContainer');
     if (!container) return;
     const toast = document.createElement('div');
-    const colors = type === 'success'
-      ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30'
-      : type === 'error'
-        ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900/30'
-        : 'bg-brand-50 text-brand-800 border-brand-200 dark:bg-brand-900/30';
-    toast.className =
-      `px-4 py-3 rounded-xl border shadow-lg toast-enter text-sm font-medium transition-all ${colors}`;
-    toast.innerText = msg;
+    toast.className = 'stk-toast' +
+      (type === 'success' ? ' stk-toast-ok' : type === 'error' ? ' stk-toast-danger' : '');
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    const icon = document.createElement('i');
+    icon.className = 'fa-solid ' + (type === 'success' ? 'fa-circle-check'
+      : type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-info');
+    icon.setAttribute('aria-hidden', 'true');
+    const body = document.createElement('span');
+    body.textContent = msg;
+    toast.append(icon, body);
     container.appendChild(toast);
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    setTimeout(() => toast.remove(), type === 'error' ? 5000 : 3000);
   }
 
-  // Reading a .bib from disk fills the same textarea the paste path uses, so
-  // everything downstream is identical whichever way the data arrived.
-  if (fileInput) fileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      bibInput.value = event.target.result;
-      showToast(`Loaded ${file.name}.`, 'success');
-    };
-    reader.onerror = () => showToast('Could not read that file.', 'error');
-    reader.readAsText(file);
-    fileInput.value = '';
-  });
-
+  syncInputButtons();
 });
