@@ -26,26 +26,31 @@ document.addEventListener('DOMContentLoaded', () => {
   const matrixStyle = document.getElementById('matrixStyle');
   const generateMatrixBtn = document.getElementById('generateMatrixBtn');
   const copyLatexBtn = document.getElementById('copyLatexBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const previewEmpty = document.getElementById('previewEmpty');
+
+  const EXAMPLE = 'H = \\sum_{i=1}^{N} \\frac{p_i^2}{2m} + V(q_1, \\ldots, q_N)';
 
   // --- Keypress sounds ---
   // MathLive ships its own keypress sounds and looks them up by filename under
   // `soundsDirectory`. Overriding the map here rather than editing the vendored
   // bundle keeps js/dependencies/mathlive.min.js untouched and upgradeable.
   //
-  // `default` is what MathLive calls the standard keypress. `return` and
-  // `spacebar` are pointed at the same file: they have their own defaults that
-  // are not present in sound/, so leaving them alone would just request a
-  // missing file on every press.
-  const KEY_SOUNDS = { standard: 'hee-hee.mp3', delete: 'fahhh.mp3' };
+  // Only Backspace and Delete make a sound. The standard keypress used to
+  // name sound/hee-hee.mp3, which was never committed, so every keystroke
+  // requested a missing file; `default`, `return` and `spacebar` are now
+  // silent rather than pointed at MathLive's own files, which are not in
+  // sound/ either. Add a file and name it here to give typing a sound.
+  const KEY_SOUNDS = { delete: 'fahhh.mp3' };
 
   if (window.MathfieldElement) {
     try {
       window.MathfieldElement.soundsDirectory = 'sound';
       window.MathfieldElement.keypressSound = {
-        default: KEY_SOUNDS.standard,
-        delete: KEY_SOUNDS.delete,
-        return: KEY_SOUNDS.standard,
-        spacebar: KEY_SOUNDS.standard
+        default: KEY_SOUNDS.standard || null,
+        delete: KEY_SOUNDS.delete || null,
+        return: KEY_SOUNDS.standard || null,
+        spacebar: KEY_SOUNDS.standard || null
       };
     } catch (e) {
       // A sound that will not load should never stop the editor working.
@@ -67,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function keySound(kind) {
     if (soundCache[kind] !== undefined) return soundCache[kind];
+    if (!KEY_SOUNDS[kind]) return (soundCache[kind] = null);
     try {
       const el = new Audio(`sound/${KEY_SOUNDS[kind]}`);
       el.preload = 'auto';
@@ -118,10 +124,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- 3. Compilation ---
   function compileKaTeX(latexString) {
     if (!katexPreview) return;
+    const has = latexString.trim() !== '';
+    if (previewEmpty) previewEmpty.hidden = has;
+    katexPreview.hidden = !has;
+    if (copyLatexBtn) copyLatexBtn.disabled = !has;
+    if (clearBtn) clearBtn.disabled = !has;
 
-    if (!latexString.trim()) {
+    if (!has) {
       katexPreview.innerHTML = '';
-      updateStatus(true);
+      updateStatus(null);
       return;
     }
 
@@ -134,22 +145,45 @@ document.addEventListener('DOMContentLoaded', () => {
       updateStatus(true);
     } catch (err) {
       katexPreview.innerHTML =
-        `<span class="text-red-500 font-mono text-sm">${escapeHtml(err.message)}</span>`;
+        `<span class="text-red-700 dark:text-red-400 font-mono text-sm">${escapeHtml(err.message)}</span>`;
       updateStatus(false);
     }
   }
 
+  /** true: typesets; false: an error; null: nothing to check. */
   function updateStatus(isValid) {
     if (!syntaxStatus) return;
-    if (isValid) {
-      syntaxStatus.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Valid Syntax';
-      syntaxStatus.className = 'text-xs font-bold text-emerald-700 dark:text-emerald-400';
+    if (isValid === null) {
+      syntaxStatus.innerHTML = '';
+    } else if (isValid) {
+      syntaxStatus.innerHTML = '<i class="fa-solid fa-check mr-1" aria-hidden="true"></i> Typesets';
+      syntaxStatus.className = 'text-xs font-semibold text-emerald-700 dark:text-emerald-400';
     } else {
       syntaxStatus.innerHTML =
-        '<i class="fa-solid fa-triangle-exclamation mr-1"></i> Compilation Error';
-      syntaxStatus.className = 'text-xs font-bold text-red-700 dark:text-red-400';
+        '<i class="fa-solid fa-triangle-exclamation mr-1" aria-hidden="true"></i> Does not typeset';
+      syntaxStatus.className = 'text-xs font-semibold text-red-700 dark:text-red-400';
     }
   }
+
+  /** Put the same LaTeX in both editors and the preview. */
+  function setEquation(latex) {
+    latexInput.value = latex;
+    if (mathField) mathField.setValue(latex, { suppressChangeNotifications: true });
+    compileKaTeX(latex);
+  }
+
+  // Offered twice: in the page head and in the empty preview.
+  document.querySelectorAll('[data-load-example]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      setEquation(EXAMPLE);
+      showToast('Loaded the example: a Hamiltonian.');
+    });
+  });
+
+  if (clearBtn) clearBtn.addEventListener('click', () => {
+    setEquation('');
+    if (mathField) mathField.focus();
+  });
 
   // --- 4. Matrix generator (delegated to the core) ---
   if (generateMatrixBtn) generateMatrixBtn.addEventListener('click', () => {
@@ -159,27 +193,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const matrix = generateMatrix(rows, cols, style);
     const current = latexInput.value.trim();
-    const next = current ? `${current} = ${matrix}` : matrix;
+    setEquation(current ? `${current} = ${matrix}` : matrix);
 
-    latexInput.value = next;
-    if (mathField) mathField.setValue(next, { suppressChangeNotifications: true });
-    compileKaTeX(next);
-
-    showToast(`Generated ${rows}x${cols} ${style}.`, 'info');
+    showToast(`Added a ${rows} × ${cols} ${style} to the equation.`);
   });
 
   // --- 5. Export ---
   if (copyLatexBtn) copyLatexBtn.addEventListener('click', () => {
     const content = latexInput.value;
-    if (!content) {
-      showToast('Workspace is empty.', 'error');
-      return;
-    }
+    if (!content.trim()) return;
     // MathLive leaves zero-width anchors in the value; they are invisible but
     // break a .tex file if pasted.
     navigator.clipboard.writeText(stripZeroWidth(content))
-      .then(() => showToast('LaTeX string copied to clipboard.', 'success'))
-      .catch(() => showToast('Clipboard access denied.', 'error'));
+      .then(() => showToast('Copied the LaTeX.', 'success'))
+      .catch(() => showToast('The browser blocked the clipboard. Select the source and copy it instead.', 'error'));
   });
 
   // --- 6. Utilities ---
@@ -188,24 +215,23 @@ document.addEventListener('DOMContentLoaded', () => {
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
   }
 
-  function showToast(msg, type) {
+  // Toasts use the shared .stk-toast component.
+  function showToast(msg, type = 'info') {
     const container = document.getElementById('toastContainer');
     if (!container) return;
     const toast = document.createElement('div');
-    const colors = type === 'success'
-      ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30'
-      : type === 'error'
-        ? 'bg-red-50 text-red-800 border-red-200 dark:bg-red-900/30'
-        : 'bg-brand-50 text-brand-800 border-brand-200 dark:bg-brand-900/30';
-    toast.className =
-      `px-4 py-3 rounded-xl border shadow-lg toast-enter text-sm font-medium transition-all ${colors}`;
-    toast.innerHTML =
-      `<i class="fa-solid ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-triangle-exclamation' : 'fa-info-circle'} mr-2"></i> ${escapeHtml(msg)}`;
+    toast.className = 'stk-toast' +
+      (type === 'success' ? ' stk-toast-ok' : type === 'error' ? ' stk-toast-danger' : '');
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    const icon = document.createElement('i');
+    icon.className = 'fa-solid ' + (type === 'success' ? 'fa-circle-check'
+      : type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-info');
+    icon.setAttribute('aria-hidden', 'true');
+    const body = document.createElement('span');
+    body.textContent = msg;
+    toast.append(icon, body);
     container.appendChild(toast);
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    setTimeout(() => toast.remove(), type === 'error' ? 5000 : 3000);
   }
 
   // --- 7. Initial state ---

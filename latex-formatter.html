@@ -33,6 +33,10 @@
         }
     </script>
     
+    <script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to write and check an equation", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Write the equation", "text": "Type in the Visual editor, where \\alpha, \\frac, ^ and _ work as in LaTeX, or type and paste in LaTeX source. The two stay in step with each other."}, {"@type": "HowToStep", "position": 2, "name": "Check the preview", "text": "The Preview typesets the source as you type. If it cannot, it names the first problem, such as a missing brace or an unknown command."}, {"@type": "HowToStep", "position": 3, "name": "Add a matrix", "text": "Choose the rows, columns and brackets under Insert a matrix and press Add the matrix to the equation. It goes on the end, after an equals sign, with empty cells to fill in."}, {"@type": "HowToStep", "position": 4, "name": "Copy the LaTeX", "text": "Copy LaTeX copies the source without the invisible placeholder characters the visual editor adds. Paste it inside an equation or align environment."}]}
+    </script>
+
     <meta name="author" content="STEMKit">
     <meta name="theme-color" content="#1f5c96">
 
@@ -60,7 +64,6 @@
         })();
     </script>
 
-    <link rel="stylesheet" href="css/all.min.css">
     <link rel="stylesheet" href="css/all.min.css">
     
     <link rel="stylesheet" href="css/dependencies/katex.min.css">
@@ -126,41 +129,52 @@
     </nav>
 
     <main id="main" class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
-        
-        <div class="mb-2">
-            <h1 class="text-3xl font-bold mb-2">Equation Formatter</h1>
-            <p class="text-slate-500 dark:text-slate-400">Build equations visually, generate boilerplate matrices, and debug compilation errors instantly before updating your manuscript.</p>
-        </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            
-            <div class="flex flex-col gap-6">
-                
-                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col">
-                    <h2 class="text-lg font-semibold mb-4">1. Visual Equation Builder</h2>
-                    
-                    <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex-grow flex items-center justify-center min-h-[150px] shadow-inner mb-4">
-                        <math-field id="mathField" class="bg-transparent outline-none">H = \sum_{i=1}^{N} \frac{p_i^2}{2m} + V(q_1, \ldots, q_N)</math-field>
+        <header class="stk-pagehead">
+            <div>
+                <h1 class="stk-pagehead-title">Equation Formatter</h1>
+                <p class="stk-pagehead-lede">Write an equation in a visual editor or in LaTeX, see whether it typesets, and copy the source into your manuscript.</p>
+                <ul class="stk-pagehead-meta">
+                    <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
+                    <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
+                </ul>
+            </div>
+            <div class="stk-pagehead-actions">
+                <button type="button" class="stk-btn" data-load-example><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load example</button>
+            </div>
+        </header>
+
+        <div id="toastContainer" class="stk-toasts" aria-live="polite"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+
+            <div class="flex flex-col gap-6 min-w-0">
+
+                <section class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col">
+                    <h2 id="editorTitle" class="stk-ptitle mb-4">Visual editor</h2>
+
+                    <div class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl flex-grow flex items-center justify-center min-h-[150px] shadow-inner mb-3">
+                        <math-field id="mathField" aria-labelledby="editorTitle" class="bg-transparent outline-none">H = \sum_{i=1}^{N} \frac{p_i^2}{2m} + V(q_1, \ldots, q_N)</math-field>
                     </div>
 
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-2"><i class="fa-solid fa-keyboard mr-1"></i> You can type standard LaTeX commands (e.g., \alpha) directly into the box, or click to open the virtual math keyboard.</p>
-                </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400"><i class="fa-solid fa-keyboard mr-1" aria-hidden="true"></i> Type LaTeX commands such as \alpha or \frac straight into the box, or press the keyboard icon for an on-screen maths keyboard.</p>
+                </section>
 
-                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-                    <h2 class="text-lg font-semibold mb-4">Matrix & Environment Generator</h2>
-                    
-                    <div class="grid grid-cols-3 gap-4 mb-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Rows</label>
-                            <input type="number" id="matrixRows" min="1" max="10" value="3" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                <section class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+                    <h2 class="stk-ptitle mb-4">Insert a matrix</h2>
+
+                    <div class="grid grid-cols-3 gap-3 mb-4">
+                        <div class="stk-field">
+                            <label for="matrixRows">Rows</label>
+                            <input type="number" id="matrixRows" min="1" max="10" value="3" class="stk-input">
                         </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Columns</label>
-                            <input type="number" id="matrixCols" min="1" max="10" value="3" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                        <div class="stk-field">
+                            <label for="matrixCols">Columns</label>
+                            <input type="number" id="matrixCols" min="1" max="10" value="3" class="stk-input">
                         </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Bracket Style</label>
-                            <select id="matrixStyle" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                        <div class="stk-field">
+                            <label for="matrixStyle">Brackets</label>
+                            <select id="matrixStyle" class="stk-select">
                                 <option value="bmatrix">[ ] bmatrix</option>
                                 <option value="pmatrix">( ) pmatrix</option>
                                 <option value="vmatrix">| | vmatrix</option>
@@ -168,42 +182,58 @@
                             </select>
                         </div>
                     </div>
-                    
-                    <button id="generateMatrixBtn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 w-full py-2.5 rounded-xl font-bold transition-colors shadow-sm text-sm">
-                        Append Matrix to Editor
+
+                    <button type="button" id="generateMatrixBtn" class="stk-btn w-full">
+                        <i class="fa-solid fa-table-cells" aria-hidden="true"></i> Add the matrix to the equation
                     </button>
-                </div>
+                </section>
             </div>
 
-            <div class="flex flex-col gap-6">
-                
-                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col flex-grow">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-lg font-semibold">2. Raw Source Code</h2>
-                        <button id="copyLatexBtn" class="text-xs font-bold text-brand-600 dark:text-brand-400 hover:text-brand-700 transition-colors bg-brand-50 dark:bg-brand-900/30 px-3 py-1.5 rounded">
-                            <i class="fa-regular fa-copy mr-1"></i> Copy Code
-                        </button>
-                    </div>
-                    
-                    <textarea id="latexInput" class="w-full flex-grow min-h-[150px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-sm font-mono focus:ring-2 focus:ring-brand-500 outline-none resize-y" placeholder="Raw LaTeX string..."></textarea>
-                </div>
+            <div class="flex flex-col gap-6 min-w-0">
 
-                <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col h-[200px]">
-                    <div class="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-800 pb-2">
-                        <h2 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Live Compilation Output</h2>
-                        <span id="syntaxStatus" class="text-xs font-bold text-emerald-700 dark:text-emerald-400"><i class="fa-solid fa-check mr-1"></i> Valid Syntax</span>
+                <section class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col flex-grow">
+                    <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+                        <h2 id="sourceTitle" class="stk-ptitle">LaTeX source</h2>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="clearBtn" class="stk-btn stk-btn-ghost stk-btn-sm"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Clear</button>
+                            <button type="button" id="copyLatexBtn" class="stk-btn stk-btn-sm stk-btn-primary"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy LaTeX</button>
+                        </div>
                     </div>
-                    
+
+                    <textarea id="latexInput" aria-labelledby="sourceTitle" spellcheck="false" class="w-full flex-grow min-h-[150px] bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-sm font-mono focus:ring-2 focus:ring-brand-500 outline-none resize-y" placeholder="Type or paste LaTeX, for example E = mc^2"></textarea>
+                </section>
+
+                <section class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col min-h-[200px]">
+                    <div class="flex justify-between items-center gap-3 mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+                        <h2 class="stk-ptitle">Preview</h2>
+                        <span id="syntaxStatus" class="text-xs font-semibold" aria-live="polite"></span>
+                    </div>
+
                     <div class="flex-grow flex items-center justify-center overflow-auto">
-                        <div id="katexPreview" class="text-xl"></div>
+                        <div id="previewEmpty" class="lf-empty" hidden>
+                            <p class="lf-empty-title">Your equation will be typeset here</p>
+                            <p class="lf-empty-text">It updates as you type and names the first error when the LaTeX does not typeset.</p>
+                            <button type="button" class="stk-btn stk-btn-sm" data-load-example><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load example</button>
+                        </div>
+                        <div id="katexPreview" class="text-xl max-w-full"></div>
                     </div>
-                </div>
+                </section>
 
             </div>
         </div>
+
+    <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
+        <div class="stk-wrap">
+            <span class="stk-chip"><i class="fa-solid fa-square-root-variable" aria-hidden="true"></i> How-To Guide</span>
+            <h2 class="stk-h2">How to write and check an equation</h2>
+            <p class="stk-lead">Build the equation in whichever form suits you, see it typeset as you go, and take the LaTeX to your manuscript.</p>
+            <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Write the equation</h3><p>Type in the <strong>Visual editor</strong>, where <code>\alpha</code>, <code>\frac</code>, <code>^</code> and <code>_</code> work as in LaTeX, or type and paste in <strong>LaTeX source</strong>. The two stay in step with each other.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Check the preview</h3><p>The <strong>Preview</strong> typesets the source as you type. If it cannot, it names the first problem, such as a missing brace or an unknown command.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Add a matrix</h3><p>Choose the rows, columns and brackets under <strong>Insert a matrix</strong> and press <strong>Add the matrix to the equation</strong>. It goes on the end, after an equals sign, with empty cells to fill in.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Copy the LaTeX</h3><p><strong>Copy LaTeX</strong> copies the source without the invisible placeholder characters the visual editor adds. Paste it inside an <code>equation</code> or <code>align</code> environment.</p></div></div></div>
+            <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;" aria-hidden="true"></i><div>The preview uses KaTeX, which covers most of amsmath. It does not know the macros in your own preamble, so a <code>\newcommand</code> of yours shows as an error here and still compiles in your document.</div></div>
+            <div class="stk-refs"><a href="https://katex.org/docs/supported.html" target="_blank" rel="noopener"><i class="fa-solid fa-list" aria-hidden="true"></i> Commands KaTeX supports</a><a href="https://www.overleaf.com/learn/latex/Mathematical_expressions" target="_blank" rel="noopener"><i class="fa-solid fa-book" aria-hidden="true"></i> Overleaf: mathematical expressions</a></div>
+        </div>
+    </section>
     </main>
 
-    <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3"></div>
 
     <section class="stk-next" data-stk-next hidden aria-label="Next steps"></section>
 
