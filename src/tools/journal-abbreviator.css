@@ -1,14 +1,88 @@
 /*
  * journal-abbreviator -- tool-specific styles.
  *
- * Extracted from the inline <style> block in journal-abbreviator.html. Shared
- * documentation styles live in src/stemkit-docs.css; Tailwind utilities are
- * generated into src/output.css and must not be hand-edited.
+ * Shared documentation styles live in src/stemkit-docs.css; Tailwind
+ * utilities are generated into src/output.css and must not be hand-edited.
  */
 
-.custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-.custom-scroll::-webkit-scrollbar-track { background: transparent; }
-.custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
-.dark .custom-scroll::-webkit-scrollbar-thumb { background-color: #475569; }
-.hl-change { background-color: rgba(53, 116, 176, 0.2); border-bottom: 2px solid #3574b0; padding: 0 2px; border-radius: 2px; }
-.hl-unknown { background-color: rgba(245, 158, 11, 0.15); border-bottom: 2px dotted #f59e0b; padding: 0 2px; border-radius: 2px; cursor: help; }
+/* Highlights in the output. The pane is dark in both themes. A replaced
+   title is marked in the accent; a title the core recognises but leaves
+   unchanged (Nature, Science) is not marked at all; a journal-like title it
+   does not know is marked in amber. The browser's yellow <mark> never shows. */
+.ja-hit, .ja-unknown {
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+.ja-hit { background: rgba(53, 116, 176, 0.32); border-bottom: 2px solid #5c93c7; }
+.ja-hit-identity { background: none; border: 0; padding: 0; }
+.ja-unknown { background: rgba(245, 158, 11, 0.16); border-bottom: 2px dotted #f59e0b; cursor: help; }
+
+/* Your own abbreviations: a closed <details> under the paste box. */
+.ja-custom > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.ja-custom > summary::-webkit-details-marker { display: none; }
+.ja-custom > summary::after {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-left: auto;
+  flex-shrink: 0;
+  border-right: 1.5px solid var(--stk-fg-muted);
+  border-bottom: 1.5px solid var(--stk-fg-muted);
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform var(--stk-ease);
+}
+.ja-custom[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.ja-custom > summary:hover .stk-ptitle { color: var(--stk-accent-text); }
+.ja-custom-sum { font-size: 0.8125rem; color: var(--stk-fg-muted); }
+
+/* Empty output: what will appear, and an example to try. */
+.ja-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 100%;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+}
+.ja-empty[hidden] { display: none; }
+.ja-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 0.25rem;
+  border-radius: var(--stk-radius-lg);
+  background: var(--stk-accent-soft);
+  color: var(--stk-accent-text);
+  font-size: 1.2rem;
+}
+.ja-empty-title { font-size: 1rem; font-weight: 650; color: var(--stk-fg); }
+.ja-empty-text { max-width: 30rem; margin-bottom: 0.5rem; font-size: 0.875rem; line-height: 1.6; color: var(--stk-fg-muted); }
+
+/* Footer: the key to the highlights, and which lists were used. */
+.ja-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.65rem 1rem;
+  border-top: 1px solid var(--stk-border);
+  background: #020617;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--stk-fg-muted);
+}
+.ja-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.75rem; color: var(--stk-fg-3); }
+.ja-legend[hidden] { display: none; }
+.ja-legend span { color: var(--stk-fg-muted); }

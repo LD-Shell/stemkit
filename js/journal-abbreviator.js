@@ -21,7 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const rawOutput = document.getElementById('rawOutput');
   const btnClear = document.getElementById('btnClear');
   const btnCopyText = document.getElementById('btnCopyText');
-  const btnExample = document.getElementById('btnExample');
+  const abbrEmpty = document.getElementById('abbrEmpty');
+  const legend = document.getElementById('legend');
+  const customCount = document.getElementById('customCount');
   const toggleHighlights = document.getElementById('toggleHighlights');
   const customRules = document.getElementById('customRules');
   const dictLabel = document.getElementById('dictLabel');
@@ -82,7 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
       iso4Status = 'ready';
       updateDictLabel();
       render();
-      showToast(`ISO 4 word list loaded, ${stats.indexed.toLocaleString()} rules.`);
     } catch (err) {
       console.error(err);
       iso4Status = 'error';
@@ -105,18 +106,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /** Report both tiers, so it is clear which one produced a result. */
   function updateDictLabel() {
-    if (!dictLabel || !engine) return;
-    let label =
-      `${engine.builtinCount} built-in` +
-      (engine.customCount ? ` + ${engine.customCount} custom` : '') +
-      ` (${engine.entryCount} unique)`;
+    if (!engine) return;
+    const n = engine.customCount;
+    if (customCount) customCount.textContent = n ? `${n} ${n === 1 ? 'rule' : 'rules'}` : 'None yet';
+    if (!dictLabel) return;
 
+    let label = `Matched against ${engine.builtinCount} built-in titles` +
+      (n ? ` and ${n} of your own` : '');
     if (iso4Status === 'ready' && iso4Stats) {
-      label += ` · ISO 4: ${iso4Stats.indexed.toLocaleString()} word rules`;
+      label += `; other titles are abbreviated word by word from the ISO 4 list ` +
+        `(${iso4Stats.indexed.toLocaleString()} words).`;
     } else if (iso4Status === 'loading') {
-      label += ' · loading ISO 4 word list…';
+      label += '. Loading the ISO 4 word list…';
     } else if (iso4Status === 'error') {
-      label += ' · ISO 4 word list could not be read';
+      label += '. The ISO 4 word list could not be read.';
+    } else {
+      label += '.';
     }
     dictLabel.textContent = label;
   }
@@ -149,23 +154,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (toggleHighlights) toggleHighlights.addEventListener('change', render);
 
-  document.querySelectorAll('.accordion-btn').forEach(btn => {
+  // Offered twice: in the page head and in the empty output.
+  document.querySelectorAll('[data-load-example]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const expanded = btn.getAttribute('aria-expanded') === 'true';
-      btn.setAttribute('aria-expanded', !expanded);
-      const target = document.getElementById(btn.getAttribute('data-target'));
-      if (target) target.classList.toggle('expanded');
+      dataInput.value = EXAMPLE;
+      render();
+      showToast('Loaded an example reference list.');
     });
-  });
-
-  if (btnExample) btnExample.addEventListener('click', () => {
-    dataInput.value = EXAMPLE;
-    render();
   });
 
   if (btnClear) btnClear.addEventListener('click', () => {
     dataInput.value = '';
     render();
+    dataInput.focus();
   });
 
   // --- 4. Rendering ---
@@ -197,14 +198,17 @@ document.addEventListener('DOMContentLoaded', () => {
   function render() {
     if (!engine) rebuildEngine();
     const text = dataInput ? dataInput.value : '';
+    const has = text.trim() !== '';
+    if (btnClear) btnClear.disabled = text === '';
+    if (btnCopyText) btnCopyText.disabled = !has;
+    if (abbrEmpty) abbrEmpty.hidden = has;
+    if (visualOutput) visualOutput.hidden = !has;
 
-    if (!text.trim()) {
-      if (visualOutput) {
-        visualOutput.innerHTML =
-          '<span class="text-slate-400">Paste a reference list to abbreviate.</span>';
-      }
+    if (!has) {
+      if (visualOutput) visualOutput.innerHTML = '';
       if (rawOutput) rawOutput.textContent = '';
       if (statsLabel) statsLabel.textContent = '';
+      if (legend) legend.hidden = true;
       return;
     }
 
@@ -213,6 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (rawOutput) rawOutput.textContent = result.text;
 
     const highlight = toggleHighlights ? toggleHighlights.checked : true;
+    if (legend) legend.hidden = !highlight;
     if (visualOutput) {
       visualOutput.innerHTML = highlight
         ? renderHighlighted(text, eng)
@@ -226,8 +231,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const changed = result.replacements.filter(r => r.changed).length;
       const unknown = result.unknown.length;
       statsLabel.textContent =
-        `${changed} abbreviated · ${result.replacements.length} recognised` +
-        (unknown ? ` · ${unknown} unknown` : '');
+        `${changed} abbreviated, ${result.replacements.length} recognised` +
+        (unknown ? `, ${unknown} not recognised` : '');
     }
   }
 
@@ -271,7 +276,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnCopyText) btnCopyText.addEventListener('click', () => {
     const text = rawOutput ? rawOutput.textContent : '';
     if (!text) return;
-    navigator.clipboard.writeText(text).then(() => showToast('Abbreviated text copied.'));
+    navigator.clipboard.writeText(text).then(
+      () => showToast('Copied the abbreviated list.', 'success'),
+      () => showToast('The browser blocked the clipboard. Select the text and copy it instead.', 'error')
+    );
   });
 
   // --- 6. Utilities ---
@@ -280,18 +288,22 @@ document.addEventListener('DOMContentLoaded', () => {
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
   }
 
-  function showToast(message) {
+  // Toasts use the shared .stk-toast component.
+  function showToast(message, type = 'info') {
     if (!toastContainer) return;
     const toast = document.createElement('div');
-    toast.className =
-      'bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-xl ' +
-      'transition-opacity duration-300';
-    toast.innerText = message;
+    toast.className = 'stk-toast' +
+      (type === 'success' ? ' stk-toast-ok' : type === 'error' ? ' stk-toast-danger' : '');
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    const icon = document.createElement('i');
+    icon.className = 'fa-solid ' + (type === 'success' ? 'fa-circle-check'
+      : type === 'error' ? 'fa-triangle-exclamation' : 'fa-circle-info');
+    icon.setAttribute('aria-hidden', 'true');
+    const body = document.createElement('span');
+    body.textContent = message;
+    toast.append(icon, body);
     toastContainer.appendChild(toast);
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      setTimeout(() => toast.remove(), 300);
-    }, 2000);
+    setTimeout(() => toast.remove(), type === 'error' ? 5000 : 2500);
   }
 
   rebuildEngine();
