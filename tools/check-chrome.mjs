@@ -31,12 +31,10 @@ const ROOT = path.resolve(path.join(import.meta.dirname ?? '.', '..'));
 const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const text = html => html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 
-// Scratch pages that are not part of the site.
-const SKIP = new Set(['home-sections-preview.html']);
 const WIDE = new Set(['plot-builder.html', 'plot-digitizer.html']);
 const OVERLAY = new Set(['sandbox.html']);
 
-const pages = fs.readdirSync(ROOT).filter(f => f.endsWith('.html') && !SKIP.has(f)).sort();
+const pages = fs.readdirSync(ROOT).filter(f => f.endsWith('.html')).sort();
 const problems = [];
 const fail = (page, msg) => problems.push(`${page}: ${msg}`);
 

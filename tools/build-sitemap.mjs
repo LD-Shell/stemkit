@@ -6,10 +6,9 @@
  * listed, or every `lastmod` keeps claiming a date months after the file
  * changed. Generating it means the list and the dates follow the repository.
  *
- * Pages are excluded when they are not user-facing: the 404 page, and the
- * development previews that robots.txt already disallows. The two lists are
- * kept in step by reading the disallow rules out of robots.txt rather than
- * repeating them here.
+ * Pages are excluded when they are not user-facing: the 404 page, and any
+ * page robots.txt disallows. The two lists are kept in step by reading the
+ * disallow rules out of robots.txt rather than repeating them here.
  *
  *   node tools/build-sitemap.mjs           write sitemap.xml
  *   node tools/build-sitemap.mjs --check   fail if it is out of date

@@ -120,7 +120,5 @@ changes rendered spacing, so it is a design decision, not a refactor. Left open.
 
 Every tool page links the three stylesheets above and carries no inline
 `<style>` block. `404.html` keeps its own small block: it is not a tool and
-does not need a stylesheet of its own. `home-sections-preview.html` is a
-scratch page for the landing sections and keeps its block for the same
-reason. `script-generator.html` uses `src/script-generator.css`, not
+does not need a stylesheet of its own. `script-generator.html` uses `src/script-generator.css`, not
 `src/tools/`.

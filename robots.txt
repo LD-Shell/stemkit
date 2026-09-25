@@ -1,13 +1,6 @@
 User-agent: *
 Allow: /
 
-# Development / preview pages — not user-facing, keep them out of the index.
-Disallow: /error-bar-custom-preview.html
-Disallow: /error-bar-plot-preview.html
-Disallow: /error-bar-theory-preview.html
-Disallow: /home-sections-preview.html
-Disallow: /theory-preview.html
-
 # Build sources and vendored assets add no search value.
 Disallow: /src/
 Disallow: /js/dependencies/
