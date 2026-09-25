@@ -4,19 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <title>XVG & CSV Visualizer | High-Performance Plots | STEMKit</title>
-    <meta name="title" content="XVG & CSV Visualizer | High-Performance Plots | STEMKit">
-    <meta name="description" content="Render high-performance WebGL interactive plots for massive GROMACS XVG and CSV log files securely in your browser. 100% secure client-side plotting.">
-    <meta name="keywords" content="xvg visualizer, gromacs xvg plot, csv plotter, client side data visualization, plot massive csv, webgl scatter plot, scientific data viewer, interactive xvg">
+    <title>XVG & CSV Visualizer | Interactive Plots | STEMKit</title>
+    <meta name="title" content="XVG & CSV Visualizer | Interactive Plots | STEMKit">
+    <meta name="description" content="Plot GROMACS XVG and CSV data files interactively in your browser, with the titles, axis labels and legends the file carries. Nothing is uploaded.">
+    <meta name="keywords" content="xvg visualizer, gromacs xvg plot, csv plotter, client side data visualization, plot csv in browser, scientific data viewer, interactive xvg">
     
     <link rel="canonical" href="https://stemkit.net/xvg-visualizer.html">
     <meta property="og:url" content="https://stemkit.net/xvg-visualizer.html">
     <meta property="twitter:url" content="https://stemkit.net/xvg-visualizer.html">
     
-    <meta property="og:title" content="XVG & CSV Visualizer | High-Performance Plots">
-    <meta property="twitter:title" content="XVG & CSV Visualizer | High-Performance Plots">
-    <meta property="og:description" content="Instantly visualize massive GROMACS XVG or CSV data logs directly in your browser. Zero server uploads.">
-    <meta property="twitter:description" content="Instantly visualize massive GROMACS XVG or CSV data logs directly in your browser. Zero server uploads.">
+    <meta property="og:title" content="XVG & CSV Visualizer | Interactive Plots">
+    <meta property="twitter:title" content="XVG & CSV Visualizer | Interactive Plots">
+    <meta property="og:description" content="Plot GROMACS XVG or CSV data files directly in your browser. Nothing is uploaded.">
+    <meta property="twitter:description" content="Plot GROMACS XVG or CSV data files directly in your browser. Nothing is uploaded.">
     
     <script type="application/ld+json">
         {
@@ -24,12 +24,12 @@
             "@type": "WebApplication",
             "name": "STEMKit XVG Visualizer",
             "url": "https://stemkit.net/xvg-visualizer.html",
-            "description": "Render high-performance WebGL interactive plots for massive GROMACS XVG files.",
+            "description": "Interactive plots of GROMACS XVG and CSV data files, drawn in the browser.",
             "applicationCategory": "UtilityApplication",
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "Hardware Accelerated Rendering", "GROMACS File Support", "Local Execution", "Zero File Size Limits" ]
+            "featureList": [ "GROMACS XVG Titles, Axis Labels and Legends", "CSV and Whitespace-Delimited Tables", "Second Y-Axis", "Matplotlib Code Export", "Local Execution" ]
         }
     </script>
     
@@ -143,7 +143,7 @@
                     <input type="file" id="fileInput" accept=".xvg,.csv,.txt,.dat" class="hidden" aria-label="Choose a data file">
                     <div class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></div>
                     <h2 id="xvg-drop-title" class="stk-drop-title">Drop an .xvg or data file here</h2>
-                    <p class="stk-drop-text">GROMACS <code>@</code> and <code>#</code> lines label the plot; the numeric columns are plotted.</p>
+                    <p class="stk-drop-text">GROMACS <code>@</code> lines or a CSV header row label the plot; <code>#</code> comments are skipped and the numeric columns are plotted.</p>
                     <div class="stk-drop-actions">
                         <button type="button" id="chooseFileBtn" class="stk-btn stk-btn-primary"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Choose file</button>
                         <button type="button" id="loadSampleXvg" class="stk-btn stk-btn-ghost"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load a sample</button>
@@ -234,9 +234,9 @@
         <p class="stk-lead">Drop a GROMACS <code>.xvg</code> (or any whitespace/CSV numeric table) and explore every column interactively, the parser reads the embedded metadata so your axes and legends come out labelled.</p>
         <div class="stk-grid stk-grid-2" style="margin-top:1.5rem;">
             <div class="stk-step"><span class="stk-num">1</span><div><h3>Load a file</h3><p>Drag &amp; drop or select a <code>.xvg</code>, <code>.csv</code>, <code>.txt</code> or <code>.dat</code> file, or press <strong>Load a sample</strong> to try a synthetic RMSD and radius-of-gyration trace. Everything is parsed in your browser.</p></div></div>
-            <div class="stk-step"><span class="stk-num">2</span><div><h3>Pick columns</h3><p>Choose which column is the X axis, then tick any number of series to overlay; a series on a very different scale can go on a second y-axis on the right. Legends and axis titles are pulled from the file's <code>@</code> metadata when present.</p></div></div>
+            <div class="stk-step"><span class="stk-num">2</span><div><h3>Pick columns</h3><p>Choose which column is the X axis, then tick any number of series to overlay; a series on a very different scale can go on a second y-axis on the right. Legends and axis titles are pulled from the file's <code>@</code> metadata, or a CSV's header row, when present.</p></div></div>
             <div class="stk-step"><span class="stk-num">3</span><div><h3>Adjust the view</h3><p>Under <strong>Appearance</strong>, switch to a log y-axis, show markers, or apply spline smoothing. The plot zooms and pans from the toolbar that appears over its top-right corner.</p></div></div>
-            <div class="stk-step"><span class="stk-num">4</span><div><h3>Export or reproduce</h3><p>Press <strong>Download PNG</strong> to save the plot, or <strong>Python code</strong> to copy matplotlib code that redraws the current selection from your file with <code>numpy.loadtxt</code>.</p></div></div>
+            <div class="stk-step"><span class="stk-num">4</span><div><h3>Export or reproduce</h3><p>Press <strong>Download PNG</strong> to save the plot, or <strong>Python code</strong> to copy matplotlib code that redraws the current selection from your file with <code>numpy.loadtxt</code>. The code draws the data as recorded; smoothing is only applied on screen.</p></div></div>
         </div>
     </section>
 
@@ -245,9 +245,9 @@
         <h2 class="stk-h2">About the GROMACS .xvg format</h2>
         <p class="stk-lead">.xvg is the plain-text output written by GROMACS analysis tools (and read by Grace/xmgrace). Knowing its structure explains what this tool does automatically.</p>
         <div style="margin-top:1.25rem; display:flex; flex-direction:column; gap:1rem; max-width:52rem;">
-            <div><h3 class="stk-label">Comment &amp; metadata lines</h3><p class="stk-body">Lines starting with <code>#</code> are comments; lines starting with <code>@</code> are Grace formatting commands. This tool reads <code>@ title</code>, <code>@ xaxis label</code>, <code>@ yaxis label</code> and <code>@ sN legend</code> to label the plot, and skips everything else, so the raw numeric matrix is all that gets plotted.</p></div>
+            <div><h3 class="stk-label">Comment &amp; metadata lines</h3><p class="stk-body">Lines starting with <code>#</code> are comments; lines starting with <code>@</code> are Grace formatting commands. This tool reads <code>@ title</code>, <code>@ xaxis label</code>, <code>@ yaxis label</code> and <code>@ sN legend</code> to label the plot, and skips everything else, so the raw numeric matrix is all that gets plotted. A line holding only <code>&amp;</code> ends one data set; the rows of every set are read into one table, in file order. A row with text in it, an empty cell in a CSV, or a different number of values from most rows is skipped whole and counted in the file summary at the top of the settings, so no value moves into the wrong column. A comma at the end of every row is ignored.</p></div>
             <div><h3 class="stk-label">The data block</h3><p class="stk-body">Below the metadata is a whitespace-separated numeric table: the first column is usually the independent variable (time, distance, reaction coordinate) and each remaining column a data series. Common outputs include RMSD (<code>gmx rms</code>), radius of gyration (<code>gmx gyrate</code>), and PMF/free-energy profiles.</p></div>
-            <div><h3 class="stk-label">Reproducing in Python</h3><p class="stk-body">The <strong>Python code</strong> export uses <code>numpy.loadtxt(..., comments=['@', '#'])</code>, which is the idiomatic way to read an .xvg: the <code>comments</code> argument makes NumPy skip exactly the metadata lines described above, leaving the numeric matrix. The generated script plots only the columns you selected, with a second y-axis (<code>ax.twinx()</code>) for any series you put on the right.</p></div>
+            <div><h3 class="stk-label">Reproducing in Python</h3><p class="stk-body">The <strong>Python code</strong> export uses <code>numpy.loadtxt(..., comments=['@', '#', '&amp;'])</code>, which is the idiomatic way to read an .xvg: the <code>comments</code> argument makes NumPy skip exactly the metadata lines and set breaks described above, leaving the numeric matrix. For a comma-separated file it also passes <code>delimiter=','</code> and skips the header row. If the file has skipped rows among the numbers, the script passes <code>loadtxt</code> only the lines that are all numbers, so it reads the same rows as the plot. The generated script plots only the columns you selected, with a second y-axis (<code>ax.twinx()</code>) for any series you put on the right.</p></div>
         </div>
     </section>
 
@@ -258,7 +258,7 @@
             <li>Abraham, M.&nbsp;J., Murtola, T., Schulz, R., et&nbsp;al. (2015). GROMACS: High performance molecular simulations through multi-level parallelism. <em>SoftwareX</em>, 1&ndash;2, 19&ndash;25. <a href="https://manual.gromacs.org/current/reference-manual/file-formats.html" target="_blank" rel="noopener">GROMACS file formats</a>.</li>
             <li>Turner, P.&nbsp;J. (2005). <em>XMGRACE</em> (Grace 5.1). Center for Coastal and Land-Margin Research, OGI. <span style="opacity:.8">(origin of the .xvg/@-command format)</span></li>
             <li>Harris, C.&nbsp;R., Millman, K.&nbsp;J., van der Walt, S.&nbsp;J., et&nbsp;al. (2020). Array programming with NumPy. <em>Nature</em>, 585, 357&ndash;362. <a href="https://numpy.org/doc/stable/reference/generated/numpy.loadtxt.html" target="_blank" rel="noopener">numpy.loadtxt</a>.</li>
-            <li>Software: <a href="https://plotly.com/javascript/" target="_blank" rel="noopener">Plotly.js</a> (interactive WebGL rendering). Exported code targets <a href="https://matplotlib.org/stable/" target="_blank" rel="noopener">matplotlib</a> + NumPy.</li>
+            <li>Software: <a href="https://plotly.com/javascript/" target="_blank" rel="noopener">Plotly.js</a> (interactive plotting). Exported code targets <a href="https://matplotlib.org/stable/" target="_blank" rel="noopener">matplotlib</a> + NumPy.</li>
         </ol>
     </section>
     </div>
@@ -336,7 +336,7 @@
                 </div>
             </div>
             <div class="p-1 overflow-auto"><pre id="xvgCodeBlock" class="text-xs leading-relaxed p-4 font-mono text-slate-800 dark:text-slate-200 whitespace-pre overflow-x-auto"></pre></div>
-            <div class="px-4 py-2.5 border-t border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400">Reproduces the current plot from your .xvg with <code>numpy.loadtxt</code> + <code>matplotlib</code>. Point the path at your file.</div>
+            <div class="px-4 py-2.5 border-t border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400">Redraws the selected columns from your file with <code>numpy.loadtxt</code> + <code>matplotlib</code>, including the right-hand axis, log scale and markers. Line smoothing is not carried over. Point the path at your file.</div>
         </div>
     </div>
 

@@ -33,7 +33,11 @@ document.addEventListener('DOMContentLoaded', () => {
     fileName: 'your_file.xvg',
     title: 'Log Data',
     xAxisLabel: 'X',
-    yAxisLabel: 'Y'
+    yAxisLabel: 'Y',
+    delimiter: null,
+    skipRows: 0,
+    strayLines: 0,
+    trailingDelimiter: false
   };
 
   // # --- 2. Interface bindings ---
@@ -155,6 +159,10 @@ document.addEventListener('DOMContentLoaded', () => {
     state.title = result.title;
     state.xAxisLabel = result.xAxisLabel;
     state.yAxisLabel = result.yAxisLabel;
+    state.delimiter = result.delimiter;
+    state.skipRows = result.skipRows;
+    state.strayLines = result.strayLines;
+    state.trailingDelimiter = result.trailingDelimiter;
     state.xIndex = 0;
     state.activeYIndices = new Set(defaultActiveColumns(result.colCount));
     state.activeYIndices.delete(0);
@@ -411,9 +419,19 @@ document.addEventListener('DOMContentLoaded', () => {
       yAxisLabel: state.yAxisLabel,
       showMarkers: plotMarkers.checked,
       logY: plotLogY.checked,
-      filename: state.fileName
+      filename: state.fileName,
+      delimiter: state.delimiter,
+      skipRows: state.skipRows,
+      strayLines: state.strayLines,
+      colCount: state.colCount,
+      trailingDelimiter: state.trailingDelimiter
     });
     code = code.replace(/^# Columns: .*$/m, () => columnsLine);
+    // Plotly's spline smoothing has no matplotlib counterpart; say so.
+    if (parseFloat(plotSmoothing.value) > 0) {
+      code = code.replace(/^fig, ax = /m, () =>
+        '# The page smooths these lines on screen; this script plots the raw data.\nfig, ax = ');
+    }
     if (!right.size) return code;
 
 

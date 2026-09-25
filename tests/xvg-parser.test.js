@@ -131,6 +131,17 @@ describe('parseDataLine', () => {
     expect(parseDataLine('1.0 -Infinity')).toBeNull();
   });
 
+  test('rejects a comma-delimited record with an empty field instead of shifting columns', () => {
+    expect(parseDataLine('1,,3')).toBeNull();
+    expect(parseDataLine('1, ,3')).toBeNull();
+    expect(parseDataLine(',2,3')).toBeNull();
+    expect(parseDataLine('1,2,')).toBeNull();
+  });
+
+  test('allows spaces around comma-separated fields', () => {
+    expect(parseDataLine(' 1, 2 ,3 ')).toEqual([1, 2, 3]);
+  });
+
   test('returns null for blank input', () => {
     expect(parseDataLine('')).toBeNull();
     expect(parseDataLine('    ')).toBeNull();
@@ -202,10 +213,71 @@ describe('parseXvg', () => {
     expect(r.skippedLines).toBe(1);
   });
 
-  test('reports colCount as the widest row for ragged input', () => {
-    const r = parseXvg('1 2\n3 4 5\n');
+  test('rejects a row whose width differs from that of most rows', () => {
+    const r = parseXvg('1 2 3\n4 5\n6 7 8\n9 10 11 12\n');
     expect(r.colCount).toBe(3);
-    expect(r.matrix[0]).toHaveLength(2);
+    expect(r.matrix).toEqual([[1, 2, 3], [6, 7, 8]]);
+    expect(r.skippedLines).toBe(2);
+    expect(r.strayLines).toBe(2);
+  });
+
+  test('keeps the header names when the header has the common width', () => {
+    const r = parseXvg('t,a,b\n0,1,2\n1,2\n2,3,4\n');
+    expect(r.headers).toEqual(['t', 'a', 'b']);
+    expect(r.colCount).toBe(3);
+    expect(r.rowCount).toBe(2);
+    expect(r.skippedLines).toBe(1);
+  });
+
+  test('does not let a malformed first row reject the rest of the file', () => {
+    const r = parseXvg('t,a,b\n1,2\n0,1,2\n1,2,3\n2,3,4\n');
+    expect(r.colCount).toBe(3);
+    expect(r.headers).toEqual(['t', 'a', 'b']);
+    expect(r.matrix).toEqual([[0, 1, 2], [1, 2, 3], [2, 3, 4]]);
+    expect(r.skippedLines).toBe(1);
+    expect(r.skipRows).toBe(2);
+    expect(r.strayLines).toBe(0);
+
+    const ws = parseXvg('0 1\n0 1 2\n1 2 3\n2 3 4\n');
+    expect(ws.colCount).toBe(3);
+    expect(ws.rowCount).toBe(3);
+    expect(ws.skippedLines).toBe(1);
+  });
+
+  test('breaks a tie between widths in favour of the one seen first', () => {
+    const r = parseXvg('1 2\n3 4 5\n');
+    expect(r.colCount).toBe(2);
+    expect(r.matrix).toEqual([[1, 2]]);
+    expect(r.skippedLines).toBe(1);
+  });
+
+  test('ignores a header whose width is not the common one', () => {
+    const r = parseXvg('t,a\n0,1,2\n1,2,3\n');
+    expect(r.headers).toEqual(['X', 'Dataset 1', 'Dataset 2']);
+    expect(r.skippedLines).toBe(1);
+    expect(r.skipRows).toBe(1);
+  });
+
+  test('drops a comma that ends every numeric line', () => {
+    const r = parseXvg('t,a,b,\n0,1,2,\n1,3,4,\n');
+    expect(r.trailingDelimiter).toBe(true);
+    expect(r.headers).toEqual(['t', 'a', 'b']);
+    expect(r.matrix).toEqual([[0, 1, 2], [1, 3, 4]]);
+    expect(r.skippedLines).toBe(0);
+  });
+
+  test('still rejects an empty field inside a row with a trailing comma', () => {
+    const r = parseXvg('0,1,2,\n1,,4,\n2,5,6,\n');
+    expect(r.trailingDelimiter).toBe(true);
+    expect(r.matrix).toEqual([[0, 1, 2], [2, 5, 6]]);
+    expect(r.skippedLines).toBe(1);
+  });
+
+  test('keeps rejecting trailing commas unless every numeric line has one', () => {
+    const r = parseXvg('0,1,2\n1,3,\n2,5,6\n');
+    expect(r.trailingDelimiter).toBe(false);
+    expect(r.matrix).toEqual([[0, 1, 2], [2, 5, 6]]);
+    expect(r.skippedLines).toBe(1);
   });
 
   test('returns a safe empty result for empty or whitespace-only input', () => {
@@ -252,6 +324,89 @@ describe('parseXvg', () => {
   test('handles non-string input without throwing', () => {
     expect(parseXvg(undefined).rowCount).toBe(0);
     expect(parseXvg(null).rowCount).toBe(0);
+  });
+
+  test('reports whitespace files as needing no delimiter and no skipped rows', () => {
+    const r = parseXvg(SAMPLE_XVG);
+    expect(r.delimiter).toBeNull();
+    expect(r.skipRows).toBe(0);
+  });
+
+  test('names CSV columns from a header row and reports the comma delimiter', () => {
+    const r = parseXvg('time,rmsd,rg\n0,0.1,1.8\n10,0.12,1.85\n');
+    expect(r.headers).toEqual(['time', 'rmsd', 'rg']);
+    expect(r.xAxisLabel).toBe('time');
+    expect(r.rowCount).toBe(2);
+    expect(r.matrix[0]).toEqual([0, 0.1, 1.8]);
+    expect(r.delimiter).toBe(',');
+    expect(r.skipRows).toBe(1);
+    // The header is a header, not a malformed record.
+    expect(r.skippedLines).toBe(0);
+  });
+
+  test('strips quotes and spaces from CSV header names', () => {
+    const r = parseXvg('"Time (ps)", "Backbone RMSD"\r\n0, 0.12\r\n10, 0.14\r\n');
+    expect(r.headers).toEqual(['Time (ps)', 'Backbone RMSD']);
+    expect(r.delimiter).toBe(',');
+  });
+
+  test('counts every line above the first record in skipRows', () => {
+    const r = parseXvg('# exported by a script\n\ntime,value\n0,1\n1,2\n');
+    expect(r.headers).toEqual(['time', 'value']);
+    expect(r.skipRows).toBe(3);
+  });
+
+  test('prefers Grace legends to header names', () => {
+    const r = parseXvg('@ s0 legend "RMSD"\nt,a\n0,1\n');
+    expect(r.headers).toEqual(['t', 'RMSD']);
+  });
+
+  test('ignores a header row whose width does not match the data but still skips it', () => {
+    const r = parseXvg('Time (ps)  RMSD\n0 0.1\n1 0.2\n');
+    expect(r.headers).toEqual(['X', 'Dataset 1']);
+    expect(r.skippedLines).toBe(1);
+    expect(r.skipRows).toBe(1);
+  });
+
+  test('does not treat a text line after the data as a header', () => {
+    const r = parseXvg('t,v\n0,1\nbad,row\n1,2\n');
+    expect(r.headers).toEqual(['t', 'v']);
+    expect(r.skippedLines).toBe(1);
+  });
+
+  test('skips a CSV record with an empty cell and keeps the other columns in place', () => {
+    const r = parseXvg('t,a,b\n1,2,3\n4,,6\n7,8,9\n');
+    expect(r.matrix).toEqual([[1, 2, 3], [7, 8, 9]]);
+    expect(extractColumn(r.matrix, 2)).toEqual([3, 9]);
+    expect(r.skippedLines).toBe(1);
+    expect(r.strayLines).toBe(1);
+  });
+
+  test('does not take a malformed first record for a header row', () => {
+    const r = parseXvg('1,,3\n2,5,6\n');
+    expect(r.headers).toEqual(['X', 'Dataset 1', 'Dataset 2']);
+    expect(r.skippedLines).toBe(1);
+    expect(r.skipRows).toBe(1);
+    expect(r.strayLines).toBe(0);
+  });
+
+  test('accepts a header with an empty name, as pandas writes for an index', () => {
+    const r = parseXvg(',a,b\n0,1,2\n');
+    expect(r.headers).toEqual(['X', 'a', 'b']);
+    expect(r.skippedLines).toBe(0);
+  });
+
+  test('reads the sets of a multi-set file one after another', () => {
+    const r = parseXvg('@ s0 legend "A"\n0 1\n1 2\n&\n0 3\n1 4\n&\n');
+    expect(r.matrix).toEqual([[0, 1], [1, 2], [0, 3], [1, 4]]);
+    expect(r.skippedLines).toBe(0);
+    expect(r.strayLines).toBe(0);
+  });
+
+  test('counts text found among the numeric records as stray lines', () => {
+    const r = parseXvg('# c\n0 1\ncorrupt row\n1 2\n');
+    expect(r.strayLines).toBe(1);
+    expect(r.skipRows).toBe(0);
   });
 
   test('parses a large trajectory without loss of records', () => {
@@ -445,7 +600,7 @@ describe('generateMatplotlibCode', () => {
     const code = generateMatplotlibCode(base);
     expect(code).toContain('import matplotlib.pyplot as plt');
     expect(code).toContain('import numpy as np');
-    expect(code).toContain("comments=['@', '#']");
+    expect(code).toContain("comments=['@', '#', '&']");
     expect(code).toContain('plt.show()');
   });
 
@@ -498,5 +653,87 @@ describe('generateMatplotlibCode', () => {
 
   test('omits the title call when no title is set', () => {
     expect(generateMatplotlibCode({ ...base, title: '' })).not.toContain('set_title');
+  });
+
+  test('reads an .xvg with whitespace and no skipped rows', () => {
+    const code = generateMatplotlibCode(base);
+    expect(code).toContain("np.loadtxt('your_file.xvg', comments=['@', '#', '&'])");
+    expect(code).not.toContain('delimiter');
+    expect(code).not.toContain('skiprows');
+  });
+
+  test('reads a CSV with a comma delimiter and skips its header row', () => {
+    const parsed = parseXvg('time,rmsd,rg\n0,0.1,1.8\n10,0.12,1.85\n');
+    const code = generateMatplotlibCode({
+      ...parsed, xIndex: 0, yIndices: [1, 2], filename: 'run.csv'
+    });
+    expect(code).toContain(
+      "np.loadtxt('run.csv', delimiter=',', skiprows=1, comments=['@', '#', '&'])");
+    expect(code).toContain("label='rmsd'");
+    expect(code).toContain("label='rg'");
+    expect(code).toContain("ax.set_xlabel('time')");
+    expect(code).not.toContain('Dataset');
+  });
+
+  test('treats the Grace set separator as a comment', () => {
+    const parsed = parseXvg('0 1\n1 2\n&\n0 3\n1 4\n');
+    const code = generateMatplotlibCode({ ...parsed, xIndex: 0, yIndices: [1] });
+    expect(code).toContain("comments=['@', '#', '&']");
+    expect(code).not.toContain('is_record');
+  });
+
+  test('keeps only all-numeric lines when the file has text among the records', () => {
+    const parsed = parseXvg('t,a,b\n1,2,3\n4,,6\n7,8,9\n');
+    const code = generateMatplotlibCode({
+      ...parsed, xIndex: 0, yIndices: [1, 2], filename: 'gaps.csv'
+    });
+    expect(code).toContain('def is_record(line):');
+    expect(code).toContain(
+      "data = np.loadtxt([line for line in f if is_record(line)], delimiter=',')");
+    expect(code).toContain("with open('gaps.csv') as f:");
+    expect(code).not.toContain('skiprows');
+  });
+
+  test('limits the columns read when every row ends with a comma', () => {
+    const parsed = parseXvg('t,a,b,\n0,1,2,\n1,3,4,\n');
+    const code = generateMatplotlibCode({ ...parsed, xIndex: 0, yIndices: [1, 2], filename: 'tc.csv' });
+    expect(code).toContain(
+      "np.loadtxt('tc.csv', delimiter=',', usecols=range(3), skiprows=1, comments=['@', '#', '&'])");
+  });
+
+  test('gives is_record the width of the rows the page plotted', () => {
+    const parsed = parseXvg('0 1 2\n1 2\n2 3 4\n');
+    const code = generateMatplotlibCode({ ...parsed, xIndex: 0, yIndices: [1] });
+    expect(code).toContain('return len(fields) == 3 and');
+    expect(code).not.toContain('usecols');
+  });
+
+  test('checks rows in is_record against the common width, not the first row', () => {
+    const parsed = parseXvg('0 1\n0 1 2\n1 2\n1 2 3\n2 3 4\n');
+    expect(parsed.colCount).toBe(3);
+    expect(parsed.strayLines).toBe(1);
+    const code = generateMatplotlibCode({ ...parsed, xIndex: 0, yIndices: [1, 2] });
+    expect(code).toContain('return len(fields) == 3 and');
+  });
+
+  test('skips a malformed first row with skiprows when nothing else is rejected', () => {
+    const parsed = parseXvg('t,a,b\n1,2\n0,1,2\n1,2,3\n');
+    const code = generateMatplotlibCode({ ...parsed, xIndex: 0, yIndices: [1] });
+    expect(code).toContain("delimiter=',', skiprows=2, comments=['@', '#', '&']");
+    expect(code).not.toContain('is_record');
+  });
+
+  test('drops the trailing comma in is_record when the file has one', () => {
+    const parsed = parseXvg('0,1,2,\n1,,4,\n2,5,6,\n');
+    const code = generateMatplotlibCode({ ...parsed, xIndex: 0, yIndices: [1] });
+    expect(code).toContain("if line.endswith(','):");
+    expect(code).toContain("delimiter=',', usecols=range(3))");
+  });
+
+  test('reads a headerless CSV with the delimiter alone', () => {
+    const parsed = parseXvg('0,0.1\n1,0.2\n');
+    const code = generateMatplotlibCode({ ...parsed, xIndex: 0, yIndices: [1] });
+    expect(code).toContain("delimiter=','");
+    expect(code).not.toContain('skiprows');
   });
 });
