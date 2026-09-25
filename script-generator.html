@@ -35,7 +35,7 @@
     </script>
 
     <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"HowTo","name":"How to generate a batch script and GROMACS topology header","totalTime":"PT2M","step":[{"@type":"HowToStep","position":1,"name":"Set cluster parameters","text":"Pick the scheduler (SLURM, PBS Pro / OpenPBS, LSF or Grid Engine), then enter job name, nodes, CPUs per task, GPUs, wall time and memory. Toggle a job array if you need to run many systems at once."},{"@type":"HowToStep","position":2,"name":"Choose the force field","text":"Pick a force field. The combination rule and 1-4 fudge factors are set automatically to the values GROMACS ships for that force field."},{"@type":"HowToStep","position":3,"name":"Review warnings","text":"If any parameter diverges from the canonical values, or a required SLURM directive is missing, an inline warning explains what to fix."},{"@type":"HowToStep","position":4,"name":"Copy the output","text":"Copy the generated submit.sh and topol.top header into your project. Fill in the [ molecules ] section with your species and counts."}]}
+    {"@context":"https://schema.org","@type":"HowTo","name":"How to generate a batch script and GROMACS topology header","totalTime":"PT2M","step":[{"@type":"HowToStep","position":1,"name":"Set cluster parameters","text":"Pick the scheduler (SLURM, PBS Pro / OpenPBS, LSF or Grid Engine), then enter job name, nodes, CPUs per task, GPUs, wall time and memory. Toggle a job array if you need to run many systems at once."},{"@type":"HowToStep","position":2,"name":"Choose the force field","text":"Pick a force field. The combination rule and 1-4 fudge factors are set automatically to the values in that force field's forcefield.itp. AMBER99SB-ILDN and OPLS-AA ship with GROMACS; CHARMM36 is a separate download."},{"@type":"HowToStep","position":3,"name":"Review warnings","text":"If any parameter diverges from the canonical values, or a required scheduler directive is missing, an inline warning explains what to fix."},{"@type":"HowToStep","position":4,"name":"Copy the output","text":"Copy the generated submit.sh and topol.top header into your project. Fill in the [ molecules ] section with your species and counts."}]}
     </script>
     <script type="application/ld+json">
     {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why does choosing a force field change the combination rule and fudge factors?","acceptedAnswer":{"@type":"Answer","text":"Because they are physically coupled. Each GROMACS force field ships a [ defaults ] line with a specific combination rule and 1-4 scaling. AMBER uses rule 2 with 0.5/0.8333, CHARMM36 uses rule 2 with 1.0/1.0, and OPLS-AA uses rule 3 with 0.5/0.5. Mixing them silently produces a physically wrong topology."}},{"@type":"Question","name":"What are fudgeLJ and fudgeQQ?","acceptedAnswer":{"@type":"Answer","text":"They are the factors by which 1-4 Lennard-Jones and 1-4 electrostatic interactions are scaled. fudgeLJ is applied only when gen-pairs is yes; fudgeQQ is always applied."}},{"@type":"Question","name":"Is my data uploaded anywhere?","acceptedAnswer":{"@type":"Answer","text":"No. The generator runs entirely in your browser. Nothing you type is sent to a server."}},{"@type":"Question","name":"Why did the script add memory, log files and bash -e that I did not ask for?","acceptedAnswer":{"@type":"Answer","text":"These are HPC best practices. bash -e aborts the job on the first failing command so it shows as FAILED in sacct; explicit --mem avoids a small site default killing the job; and --output/--error capture logs per job or per array task."}},{"@type":"Question","name":"Which schedulers are supported?","acceptedAnswer":{"@type":"Answer","text":"SLURM, PBS Professional / OpenPBS, IBM Spectrum LSF and Grid Engine (SGE, UGE). The same resource request is translated into each scheduler's directives, environment variables and launch command; anything a site defines itself, such as the GPU resource name under PBS or Grid Engine, is marked as site-specific in the script."}},{"@type":"Question","name":"Can I override the auto-set parameters?","acceptedAnswer":{"@type":"Answer","text":"Yes. Enable Advanced override to edit the combination rule and fudge factors manually. A warning appears whenever your values differ from the force field's canonical parameters."}}]}
@@ -212,7 +212,7 @@
                                 <label for="jobMem">Memory per node <span class="plumed-help" tabindex="0" data-tip="Memory per node (e.g. 8G, 16000M). Request a little above the peak usage; asking for far more than needed delays scheduling. Converted to each scheduler's own units.">?</span></label>
                                 <input type="text" id="jobMem" value="32G" class="stk-input stk-mono" placeholder="e.g. 32G" autocomplete="off" spellcheck="false">
                             </div>
-                            <!-- LAMMPS optional cpus-per-task (for OMP/KOKKOS-OMP) -->
+                            <!-- LAMMPS optional cpus-per-task (for OPENMP, or KOKKOS with OpenMP) -->
                             <div id="lmpCpuField" class="stk-field" hidden>
                                 <label for="lmpCpus">CPUs per task <span class="plumed-help" tabindex="0" data-tip="OpenMP threads per MPI task. Only relevant for the hybrid OPENMP accelerator; for pure-MPI runs keep this at 1.">?</span></label>
                                 <input type="number" id="lmpCpus" value="1" min="1" class="stk-input">
@@ -311,7 +311,7 @@
                                 </div>
                             </div>
 
-                            <p class="stk-hint">Each stage has its own <code>.mdp</code> and <code>-deffnm</code>; grompp chains automatically (each <code>-c</code> reads the previous stage's <code>.gro</code>, <code>-t</code> its <code>.cpt</code>).</p>
+                            <p class="stk-hint">Each stage has its own <code>.mdp</code> and <code>-deffnm</code>; grompp chains automatically (each <code>-c</code> reads the previous stage's <code>.gro</code>, and <code>-t</code> its <code>.cpt</code> when that stage was MD; minimisation writes no checkpoint).</p>
 
                             <div class="sg-option">
                                 <div class="stk-switch-row">
@@ -398,7 +398,7 @@
                                 <label class="stk-check"><input type="checkbox" id="gpuUpdate"> <code>-update gpu</code> <span class="plumed-help" tabindex="0" data-tip="Run the integration and constraints update on the GPU (GPU-resident mode). Needs constraints = h-bonds and disables dynamic load balancing; not used for energy minimisation.">?</span></label>
                             </div>
                             <div class="stk-field">
-                                <label for="gpuNtmpi">-ntmpi <span class="plumed-help" tabindex="0" data-tip="Number of thread-MPI ranks. With PME on the GPU only one PME rank is allowed, so the tool adds -npme 1 when you set more than one rank.">?</span></label>
+                                <label for="gpuNtmpi">-ntmpi <span class="plumed-help" tabindex="0" data-tip="Number of thread-MPI ranks. The CPUs per task are shared out between them (the script divides OMP_NUM_THREADS by this number). With PME on the GPU only one PME rank is allowed, so the tool adds -npme 1 when you set more than one rank.">?</span></label>
                                 <input type="text" id="gpuNtmpi" value="" class="stk-input stk-mono" placeholder="optional, e.g. 1" autocomplete="off" spellcheck="false">
                             </div>
                         </div>
@@ -442,7 +442,7 @@
                                     <label for="topForcefield">Force field <span class="plumed-help" tabindex="0" data-tip="Selecting a force field fills in the matching combination rule and 1-4 fudge factors, which must be consistent with it.">?</span></label>
                                     <select id="topForcefield" class="stk-select">
                                         <option value="amber99sb-ildn">AMBER99SB-ILDN</option>
-                                        <option value="charmm36">CHARMM36</option>
+                                        <option value="charmm36">CHARMM36 (separate download)</option>
                                         <option value="opls-aa">OPLS-AA</option>
                                     </select>
                                 </div>
@@ -537,17 +537,27 @@
                             <div class="stk-field">
                                 <label for="plumedBias">Method <span class="plumed-help" tabindex="0" data-tip="The enhanced-sampling or restraint method applied to the CVs marked Bias. Its editable parameters appear below.">?</span></label>
                                 <select id="plumedBias" class="stk-select">
-                                    <option value="none">None (CVs only &rarr; COLVAR)</option>
-                                    <option value="metad">Metadynamics (standard)</option>
-                                    <option value="wt_metad" selected>Well-tempered metadynamics</option>
-                                    <option value="opes">OPES (on-the-fly probability enhanced sampling)</option>
-                                    <option value="pbmetad">Parallel-bias metadynamics (PBMETAD)</option>
-                                    <option value="restraint">Harmonic RESTRAINT (umbrella)</option>
+                                    <optgroup label="None">
+                                        <option value="none">None (track CVs only)</option>
+                                    </optgroup>
+                                    <optgroup label="Free energy (metadynamics)">
+                                        <option value="metad">Metadynamics (standard)</option>
+                                        <option value="wt_metad" selected>Well-Tempered Metadynamics</option>
+                                        <option value="pbmetad">Parallel-Bias Metadynamics (PBMETAD)</option>
+                                        <option value="opes">OPES (probability enhanced)</option>
+                                    </optgroup>
+                                    <optgroup label="Restraints &amp; walls">
+                                        <option value="restraint">Harmonic RESTRAINT (umbrella)</option>
+                                        <option value="moving">MOVINGRESTRAINT (steered MD)</option>
+                                        <option value="upper">UPPER_WALLS</option>
+                                        <option value="lower">LOWER_WALLS</option>
+                                        <option value="abmd">ABMD (ratchet)</option>
+                                    </optgroup>
                                 </select>
                             </div>
                             <div class="sg-grid">
                                 <div class="stk-field">
-                                    <label for="plumedTemp">TEMP (K) <span class="plumed-help" tabindex="0" data-tip="Global system temperature (K) used as a fallback for methods that need it. Per-method TEMP fields below override this where present.">?</span></label>
+                                    <label for="plumedTemp">TEMP (K) <span class="plumed-help" tabindex="0" data-tip="System temperature (K), written as TEMP for the methods that take one (well-tempered and parallel-bias metadynamics, OPES). A TEMP typed in the method parameters below overrides it for that method.">?</span></label>
                                     <input type="text" id="plumedTemp" value="300" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
                                 </div>
                                 <div class="stk-field">
@@ -828,7 +838,7 @@
                 </table>
 
                 <p class="stk-where">
-                    Because <code>grompp</code> reads your <code>[ defaults ]</code> line rather than inferring it from the force field name, an inconsistent combination (for example OPLS atom types with rule&nbsp;2, or AMBER scaling on a CHARMM field) is accepted silently and yields physically wrong non-bonded and 1&#8209;4 interactions. This tool prevents that by coupling the two, and warns if you deliberately override them.
+                    Because <code>grompp</code> reads whichever <code>[ defaults ]</code> line the topology supplies rather than inferring it from the force field name, an inconsistent combination (for example OPLS atom types with rule&nbsp;2, or AMBER scaling on a CHARMM field) is accepted silently and yields physically wrong non-bonded and 1&#8209;4 interactions. grompp also accepts only one <code>[ defaults ]</code> directive, and each force field's <code>forcefield.itp</code> already contains it, so the header includes that file and shows its values as a comment rather than writing a second copy. An override is written as instructions for editing a local copy of the force field, with a warning that it departs from the canonical values. AMBER99SB-ILDN and OPLS-AA ship with GROMACS (<code>amber99sb-ildn.ff</code>, <code>oplsaa.ff</code>); CHARMM36 is a separate download from the MacKerell lab.
                 </p>
 
                 <h2 class="stk-h2" style="margin-top:2.2rem;">GPU offload &amp; mdrun performance</h2>
@@ -841,7 +851,7 @@
                     <li><strong>1&ndash;3 MPI ranks per GPU</strong> is generally optimal; with GPU-resident mode and direct GPU communication, 1&nbsp;rank/GPU is usually best.</li>
                     <li>After a run, check <code>ns/day</code> and the PP/PME balance at the end of <code>md.log</code> to see where time is going.</li>
                 </ul>
-                <p class="stk-where">The developers' reference example for a single fast GPU with a weak CPU is <code>gmx mdrun -ntmpi 1 -nb gpu -pme gpu -bonded gpu -update gpu</code>, which is the configuration the toggles produce by default.</p>
+                <p class="stk-where">The developers' reference example for a single fast GPU with a weak CPU is <code>gmx mdrun -ntmpi 1 -nb gpu -pme gpu -bonded gpu -update gpu</code>. The toggles default to <code>-nb gpu -pme gpu</code>, which works with any <code>.mdp</code>; tick <code>-bonded gpu</code> and <code>-update gpu</code> and set <code>-ntmpi</code> to 1 to get the full example.</p>
 
                 </div>
 
@@ -861,7 +871,7 @@
                     </tbody>
                 </table>
                 <p class="stk-where">
-                    LAMMPS parallelises with MPI, so the SLURM request uses <code>--ntasks</code> (ranks), not <code>--cpus-per-task</code>. The <strong>OPENMP</strong> package is the exception: it is a hybrid MPI&nbsp;&times;&nbsp;OpenMP scheme, so it uses both, <code>srun -n R -c T lmp -sf omp -pk omp T</code>, where <code>-pk omp T</code> matches <code>--cpus-per-task</code>. For GPU and KOKKOS runs, the number of MPI ranks per node usually matches the number of GPUs per node.
+                    LAMMPS parallelises with MPI, so the SLURM request uses <code>--ntasks-per-node</code> (ranks), not <code>--cpus-per-task</code>. The <strong>OPENMP</strong> package is the exception: it is a hybrid MPI&nbsp;&times;&nbsp;OpenMP scheme, so it uses both, <code>srun -n R -c T lmp -sf omp -pk omp T</code>, where <code>-pk omp T</code> matches <code>--cpus-per-task</code>. For GPU and KOKKOS runs, the number of MPI ranks per node usually matches the number of GPUs per node.
                 </p>
                 <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-gauge-high" style="margin-top:.15rem;"></i><div><span class="hl">Benchmarking is essential.</span> Acceleration is <em>not</em> automatically faster: the fastest choice depends on your system size, the specific pair/bond styles, and your hardware. Offloading a calculation to the GPU can leave the CPU idle, and adding cores past the optimum can actually slow a run down. Start small, read the <code>Performance</code> and per-section timing lines LAMMPS prints at the end of the run, and only scale up the combination that measurably helps. Not every style has an accelerated variant, check the style's doc page for the available suffixes.</div></div>
 
@@ -869,9 +879,9 @@
 
                 <div class="doc-pane" data-doc-pane="plumed">
                 <h2 class="stk-h2">PLUMED collective variables &amp; enhanced sampling</h2>
-                <p class="stk-lead">The PLUMED tab builds a <code>plumed.dat</code> file for PLUMED&nbsp;2.9. Collective variables are grouped by category and each exposes the exact keywords from the PLUMED source, so you get correct syntax without reading the code. Add one or more CVs, give them labels, then choose a bias method.</p>
+                <p class="stk-lead">The PLUMED tab builds a <code>plumed.dat</code> file for PLUMED&nbsp;2.9 or 2.10, chosen next to the CV list; actions that exist only in 2.10 are marked. Collective variables are grouped by category and each exposes the exact keywords from the PLUMED source, so you get correct syntax without reading the code. Add one or more CVs, give them labels, then choose a bias method.</p>
                 <p class="stk-where">
-                    A CV line has the form <code>label: ACTION KEY=VALUE ...</code>, for example <code>phi: TORSION ATOMS=5,7,9,15</code>. Labels become the <code>ARG</code> list of the bias. The generator supports standard and <strong>well-tempered metadynamics</strong> (adding <code>BIASFACTOR</code> and <code>TEMP</code>), <strong>OPES</strong>, and a harmonic <code>RESTRAINT</code> for umbrella windows.
+                    A CV line has the form <code>label: ACTION KEY=VALUE ...</code>, for example <code>phi: TORSION ATOMS=5,7,9,15</code>. Labels become the <code>ARG</code> list of the bias. The generator supports standard, <strong>well-tempered</strong> (adding <code>BIASFACTOR</code> and <code>TEMP</code>) and parallel-bias (<code>PBMETAD</code>) metadynamics, <strong>OPES</strong> (<code>OPES_METAD</code>), a harmonic <code>RESTRAINT</code> for umbrella windows, a <code>MOVINGRESTRAINT</code> for steered MD, <code>UPPER_WALLS</code> and <code>LOWER_WALLS</code>, and <code>ABMD</code>.
                 </p>
                 <p class="stk-eqn-label">Speed optimisations (from the PLUMED performance guidance):</p>
                 <ul style="font-size:.9375rem;color:var(--stk-fg-3);line-height:1.7;padding-left:1.1rem;margin-top:.4rem;">
@@ -936,7 +946,7 @@
                     <li>GROMACS reference manual. <em>Topology file formats</em> (<code>[ defaults ]</code>, comb-rule, fudgeLJ/fudgeQQ). <a href="https://manual.gromacs.org/current/reference-manual/topologies/topology-file-formats.html" target="_blank" rel="noopener">manual.gromacs.org</a>.</li>
                     <li>GROMACS user guide. <em>System preparation</em> (EM &rarr; NVT &rarr; NPT staging; <code>-r</code> restraints, <code>-t</code> checkpoint continuation). <a href="https://manual.gromacs.org/current/user-guide/system-preparation.html" target="_blank" rel="noopener">system preparation</a>.</li>
                     <li>GROMACS user guide. <em>Getting good performance from mdrun</em> (GPU offload rules: PME&nbsp;=&nbsp;1 rank, <code>-bonded</code> needs <code>-nb gpu</code>, GPU-resident constraints, ranks-per-GPU). <a href="https://manual.gromacs.org/current/user-guide/mdrun-performance.html" target="_blank" rel="noopener">mdrun-performance</a>.</li>
-                    <li>GROMACS force-field <code>forcefield.itp</code> files (AMBER, CHARMM36, OPLS-AA), the shipped <code>[ defaults ]</code> lines used for the table above.</li>
+                    <li>Force-field <code>forcefield.itp</code> files, the <code>[ defaults ]</code> lines used for the table above: <code>amber99sb-ildn.ff</code> and <code>oplsaa.ff</code> as distributed with GROMACS, and the MacKerell lab's GROMACS port of CHARMM36, which is not distributed with GROMACS.</li>
                     <li>LAMMPS documentation. <em>Accelerator packages</em> (GPU, KOKKOS, INTEL, OPENMP, OPT; suffixes <code>gpu/kk/intel/omp/opt</code>) and <em>command-line options</em>. <a href="https://docs.lammps.org/Speed_packages.html" target="_blank" rel="noopener">Speed_packages</a>, <a href="https://docs.lammps.org/Run_options.html" target="_blank" rel="noopener">Run_options</a>.</li>
                     <li>University of Chicago RCC and NatLab Rockies HPC. <em>LAMMPS on SLURM</em> (OPENMP hybrid <code>-sf omp -pk omp N</code> with <code>srun -n R -c T</code>; INTEL/OPT usage; benchmarking). <a href="https://users.rcc.uchicago.edu/~tszasz/rccdocs/software/applications/lammps/index.html" target="_blank" rel="noopener">RCC</a>, <a href="https://github.com/NatLabRockies/HPC/blob/master/applications/lammps/README.md" target="_blank" rel="noopener">NatLabRockies</a>.</li>
                     <li>SchedMD. <em>Slurm <code>sbatch</code> documentation</em> and <em>Quick Start User Guide</em>. <a href="https://slurm.schedmd.com/sbatch.html" target="_blank" rel="noopener">slurm.schedmd.com/sbatch</a>, <a href="https://slurm.schedmd.com/quickstart.html" target="_blank" rel="noopener">quickstart</a>.</li>
@@ -961,10 +971,10 @@
                 <h2 class="stk-h2">Frequently asked questions</h2>
                 <div style="margin-top:1rem;">
                     <details class="stk-faq"><summary>Why did the tool add <code>-npme 1</code> or warn about my GPU flags?</summary><div>These are GROMACS rules. PME on a GPU supports only one PME rank, so <code>-npme 1</code> is added when you request <code>-pme gpu</code> with more than one rank. <code>-bonded gpu</code> requires <code>-nb gpu</code> because bonded offload is part of the same particle-particle workload. And <code>-update gpu</code> (GPU-resident mode) needs <code>constraints = h-bonds</code> and turns off dynamic load balancing.</div></details>
-                    <details class="stk-faq"><summary>How are the GROMACS stages chained together?</summary><div>Each stage's <code>grompp</code> reads the previous stage's <code>.gro</code> via <code>-c</code>, and its checkpoint via <code>-t</code> for continuation (NVT&nbsp;&rarr;&nbsp;NPT&nbsp;&rarr;&nbsp;Production). When a stage has position restraints, <code>-r</code> is added pointing at the same coordinate file. Restraints are released automatically for Production.</div></details>
-                    <details class="stk-faq"><summary>Why does LAMMPS use tasks instead of CPUs per task?</summary><div>LAMMPS parallelises with MPI, so you request <code>--ntasks</code> (MPI ranks), whereas GROMACS <code>mdrun</code> is threaded and uses <code>--cpus-per-task</code>. The one exception is the LAMMPS <strong>OPENMP</strong> package, a hybrid MPI&nbsp;&times;&nbsp;OpenMP scheme that uses both, the tool then sets <code>-pk omp N</code> to match CPUs per task. For GPU or KOKKOS runs, MPI ranks per node usually matches GPUs per node.</div></details>
+                    <details class="stk-faq"><summary>How are the GROMACS stages chained together?</summary><div>Each stage's <code>grompp</code> reads the previous stage's <code>.gro</code> via <code>-c</code>, and its checkpoint via <code>-t</code> for continuation (NVT&nbsp;&rarr;&nbsp;NPT&nbsp;&rarr;&nbsp;Production). Energy minimisation writes no checkpoint, so the stage after it gets no <code>-t</code>. When a stage has position restraints, <code>-r</code> is added pointing at the same coordinate file. Production has restraints switched off by default, and a warning appears if you tick them.</div></details>
+                    <details class="stk-faq"><summary>Why does LAMMPS use tasks instead of CPUs per task?</summary><div>LAMMPS parallelises with MPI, so you request <code>--ntasks-per-node</code> (MPI ranks per node), whereas GROMACS <code>mdrun</code> is threaded and uses <code>--cpus-per-task</code>. The one exception is the LAMMPS <strong>OPENMP</strong> package, a hybrid MPI&nbsp;&times;&nbsp;OpenMP scheme that uses both, the tool then sets <code>-pk omp N</code> to match CPUs per task. For GPU or KOKKOS runs, MPI ranks per node usually matches GPUs per node.</div></details>
                     <details class="stk-faq"><summary>Which LAMMPS accelerator should I pick?</summary><div>It depends on your hardware and your input's styles, and there is no universal answer, you must benchmark. GPU/KOKKOS need a GPU; INTEL and OPT speed up CPU-only runs; OPENMP is hybrid and helps on high-core-count nodes. Acceleration is not automatically faster: offloading can leave the CPU idle, and adding cores past the optimum can slow a run down. Read the <code>Performance</code> and timing breakdown LAMMPS prints at the end, and scale up only what measurably helps.</div></details>
-                    <details class="stk-faq"><summary>How does the PLUMED builder help me?</summary><div>It groups the collective variables by category and, for each one, exposes the exact keywords defined in the PLUMED source, atom lists, switching-function parameters, flags like <code>NOPBC</code> or <code>COMPONENTS</code>, so you get correct <code>plumed.dat</code> syntax without reading the code. You add CVs, label them, pick a bias method (standard/well-tempered MetaD, OPES, or a restraint), and toggle speed options. The output targets PLUMED&nbsp;2.9.</div></details>
+                    <details class="stk-faq"><summary>How does the PLUMED builder help me?</summary><div>It groups the collective variables by category and, for each one, exposes the exact keywords defined in the PLUMED source, atom lists, switching-function parameters, flags like <code>NOPBC</code> or <code>COMPONENTS</code>, so you get correct <code>plumed.dat</code> syntax without reading the code. You add CVs, label them, pick a bias method (standard, well-tempered or parallel-bias MetaD, OPES, a harmonic or moving restraint, upper or lower walls, or ABMD), and toggle speed options. The output targets PLUMED&nbsp;2.9 or 2.10, whichever you select next to the CV list.</div></details>
                     <details class="stk-faq"><summary>What is the difference between standard and well-tempered metadynamics here?</summary><div>Standard MetaD deposits Gaussian hills of fixed height. Well-tempered MetaD scales the hill height down over time using a <code>BIASFACTOR</code> (and <code>TEMP</code>), so the bias converges more smoothly. The builder adds those two keywords when you select the well-tempered variant, and OPES is offered as a modern alternative.</div></details>
                     <details class="stk-faq"><summary>Why does the PLUMED tab warn about grids and <code>CALC_RCT</code>?</summary><div>Metadynamics without a grid re-sums every deposited hill each step, so a long run slows down continuously, storing the bias on a grid keeps the cost flat. And <code>CALC_RCT</code> (on-the-fly c(t) reweighting) only works when the bias is on a grid, so the tool warns if you enable reweighting without it.</div></details>
                     <details class="stk-faq"><summary>Why does choosing a force field change the combination rule and fudge factors?</summary><div>Because they are physically coupled. Each GROMACS force field ships a specific <code>[ defaults ]</code> line: AMBER uses rule&nbsp;2 with 0.5/0.8333, CHARMM36 uses rule&nbsp;2 with 1.0/1.0, and OPLS-AA uses rule&nbsp;3 with 0.5/0.5. Mixing them produces a silently wrong topology.</div></details>

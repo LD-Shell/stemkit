@@ -16,11 +16,12 @@
  *        OPLS-AA  : comb 3, fudgeLJ 0.5, fudgeQQ 0.5
  *    (GROMACS manual + shipped forcefield.itp files.)
  *  - GROMACS staging: each grompp -c reads the previous stage .gro; -t reads
- *    the previous .cpt (continuation); -r supplies the restraint reference
+ *    the previous .cpt (continuation) when that stage was MD, since energy
+ *    minimisation writes no checkpoint; -r supplies the restraint reference
  *    (often identical to -c) when position restraints are used.
  *  - GROMACS GPU offload: gmx mdrun -nb gpu -pme gpu -bonded gpu -update gpu.
  *  - GROMACS is threaded (set --cpus-per-task); LAMMPS is MPI-parallel
- *    (set --ntasks). LAMMPS GPU: -sf gpu -pk gpu N ; KOKKOS: -k on g N -sf kk.
+ *    (set --ntasks-per-node). LAMMPS GPU: -sf gpu -pk gpu N ; KOKKOS: -k on g N -sf kk.
  *  - #!/bin/bash -e so failures abort and show as FAILED in sacct.
  */
 
@@ -38,10 +39,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // =====================================================================
     // Canonical force-field parameter table
     // =====================================================================
+    // `dir` is the force-field directory the #include lines name. AMBER99SB-ILDN
+    // and OPLS-AA ship with GROMACS under these names; CHARMM36 does not, so
+    // it names the MacKerell lab port and the header says where to get it.
     const FF_PRESETS = {
-        'amber99sb-ildn': { label: 'AMBER99SB-ILDN', comb: '2', fudgeLJ: '0.5', fudgeQQ: '0.8333', family: 'amber' },
-        'charmm36':       { label: 'CHARMM36',       comb: '2', fudgeLJ: '1.0', fudgeQQ: '1.0',    family: 'charmm' },
-        'opls-aa':        { label: 'OPLS-AA',        comb: '3', fudgeLJ: '0.5', fudgeQQ: '0.5',    family: 'opls' }
+        'amber99sb-ildn': { label: 'AMBER99SB-ILDN', comb: '2', fudgeLJ: '0.5', fudgeQQ: '0.8333', family: 'amber',  dir: 'amber99sb-ildn.ff' },
+        'charmm36':       { label: 'CHARMM36',       comb: '2', fudgeLJ: '1.0', fudgeQQ: '1.0',    family: 'charmm', dir: 'charmm36-jul2022.ff', download: true },
+        'opls-aa':        { label: 'OPLS-AA',        comb: '3', fudgeLJ: '0.5', fudgeQQ: '0.5',    family: 'opls',   dir: 'oplsaa.ff' }
     };
 
     // =====================================================================
@@ -118,7 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
         OFFSET: 'Offset added to the wall position.',
         I: 'Ionic strength (mol/L) for the Debye-Hückel screening.',
         TEMP: 'System temperature (K). Needed for well-tempered methods and reweighting.',
-        CUTOFF: 'Distance cutoff for the eRMSD contact calculation.',
         LOWER_CUTOFF: 'Ignore reference distances below this value (nm).',
         UPPER_CUTOFF: 'Ignore reference distances above this value (nm).',
         AXIS_ATOMS: 'Two atoms that define the direction of the axis of interest.',
@@ -517,7 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
             cat: 'nucleic', desc: 'eRMSD for nucleic-acid structures vs a reference.',
             fields: [
                 { k: 'REFERENCE', label: 'REFERENCE (.pdb)', type: 'text', def: 'ref.pdb', required: true },
-                { k: 'CUTOFF', label: 'CUTOFF', type: 'num', def: '2.4' }
+                { k: 'CUTOFF', label: 'CUTOFF', type: 'num', def: '2.4', help: 'Only pairs of nucleotides closer than this enter the eRMSD. It is measured in eRMSD\'s scaled, dimensionless distance, not in nm; the default is 2.4.' }
             ]
         },
         Q6: {
@@ -921,18 +924,18 @@ document.addEventListener('DOMContentLoaded', () => {
             { k: 'HEIGHT', label: 'HEIGHT', def: '1.2', help: 'Initial hill height (energy units). In well-tempered MetaD the height is progressively scaled down.' },
             { k: 'PACE', label: 'PACE', def: '500', help: 'Steps between hill deposition.' },
             { k: 'BIASFACTOR', label: 'BIASFACTOR', def: '10', help: 'Well-tempered bias factor γ. Higher = explores higher free-energy barriers; typical range 5–20. Needs TEMP.' },
-            { k: 'TEMP', label: 'TEMP (K)', def: '300', help: 'System temperature. Required for well-tempered metadynamics.' }
+            { k: 'TEMP', label: 'TEMP (K)', def: '', fallback: 'plumedTemp', help: 'System temperature. Required for well-tempered metadynamics. Leave blank to use the global TEMP above.' }
         ]},
         pbmetad: { cat: 'metad', label: 'Parallel-Bias Metadynamics (PBMETAD)', params: [
             { k: 'HEIGHT', label: 'HEIGHT', def: '1.2', help: 'Initial hill height (energy units).' },
             { k: 'PACE', label: 'PACE', def: '500', help: 'Steps between hill deposition.' },
             { k: 'BIASFACTOR', label: 'BIASFACTOR', def: '10', help: 'Well-tempered bias factor γ (typical 5–20).' },
-            { k: 'TEMP', label: 'TEMP (K)', def: '300', help: 'System temperature.' }
+            { k: 'TEMP', label: 'TEMP (K)', def: '', fallback: 'plumedTemp', help: 'System temperature. Leave blank to use the global TEMP above.' }
         ]},
         opes: { cat: 'metad', label: 'OPES (probability enhanced)', module: 'opes', params: [
             { k: 'PACE', label: 'PACE', def: '500', help: 'How often (steps) a kernel is deposited.' },
             { k: 'BARRIER', label: 'BARRIER', def: '30', help: 'The largest free-energy barrier (energy units) you expect to cross. The single most important OPES setting, it also sets BIASFACTOR, EPSILON and KERNEL_CUTOFF to sensible values. Set it a bit above your estimated barrier.' },
-            { k: 'TEMP', label: 'TEMP (K)', def: '300', help: 'System temperature. If your MD code passes it to PLUMED you can leave the emitted default.' },
+            { k: 'TEMP', label: 'TEMP (K)', def: '', fallback: 'plumedTemp', help: 'System temperature. Leave blank to use the global TEMP above.' },
             { k: 'SIGMA', label: 'SIGMA', def: 'ADAPTIVE', help: 'Initial kernel widths. Leave as ADAPTIVE (recommended) to let OPES estimate them from the fluctuations; or give one value per biased CV to fix them.' }
         ]},
         restraint: { cat: 'restraint', label: 'Harmonic RESTRAINT (umbrella)', params: [
@@ -974,9 +977,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function biasVal(method, key) {
         const def = PLUMED_BIAS_DEFS[method];
         if (!def) return '';
-        if (plumedBiasVals[method] && plumedBiasVals[method][key] !== undefined) return plumedBiasVals[method][key];
         const p = (def.params || []).find(p => p.k === key);
-        return p ? p.def : '';
+        const own = plumedBiasVals[method] && plumedBiasVals[method][key] !== undefined
+            ? plumedBiasVals[method][key] : (p ? p.def : '');
+        // A blank parameter with a `fallback` takes the global field it names
+        // (TEMP falls back to the global TEMP field).
+        if (p && p.fallback && String(own ?? '').trim() === '') return getStr(p.fallback, '');
+        return own;
     }
 
     // =====================================================================
@@ -1066,9 +1073,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             e += `module load lammps         # adjust to your cluster's module name\n\n`;
-            e += `# LAMMPS is MPI-parallel; keep OpenMP off unless using USER-OMP/KOKKOS-OMP.\n`;
+            e += `# LAMMPS is MPI-parallel; threads per rank matter only with the OPENMP\n`;
+            e += `# package (or KOKKOS built with its OpenMP backend).\n`;
             if (scheduler === 'slurm') {
-                e += `export OMP_NUM_THREADS=\${SLURM_CPUS_PER_TASK:-1}\n\n`;
+                e += `export OMP_NUM_THREADS=\${SLURM_CPUS_PER_TASK:-1}\n`;
+                // srun, which launches LAMMPS, no longer inherits --cpus-per-task,
+                // so a threaded run would put every thread of a rank on one core.
+                if (getInt('lmpCpus', 1) > 1) {
+                    e += `# Slurm > 22.05: srun does not inherit --cpus-per-task; export it.\n`;
+                    e += `export SRUN_CPUS_PER_TASK=\$SLURM_CPUS_PER_TASK\n`;
+                }
+                e += `\n`;
             } else {
                 e += ompExport(scheduler, getInt('lmpCpus', 1));
             }
@@ -1125,9 +1140,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Note: GPU-resident mode (-update gpu) is incompatible with dynamic
-        // load balancing and needs constraints = h-bonds.
+        // load balancing and needs constraints = h-bonds: the GPU constraint
+        // code takes only small coupled groups, and all-bonds on a protein
+        // couples far more than that.
         if (update) {
-            warnings.push('<strong>Action needed in your .mdp:</strong> <code>-update gpu</code> (GPU-resident mode) <strong>requires <code>constraints = h-bonds</code></strong> (or <code>all-bonds</code>). Without it <code>grompp</code> fails before <code>mdrun</code> ever starts, the error comes from your .mdp, not from this script. GPU-resident mode also disables dynamic load balancing; for efficiency use infrequent T/P coupling and a larger <code>nstcalcenergy</code>.');
+            warnings.push('<strong>Action needed in your .mdp:</strong> <code>-update gpu</code> (GPU-resident mode) <strong>requires <code>constraints = h-bonds</code></strong>, not <code>all-bonds</code>. With all-bonds on a protein, <code>mdrun</code> refuses the GPU update at startup; the cause is your .mdp, not this script. GPU-resident mode also disables dynamic load balancing; for efficiency use infrequent T/P coupling and a larger <code>nstcalcenergy</code>.');
         }
 
         return { flags: flags.length ? ' ' + flags.join(' ') : '', warnings };
@@ -1210,10 +1227,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isChecked('gpuUpdate')) {
             s += `# ==============================================================\n`;
             s += `# IMPORTANT - '-update gpu' requires this in EVERY MD .mdp file:\n`;
-            s += `#     constraints = h-bonds      ; (or all-bonds)\n`;
-            s += `# Without it grompp FAILS before mdrun starts. That error comes\n`;
-            s += `# from the .mdp, not from this script.\n`;
+            s += `#     constraints = h-bonds      ; not all-bonds\n`;
+            s += `# With all-bonds on a protein, mdrun refuses the GPU update at\n`;
+            s += `# startup. That error comes from the .mdp, not from this script.\n`;
             s += `# ==============================================================\n\n`;
+        }
+
+        // mdrun gets -ntomp $OMP_NUM_THREADS. The two must agree (mdrun stops
+        // when they differ), so with several thread-MPI ranks (-ntmpi, GPU
+        // runs only) the variable itself is divided between the ranks.
+        const ntmpi = getInt('jobGpus', 0) > 0 ? getInt('gpuNtmpi', 0) : 0;
+        if (ntmpi > 1) {
+            const cpus = getInt('jobCpus', 1);
+            if (cpus < ntmpi) {
+                warnings.push(`CPUs per task (${cpus}) is below <code>-ntmpi ${ntmpi}</code>; each thread-MPI rank needs at least one CPU.`);
+            } else if (cpus % ntmpi !== 0) {
+                warnings.push(`CPUs per task (${cpus}) is not a multiple of <code>-ntmpi ${ntmpi}</code>, so some cores stay idle. Pick a CPU count that divides evenly between the ranks.`);
+            }
+            s += `# -ntmpi ${ntmpi}: share the task's CPUs between the thread-MPI ranks.\n`;
+            s += `export OMP_NUM_THREADS=$((OMP_NUM_THREADS / ${ntmpi}))\n\n`;
         }
 
         let prev = null; // previous stage (for -c / -t wiring)
@@ -1222,12 +1254,13 @@ document.addEventListener('DOMContentLoaded', () => {
             s += `# ---- ${st.key.toUpperCase()} ----\n`;
 
             // grompp: -c from previous stage .gro (or initial conf), -r for restraints,
-            // -t from previous .cpt for continuation (NPT onward / production).
+            // -t from the previous stage's .cpt for continuation. Energy
+            // minimisation writes no checkpoint, so the stage after it gets no -t.
             let grompp = `${gmxBin} grompp -f ${st.mdp} -p ${topol}${ndxFlag}`;
             const cSource = prev ? `${prev.deffnm}.gro` : startConf;
             grompp += ` -c ${cSource}`;
             if (st.posres) grompp += ` -r ${cSource}`;   // restraint reference (often == -c)
-            if (prev)      grompp += ` -t ${prev.deffnm}.cpt`; // continuation
+            if (prev && prev.key !== 'em') grompp += ` -t ${prev.deffnm}.cpt`; // continuation
             grompp += ` -o ${tpr}`;
             s += grompp + `\n`;
 
@@ -1237,7 +1270,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (st.key === 'em') {
                 stageGpu = stageGpu.replace(' -update gpu', '');
             }
-            let mdrun = `${gmxBin} mdrun -deffnm ${st.deffnm}${stageGpu} -pin on`;            if (st.key !== 'em') {
+            let mdrun = `${gmxBin} mdrun -deffnm ${st.deffnm}${stageGpu} -ntomp $OMP_NUM_THREADS -pin on`;
+            if (st.key !== 'em') {
                 // -cpi allows a safe restart; harmless if the .cpt is absent.
                 mdrun += ` -cpi ${st.deffnm}.cpt`;
             }
@@ -1858,6 +1892,13 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const scalar = (method, key) => String(biasVal(method, key) ?? '').trim();
+        // TEMP is the method's own value, or the global TEMP field when blank.
+        const tempLine = () => {
+            const t = scalar(bias, 'TEMP');
+            if (t) return `    TEMP=${t}\n`;
+            warnings.push('TEMP is blank, both for the method and in the global TEMP field. PLUMED then relies on the MD engine to pass the temperature; set it explicitly.');
+            return '';
+        };
         let biasComponents = [];   // components to optionally add to PRINT
 
         // Dimensionality Guardrails
@@ -1898,7 +1939,7 @@ document.addEventListener('DOMContentLoaded', () => {
             s += `    PACE=${scalar(bias, 'PACE') || stride}\n`;
             s += `    HEIGHT=${scalar(bias, 'HEIGHT')}\n`;
             s += `    SIGMA=${sigmas}\n`;
-            if (wt) { s += `    BIASFACTOR=${scalar(bias, 'BIASFACTOR')}\n    TEMP=${scalar(bias, 'TEMP')}\n`; }
+            if (wt) { s += `    BIASFACTOR=${scalar(bias, 'BIASFACTOR')}\n` + tempLine(); }
             s += `    FILE=HILLS\n`;
             if (useGrid) {
                 s += `    GRID_MIN=${gridMin}\n`;
@@ -1919,7 +1960,7 @@ document.addEventListener('DOMContentLoaded', () => {
             s += `    PACE=${scalar(bias, 'PACE') || stride}\n`;
             s += `    HEIGHT=${scalar(bias, 'HEIGHT')}\n`;
             s += `    SIGMA=${sigmas}\n`;
-            s += `    BIASFACTOR=${scalar(bias, 'BIASFACTOR')}\n    TEMP=${scalar(bias, 'TEMP')}\n`;
+            s += `    BIASFACTOR=${scalar(bias, 'BIASFACTOR')}\n` + tempLine();
             s += `    FILE=${biasedCVs.map(c => 'HILLS.' + c.label).join(',')}\n`;
             if (useGrid) {
                 s += `    GRID_MIN=${gridMin}\n`;
@@ -1935,7 +1976,7 @@ document.addEventListener('DOMContentLoaded', () => {
             s += `    ARG=${biasArg}\n`;
             s += `    PACE=${scalar(bias, 'PACE') || stride}\n`;
             s += `    BARRIER=${scalar(bias, 'BARRIER')}\n`;
-            s += `    TEMP=${scalar(bias, 'TEMP')}\n`;
+            s += tempLine();
             // SIGMA defaults to ADAPTIVE, which is the recommended mode. Only
             // emit an explicit SIGMA line if the user set fixed widths. BARRIER
             // already sets BIASFACTOR/EPSILON/KERNEL_CUTOFF, so we do NOT hardcode
@@ -2094,13 +2135,16 @@ document.addEventListener('DOMContentLoaded', () => {
         def.params.forEach(p => {
             if (!plumedBiasVals[method]) plumedBiasVals[method] = {};
             const cur = plumedBiasVals[method][p.k] !== undefined ? plumedBiasVals[method][p.k] : p.def;
+            const placeholder = p.fallback
+                ? `global: ${escapeHtml(getStr(p.fallback, 'unset'))}`
+                : (p.def === '' ? '(optional)' : '');
             const help = (p.help || '').replace(/"/g, '&quot;');
             const badge = help ? `<span class="plumed-help" tabindex="0" data-tip="${help}">?</span>` : '';
             const perTag = p.perCV ? '<span class="text-[11px] text-slate-500 dark:text-slate-400 font-normal">/CV</span>' : '';
             const cell = document.createElement('div');
             cell.innerHTML = `
                 <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">${p.label}${perTag}${badge}</label>
-                <input type="text" data-bias-key="${p.k}" value="${cur ?? ''}" ${p.def === '' ? 'placeholder="(optional)"' : ''}
+                <input type="text" data-bias-key="${p.k}" value="${cur ?? ''}" ${placeholder ? `placeholder="${placeholder}"` : ''}
                        class="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-1 text-[11px] mt-0.5 font-mono outline-none focus:ring-2 focus:ring-brand-500">`;
             wrap.appendChild(cell);
         });
@@ -2523,26 +2567,48 @@ document.addEventListener('DOMContentLoaded', () => {
         const warnings = [];
         if (preset) {
             if (comb !== preset.comb) {
-                warnings.push(`Combination rule <b>${comb}</b> is non-canonical for ${preset.label}, which ships with <b>rule ${preset.comb}</b>. grompp uses your <code>[ defaults ]</code> line, so this may not match the force field.`);
+                warnings.push(`Combination rule <b>${comb}</b> is non-canonical for ${preset.label}, whose <code>forcefield.itp</code> sets <b>rule ${preset.comb}</b>. The header says how to apply it to a local copy of the force field.`);
             }
             if (fudge.LJ !== preset.fudgeLJ || fudge.QQ !== preset.fudgeQQ) {
-                warnings.push(`Fudge factors <b>${fudge.LJ}/${fudge.QQ}</b> differ from ${preset.label}'s canonical <b>${preset.fudgeLJ}/${preset.fudgeQQ}</b>. Only override if intentional.`);
+                warnings.push(`Fudge factors <b>${fudge.LJ}/${fudge.QQ}</b> differ from ${preset.label}'s canonical <b>${preset.fudgeLJ}/${preset.fudgeQQ}</b>. Only override if intentional; the header says how to apply it to a local copy of the force field.`);
             }
         }
+
+        const ffDir = preset ? preset.dir : `${ffKey}.ff`;
+        const defaultsRow = (c, lj, qq) => `1         ${c.padEnd(9, ' ')} yes        ${lj.padEnd(8, ' ')} ${qq}`;
+        const overridden = preset && (comb !== preset.comb || fudge.LJ !== preset.fudgeLJ || fudge.QQ !== preset.fudgeQQ);
 
         let t = `; ==================================================================\n`;
         t += `; STEMKit (stemkit.net) auto-generated GROMACS topology header\n`;
         t += `; Force field: ${preset ? preset.label : ffKey}\n`;
-        t += `; NOTE: grompp reads these [ defaults ] before the force field's own\n`;
-        t += `;       forcefield.itp. Keep them consistent with the force field.\n`;
+        if (preset && preset.download) {
+            t += `; ${preset.label} is not distributed with GROMACS. Download the GROMACS\n`;
+            t += `; port from the MacKerell lab (mackerell.umaryland.edu), unpack it here\n`;
+            t += `; and make the ${ffDir} paths below match its directory name.\n`;
+        }
         t += `; ==================================================================\n\n`;
 
-        t += `[ defaults ]\n`;
-        t += `; nbfunc  comb-rule  gen-pairs  fudgeLJ  fudgeQQ\n`;
-        t += `1         ${comb.padEnd(9, ' ')} yes        ${fudge.LJ.padEnd(8, ' ')} ${fudge.QQ}\n\n`;
+        // forcefield.itp carries the force field's own [ defaults ], and grompp
+        // accepts only one, so the header never writes a second. The values are
+        // shown as a comment; an override becomes instructions for a local copy.
+        if (overridden) {
+            t += `; Advanced override. ${ffDir}/forcefield.itp sets [ defaults ] itself,\n`;
+            t += `; and grompp rejects a second one, so to run with these values copy\n`;
+            t += `; ${ffDir} into this directory and edit the line in its forcefield.itp\n`;
+            t += `; (grompp searches the working directory before the GROMACS library):\n`;
+            t += `; nbfunc  comb-rule  gen-pairs  fudgeLJ  fudgeQQ\n`;
+            t += `; ${defaultsRow(comb, fudge.LJ, fudge.QQ)}\n`;
+            t += `; The force field ships:\n`;
+            t += `; ${defaultsRow(preset.comb, preset.fudgeLJ, preset.fudgeQQ)}\n\n`;
+        } else {
+            t += `; [ defaults ] comes from ${ffDir}/forcefield.itp (grompp accepts\n`;
+            t += `; only one [ defaults ] directive):\n`;
+            t += `; nbfunc  comb-rule  gen-pairs  fudgeLJ  fudgeQQ\n`;
+            t += `; ${defaultsRow(comb, fudge.LJ, fudge.QQ)}\n\n`;
+        }
 
         t += `; --- Core force field ---\n`;
-        t += `#include "${ffKey}.ff/forcefield.itp"\n\n`;
+        t += `#include "${ffDir}/forcefield.itp"\n\n`;
 
         if (includes && includes.trim() !== '') {
             t += `; --- Custom / additional topologies ---\n`;
@@ -2550,10 +2616,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         t += `; --- Water model ---\n`;
-        t += `#include "${ffKey}.ff/${solv}.itp"\n\n`;
+        t += `#include "${ffDir}/${solv}.itp"\n\n`;
 
         t += `; --- Ions ---\n`;
-        t += `#include "${ffKey}.ff/ions.itp"\n\n`;
+        t += `#include "${ffDir}/ions.itp"\n\n`;
 
         t += `[ system ]\n; Name\nMD system\n\n`;
         t += `[ molecules ]\n; Compound   #mols\n`;
@@ -2846,6 +2912,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ['plumedBias','plumedTemp','plumedStride','plumedMolinfo','plumedPrintFile','plumedPrintStride','plumedPrintExtra','plumedUnitLength','plumedUnitEnergy','plumedUnitTime'].forEach(id => {
         const el = $(id); if (el) { el.addEventListener('input', generatePlumedScript); el.addEventListener('change', generatePlumedScript); }
     });
+    // The method TEMP fields show the global value they fall back to.
+    if ($('plumedTemp')) $('plumedTemp').addEventListener('input', renderBiasParams);
     ['plumedGrid','plumedRct','plumedWalkers'].forEach(id => {
         const el = $(id); if (el) el.addEventListener('change', generatePlumedScript);
     });
