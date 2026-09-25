@@ -72,6 +72,8 @@
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my file uploaded to a server?", "acceptedAnswer": {"@type": "Answer", "text": "No. PapaParse reads the file in your browser and all processing stays in memory (RAM). Nothing is transmitted."}}, {"@type": "Question", "name": "Which file types work?", "acceptedAnswer": {"@type": "Answer", "text": "Comma-, tab- or semicolon-delimited text with a header row: .csv, .tsv or .txt. The delimiter is auto-detected."}}, {"@type": "Question", "name": "How is Z-Score calculated?", "acceptedAnswer": {"@type": "Answer", "text": "(value − column mean) / population standard deviation. Non-numeric and missing cells are ignored when computing the statistics."}}, {"@type": "Question", "name": "What does Min–Max do to a constant column?", "acceptedAnswer": {"@type": "Answer", "text": "If every value is identical there is no range to scale, so the column is set to 0."}}, {"@type": "Question", "name": "Why does the preview show only 200 rows?", "acceptedAnswer": {"@type": "Answer", "text": "Only the first 200 rows are drawn, to keep the page responsive; every row is still transformed and included in the download."}}]}
 </script>
+    <link rel="stylesheet" href="css/dependencies/katex.min.css">
+    <script defer src="js/dependencies/katex.min.js"></script>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
@@ -230,7 +232,7 @@
         </section>
     <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
         <div class="stk-wrap">
-            <span class="stk-chip"><i class="fa-solid fa-broom"></i> How-To Guide</span>
+            <span class="stk-chip"><i class="fa-solid fa-broom"></i> How-to guide</span>
             <h2 class="stk-h2">How to clean and transform a CSV</h2>
             <p class="stk-lead">Load a CSV (or TSV) file, apply column transformations and drop missing rows, then export a tidy dataset, without opening Python, R or a spreadsheet.</p>
             <div class="stk-grid stk-grid-2">
@@ -243,7 +245,7 @@
         <div class="stk-wrap">
             <h2 class="stk-h2">What each transformation does</h2>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Normalisation</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;"><strong>Min–Max</strong> rescales a column to the 0–1 range: <code>(x − min)/(max − min)</code> (a constant column maps to 0). <strong>Z-Score</strong> standardises to mean 0 and standard deviation 1: <code>(x − mean)/σ</code>.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Cleaning & shaping</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;"><strong>Drop Missing Values</strong> removes rows with blanks in the selected column(s). <strong>Remove Duplicate Rows</strong> keeps only the first copy of identical rows. <strong>Log10 / ln</strong> apply only to positive values; <strong>Absolute Value</strong> takes the magnitude.</p></div>
+                <div class="stk-card"><h3>Normalisation</h3><p><strong>Min–Max</strong> rescales a column to the 0–1 range: <code>(x − min)/(max − min)</code> (a constant column maps to 0). <strong>Z-Score</strong> standardises to mean 0 and standard deviation 1: <code>(x − mean)/σ</code>.</p></div><div class="stk-card"><h3>Cleaning & shaping</h3><p><strong>Drop Missing Values</strong> removes rows with blanks in the selected column(s). <strong>Remove Duplicate Rows</strong> keeps only the first copy of identical rows. <strong>Log10 / ln</strong> apply only to positive values; <strong>Absolute Value</strong> takes the magnitude.</p></div>
             </div>
             <div class="stk-note" style="margin-top:1rem;">
                 <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>
@@ -254,15 +256,15 @@
 
     <section class="stk-section" id="method" aria-label="Method and equations">
         <div class="stk-wrap" style="max-width:52rem;">
-            <span class="stk-chip"><i class="fa-solid fa-square-root-variable"></i> Method &amp; Equations</span>
+            <span class="stk-chip"><i class="fa-solid fa-square-root-variable"></i> Method and equations</span>
             <h2 class="stk-h2">The math behind the transforms</h2>
             <p class="stk-lead">The normalisation and standardisation operations follow standard <strong>feature-scaling</strong> definitions.</p>
             
             <p class="stk-eqn-label">Min&ndash;Max normalisation rescales a column to the range [0,&nbsp;1]:</p>
-            <div class="stk-math"><math display="block"><msup><mi>x</mi><mo>′</mo></msup><mo>=</mo><mfrac><mrow><mi>x</mi><mo>−</mo><msub><mi>x</mi><mi>min</mi></msub></mrow><mrow><msub><mi>x</mi><mi>max</mi></msub><mo>−</mo><msub><mi>x</mi><mi>min</mi></msub></mrow></mfrac></math></div>
+            <div class="stk-math"><span class="stk-tex" data-display>{x}^{'}=\frac{x-{x}_{\min }}{{x}_{\max }-{x}_{\min }}</span></div>
             <p class="stk-eqn-label">Z-Score standardisation centres to mean 0 and unit standard deviation:</p>
-            <div class="stk-math"><math display="block"><mi>z</mi><mo>=</mo><mfrac><mrow><mi>x</mi><mo>−</mo><mi>μ</mi></mrow><mi>σ</mi></mfrac><mo>,</mo><mspace width="1.4em"/><mi>μ</mi><mo>=</mo><mfrac><mn>1</mn><mi>N</mi></mfrac><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mrow><mi>N</mi></mrow></munderover><msub><mi>x</mi><mi>i</mi></msub><mo>,</mo><mspace width="1.4em"/><mi>σ</mi><mo>=</mo><msqrt><mrow><mfrac><mn>1</mn><mi>N</mi></mfrac><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mrow><mi>N</mi></mrow></munderover><msup><mrow><mo>(</mo><msub><mi>x</mi><mi>i</mi></msub><mo>−</mo><mi>μ</mi><mo>)</mo></mrow><mn>2</mn></msup></mrow></msqrt></math></div>
-            <p class="stk-where">where <math><mi>x</mi></math> is a cell value, <math><msub><mi>x</mi><mi>min</mi></msub></math>/<math><msub><mi>x</mi><mi>max</mi></msub></math> the column extremes, <math><mi>μ</mi></math> the column mean, <math><mi>σ</mi></math> the <em>population</em> standard deviation (dividing by <math><mi>N</mi></math>), and <math><mi>N</mi></math> the count of numeric values. Non-numeric and missing cells are excluded from the statistics. A constant column (<math><msub><mi>x</mi><mi>max</mi></msub><mo>=</mo><msub><mi>x</mi><mi>min</mi></msub></math>) maps to 0. Log transforms apply only to positive values.</p>
+            <div class="stk-math"><span class="stk-tex" data-display>z=\frac{x-μ}{σ},\qquad μ=\frac{1}{N}\sum_{i=1}^{N}{x}_{i},\qquad σ=\sqrt{\frac{1}{N}\sum_{i=1}^{N}{({x}_{i}-μ)}^{2}}</span></div>
+            <p class="stk-where">where <span class="stk-tex">x</span> is a cell value, <span class="stk-tex">{x}_{\min }</span>/<span class="stk-tex">{x}_{\max }</span> the column extremes, <span class="stk-tex">μ</span> the column mean, <span class="stk-tex">σ</span> the <em>population</em> standard deviation (dividing by <span class="stk-tex">N</span>), and <span class="stk-tex">N</span> the count of numeric values. Non-numeric and missing cells are excluded from the statistics. A constant column (<span class="stk-tex">{x}_{\max }={x}_{\min }</span>) maps to 0. Log transforms apply only to positive values.</p>
             <h3 class="stk-refs-h">References &amp; documentation</h3>
             <ol class="stk-refs-list">
                 

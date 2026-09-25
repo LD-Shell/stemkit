@@ -394,7 +394,7 @@
 
     <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
         <div class="stk-wrap">
-            <span class="stk-chip"><i class="fa-solid fa-cubes"></i> How-To Guide</span>
+            <span class="stk-chip"><i class="fa-solid fa-cubes"></i> How-to guide</span>
             <h2 class="stk-h2">How to translate and convert molecular coordinates</h2>
             <p class="stk-lead">Shift a structure by a vector, centre it on the origin, or convert between PDB, GRO and XYZ (with correct unit handling) without installing anything.</p>
             <div class="stk-grid stk-grid-3">
@@ -409,20 +409,20 @@
             
             <div class="stk-grid stk-grid-2">
                 <div class="stk-card">
-                    <h3 style="font-weight:700;margin-bottom:.4rem;">Units are handled for you</h3>
-                    <p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">PDB and XYZ files store coordinates in <strong>&aring;ngstr&ouml;m (&Aring;)</strong>; GROMACS <code>.gro</code> files use <strong>nanometres (nm)</strong>, where 1&nbsp;nm&nbsp;=&nbsp;10&nbsp;&Aring;. The tool keeps atoms in the source unit for display and transforms, then converts on export, so a <code>.gro</code> loaded in nm is written out as a valid <code>.pdb</code> in &Aring;. Every input label updates to show the unit currently in force, so there is nothing to remember.</p>
+                    <h3>Units are handled for you</h3>
+                    <p>PDB and XYZ files store coordinates in <strong>&aring;ngstr&ouml;m (&Aring;)</strong>; GROMACS <code>.gro</code> files use <strong>nanometres (nm)</strong>, where 1&nbsp;nm&nbsp;=&nbsp;10&nbsp;&Aring;. The tool keeps atoms in the source unit for display and transforms, then converts on export, so a <code>.gro</code> loaded in nm is written out as a valid <code>.pdb</code> in &Aring;. Every input label updates to show the unit currently in force, so there is nothing to remember.</p>
                 </div>
                 <div class="stk-card">
-                    <h3 style="font-weight:700;margin-bottom:.4rem;">Geometric centre vs centre of mass</h3>
-                    <p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">The <strong>geometric centre</strong> is the unweighted mean of the coordinates, every atom counts equally. The <strong>centre of mass</strong> weights each atom by its standard atomic weight, so heavy atoms pull it toward them. For a water molecule the two differ by roughly 0.28&nbsp;&Aring;. Both are shown live, and either can be moved to the origin.</p>
+                    <h3>Geometric centre vs centre of mass</h3>
+                    <p>The <strong>geometric centre</strong> is the unweighted mean of the coordinates, every atom counts equally. The <strong>centre of mass</strong> weights each atom by its standard atomic weight, so heavy atoms pull it toward them. For a water molecule the two differ by roughly 0.28&nbsp;&Aring;. Both are shown live, and either can be moved to the origin.</p>
                 </div>
                 <div class="stk-card">
-                    <h3 style="font-weight:700;margin-bottom:.4rem;">Rigid-body operations</h3>
-                    <p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Translation adds a constant vector to every atom. Rotation applies an orthogonal matrix about a pivot you choose. Both are <em>rigid</em>: all bond lengths and angles are preserved, verified here to within floating-point precision. Velocities in a <code>.gro</code> file are rotated with the structure but never translated, since a velocity is a direction rather than a position.</p>
+                    <h3>Rigid-body operations</h3>
+                    <p>Translation adds a constant vector to every atom. Rotation applies an orthogonal matrix about a pivot you choose. Both are <em>rigid</em>: all bond lengths and angles are preserved, verified here to within floating-point precision. Velocities in a <code>.gro</code> file are rotated with the structure but never translated, since a velocity is a direction rather than a position.</p>
                 </div>
                 <div class="stk-card">
-                    <h3 style="font-weight:700;margin-bottom:.4rem;">Big files stay responsive</h3>
-                    <p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Painting a solvated system into the page would mean laying out millions of lines of text, which locks the tab. The preview therefore formats and shows only the first 500 lines, while <strong>Download</strong> and <strong>Copy</strong> always produce the complete file. A 200,000-atom system redraws its preview in about 25&nbsp;ms.</p>
+                    <h3>Big files stay responsive</h3>
+                    <p>Painting a solvated system into the page would mean laying out millions of lines of text, which locks the tab. The preview therefore formats and shows only the first 500 lines, while <strong>Download</strong> and <strong>Copy</strong> always produce the complete file. A 200,000-atom system redraws its preview in about 25&nbsp;ms.</p>
                 </div>
             </div>
 

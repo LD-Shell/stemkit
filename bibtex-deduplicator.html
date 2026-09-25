@@ -223,7 +223,7 @@
         <div id="toastContainer" class="stk-toasts" aria-live="polite"></div>
     <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
         <div class="stk-wrap">
-            <span class="stk-chip"><i class="fa-solid fa-list-check"></i> How-To Guide</span>
+            <span class="stk-chip"><i class="fa-solid fa-list-check"></i> How-to guide</span>
             <h2 class="stk-h2">How to de-duplicate a BibTeX library</h2>
             <p class="stk-lead">Merging reference libraries almost always creates duplicate citations. Here is the fastest way to find and remove them without uploading your research data.</p>
             <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Add your library</h3><p>Paste BibTeX entries into step 1, or press <strong>Upload .bib</strong> to load a file. Merged exports from Zotero, Mendeley or EndNote are the usual source of duplicates. <strong>Load example</strong> gives you five entries to try.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Scan for duplicates</h3><p>Press <strong>Scan for duplicates</strong>. Entries that share a DOI, or whose titles match once case, braces and punctuation are ignored, are put in one group.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Keep one of each</h3><p>In each group, click the entry to keep. <strong>Keep the most complete in each</strong> picks, in every group, the entry with a DOI and the most fields filled in.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Download the clean file</h3><p>When every group has an entry kept, press <strong>Download cleaned .bib</strong>. The file keeps the order of your original library.</p></div></div></div>
@@ -236,12 +236,12 @@
             
             <div class="stk-grid stk-grid-2">
                 <div class="stk-card">
-                    <h3 style="font-weight:700;margin-bottom:.4rem;">Two-stage matching</h3>
-                    <p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">A <strong>DOI</strong> is a globally unique identifier, so two entries sharing one (after lower-casing and stripping any <code>doi.org</code> prefix) are treated as the same work. Entries are <em>also</em> merged when their <strong>normalized titles</strong> match, lower-cased, with LaTeX braces, commands, math and punctuation removed. This catches duplicates where one copy is missing its DOI, a common result of merging databases.</p>
+                    <h3>Two-stage matching</h3>
+                    <p>A <strong>DOI</strong> is a globally unique identifier, so two entries sharing one (after lower-casing and stripping any <code>doi.org</code> prefix) are treated as the same work. Entries are <em>also</em> merged when their <strong>normalized titles</strong> match, lower-cased, with LaTeX braces, commands, math and punctuation removed. This catches duplicates where one copy is missing its DOI, a common result of merging databases.</p>
                 </div>
                 <div class="stk-card">
-                    <h3 style="font-weight:700;margin-bottom:.4rem;">Transitive grouping &amp; privacy</h3>
-                    <p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Matches are combined with a union-find structure, so a chain such as <code>A(doi)=B(title)=C</code> collapses into a single conflict. Nothing is auto-merged field-by-field, <strong>you</strong> choose which record survives. All parsing happens locally in your browser; your library is never uploaded.</p>
+                    <h3>Transitive grouping &amp; privacy</h3>
+                    <p>Matches are combined with a union-find structure, so a chain such as <code>A(doi)=B(title)=C</code> collapses into a single conflict. Nothing is auto-merged field-by-field, <strong>you</strong> choose which record survives. All parsing happens locally in your browser; your library is never uploaded.</p>
                 </div>
             </div>
 

@@ -247,7 +247,7 @@
     
     <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
         <div class="stk-wrap">
-            <span class="stk-chip"><i class="fa-solid fa-wave-square"></i> How-To Guide</span>
+            <span class="stk-chip"><i class="fa-solid fa-wave-square"></i> How-to guide</span>
             <h2 class="stk-h2">How to fit a curve to your data</h2>
             <p class="stk-lead">Paste columns of numbers, choose a model, and read off the fitted equation, R² and RMSE, all computed locally in your browser.</p>
             <div class="stk-grid stk-grid-2">
@@ -263,7 +263,7 @@
         <div class="stk-wrap">
             <h2 class="stk-h2">How the fitting works</h2>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Least-squares regression</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Linear and polynomial models are fitted by ordinary least squares. R² (coefficient of determination) reports the fraction of variance explained; RMSE is the typical residual size in the units of Y. Both are computed on your original data.</p></div><div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Linearised non-linear models</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Exponential, power and logarithmic fits are obtained by transforming the data (fitting a straight line in log-space). This is fast and standard, but it minimises error on the <em>transformed</em> data, so parameters can differ from a true non-linear least-squares fit when values span several orders of magnitude.</p></div>
+                <div class="stk-card"><h3>Least-squares regression</h3><p>Linear and polynomial models are fitted by ordinary least squares. R² (coefficient of determination) reports the fraction of variance explained; RMSE is the typical residual size in the units of Y. Both are computed on your original data.</p></div><div class="stk-card"><h3>Linearised non-linear models</h3><p>Exponential, power and logarithmic fits are obtained by transforming the data (fitting a straight line in log-space). This is fast and standard, but it minimises error on the <em>transformed</em> data, so parameters can differ from a true non-linear least-squares fit when values span several orders of magnitude.</p></div>
             </div>
             <div class="stk-note" style="margin-top:1rem;">
                 <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>
@@ -274,23 +274,23 @@
 
     <section class="stk-section" id="method" aria-label="Method and equations">
         <div class="stk-wrap" style="max-width:52rem;">
-            <span class="stk-chip"><i class="fa-solid fa-square-root-variable"></i> Method &amp; Equations</span>
+            <span class="stk-chip"><i class="fa-solid fa-square-root-variable"></i> Method and equations</span>
             <h2 class="stk-h2">The math behind the fit</h2>
             <p class="stk-lead">Fits are computed by <strong>least-squares regression</strong> and assessed with R&sup2; and RMSE, all in your browser.</p>
             
             <p class="stk-eqn-label">Parameters are chosen by ordinary least squares, minimising the residual sum of squares:</p>
-            <div class="stk-math"><math display="block"><munder><mrow><mi>min</mi></mrow><mi>θ</mi></munder><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mrow><mi>n</mi></mrow></munderover><msup><mrow><mo>(</mo><msub><mi>y</mi><mi>i</mi></msub><mo>−</mo><mi>f</mi><mo>(</mo><msub><mi>x</mi><mi>i</mi></msub><mo>;</mo><mi>θ</mi><mo>)</mo><mo>)</mo></mrow><mn>2</mn></msup></math></div>
+            <div class="stk-math"><span class="stk-tex" data-display>\underset{θ}{\min }\sum_{i=1}^{n}{({y}_{i}-f({x}_{i};θ))}^{2}</span></div>
             <p class="stk-eqn-label">Goodness of fit is reported with the coefficient of determination and the root-mean-square error:</p>
-            <div class="stk-math"><math display="block"><msup><mi>R</mi><mn>2</mn></msup><mo>=</mo><mn>1</mn><mo>−</mo><mfrac><mrow><munderover><mo>∑</mo><mrow><mi>i</mi></mrow><mrow></mrow></munderover><msup><mrow><mo>(</mo><msub><mi>y</mi><mi>i</mi></msub><mo>−</mo><msub><mover><mi>y</mi><mo>^</mo></mover><mi>i</mi></msub><mo>)</mo></mrow><mn>2</mn></msup></mrow><mrow><munderover><mo>∑</mo><mrow><mi>i</mi></mrow><mrow></mrow></munderover><msup><mrow><mo>(</mo><msub><mi>y</mi><mi>i</mi></msub><mo>−</mo><mover><mi>y</mi><mo>¯</mo></mover><mo>)</mo></mrow><mn>2</mn></msup></mrow></mfrac></math></div>
-            <div class="stk-math"><math display="block"><mi>RMSE</mi><mo>=</mo><msqrt><mrow><mfrac><mn>1</mn><mi>n</mi></mfrac><munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mrow><mi>n</mi></mrow></munderover><msup><mrow><mo>(</mo><msub><mi>y</mi><mi>i</mi></msub><mo>−</mo><msub><mover><mi>y</mi><mo>^</mo></mover><mi>i</mi></msub><mo>)</mo></mrow><mn>2</mn></msup></mrow></msqrt></math></div>
-            <p class="stk-where">where <math><msub><mi>y</mi><mi>i</mi></msub></math> are the observed values, <math><msub><mover><mi>y</mi><mo>^</mo></mover><mi>i</mi></msub></math> the fitted values, <math><mover><mi>y</mi><mo>¯</mo></mover></math> the mean of <em>y</em>, and <em>n</em> the number of points. <math><msup><mi>R</mi><mn>2</mn></msup></math> and RMSE are computed on the original data.</p>
+            <div class="stk-math"><span class="stk-tex" data-display>{R}^{2}=1-\frac{\sum_{i}{({y}_{i}-{\hat{y}}_{i})}^{2}}{\sum_{i}{({y}_{i}-\bar{y})}^{2}}</span></div>
+            <div class="stk-math"><span class="stk-tex" data-display>\mathrm{RMSE}=\sqrt{\frac{1}{n}\sum_{i=1}^{n}{({y}_{i}-{\hat{y}}_{i})}^{2}}</span></div>
+            <p class="stk-where">where <span class="stk-tex">{y}_{i}</span> are the observed values, <span class="stk-tex">{\hat{y}}_{i}</span> the fitted values, <span class="stk-tex">\bar{y}</span> the mean of <em>y</em>, and <em>n</em> the number of points. <span class="stk-tex">{R}^{2}</span> and RMSE are computed on the original data.</p>
             <p class="stk-eqn-label">Model forms available:</p>
             <ul class="stk-model-list">
-                <li><b>Linear</b> <math><mi>y</mi><mo>=</mo><mi>m</mi><mi>x</mi><mo>+</mo><mi>c</mi></math></li>
-                <li><b>Polynomial</b> <math><mi>y</mi><mo>=</mo><munderover><mo>∑</mo><mrow><mi>k</mi><mo>=</mo><mn>0</mn></mrow><mi>d</mi></munderover><msub><mi>a</mi><mi>k</mi></msub><msup><mi>x</mi><mi>k</mi></msup></math> (degree <math><mi>d</mi></math> = 2 or 3)</li>
-                <li><b>Exponential</b> <math><mi>y</mi><mo>=</mo><mi>a</mi><msup><mi>e</mi><mrow><mi>b</mi><mi>x</mi></mrow></msup></math> &rarr; fitted as <math><mi>ln</mi><mi>y</mi><mo>=</mo><mi>ln</mi><mi>a</mi><mo>+</mo><mi>b</mi><mi>x</mi></math></li>
-                <li><b>Power</b> <math><mi>y</mi><mo>=</mo><mi>a</mi><msup><mi>x</mi><mi>b</mi></msup></math> &rarr; fitted as <math><mi>ln</mi><mi>y</mi><mo>=</mo><mi>ln</mi><mi>a</mi><mo>+</mo><mi>b</mi><mi>ln</mi><mi>x</mi></math></li>
-                <li><b>Logarithmic</b> <math><mi>y</mi><mo>=</mo><mi>a</mi><mo>+</mo><mi>b</mi><mi>ln</mi><mi>x</mi></math></li>
+                <li><b>Linear</b> <span class="stk-tex">y=mx+c</span></li>
+                <li><b>Polynomial</b> <span class="stk-tex">y=\sum_{k=0}^{d}{a}_{k}{x}^{k}</span> (degree <span class="stk-tex">d</span> = 2 or 3)</li>
+                <li><b>Exponential</b> <span class="stk-tex">y=a{e}^{bx}</span> &rarr; fitted as <span class="stk-tex">\ln y=\ln a+bx</span></li>
+                <li><b>Power</b> <span class="stk-tex">y=a{x}^{b}</span> &rarr; fitted as <span class="stk-tex">\ln y=\ln a+b\ln x</span></li>
+                <li><b>Logarithmic</b> <span class="stk-tex">y=a+b\ln x</span></li>
             </ul>
             <p class="stk-where">The exponential, power and logarithmic models are fitted by <strong>linearisation</strong> (least squares on the transformed variables), which minimises error in log-space rather than in the original space.</p>
             <h3 class="stk-refs-h">References &amp; documentation</h3>

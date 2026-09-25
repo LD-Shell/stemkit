@@ -763,7 +763,7 @@
         <!-- ================= HOW TO USE ================= -->
         <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
             <div class="stk-wrap">
-                <span class="stk-chip"><i class="fa-solid fa-server"></i> How-To Guide</span>
+                <span class="stk-chip"><i class="fa-solid fa-server"></i> How-to guide</span>
                 <h2 class="stk-h2">How to generate a batch script and topology header</h2>
                 <p class="stk-lead">Pick an engine and a scheduler, set the cluster resources, and copy or download the files the generator writes as you type. For GROMACS it chains a staged workflow (EM &rarr; NVT &rarr; NPT &rarr; production) with restraint and checkpoint wiring and GPU-offload flags; for LAMMPS it adds the flags of the accelerator package you choose; for PLUMED it composes a <code>plumed.dat</code> from collective variables picked by category, with the bias and speed options, all from keywords checked against each engine&rsquo;s documentation. It keeps the physics consistent so you do not ship a silently broken topology, and it remembers your settings between visits.</p>
                 <div class="stk-grid stk-grid-2">
@@ -781,10 +781,10 @@
             <div class="stk-wrap">
                 <h2 class="stk-h2">What the generator does, and why</h2>
                 <div class="stk-grid stk-grid-2">
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Coupled force-field parameters</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">The combination rule and 1&#8209;4 fudge factors are not free choices: each force field ships a specific <code>[ defaults ]</code> line. Selecting a force field sets both for you, and any manual override that diverges from the canonical values is flagged.</p></div>
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">One request, four schedulers</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Explicit memory, wall-time validation, <code>#!/bin/bash -e</code> and per-job or per-array logs under <code>logs/</code> follow published cluster best-practice guides so jobs fail loudly instead of silently. The same request becomes <code>#SBATCH</code>, <code>#PBS</code>, <code>#BSUB</code> or <code>#$</code> directives, with the matching job-id, array-index and launch conventions.</p></div>
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Hybrid CPU/GPU threading</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Under SLURM <code>OMP_NUM_THREADS</code> is tied to <code>SLURM_CPUS_PER_TASK</code>, and <code>SRUN_CPUS_PER_TASK</code> is exported for Slurm&nbsp;&gt;&nbsp;22.05; PBS sets <code>NCPUS</code> from <code>ompthreads</code>, which the script reads with the requested count as the fallback; LSF and Grid Engine expose only slot counts, so for them the requested thread count is written next to the directive it matches. <code>gmx mdrun</code> runs with <code>-ntomp</code> and <code>-pin on</code> for reproducible thread placement.</p></div>
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Everything stays local</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">The whole tool runs in your browser. Nothing you type is uploaded, logged, or sent anywhere, safe for unpublished systems and internal project names.</p></div>
+                    <div class="stk-card"><h3>Coupled force-field parameters</h3><p>The combination rule and 1&#8209;4 fudge factors are not free choices: each force field ships a specific <code>[ defaults ]</code> line. Selecting a force field sets both for you, and any manual override that diverges from the canonical values is flagged.</p></div>
+                    <div class="stk-card"><h3>One request, four schedulers</h3><p>Explicit memory, wall-time validation, <code>#!/bin/bash -e</code> and per-job or per-array logs under <code>logs/</code> follow published cluster best-practice guides so jobs fail loudly instead of silently. The same request becomes <code>#SBATCH</code>, <code>#PBS</code>, <code>#BSUB</code> or <code>#$</code> directives, with the matching job-id, array-index and launch conventions.</p></div>
+                    <div class="stk-card"><h3>Hybrid CPU/GPU threading</h3><p>Under SLURM <code>OMP_NUM_THREADS</code> is tied to <code>SLURM_CPUS_PER_TASK</code>, and <code>SRUN_CPUS_PER_TASK</code> is exported for Slurm&nbsp;&gt;&nbsp;22.05; PBS sets <code>NCPUS</code> from <code>ompthreads</code>, which the script reads with the requested count as the fallback; LSF and Grid Engine expose only slot counts, so for them the requested thread count is written next to the directive it matches. <code>gmx mdrun</code> runs with <code>-ntomp</code> and <code>-pin on</code> for reproducible thread placement.</p></div>
+                    <div class="stk-card"><h3>Everything stays local</h3><p>The whole tool runs in your browser. Nothing you type is uploaded, logged, or sent anywhere, safe for unpublished systems and internal project names.</p></div>
                 </div>
                 <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-triangle-exclamation" style="margin-top:.15rem;"></i><div>The generated files are a correct <em>starting point</em>, not a validated production input. Always run <code>gmx grompp</code> and check its warnings, and confirm module names, partitions and GPU flags against your own cluster's documentation.</div></div>
             </div>
@@ -793,7 +793,7 @@
         <!-- ================= METHOD & REFERENCES ================= -->
         <section class="stk-section" id="method" aria-label="Method and references">
             <div class="stk-wrap">
-                <span class="stk-chip"><i class="fa-solid fa-square-root-variable"></i> Method &amp; References</span>
+                <span class="stk-chip"><i class="fa-solid fa-square-root-variable"></i> Method and references</span>
                 <h2 class="stk-h2">Method &amp; references, by engine</h2>
                 <p class="stk-lead">The parameters and best practices below are grouped by tool. Switch tabs to see the details relevant to your workflow.</p>
 
@@ -833,7 +833,7 @@
 
                 <h2 class="stk-h2" style="margin-top:2.2rem;">GPU offload &amp; mdrun performance</h2>
                 <p class="stk-lead">The GPU flags follow the GROMACS developers' own performance guidance. <code>mdrun</code> can offload the short-range non-bonded (<code>-nb</code>), long-range PME (<code>-pme</code>), bonded (<code>-bonded</code>) and update/constraints (<code>-update</code>) work to the GPU. The tool enforces the documented rules:</p>
-                <ul style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.7;padding-left:1.1rem;margin-top:.6rem;">
+                <ul style="font-size:.9375rem;color:var(--stk-fg-3);line-height:1.7;padding-left:1.1rem;margin-top:.6rem;">
                     <li><span class="hl">PME on GPU allows only one PME rank.</span> When more than one rank is requested with <code>-pme gpu</code>, the tool adds <code>-npme 1</code> automatically.</li>
                     <li><strong><code>-bonded gpu</code> requires <code>-nb gpu</code>.</strong> Bonded offload is part of the same particle-particle workload, so the short-range non-bonded task must also be on the GPU; the tool warns if it is not.</li>
                     <li><strong>GPU-resident mode (<code>-update gpu</code>)</strong> needs <code>constraints = h-bonds</code>, disables dynamic load balancing, and benefits from infrequent temperature/pressure coupling and a larger <code>nstcalcenergy</code> (the developers suggest coupling every &ge;&nbsp;50&ndash;100 steps).</li>
@@ -874,7 +874,7 @@
                     A CV line has the form <code>label: ACTION KEY=VALUE ...</code>, for example <code>phi: TORSION ATOMS=5,7,9,15</code>. Labels become the <code>ARG</code> list of the bias. The generator supports standard and <strong>well-tempered metadynamics</strong> (adding <code>BIASFACTOR</code> and <code>TEMP</code>), <strong>OPES</strong>, and a harmonic <code>RESTRAINT</code> for umbrella windows.
                 </p>
                 <p class="stk-eqn-label">Speed optimisations (from the PLUMED performance guidance):</p>
-                <ul style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.7;padding-left:1.1rem;margin-top:.4rem;">
+                <ul style="font-size:.9375rem;color:var(--stk-fg-3);line-height:1.7;padding-left:1.1rem;margin-top:.4rem;">
                     <li><span class="hl">Store the bias on a grid</span> (<code>GRID_MIN/MAX/BIN</code>). Without it, every step re-sums all deposited hills, so a long metadynamics run slows down continuously; with a grid the cost stays flat.</li>
                     <li><strong><code>CALC_RCT</code> with <code>RCT_USTRIDE&gt;1</code></strong> computes the time-dependent <code>c(t)</code> reweighting factor on the fly; a larger stride reduces its overhead. It requires the bias to be on a grid.</li>
                     <li><span class="hl">Set <code>D_MAX</code> on every distance switching function</span> (order parameters, coordination). PLUMED then uses linked-cell neighbour search instead of scanning all pairs, the developers describe this as a "colossal speedup". The tool folds <code>R_0</code>/<code>D_0</code>/<code>D_MAX</code> into a single <code>SWITCH={RATIONAL ...}</code> block for you and warns if <code>D_MAX</code> is missing.</li>

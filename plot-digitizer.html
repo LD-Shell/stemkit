@@ -72,6 +72,8 @@
     
 
 
+    <link rel="stylesheet" href="css/dependencies/katex.min.css">
+    <script defer src="js/dependencies/katex.min.js"></script>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
@@ -304,7 +306,7 @@
         <!-- ================= HOW TO USE ================= -->
         <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
             <div class="stk-wrap">
-                <span class="stk-chip"><i class="fa-solid fa-crosshairs"></i> How-To Guide</span>
+                <span class="stk-chip"><i class="fa-solid fa-crosshairs"></i> How-to guide</span>
                 <h2 class="stk-h2">How to extract data from a published plot</h2>
                 <p class="stk-lead">Upload a figure, tell the tool where two known values sit on each axis, then trace the curve. You get a CSV of real coordinates plus a ready-to-run Matplotlib script.</p>
                 <div class="stk-grid stk-grid-2">
@@ -322,10 +324,10 @@
             <div class="stk-wrap">
                 <h2 class="stk-h2">What the digitizer does, and what limits it</h2>
                 <div class="stk-grid stk-grid-2">
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Two-point affine calibration</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Each axis is mapped from pixels to data by a straight line through your two calibration marks. On a log axis the same interpolation is done in log<sub>10</sub> space and then exponentiated, which is why both log values must be strictly positive.</p></div>
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">You place every point</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Coordinates come from where you click, so every point in your dataset is one you saw on the curve. Where a series doubles back on itself or crosses another, you decide which branch to follow rather than leaving it to a threshold.</p></div>
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Exports stay consistent</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">The CSV, the Matplotlib script and the interactive preview all sort points by <em>x</em> and use the same values, so the curve you see on screen is the curve you get in the file, even if you traced right-to-left or patched a gap in the middle.</p></div>
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Everything stays local</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">The image never leaves your machine. It is read with the browser's <code>FileReader</code> and drawn to a canvas, nothing is uploaded, so unpublished figures and confidential data are safe to work with.</p></div>
+                    <div class="stk-card"><h3>Two-point affine calibration</h3><p>Each axis is mapped from pixels to data by a straight line through your two calibration marks. On a log axis the same interpolation is done in log<sub>10</sub> space and then exponentiated, which is why both log values must be strictly positive.</p></div>
+                    <div class="stk-card"><h3>You place every point</h3><p>Coordinates come from where you click, so every point in your dataset is one you saw on the curve. Where a series doubles back on itself or crosses another, you decide which branch to follow rather than leaving it to a threshold.</p></div>
+                    <div class="stk-card"><h3>Exports stay consistent</h3><p>The CSV, the Matplotlib script and the interactive preview all sort points by <em>x</em> and use the same values, so the curve you see on screen is the curve you get in the file, even if you traced right-to-left or patched a gap in the middle.</p></div>
+                    <div class="stk-card"><h3>Everything stays local</h3><p>The image never leaves your machine. It is read with the browser's <code>FileReader</code> and drawn to a canvas, nothing is uploaded, so unpublished figures and confidential data are safe to work with.</p></div>
                 </div>
                 <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-triangle-exclamation" style="margin-top:.15rem;"></i><div>Digitized data is an <em>estimate</em> of the original, never a substitute for it. Where the authors have published their numbers, or you can request them, use those instead. If you do digitize, say so in your methods and cite the source figure.</div></div>
             </div>
@@ -340,17 +342,17 @@
 
                 <div class="stk-math">
                     <div class="stk-eqn-label">Linear axis</div>
-                    <p style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9rem;">value = v<sub>1</sub> + (p &minus; p<sub>1</sub>) &times; (v<sub>2</sub> &minus; v<sub>1</sub>) / (p<sub>2</sub> &minus; p<sub>1</sub>)</p>
+                    <span class="stk-tex" data-display>\text{value} = v_1 + (p - p_1)\,\frac{v_2 - v_1}{p_2 - p_1}</span>
                     <div class="stk-eqn-label" style="margin-top:.9rem;">Logarithmic axis</div>
-                    <p style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9rem;">value = 10<sup>&thinsp;log<sub>10</sub>v<sub>1</sub> + (p &minus; p<sub>1</sub>)(log<sub>10</sub>v<sub>2</sub> &minus; log<sub>10</sub>v<sub>1</sub>) / (p<sub>2</sub> &minus; p<sub>1</sub>)</sup></p>
-                    <p class="stk-where"><strong>where</strong> <em>p</em> is the pixel coordinate of your point, <em>p</em><sub>1</sub>&thinsp;/&thinsp;<em>p</em><sub>2</sub> are the pixel positions of your two calibration marks, and <em>v</em><sub>1</sub>&thinsp;/&thinsp;<em>v</em><sub>2</sub> are the data values you typed for them.</p>
+                    <span class="stk-tex" data-display>\text{value} = 10^{\,\log_{10} v_1 \,+\, (p - p_1)\,\frac{\log_{10} v_2 \,-\, \log_{10} v_1}{p_2 - p_1}}</span>
+                    <p class="stk-where">where <span class="stk-tex">p</span> is the pixel coordinate of your point, <span class="stk-tex">p_1</span> and <span class="stk-tex">p_2</span> are the pixel positions of your two calibration marks, and <span class="stk-tex">v_1</span> and <span class="stk-tex">v_2</span> are the data values you typed for them.</p>
                 </div>
 
                 <h3 style="font-weight:700;margin:1.6rem 0 .6rem;">Where the error actually comes from</h3>
                 <div class="stk-grid stk-grid-3">
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Calibration span</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">Error scales with 1&thinsp;/&thinsp;(p<sub>2</sub>&minus;p<sub>1</sub>). Two marks a few pixels apart amplify every subsequent click; marks at opposite ends of the axis divide the error down. This is the single biggest lever you control.</p></div>
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Image resolution</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">One screen pixel is the floor on precision. A 400&nbsp;px-wide figure spanning 0&ndash;100 gives you no better than &plusmn;0.25 per pixel, before any human error. Start from the largest version of the figure available.</p></div>
-                    <div class="stk-card"><h3 style="font-weight:700;margin-bottom:.4rem;">Line thickness</h3><p style="font-size:.88rem;color:var(--stk-fg-muted);line-height:1.6;">A curve drawn 3&nbsp;px thick is ambiguous by &plusmn;1.5&nbsp;px wherever you click on it. Aim consistently for the centre of the stroke; the magnifier exists to make that possible.</p></div>
+                    <div class="stk-card"><h3>Calibration span</h3><p>Error scales with <span class="stk-tex">1/(p_2 - p_1)</span>. Two marks a few pixels apart amplify every subsequent click; marks at opposite ends of the axis divide the error down. This is the single biggest lever you control.</p></div>
+                    <div class="stk-card"><h3>Image resolution</h3><p>One screen pixel is the floor on precision. A 400&nbsp;px-wide figure spanning 0&ndash;100 gives you no better than &plusmn;0.25 per pixel, before any human error. Start from the largest version of the figure available.</p></div>
+                    <div class="stk-card"><h3>Line thickness</h3><p>A curve drawn 3&nbsp;px thick is ambiguous by &plusmn;1.5&nbsp;px wherever you click on it. Aim consistently for the centre of the stroke; the magnifier exists to make that possible.</p></div>
                 </div>
 
                 <div class="stk-note" style="margin-top:1.2rem;"><i class="fa-solid fa-lightbulb" style="margin-top:.15rem;"></i><div><strong>Sanity check your calibration.</strong> After calibrating, hover over a gridline whose value you already know and see whether the readout matches. If it does not, one of your four marks or values is wrong, and every point you trace afterwards will inherit that error.</div></div>
