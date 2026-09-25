@@ -17,7 +17,7 @@
     // CONSTANTS
     // ═══════════════════════════════════════════════════════════════
     const PERF_LABEL_WARN = 5000;      // show "(may lag)" hint
-    const PERF_LABEL_BLOCK = 50000;    // refuse labels entirely
+    const PERF_LABEL_BLOCK = 50000;    // label scope above this needs the opt-in
     const MAX_EXPORT_PX = 8192;        // hard ceiling; GPUs vary (4096–16384)
     const SAFE_EXPORT_PX = 4096;       // fallback when GPU limit unknown
 
@@ -175,6 +175,28 @@
     const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     /** "FE" or "fe" to "Fe", the way element symbols are stored. */
     const elemCase = s => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
+
+    /**
+     * Residue numbers in a form 3Dmol matches: 12 for one residue, the string
+     * '1-50' for an inclusive range (3Dmol reads ranges only from a string of
+     * that shape), and an array of both for a comma list such as "1-5,10".
+     * Parts that are not a number or a range are dropped; null when none is.
+     */
+    function resiSpec(raw) {
+        const out = [];
+        for (const part of String(raw).split(',')) {
+            const p = part.trim();
+            const m = p.match(/^(-?\d+)\s*-\s*(-?\d+)$/);
+            if (m) {
+                const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+                out.push(`${Math.min(a, b)}-${Math.max(a, b)}`);
+            } else if (/^-?\d+$/.test(p)) {
+                out.push(parseInt(p, 10));
+            }
+        }
+        if (!out.length) return null;
+        return out.length === 1 ? out[0] : out;
+    }
 
     // Quaternions as {x, y, z, w}. The viewer's rotation is premultiplied by
     // a rotation about a screen axis to turn the structure the way the screen
@@ -804,10 +826,10 @@
                 // ---- Plain attribute selectors ----
                 let parsed;
                 if (key === 'resi') {
-                    const m = val.match(/^(-?\d+)\s*-\s*(-?\d+)$/);
-                    if (m) parsed = [{ start: parseInt(m[1], 10), end: parseInt(m[2], 10) }];
-                    else if (val.includes(',')) parsed = val.split(',').map(v => isNaN(v) ? v : parseInt(v, 10));
-                    else parsed = isNaN(val) ? val : parseInt(val, 10);
+                    parsed = resiSpec(val) ?? val;
+                } else if (key === 'elem') {
+                    // Symbols are stored as Fe, whatever case the file uses.
+                    parsed = val.includes(',') ? val.split(',').map(elemCase) : elemCase(val);
                 } else if (val.includes(',')) {
                     parsed = val.split(',');
                 } else {
@@ -1052,15 +1074,20 @@
         updatePerfWarnings() {
             const atomWarn = $('atomLabelWarn'), resWarn = $('resLabelWarn'),
                   limitRow = $('labelLimitRow'), n = this.state.totalAtoms;
+            // The opt-in only means something when the scope can pass the guard.
+            const force = this.el.labelForce?.closest('label');
+            if (force) force.hidden = n <= PERF_LABEL_BLOCK;
 
             if (n > PERF_LABEL_BLOCK) {
+                // Labels still work on a region of up to PERF_LABEL_BLOCK
+                // atoms, or on more with the opt-in in the limit row.
                 this.el.perfWarning.classList.remove('hidden');
                 this.el.perfWarningText.textContent =
-                    `${formatNum(n)} atoms: labels are disabled to keep the tab responsive.`;
+                    `${formatNum(n)} atoms: labels work on a selection of up to ${formatNum(PERF_LABEL_BLOCK)} atoms, or on more with the opt-in in the Display tab.`;
                 [atomWarn, resWarn].forEach(w => {
-                    if (w) { w.classList.remove('hidden'); w.textContent = 'disabled'; }
+                    if (w) { w.classList.remove('hidden'); w.textContent = 'isolate first'; }
                 });
-                limitRow?.classList.add('hidden');
+                limitRow?.classList.remove('hidden');
             } else if (n > PERF_LABEL_WARN) {
                 this.el.perfWarning.classList.remove('hidden');
                 this.el.perfWarningText.textContent =
@@ -1074,7 +1101,19 @@
                 atomWarn?.classList.add('hidden');
                 resWarn?.classList.add('hidden');
                 limitRow?.classList.add('hidden');
+                this.revealLabelLimit(n);
             }
+        }
+
+        /**
+         * Show the Limit row once there are more atoms or residues to label
+         * than the cap, so a capped result can always be raised. It stays for
+         * the rest of the file rather than vanishing mid-drag when the cap
+         * passes the scope; a new file starts from updatePerfWarnings.
+         */
+        revealLabelLimit(candidates) {
+            const cap = parseInt(this.el.labelLimit?.value || 1500, 10);
+            if (candidates > cap) $('labelLimitRow')?.classList.remove('hidden');
         }
 
         // ───────────────────────────────────────────────────────────
@@ -1201,13 +1240,8 @@
             if (elem) sel.elem = elem;
             if (chain) sel.chain = chain;
 
-            const resiRaw = e.buildResi?.value.trim();
-            if (resiRaw) {
-                const m = resiRaw.match(/^(-?\d+)\s*-\s*(-?\d+)$/);
-                if (m) sel.resi = [{ start: parseInt(m[1], 10), end: parseInt(m[2], 10) }];
-                else if (resiRaw.includes(',')) sel.resi = resiRaw.split(',').map(v => parseInt(v, 10)).filter(isFinite);
-                else if (!isNaN(resiRaw)) sel.resi = parseInt(resiRaw, 10);
-            }
+            const resi = resiSpec(e.buildResi?.value || '');
+            if (resi !== null) sel.resi = resi;
 
             const preds = [];
             const spatialPred = this.buildSpatialPredicate();
@@ -1693,15 +1727,12 @@
         // LABELS
         // ───────────────────────────────────────────────────────────
         /**
-         * Which atoms should carry labels.
-         *
-         * Labelling the first N atoms in file order is close to useless on a
-         * big system, you get a dense clot over whatever happened to be
-         * written first. Instead we scope to the current selection when there
-         * is one, then, if still over budget, keep the atoms nearest the
-         * camera target so the labels land on what the user is looking at.
+         * The atoms the label scope covers: the current selection when there
+         * is one, the visible atoms, or everything, less hydrogens when they
+         * are hidden. The 50,000-atom guard counts these, not the whole file,
+         * so isolating a region is enough to label it on a large system.
          */
-        pickLabelAtoms(kind, budget) {
+        labelScopeAtoms() {
             const scoped = this.el.labelScope?.value || 'selection';
             let atoms;
 
@@ -1719,6 +1750,20 @@
             }
 
             if (!this.T.hydrogens) atoms = atoms.filter(a => a.elem !== 'H');
+            return atoms;
+        }
+
+        /**
+         * Which atoms should carry labels.
+         *
+         * Labelling the first N atoms in file order is close to useless on a
+         * big system, you get a dense clot over whatever happened to be
+         * written first. Instead we scope to the current selection when there
+         * is one, then, if still over budget, keep the atoms nearest the
+         * camera target so the labels land on what the user is looking at.
+         */
+        pickLabelAtoms(kind, budget, scopeAtoms = this.labelScopeAtoms()) {
+            let atoms = scopeAtoms;
 
             if (kind === 'residue') {
                 // One representative atom per residue, preferring CA.
@@ -1802,7 +1847,6 @@
             this._findLabels = [];
             this.drawFindLabel();
 
-            const blocked = this.state.totalAtoms > PERF_LABEL_BLOCK;
             const wantAtom = this.T.atomLabels, wantRes = this.T.resLabels;
 
             if (!wantAtom && !wantRes) {
@@ -1811,17 +1855,25 @@
                 return;
             }
 
-            if (blocked && !this.el.labelForce?.checked) {
-                this.toast(`${formatNum(this.state.totalAtoms)} atoms, labels disabled. Isolate a region, or set scope to Selection.`, 'error');
+            const scope = this.labelScopeAtoms();
+            if (scope.length > PERF_LABEL_BLOCK && !this.el.labelForce?.checked) {
+                this.toast(`${formatNum(scope.length)} atoms in the label scope, over the ${formatNum(PERF_LABEL_BLOCK)} limit. Isolate a region first, or allow labels above ${formatNum(PERF_LABEL_BLOCK)} atoms in the Display tab.`, 'error');
                 this.viewer.render();
                 return;
             }
 
             const budget = parseInt(this.el.labelLimit?.value || 2000, 10);
             const queue = [];
+            const capped = (total, shown, what) => {
+                this.revealLabelLimit(total);
+                const more = budget < parseInt(this.el.labelLimit?.max || 10000, 10)
+                    ? 'Raise the Limit slider in the Display tab to label more.'
+                    : 'Narrow the label scope to label the rest.';
+                this.toast(`Showing ${formatNum(shown)} of ${formatNum(total)} ${what} labels, those nearest the view. ${more}`);
+            };
 
             if (wantAtom) {
-                const { atoms, total } = this.pickLabelAtoms('atom', budget);
+                const { atoms, total } = this.pickLabelAtoms('atom', budget, scope);
                 for (const a of atoms) {
                     queue.push({
                         text: a.elem || '?',
@@ -1832,13 +1884,11 @@
                         }
                     });
                 }
-                if (total > atoms.length) {
-                    this.toast(`Showing ${formatNum(atoms.length)} of ${formatNum(total)} atom labels (nearest the view).`);
-                }
+                if (total > atoms.length) capped(total, atoms.length, 'atom');
             }
 
             if (wantRes) {
-                const { atoms, total } = this.pickLabelAtoms('residue', budget);
+                const { atoms, total } = this.pickLabelAtoms('residue', budget, scope);
                 for (const a of atoms) {
                     queue.push({
                         text: `${a.resn || '?'}${a.resi ?? ''}`,
@@ -1849,9 +1899,7 @@
                         }
                     });
                 }
-                if (total > atoms.length) {
-                    this.toast(`Showing ${formatNum(atoms.length)} of ${formatNum(total)} residue labels (nearest the view).`);
-                }
+                if (total > atoms.length) capped(total, atoms.length, 'residue');
             }
 
             // Build in slices, repainting as we go.
@@ -2750,7 +2798,7 @@
         toggleBox() {
             if (!this.viewer) return;
             if (!this.box) {
-                this.toast('This file carries no box. A GRO file\'s last line, or a CRYST1 record in a PDB file, defines one.');
+                this.toast('This file carries no box. One is read from a GRO box line, a PDB CRYST1 record, or the unit cell of a CIF, VASP or extended XYZ file.');
                 return;
             }
             this.el.toggleBox?.click();
@@ -3280,20 +3328,32 @@
         // EXPORT
         // ───────────────────────────────────────────────────────────
 
-        /** Largest texture the GPU will accept, cached after first query. */
+        /**
+         * Largest export side in pixels, cached after first query: the
+         * MAX_EXPORT_PX ceiling, or the GPU's texture limit when that is
+         * smaller, or SAFE_EXPORT_PX when the GPU does not report one.
+         */
         maxTextureSize() {
             if (this._maxTex) return this._maxTex;
+            this._gpuTex = 0;
             try {
                 const c = document.createElement('canvas');
                 const gl = c.getContext('webgl2') || c.getContext('webgl') || c.getContext('experimental-webgl');
-                this._maxTex = gl ? Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), MAX_EXPORT_PX) : SAFE_EXPORT_PX;
-            } catch (e) {
-                this._maxTex = SAFE_EXPORT_PX;
-            }
+                this._gpuTex = (gl && gl.getParameter(gl.MAX_TEXTURE_SIZE)) || 0;
+            } catch (e) { /* no WebGL here; the safe fallback applies */ }
+            this._maxTex = this._gpuTex ? Math.min(this._gpuTex, MAX_EXPORT_PX) : SAFE_EXPORT_PX;
             return this._maxTex;
         }
 
-        /** Highest multiplier that keeps both canvas dimensions within GPU limits. */
+        /** What sets the export ceiling, in words for the warning. */
+        exportLimitText() {
+            const limit = formatNum(this.maxTextureSize());
+            if (!this._gpuTex) return `the ${limit} px used when the GPU does not report its limit`;
+            if (this._gpuTex < MAX_EXPORT_PX) return `this GPU's ${limit} px texture limit`;
+            return `the ${limit} px export limit`;
+        }
+
+        /** Highest multiplier that keeps both canvas dimensions within the export limit. */
         safeMultiplier(requested) {
             const canvas = this.el.viewerCanvas.querySelector('canvas');
             if (!canvas) return 1;
@@ -3326,7 +3386,7 @@
             let text = '';
             if (safe < requested) {
                 const reqW = canvas.width * requested, reqH = canvas.height * requested;
-                text = `${requested}× would be ${reqW} × ${reqH} px, beyond this GPU's ${this.maxTextureSize()} px texture limit. The export is clamped to ${safe}× (${w} × ${h} px).`;
+                text = `${requested}× would be ${reqW} × ${reqH} px, beyond ${this.exportLimitText()}. The export is clamped to ${safe}× (${w} × ${h} px).`;
             } else if (Math.max(w, h) > LARGE_EXPORT_PX) {
                 text = `${w} × ${h} px is a very large image; some viewers and editors struggle above ${LARGE_EXPORT_PX} px on a side.`;
             }
@@ -3428,7 +3488,7 @@
             const mult = this.safeMultiplier(requested);
             const transparent = !!this.el.exportTransparent?.checked;
             if (mult < requested) {
-                this.toast(`Clamped to ${mult}×, ${requested}× exceeds this GPU's texture limit.`);
+                this.toast(`Clamped to ${mult}×, ${requested}× goes beyond ${this.exportLimitText()}.`);
             } else {
                 this.toast(`Generating ${mult}× PNG…`);
             }
@@ -4202,7 +4262,7 @@
             press(e.tbFullscreen, fs);
             if (e.tbFullscreen) {
                 e.tbFullscreen.setAttribute('aria-label', fs ? 'Exit fullscreen' : 'Fullscreen');
-                e.tbFullscreen.title = fs ? 'Exit fullscreen (F)' : 'Fullscreen (F)';
+                e.tbFullscreen.title = fs ? 'Exit fullscreen (Shift+F)' : 'Fullscreen (Shift+F)';
                 const icon = e.tbFullscreen.querySelector('i');
                 if (icon) icon.className = fs ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
             }
