@@ -40,7 +40,7 @@ inside the user's own browser: the data analysed never leaves it, no account is
 required and nothing is installed, so the tools stay usable for unpublished or
 confidential data. The same modules run under Node.js, so an interactive
 analysis can be captured as a version-pinned script. The 17 domain modules carry
-1208 tests validated against SciPy, NumPy, statsmodels
+1284 tests validated against SciPy, NumPy, statsmodels
 and physical invariants rather than against the implementation itself. That
 validation exposed four defects that had been altering reported results, among
 them *p*-values floored at zero and the mass of haem iron taken as fluorine's.
@@ -55,7 +55,7 @@ reproducibility; data privacy
 
 | Nr | Code metadata description | Metadata |
 | --- | --- | --- |
-| C1 | Current code version | v0.2.0 |
+| C1 | Current code version | v0.2.1 |
 | C2 | Permanent link to code/repository used for this code version | <https://github.com/LD-Shell/stemkit> ; archived on Zenodo under the concept DOI `10.5281/zenodo.21543112`, which resolves to the current release |
 | C3 | Legal code license | MIT License |
 | C4 | Code versioning system used | git |
@@ -145,7 +145,7 @@ the same routines are imported from `stemkit-core` in a Node.js script, which
 is the path taken once an exploratory analysis is to be fixed, version-pinned
 and re-run. The four plotting tools (the XVG visualiser, plot builder, curve
 fitter and plot digitiser) additionally emit a standalone matplotlib script that
-regenerates the figure from the original data file, so an interactive result can
+regenerates the figure from the same data, so an interactive result can
 be reproduced offline without the browser.
 
 Related work is cited where the corresponding functionality is described in
@@ -191,7 +191,7 @@ enumerates the modules.
 ┌───────────────────────────────┐   ┌───────────────────────────────┐
 │        Browser host           │   │         Node.js host          │
 │  21 static HTML/CSS pages     │   │  user analysis scripts        │
-│  DOM wiring only;             │   │  1208-test Jest suite;        │
+│  DOM wiring only;             │   │  1284-test Jest suite;        │
 │  FileReader input             │   │  smoke test                   │
 │  UMD bundles via <script>     │   │  UMD bundles: createRequire   │
 └───────────────┬───────────────┘   └───────────────┬───────────────┘
@@ -226,23 +226,23 @@ injection; modules marked *none* operate without any third-party code.
 | Module | Domain | Tests | Dependency |
 | --- | --- | ---: | --- |
 | `statistics` | Inferential and descriptive statistics | 164 | jStat |
-| `bibtex` | Reference deduplication, sanitising | 102 | bibtex-parse-js |
+| `bibtex` | Reference deduplication, sanitising | 140 | bibtex-parse-js |
+| `xvg-parser` | GROMACS/PLUMED trajectory data | 108 | none |
 | `structure` | Molecular geometry, PDB/GRO/XYZ | 100 | none |
-| `curve-fitting` | Least-squares regression | 77 | regression.js |
-| `xvg-parser` | GROMACS/PLUMED trajectory data | 77 | none |
+| `curve-fitting` | Least-squares regression | 81 | regression.js |
 | `units` | Physical unit conversion | 73 | none |
 | `plumed` | PLUMED input generation | 72 | none |
 | `selection` | Atom selection, spatial queries | 67 | none |
 | `slurm` | SLURM job scripts, resource checks | 61 | none |
+| `error-bars` | Group summaries, error bars | 60 | jStat |
 | `latex` | Table generation and escaping | 59 | none |
-| `error-bars` | Group summaries, error bars | 57 | jStat |
 | `journals` | Whole-title journal abbreviation | 53 | none |
 | `data-cleaning` | Tabular transformation | 51 | Papa Parse |
 | `outliers` | Anomaly detection | 51 | jStat |
 | `scheduler` | Scheduler directives and launchers | 51 | none |
 | `digitizer` | Figure digitisation | 49 | none |
 | `iso4` | ISO 4 word-level abbreviation (LTWA) | 44 | none |
-| **Total** | | **1208** | |
+| **Total** | | **1284** | |
 
 Four third-party libraries are vendored within the repository: jStat for
 statistical distributions, Papa Parse for delimited-text parsing, regression.js
@@ -271,8 +271,8 @@ under that interpretation the UMD factory takes its browser branch and fails.
 Scoping `"type": "commonjs"` to the dependency directory alone restores correct
 behaviour.
 
-The test suite comprises 1208 tests across the 17 domain modules, with 94.5%
-statement and 97.9% line coverage of `src/core/`. Its governing
+The test suite comprises 1284 tests across the 17 domain modules, with 94.5%
+statement and 97.7% line coverage of `src/core/`. Its governing
 principle is that numerical results are validated against *independent*
 references rather than against the implementation under test, since a test
 written from the same source as the code confirms only internal consistency.
@@ -312,9 +312,9 @@ aids and are excluded.
 | Curve fitter | `curve-fitting` | Least-squares fits with model-adequacy warnings |
 | Plot digitiser | `digitizer` | Pixel-to-data recovery with log-axis and uncertainty handling |
 | Plot builder | none (page script) | Publication figures at a set print size and resolution, with matplotlib script export |
-| Data cleaner | `data-cleaning` | Delimited-text repair, type inference, reshaping |
+| Data cleaner | `data-cleaning` | Missing values, duplicates, filtering and column transforms |
 | Scientific converter | `units` | 64 units in ten categories plus temperature, CODATA-sourced |
-| BibTeX sanitiser | `bibtex` | Field normalisation and escaping |
+| BibTeX sanitiser | `bibtex` | Field removal, page ranges, braces around capitals in titles |
 | BibTeX deduplicator | `bibtex` | Union-find over normalised DOIs and titles |
 | DOI to BibTeX | `bibtex` | Lookup at doi.org with field filtering |
 | Journal abbreviator | `journals`, `iso4` | Whole-title dictionary, then ISO 4 word-level fallback |
@@ -725,7 +725,7 @@ warnings.forEach(w => console.warn(`[${w.level}] ${w.message}`));
 
 The same four steps through the browser produce identical numbers, since they
 call the same functions. The plotting steps also emit a matplotlib script that
-regenerates the figure from the original data.
+regenerates the figure from the same data.
 
 ## 4. Impact
 
@@ -793,7 +793,7 @@ in pairs: it requires no installation, transmits no data and remains scriptable.
 
 Both properties are structural rather than contractual: computation occurs
 entirely within the browser, and the modules behind the interface are the ones
-that run under Node.js. The 1208-test suite validates every numerical result
+that run under Node.js. The 1284-test suite validates every numerical result
 against an independent reference, and the four defects that this
 strategy exposed (deflated standardised moments, tail probabilities floored at
 zero, misassigned elements in metalloproteins, and an adjusted moment fed into a
