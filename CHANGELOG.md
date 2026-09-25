@@ -5,6 +5,72 @@ Notable changes to STEMKit and `stemkit-core`.
 `[output]` marks a change that alters a reported number. Figures produced with an
 earlier version are worth re-checking.
 
+## v0.2.1 — 2026-09-25
+
+Every page's claims were checked against its code. This release fixes what
+did not match: bugs where the code was wrong, wording where the page was.
+
+### Fixed: output
+
+- `[output]` **BibTeX: a bare value failed the whole file.** `month = jul`,
+  `journal = jcp` or doi.org's `month = Sept` made `parseBibtex` return nothing
+  or throw, so the deduplicator rejected typical exports and the output of DOI
+  to BibTeX. `@string` and month macros are now expanded, `#` concatenation
+  works, and `@article(...)` entries parse.
+- `[output]` **BibTeX Sanitizer and Deduplicator rewrote what they kept.** The
+  sanitizer turned bare macros and quoted values into braced text; the
+  deduplicator's download rebuilt every entry, losing braces such as `{NumPy}`,
+  and dropped `@string`, `@preamble` and `@comment` blocks. Unchanged entries
+  are now written as they were.
+- `[output]` **DOI to BibTeX dropped every field outside its panel** (address,
+  school, howpublished), and fetched a DOI from an earlier batch again. Only
+  unticked fields are removed now, and repeated DOIs are skipped.
+- `[output]` **MD workflow generator: the default pipeline stopped at NVT.**
+  `grompp` was given `-t em.cpt`, but energy minimisation writes no
+  checkpoint. The topology wrote a second `[ defaults ]`, which grompp
+  rejects, and named `opls-aa.ff` for `oplsaa.ff`. `mdrun` now gets `-ntomp`,
+  split between `-ntmpi` ranks, and the PLUMED temperature reaches methods
+  whose own field is blank. CHARMM36 is marked as a separate download.
+- `[output]` **Structure inspector: residue ranges selected nothing.**
+  `resi:1-50`, mixed lists such as `1-5,10` and the selection builder's ranges
+  now match; `elem:` accepts any case. The label limit counts the atoms being
+  labelled, not the whole file, and can be raised whenever it applies.
+- `[output]` **XVG visualizer: the Python export failed on CSV and multi-set
+  files.** It now passes the delimiter, skips the header row and `&`
+  separators, and reads only the rows the page plots. A record with an empty
+  field, or with a different number of values from most rows, is skipped and
+  reported instead of shifting the columns after it; a comma ending every
+  line is allowed. CSV header names label the series.
+- `[output]` **Curve fitter:** a row whose x or y value is empty is skipped
+  and reported instead of taking y from the wrong column. The exported script no longer
+  calls the power fit y-weighted, and the theory panel's logarithmic model
+  matches the menu (y = a + b ln x).
+- `[output]` **Error bar generator:** the CSV leaves SD, SEM, t, CI and CV%
+  blank for a single-replicate group, as the table does, instead of writing 0.
+
+### Fixed: pages that described the tools wrongly
+
+- Removed claims for features that do not exist: cell merging in Visual LaTeX
+  Tables, WebGL rendering in the XVG visualizer, colour sweeping in the plot
+  digitizer, syntax highlighting in the equation formatter, title-case repair
+  in the BibTeX Sanitizer, and reshaping in the data cleaner.
+- Corrected descriptions of what the tools do: delimiter detection in LaTeX
+  Tables, the journal abbreviator's ISO 4 fallback, DOI lookup through doi.org
+  (not Crossref alone), the coordinate manipulator's 5,000-atom preview and
+  zero mass for unknown elements, the curve fitter's linearised models, the
+  statistics calculator's validation references and APA example, and the
+  Pomodoro timer's looped noise.
+- The plot digitizer shows the cursor position in data units after
+  calibration, which its checking tip already assumed.
+- Privacy, home and 404 pages say which two features go online instead of
+  "100% local", and no longer claim GDPR compliance by default.
+- Structured data no longer shows raw HTML entities.
+
+### Removed
+
+- `home-sections-preview.html`, a scratch page still served with invented
+  testimonials.
+
 ## v0.2.0 — 2026-09-25
 
 Four fixes below change what a tool reports; they are marked `[output]`.

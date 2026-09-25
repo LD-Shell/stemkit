@@ -1,6 +1,6 @@
 {
   "name": "stemkit-core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Dependency-injected computational core for STEMKit: GROMACS/PLUMED trajectory parsing, statistics, molecular structure geometry, curve fitting, unit conversion, and HPC script generation.",
   "type": "module",
   "main": "src/core/index.js",
