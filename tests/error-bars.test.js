@@ -266,6 +266,25 @@ describe('resultsToCSV', () => {
     expect(resultsToCSV([summariseGroup('a"b', A)])).toContain('"a""b"');
   });
 
+  test('leaves spread cells empty for a single replicate', () => {
+    const row = resultsToCSV([summariseGroup('S', [5])]).trim().split('\n')[1];
+    // Group, n, Mean, SD, SEM, t, CI, Median, Q1, Q3, IQR, CV%, Min, Max
+    expect(row).toBe('"S",1,5,,,,,5,5,5,0,,5,5');
+  });
+
+  test('writes spread cells for two or more replicates', () => {
+    const s = summariseGroup('A', A);
+    const cells = resultsToCSV([s]).trim().split('\n')[1].split(',');
+    expect(cells.slice(3, 7).map(Number)).toEqual([s.sd, s.sem, s.t, s.ci]);
+    expect(Number(cells[11])).toBe(s.cv);
+  });
+
+  test('leaves CV empty when the mean is zero', () => {
+    const cells = resultsToCSV([summariseGroup('Z', [-1, 0, 1])]).trim().split('\n')[1].split(',');
+    expect(cells[11]).toBe('');
+    expect(Number(cells[3])).toBe(1);
+  });
+
   test('handles empty input', () => {
     expect(resultsToCSV([]).trim()).toContain('Group,n,Mean');
     expect(resultsToCSV(null).trim()).toContain('Group,n,Mean');

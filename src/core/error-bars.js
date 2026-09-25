@@ -356,6 +356,12 @@ export function nonOverlappingPairs(results) {
 /**
  * Serialise group summaries as CSV.
  *
+ * `CI` is the half-width t* x SEM at the level the summaries were computed
+ * with; the level itself is not written. A single replicate gives no
+ * estimate of SD, SEM, t*, the interval or CV, so those cells are left empty
+ * rather than written as a zero that reads as a measurement; CV is also empty
+ * when the mean is zero.
+ *
  * @param {object[]} results
  * @returns {string}
  */
@@ -363,10 +369,13 @@ export function resultsToCSV(results) {
   const header = 'Group,n,Mean,SD,SEM,t,CI,Median,Q1,Q3,IQR,CV%,Min,Max\n';
   if (!Array.isArray(results)) return header;
 
-  return header + results.map(r =>
-    `"${String(r.key).replace(/"/g, '""')}",${r.n},${r.mean},${r.sd},${r.sem},` +
-    `${r.t},${r.ci},${r.median},${r.q1},${r.q3},${r.iqr},${r.cv},${r.min},${r.max}`
-  ).join('\n') + '\n';
+  return header + results.map(r => {
+    const spread = (x) => (r.n > 1 ? x : '');
+    const cv = r.n > 1 && r.mean !== 0 ? r.cv : '';
+    return `"${String(r.key).replace(/"/g, '""')}",${r.n},${r.mean},` +
+      `${spread(r.sd)},${spread(r.sem)},${spread(r.t)},${spread(r.ci)},` +
+      `${r.median},${r.q1},${r.q3},${r.iqr},${cv},${r.min},${r.max}`;
+  }).join('\n') + '\n';
 }
 
 /**
