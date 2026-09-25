@@ -13,7 +13,7 @@ author:
     affiliation: Independent Researcher
     email: lanrelangmuir@gmail.com
     corresponding: true
-date: 24 July 2026
+date: 24 September 2026
 keywords:
   - computational chemistry
   - molecular dynamics
@@ -36,11 +36,11 @@ Corresponding author: lanrelangmuir@gmail.com
 STEMKit is a suite of 18 browser-based tools for computational chemistry and
 scientific data analysis, built on `@stemkit/core`, a JavaScript library
 of parsing and numerical routines with no DOM dependency. All computation runs
-inside the user's own browser: nothing is transmitted, no account is required
-and nothing is installed, so the tools stay usable for unpublished or
+inside the user's own browser: the data analysed never leaves it, no account is
+required and nothing is installed, so the tools stay usable for unpublished or
 confidential data. The same modules run under Node.js, so an interactive
 analysis can be captured as a version-pinned script. The 17 domain modules carry
-1128 tests validated against SciPy, NumPy
+1208 tests validated against SciPy, NumPy, statsmodels
 and physical invariants rather than against the implementation itself. That
 validation exposed four defects that had been altering reported results, among
 them *p*-values floored at zero and the mass of haem iron taken as fluorine's.
@@ -55,11 +55,11 @@ reproducibility; data privacy
 
 | Nr | Code metadata description | Metadata |
 | --- | --- | --- |
-| C1 | Current code version | v0.1.1 |
-| C2 | Permanent link to code/repository used for this code version | <https://github.com/LD-Shell/stemkit> ; archived release `v0.1.1`: <https://doi.org/10.5281/zenodo.21544868> (concept DOI `10.5281/zenodo.21543112` resolves to the current release) |
+| C1 | Current code version | v0.2.0 |
+| C2 | Permanent link to code/repository used for this code version | <https://github.com/LD-Shell/stemkit> ; archived on Zenodo under the concept DOI `10.5281/zenodo.21543112`, which resolves to the current release |
 | C3 | Legal code license | MIT License |
 | C4 | Code versioning system used | git |
-| C5 | Software code languages, tools and services used | JavaScript (ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS; GitHub Actions |
+| C5 | Software code languages, tools and services used | JavaScript (ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS |
 | C6 | Compilation requirements, operating environments and dependencies | Browser tools: any current browser supporting ECMAScript modules and the `FileReader` API; no installation and no build step. Library: Node.js ≥ 18; `npm install` installs the development dependencies (Jest, Tailwind CSS) only. There are no runtime dependencies: jStat, Papa Parse, regression.js and bibtex-parse-js are vendored in the repository |
 | C7 | If available, link to developer documentation/manual | <https://github.com/LD-Shell/stemkit#readme>; per-module API documentation in `src/core/README.md`; hosted tools at <https://stemkit.net> |
 | C8 | Support email for questions | lanrelangmuir@gmail.com (issue tracker: <https://github.com/LD-Shell/stemkit/issues>) |
@@ -122,7 +122,11 @@ scripts.
 
 STEMKit is built around these constraints. No server participates in the
 computation, so there is nothing to which data could be transmitted and users
-are not asked to take a privacy policy on trust. Every asset is vendored in the
+are not asked to take a privacy policy on trust. Two features make a network
+request, and only when asked to: the DOI lookup sends the DOIs entered to
+doi.org to retrieve their bibliographic records, and the structure inspector can
+fetch an entry from the Protein Data Bank by its four-character identifier.
+Neither sends a file or a result. Every asset is vendored in the
 repository: no content-delivery network, no analytics, no telemetry, so not even
 a request log is generated elsewhere, and a local clone runs with the network
 disconnected. The reproducibility property
@@ -139,19 +143,22 @@ structure, a CSV of replicate measurements) and reads the result in the page.
 The file is read through `FileReader`; it is never uploaded. Programmatically,
 the same routines are imported from `@stemkit/core` in a Node.js script, which
 is the path taken once an exploratory analysis is to be fixed, version-pinned
-and re-run. Every tool that produces a figure additionally emits a standalone
-matplotlib script that regenerates that figure from the original data file, so
-an interactive result can be reproduced offline without the browser.
+and re-run. The four plotting tools (the XVG visualiser, plot builder, curve
+fitter and plot digitiser) additionally emit a standalone matplotlib script that
+regenerates the figure from the original data file, so an interactive result can
+be reproduced offline without the browser.
 
 Related work is cited where the corresponding functionality is described in
 Section 2: GROMACS [@abraham2015] and LAMMPS [@thompson2022] for the trajectory
 and job-script formats, PLUMED [@tribello2014] for collective-variable output,
 MDAnalysis [@michaud-agrawal2011mdanalysis] as the reference framework for
 trajectory analysis, 3Dmol.js [@rego2015], whose atom-selection syntax the
-`selection` module mirrors, SciPy [@virtanen2020] and NumPy [@harris2020] as the
-validation references for the numerics, and the primary statistical literature
-[@welch1947; @dagostino1973; @brown1974; @holm1979; @iglewicz1993; @grubbs1969]
-for the implemented tests. Conversion factors follow CODATA 2018
+`selection` module mirrors, SciPy [@virtanen2020], NumPy [@harris2020] and
+statsmodels [@seabold2010] as the validation references for the numerics, and
+the primary statistical literature [@welch1947; @welch1951; @spearman1904;
+@kruskal1952; @tukey1949; @kramer1956; @games1976; @dunn1964; @dagostino1973;
+@brown1974; @holm1979; @iglewicz1993; @grubbs1969; @bonett2000] for the
+implemented tests. Conversion factors follow CODATA 2018
 [@tiesinga2021], and the numerical treatment of tail probabilities follows
 standard practice for the incomplete beta and gamma functions [@press2007].
 
@@ -184,7 +191,7 @@ enumerates the modules.
 ┌───────────────────────────────┐   ┌───────────────────────────────┐
 │        Browser host           │   │         Node.js host          │
 │  21 static HTML/CSS pages     │   │  user analysis scripts        │
-│  DOM wiring only;             │   │  1128-test Jest suite;        │
+│  DOM wiring only;             │   │  1208-test Jest suite;        │
 │  FileReader input             │   │  smoke test                   │
 │  UMD bundles via <script>     │   │  UMD bundles: createRequire   │
 └───────────────┬───────────────┘   └───────────────┬───────────────┘
@@ -218,9 +225,9 @@ injection; modules marked *none* operate without any third-party code.
 
 | Module | Domain | Tests | Dependency |
 | --- | --- | ---: | --- |
+| `statistics` | Inferential and descriptive statistics | 164 | jStat |
 | `bibtex` | Reference deduplication, sanitising | 102 | bibtex-parse-js |
 | `structure` | Molecular geometry, PDB/GRO/XYZ | 100 | none |
-| `statistics` | Inferential statistics | 84 | jStat |
 | `curve-fitting` | Least-squares regression | 77 | regression.js |
 | `xvg-parser` | GROMACS/PLUMED trajectory data | 77 | none |
 | `units` | Physical unit conversion | 73 | none |
@@ -235,7 +242,7 @@ injection; modules marked *none* operate without any third-party code.
 | `scheduler` | Scheduler directives and launchers | 51 | none |
 | `digitizer` | Figure digitisation | 49 | none |
 | `iso4` | ISO 4 word-level abbreviation (LTWA) | 44 | none |
-| **Total** | | **1128** | |
+| **Total** | | **1208** | |
 
 Four third-party libraries are vendored within the repository: jStat for
 statistical distributions, Papa Parse for delimited-text parsing, regression.js
@@ -263,14 +270,16 @@ under that interpretation the UMD factory takes its browser branch and fails.
 Scoping `"type": "commonjs"` to the dependency directory alone restores correct
 behaviour.
 
-The test suite comprises 1128 tests across the 17 domain modules, with 94.1%
-statement and 97.6% line coverage of `src/core/`. Its governing
+The test suite comprises 1208 tests across the 17 domain modules, with 94.5%
+statement and 97.9% line coverage of `src/core/`. Its governing
 principle is that numerical results are validated against *independent*
 references rather than against the implementation under test, since a test
 written from the same source as the code confirms only internal consistency.
 Reference values were obtained from SciPy [@virtanen2020] for t-tests, ANOVA,
-correlation, non-parametric tests, quantiles and multiple-comparison correction;
-from NumPy [@harris2020] for regression coefficients and descriptive statistics;
+post-hoc comparisons, correlation, non-parametric tests, quantiles and the
+studentised range distribution; from statsmodels [@seabold2010] for Welch's
+ANOVA and multiple-comparison correction; from NumPy [@harris2020] for
+regression coefficients and descriptive statistics;
 from `scipy.constants` for every unit conversion factor; and from physical invariants for structural geometry, specifically the
 molecular weight and
 centre of mass of water, the orthonormality of rotation matrices, the
@@ -293,23 +302,23 @@ aids and are excluded.
 | Tool | Module(s) | Purpose |
 | --- | --- | --- |
 | XVG visualiser | `xvg-parser` | Plot GROMACS/PLUMED series with recovered axis metadata |
-| Structure inspector | `structure`, `selection` | Geometry, mass breakdown, atom selection, 3D view |
+| Structure inspector | `structure`, `selection` | Geometry, mass breakdown, atom selection and search by residue or species, simulation box, 3D view |
 | Coordinate manipulator | `structure` | Translate, rotate, re-box; PDB/GRO/XYZ interconversion |
 | MD workflow generator | `slurm`, `scheduler`, `plumed` | Batch scripts for GROMACS and LAMMPS on four schedulers; PLUMED input |
-| Statistics calculator | `statistics` | t-tests, ANOVA, correlation, non-parametric tests, assumption checks |
+| Statistics calculator | `statistics` | t-tests, one-way and Welch ANOVA with post-hoc comparisons, correlation, non-parametric tests, assumption checks, test recommendation |
 | Error-bar generator | `error-bars` | Group summaries, error bars, significance annotation |
 | Outlier detector | `outliers` | Tukey fences, modified $Z$-score, Grubbs' test |
 | Curve fitter | `curve-fitting` | Least-squares fits with model-adequacy warnings |
 | Plot digitiser | `digitizer` | Pixel-to-data recovery with log-axis and uncertainty handling |
-| Plot builder | `statistics` | Publication figures with matplotlib script export |
+| Plot builder | `statistics` | Publication figures at a set print size and resolution, with matplotlib script export |
 | Data cleaner | `data-cleaning` | Delimited-text repair, type inference, reshaping |
 | Scientific converter | `units` | 64 units in ten categories, CODATA-sourced |
 | BibTeX sanitiser | `bibtex` | Field normalisation and escaping |
 | BibTeX deduplicator | `bibtex` | Union-find over normalised DOIs and titles |
 | DOI to BibTeX | `bibtex` | Crossref lookup with field filtering |
 | Journal abbreviator | `journals`, `iso4` | Whole-title dictionary, then ISO 4 word-level fallback |
-| LaTeX table builder | `latex` | LaTeX and Markdown tables with correct escaping |
-| Equation editor | `latex` | Formula entry and LaTeX output |
+| Visual LaTeX tables | `latex` | LaTeX and Markdown tables with correct escaping |
+| Equation formatter | `latex` | Formula entry and LaTeX output |
 
 
 #### 2.2.1 Trajectory and collective-variable data
@@ -379,28 +388,44 @@ preserves the kinetic state.
 
 #### 2.2.3 Statistics, outliers and curve fitting
 
-The `statistics` module implements Welch's [@welch1947] and Student's t-tests,
-the paired t-test, one-way ANOVA, Pearson correlation, the Mann–Whitney $U$ test
-and the Wilcoxon signed-rank test. Welch's test is the default for independent
-samples, as it does not assume equal variances and loses negligible power when
-they are in fact equal. Every parametric test reports an effect size and, where
+The `statistics` module implements the one-sample, paired, Welch's
+[@welch1947] and Student's t-tests, one-way ANOVA and Welch's ANOVA
+[@welch1951], Pearson and Spearman [@spearman1904] correlation, and the
+Mann–Whitney $U$, Wilcoxon signed-rank and Kruskal–Wallis [@kruskal1952] tests.
+Welch's test is the default for independent samples, as it does not assume equal
+variances and loses negligible power when they are in fact equal. Every parametric test reports an effect size and, where
 standard, a confidence interval. Assumptions are checked and surfaced rather
 than presumed: normality by the D'Agostino–Pearson $K^2$ omnibus test
 [@dagostino1973], and homogeneity of variance by the median-centred
 Brown–Forsythe variant of Levene's test [@brown1974], chosen for its markedly
 greater robustness to non-normality than the original mean-centred formulation.
-Where an assumption fails, a non-parametric alternative is recommended. Table 3
-maps each computed quantity to its numerical method and validation reference.
+`recommendTest` turns those checks into advice: from the design (independent,
+paired, one-sample or association) and the assumption checks it names the test
+to use and states why, and the caller decides whether to follow it. After a test
+on three or more groups, pairwise comparisons follow the same logic: Tukey's HSD
+in the Tukey–Kramer form for unequal group sizes [@tukey1949; @kramer1956] after
+ANOVA, Games–Howell [@games1976] after Welch's ANOVA, and Dunn's rank-sum test
+[@dunn1964] with the Holm adjustment [@holm1979] after Kruskal–Wallis. Every
+analysis is accompanied by per-group descriptive statistics and a plot of the
+data. Table 3 maps each computed quantity to its numerical method and validation
+reference.
 
 **Table 3.** Numerical methods and validation references.
 
 | Quantity | Method | Validated against |
 | --- | --- | --- |
 | Student / Welch $t$, $p$ | Regularised incomplete beta $I_x(a,b)$ | `scipy.stats.ttest_ind` |
+| One-sample $t$ | Regularised incomplete beta $I_x(a,b)$ | `scipy.stats.ttest_1samp` |
 | Welch–Satterthwaite $\nu$ | Closed form | SciPy, hand calculation |
 | One-way ANOVA $F$, $p$ | Sum-of-squares decomposition; $I_x$ tail | `scipy.stats.f_oneway` |
+| Welch's ANOVA $F$, $p$ | Precision-weighted means [@welch1951]; $I_x$ tail | statsmodels `anova_oneway` |
+| Tukey HSD | Studentised range, Tukey–Kramer standard errors | `scipy.stats.tukey_hsd` |
+| Games–Howell | Studentised range, per-pair Welch df | Formula, `scipy.stats.studentized_range` |
 | Pearson $r$, CI | Fisher $z$ transform | `scipy.stats.pearsonr` |
+| Spearman $\rho$, CI | Pearson on average ranks; Bonett–Wright interval [@bonett2000] | `scipy.stats.spearmanr` |
 | Mann–Whitney $U$ | Tie-corrected normal approximation | `scipy.stats.mannwhitneyu` |
+| Kruskal–Wallis $H$ | Tie-corrected; $\chi^2$ tail | `scipy.stats.kruskal` |
+| Dunn's test | Rank-sum $z$, Holm adjustment | Formula, statsmodels `multipletests` |
 | Wilcoxon $W$ | Signed-rank, zeros discarded | `scipy.stats.wilcoxon` |
 | D'Agostino–Pearson $K^2$ | $\sqrt{b_1}$ [@dagostino1970] and $b_2$ [@anscombe1983] transforms | `scipy.stats.normaltest` |
 | Levene $W$ | Brown–Forsythe (median-centred) | `scipy.stats.levene` |
@@ -426,7 +451,9 @@ $$
 reproducing `scipy.stats.f.sf` to full double precision. A continuous test statistic cannot
 produce $p = 0$, so that value in published output indicates a numerical fault
 rather than an unusually strong effect. The same treatment is applied to the
-Student $t$, $\chi^2$ and normal tails. Beyond $|z| = 8$ the vendored `erfc`
+Student $t$, $\chi^2$ and normal tails; for $\chi^2$ the upper incomplete gamma
+function is evaluated directly, by its continued fraction [@press2007], wherever
+the subtraction would cancel. Beyond $|z| = 8$ the vendored `erfc`
 underflows and a documented asymptotic expansion takes over, accurate to
 $3.5 \times 10^{-6}$ relative at the switchover and $1.6 \times 10^{-10}$ by
 $z = 30$; at $z = 38$ it returns $5.8 \times 10^{-316}$, where
@@ -629,34 +656,34 @@ import { parseStructure, centreOfMass, radiusOfGyration, convert }
   from '@stemkit/core';
 
 const frame = parseStructure(readFileSync('final.gro', 'utf8'), 'gro');
-const com = centreOfMass(frame.atoms);          // nm, mass-weighted
-const rg  = radiusOfGyration(frame.atoms, com); // nm
+const com = centreOfMass(frame.atoms);   // {x, y, z} in nm, and the total mass
+const rg  = radiusOfGyration(frame.atoms); // nm, mass-weighted about the COM
 
-console.log(`Rg = ${convert(rg, 'nm', 'angstrom').toFixed(2)} A`);
+console.log(`Rg = ${convert(rg, 'length', 'nm', 'angstrom').toFixed(2)} A`);
 ```
 
 **Listing 3.** Geometry of the final frame, with an explicit unit conversion.
 
-Listing 4 compares two sets of replicate measurements. The returned object
-carries the assumption checks alongside the test result, so a violated
-assumption is visible at the point of use rather than discovered later; here a
-failed normality check redirects the comparison to Mann–Whitney.
+Listing 4 compares two sets of replicate measurements. `recommendTest` runs the
+assumption checks before any test and names the one they point to, with its
+reason, so a violated assumption is visible at the point of use rather than
+discovered later; here a failed normality check in one group points to
+Mann–Whitney. The recommendation is advice, and the caller runs the test.
 
 ```javascript
-import { welchTest, mannWhitneyU } from '@stemkit/core';
+import { recommendTest, independentTTest, mannWhitneyU } from '@stemkit/core';
 
-const r = welchTest(wildType, mutant);
-// r.p, r.effectSize (Hedges' g), r.ci, r.assumptions
+const advice = recommendTest({ design: 'independent',
+                               groups: [wildType, mutant],
+                               names: ['wild type', 'mutant'] });
+console.log(advice.reason);   // why this test, e.g. which group is not normal
 
-if (!r.assumptions.normality.passed) {
-  console.warn(r.assumptions.normality.recommendation);
-  console.log(mannWhitneyU(wildType, mutant));
-} else {
-  console.log(`Welch t(${r.df.toFixed(1)}) = ${r.t.toFixed(3)}, p = ${r.p}`);
-}
+const r = advice.test === 'mann-whitney'
+  ? mannWhitneyU(wildType, mutant)        // r.U, r.p, r.rankBiserial
+  : independentTTest(wildType, mutant);   // Welch: r.t, r.df, r.p, r.g, r.ci
 ```
 
-**Listing 4.** A replicate comparison with the assumption checks surfaced.
+**Listing 4.** A replicate comparison guided by the assumption checks.
 
 Finally, Listing 5 generates the submission script for the continuation run. The
 engine argument selects the GROMACS resource shape (one rank per node, many CPUs per task) and
@@ -680,8 +707,8 @@ warnings.forEach(w => console.warn(`[${w.level}] ${w.message}`));
 **Listing 5.** Generating a GROMACS submission script with resource warnings.
 
 The same four steps through the browser produce identical numbers, since they
-call the same functions. Where a step produces a figure, the tool also emits a
-matplotlib script that regenerates it from the original data.
+call the same functions. The plotting steps also emit a matplotlib script that
+regenerates the figure from the original data.
 
 ## 4. Impact
 
@@ -696,8 +723,8 @@ first explored by clicking can be captured as a script, version-pinned and
 placed under continuous integration without being rewritten in another language, which is the step at which
 reproducibility is most often lost. The emitted matplotlib
 scripts close the same loop for figures. Independently of that, the validation
-strategy raises the floor: every reported statistic is checked against SciPy or
-NumPy rather than against the author's own expectations, and the test suite is
+strategy raises the floor: every reported statistic is checked against SciPy,
+NumPy or statsmodels rather than against the author's own expectations, and the test suite is
 intended to be run by users evaluating the software, not solely by its
 maintainer, since a library whose numerical claims cannot be checked by its
 users offers reproducibility only in principle.
@@ -749,7 +776,7 @@ in pairs: it requires no installation, transmits no data and remains scriptable.
 
 Both properties are structural rather than contractual: computation occurs
 entirely within the browser, and the modules behind the interface are the ones
-that run under Node.js. The 1128-test suite validates every numerical result
+that run under Node.js. The 1208-test suite validates every numerical result
 against an independent reference, and the four defects that this
 strategy exposed (deflated standardised moments, tail probabilities floored at
 zero, misassigned elements in metalloproteins, and an adjusted moment fed into a
@@ -760,12 +787,14 @@ fits with a Levenberg–Marquardt implementation on untransformed data.
 
 ## Declaration of generative AI use
 
-Claude (Anthropic) was used in preparing this manuscript: restructuring an
+Claude (Anthropic) was used in preparing this manuscript (restructuring an
 earlier draft into the present template, correcting reported figures against the
-test suite, drafting and revising prose, and reviewing the numerical claims. The
-software itself, the numerical methods, and the verification of every figure and
-statement reported here are the author's own. The tool is not an author and bears
-no responsibility for the content.
+test suite, drafting and revising prose, and reviewing the numerical claims) and
+in developing the software, including the browser interface and several of the
+statistical routines added in version 0.2.0. Every numerical routine is validated
+against an independent reference as described in Section 2.1. The author takes
+full responsibility for the software and for the content of this manuscript. The
+tool is not an author and bears no responsibility for the content.
 
 ## Acknowledgements
 

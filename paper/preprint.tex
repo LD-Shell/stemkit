@@ -116,11 +116,11 @@ scientific data analysis}
 STEMKit is a suite of 18 browser-based tools for computational chemistry and
 scientific data analysis, built on \texttt{@stemkit/core}, a JavaScript library
 of parsing and numerical routines with no DOM dependency. All computation runs
-inside the user's own browser: nothing is transmitted, no account is required
-and nothing is installed, so the tools stay usable for unpublished or
+inside the user's own browser: the data analysed never leaves it, no account is
+required and nothing is installed, so the tools stay usable for unpublished or
 confidential data. The same modules run under Node.js, so an interactive
 analysis can be captured as a version-pinned script. The 17 domain modules carry
-1128 tests validated against SciPy, NumPy
+1208 tests validated against SciPy, NumPy, statsmodels
 and physical invariants rather than against the implementation itself. That
 validation exposed four defects that had been altering reported results, among
 them $p$-values floored at zero and the mass of haem iron taken as fluorine's.
@@ -148,21 +148,19 @@ Computational chemistry \sep Molecular dynamics \sep Client-side computation
 \hline
 \textbf{Nr.} & \textbf{Code metadata description} & \textbf{Metadata} \\
 \hline
-C1 & Current code version & v0.1.1 \\
+C1 & Current code version & v0.2.0 \\
 \hline
 C2 & Permanent link to code/repository used for this code version &
 \url{https://github.com/LD-Shell/stemkit} \newline
-Archived release \texttt{v0.1.1}:
-\url{https://doi.org/10.5281/zenodo.21544868} (the concept DOI
-\texttt{10.5281/zenodo.21543112} resolves to the current release) \\
+Archived on Zenodo under the concept DOI \texttt{10.5281/zenodo.21543112},
+which resolves to the current release \\
 \hline
 C3 & Legal code license & MIT License \\
 \hline
 C4 & Code versioning system used & git \\
 \hline
 C5 & Software code languages, tools and services used & JavaScript
-(ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS; GitHub
-Actions \\
+(ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS \\
 \hline
 C6 & Compilation requirements, operating environments and dependencies &
 Browser tools: any current browser supporting ECMAScript modules and the
@@ -243,7 +241,11 @@ instead of accumulating scripts.
 
 STEMKit is built around these constraints. No server participates in the
 computation, so there is nothing to which data could be transmitted and users
-are not asked to take a privacy policy on trust. Every asset is vendored in the
+are not asked to take a privacy policy on trust. Two features make a network
+request, and only when asked to: the DOI lookup sends the DOIs entered to
+doi.org to retrieve their bibliographic records, and the structure inspector
+can fetch an entry from the Protein Data Bank by its four-character identifier.
+Neither sends a file or a result. Every asset is vendored in the
 repository: there is no content-delivery network, no analytics and no telemetry,
 so not even a request log is generated elsewhere, and a local clone runs with the
 network disconnected. The reproducibility property
@@ -258,20 +260,20 @@ user opens a tool page at \url{https://stemkit.net} (or a local clone), selects
 a local file and reads the result in the page; the file is read through
 \texttt{FileReader} and never uploaded. Programmatically, the same routines are
 imported from \texttt{@stemkit/core} in a Node.js script, the path taken once an
-analysis is to be fixed, version-pinned and re-run. Every tool that
-produces a figure additionally emits a standalone matplotlib script that
-regenerates that figure from the original data file, so an interactive result
-can be reproduced offline without the browser.
+analysis is to be fixed, version-pinned and re-run. The four plotting tools
+(the XVG visualiser, plot builder, curve fitter and plot digitiser)
+additionally emit a standalone matplotlib script that regenerates the figure
+from the original data file, so an interactive result can be reproduced offline
+without the browser.
 
 Related work is cited where the corresponding functionality is described in
 Section~\ref{sec:description}: GROMACS~\cite{abraham2015},
 LAMMPS~\cite{thompson2022} and PLUMED~\cite{tribello2014} for the file formats,
 MDAnalysis~\cite{michaud-agrawal2011mdanalysis} as the reference framework,
 3Dmol.js~\cite{rego2015}, whose atom-selection syntax the \texttt{selection}
-module mirrors, SciPy~\cite{virtanen2020} and NumPy~\cite{harris2020} for
-validation, the
-primary statistical
-literature~\cite{welch1947,dagostino1973,brown1974,holm1979,iglewicz1993,grubbs1969}
+module mirrors, SciPy~\cite{virtanen2020}, NumPy~\cite{harris2020} and
+statsmodels~\cite{seabold2010} for validation, the primary statistical
+literature~\cite{welch1947,welch1951,spearman1904,kruskal1952,tukey1949,kramer1956,games1976,dunn1964,dagostino1973,brown1974,holm1979,iglewicz1993,grubbs1969,bonett2000}
 for the implemented tests, CODATA 2018~\cite{tiesinga2021} for conversion
 factors, and standard practice for the incomplete beta and gamma
 functions~\cite{press2007}.
@@ -321,7 +323,7 @@ resulting layering and Table~\ref{tab:modules} enumerates the modules.
   \footnotesize UMD bundles via \texttt{<script>}};
 \node[box, right=of browser] (node) {\textbf{Node.js host}\\[1pt]
   \footnotesize analysis scripts, CI\\
-  \footnotesize 1128-test Jest suite; smoke test\\
+  \footnotesize 1208-test Jest suite; smoke test\\
   \footnotesize UMD bundles via \texttt{createRequire}};
 
 \node[wide, below=of $(browser.south)!0.5!(node.south)$, yshift=-1mm] (core)
@@ -358,9 +360,9 @@ by injection; modules marked \emph{none} operate without any third-party code.}
 \toprule
 \textbf{Module} & \textbf{Domain} & \textbf{Tests} & \textbf{Dependency} \\
 \midrule
+\texttt{statistics} & Inferential and descriptive statistics & 164 & jStat \\
 \texttt{bibtex} & Reference deduplication, sanitising & 102 & bibtex-parse-js \\
 \texttt{structure} & Molecular geometry, PDB/GRO/XYZ & 100 & none \\
-\texttt{statistics} & Inferential statistics & 84 & jStat \\
 \texttt{curve-fitting} & Least-squares regression & 77 & regression.js \\
 \texttt{xvg-parser} & GROMACS/PLUMED trajectory data & 77 & none \\
 \texttt{units} & Physical unit conversion & 73 & none \\
@@ -376,7 +378,7 @@ by injection; modules marked \emph{none} operate without any third-party code.}
 \texttt{digitizer} & Figure digitisation & 49 & none \\
 \texttt{iso4} & ISO 4 word-level abbreviation (LTWA) & 44 & none \\
 \midrule
-\textbf{Total} & & \textbf{1128} & \\
+\textbf{Total} & & \textbf{1208} & \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -400,14 +402,15 @@ been registered.
 
 
 
-The test suite comprises 1128 tests across the 17 domain modules, with 94.1\%
-statement and 97.6\% line coverage of \texttt{src/core/}. Its governing
+The test suite comprises 1208 tests across the 17 domain modules, with 94.5\%
+statement and 97.9\% line coverage of \texttt{src/core/}. Its governing
 principle is that numerical results are validated against \emph{independent}
 references rather than against the implementation under test, since a test
 written from the same source as the code confirms only internal consistency.
 Reference values were obtained from SciPy~\cite{virtanen2020} for t-tests,
-ANOVA, correlation, non-parametric tests, quantiles and multiple-comparison
-correction; from NumPy~\cite{harris2020} for regression coefficients and
+ANOVA, post-hoc comparisons, correlation, non-parametric tests, quantiles and
+the studentised range distribution; from statsmodels~\cite{seabold2010} for
+Welch's ANOVA and multiple-comparison correction; from NumPy~\cite{harris2020} for regression coefficients and
 descriptive statistics; from \texttt{scipy.constants} for every unit conversion
 factor; and from physical invariants for structural geometry, specifically
 the molecular weight and centre of mass of water, the orthonormality of
@@ -437,23 +440,23 @@ are excluded.}
 \textbf{Tool} & \textbf{Module(s)} & \textbf{Purpose} \\
 \midrule
 XVG visualiser & \texttt{xvg-parser} & Plot GROMACS/PLUMED series with recovered axis metadata \\
-Structure inspector & \texttt{structure}, \texttt{selection} & Geometry, mass breakdown, atom selection, 3D view \\
+Structure inspector & \texttt{structure}, \texttt{selection} & Geometry, mass breakdown, atom selection and search by residue or species, simulation box, 3D view \\
 Coordinate manipulator & \texttt{structure} & Translate, rotate, re-box; PDB/GRO/XYZ interconversion \\
 MD workflow generator & \texttt{slurm}, \texttt{scheduler}, \texttt{plumed} & Batch scripts for GROMACS and LAMMPS on four schedulers; PLUMED input \\
-Statistics calculator & \texttt{statistics} & t-tests, ANOVA, correlation, non-parametric tests, assumption checks \\
+Statistics calculator & \texttt{statistics} & t-tests, one-way and Welch ANOVA with post-hoc comparisons, correlation, non-parametric tests, assumption checks, test recommendation \\
 Error-bar generator & \texttt{error-bars} & Group summaries, error bars, significance annotation \\
 Outlier detector & \texttt{outliers} & Tukey fences, modified $Z$-score, Grubbs' test \\
 Curve fitter & \texttt{curve-fitting} & Least-squares fits with model-adequacy warnings \\
 Plot digitiser & \texttt{digitizer} & Pixel-to-data recovery with log-axis and uncertainty handling \\
-Plot builder & \texttt{statistics} & Publication figures with matplotlib script export \\
+Plot builder & \texttt{statistics} & Publication figures at a set print size and resolution, with matplotlib script export \\
 Data cleaner & \texttt{data-cleaning} & Delimited-text repair, type inference, reshaping \\
 Scientific converter & \texttt{units} & 64 units in ten categories, CODATA-sourced \\
 BibTeX sanitiser & \texttt{bibtex} & Field normalisation and escaping \\
 BibTeX deduplicator & \texttt{bibtex} & Union-find over normalised DOIs and titles \\
 DOI to BibTeX & \texttt{bibtex} & Crossref lookup with field filtering \\
 Journal abbreviator & \texttt{journals}, \texttt{iso4} & Whole-title dictionary, then ISO 4 word-level fallback \\
-LaTeX table builder & \texttt{latex} & LaTeX and Markdown tables with correct escaping \\
-Equation editor & \texttt{latex} & Formula entry and LaTeX output \\
+Visual LaTeX tables & \texttt{latex} & LaTeX and Markdown tables with correct escaping \\
+Equation formatter & \texttt{latex} & Formula entry and LaTeX output \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -528,17 +531,28 @@ export preserves the kinetic state.
 
 \subsubsection{Statistics, outliers and curve fitting}
 
-The \texttt{statistics} module implements Welch's~\cite{welch1947} and Student's
-t-tests, the paired t-test, one-way ANOVA, Pearson correlation, the
-Mann--Whitney $U$ test and the Wilcoxon signed-rank test. Welch's test is the
+The \texttt{statistics} module implements the one-sample, paired,
+Welch's~\cite{welch1947} and Student's t-tests, one-way ANOVA and Welch's
+ANOVA~\cite{welch1951}, Pearson and Spearman~\cite{spearman1904} correlation,
+and the Mann--Whitney $U$, Wilcoxon signed-rank and
+Kruskal--Wallis~\cite{kruskal1952} tests. Welch's test is the
 default for independent samples, as it does not assume equal variances and loses
 negligible power when they are in fact equal. Every parametric test reports an
 effect size and, where standard, a confidence interval. Assumptions are checked and surfaced rather than presumed: normality by the
 D'Agostino--Pearson $K^2$ omnibus test~\cite{dagostino1973}, homogeneity of
 variance by the median-centred Brown--Forsythe variant of Levene's
-test~\cite{brown1974}, chosen for its greater robustness to non-normality. Where
-an assumption fails, a non-parametric alternative is recommended. Table~\ref{tab:methods} maps each computed quantity
-to its numerical method and validation reference.
+test~\cite{brown1974}, chosen for its greater robustness to non-normality.
+\texttt{recommendTest} turns those checks into advice: from the design
+(independent, paired, one-sample or association) and the assumption checks it
+names the test to use and states why, and the caller decides whether to follow
+it. After a test on three or more groups, pairwise comparisons follow the same
+logic: Tukey's HSD in the Tukey--Kramer form for unequal group
+sizes~\cite{tukey1949,kramer1956} after ANOVA, Games--Howell~\cite{games1976}
+after Welch's ANOVA, and Dunn's rank-sum test~\cite{dunn1964} with the Holm
+adjustment~\cite{holm1979} after Kruskal--Wallis. Every analysis is accompanied
+by per-group descriptive statistics and a plot of the data.
+Table~\ref{tab:methods} maps each computed quantity to its numerical method and
+validation reference.
 
 \begin{table}[htbp]
 \centering
@@ -552,18 +566,39 @@ to its numerical method and validation reference.
 Student / Welch $t$, $p$ &
   Regularised incomplete beta $I_x(a,b)$ &
   \texttt{scipy.stats.ttest\_ind} \\
+One-sample $t$ &
+  Regularised incomplete beta $I_x(a,b)$ &
+  \texttt{scipy.stats.ttest\_1samp} \\
 Welch--Satterthwaite $\nu$ &
   Closed form &
   SciPy, hand calculation \\
 One-way ANOVA $F$, $p$ &
   Sum-of-squares decomposition; $I_x$ tail &
   \texttt{scipy.stats.f\_oneway} \\
+Welch's ANOVA $F$, $p$ &
+  Precision-weighted means~\cite{welch1951}; $I_x$ tail &
+  statsmodels \texttt{anova\_oneway} \\
+Tukey HSD &
+  Studentised range, Tukey--Kramer standard errors &
+  \texttt{scipy.stats.tukey\_hsd} \\
+Games--Howell &
+  Studentised range, per-pair Welch df &
+  Formula, \texttt{scipy.stats.\allowbreak{}studentized\_range} \\
 Pearson $r$, CI &
   Fisher $z$ transform &
   \texttt{scipy.stats.pearsonr} \\
+Spearman $\rho$, CI &
+  Pearson on average ranks; Bonett--Wright interval~\cite{bonett2000} &
+  \texttt{scipy.stats.spearmanr} \\
 Mann--Whitney $U$ &
   Tie-corrected normal approximation &
   \texttt{scipy.stats.\allowbreak{}mannwhitneyu} \\
+Kruskal--Wallis $H$ &
+  Tie-corrected; $\chi^2$ tail &
+  \texttt{scipy.stats.kruskal} \\
+Dunn's test &
+  Rank-sum $z$, Holm adjustment &
+  Formula, statsmodels \texttt{multipletests} \\
 Wilcoxon $W$ &
   Signed-rank, zeros discarded &
   \texttt{scipy.stats.wilcoxon} \\
@@ -607,7 +642,9 @@ naive form returns $p = 0$, whereas
 reproducing \texttt{scipy.stats.f.sf} to full double precision. A continuous test statistic cannot
 produce $p = 0$, so that value in published output indicates a numerical fault
 rather than an unusually strong effect. The same treatment is applied to the
-Student $t$, $\chi^2$ and normal tails. Beyond $|z| = 8$ the vendored
+Student $t$, $\chi^2$ and normal tails; for $\chi^2$ the upper incomplete gamma
+function is evaluated directly, by its continued fraction~\cite{press2007},
+wherever the subtraction would cancel. Beyond $|z| = 8$ the vendored
 \texttt{erfc} underflows and a documented asymptotic expansion takes over,
 accurate to \num{3.5e-6} relative at the switchover and \num{1.6e-10} by
 $z = 30$; at $z = 38$ it returns \num{5.8e-316}, where
@@ -808,30 +845,31 @@ import { parseStructure, centreOfMass, radiusOfGyration, convert }
   from '@stemkit/core';
 
 const frame = parseStructure(readFileSync('final.gro', 'utf8'), 'gro');
-const com = centreOfMass(frame.atoms);          // nm, mass-weighted
-const rg  = radiusOfGyration(frame.atoms, com); // nm
+const com = centreOfMass(frame.atoms);   // {x, y, z} in nm, and the total mass
+const rg  = radiusOfGyration(frame.atoms); // nm, mass-weighted about the COM
 
-console.log(`Rg = ${convert(rg, 'nm', 'angstrom').toFixed(2)} A`);
+console.log(`Rg = ${convert(rg, 'length', 'nm', 'angstrom').toFixed(2)} A`);
 \end{lstlisting}
 
-Listing~\ref{lst:stats} compares two sets of replicate measurements. The
-returned object carries the assumption checks alongside the test result, so a
-violated assumption is visible at the point of use rather than discovered later;
-here a failed normality check redirects the comparison to Mann--Whitney.
+Listing~\ref{lst:stats} compares two sets of replicate measurements.
+\texttt{recommendTest} runs the assumption checks before any test and names
+the one they point to, with its reason, so a violated assumption is visible at
+the point of use rather than discovered later; here a failed normality check in
+one group points to Mann--Whitney. The recommendation is advice, and the caller
+runs the test.
 
-\begin{lstlisting}[caption={A replicate comparison with the assumption checks
-surfaced.},label={lst:stats}]
-import { welchTest, mannWhitneyU } from '@stemkit/core';
+\begin{lstlisting}[caption={A replicate comparison guided by the assumption
+checks.},label={lst:stats}]
+import { recommendTest, independentTTest, mannWhitneyU } from '@stemkit/core';
 
-const r = welchTest(wildType, mutant);
-// r.p, r.effectSize (Hedges' g), r.ci, r.assumptions
+const advice = recommendTest({ design: 'independent',
+                               groups: [wildType, mutant],
+                               names: ['wild type', 'mutant'] });
+console.log(advice.reason);   // why this test, e.g. which group is not normal
 
-if (!r.assumptions.normality.passed) {
-  console.warn(r.assumptions.normality.recommendation);
-  console.log(mannWhitneyU(wildType, mutant));
-} else {
-  console.log(`Welch t(${r.df.toFixed(1)}) = ${r.t.toFixed(3)}, p = ${r.p}`);
-}
+const r = advice.test === 'mann-whitney'
+  ? mannWhitneyU(wildType, mutant)        // r.U, r.p, r.rankBiserial
+  : independentTTest(wildType, mutant);   // Welch: r.t, r.df, r.p, r.g, r.ci
 \end{lstlisting}
 
 Finally, Listing~\ref{lst:slurm} generates the submission script for the
@@ -856,8 +894,8 @@ warnings.forEach(w => console.warn(`[${w.level}] ${w.message}`));
 \end{lstlisting}
 
 The same four steps through the browser produce identical numbers, since they
-call the same functions. Where a step produces a figure, the tool also emits a
-matplotlib script that regenerates it from the original data.
+call the same functions. The plotting steps also emit a matplotlib script that
+regenerates the figure from the original data.
 
 % ---------------------------------------------------------------------------
 \section{Impact}
@@ -872,7 +910,7 @@ in the reliability of the numbers. An analysis first explored by clicking can be
 captured as a script and version-pinned without being rewritten in another
 language, which is the step at which reproducibility is most often lost, and the
 emitted matplotlib scripts close the same loop for figures. Every reported
-statistic is checked against SciPy or NumPy rather than against the author's own
+statistic is checked against SciPy, NumPy or statsmodels rather than against the author's own
 expectations, and the suite is meant to be run by users evaluating the software:
 a library whose numerical claims cannot be checked offers reproducibility only in
 principle.
@@ -922,7 +960,7 @@ in pairs: it requires no installation, transmits no data and remains scriptable.
 
 Both properties are structural rather than contractual: computation occurs
 entirely within the browser, and the modules behind the interface are the ones
-that run under Node.js. The 1128-test suite validates every numerical result
+that run under Node.js. The 1208-test suite validates every numerical result
 against an independent reference, and the four defects that this strategy
 exposed (deflated standardised moments, tail probabilities floored
 at zero, misassigned elements in metalloproteins, and an adjusted moment fed
@@ -934,12 +972,15 @@ fits with a Levenberg--Marquardt implementation on untransformed data.
 % ---------------------------------------------------------------------------
 \section*{Declaration of generative AI use}
 
-Claude (Anthropic) was used in preparing this manuscript: restructuring an
+Claude (Anthropic) was used in preparing this manuscript (restructuring an
 earlier draft into the present template, correcting reported figures against the
-test suite, drafting and revising prose, and reviewing the numerical claims. The
-software itself, the numerical methods, and the verification of every figure and
-statement reported here are the author's own. The tool is not an author and bears
-no responsibility for the content.
+test suite, drafting and revising prose, and reviewing the numerical claims) and
+in developing the software, including the browser interface and several of the
+statistical routines added in version 0.2.0. Every numerical routine is validated
+against an independent reference as described in Section~\ref{sec:architecture}.
+The author takes full responsibility for the software and for the content of
+this manuscript. The tool is not an author and bears no responsibility for the
+content.
 
 \section*{Acknowledgements}
 
@@ -975,18 +1016,24 @@ R.~Shan, M.~J. Stevens, J.~Tranchida, C.~Trott, and S.~J. Plimpton,
 \newblock \emph{Comput. Phys. Commun.} \textbf{271}, 108171 (2022).
 \newblock \url{https://doi.org/10.1016/j.cpc.2021.108171}
 
-\bibitem{tribello2014}
-G.~A. Tribello, M.~Bonomi, D.~Branduardi, C.~Camilloni, and G.~Bussi,
-\newblock PLUMED 2: New feathers for an old bird,
-\newblock \emph{Comput. Phys. Commun.} \textbf{185}(2), 604--613 (2014).
-\newblock \url{https://doi.org/10.1016/j.cpc.2013.09.018}
-
 \bibitem{michaud-agrawal2011mdanalysis}
 N.~Michaud-Agrawal, E.~J. Denning, T.~B. Woolf, and O.~Beckstein,
 \newblock MDAnalysis: A toolkit for the analysis of molecular dynamics
   simulations,
 \newblock \emph{J. Comput. Chem.} \textbf{32}(10), 2319--2327 (2011).
 \newblock \url{https://doi.org/10.1002/jcc.21787}
+
+\bibitem{tribello2014}
+G.~A. Tribello, M.~Bonomi, D.~Branduardi, C.~Camilloni, and G.~Bussi,
+\newblock PLUMED 2: New feathers for an old bird,
+\newblock \emph{Comput. Phys. Commun.} \textbf{185}(2), 604--613 (2014).
+\newblock \url{https://doi.org/10.1016/j.cpc.2013.09.018}
+
+\bibitem{rego2015}
+N.~Rego and D.~Koes,
+\newblock 3Dmol.js: molecular visualization with WebGL,
+\newblock \emph{Bioinformatics} \textbf{31}(8), 1322--1324 (2015).
+\newblock \url{https://doi.org/10.1093/bioinformatics/btu829}
 
 \bibitem{virtanen2020}
 P.~Virtanen, R.~Gommers, T.~E. Oliphant, M.~Haberland, T.~Reddy,
@@ -1002,11 +1049,12 @@ D.~Cournapeau, \emph{et al.},
 \newblock \emph{Nature} \textbf{585}(7825), 357--362 (2020).
 \newblock \url{https://doi.org/10.1038/s41586-020-2649-2}
 
-\bibitem{tiesinga2021}
-E.~Tiesinga, P.~J. Mohr, D.~B. Newell, and B.~N. Taylor,
-\newblock CODATA recommended values of the fundamental physical constants: 2018,
-\newblock \emph{Rev. Mod. Phys.} \textbf{93}(2), 025010 (2021).
-\newblock \url{https://doi.org/10.1103/RevModPhys.93.025010}
+\bibitem{seabold2010}
+S.~Seabold and J.~Perktold,
+\newblock Statsmodels: econometric and statistical modeling with Python,
+\newblock in: \emph{Proceedings of the 9th Python in Science Conference},
+  2010, pp. 92--96.
+\newblock \url{https://doi.org/10.25080/Majora-92bf1922-011}
 
 \bibitem{welch1947}
 B.~L. Welch,
@@ -1015,11 +1063,49 @@ B.~L. Welch,
 \newblock \emph{Biometrika} \textbf{34}(1--2), 28--35 (1947).
 \newblock \url{https://doi.org/10.1093/biomet/34.1-2.28}
 
-\bibitem{dagostino1970}
-R.~B. D'Agostino,
-\newblock Transformation to normality of the null distribution of $g_1$,
-\newblock \emph{Biometrika} \textbf{57}(3), 679--681 (1970).
-\newblock \url{https://doi.org/10.1093/biomet/57.3.679}
+\bibitem{welch1951}
+B.~L. Welch,
+\newblock On the comparison of several mean values: an alternative approach,
+\newblock \emph{Biometrika} \textbf{38}(3--4), 330--336 (1951).
+\newblock \url{https://doi.org/10.1093/biomet/38.3-4.330}
+
+\bibitem{spearman1904}
+C.~Spearman,
+\newblock The proof and measurement of association between two things,
+\newblock \emph{Am. J. Psychol.} \textbf{15}(1), 72--101 (1904).
+\newblock \url{https://doi.org/10.2307/1412159}
+
+\bibitem{kruskal1952}
+W.~H. Kruskal and W.~A. Wallis,
+\newblock Use of ranks in one-criterion variance analysis,
+\newblock \emph{J. Am. Stat. Assoc.} \textbf{47}(260), 583--621 (1952).
+\newblock \url{https://doi.org/10.1080/01621459.1952.10483441}
+
+\bibitem{tukey1949}
+J.~W. Tukey,
+\newblock Comparing individual means in the analysis of variance,
+\newblock \emph{Biometrics} \textbf{5}(2), 99--114 (1949).
+\newblock \url{https://doi.org/10.2307/3001913}
+
+\bibitem{kramer1956}
+C.~Y. Kramer,
+\newblock Extension of multiple range tests to group means with unequal
+  numbers of replications,
+\newblock \emph{Biometrics} \textbf{12}(3), 307--310 (1956).
+\newblock \url{https://doi.org/10.2307/3001469}
+
+\bibitem{games1976}
+P.~A. Games and J.~F. Howell,
+\newblock Pairwise multiple comparison procedures with unequal n's and/or
+  variances: a Monte Carlo study,
+\newblock \emph{J. Educ. Stat.} \textbf{1}(2), 113--125 (1976).
+\newblock \url{https://doi.org/10.3102/10769986001002113}
+
+\bibitem{dunn1964}
+O.~J. Dunn,
+\newblock Multiple comparisons using rank sums,
+\newblock \emph{Technometrics} \textbf{6}(3), 241--252 (1964).
+\newblock \url{https://doi.org/10.1080/00401706.1964.10490181}
 
 \bibitem{dagostino1973}
 R.~B. D'Agostino and E.~S. Pearson,
@@ -1027,12 +1113,6 @@ R.~B. D'Agostino and E.~S. Pearson,
   distributions of $b_2$ and $\sqrt{b_1}$,
 \newblock \emph{Biometrika} \textbf{60}(3), 613--622 (1973).
 \newblock \url{https://doi.org/10.1093/biomet/60.3.613}
-
-\bibitem{anscombe1983}
-F.~J. Anscombe and W.~J. Glynn,
-\newblock Distribution of the kurtosis statistic $b_2$ for normal samples,
-\newblock \emph{Biometrika} \textbf{70}(1), 227--234 (1983).
-\newblock \url{https://doi.org/10.1093/biomet/70.1.227}
 
 \bibitem{brown1974}
 M.~B. Brown and A.~B. Forsythe,
@@ -1056,21 +1136,40 @@ F.~E. Grubbs,
 \newblock \emph{Technometrics} \textbf{11}(1), 1--21 (1969).
 \newblock \url{https://doi.org/10.1080/00401706.1969.10490657}
 
+\bibitem{bonett2000}
+D.~G. Bonett and T.~A. Wright,
+\newblock Sample size requirements for estimating Pearson, Kendall and
+  Spearman correlations,
+\newblock \emph{Psychometrika} \textbf{65}(1), 23--28 (2000).
+\newblock \url{https://doi.org/10.1007/BF02294183}
+
+\bibitem{tiesinga2021}
+E.~Tiesinga, P.~J. Mohr, D.~B. Newell, and B.~N. Taylor,
+\newblock CODATA recommended values of the fundamental physical constants: 2018,
+\newblock \emph{Rev. Mod. Phys.} \textbf{93}(2), 025010 (2021).
+\newblock \url{https://doi.org/10.1103/RevModPhys.93.025010}
+
 \bibitem{press2007}
 W.~H. Press, S.~A. Teukolsky, W.~T. Vetterling, and B.~P. Flannery,
 \newblock \emph{Numerical Recipes: The Art of Scientific Computing},
 \newblock 3rd ed., Cambridge University Press, Cambridge (2007).
 
-\bibitem{rego2015}
-N.~Rego and D.~Koes,
-\newblock 3Dmol.js: molecular visualization with WebGL,
-\newblock \emph{Bioinformatics} \textbf{31}(8), 1322--1324 (2015).
-\newblock \url{https://doi.org/10.1093/bioinformatics/btu829}
+\bibitem{dagostino1970}
+R.~B. D'Agostino,
+\newblock Transformation to normality of the null distribution of $g_1$,
+\newblock \emph{Biometrika} \textbf{57}(3), 679--681 (1970).
+\newblock \url{https://doi.org/10.1093/biomet/57.3.679}
+
+\bibitem{anscombe1983}
+F.~J. Anscombe and W.~J. Glynn,
+\newblock Distribution of the kurtosis statistic $b_2$ for normal samples,
+\newblock \emph{Biometrika} \textbf{70}(1), 227--234 (1983).
+\newblock \url{https://doi.org/10.1093/biomet/70.1.227}
 
 \bibitem{stemkit2026}
 O.~M. Daramola,
 \newblock STEMKit: A client-side toolkit for computational chemistry and
-  scientific data analysis (v0.1.1), Zenodo (2026).
+  scientific data analysis (v0.2.0), Zenodo (2026).
 \newblock \url{https://doi.org/10.5281/zenodo.21543112}
 
 \end{thebibliography}
