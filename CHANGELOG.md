@@ -7,8 +7,89 @@ earlier version are worth re-checking.
 
 ## Unreleased
 
-No reported number changes in this release. Every tool was checked against
-the previous version for identical output on the same input.
+Four fixes below change what a tool reports; they are marked `[output]`.
+The rest is layout, controls and wording. In `@stemkit/core` the only change
+to an existing function is the chi-squared tail below; everything else there
+is new.
+
+### Fixed: numbers and figures
+
+- `[output]` **Error bar generator: statistics under the wrong headings.** Since
+  the move onto `@stemkit/core` the table printed its cells in another order
+  than its headings: the CI half-width under Median, the median under IQR, the
+  IQR under CV, the CV under Min/Max, the minimum under t\*, and t\* not at all.
+  The statistics were computed correctly; a value read off the table was
+  another statistic. Every "Customize plot" control was also dead.
+- `[output]` **Coordinate manipulator: centre readout and rotation pivot.** The
+  "Geometric centre" readout was the bounding-box midpoint, so a centred
+  structure read (0.104, -0.588, 0.002); it is now `geometricCentre`, the point
+  centring uses. The "Rotate about" choice was never read, so every rotation
+  used the default pivot; it is now honoured and named in the `gmx editconf`
+  note. Rotations about the default pivot are unchanged.
+- `[output]` **`chiSquaredUpperTail` lost the far tail.** It was
+  `1 - lowRegGamma`, so `chi2.sf(100, 5)` = 5.3e-20 came back as the 5e-324
+  floor and `chi2.sf(60, 1)` was 0.5% low. The upper incomplete gamma is now
+  evaluated by its continued fraction where the subtraction fails; matches
+  `scipy.stats.chi2.sf` to 1e-10 relative out to 8e-104. The df = 2 case the
+  normality test uses already had an exact closed form and is unchanged; the
+  new Kruskal-Wallis test was the first caller with more degrees of freedom.
+- `[output]` **Plot builder: sizes meant what they said only on screen.** "Scale
+  (DPI)" was a 1-4x multiplier and the PNG carried no resolution, so it placed
+  two to four times too large; the matplotlib script sized the figure at
+  px/100 in with fonts in points, making its text 1.39x larger than the
+  preview's, and `bbox_inches='tight'` then cropped it to another size. A
+  figure is now width x height in in, cm, mm or px at 72-600 dpi with text in
+  points, and the preview, PNG (tagged with its dpi), SVG and script produce
+  the same figure: seven configurations compared by overlay, matplotlib 3.6.3.
+
+### Added: statistics (`core/statistics`, 80 tests, suite 1208)
+
+- `descriptives`, `boxPlotStats`, `leastSquaresLine`; `oneSampleTTest`,
+  `oneSampleWilcoxon`, `spearmanCorrelation` (Bonett-Wright interval),
+  `kruskalWallis`, `welchAnova`; post-hoc `tukeyHSD`, `gamesHowell` and
+  `dunnTest` with `adjustPValues` (Holm by default) and `qUpperTail`;
+  `recommendTest`. Each is validated against SciPy 1.11.4 or statsmodels, or
+  against its formula where SciPy has none, with the call in the test.
+- The statistics calculator offers twelve tests grouped by design, a per-group
+  descriptive table (CSV, Markdown, LaTeX booktabs), a plot of the data (box
+  plots with points and mean CI, paired lines, scatter with the fitted line;
+  SVG and PNG), pairwise tables after three or more groups, and a "Which
+  test?" suggestion it never applies on its own. Data is read as it is pasted.
+
+### Changed: structure inspector, plot builder, XVG visualizer
+
+- Structure inspector: on-canvas view controls (hold-to-rotate pad and
+  trackball, zoom rail, X/Y/Z views, fit, auto-spin), Find by residue, chain,
+  atom, element or species with suggestions, stepping and "only matches", a
+  species list with one-click hide water and ions, and the simulation box from
+  GRO, PDB CRYST1, CIF and VASP drawn and labelled, toggled with `B`. `F` now
+  fits; fullscreen moved to `Shift+F`. Selection style "Hide" now hides, and
+  unbonded atoms (ions) show in stick and line styles.
+- Plot builder: the preview redraws as settings change; there is no Render
+  button. Size presets, axis limits, tick direction, frame, legend positions,
+  line styles and markers; Okabe-Ito default colours.
+- XVG visualizer: a series can go on a second y-axis, mirrored in the Python
+  export with `twinx()`; the X column is no longer offered as a series.
+
+### Changed: the site
+
+- One brand accent (Prussian blue) and a benzene logo replace indigo and
+  seven per-tool colours; favicons and the social card are redrawn.
+- One header on every page, with "Find a tool" (Ctrl/Cmd+K or `/`), "Next
+  steps" under each tool, and a shared catalogue in `js/site.js` that
+  `npm run check:chrome` holds the pages to. The 404 page's own list, which
+  offered three tools that do not exist, is gone.
+- Every tool opens on the same page head, numbered panels show live progress,
+  and file loaders share one size. A saved or system dark theme now applies
+  on every page (it was lost on 18 of 21 tools). Text contrast meets WCAG AA
+  in both themes. Explainer formulas are all typeset by KaTeX from TeX, and
+  the explainers share one type scale.
+- The home page leads with search and a file-type lookup; invented
+  testimonials and a 4.9-star rating in the structured data are removed.
+- The plot digitizer's preview loaded Plotly from `cdn.plot.ly`, the last
+  request any page made to another host; it uses the vendored copy.
+- The privacy page says which two features contact another service (DOI
+  lookup at doi.org, PDB fetch from RCSB).
 
 ### Added: `@stemkit/core`
 
