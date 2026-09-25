@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- This page is served at whatever missing path was requested, so its
+         relative links resolve from the site root, not from that path. -->
+    <base href="/">
 
     <title>Page Not Found (404) | STEMKit</title>
     <meta name="title" content="Page Not Found (404) | STEMKit">
@@ -194,6 +197,12 @@
     <script>
         (function () {
             'use strict';
+
+            // <base href="/"> would send in-page links such as the skip link
+            // to the home page; keep them on this page.
+            document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+                a.setAttribute('href', location.pathname + location.search + a.getAttribute('href'));
+            });
 
             // "Go back" only helps if there is history from this site; otherwise
             // send the user to the index rather than leaving a dead button.

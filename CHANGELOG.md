@@ -64,6 +64,9 @@ did not match: bugs where the code was wrong, wording where the page was.
   calibration, which its checking tip already assumed.
 - Privacy, home and 404 pages say which two features go online instead of
   "100% local", and no longer claim GDPR compliance by default.
+- The 404 page, served at whatever path was missing, lost its styles and
+  linked to more missing pages when that path was nested; its links now
+  resolve from the site root.
 - Structured data no longer shows raw HTML entities.
 
 ### Removed
