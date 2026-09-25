@@ -128,6 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const zoomLevelDisplay = document.getElementById('zoomLevel');
   const resolutionNote = document.getElementById('resolutionNote');
   const modeStatus = document.getElementById('modeStatus');
+  const cursorReadout = document.getElementById('cursorReadout');
 
   const btnGeneratePython = document.getElementById('btnGeneratePython');
   const pythonModal = document.getElementById('pythonModal');
@@ -370,6 +371,22 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
+   * Where the cursor sits in data units, shown under the calibration once it
+   * is valid, so a gridline of known value can confirm it before tracing.
+   * The line stays in place between hovers, so the panel does not jump.
+   */
+  const shortValue = v => String(Number(v.toPrecision(4)));
+  function updateReadout(p) {
+    const check = validateCalibrationForm(currentCalibration());
+    cursorReadout.hidden = !check.valid;
+    if (!check.valid) return;
+    const d = p ? toDataCoordinates(p.x, p.y, check.calibration) : null;
+    cursorReadout.textContent = d
+      ? `Cursor at x = ${shortValue(d.x)}, y = ${shortValue(d.y)}`
+      : 'Hover over the figure to read a position here.';
+  }
+
+  /**
    * Show which reference points are set, and once all four points and values
    * make a valid calibration, say so along with the data-space size of one
    * pixel: a digitised value is no more precise than that, whatever the
@@ -380,6 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById(id).classList.toggle('is-set', state.calibration[key] !== null);
     });
     const r = validateCalibrationForm(currentCalibration());
+    updateReadout(null);
     if (!r.valid) {
       calibStatus.textContent = '';
       resolutionNote.classList.add('hidden');
@@ -503,6 +521,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const p = canvasCoords(e);
     state.mouseX = p.x;
     state.mouseY = p.y;
+    updateReadout(p);
 
     if (state.isDragging && state.mode === 'erase') applyErase(p.x, p.y);
     if (state.isDragging && state.mode === 'digitize' && state.lastTracePoint) {
@@ -553,6 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
   canvas.addEventListener('mouseleave', () => {
     state.lastTracePoint = null;
     if (loupe) loupe.classList.add('hidden');
+    updateReadout(null);
   });
 
   function applyErase(px, py) {

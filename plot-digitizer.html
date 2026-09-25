@@ -6,8 +6,8 @@
     
     <title>Plot Digitizer | Extract Data from Graphs | STEMKit</title>
     <meta name="title" content="Plot Digitizer | Extract Data from Graphs | STEMKit">
-    <meta name="description" content="Securely and instantly extract numerical data from literature graphs and plots using precision color sweeping. Runs entirely in your browser.">
-    <meta name="keywords" content="plot digitizer, extract data from graph, graph reader, image to data, scientific graph reader, color sweep digitizer">
+    <meta name="description" content="Extract numerical data from published graphs: calibrate the axes, click or drag along each curve with a magnifier, and export the points as CSV. Runs entirely in your browser.">
+    <meta name="keywords" content="plot digitizer, extract data from graph, graph reader, image to data, scientific graph reader, digitize figure data">
     
     <link rel="canonical" href="https://stemkit.net/plot-digitizer.html">
     <meta property="og:url" content="https://stemkit.net/plot-digitizer.html">
@@ -15,8 +15,8 @@
     
     <meta property="og:title" content="Plot Digitizer | Extract Data from Graphs">
     <meta property="twitter:title" content="Plot Digitizer | Extract Data from Graphs">
-    <meta property="og:description" content="Instantly extract numerical data from literature graphs via precision color sweeping.">
-    <meta property="twitter:description" content="Instantly extract numerical data from literature graphs via precision color sweeping.">
+    <meta property="og:description" content="Extract numerical data from published graphs by calibrating the axes and tracing each curve in your browser.">
+    <meta property="twitter:description" content="Extract numerical data from published graphs by calibrating the axes and tracing each curve in your browser.">
     
     <script type="application/ld+json">
         {
@@ -139,7 +139,7 @@
             <header class="stk-pagehead">
                 <div>
                     <h1 class="stk-pagehead-title">Plot Digitizer</h1>
-                    <p class="stk-pagehead-lede">Recover the numbers behind a published plot: calibrate its axes, trace the curves, and download the points as CSV or a matplotlib script.</p>
+                    <p class="stk-pagehead-lede">Recover the numbers behind a published plot: calibrate its axes, trace the curves, then download the points as CSV or copy a matplotlib script that plots them.</p>
                     <ul class="stk-pagehead-meta">
                         <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
                         <li><a href="#method"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Method and accuracy</a></li>
@@ -207,6 +207,7 @@
                             <label class="stk-check"><input type="checkbox" id="isLogY"> Log Y axis</label>
                         </div>
                         <p id="calibStatus" class="pd-calib-ok" aria-live="polite"></p>
+                        <p id="cursorReadout" class="pd-readout" hidden></p>
                         <p id="resolutionNote" class="pd-hint hidden mt-1" aria-live="polite"></p>
                     </section>
 
@@ -355,7 +356,7 @@
                     <div class="stk-card"><h3>Line thickness</h3><p>A curve drawn 3&nbsp;px thick is ambiguous by &plusmn;1.5&nbsp;px wherever you click on it. Aim consistently for the centre of the stroke; the magnifier exists to make that possible.</p></div>
                 </div>
 
-                <div class="stk-note" style="margin-top:1.2rem;"><i class="fa-solid fa-lightbulb" style="margin-top:.15rem;"></i><div><strong>Sanity check your calibration.</strong> After calibrating, hover over a gridline whose value you already know and see whether the readout matches. If it does not, one of your four marks or values is wrong, and every point you trace afterwards will inherit that error.</div></div>
+                <div class="stk-note" style="margin-top:1.2rem;"><i class="fa-solid fa-lightbulb" style="margin-top:.15rem;"></i><div><strong>Sanity check your calibration.</strong> After calibrating, hover over a gridline whose value you already know and see whether the cursor readout under <strong>Calibrate the axes</strong> matches. If it does not, one of your four marks or values is wrong, and every point you trace afterwards will inherit that error.</div></div>
 </div>
         </section>
 
@@ -368,10 +369,10 @@
                     <details class="stk-faq"><summary>Where should I put the calibration points?</summary><div>As far apart as the axis allows, on positions whose values you know exactly, normally the first and last labelled tick. The error in every extracted point scales inversely with the pixel distance between your two marks, so two marks near each other magnify every later click. Placing both on the same pixel is rejected outright, because the scale would be undefined.</div></details>
                     <details class="stk-faq"><summary>Why was my log axis rejected?</summary><div>A logarithmic mapping interpolates in log<sub>10</sub> space, which is undefined for zero or negative numbers. Both calibration values on that axis must therefore be strictly greater than zero. If your axis genuinely crosses zero it is not logarithmic, it is probably linear, or a symlog scale, which this two-point mapping does not model.</div></details>
                     <details class="stk-faq"><summary>How many points should I trace?</summary><div>Enough to capture the shape, not the whole line. Place points densely where the curve bends, turns or peaks, and sparsely along straight runs, a smooth section is reconstructed perfectly well from its endpoints. Holding and dragging lays down a trail automatically as you follow the curve, which is usually the fastest way to cover a long sweep.</div></details>
-                    <details class="stk-faq"><summary>Can I trace several curves from one figure?</summary><div>Yes. Add a dataset per series with <strong>+ Add</strong>, give each a name and colour, and make sure the right one is selected before you trace, points always go to the active dataset. Names are carried through to the CSV's <code>Dataset</code> column and become the legend entries in the generated Matplotlib script.</div></details>
+                    <details class="stk-faq"><summary>Can I trace several curves from one figure?</summary><div>Yes. Add a series for each curve with <strong>Add series</strong>, give each a name and colour, and make sure the right one is selected before you trace, points always go to the active series. Names are carried through to the CSV's <code>Dataset</code> column and become the legend entries in the generated Matplotlib script.</div></details>
                     <details class="stk-faq"><summary>Does the order I click in matter?</summary><div>Not for the output. Points are sorted by <em>x</em> when exported and when drawn, so tracing right-to-left or going back to fill a gap still yields a properly ordered series. It does matter for <strong>Undo</strong>, which removes the most recently added point rather than the right-most one.</div></details>
                     <details class="stk-faq"><summary>Why does my CSV show values like 2.3e-5?</summary><div>Because the value is genuinely that small. Values are written with significant digits rather than a fixed number of decimals, so small magnitudes survive the round trip, a fixed four-decimal format would have written that number as <code>0.0000</code> and destroyed it. Very large and very small magnitudes use exponential notation, which <code>pandas.read_csv</code> and every spreadsheet read without special handling.</div></details>
-                    <details class="stk-faq"><summary>What do the generated Python script and preview give me?</summary><div>The script loads your exported CSV with pandas and rebuilds the figure in Matplotlib (one axes with all series, or stacked subplots) carrying over your labels, colours, log scales, grid and figure size. The preview does the same thing instantly with Plotly in a new tab, so you can check the extraction before writing any files. Save the CSV first: the script reads it by the filename you chose.</div></details>
+                    <details class="stk-faq"><summary>What do the generated Python script and preview give me?</summary><div>The script loads your exported CSV with pandas and rebuilds the figure in Matplotlib (one axes with all series, or stacked subplots) carrying over your labels, colours, log scales, grid and figure size. The preview does the same thing instantly with Plotly in a window on this page, so you can check the extraction before writing any files. Save the CSV first: the script reads it by the filename you chose.</div></details>
                     <details class="stk-faq"><summary>Is my figure uploaded anywhere?</summary><div>No. The image is read locally by your browser and drawn to a canvas. Nothing is transmitted, stored or logged, so it is safe to digitize unpublished figures, confidential results or anything under embargo.</div></details>
                 </div>
             </div>

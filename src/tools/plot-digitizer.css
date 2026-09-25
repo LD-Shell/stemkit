@@ -48,6 +48,7 @@
 .dark .pd-calib-ok { color: var(--stk-ok); }
 .pd-calib-ok:empty { display: none; }
 .pd-calib-ok::before { content: "\2713\00a0"; }
+.pd-readout { margin-top: .35rem; font-family: var(--stk-font-mono); font-size: .75rem; font-variant-numeric: tabular-nums; color: var(--stk-fg-2); }
 
 /* The button for the mode the canvas is in (setting a calibration point,
    adding points, erasing) is pressed; the rest are not. Erase keeps red. */
