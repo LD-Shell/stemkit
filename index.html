@@ -326,23 +326,22 @@
             <div class="hm-proof-in">
                 <div class="hm-proof-main">
                     <h2 id="hm-proof-h">Use the library behind the tools</h2>
-                    <p>Every calculation on this site comes from <code>@stemkit/core</code>: 17 modules covered by 1,208 tests validated against SciPy, NumPy and statsmodels. The same functions run in Node, so an analysis explored here can be scripted, version-pinned and re-run.</p>
+                    <p>Every calculation on this site comes from <code>stemkit-core</code>: 17 modules covered by 1,208 tests validated against SciPy, NumPy and statsmodels. The same functions run in Node, so an analysis explored here can be scripted, version-pinned and re-run.</p>
                     <ol class="hm-setup">
                         <li>
-                            <p>Clone the repository. It needs Node 18 or later and nothing else: no <code>npm install</code>.</p>
+                            <p>Install it from npm. It needs Node 18 or later and brings no other packages with it.</p>
                             <div class="hm-code-box">
                                 <div class="hm-code-head">
                                     <span class="hm-code-file">Terminal</span>
-                                    <button type="button" class="hm-code-copy" data-copy-from="code-setup" aria-label="Copy the clone commands">
+                                    <button type="button" class="hm-code-copy" data-copy-from="code-setup" aria-label="Copy the install command">
                                         <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copy</span>
                                     </button>
                                 </div>
-                                <pre><code id="code-setup">git clone https://github.com/LD-Shell/stemkit.git
-cd stemkit</code></pre>
+                                <pre><code id="code-setup">npm install stemkit-core</code></pre>
                             </div>
                         </li>
                         <li>
-                            <p>Save an example in the <code>stemkit</code> folder under the name shown, with any data file it reads beside it, and run it: <code>node pick-test.mjs</code>.</p>
+                            <p>Save an example in the same folder under the name shown, with any data file it reads beside it, and run it: <code>node pick-test.mjs</code>.</p>
                             <div class="hm-snips">
                                 <div class="hm-snip-tabs" role="tablist" aria-label="Library examples">
                                     <button type="button" role="tab" id="snip-tab-xvg" aria-controls="snip-xvg" aria-selected="true" tabindex="0">Trajectories</button>
@@ -362,7 +361,7 @@ cd stemkit</code></pre>
                                             </button>
                                         </div>
                                         <pre><code id="code-xvg">import { readFileSync } from 'node:fs';
-import { parseXvg, extractColumn, columnStats } from '@stemkit/core';
+import { parseXvg, extractColumn, columnStats } from 'stemkit-core';
 
 const { matrix, headers } = parseXvg(readFileSync('rmsd.xvg', 'utf8'));
 
@@ -381,13 +380,7 @@ headers.slice(1).forEach((name, i) =&gt; {
                                                 <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copy</span>
                                             </button>
                                         </div>
-                                        <pre><code id="code-stats">import { createRequire } from 'node:module';
-import {
-  registerVendor, recommendTest, independentTTest, mannWhitneyU
-} from '@stemkit/core';
-
-const require = createRequire(import.meta.url);
-registerVendor({ jStat: require('./js/dependencies/jstat.min.js') });
+                                        <pre><code id="code-stats">import { recommendTest, independentTTest, mannWhitneyU } from 'stemkit-core';
 
 const control = [4.1, 4.3, 3.9, 4.4, 4.0, 4.2, 4.5, 3.8, 4.1, 4.6];
 const treated = [5.0, 5.2, 4.8, 9.9, 5.1, 4.9, 5.3, 5.0, 12.4, 5.2];
@@ -419,7 +412,7 @@ console.log(`${advice.test}: p = ${r.p.toPrecision(3)}`);
                                         <pre><code id="code-structure">import { readFileSync } from 'node:fs';
 import {
   parseStructure, centreOfMass, radiusOfGyration, convert
-} from '@stemkit/core';
+} from 'stemkit-core';
 
 const gro = readFileSync('protein.gro', 'utf8');
 const { atoms, unit } = parseStructure(gro, 'gro');
@@ -439,7 +432,7 @@ console.log(`Rg = ${rg.toFixed(2)} Å`);</code></pre>
                                                 <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copy</span>
                                             </button>
                                         </div>
-                                        <pre><code id="code-units">import { convert, convertTemperature } from '@stemkit/core';
+                                        <pre><code id="code-units">import { convert, convertTemperature } from 'stemkit-core';
 
 // 1 hartree in kcal/mol, 1 eV in kJ/mol, 298.15 K in °C
 console.log(convert(1, 'energy', 'hartree', 'kcal'));  // 627.5094740631
@@ -456,7 +449,7 @@ console.log(convertTemperature(298.15, 'k', 'c'));     // 25</code></pre>
                                                 <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copy</span>
                                             </button>
                                         </div>
-                                        <pre><code id="code-slurm">import { generateScript } from '@stemkit/core';
+                                        <pre><code id="code-slurm">import { generateScript } from 'stemkit-core';
 
 const { script, warnings } = generateScript({
   engine: 'gromacs', jobName: 'replicas', modules: ['gromacs/2023.3'],
@@ -481,15 +474,9 @@ warnings.forEach(w =&gt; console.warn(`[${w.level}] ${w.message}`));
                                             </button>
                                         </div>
                                         <pre><code id="code-bibtex">import { readFileSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import {
-  registerVendor, parseBibtex, deduplicateAuto, serialiseLibrary
-} from '@stemkit/core';
-
-const require = createRequire(import.meta.url);
-registerVendor({
-  bibtexParse: require('./js/dependencies/bibtexParse.min.js')
-});
+  parseBibtex, deduplicateAuto, serialiseLibrary
+} from 'stemkit-core';
 
 const { entries } = parseBibtex(readFileSync('refs.bib', 'utf8'));
 const { entries: kept, removed } = deduplicateAuto(entries);
