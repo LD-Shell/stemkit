@@ -234,7 +234,7 @@ function notify(title, body) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     if (document.visibilityState === 'visible') return;
     try {
-        new Notification(title, { body, icon: 'https://stemkit.net/assets/favicon-32x32.png' });
+        new Notification(title, { body, icon: 'https://stemkit.net/assets/favicon-32x32.png?v=2' });
     } catch {
         // Some browsers require a service worker for notifications.
     }
