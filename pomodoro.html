@@ -238,7 +238,7 @@
                         <input type="checkbox" id="set-autostart" checked class="w-4 h-4 rounded accent-brand-600">
                         Start the next session automatically
                     </label>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-4">Applies to the next session. Saved in this browser.</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-4">While the timer runs, changes apply from the next session. When it is stopped or paused they apply at once, resetting the countdown to the full length. Saved in this browser.</p>
                 </div>
             </div>
         </div>
@@ -260,7 +260,7 @@
         <div class="stk-wrap">
             <h2 class="stk-h2">How the timer and mixer work</h2>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-card"><h3>Absolute-time countdown</h3><p>Browsers throttle timers in inactive tabs, so a naive tick-by-tick countdown drifts badly in the background. This timer records the <strong>absolute finish timestamp</strong> when you press start and derives the remaining time from the system clock on every frame. Switching tabs, sleeping the display, or leaving it running for an hour does not accumulate error.</p></div><div class="stk-card"><h3>Layered ambient mixer</h3><p>Rain and cafe are looped field recordings that load lazily, nothing is fetched until you raise that channel. Brown noise is <strong>synthesised live</strong> in the Web Audio API from a filtered random walk, so it costs no bandwidth and has no audible loop point. All three mix independently.</p></div>
+                <div class="stk-card"><h3>Absolute-time countdown</h3><p>Browsers throttle timers in inactive tabs, so a naive tick-by-tick countdown drifts badly in the background. This timer records the <strong>absolute finish timestamp</strong> when you press start and re-derives the remaining time from the system clock four times a second. Switching tabs, sleeping the display, or leaving it running for an hour does not accumulate error.</p></div><div class="stk-card"><h3>Layered ambient mixer</h3><p>Rain and cafe are looped field recordings that load lazily, nothing is fetched until you raise that channel. Brown noise is <strong>generated in your browser</strong> with the Web Audio API: four seconds of a filtered random walk are computed once, when you first raise the channel, and then looped, so it costs no bandwidth. All three mix independently.</p></div>
             </div>
             <div class="stk-note" style="margin-top:1rem;">
                 <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>

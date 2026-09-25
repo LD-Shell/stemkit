@@ -172,7 +172,8 @@ function setTrackVolume(name, raw) {
     }
 }
 
-// Brown noise is pure math, no file, no bandwidth, no audible loop point.
+// Brown noise is pure math, no file and no bandwidth: four seconds of a
+// filtered random walk are generated once, then looped.
 function setNoiseVolume(raw) {
     const vol = parseFloat(raw);
     paintChannel('noise', vol);
@@ -234,7 +235,7 @@ function notify(title, body) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     if (document.visibilityState === 'visible') return;
     try {
-        new Notification(title, { body, icon: 'https://stemkit.net/assets/favicon-32x32.png?v=2' });
+        new Notification(title, { body, icon: 'assets/favicon-32x32.png?v=2' });
     } catch {
         // Some browsers require a service worker for notifications.
     }

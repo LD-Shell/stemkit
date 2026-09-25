@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Chosen to exercise the awkward cases: a lowercase journal name, one with a
   // colon in the title, a "The ..." prefix, and a journal absent from the
-  // dictionary so the unmatched path is visible too.
+  // dictionary, so the ISO 4 tier (or the amber flag without it) shows too.
   const EXAMPLE = [
     'Smith, J.; Doe, A. Journal of the American Chemical Society 2024, 146, 1122.',
     'Lee, K. et al. Physical Review Letters 2023, 130, 045501.',

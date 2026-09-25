@@ -4,19 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <title>Statistical Outlier Detector | Z-Score & IQR | STEMKit</title>
-    <meta name="title" content="Statistical Outlier Detector | Z-Score & IQR | STEMKit">
-    <meta name="description" content="Detect data anomalies instantly using Z-Score and Interquartile Range (IQR) algorithms. A secure, 100% client-side statistics utility.">
-    <meta name="keywords" content="outlier detection, remove outliers csv, z-score outlier, iqr outlier, scientific data cleaning, STEMKit">
+    <title>Statistical Outlier Detector | Z-Score, IQR & Modified Z-Score | STEMKit</title>
+    <meta name="title" content="Statistical Outlier Detector | Z-Score, IQR & Modified Z-Score | STEMKit">
+    <meta name="description" content="Detect data anomalies instantly using the Z-Score, Interquartile Range (IQR) fences or the robust modified Z-Score (median and MAD). A secure, 100% client-side statistics utility.">
+    <meta name="keywords" content="outlier detection, remove outliers csv, z-score outlier, iqr outlier, modified z-score, MAD outlier, scientific data cleaning, STEMKit">
     
     <link rel="canonical" href="https://stemkit.net/outlier-detector.html">
     <meta property="og:url" content="https://stemkit.net/outlier-detector.html">
     <meta property="twitter:url" content="https://stemkit.net/outlier-detector.html">
     
-    <meta property="og:title" content="Statistical Outlier Detector | Z-Score & IQR">
-    <meta property="twitter:title" content="Statistical Outlier Detector | Z-Score & IQR">
-    <meta property="og:description" content="Detect and scrub statistical anomalies from your datasets locally using Z-Score and IQR methods.">
-    <meta property="twitter:description" content="Detect and scrub statistical anomalies from your datasets locally using Z-Score and IQR methods.">
+    <meta property="og:title" content="Statistical Outlier Detector | Z-Score, IQR & Modified Z-Score">
+    <meta property="twitter:title" content="Statistical Outlier Detector | Z-Score, IQR & Modified Z-Score">
+    <meta property="og:description" content="Detect and scrub statistical anomalies from your datasets locally using the Z-Score, IQR or modified Z-Score method.">
+    <meta property="twitter:description" content="Detect and scrub statistical anomalies from your datasets locally using the Z-Score, IQR or modified Z-Score method.">
     
     <script type="application/ld+json">
         {
@@ -24,13 +24,13 @@
             "@type": "WebApplication",
             "name": "STEMKit Outlier Detector",
             "url": "https://stemkit.net/outlier-detector.html",
-            "description": "Detect data anomalies instantly using Z-Score and Interquartile Range (IQR) algorithms.",
+            "description": "Detect data anomalies instantly using the Z-Score, Interquartile Range (IQR) fences or the robust modified Z-Score.",
             "author": { "@type": "Person", "name": "Olanrewaju M. Daramola" },
             "applicationCategory": "UtilityApplication",
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "Z-Score Analysis", "IQR Detection", "Client-side Processing", "Visual Anomaly Flagging" ]
+            "featureList": [ "Z-Score Analysis", "IQR Detection", "Modified Z-Score (median and MAD)", "Client-side Processing", "Visual Anomaly Flagging" ]
         }
     </script>
     
@@ -69,7 +69,7 @@
     <script src="js/dependencies/jstat.min.js"></script>
 
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "HowTo", "name": "How to detect outliers in your data", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Load your data", "text": "Drag in a .csv/.tsv/.txt file, or choose one. Or press Load a sample to try a sample with two planted outliers."}, {"@type": "HowToStep", "position": 2, "name": "Pick a column &amp; method", "text": "Choose the numeric column and one of Z-Score, IQR, or the robust Modified Z-Score."}, {"@type": "HowToStep", "position": 3, "name": "Set the threshold", "text": "Adjust the multiplier; the hint explains what the current setting flags. Defaults follow standard practice."}, {"@type": "HowToStep", "position": 4, "name": "Find and download", "text": "Press Find outliers to highlight them in the table, then download the data without them or the outliers alone."}]}
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to detect outliers in your data", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Load your data", "text": "Drag in a .csv/.tsv/.txt file, or choose one. Or press Load a sample to try a sample with two planted outliers."}, {"@type": "HowToStep", "position": 2, "name": "Pick a column and method", "text": "Choose the numeric column and one of Z-Score, IQR, or the robust Modified Z-Score."}, {"@type": "HowToStep", "position": 3, "name": "Set the threshold", "text": "Adjust the multiplier; the hint explains what the current setting flags. Defaults follow standard practice."}, {"@type": "HowToStep", "position": 4, "name": "Find and download", "text": "Press Find outliers to highlight them in the table, then download the data without them or the outliers alone."}]}
 </script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my data uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Parsing and detection run locally in your browser via PapaParse and jStat."}}, {"@type": "Question", "name": "Which method should I use?", "acceptedAnswer": {"@type": "Answer", "text": "Z-Score for roughly normal data, IQR for skewed data, and the Modified Z-Score when you want robustness to the outliers themselves (a good general default)."}}, {"@type": "Question", "name": "What thresholds are typical?", "acceptedAnswer": {"@type": "Answer", "text": "k = 3 for Z-Score, k = 1.5 for Tukey's IQR fences, and k = 3.5 for the modified Z-Score (Iglewicz–Hoaglin)."}}, {"@type": "Question", "name": "How many values do I need?", "acceptedAnswer": {"@type": "Answer", "text": "At least four numeric values in the chosen column for a meaningful estimate of spread."}}, {"@type": "Question", "name": "Does downloading without outliers change my original file?", "acceptedAnswer": {"@type": "Answer", "text": "No. It downloads a new CSV with the flagged rows removed; your source file is untouched."}}]}
