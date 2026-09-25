@@ -13,7 +13,7 @@ author:
     affiliation: Independent Researcher
     email: lanrelangmuir@gmail.com
     corresponding: true
-date: 24 September 2026
+date: 25 September 2026
 keywords:
   - computational chemistry
   - molecular dynamics
@@ -303,23 +303,29 @@ aids and are excluded.
 | Tool | Module(s) | Purpose |
 | --- | --- | --- |
 | XVG visualiser | `xvg-parser` | Plot GROMACS/PLUMED series with recovered axis metadata |
-| Structure inspector | `structure`, `selection` | Geometry, mass breakdown, atom selection and search by residue or species, simulation box, 3D view |
+| Structure inspector | none (page script) | Geometry, mass breakdown, atom selection and search by residue or species, simulation box, 3D view |
 | Coordinate manipulator | `structure` | Translate, rotate, re-box; PDB/GRO/XYZ interconversion |
-| MD workflow generator | `slurm`, `scheduler`, `plumed` | Batch scripts for GROMACS and LAMMPS on four schedulers; PLUMED input |
+| MD workflow generator | `slurm`, `scheduler` | Batch scripts for GROMACS and LAMMPS on four schedulers; PLUMED input |
 | Statistics calculator | `statistics` | t-tests, one-way and Welch ANOVA with post-hoc comparisons, correlation, non-parametric tests, assumption checks, test recommendation |
 | Error-bar generator | `error-bars` | Group summaries, error bars, significance annotation |
 | Outlier detector | `outliers` | Tukey fences, modified $Z$-score, Grubbs' test |
 | Curve fitter | `curve-fitting` | Least-squares fits with model-adequacy warnings |
 | Plot digitiser | `digitizer` | Pixel-to-data recovery with log-axis and uncertainty handling |
-| Plot builder | `statistics` | Publication figures at a set print size and resolution, with matplotlib script export |
+| Plot builder | none (page script) | Publication figures at a set print size and resolution, with matplotlib script export |
 | Data cleaner | `data-cleaning` | Delimited-text repair, type inference, reshaping |
-| Scientific converter | `units` | 64 units in ten categories, CODATA-sourced |
+| Scientific converter | `units` | 64 units in ten categories plus temperature, CODATA-sourced |
 | BibTeX sanitiser | `bibtex` | Field normalisation and escaping |
 | BibTeX deduplicator | `bibtex` | Union-find over normalised DOIs and titles |
-| DOI to BibTeX | `bibtex` | Crossref lookup with field filtering |
+| DOI to BibTeX | `bibtex` | Lookup at doi.org with field filtering |
 | Journal abbreviator | `journals`, `iso4` | Whole-title dictionary, then ISO 4 word-level fallback |
 | Visual LaTeX tables | `latex` | LaTeX and Markdown tables with correct escaping |
 | Equation formatter | `latex` | Formula entry and LaTeX output |
+
+Two tools still compute in their page scripts, the structure inspector and
+the plot builder, as does the MD workflow generator's PLUMED form. The
+`selection` and `plumed` modules are tested extractions of the inspector's
+selection language and of that PLUMED input generation; the pages do not
+call them yet.
 
 
 #### 2.2.1 Trajectory and collective-variable data
@@ -769,9 +775,9 @@ STEMKit is released under the MIT licence, hosted at <https://stemkit.net>,
 developed in the open at <https://github.com/LD-Shell/stemkit> and archived on
 Zenodo with the persistent identifier
 [10.5281/zenodo.21543112](https://doi.org/10.5281/zenodo.21543112) [@stemkit2026], which resolves to the
-current release. The first archived release is contemporaneous with this
-manuscript, so adoption data (downloads, unique users, citing publications) does not yet
-exist. The arguments above are accordingly claims about what the
+current release. The software was first archived in July 2026 and published on
+npm with version 0.2.0, so adoption data (downloads, unique users, citing
+publications) does not yet exist. The arguments above are accordingly claims about what the
 design makes possible, not evidence of uptake, and should be read as such. The
 software is not used in a commercial setting and has not led to a spin-off
 company; the client-side design does, however, make it directly applicable to

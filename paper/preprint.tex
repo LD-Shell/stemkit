@@ -442,20 +442,20 @@ are excluded.}
 \textbf{Tool} & \textbf{Module(s)} & \textbf{Purpose} \\
 \midrule
 XVG visualiser & \texttt{xvg-parser} & Plot GROMACS/PLUMED series with recovered axis metadata \\
-Structure inspector & \texttt{structure}, \texttt{selection} & Geometry, mass breakdown, atom selection and search by residue or species, simulation box, 3D view \\
+Structure inspector & none (page script) & Geometry, mass breakdown, atom selection and search by residue or species, simulation box, 3D view \\
 Coordinate manipulator & \texttt{structure} & Translate, rotate, re-box; PDB/GRO/XYZ interconversion \\
-MD workflow generator & \texttt{slurm}, \texttt{scheduler}, \texttt{plumed} & Batch scripts for GROMACS and LAMMPS on four schedulers; PLUMED input \\
+MD workflow generator & \texttt{slurm}, \texttt{scheduler} & Batch scripts for GROMACS and LAMMPS on four schedulers; PLUMED input \\
 Statistics calculator & \texttt{statistics} & t-tests, one-way and Welch ANOVA with post-hoc comparisons, correlation, non-parametric tests, assumption checks, test recommendation \\
 Error-bar generator & \texttt{error-bars} & Group summaries, error bars, significance annotation \\
 Outlier detector & \texttt{outliers} & Tukey fences, modified $Z$-score, Grubbs' test \\
 Curve fitter & \texttt{curve-fitting} & Least-squares fits with model-adequacy warnings \\
 Plot digitiser & \texttt{digitizer} & Pixel-to-data recovery with log-axis and uncertainty handling \\
-Plot builder & \texttt{statistics} & Publication figures at a set print size and resolution, with matplotlib script export \\
+Plot builder & none (page script) & Publication figures at a set print size and resolution, with matplotlib script export \\
 Data cleaner & \texttt{data-cleaning} & Delimited-text repair, type inference, reshaping \\
-Scientific converter & \texttt{units} & 64 units in ten categories, CODATA-sourced \\
+Scientific converter & \texttt{units} & 64 units in ten categories plus temperature, CODATA-sourced \\
 BibTeX sanitiser & \texttt{bibtex} & Field normalisation and escaping \\
 BibTeX deduplicator & \texttt{bibtex} & Union-find over normalised DOIs and titles \\
-DOI to BibTeX & \texttt{bibtex} & Crossref lookup with field filtering \\
+DOI to BibTeX & \texttt{bibtex} & Lookup at doi.org with field filtering \\
 Journal abbreviator & \texttt{journals}, \texttt{iso4} & Whole-title dictionary, then ISO 4 word-level fallback \\
 Visual LaTeX tables & \texttt{latex} & LaTeX and Markdown tables with correct escaping \\
 Equation formatter & \texttt{latex} & Formula entry and LaTeX output \\
@@ -463,7 +463,11 @@ Equation formatter & \texttt{latex} & Formula entry and LaTeX output \\
 \end{tabular}
 \end{table}
 
-
+Two tools still compute in their page scripts, the structure inspector and
+the plot builder, as does the MD workflow generator's PLUMED form. The
+\texttt{selection} and \texttt{plumed} modules are tested extractions of the inspector's
+selection language and of that PLUMED input generation; the pages do not
+call them yet.
 
 \subsubsection{Trajectory and collective-variable data}
 
@@ -952,9 +956,9 @@ computing environments where installation is not an option, since a URL is the
 only prerequisite.
 
 STEMKit is MIT-licensed, hosted at \url{https://stemkit.net} and archived on
-Zenodo~\cite{stemkit2026}. The first archived release is contemporaneous with this manuscript, so
-adoption data (downloads, unique users, citing publications) does not yet
-exist. The arguments above are accordingly claims about what the design makes
+Zenodo~\cite{stemkit2026}. The software was first archived in July 2026 and
+published on npm with version 0.2.0, so adoption data (downloads, unique users,
+citing publications) does not yet exist. The arguments above are accordingly claims about what the design makes
 possible, not evidence of uptake, and should be read as such. The software is
 not used in a commercial setting and has not led to a spin-off company; the
 client-side design does, however, make it directly applicable to industrial
