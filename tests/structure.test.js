@@ -120,7 +120,7 @@ describe('atomicMass', () => {
     expect(atomicMass({ element: 'Fe' })).toBeCloseTo(55.845, 6);
   });
 
-  test('falls back to carbon and records the unknown symbol', () => {
+  test('gives an unknown element zero mass and records the symbol', () => {
     const unknown = new Set();
     // An unidentifiable atom contributes nothing rather than a stand-in mass:
     // a silent substitution overstates the total and cannot be spotted in it.

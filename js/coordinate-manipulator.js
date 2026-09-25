@@ -330,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.unknownElements.length) {
       showToast(
         `Unrecognised element symbol(s): ${state.unknownElements.join(', ')}. ` +
-        `Carbon mass assumed for those atoms.`,
+        `Those atoms contribute no mass to the centre of mass or molecular weight.`,
         'warn'
       );
     }
@@ -633,8 +633,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const fit = boxFitsStructure(state.atoms, state.unit, box);
     updateBoxNote(box, fit);
 
-    // The whole buffer is shown, however large, so it can always be scrolled
-    // to the end. Two things keep that affordable.
+    // Above PREVIEW_LIMIT atoms only the first PREVIEW_LIMIT are shown until
+    // Show all is pressed; then the whole buffer is shown, however large, so
+    // it can be scrolled to the end. Two things keep that affordable.
     //
     // First, the result is cached against a signature of what it was built
     // from, so the common case, a redraw where nothing relevant changed,
