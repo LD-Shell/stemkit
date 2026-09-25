@@ -5,8 +5,8 @@ abstract: >-
   STEMKit is a suite of browser-based tools for computational chemistry and
   scientific data analysis, built on stemkit-core, a JavaScript library of
   parsing and numerical routines with no dependency on the document object
-  model. All computation executes in the user's own browser: no data is
-  transmitted, no account is required, and nothing is installed. The same
+  model. All computation executes in the user's own browser: the data analysed
+  never leaves it, no account is required, and nothing is installed. The same
   modules also execute under Node.js, so an analysis explored interactively can
   be captured as a version-pinned script and placed under continuous
   integration.

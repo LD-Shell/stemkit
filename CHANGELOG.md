@@ -100,7 +100,7 @@ is new.
 - **`core/scheduler`**: directive headers, environment-variable names, launch
   prefixes and submit commands for SLURM, PBS Professional / OpenPBS, LSF and
   Grid Engine, sharing `core/slurm`'s validation. The SLURM path delegates to
-  `core/slurm` unchanged. 51 tests; the module count is 17 and the suite 1128.
+  `core/slurm` unchanged. 51 tests; the module count is 17.
 
 ### Changed: MD workflow generator
 

@@ -232,7 +232,7 @@ export, the Node entry and the injection layer, which carry no domain logic). Nu
 independent references rather than against the implementation itself:
 
 - **SciPy 1.17.1**, t-tests, ANOVA, Pearson, Mann–Whitney, Wilcoxon, Levene,
-  D'Agostino, quantiles, Holm correction
+  D'Agostino, quantiles
 - **SciPy 1.11.4**, one-sample t, one-sample Wilcoxon, Spearman, Kruskal–Wallis,
   the chi-squared and studentized-range tails, Tukey HSD, descriptives; with
   **statsmodels 0.14.1** for Welch's ANOVA and Holm's adjustment and

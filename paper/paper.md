@@ -437,7 +437,7 @@ reference.
 | D'Agostino–Pearson $K^2$ | $\sqrt{b_1}$ [@dagostino1970] and $b_2$ [@anscombe1983] transforms | `scipy.stats.normaltest` |
 | Levene $W$ | Brown–Forsythe (median-centred) | `scipy.stats.levene` |
 | Quantiles | Linear interpolation (type 7) | `numpy.percentile` |
-| Multiple comparisons | Holm–Bonferroni [@holm1979] | Independent implementation |
+| Multiple comparisons | Holm–Bonferroni [@holm1979] | statsmodels `multipletests` |
 | Grubbs $G$ | Inverted $t$ critical value | `scipy.stats.t.ppf` |
 | Modified $Z$-score | Median/MAD, 0.6745 scaling [@iglewicz1993] | `numpy` |
 | Least-squares fitting | Normal equations (regression.js) | `numpy.polyfit` |
