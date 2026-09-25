@@ -34,7 +34,7 @@ Corresponding author: lanrelangmuir@gmail.com
 ## Abstract
 
 STEMKit is a suite of 18 browser-based tools for computational chemistry and
-scientific data analysis, built on `@stemkit/core`, a JavaScript library
+scientific data analysis, built on `stemkit-core`, a JavaScript library
 of parsing and numerical routines with no DOM dependency. All computation runs
 inside the user's own browser: the data analysed never leaves it, no account is
 required and nothing is installed, so the tools stay usable for unpublished or
@@ -60,7 +60,7 @@ reproducibility; data privacy
 | C3 | Legal code license | MIT License |
 | C4 | Code versioning system used | git |
 | C5 | Software code languages, tools and services used | JavaScript (ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS |
-| C6 | Compilation requirements, operating environments and dependencies | Browser tools: any current browser supporting ECMAScript modules and the `FileReader` API; no installation and no build step. Library: Node.js ≥ 18; `npm install` installs the development dependencies (Jest, Tailwind CSS) only. There are no runtime dependencies: jStat, Papa Parse, regression.js and bibtex-parse-js are vendored in the repository |
+| C6 | Compilation requirements, operating environments and dependencies | Browser tools: any current browser supporting ECMAScript modules and the `FileReader` API; no installation and no build step. Library: Node.js ≥ 18; on npm as `stemkit-core`. No runtime dependencies: jStat, Papa Parse, regression.js and bibtex-parse-js are vendored and bundled. `npm install` in a clone adds only the development dependencies (Jest, Tailwind CSS) |
 | C7 | If available, link to developer documentation/manual | <https://github.com/LD-Shell/stemkit#readme>; per-module API documentation in `src/core/README.md`; hosted tools at <https://stemkit.net> |
 | C8 | Support email for questions | lanrelangmuir@gmail.com (issue tracker: <https://github.com/LD-Shell/stemkit/issues>) |
 
@@ -141,7 +141,7 @@ Interactively, the user opens a tool page at <https://stemkit.net> (or a local
 clone) and selects a local file (a GROMACS `.xvg` series, a PDB or `.gro`
 structure, a CSV of replicate measurements) and reads the result in the page.
 The file is read through `FileReader`; it is never uploaded. Programmatically,
-the same routines are imported from `@stemkit/core` in a Node.js script, which
+the same routines are imported from `stemkit-core` in a Node.js script, which
 is the path taken once an exploratory analysis is to be fixed, version-pinned
 and re-run. The four plotting tools (the XVG visualiser, plot builder, curve
 fitter and plot digitiser) additionally emit a standalone matplotlib script that
@@ -199,7 +199,7 @@ enumerates the modules.
                 └─────────────────┬─────────────────┘
                                   ▼
         ┌─────────────────────────────────────────────────┐
-        │                 @stemkit/core                   │
+        │                 stemkit-core                    │
         │  17 DOM-free domain modules, aggregated by      │
         │  src/core/index.js                              │
         └─────────────────────────┬───────────────────────┘
@@ -220,7 +220,7 @@ enumerates the modules.
 modules; the only environment-specific code is the registration call that
 supplies the vendored libraries.
 
-**Table 1.** Modules of `@stemkit/core`. Vendored dependencies are supplied by
+**Table 1.** Modules of `stemkit-core`. Vendored dependencies are supplied by
 injection; modules marked *none* operate without any third-party code.
 
 | Module | Domain | Tests | Dependency |
@@ -259,7 +259,8 @@ injection was preferred because the vendored libraries must be available
 synchronously. Rather than branch on the execution environment
 inside every module, which would render the core untestable in one of its two
 targets, the library declares the libraries it requires and each host registers
-them at initialisation (Section 2.3). Modules request their dependencies lazily,
+them at initialisation: under Node.js the package's entry point, in a browser
+the page (Section 2.3). Modules request their dependencies lazily,
 at the point of use rather than at import time, so importing any module never
 fails merely because an unrelated library has not yet been registered.
 
@@ -597,25 +598,35 @@ $p$-value, or metalloprotein mass.
 
 ### 2.3 Sample code snippets analysis
 
-Listing 1 contains the whole of the environment-specific code in the library.
-Each host registers the vendored bundles once, after which the identical modules
-run unchanged in both.
+Listing 1 contains the whole of the environment-specific code
+in the library. The package's Node.js entry point registers the vendored
+bundles, and a browser page registers the globals its script tags installed;
+after that the identical modules run unchanged in both, and a script needs no
+registration of its own.
 
 ```javascript
-// Node.js: the vendored bundles are loaded through createRequire.
-import { createRequire } from 'module';
-import { registerVendor } from '@stemkit/core';
+// Node.js: src/core/node.js, the package entry
+// under Node, loads the bundles.
+import { createRequire } from 'node:module';
+import { registerVendor } from './vendor.js';
 
 const require = createRequire(import.meta.url);
-registerVendor({ jStat: require('./js/dependencies/jstat.min.js') });
+const dep = (f) => require('../../js/dependencies/' + f);
+registerVendor({
+  jStat: dep('jstat.min.js'),
+  Papa: dep('papaparse.min.js'),
+  regression: dep('regression.min.js'),
+  bibtexParse: dep('bibtexParse.min.js')
+});
+export * from './index.js';
 
-// Browser: the UMD <script> tags have already installed their globals.
+// Browser: the <script> tags set the globals.
 import { registerFromGlobals } from './src/core/index.js';
 registerFromGlobals();
 ```
 
-**Listing 1.** Registration of the vendored libraries under Node.js and in the
-browser.
+**Listing 1.** Registration of the vendored libraries by the Node.js entry
+point and in the browser.
 
 ## 3. Illustrative examples
 
@@ -631,7 +642,7 @@ directives, so each column is reported under its own observable name rather than
 by index.
 
 ```javascript
-import { parseXvg, extractColumn, columnStats } from '@stemkit/core';
+import { parseXvg, extractColumn, columnStats } from 'stemkit-core';
 import { readFileSync } from 'fs';
 
 const { matrix, headers, title } = parseXvg(readFileSync('rmsd.xvg', 'utf8'));
@@ -653,7 +664,7 @@ than assumed.
 
 ```javascript
 import { parseStructure, centreOfMass, radiusOfGyration, convert }
-  from '@stemkit/core';
+  from 'stemkit-core';
 
 const frame = parseStructure(readFileSync('final.gro', 'utf8'), 'gro');
 const com = centreOfMass(frame.atoms);   // {x, y, z} in nm, and the total mass
@@ -671,7 +682,7 @@ discovered later; here a failed normality check in one group points to
 Mann–Whitney. The recommendation is advice, and the caller runs the test.
 
 ```javascript
-import { recommendTest, independentTTest, mannWhitneyU } from '@stemkit/core';
+import { recommendTest, independentTTest, mannWhitneyU } from 'stemkit-core';
 
 const advice = recommendTest({ design: 'independent',
                                groups: [wildType, mutant],
@@ -691,7 +702,7 @@ the returned warnings report the true in-flight memory total
 for the array as well as any request the scheduler is likely to reject.
 
 ```javascript
-import { generateScript } from '@stemkit/core';
+import { generateScript } from 'stemkit-core';
 
 const { script, warnings } = generateScript({
   engine: 'gromacs', jobName: 'prod_md', partition: 'gpu',

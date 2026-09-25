@@ -114,7 +114,7 @@ scientific data analysis}
 \begin{abstract}
 %% Text of abstract: ca. 100 words
 STEMKit is a suite of 18 browser-based tools for computational chemistry and
-scientific data analysis, built on \texttt{@stemkit/core}, a JavaScript library
+scientific data analysis, built on \texttt{stemkit-core}, a JavaScript library
 of parsing and numerical routines with no DOM dependency. All computation runs
 inside the user's own browser: the data analysed never leaves it, no account is
 required and nothing is installed, so the tools stay usable for unpublished or
@@ -165,9 +165,10 @@ C5 & Software code languages, tools and services used & JavaScript
 C6 & Compilation requirements, operating environments and dependencies &
 Browser tools: any current browser supporting ECMAScript modules and the
 \texttt{FileReader} API; no installation and no build step. Library: Node.js
-$\geq 18$; \texttt{npm install} installs the development dependencies (Jest,
-Tailwind CSS) only. There are no runtime dependencies: jStat, Papa Parse,
-regression.js and bibtex-parse-js are vendored in the repository \\
+$\geq 18$; on npm as \texttt{stemkit-core}. No runtime dependencies: jStat,
+Papa Parse, regression.js and bibtex-parse-js are vendored and bundled.
+\texttt{npm install} in a clone adds only the development dependencies (Jest,
+Tailwind CSS) \\
 \hline
 C7 & If available, link to developer documentation/manual &
 \url{https://github.com/LD-Shell/stemkit#readme}; per-module API documentation
@@ -259,7 +260,7 @@ The software is used in two ways sharing one implementation. Interactively, the
 user opens a tool page at \url{https://stemkit.net} (or a local clone), selects
 a local file and reads the result in the page; the file is read through
 \texttt{FileReader} and never uploaded. Programmatically, the same routines are
-imported from \texttt{@stemkit/core} in a Node.js script, the path taken once an
+imported from \texttt{stemkit-core} in a Node.js script, the path taken once an
 analysis is to be fixed, version-pinned and re-run. The four plotting tools
 (the XVG visualiser, plot builder, curve fitter and plot digitiser)
 additionally emit a standalone matplotlib script that regenerates the figure
@@ -327,7 +328,7 @@ resulting layering and Table~\ref{tab:modules} enumerates the modules.
   \footnotesize UMD bundles via \texttt{createRequire}};
 
 \node[wide, below=of $(browser.south)!0.5!(node.south)$, yshift=-1mm] (core)
-  {\textbf{\texttt{@stemkit/core}}\\[1pt]
+  {\textbf{\texttt{stemkit-core}}\\[1pt]
    \footnotesize 17 DOM-free domain modules, aggregated by \texttt{src/core/index.js}};
 \node[wide, below=of core] (inject)
   {\textbf{Vendor injection layer}\\[1pt]
@@ -352,7 +353,7 @@ vendored libraries.}
 
 \begin{table}[htbp]
 \centering
-\caption{Modules of \texttt{@stemkit/core}. Vendored dependencies are supplied
+\caption{Modules of \texttt{stemkit-core}. Vendored dependencies are supplied
 by injection; modules marked \emph{none} operate without any third-party code.}
 \label{tab:modules}
 \footnotesize
@@ -395,7 +396,8 @@ dynamic \texttt{await import()} does reject catchably, but injection was preferr
 because the bundles must be available synchronously. Rather than branch on the execution environment
 inside every module, which would render the core untestable in one of its two
 targets, the library declares the libraries it requires and each host registers
-them at initialisation (Section~\ref{sec:snippets}). Modules request their
+them at initialisation: under Node.js the package's entry point, in a browser
+the page (Section~\ref{sec:snippets}). Modules request their
 dependencies lazily, at the point of use rather than at import time, so
 importing any module never fails merely because an unrelated library has not yet
 been registered.
@@ -787,19 +789,29 @@ skewness, normality $p$-value, or metalloprotein mass.
 \label{sec:snippets}
 
 Listing~\ref{lst:register} contains the whole of the environment-specific code
-in the library. Each host registers the vendored bundles once, after which the
-identical modules run unchanged in both.
+in the library. The package's Node.js entry point registers the vendored
+bundles, and a browser page registers the globals its script tags installed;
+after that the identical modules run unchanged in both, and a script needs no
+registration of its own.
 
-\begin{lstlisting}[caption={Registration of the vendored libraries under
-Node.js and in the browser.},label={lst:register}]
-// Node.js: the vendored bundles are loaded through createRequire.
-import { createRequire } from 'module';
-import { registerVendor } from '@stemkit/core';
+\begin{lstlisting}[caption={Registration of the vendored libraries by the
+Node.js entry point and in the browser.},label={lst:register}]
+// Node.js: src/core/node.js, the package entry
+// under Node, loads the bundles.
+import { createRequire } from 'node:module';
+import { registerVendor } from './vendor.js';
 
 const require = createRequire(import.meta.url);
-registerVendor({ jStat: require('./js/dependencies/jstat.min.js') });
+const dep = (f) => require('../../js/dependencies/' + f);
+registerVendor({
+  jStat: dep('jstat.min.js'),
+  Papa: dep('papaparse.min.js'),
+  regression: dep('regression.min.js'),
+  bibtexParse: dep('bibtexParse.min.js')
+});
+export * from './index.js';
 
-// Browser: the UMD <script> tags have already installed their globals.
+// Browser: the <script> tags set the globals.
 import { registerFromGlobals } from './src/core/index.js';
 registerFromGlobals();
 \end{lstlisting}
@@ -821,7 +833,7 @@ rather than by index.
 
 \begin{lstlisting}[caption={Parsing a GROMACS RMSD trajectory and summarising
 each series.},label={lst:xvg}]
-import { parseXvg, extractColumn, columnStats } from '@stemkit/core';
+import { parseXvg, extractColumn, columnStats } from 'stemkit-core';
 import { readFileSync } from 'fs';
 
 const { matrix, headers, title } = parseXvg(readFileSync('rmsd.xvg', 'utf8'));
@@ -842,7 +854,7 @@ mass-weighted centre of mass and radius of gyration. Because the input is a
 \begin{lstlisting}[caption={Geometry of the final frame, with an explicit unit
 conversion.},label={lst:structure}]
 import { parseStructure, centreOfMass, radiusOfGyration, convert }
-  from '@stemkit/core';
+  from 'stemkit-core';
 
 const frame = parseStructure(readFileSync('final.gro', 'utf8'), 'gro');
 const com = centreOfMass(frame.atoms);   // {x, y, z} in nm, and the total mass
@@ -860,7 +872,7 @@ runs the test.
 
 \begin{lstlisting}[caption={A replicate comparison guided by the assumption
 checks.},label={lst:stats}]
-import { recommendTest, independentTTest, mannWhitneyU } from '@stemkit/core';
+import { recommendTest, independentTTest, mannWhitneyU } from 'stemkit-core';
 
 const advice = recommendTest({ design: 'independent',
                                groups: [wildType, mutant],
@@ -880,7 +892,7 @@ likely to reject.
 
 \begin{lstlisting}[caption={Generating a GROMACS submission script with
 resource warnings.},label={lst:slurm}]
-import { generateScript } from '@stemkit/core';
+import { generateScript } from 'stemkit-core';
 
 const { script, warnings } = generateScript({
   engine: 'gromacs', jobName: 'prod_md', partition: 'gpu',
