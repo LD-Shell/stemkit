@@ -41,7 +41,7 @@ Run the tests, from a clone:
 
 ```bash
 npm install
-npm test                        # 1208 tests, 17 modules
+npm test                        # 1284 tests, 17 modules
 node tests/smoke.mjs            # end-to-end against a real install
 ```
 
@@ -49,7 +49,7 @@ node tests/smoke.mjs            # end-to-end against a real install
 
 | Script | Does |
 |---|---|
-| `npm test` | Jest, 1208 tests |
+| `npm test` | Jest, 1284 tests |
 | `npm run test:coverage` | coverage report (see `docs/COVERAGE.md`) |
 | `npm run check:links` | internal and external link check |
 | `npm run check:links:internal` | internal only, no network |

@@ -75,9 +75,9 @@ const r = require(process.argv[2]);
 // A delta here means the suite and the manuscript have diverged: correct
 // whichever is wrong before citing either.
 const paper = {
-  bibtex: 102, structure: 100, statistics: 164, 'curve-fitting': 77,
-  'xvg-parser': 77, units: 73, plumed: 72, selection: 67, slurm: 61,
-  latex: 59, 'error-bars': 57, journals: 53, 'data-cleaning': 51,
+  statistics: 164, bibtex: 140, 'xvg-parser': 108, structure: 100,
+  'curve-fitting': 81, units: 73, plumed: 72, selection: 67, slurm: 61,
+  'error-bars': 60, latex: 59, journals: 53, 'data-cleaning': 51,
   outliers: 51, scheduler: 51, digitizer: 49, iso4: 44
 };
 

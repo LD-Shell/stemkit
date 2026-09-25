@@ -227,7 +227,7 @@ npm test                # full suite
 npm run test:coverage   # with coverage
 ```
 
-The suite comprises 1208 tests across all 17 domain modules (`src/core` also holds the aggregate
+The suite comprises 1284 tests across all 17 domain modules (`src/core` also holds the aggregate
 export, the Node entry and the injection layer, which carry no domain logic). Numerical results are validated against
 independent references rather than against the implementation itself:
 
@@ -268,11 +268,15 @@ in `HEM`) and selenomethionine selenium, and drop numeric-prefixed hydrogens
 (`1HB`, `2HG1`) entirely, giving wrong molecular weights and centres of mass
 for metalloproteins. The resolution here is checked against 40 real atom names.
 
-One caveat is inherited rather than fixed: `regression.js` fits exponential,
-power, and logarithmic models by **linearisation**, minimising error in log
-space rather than the original units, and weights that fit by y. For a clean
-perturbed doubling series it returns 0.690216 where unweighted log-OLS
-gives ln 2 = 0.69315. Neither is wrong, but they answer different questions.
+One caveat is inherited rather than fixed: `regression.js` fits the
+exponential and power models by **linearisation**, minimising error in log
+space rather than the original units, and weights the exponential fit by y
+(the power fit is unweighted). The logarithmic model is linear in its
+parameters and is fitted by ordinary least squares. For the doubling series
+(1, 2.0), (2, 4.1), (3, 8.2), (4, 16.1), (5, 32.3) the weighted exponential fit
+gives a rate of 0.690216, where unweighted log-space least squares gives
+0.693167 (the series was generated from ln 2 = 0.693147). Neither is wrong,
+but they answer different questions.
 `fitCurve` sets a `linearised` flag so callers can surface it; for
 publication-grade nonlinear fits, use Levenberg–Marquardt on untransformed data.
 
