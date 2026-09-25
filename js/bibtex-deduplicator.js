@@ -179,8 +179,10 @@ document.addEventListener('DOMContentLoaded', () => {
     duplicateCount.textContent = result.duplicateCount;
     uniqueCount.textContent = keptSingletons.length + conflictGroups.length;
 
+    // They are not entries, so they are not compared, but the download keeps
+    // them: the kept entries may use the @string macros.
     if (parsed.strippedBlocks > 0) {
-      showToast(`Skipped ${plural(parsed.strippedBlocks, '@string, @comment or @preamble block', '@string, @comment and @preamble blocks')}.`);
+      showToast(`The download keeps the ${plural(parsed.strippedBlocks, '@string, @comment or @preamble block', '@string, @comment and @preamble blocks')}.`);
     }
 
     emptyState.hidden = true;
@@ -300,6 +302,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const finalList = buildFinalList();
     if (finalList.length === 0) return showToast('There is nothing to download.', 'error');
 
+    // The entries are the parser's own objects in source order, so the core
+    // writes the scanned text with the other entries cut out: kept entries,
+    // @string blocks and comments are exactly as they were.
     const output = serialiseLibrary(finalList);
     const blob = new Blob([output], { type: 'text/plain;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

@@ -6,7 +6,7 @@
     
     <title>BibTeX Sanitizer | Format Citations | STEMKit</title>
     <meta name="title" content="BibTeX Sanitizer | Format Citations | STEMKit">
-    <meta name="description" content="Clean messy BibTeX exports, standardize title capitalization, and repair broken brackets instantly in your browser.">
+    <meta name="description" content="Clean up BibTeX exports in your browser: remove bulky fields such as abstract and url, write page ranges with an en dash, and brace acronyms in titles so the bibliography style keeps their capitals.">
     <meta name="keywords" content="bibtex sanitizer, format bibtex, clean citations, latex bibliography, standardize bibtex, remove url from bibtex">
     
     <link rel="canonical" href="https://stemkit.net/bibtex-sanitizer.html">
@@ -15,8 +15,8 @@
     
     <meta property="og:title" content="BibTeX Sanitizer | Format Citations">
     <meta property="twitter:title" content="BibTeX Sanitizer | Format Citations">
-    <meta property="og:description" content="Clean messy BibTeX exports and standardize formatting instantly.">
-    <meta property="twitter:description" content="Clean messy BibTeX exports and standardize formatting instantly.">
+    <meta property="og:description" content="Remove bulky fields from BibTeX exports, fix page ranges and brace acronyms in titles.">
+    <meta property="twitter:description" content="Remove bulky fields from BibTeX exports, fix page ranges and brace acronyms in titles.">
     
     <script type="application/ld+json">
         {
@@ -24,13 +24,13 @@
             "@type": "WebApplication",
             "name": "STEMKit BibTeX Sanitizer",
             "url": "https://stemkit.net/bibtex-sanitizer.html",
-            "description": "Clean messy BibTeX exports, standardize capitalization, and repair brackets.",
+            "description": "Removes bulky fields from BibTeX exports, writes page ranges with a LaTeX en dash and braces acronyms in titles so the bibliography style keeps their capitals. The rest of each title is left for the style to case.",
             "applicationCategory": "UtilityApplication",
             "operatingSystem": "All",
             "author": { "@type": "Person", "name": "Olanrewaju M. Daramola" },
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "Syntax Repair", "Title Case Standardization", "Client-Side Processing", "Redundant Field Stripping" ]
+            "featureList": [ "Field removal", "Page ranges with an en dash", "Braces around acronyms and formulae in titles", "Equals-sign alignment", "Runs in the browser" ]
         }
     </script>
 
@@ -249,7 +249,7 @@
                 </div>
                 <div class="stk-card">
                     <h3>Brace-aware parsing</h3>
-                    <p>The parser tracks brace depth, so a value like <code>title = {A study of {NaCl}}</code> is read correctly instead of being cut off at the first inner brace. <code>@string</code>, <code>@preamble</code> and <code>@comment</code> blocks pass through untouched. Everything runs locally in your browser.</p>
+                    <p>The parser tracks brace depth, so a value like <code>title = {A study of {NaCl}}</code> is read correctly instead of being cut off at the first inner brace. <code>@string</code>, <code>@preamble</code> and <code>@comment</code> blocks pass through untouched, and every value keeps the form it was written in: <code>month = jul</code> and <code>journal = jcp</code> stay bare, so the macros still apply. Everything runs locally in your browser.</p>
                 </div>
             </div>
             <div class="stk-note" style="margin-top:1rem;">

@@ -1,10 +1,10 @@
 /**
  * DOI to BibTeX | UI layer.
  *
- * DOI-list parsing and BibTeX field filtering live in stemkit-core; this file
- * handles fetching and DOM wiring only.
+ * BibTeX field removal lives in stemkit-core; this file handles DOI-list
+ * parsing, fetching and DOM wiring.
  */
-import { filterBibtexFields } from '../src/core/bibtex.js';
+import { dropBibtexFields } from '../src/core/bibtex.js';
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -12,12 +12,14 @@ document.addEventListener("DOMContentLoaded", () => {
     // 1. STATE
     // ═══════════════════════════════════════════
 
-    let rawEntries = [];        // Raw bibtex strings returned by the API
+    let rawEntries = [];        // Raw bibtex strings returned by doi.org
+    let fetchedDOIs = new Set(); // Lowercased DOIs already in rawEntries
     let failedDOIs = [];        // Array of { doi, error } objects
     let selectedDelim = "auto";
     let isFetching = false;
 
-    // BibTeX fields available for toggling
+    // Fields the panel offers to remove. A field not listed here, such as
+    // address, school or howpublished, is always kept.
     const ALL_FIELDS = [
         { key: "author",    essential: true  },
         { key: "title",     essential: true  },
@@ -110,10 +112,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function syncFieldsSummary() {
         if (!fieldsSummary) return;
-        const n = enabledFields.size;
-        fieldsSummary.textContent = n === ALL_FIELDS.length
-            ? `All ${n} kept`
-            : `${n} of ${ALL_FIELDS.length} kept`;
+        const removed = ALL_FIELDS.length - enabledFields.size;
+        fieldsSummary.textContent = removed === 0
+            ? "None removed"
+            : `${plural(removed, "field", "fields")} removed`;
     }
 
     fieldsGrid.addEventListener("change", (e) => {
@@ -199,15 +201,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // ═══════════════════════════════════════════
 
     /**
-     * Keep only the fields the user has ticked.
+     * Remove the fields the user has unticked, and nothing else.
      *
-     * Delegates to the core so this shares the tested implementation. The
-     * previous local copy scanned line by line, which silently did nothing
-     * when a provider returned the whole entry on one line, as the DOI
-     * content-negotiation service often does.
+     * Delegates to the core so this shares the tested implementation, which
+     * reads the entry rather than its lines: the DOI content-negotiation
+     * service often returns a whole entry on one line.
      */
     function filterBibtex(bib) {
-        return filterBibtexFields(bib, enabledFields);
+        const unticked = ALL_FIELDS.map(f => f.key).filter(k => !enabledFields.has(k));
+        return dropBibtexFields(bib, unticked);
     }
 
 
@@ -294,22 +296,38 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        const { dois, dupes, skipped } = isRetry
+        const parsed = isRetry
             ? { dois: retryDoisArray, dupes: 0, skipped: 0 }
             : parseDOIs(inputText);
+        const { dupes, skipped } = parsed;
 
-        if (dois.length === 0) {
+        if (parsed.dois.length === 0) {
             showToast("None of that looks like a DOI. A DOI starts with 10., such as 10.1038/s41586-020-2649-2.", "error");
             return;
         }
+
+        // A DOI fetched in an earlier batch is already in the bibliography;
+        // fetching it again would only add a second copy.
+        const dois = parsed.dois.filter(d => !fetchedDOIs.has(d.toLowerCase()));
+        const already = parsed.dois.length - dois.length;
 
         // What was left out, and why
         if (!isRetry) {
             const notes = [];
             if (dupes > 0) notes.push(`${plural(dupes, "repeated DOI", "repeated DOIs")}`);
+            if (already > 0) notes.push(`${plural(already, "DOI", "DOIs")} already in the bibliography`);
             if (skipped > 0) notes.push(`${plural(skipped, "piece", "pieces")} of text that ${skipped === 1 ? "is" : "are"} not a DOI`);
             dedupInfo.classList.toggle("hidden", notes.length === 0);
-            dedupText.textContent = notes.length ? `Skipped ${notes.join(" and ")}.` : "";
+            dedupText.textContent = notes.length ? `Skipped ${listJoin(notes)}.` : "";
+        }
+
+        if (dois.length === 0) {
+            showToast(already === 1
+                ? "That DOI is already in the bibliography."
+                : "All of those DOIs are already in the bibliography.");
+            doiInput.value = "";
+            doiInput.focus();
+            return;
         }
 
         isFetching = true;
@@ -335,6 +353,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const bib = await fetchSingleDOI(doi);
                 const trimmed = bib.trim();
                 rawEntries.push(trimmed);
+                fetchedDOIs.add(doi.toLowerCase());
                 fetched++;
                 streamAppendEntry(trimmed);
             } catch (err) {
@@ -346,7 +365,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             setProgress(i + 1, dois.length, progressText.textContent);
 
-            // Rate limit: ~150ms between requests to respect Crossref
+            // A short pause between requests, to go easy on doi.org and the
+            // registration agencies behind it
             if (i < dois.length - 1) await sleep(150);
         }
 
@@ -368,6 +388,7 @@ document.addEventListener("DOMContentLoaded", () => {
         statsRow.textContent =
             `Last batch: ${fetched} fetched, ${failedDOIs.length} failed` +
             (dupes ? `, ${plural(dupes, "repeat", "repeats")} skipped` : "") +
+            (already ? `, ${already} already in the bibliography` : "") +
             `, in ${elapsed} s.`;
 
         showToast(`Fetched ${fetched} of ${plural(dois.length, "DOI", "DOIs")} in ${elapsed} s.`,
@@ -459,6 +480,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (isFetching) return;
         const n = rawEntries.length;
         rawEntries = [];
+        fetchedDOIs = new Set();
         failedDOIs = [];
         bibOutput.value = "";
         failCountBadge.textContent = "";
@@ -507,6 +529,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const div = document.createElement("div");
         div.textContent = str;
         return div.innerHTML;
+    }
+
+    /** "a", "a and b", "a, b and c" */
+    function listJoin(items) {
+        return items.length < 2 ? items.join("")
+            : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
     }
 
     function truncate(str, max) {

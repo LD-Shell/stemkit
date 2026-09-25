@@ -7,7 +7,7 @@ import {
   fixPageRange, stripOuterBraces, protectCapitals,
   removeFields, sanitiseLibrary, missingFields,
   readFieldsPreservingBraces, sanitiseText,
-  parseDoiList, filterBibtexFields
+  parseDoiList, filterBibtexFields, dropBibtexFields
 } from '../src/core/bibtex.js';
 
 const LIBRARY = `
@@ -120,6 +120,96 @@ describe('parseBibtex', () => {
   test('returns an empty result for blank input', () => {
     expect(parseBibtex('').entries).toEqual([]);
     expect(parseBibtex(null).entries).toEqual([]);
+  });
+
+  test('names the entry that has the syntax error', () => {
+    const r = parseBibtex('@article{a, title={T}}\n@article{b, title = {T} year = 2020}');
+    expect(r.entries).toEqual([]);
+    expect(r.error).toContain('entry 2 (b)');
+  });
+
+  test('ignores an @ in text between entries', () => {
+    const r = parseBibtex('% maintained by me@example.org\n@article{a, title={T}, year={2020}}');
+    expect(r.error).toBeNull();
+    expect(r.entries).toHaveLength(1);
+  });
+
+  test('reads an entry delimited by parentheses', () => {
+    const r = parseBibtex('@article(a, title = {A (short) note}, year = 2020)');
+    expect(r.error).toBeNull();
+    expect(r.entries[0].entryTags.title).toBe('A (short) note');
+  });
+});
+
+/*
+ * bibtex-parse-js accepts a bare value only when it is a number, so a single
+ * `month = jul` used to fail the whole library, and doi.org returns entries
+ * written that way.
+ */
+describe('parseBibtex with macros', () => {
+  const tag = (bib, name) => getField(parseBibtex(bib).entries[0].entryTags, name);
+
+  test('expands a bare month macro', () => {
+    const r = parseBibtex('@article{b, title={X}, month=jul, year=2020}');
+    expect(r.error).toBeNull();
+    expect(r.entries).toHaveLength(1);
+    expect(r.entries[0].entryTags.month).toBe('July');
+  });
+
+  test('accepts the longer month forms exporters write', () => {
+    expect(tag('@misc{a, title={T}, month = Sept}', 'month')).toBe('September');
+    expect(tag('@misc{a, title={T}, month = SEP}', 'month')).toBe('September');
+    expect(tag('@misc{a, title={T}, month = June}', 'month')).toBe('June');
+  });
+
+  test('expands a bare reference to an @string definition', () => {
+    const r = parseBibtex('@string{jcp = {J. Chem. Phys.}}\n@article{a, title={Y}, journal=jcp, year=2020}');
+    expect(r.error).toBeNull();
+    expect(r.entries[0].entryTags.journal).toBe('J. Chem. Phys.');
+    expect(r.strippedBlocks).toBe(1);
+  });
+
+  test('matches macro names case-insensitively, in any @string form', () => {
+    expect(tag('@STRING(JCP = "J. Chem. Phys.")\n@article{a, title={T}, journal = jcp}', 'journal'))
+      .toBe('J. Chem. Phys.');
+  });
+
+  test('lets an @string definition override a month', () => {
+    expect(tag('@string{jan = "Janvier"}\n@article{a, title={T}, month = jan}', 'month'))
+      .toBe('Janvier');
+  });
+
+  test('keeps an undefined bare macro as its own text', () => {
+    const r = parseBibtex('@article{a, title={T}, journal = jnotdefined, year = 2020}');
+    expect(r.error).toBeNull();
+    expect(r.entries[0].entryTags.journal).toBe('jnotdefined');
+  });
+
+  test('applies a macro only after its definition, as BibTeX does', () => {
+    const r = parseBibtex('@article{a, title={T}, journal = jcp}\n@string{jcp = "J. Chem. Phys."}\n' +
+                          '@article{b, title={U}, journal = jcp}');
+    expect(r.entries[0].entryTags.journal).toBe('jcp');
+    expect(r.entries[1].entryTags.journal).toBe('J. Chem. Phys.');
+  });
+
+  test('keeps a bare number', () => {
+    expect(tag('@article{a, title={T}, year = 2020, volume = 12}', 'volume')).toBe('12');
+  });
+
+  test('joins # concatenations, keeping the spaces in each part', () => {
+    const bib = '@string{base = "Chem. Phys."}\n@string{jcp = "J. " # base}\n' +
+                '@article{a, title={T}, journal = jcp # " (Letters)"}';
+    expect(tag(bib, 'journal')).toBe('J. Chem. Phys. (Letters)');
+  });
+
+  test('reads a one-line entry from doi.org with month = Sept', () => {
+    const doi = '@article{Harris_2020, title={Array programming with NumPy}, volume={585}, ' +
+                'DOI={10.1038/s41586-020-2649-2}, journal={Nature}, year={2020}, month=Sept, pages={357–362} }';
+    const local = '@article{harris2020numpy, title = {Array programming with {NumPy}}, year = {2020}}';
+    const r = parseBibtex(`${local}\n\n${doi}`);
+    expect(r.error).toBeNull();
+    expect(r.entries).toHaveLength(2);
+    expect(findDuplicates(r.entries).groups).toHaveLength(1);
   });
 });
 
@@ -275,6 +365,83 @@ describe('serialisation', () => {
   test('handles null input', () => {
     expect(serialiseEntry(null)).toBe('');
     expect(serialiseLibrary(null)).toBe('');
+  });
+});
+
+/*
+ * The deduplicator's download used to rewrite every kept entry from the
+ * parser's decoded fields, which lose protective braces and macros, and it
+ * dropped every @string block.
+ */
+describe('serialisation keeps the source as written', () => {
+  const SRC = `@string{nat = {Nature}}
+@preamble{"\\newcommand{\\noop}[1]{}"}
+
+@article{harris2020numpy,
+  title = {Array programming with {NumPy}},
+  journal = nat,
+  month = jul,
+  year = 2020,
+  doi = {10.1038/s41586-020-2649-2}
+}
+
+@article{Harris_2020,
+  title = {Array programming with NumPy},
+  doi = {https://doi.org/10.1038/s41586-020-2649-2}
+}
+
+@article{other2021, title = "A Different Study", journal = nat, year = 2021}
+
+@comment{jabref-meta: databaseType:bibtex;}`;
+
+  test('a deduplicated library keeps its blocks, braces and macros', () => {
+    const { entries } = deduplicateAuto(parseBibtex(SRC).entries);
+    const out = serialiseLibrary(entries);
+    expect(out).toContain('@string{nat = {Nature}}');
+    expect(out).toContain('@preamble{');
+    expect(out).toContain('@comment{jabref-meta');
+    expect(out).toContain('title = {Array programming with {NumPy}}');
+    expect(out).toContain('journal = nat,\n  month = jul,');
+    expect(out).toContain('title = "A Different Study"');
+    expect(out).not.toContain('Harris_2020');
+  });
+
+  test('the written library parses back with its macros resolved', () => {
+    const { entries } = deduplicateAuto(parseBibtex(SRC).entries);
+    const back = parseBibtex(serialiseLibrary(entries));
+    expect(back.error).toBeNull();
+    expect(back.entries.map(e => e.citationKey)).toEqual(['harris2020numpy', 'other2021']);
+    expect(back.entries[1].entryTags.journal).toBe('Nature');
+  });
+
+  test('a library with nothing removed comes back as it was', () => {
+    expect(serialiseLibrary(parseBibtex(SRC).entries)).toBe(SRC + '\n');
+  });
+
+  test('serialiseEntry writes an unchanged entry as it was', () => {
+    const e = parseBibtex(SRC).entries[0];
+    expect(serialiseEntry(e)).toContain('title = {Array programming with {NumPy}},\n  journal = nat,');
+  });
+
+  test('an entry edited in place is written from its fields', () => {
+    const e = parseBibtex(SRC).entries[0];
+    e.entryTags.note = 'Edited';
+    const out = serialiseEntry(e);
+    expect(out).toContain('note = {Edited}');
+    expect(out).toContain('journal = {Nature}');
+  });
+
+  test('a copy made by sanitiseLibrary is written from its fields', () => {
+    const r = sanitiseLibrary(parseBibtex(LIBRARY).entries, { fixPages: true });
+    expect(serialiseLibrary(r.entries)).toContain('pages = {100--110}');
+  });
+
+  test('entries out of source order still get the definitions they use', () => {
+    const [a, , c] = parseBibtex(SRC).entries;
+    const out = serialiseLibrary([c, a]);
+    expect(out.indexOf('@string{nat')).toBeLessThan(out.indexOf('@article{other2021'));
+    const back = parseBibtex(out);
+    expect(back.entries.map(e => getField(e.entryTags, 'journal'))).toEqual(['Nature', 'Nature']);
   });
 });
 
@@ -440,6 +607,25 @@ describe('readFieldsPreservingBraces', () => {
     expect(readFieldsPreservingBraces('')).toEqual([]);
     expect(readFieldsPreservingBraces(null)).toEqual([]);
   });
+
+  test('reports the form each value was written in', () => {
+    const f = readFieldsPreservingBraces('title={T}, journal="J", month=jul');
+    expect(f.map(x => x.delimiter)).toEqual(['{', '"', '']);
+    expect(f.map(x => x.raw)).toEqual(['{T}', '"J"', 'jul']);
+  });
+
+  test('reads a # concatenation whole and carries on after it', () => {
+    const f = readFieldsPreservingBraces('journal = "J. " # jcp, year = 2020');
+    expect(f[0].raw).toBe('"J. " # jcp');
+    expect(f[0].delimiter).toBe('');
+    expect(f[1].key).toBe('year');
+  });
+
+  test('keeps the field name as written alongside the lowercased key', () => {
+    const f = readFieldsPreservingBraces('DOI = {10.1/x}');
+    expect(f[0].key).toBe('doi');
+    expect(f[0].name).toBe('DOI');
+  });
 });
 
 describe('sanitiseText', () => {
@@ -495,6 +681,78 @@ describe('sanitiseText', () => {
   test('handles empty input', () => {
     expect(sanitiseText('', {}).text).toBe('');
     expect(sanitiseText(null, {}).entriesProcessed).toBe(0);
+  });
+});
+
+/*
+ * Every value used to be re-emitted as `key = {value}`, so `journal = jcp`
+ * became the literal text "jcp" and the kept @string definition went unused.
+ */
+describe('sanitiseText keeps each value in its written form', () => {
+  const ALL = { stripFields: ['url'], fixPages: true, protectTitle: true, alignEquals: true };
+  const SRC = `@string{jcp = "J. Chem. Phys."}
+
+@article{a,
+  title = "An NMR study",
+  journal = jcp,
+  month = jul,
+  year = 2020,
+  pages = "100-110",
+  url = {https://example.com}
+}`;
+
+  test('leaves bare macros and numbers bare', () => {
+    const out = sanitiseText(SRC, ALL).text;
+    expect(out).toMatch(/journal\s*= jcp,/);
+    expect(out).toMatch(/month\s*= jul,/);
+    expect(out).toMatch(/year\s*= 2020,/);
+    expect(out).not.toContain('{jcp}');
+    expect(out).not.toContain('{jul}');
+  });
+
+  test('keeps quoted values quoted, applying the rules inside them', () => {
+    const out = sanitiseText(SRC, ALL).text;
+    expect(out).toContain('"An {NMR} study"');
+    expect(out).toContain('"100--110"');
+  });
+
+  test('the output still resolves its macros when parsed', () => {
+    const e = parseBibtex(sanitiseText(SRC, ALL).text).entries[0];
+    expect(e.entryTags.journal).toBe('J. Chem. Phys.');
+    expect(e.entryTags.month).toBe('July');
+  });
+
+  test('still fixes a page range typed without braces', () => {
+    const out = sanitiseText('@article{a, title = {T}, pages = 100-110}', { fixPages: true }).text;
+    expect(out).toContain('pages = {100--110}');
+  });
+
+  test('does not apply title rules to a macro name', () => {
+    const out = sanitiseText('@article{a, title = MyTitleMacro, year = 2020}', { protectTitle: true, alignEquals: true }).text;
+    expect(out).toMatch(/title = MyTitleMacro,/);
+  });
+
+  test('carries a # concatenation over whole, and the fields after it', () => {
+    const out = sanitiseText('@article{a, journal = "J. " # jcp, year = 2020}', { alignEquals: true }).text;
+    expect(out).toContain('journal = "J. " # jcp,');
+    expect(out).toContain('year    = 2020');
+  });
+
+  test('an entry no rule changes comes out exactly as written', () => {
+    const src = '@string{jcp = "J. Chem. Phys."}\n@Article{Key, Title={DNA}, Journal=jcp, Month=jul}\n';
+    expect(sanitiseText(src, { fixPages: true }).text).toBe(src);
+  });
+
+  test('keeps field names as written', () => {
+    const out = sanitiseText('@article{a, DOI = {10.1/x}, pages = {1-2}}', { fixPages: true }).text;
+    expect(out).toContain('DOI = {10.1/x}');
+  });
+
+  test('keeps an entry written with parentheses separate from the one before', () => {
+    const src = '@article{a, title = {One}, year = 2020}\n@article(b, title = {Two (2)}, year = 2021)';
+    const out = sanitiseText(src, { alignEquals: true }).text;
+    expect(out).toContain('@article(b,');
+    expect(parseBibtex(out).entries.map(e => e.entryTags.title)).toEqual(['One', 'Two (2)']);
   });
 });
 
@@ -680,5 +938,53 @@ describe('filterBibtexFields across real-world layouts', () => {
     expect(filterBibtexFields('', keep)).toBe('');
     expect(filterBibtexFields(null, keep)).toBe('');
     expect(() => filterBibtexFields('@article{X, title={unclosed', keep)).not.toThrow();
+  });
+
+  test('passes @string and @comment blocks through untouched', () => {
+    const src = '@string{pub = "Wiley, New York"}\n@comment{x}\n@article{X, title={T}, url={u}}';
+    const out = filterBibtexFields(src, keep);
+    expect(out).toContain('@string{pub = "Wiley, New York"}');
+    expect(out).toContain('@comment{x}');
+    expect(has(out, 'url')).toBe(false);
+  });
+
+  test('a # concatenation is kept whole and the fields after it survive', () => {
+    const out = filterBibtexFields('@article{X, journal = "J. " # jcp, url = {u}, title = {T}}', keep);
+    expect(out).toContain('journal = "J. " # jcp');
+    expect(has(out, 'title')).toBe(true);
+    expect(has(out, 'url')).toBe(false);
+  });
+});
+
+/*
+ * The DOI page offers a fixed list of fields to untick. Filtering with that
+ * list as the fields to keep dropped every field not on it (address, school,
+ * howpublished) even while the panel said all were kept.
+ */
+describe('dropBibtexFields', () => {
+  const DOI = '@book{Smith_2020, title={A Thesis}, author={Smith, J.}, address={Cambridge}, ' +
+              'school={MIT}, howpublished={Online}, url={http://x}, ISSN={1234}, year={2020}, month=Sept}';
+  const has = (out, field) => new RegExp(`\\b${field}\\s*=`, 'i').test(out);
+
+  test('removes only the named fields', () => {
+    const out = dropBibtexFields(DOI, ['url', 'abstract']);
+    expect(has(out, 'url')).toBe(false);
+    for (const f of ['title', 'author', 'address', 'school', 'howpublished', 'ISSN', 'year', 'month']) {
+      expect(has(out, f)).toBe(true);
+    }
+  });
+
+  test('removing nothing keeps every field', () => {
+    expect(dropBibtexFields(DOI, []).match(/=/g)).toHaveLength(9);
+  });
+
+  test('matches field names case-insensitively', () => {
+    expect(has(dropBibtexFields(DOI, new Set(['issn'])), 'issn')).toBe(false);
+  });
+
+  test('keeps a bare month bare, so the result parses', () => {
+    const out = dropBibtexFields(DOI, ['url']);
+    expect(out).toContain('month = Sept');
+    expect(parseBibtex(out).entries[0].entryTags.month).toBe('September');
   });
 });

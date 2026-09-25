@@ -11,8 +11,13 @@
  * Pairwise comparison would report two separate conflicts and leave a
  * duplicate in the output.
  *
- * Parsing is delegated to the vendored bibtex-parse-js bundle via the
- * injection layer.
+ * Field values are decoded by the vendored bibtex-parse-js bundle via the
+ * injection layer. The document structure is read here first: the bundle
+ * cannot read `@string` blocks or bare macro values (`month = jul`,
+ * `journal = jcp`), so each entry is located, its macros are expanded, and it
+ * is handed to the bundle on its own. The source text of each entry is
+ * remembered, so an entry that has not been edited is written back exactly as
+ * it was read.
  */
 
 import { requireVendor } from './vendor.js';
@@ -61,14 +66,303 @@ export function normaliseTitle(raw) {
     .trim();
 }
 
+/* ------------------------------------------------------------------ *
+ * Reading the source text
+ * ------------------------------------------------------------------ */
+
+// The month macros every standard bibliography style defines (`jan` expands
+// to "January" in plain.bst and its descendants).
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+  'August', 'September', 'October', 'November', 'December'];
+
+// A bare word: a macro name, a number or a field name. BibTeX ends one at
+// whitespace or at any of these characters.
+const WORD = /[^\s"#%'(),={}]+/y;
+
+// The head of a block: `@article{`, `@string (`, and so on.
+const BLOCK_HEAD = /@\s*([A-Za-z][\w.:+-]*)\s*([{(])/y;
+
+const NON_ENTRY = new Set(['string', 'comment', 'preamble']);
+
+/** The bare word starting at `i`, or '' when there is none. */
+function wordAt(src, i) {
+  WORD.lastIndex = i;
+  const m = WORD.exec(src);
+  return m ? m[0] : '';
+}
+
+/**
+ * Expand a bare month such as `jul` to its name.
+ *
+ * The styles define only `jan` to `dec`, but exporters also write `Sept`,
+ * `June` or `July`, so any case-insensitive prefix of a month name of three
+ * or more letters is accepted.
+ *
+ * @param {string} word
+ * @returns {string} The month name, or '' when the word is not a month.
+ */
+function monthName(word) {
+  const w = word.toLowerCase().replace(/\.$/, '');
+  if (w.length < 3) return '';
+  return MONTHS.find(m => m.toLowerCase().startsWith(w)) || '';
+}
+
+/**
+ * The text a bare value stands for.
+ *
+ * A number is itself. A name defined by `@string` takes that definition,
+ * which overrides a month as it does in BibTeX. Otherwise a month name
+ * expands, and any other word is kept as its own text, so an undefined macro
+ * still reads as something rather than failing the whole library.
+ *
+ * @param {string} word
+ * @param {Map<string,string>} macros - Lowercased name to value.
+ * @returns {string}
+ */
+function resolveMacro(word, macros) {
+  if (/^\d+$/.test(word)) return word;
+  const defined = macros.get(word.toLowerCase());
+  if (defined !== undefined) return defined;
+  return monthName(word) || word;
+}
+
+/**
+ * Read one field value: a braced string, a quoted string or a bare word (a
+ * number or macro name), or several of these joined with `#`.
+ *
+ * Braces are counted inside quoted strings as well, as BibTeX does, so
+ * `"Outer {"} text"` is one value.
+ *
+ * @param {string} src
+ * @param {number} i - Index just after the `=`.
+ * @returns {{parts:Array<{kind:'braced'|'quoted'|'bare', start:number,
+ *            end:number, text:string}>, end:number}} Each part's `text` is
+ *          without its delimiters; `end` is the index after the last part.
+ */
+function readValue(src, i) {
+  const n = src.length;
+  const parts = [];
+  let end = i;
+
+  for (;;) {
+    while (i < n && /\s/.test(src[i])) i++;
+    const start = i;
+
+    if (src[i] === '{') {
+      let depth = 0;
+      for (; i < n; i++) {
+        if (src[i] === '{') depth++;
+        else if (src[i] === '}' && --depth === 0) { i++; break; }
+      }
+      parts.push({ kind: 'braced', start, end: i, text: src.slice(start + 1, depth === 0 ? i - 1 : i) });
+    } else if (src[i] === '"') {
+      let depth = 0;
+      let closed = false;
+      for (i++; i < n; i++) {
+        const c = src[i];
+        if (c === '{') depth++;
+        else if (c === '}') depth--;
+        else if (c === '"' && depth === 0) { closed = true; i++; break; }
+      }
+      parts.push({ kind: 'quoted', start, end: i, text: src.slice(start + 1, closed ? i - 1 : i) });
+    } else {
+      const word = wordAt(src, i);
+      if (!word) break;
+      i += word.length;
+      parts.push({ kind: 'bare', start, end: i, text: word });
+    }
+
+    end = i;
+    let j = i;
+    while (j < n && /\s/.test(src[j])) j++;
+    if (src[j] !== '#') break;
+    i = j + 1;
+  }
+
+  return { parts, end };
+}
+
+/**
+ * Index just past the delimiter that closes the block opened at `open`, or -1
+ * when the block is never closed.
+ *
+ * A `(` block also skips `)` inside braces or quotes, since a title such as
+ * "A (short) note" is common and would otherwise end the entry early.
+ */
+function closeOf(src, open) {
+  let depth = 0;
+  if (src[open] === '{') {
+    for (let j = open; j < src.length; j++) {
+      if (src[j] === '{') depth++;
+      else if (src[j] === '}' && --depth === 0) return j + 1;
+    }
+    return -1;
+  }
+  let quoted = false;
+  for (let j = open + 1; j < src.length; j++) {
+    const c = src[j];
+    if (c === '{') depth++;
+    else if (c === '}') depth--;
+    else if (c === '"' && depth === 0) quoted = !quoted;
+    else if (c === ')' && depth === 0 && !quoted) return j + 1;
+  }
+  return -1;
+}
+
+/**
+ * Find the top-level blocks of a BibTeX document.
+ *
+ * Text between blocks is not listed; BibTeX ignores it. An `@` that does not
+ * start a block (an address in a comment line, say) is skipped over.
+ *
+ * @param {string} src
+ * @returns {Array<{kind:'entry'|'string'|'comment'|'preamble', type:string,
+ *            start:number, open:number, end:number, closed:boolean}>}
+ *          `open` is the index of the opening delimiter; `end` is the index
+ *          after the closing one, or the end of the text when it is missing.
+ */
+function scanDocument(src) {
+  const blocks = [];
+  let i = 0;
+  while (i < src.length) {
+    const at = src.indexOf('@', i);
+    if (at === -1) break;
+    BLOCK_HEAD.lastIndex = at;
+    const m = BLOCK_HEAD.exec(src);
+    if (!m) { i = at + 1; continue; }
+
+    const type = m[1];
+    const open = at + m[0].length - 1;
+    const close = closeOf(src, open);
+    blocks.push({
+      kind: NON_ENTRY.has(type.toLowerCase()) ? type.toLowerCase() : 'entry',
+      type,
+      start: at,
+      open,
+      end: close === -1 ? src.length : close,
+      closed: close !== -1
+    });
+    i = close === -1 ? src.length : close;
+  }
+  return blocks;
+}
+
+/**
+ * Read the citation key and fields of an entry block.
+ *
+ * Reading stops at the first thing that is not a field; `complete` is then
+ * false and the fields before it are still returned.
+ *
+ * @returns {{key:string, fields:Array<{name:string, valueStart:number,
+ *            valueEnd:number, parts:object[]}>, complete:boolean}}
+ */
+function readEntry(src, block) {
+  const limit = block.closed ? block.end - 1 : block.end;
+  let k = block.open + 1;
+  while (k < limit && src[k] !== ',') k++;
+  const key = src.slice(block.open + 1, k).trim();
+
+  const fields = [];
+  let complete = true;
+  let i = k + 1;
+  while (i < limit) {
+    const c = src[i];
+    if (/[\s,]/.test(c)) { i++; continue; }
+    // bibtex-parse-js skips % comment lines between fields, so this does too.
+    if (c === '%') { while (i < limit && src[i] !== '\n') i++; continue; }
+
+    const name = wordAt(src, i);
+    if (!name) { complete = false; break; }
+    i += name.length;
+    while (i < limit && /\s/.test(src[i])) i++;
+    if (src[i] !== '=') { complete = false; break; }
+
+    const { parts, end } = readValue(src, i + 1);
+    if (parts.length === 0 || end > limit) { complete = false; break; }
+    fields.push({ name, valueStart: parts[0].start, valueEnd: end, parts });
+
+    i = end;
+    while (i < limit && /\s/.test(src[i])) i++;
+    if (i < limit && src[i] !== ',') { complete = false; break; }
+  }
+  return { key, fields, complete };
+}
+
+/** Record the definition in a `@string` block, expanding any macro it uses. */
+function defineMacro(src, block, macros) {
+  if (!block.closed) return;
+  let i = block.open + 1;
+  while (i < block.end && /\s/.test(src[i])) i++;
+  const name = wordAt(src, i);
+  if (!name) return;
+  i += name.length;
+  while (i < block.end && /\s/.test(src[i])) i++;
+  if (src[i] !== '=') return;
+
+  const { parts } = readValue(src, i + 1);
+  if (parts.length === 0) return;
+  macros.set(name.toLowerCase(),
+    parts.map(p => (p.kind === 'bare' ? resolveMacro(p.text, macros) : p.text)).join(''));
+}
+
+/**
+ * The text of an entry block, rewritten into the form bibtex-parse-js reads.
+ *
+ * The bundle accepts a bare value only when it is a number, and in a `#`
+ * concatenation it drops the leading space of each part, so a value that
+ * uses a macro or `#` is replaced by the braced text it stands for (see
+ * `resolveMacro`). The bundle also reads only `{...}` entries, so a `(...)`
+ * entry has its outer delimiters swapped. Anything the reader cannot follow
+ * is left as it is, for the bundle to report.
+ */
+function entryForParser(src, block, macros) {
+  const edits = [];
+  for (const f of readEntry(src, block).fields) {
+    const plain = f.parts.length === 1 &&
+      (f.parts[0].kind !== 'bare' || /^\d+$/.test(f.parts[0].text));
+    if (plain) continue;
+    const value = f.parts
+      .map(p => (p.kind === 'bare' ? resolveMacro(p.text, macros) : p.text))
+      .join('');
+    edits.push([f.valueStart, f.valueEnd, `{${value}}`]);
+  }
+  if (block.closed && src[block.open] === '(') {
+    edits.push([block.open, block.open + 1, '{'], [block.end - 1, block.end, '}']);
+  }
+  edits.sort((a, b) => a[0] - b[0]);
+
+  let out = '';
+  let pos = block.start;
+  for (const [s, e, text] of edits) {
+    out += src.slice(pos, s) + text;
+    pos = e;
+  }
+  return out + src.slice(pos, block.end);
+}
+
+// Where each parsed entry was read from, so it can be written back as it was.
+// Keyed by the entry object itself: a copy (`{...entry}`) is not in the map,
+// and an entry edited in place no longer matches its stamp, so both are
+// written from their fields instead.
+const ORIGIN = new WeakMap();
+
+const stampOf = (entry) =>
+  JSON.stringify([entry.entryType, entry.citationKey, entry.entryTags]);
+
+/** The origin of an entry that is unchanged since it was parsed, else null. */
+function originOf(entry) {
+  const origin = entry && typeof entry === 'object' ? ORIGIN.get(entry) : undefined;
+  return origin && origin.stamp === stampOf(entry) ? origin : null;
+}
+
 /**
  * Remove `@string`, `@comment`, and `@preamble` blocks from a BibTeX document.
  *
- * These are legal and common, Zotero, Mendeley, and JabRef all emit them , 
+ * These are legal and common (Zotero, Mendeley, and JabRef all emit them),
  * but the vendored bibtex-parse-js cannot parse them and aborts the *entire*
- * document with a token-mismatch error when one is present. Since they carry
- * no bibliographic identity, stripping them first preserves every real entry
- * instead of losing the whole library to one `@string` line.
+ * document with a token-mismatch error when one is present. `parseBibtex`
+ * reads each entry separately and so never needs this; it is kept for
+ * callers that hand a document to the bundle directly.
  *
  * Brace depth is tracked so that a block containing nested braces (a
  * `@comment` wrapping a full entry, as JabRef writes) is removed in full.
@@ -79,51 +373,32 @@ export function normaliseTitle(raw) {
 export function stripNonEntryBlocks(text) {
   const src = String(text || '');
   let out = '';
+  let pos = 0;
   let removed = 0;
-  let i = 0;
 
-  while (i < src.length) {
-    const at = src.indexOf('@', i);
-    if (at === -1) {
-      out += src.slice(i);
-      break;
-    }
-
-    const header = src.slice(at).match(/^@\s*(string|comment|preamble)\s*[{(]/i);
-    if (!header) {
-      out += src.slice(i, at + 1);
-      i = at + 1;
-      continue;
-    }
-
-    out += src.slice(i, at);
-
-    // Walk forward to the matching close brace.
-    const openIdx = at + header[0].length - 1;
-    const open = src[openIdx];
-    const close = open === '{' ? '}' : ')';
-    let depth = 0;
-    let j = openIdx;
-    for (; j < src.length; j++) {
-      if (src[j] === open) depth++;
-      else if (src[j] === close) {
-        depth--;
-        if (depth === 0) { j++; break; }
-      }
-    }
+  for (const block of scanDocument(src)) {
+    if (block.kind === 'entry') continue;
+    out += src.slice(pos, block.start);
+    pos = block.end;
     removed++;
-    i = j;
   }
 
-  return { text: out, removed };
+  return { text: out + src.slice(pos), removed };
 }
 
 /**
  * Parse a BibTeX document into entry objects.
  *
- * Non-reference constructs are removed before parsing (see
- * `stripNonEntryBlocks`), and anything the parser still rejects is reported
- * without throwing.
+ * `@string` definitions are read and applied: a bare value such as
+ * `journal = jcp` takes the text its `@string` gives it, a month macro such
+ * as `month = jul` or `month = Sept` becomes the month's name, and any other
+ * bare word is kept as its own text. As in BibTeX, a macro applies to the
+ * entries after its definition. `#` concatenation is supported. `@comment`
+ * and `@preamble` blocks are skipped; `strippedBlocks` counts them together
+ * with the `@string` blocks.
+ *
+ * A syntax error in any entry is reported, naming the entry, and no entries
+ * are returned; nothing throws.
  *
  * @param {string} text
  * @returns {{entries:object[], error:string|null, strippedBlocks:number}}
@@ -134,27 +409,44 @@ export function parseBibtex(text) {
     return { entries: [], error: null, strippedBlocks: 0 };
   }
 
-  const { text: cleaned, removed } = stripNonEntryBlocks(text);
-  if (cleaned.trim() === '') {
-    return { entries: [], error: null, strippedBlocks: removed };
+  const blocks = scanDocument(text);
+  const strippedBlocks = blocks.filter(b => b.kind !== 'entry').length;
+  const macros = new Map();
+  const doc = { text, entries: [], definitions: [] };
+  let seen = 0;
+
+  for (const block of blocks) {
+    if (block.kind !== 'entry') {
+      if (block.kind === 'string') defineMacro(text, block, macros);
+      if (block.kind !== 'comment') doc.definitions.push(text.slice(block.start, block.end));
+      continue;
+    }
+
+    seen++;
+    let parsed;
+    try {
+      parsed = bibtexParse.toJSON(entryForParser(text, block, macros));
+    } catch (err) {
+      // bibtex-parse-js throws bare strings rather than Error objects, so the
+      // usual err.message access would itself throw here. Its messages quote
+      // the rest of the input, so they are cut short.
+      let detail = (err && err.message) ? err.message : String(err);
+      if (detail.length > 120) detail = detail.slice(0, 120) + '…';
+      const key = readEntry(text, block).key.slice(0, 60);
+      return {
+        entries: [],
+        error: `Syntax error in BibTeX entry ${seen}${key ? ` (${key})` : ''}: ${detail}`,
+        strippedBlocks
+      };
+    }
+
+    const entry = (parsed || [])[0];
+    if (!entry || !entry.entryTags || !entry.citationKey) continue;
+    ORIGIN.set(entry, { doc, start: block.start, end: block.end, stamp: stampOf(entry) });
+    doc.entries.push(entry);
   }
 
-  let parsed;
-  try {
-    parsed = bibtexParse.toJSON(cleaned.trim());
-  } catch (err) {
-    // bibtex-parse-js throws bare strings rather than Error objects, so the
-    // usual err.message access would itself throw here.
-    const detail = (err && err.message) ? err.message : String(err);
-    return {
-      entries: [],
-      error: `Syntax error in BibTeX: ${detail}`,
-      strippedBlocks: removed
-    };
-  }
-
-  const entries = (parsed || []).filter(e => e && e.entryTags && e.citationKey);
-  return { entries, error: null, strippedBlocks: removed };
+  return { entries: doc.entries.slice(), error: null, strippedBlocks };
 }
 
 /**
@@ -324,11 +616,19 @@ export function deduplicateAuto(entries) {
 /**
  * Serialise an entry back to BibTeX.
  *
+ * An entry returned by `parseBibtex` and not changed since is written exactly
+ * as it appeared in the source, so protective braces (`{NumPy}`), macros
+ * (`month = jul`) and the original layout survive. Any other entry is written
+ * from its fields, which hold the parser's decoded values.
+ *
  * @param {object} entry
  * @returns {string}
  */
 export function serialiseEntry(entry) {
   if (!entry) return '';
+  const origin = originOf(entry);
+  if (origin) return origin.doc.text.slice(origin.start, origin.end) + '\n\n';
+
   const type = entry.entryType || 'misc';
   const key = entry.citationKey || '';
   const tags = entry.entryTags || {};
@@ -345,12 +645,47 @@ export function serialiseEntry(entry) {
 /**
  * Serialise a list of entries.
  *
+ * When every entry comes unchanged from one `parseBibtex` call, in source
+ * order (as `deduplicateAuto` returns them), the result is that source with
+ * the other entries cut out. Kept entries are exactly as written, and the
+ * `@string`, `@preamble` and `@comment` blocks and any text between entries
+ * stay where they were.
+ *
+ * Otherwise each entry is written by `serialiseEntry`, after the `@string`
+ * and `@preamble` blocks of any source whose entries are written as they
+ * were, so the macros those entries use are still defined.
+ *
  * @param {object[]} entries
  * @returns {string}
  */
 export function serialiseLibrary(entries) {
   if (!Array.isArray(entries)) return '';
-  return entries.map(serialiseEntry).join('');
+
+  const origins = entries.map(originOf);
+  const doc = origins.length > 0 && origins[0] ? origins[0].doc : null;
+  const fromOneSource = doc !== null && origins.every((o, i) =>
+    o && o.doc === doc && (i === 0 || o.start > origins[i - 1].start));
+
+  if (fromOneSource) {
+    const keep = new Set(entries);
+    let out = '';
+    let pos = 0;
+    for (const e of doc.entries) {
+      if (keep.has(e)) continue;
+      const { start, end } = ORIGIN.get(e);
+      out += doc.text.slice(pos, start);
+      // Take the blank lines after a dropped entry with it.
+      pos = end;
+      while (pos < doc.text.length && /\s/.test(doc.text[pos])) pos++;
+    }
+    return (out + doc.text.slice(pos)).trim() + '\n';
+  }
+
+  let head = '';
+  for (const d of new Set(origins.filter(Boolean).map(o => o.doc))) {
+    for (const block of d.definitions) head += block + '\n\n';
+  }
+  return head + entries.map(serialiseEntry).join('');
 }
 
 /* ------------------------------------------------------------------ *
@@ -503,11 +838,17 @@ export function sanitiseLibrary(entries, options = {}) {
  * inner brace.
  *
  * Handles the three BibTeX value forms, braced, quoted, and bare (a number or
- * string macro).
+ * string macro), and `#` concatenations of them.
  *
  * @param {string} content - The body of an entry, between the citation key and
  *        the closing brace.
- * @returns {Array<{key:string, value:string}>} Keys lowercased; values verbatim.
+ * @returns {Array<{key:string, name:string, value:string, raw:string,
+ *            delimiter:string}>} `key` is the field name lowercased and
+ *          `name` as written. `raw` is the value exactly as written, from
+ *          after the `=` to before the next comma. `delimiter` is `{` or `"`
+ *          when the value is one braced or quoted string, and `value` is then
+ *          its contents; otherwise (a number, a macro name, a concatenation)
+ *          `delimiter` is '' and `value` is `raw`.
  */
 export function readFieldsPreservingBraces(content) {
   const fields = [];
@@ -521,9 +862,9 @@ export function readFieldsPreservingBraces(content) {
     while (i < n && /[\s,]/.test(src[i])) i++;
     if (i >= n) break;
 
-    let key = '';
-    while (i < n && isKeyChar(src[i])) { key += src[i]; i++; }
-    if (!key) { i++; continue; }
+    let name = '';
+    while (i < n && isKeyChar(src[i])) { name += src[i]; i++; }
+    if (!name) { i++; continue; }
 
     while (i < n && /\s/.test(src[i])) i++;
     if (src[i] !== '=') {
@@ -532,33 +873,31 @@ export function readFieldsPreservingBraces(content) {
       continue;
     }
     i++;
-    while (i < n && /\s/.test(src[i])) i++;
 
-    let value = '';
-    if (src[i] === '{') {
-      let depth = 0;
-      for (; i < n; i++) {
-        const c = src[i];
-        if (c === '{') { depth++; if (depth === 1) continue; }
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-        value += c;
-      }
-    } else if (src[i] === '"') {
-      i++;
-      let depth = 0;
-      for (; i < n; i++) {
-        const c = src[i];
-        if (c === '{') depth++;
-        else if (c === '}') depth--;
-        else if (c === '"' && depth === 0) { i++; break; }
-        value += c;
-      }
-    } else {
-      while (i < n && src[i] !== ',') { value += src[i]; i++; }
-      value = value.trim();
+    const { parts, end } = readValue(src, i);
+
+    // Anything after the value, up to the next comma, stays with it, so an
+    // unusual value such as `100 - 110` is carried over whole.
+    let stop = end;
+    let depth = 0;
+    for (; stop < n; stop++) {
+      const c = src[stop];
+      if (c === '{') depth++;
+      else if (c === '}') depth--;
+      else if (c === ',' && depth <= 0) break;
     }
 
-    fields.push({ key: key.toLowerCase(), value });
+    const raw = src.slice(i, stop).trim();
+    const single = parts.length === 1 && parts[0].kind !== 'bare' &&
+      src.slice(end, stop).trim() === '';
+    fields.push({
+      key: name.toLowerCase(),
+      name,
+      value: single ? parts[0].text : raw,
+      raw,
+      delimiter: single ? (parts[0].kind === 'braced' ? '{' : '"') : ''
+    });
+    i = stop;
   }
   return fields;
 }
@@ -568,10 +907,12 @@ export function readFieldsPreservingBraces(content) {
  *
  * Unlike `sanitiseLibrary`, which reformats through the parser, this operates
  * on the source text: `@string`, `@preamble`, and `@comment` blocks pass
- * through untouched, nested braces survive, and an entry with no applicable
- * rule comes out exactly as it went in. That matters for a library under
- * version control, where a reformatting pass produces a diff touching every
- * line and hides the changes that were actually intended.
+ * through untouched, nested braces survive, every value keeps the form it was
+ * written in (braced, quoted, or a bare number or macro name), and an entry
+ * that no rule changes comes out exactly as it went in unless `alignEquals`
+ * asks for its layout to be redone. That matters for a library under version
+ * control, where a reformatting pass produces a diff touching every line and
+ * hides the changes that were actually intended.
  *
  * @param {string} text
  * @param {{
@@ -596,7 +937,7 @@ export function sanitiseText(text, options = {}) {
   let fieldsRemoved = 0;
   let out = '';
 
-  for (const block of src.split(/(?=@\w+\s*\{)/g)) {
+  for (const block of src.split(/(?=@\w+\s*[{(])/g)) {
     if (!block.trim().startsWith('@')) {
       out += block;
       continue;
@@ -610,7 +951,7 @@ export function sanitiseText(text, options = {}) {
       continue;
     }
 
-    const headerMatch = block.match(/(@\w+\s*\{\s*[^,]+,)/);
+    const headerMatch = block.match(/^(@\w+\s*([{(])\s*[^,]+,)/);
     if (!headerMatch) {
       out += block;
       continue;
@@ -618,35 +959,59 @@ export function sanitiseText(text, options = {}) {
 
     entriesProcessed++;
     const header = headerMatch[1];
+    // An entry may be written @article(...) as well as @article{...}.
+    const close = headerMatch[2] === '(' ? ')' : '}';
     const body = block.slice(header.length);
-    const lastBrace = body.lastIndexOf('}');
+    const lastBrace = body.lastIndexOf(close);
     const content = lastBrace >= 0 ? body.slice(0, lastBrace) : body;
-    const tail = lastBrace >= 0 ? body.slice(lastBrace) : '}';
+    const tail = lastBrace >= 0 ? body.slice(lastBrace) : close;
 
     let fields = readFieldsPreservingBraces(content);
+    let changed = false;
 
     fields = fields.filter(f => {
-      if (strip.has(f.key)) { fieldsRemoved++; return false; }
+      if (strip.has(f.key)) { fieldsRemoved++; changed = true; return false; }
       return true;
     });
 
     for (const f of fields) {
-      if (fixPages && (f.key === 'pages' || f.key === 'page')) {
-        f.value = fixPageRange(f.value);
+      const isPages = f.key === 'pages' || f.key === 'page';
+      // A value without delimiters is a number, a macro name or a
+      // concatenation. The rules are for text, and applying them to a macro
+      // name would change what it refers to, so such a value is kept as is.
+      // The exception is a page range typed without braces (`100-110`): it
+      // is no macro, and BibTeX cannot read it bare, so it is braced.
+      if (!f.delimiter) {
+        if (fixPages && isPages && /^\d+\s*[-–—]+\s*\d+$/.test(f.raw)) {
+          f.raw = `{${fixPageRange(f.raw)}}`;
+          changed = true;
+        }
+        continue;
       }
-      if (protectTitle && f.key === 'title') {
-        f.value = protectCapitals(f.value);
+      let v = f.value;
+      if (fixPages && isPages) v = fixPageRange(v);
+      if (protectTitle && f.key === 'title') v = protectCapitals(v);
+      if (v !== f.value) {
+        f.raw = f.delimiter === '"' ? `"${v}"` : `{${v}}`;
+        changed = true;
       }
     }
 
+    if (!changed && !alignEquals) {
+      out += block;
+      continue;
+    }
+
     const width = alignEquals
-      ? Math.max(0, ...fields.map(f => f.key.length))
+      ? Math.max(0, ...fields.map(f => f.name.length))
       : 0;
 
+    // Every value is written in the form it was read in: braced, quoted, or
+    // bare, so `month = jul` and `journal = jcp` still use their macros.
     const rendered = fields.map((f, idx) => {
-      const pad = alignEquals ? ' '.repeat(width - f.key.length) : '';
+      const pad = alignEquals ? ' '.repeat(width - f.name.length) : '';
       const comma = idx < fields.length - 1 ? ',' : '';
-      return `  ${f.key}${pad} = {${f.value}}${comma}`;
+      return `  ${f.name}${pad} = ${f.raw}${comma}`;
     }).join('\n');
 
     out += `${header}\n${rendered}\n${tail}`;
@@ -708,6 +1073,38 @@ export function parseDoiList(text, delimiter = 'auto') {
 }
 
 /**
+ * Rewrite each entry of a raw BibTeX document with only the fields `keep`
+ * accepts, one field per line. Values are copied exactly as written.
+ * `@string`, `@preamble` and `@comment` blocks, and text between entries,
+ * pass through untouched.
+ */
+function rewriteFields(bib, keep) {
+  const text = String(bib || '');
+  let out = '';
+  let pos = 0;
+
+  for (const block of scanDocument(text)) {
+    out += text.slice(pos, block.start);
+    pos = block.end;
+    if (block.kind !== 'entry') {
+      out += text.slice(block.start, block.end);
+      continue;
+    }
+
+    const { key, fields } = readEntry(text, block);
+    const kept = fields
+      .filter(f => keep(f.name.toLowerCase()))
+      .map(f => `  ${f.name} = ${text.slice(f.valueStart, f.valueEnd)}`);
+    out += `@${block.type}{${key}${kept.length ? ',\n' + kept.join(',\n') + '\n' : '\n'}}`;
+  }
+
+  out += text.slice(pos);
+  return out.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+const fieldSet = (fields) => new Set([...(fields || [])].map(f => String(f).toLowerCase()));
+
+/**
  * Keep only the named fields in a raw BibTeX entry.
  *
  * Scans the entry rather than its lines. That distinction matters: the DOI
@@ -717,9 +1114,9 @@ export function parseDoiList(text, delimiter = 'auto') {
  * the input unchanged, filtering appears to do nothing.
  *
  * Values may be brace-delimited (with nesting, as in `{A study of {NaCl}}`),
- * quoted, or bare (`year = 2020`, `month = jul`), and all three are handled.
- * Text outside an entry (comments, `@string` definitions) is passed through
- * untouched.
+ * quoted, bare (`year = 2020`, `month = jul`), or joined with `#`, and all are
+ * copied exactly as written. `@string`, `@preamble` and `@comment` blocks and
+ * text between entries are passed through untouched.
  *
  * Output is normalised to one field per line, which is the conventional
  * layout and keeps a filtered single-line entry readable.
@@ -729,97 +1126,25 @@ export function parseDoiList(text, delimiter = 'auto') {
  * @returns {string}
  */
 export function filterBibtexFields(bib, keepFields) {
-  const keep = keepFields instanceof Set
-    ? new Set([...keepFields].map(f => String(f).toLowerCase()))
-    : new Set((keepFields || []).map(f => String(f).toLowerCase()));
+  const keep = fieldSet(keepFields);
+  return rewriteFields(bib, name => keep.has(name));
+}
 
-  const text = String(bib || '');
-  let out = '';
-  let i = 0;
-
-  while (i < text.length) {
-    const at = text.indexOf('@', i);
-    if (at === -1) { out += text.slice(i); break; }
-
-    out += text.slice(i, at);
-
-    const open = text.indexOf('{', at);
-    if (open === -1) { out += text.slice(at); break; }
-
-    const type = text.slice(at + 1, open).trim();
-    // `@string{...}` and friends are not reference entries; leave them be.
-    if (!/^[A-Za-z]+$/.test(type)) { out += text.slice(at, open + 1); i = open + 1; continue; }
-
-    let j = open + 1;
-
-    // Citation key runs to the first comma at brace depth zero.
-    let depth = 0;
-    let keyEnd = j;
-    while (keyEnd < text.length) {
-      const c = text[keyEnd];
-      if (c === '{') depth++;
-      else if (c === '}') { if (depth === 0) break; depth--; }
-      else if (c === ',' && depth === 0) break;
-      keyEnd++;
-    }
-    const key = text.slice(j, keyEnd).trim();
-    j = text[keyEnd] === ',' ? keyEnd + 1 : keyEnd;
-
-    const kept = [];
-    let closed = false;
-
-    while (j < text.length) {
-      while (j < text.length && /[\s,]/.test(text[j])) j++;
-      if (text[j] === '}') { j++; closed = true; break; }
-
-      const nameMatch = /^([A-Za-z][\w-]*)\s*=\s*/.exec(text.slice(j));
-      if (!nameMatch) break;                       // malformed; stop cleanly
-      const name = nameMatch[1];
-      j += nameMatch[0].length;
-
-      const valueStart = j;
-      if (text[j] === '{') {
-        let d = 0;
-        while (j < text.length) {
-          const c = text[j];
-          if (c === '\\') { j += 2; continue; }
-          if (c === '{') d++;
-          else if (c === '}') { d--; if (d === 0) { j++; break; } }
-          j++;
-        }
-      } else if (text[j] === '"') {
-        j++;
-        while (j < text.length) {
-          const c = text[j];
-          if (c === '\\') { j += 2; continue; }
-          if (c === '"') { j++; break; }
-          j++;
-        }
-      } else {
-        let d = 0;
-        while (j < text.length) {
-          const c = text[j];
-          if (c === '{') d++;
-          else if (c === '}') { if (d === 0) break; d--; }
-          else if (c === ',' && d === 0) break;
-          j++;
-        }
-      }
-
-      const value = text.slice(valueStart, j).trim();
-      if (keep.has(name.toLowerCase())) kept.push(`  ${name} = ${value}`);
-    }
-
-    if (!closed) {
-      const brace = text.indexOf('}', j);
-      j = brace === -1 ? text.length : brace + 1;
-    }
-
-    out += `@${type}{${key}${kept.length ? ',\n' + kept.join(',\n') + '\n' : '\n'}}`;
-    i = j;
-  }
-
-  return out.replace(/\n{3,}/g, '\n\n').trim();
+/**
+ * Remove the named fields from a raw BibTeX entry, keeping every other field.
+ *
+ * The complement of `filterBibtexFields`, for a caller that offers a fixed
+ * list of fields to remove: a field that is not on the list, such as
+ * `address` or `school`, is kept rather than silently lost. Layout and value
+ * handling are the same as in `filterBibtexFields`.
+ *
+ * @param {string} bib - One entry, or a whole document.
+ * @param {string[]|Set<string>} dropFields - Field names, case-insensitive.
+ * @returns {string}
+ */
+export function dropBibtexFields(bib, dropFields) {
+  const drop = fieldSet(dropFields);
+  return rewriteFields(bib, name => !drop.has(name));
 }
 
 /**
