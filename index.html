@@ -325,28 +325,183 @@
         <section class="hm-proof" aria-labelledby="hm-proof-h">
             <div class="hm-proof-in">
                 <div class="hm-proof-main">
-                    <h2 id="hm-proof-h">Numbers you can check</h2>
-                    <p>The calculations behind the tools are a separate library, <code>@stemkit/core</code>: 17 modules covered by 1,208 tests, which also runs in Node, so a figure made here can be regenerated from a script. Moving the code there and testing it against reference values turned up four errors that had already shipped:</p>
-                    <ul class="hm-bugs">
-                        <li>Wavelength conversion returned a plausible but wrong number.</li>
-                        <li>Skewness used the sample, not the population, standard deviation.</li>
-                        <li>Virtual sites in water inflated the system mass by 67%.</li>
-                        <li>The D&rsquo;Agostino&ndash;Pearson test was fed the adjusted G1, a 21% error in K&sup2; at n&nbsp;=&nbsp;10.</li>
-                    </ul>
-                    <p>Each now has a regression test, and <a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md">the changelog</a> records every fix that changed an output.</p>
-                    <figure class="hm-code">
-                        <figcaption id="hm-code-cap">The same code path from Node, in a clone of the repository:</figcaption>
-                        <div class="hm-code-box">
-                            <button type="button" class="hm-code-copy" data-copy-from="hm-snippet" aria-label="Copy code">
-                                <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copy</span>
-                            </button>
-                            <pre aria-labelledby="hm-code-cap"><code id="hm-snippet">import { readFileSync } from 'node:fs';
-import { parseXvg, columnStats } from '@stemkit/core';
+                    <h2 id="hm-proof-h">Use the library behind the tools</h2>
+                    <p>Every calculation on this site comes from <code>@stemkit/core</code>: 17 modules covered by 1,208 tests validated against SciPy, NumPy and statsmodels. The same functions run in Node, so an analysis explored here can be scripted, version-pinned and re-run.</p>
+                    <ol class="hm-setup">
+                        <li>
+                            <p>Clone the repository. It needs Node 18 or later and nothing else: no <code>npm install</code>.</p>
+                            <div class="hm-code-box">
+                                <div class="hm-code-head">
+                                    <span class="hm-code-file">Terminal</span>
+                                    <button type="button" class="hm-code-copy" data-copy-from="code-setup" aria-label="Copy the clone commands">
+                                        <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copy</span>
+                                    </button>
+                                </div>
+                                <pre><code id="code-setup">git clone https://github.com/LD-Shell/stemkit.git
+cd stemkit</code></pre>
+                            </div>
+                        </li>
+                        <li>
+                            <p>Save an example in the <code>stemkit</code> folder under the name shown, with any data file it reads beside it, and run it: <code>node pick-test.mjs</code>.</p>
+                            <div class="hm-snips">
+                                <div class="hm-snip-tabs" role="tablist" aria-label="Library examples">
+                                    <button type="button" role="tab" id="snip-tab-xvg" aria-controls="snip-xvg" aria-selected="true" tabindex="0">Trajectories</button>
+                                    <button type="button" role="tab" id="snip-tab-stats" aria-controls="snip-stats" aria-selected="false" tabindex="-1">Statistics</button>
+                                    <button type="button" role="tab" id="snip-tab-structure" aria-controls="snip-structure" aria-selected="false" tabindex="-1">Structures</button>
+                                    <button type="button" role="tab" id="snip-tab-units" aria-controls="snip-units" aria-selected="false" tabindex="-1">Units</button>
+                                    <button type="button" role="tab" id="snip-tab-slurm" aria-controls="snip-slurm" aria-selected="false" tabindex="-1">Batch scripts</button>
+                                    <button type="button" role="tab" id="snip-tab-bibtex" aria-controls="snip-bibtex" aria-selected="false" tabindex="-1">BibTeX</button>
+                                </div>
+                                <div class="hm-snip-panel" role="tabpanel" id="snip-xvg" aria-labelledby="snip-tab-xvg">
+                                    <p class="hm-snip-note">Summarise every series in a GROMACS .xvg file, named by its legend.</p>
+                                    <div class="hm-code-box">
+                                        <div class="hm-code-head">
+                                            <span class="hm-code-file">xvg-summary.mjs</span>
+                                            <button type="button" class="hm-code-copy" data-copy-from="code-xvg" aria-label="Copy xvg-summary.mjs">
+                                                <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copy</span>
+                                            </button>
+                                        </div>
+                                        <pre><code id="code-xvg">import { readFileSync } from 'node:fs';
+import { parseXvg, extractColumn, columnStats } from '@stemkit/core';
 
-const { matrix } = parseXvg(readFileSync('rmsd.xvg', 'utf8'));
-console.log(columnStats(matrix.map(r =&gt; r[1])));</code></pre>
-                        </div>
-                    </figure>
+const { matrix, headers } = parseXvg(readFileSync('rmsd.xvg', 'utf8'));
+
+headers.slice(1).forEach((name, i) =&gt; {
+  const s = columnStats(extractColumn(matrix, i + 1));
+  console.log(`${name}: ${s.mean.toFixed(3)} ± ${s.std.toFixed(3)}`);
+});</code></pre>
+                                    </div>
+                                </div>
+                                <div class="hm-snip-panel" role="tabpanel" id="snip-stats" aria-labelledby="snip-tab-stats" hidden>
+                                    <p class="hm-snip-note">Let the assumption checks pick the test, then run it.</p>
+                                    <div class="hm-code-box">
+                                        <div class="hm-code-head">
+                                            <span class="hm-code-file">pick-test.mjs</span>
+                                            <button type="button" class="hm-code-copy" data-copy-from="code-stats" aria-label="Copy pick-test.mjs">
+                                                <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copy</span>
+                                            </button>
+                                        </div>
+                                        <pre><code id="code-stats">import { createRequire } from 'node:module';
+import {
+  registerVendor, recommendTest, independentTTest, mannWhitneyU
+} from '@stemkit/core';
+
+const require = createRequire(import.meta.url);
+registerVendor({ jStat: require('./js/dependencies/jstat.min.js') });
+
+const control = [4.1, 4.3, 3.9, 4.4, 4.0, 4.2, 4.5, 3.8, 4.1, 4.6];
+const treated = [5.0, 5.2, 4.8, 9.9, 5.1, 4.9, 5.3, 5.0, 12.4, 5.2];
+
+const advice = recommendTest({
+  design: 'independent', groups: [control, treated]
+});
+console.log(advice.reason);
+
+const r = advice.test === 'mann-whitney'
+  ? mannWhitneyU(control, treated)
+  : independentTTest(control, treated);
+console.log(`${advice.test}: p = ${r.p.toPrecision(3)}`);
+
+// Group 2 departs from normality (D'Agostino p = .005), so a
+// rank-based test is safer.
+// mann-whitney: p = 0.000154</code></pre>
+                                    </div>
+                                </div>
+                                <div class="hm-snip-panel" role="tabpanel" id="snip-structure" aria-labelledby="snip-tab-structure" hidden>
+                                    <p class="hm-snip-note">Mass and radius of gyration of a .gro structure, with the unit made explicit.</p>
+                                    <div class="hm-code-box">
+                                        <div class="hm-code-head">
+                                            <span class="hm-code-file">gyration.mjs</span>
+                                            <button type="button" class="hm-code-copy" data-copy-from="code-structure" aria-label="Copy gyration.mjs">
+                                                <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copy</span>
+                                            </button>
+                                        </div>
+                                        <pre><code id="code-structure">import { readFileSync } from 'node:fs';
+import {
+  parseStructure, centreOfMass, radiusOfGyration, convert
+} from '@stemkit/core';
+
+const gro = readFileSync('protein.gro', 'utf8');
+const { atoms, unit } = parseStructure(gro, 'gro');
+const { mass } = centreOfMass(atoms);
+const rg = convert(radiusOfGyration(atoms), 'length', unit, 'angstrom');
+
+console.log(`${atoms.length} atoms, ${mass.toFixed(1)} Da`);
+console.log(`Rg = ${rg.toFixed(2)} Å`);</code></pre>
+                                    </div>
+                                </div>
+                                <div class="hm-snip-panel" role="tabpanel" id="snip-units" aria-labelledby="snip-tab-units" hidden>
+                                    <p class="hm-snip-note">Convert between units on CODATA values.</p>
+                                    <div class="hm-code-box">
+                                        <div class="hm-code-head">
+                                            <span class="hm-code-file">units.mjs</span>
+                                            <button type="button" class="hm-code-copy" data-copy-from="code-units" aria-label="Copy units.mjs">
+                                                <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copy</span>
+                                            </button>
+                                        </div>
+                                        <pre><code id="code-units">import { convert, convertTemperature } from '@stemkit/core';
+
+// 1 hartree in kcal/mol, 1 eV in kJ/mol, 298.15 K in °C
+console.log(convert(1, 'energy', 'hartree', 'kcal'));  // 627.5094740631
+console.log(convert(1, 'energy', 'ev', 'kj'));         // 96.48533212331287
+console.log(convertTemperature(298.15, 'k', 'c'));     // 25</code></pre>
+                                    </div>
+                                </div>
+                                <div class="hm-snip-panel" role="tabpanel" id="snip-slurm" aria-labelledby="snip-tab-slurm" hidden>
+                                    <p class="hm-snip-note">A SLURM array job for GROMACS, with a warning about memory in flight.</p>
+                                    <div class="hm-code-box">
+                                        <div class="hm-code-head">
+                                            <span class="hm-code-file">array-job.mjs</span>
+                                            <button type="button" class="hm-code-copy" data-copy-from="code-slurm" aria-label="Copy array-job.mjs">
+                                                <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copy</span>
+                                            </button>
+                                        </div>
+                                        <pre><code id="code-slurm">import { generateScript } from '@stemkit/core';
+
+const { script, warnings } = generateScript({
+  engine: 'gromacs', jobName: 'replicas', modules: ['gromacs/2023.3'],
+  nodes: 1, gpus: 1, cpusPerTask: 16, memory: '32G', walltime: '24:00:00',
+  array: true, arrayRange: '1-100%10', tpr: 'md.tpr', deffnm: 'md'
+});
+
+console.log(script);
+warnings.forEach(w =&gt; console.warn(`[${w.level}] ${w.message}`));
+
+// [warn] Array job: --mem=32G is per task. With 10 task(s) running
+// concurrently that is 320G in flight. ...</code></pre>
+                                    </div>
+                                </div>
+                                <div class="hm-snip-panel" role="tabpanel" id="snip-bibtex" aria-labelledby="snip-tab-bibtex" hidden>
+                                    <p class="hm-snip-note">Merge duplicate entries in a .bib library, keeping the most complete.</p>
+                                    <div class="hm-code-box">
+                                        <div class="hm-code-head">
+                                            <span class="hm-code-file">dedupe-bib.mjs</span>
+                                            <button type="button" class="hm-code-copy" data-copy-from="code-bibtex" aria-label="Copy dedupe-bib.mjs">
+                                                <i class="fa-regular fa-copy" aria-hidden="true"></i><span>Copy</span>
+                                            </button>
+                                        </div>
+                                        <pre><code id="code-bibtex">import { readFileSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import {
+  registerVendor, parseBibtex, deduplicateAuto, serialiseLibrary
+} from '@stemkit/core';
+
+const require = createRequire(import.meta.url);
+registerVendor({
+  bibtexParse: require('./js/dependencies/bibtexParse.min.js')
+});
+
+const { entries } = parseBibtex(readFileSync('refs.bib', 'utf8'));
+const { entries: kept, removed } = deduplicateAuto(entries);
+
+writeFileSync('refs.clean.bib', serialiseLibrary(kept));
+console.log(`${removed} duplicate(s) removed, ${kept.length} kept`);</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </li>
+                    </ol>
+                    <p class="hm-snip-more">Every function is documented in the <a href="https://github.com/LD-Shell/stemkit/blob/main/src/core/README.md">library reference</a>.</p>
                 </div>
 
                 <div class="hm-proof-side">
@@ -502,6 +657,29 @@ console.log(columnStats(matrix.map(r =&gt; r[1])));</code></pre>
                 if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
                 e.preventDefault();
                 search.focus();
+            });
+
+            // Library examples: tabs with arrow-key, Home and End movement.
+            var snipTabs = Array.prototype.slice.call(document.querySelectorAll('.hm-snip-tabs [role="tab"]'));
+            function showSnip(tab, focus) {
+                snipTabs.forEach(function (t) {
+                    var on = t === tab;
+                    t.setAttribute('aria-selected', String(on));
+                    t.tabIndex = on ? 0 : -1;
+                    document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+                });
+                if (focus) tab.focus();
+            }
+            snipTabs.forEach(function (tab, i) {
+                tab.addEventListener('click', function () { showSnip(tab); });
+                tab.addEventListener('keydown', function (e) {
+                    var n = snipTabs.length, next = null;
+                    if (e.key === 'ArrowRight') next = snipTabs[(i + 1) % n];
+                    else if (e.key === 'ArrowLeft') next = snipTabs[(i - 1 + n) % n];
+                    else if (e.key === 'Home') next = snipTabs[0];
+                    else if (e.key === 'End') next = snipTabs[n - 1];
+                    if (next) { e.preventDefault(); showSnip(next, true); }
+                });
             });
 
             // Copy buttons: data-copy holds the text, data-copy-from names the
