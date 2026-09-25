@@ -58,7 +58,7 @@ console.log(columnStats(matrix.map(r => r[1])));
 |---|---|
 | Data and statistics | plot digitiser, data cleaner, statistics calculator, error-bar generator, outlier detector, curve fitter, plot builder |
 | Molecular simulation | XVG visualiser, structure inspector, coordinate manipulator, MD workflow generator (GROMACS, LAMMPS, PLUMED) |
-| Writing and citations | BibTeX sanitiser, BibTeX deduplicator, DOI to BibTeX, journal abbreviator (ISO 4), LaTeX table builder, equation editor |
+| Writing and citations | BibTeX sanitiser, BibTeX deduplicator, DOI to BibTeX, journal abbreviator (ISO 4), visual LaTeX tables, equation formatter |
 | Units | scientific converter: energy, length, pressure, dipole, polarizability, spectroscopy, temperature |
 
 Three further pages are workflow helpers, not research tools, and are not part
