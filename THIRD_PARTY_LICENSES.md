@@ -18,22 +18,27 @@ None of them is modified; the files are the published distributions.
 | jStat | 1.9.6 | MIT | https://github.com/jstat/jstat |
 | regression.js | 2.0.1 | MIT | https://github.com/Tom-Alexander/regression-js |
 | 3Dmol.js | not yet pinned | BSD-3-Clause | https://github.com/3dmol/3Dmol.js |
-| bibtexParse | not yet pinned | MIT | https://github.com/ORCID/bibtexParse |
+| bibtex-parse-js | 0.0.11 | MIT | https://github.com/ORCID/bibtexParseJs |
 
-**Note on versions.** Five bundles record their version in the file header.
-jStat and regression.js do not, but the vendored files are byte-for-byte
-identical to the published `dist` builds of 1.9.6 and 2.0.1 respectively, which
-pins them exactly.
+**Note on versions.** Six bundles record their version in the file header;
+bibtex-parse-js's is a jsDelivr minification that names its source,
+`bibtex-parse-js@0.0.11`. jStat and regression.js do not, but the vendored
+files are byte-for-byte identical to the published `dist` builds of 1.9.6 and
+2.0.1 respectively, which pins them exactly.
 
-3Dmol.js and bibtexParse remain unpinned: neither matches the current release,
-so both are older builds. The version is left unasserted rather than guessed.
-To settle each, compare the checksum against successive published versions:
+3Dmol.js remains unpinned: it matches no current release, so it is an older
+build, and the version is left unasserted rather than guessed. To settle it,
+compare the checksum against successive published versions:
 
     npm pack 3dmol@<version> && tar xzf 3dmol-<version>.tgz
     md5sum package/build/3Dmol-min.js js/dependencies/3Dmol-min.js
 
 **Note on licences.** Every licence above is taken from the package's registry
 metadata or its repository, not inferred from the code.
+
+The npm package `stemkit-core` ships four of these (jStat, Papa Parse,
+regression.js, bibtex-parse-js), with their notices in
+`js/dependencies/LICENSES.md`.
 
 ## Fonts and icons
 

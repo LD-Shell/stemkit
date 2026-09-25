@@ -1,6 +1,6 @@
 # Stylesheets
 
-Three sources. Which one a rule belongs in depends on who owns the file.
+Which file a rule belongs in depends on who owns it.
 
 | File | Owner | Hand-edit? |
 |---|---|---|
@@ -8,6 +8,7 @@ Three sources. Which one a rule belongs in depends on who owns the file.
 | `src/tailwind/input.css` | you | Yes. Tokens, base rules, shared `.stk-*` components. |
 | `src/stemkit-docs.css` | you | Yes. The "How to use" and FAQ furniture. |
 | `src/tools/<tool>.css` | you | Yes. One tool only. |
+| `src/home.css` | you | Yes. The home page only. |
 
 Pages link them in this order, so a per-tool rule overrides a shared one:
 

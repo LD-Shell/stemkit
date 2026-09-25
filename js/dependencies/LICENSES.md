@@ -8,7 +8,7 @@ distributed under the MIT License, reproduced below with its copyright notice.
 | --- | --- | --- | --- |
 | `jstat.min.js` | jStat | 1.9.6 | <https://github.com/jstat/jstat> |
 | `papaparse.min.js` | Papa Parse | 5.4.1 | <https://github.com/mholt/PapaParse> |
-| `regression.min.js` | regression.js | 2.x | <https://github.com/Tom-Alexander/regression-js> |
+| `regression.min.js` | regression.js | 2.0.1 | <https://github.com/Tom-Alexander/regression-js> |
 | `bibtexParse.min.js` | bibtex-parse-js | 0.0.11 | <https://github.com/ORCID/bibtexParseJs> |
 
 ## Copyright notices

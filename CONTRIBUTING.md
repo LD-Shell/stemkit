@@ -49,10 +49,7 @@ formula inside a click handler, it will be asked to move.
     npm run test:coverage    with a coverage report
 
 New behaviour in the core needs a test. Fixing a bug means adding the test that
-would have caught it, which is more useful than testing the fix. Several of the
-existing tests exist because a defect shipped and nothing failed:
-`tests/units.test.js` has a case pinning a wavelength conversion that silently
-returned a plausible but wrong number for a year.
+would have caught it, which is more useful than testing the fix.
 
 Please do not weaken an assertion to make a change pass. If a test is wrong,
 say so in the pull request and change it deliberately.

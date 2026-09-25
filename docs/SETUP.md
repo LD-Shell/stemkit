@@ -17,7 +17,7 @@ Open <http://localhost:8000/>.
 - Use `python3`. Plain `python` is still Python 2 on many systems.
 - Port above 1024, or you need root.
 
-**`file://` does not work.** Fourteen tools load their code as ES modules, which
+**`file://` does not work.** Sixteen tools load their code as ES modules, which
 browsers block outside HTTP. The page renders, every button is dead, and the
 console shows a CORS error. Serve over HTTP.
 

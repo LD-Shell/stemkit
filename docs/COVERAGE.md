@@ -14,8 +14,9 @@ A re-export barrel: no logic, only `export { ... } from './x.js'`. Jest
 instruments it, but nothing in it executes as a *statement*, so the counter stays
 at zero no matter how heavily the exports are used.
 
-The barrel is still checked, by `tests/smoke.mjs`, which imports it and asserts
-every expected export exists and has the right type:
+The barrel is still checked, by `tests/smoke.mjs`, which imports the package by
+name, as a user's script does, and calls into 15 of the 17 modules through it; a
+missing export fails the import itself:
 
 ```bash
 node tests/smoke.mjs

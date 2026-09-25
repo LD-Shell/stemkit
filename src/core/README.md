@@ -71,27 +71,30 @@ import { registerFromGlobals } from './src/core/index.js';
 registerFromGlobals();
 ```
 
-Modules needing no registration: `xvg-parser`, `structure`, `slurm`,
-`scheduler`, `digitizer`, `latex`, `units`.
+Modules needing no registration: `xvg-parser`, `structure`, `selection`,
+`slurm`, `scheduler`, `plumed`, `digitizer`, `latex`, `units`, `journals`,
+`iso4`.
 
 ## Modules
 
 | Module | Purpose | Needs |
 |---|---|---|
-| `xvg-parser` | GROMACS/Grace `.xvg` and PLUMED `COLVAR` parsing |, |
+| `xvg-parser` | GROMACS/Grace `.xvg` and PLUMED `COLVAR` parsing | none |
 | `statistics` | Descriptives, t-tests, classic and Welch's ANOVA, Pearson and Spearman correlation, non-parametrics, post-hoc comparisons, assumption checks, test choice | jStat |
 | `outliers` | Z-score, modified Z-score, Tukey IQR, Grubbs' test | jStat |
 | `curve-fitting` | Least-squares fitting with goodness-of-fit and adequacy checks | regression.js |
-| `structure` | PDB/GRO/XYZ parsing, centre of mass, R<sub>g</sub>, rotations, format conversion |, |
-| `slurm` | SLURM batch-script generation for GROMACS and LAMMPS |, |
-| `scheduler` | Directive headers, environment variables and launchers for SLURM, PBS Pro / OpenPBS, LSF and Grid Engine |, |
-| `plumed` | PLUMED input generation, version gating, CV validation |, |
-| `selection` | Atom selection language, spatial neighbour queries |, |
-| `units` | 64 units across 10 categories, CODATA 2018 / SI 2019 |, |
+| `structure` | PDB/GRO/XYZ parsing, centre of mass, R<sub>g</sub>, rotations, format conversion | none |
+| `slurm` | SLURM batch-script generation for GROMACS and LAMMPS | none |
+| `scheduler` | Directive headers, environment variables and launchers for SLURM, PBS Pro / OpenPBS, LSF and Grid Engine | none |
+| `plumed` | PLUMED input generation, version gating, CV validation | none |
+| `selection` | Atom selection language, spatial neighbour queries | none |
+| `units` | 64 units in 10 categories, plus temperature; CODATA 2018 / SI 2019 | none |
 | `data-cleaning` | Tabular cleaning, deduplication, imputation, profiling | Papa Parse |
-| `latex` | LaTeX/Markdown table generation and text escaping |, |
+| `latex` | LaTeX/Markdown table generation and text escaping | none |
 | `bibtex` | Parsing, union-find deduplication, field sanitising | bibtex-parse-js |
-| `digitizer` | Pixel-to-data mapping for figure digitisation |, |
+| `digitizer` | Pixel-to-data mapping for figure digitisation | none |
+| `journals` | Whole-title journal abbreviation from a dictionary | none |
+| `iso4` | ISO 4 word-level abbreviation from the ISSN LTWA | none |
 | `error-bars` | Group summaries, SD/SEM/CI, Holm-corrected pairwise tests | jStat |
 
 ## Worked examples
@@ -99,7 +102,7 @@ Modules needing no registration: `xvg-parser`, `structure`, `slurm`,
 ### MD trajectory analysis
 
 ```js
-import { parseXvg, extractColumn, columnStats } from './src/core/index.js';
+import { parseXvg, extractColumn, columnStats } from 'stemkit-core';
 
 const { matrix, headers } = parseXvg(readFileSync('rmsd.xvg', 'utf8'));
 headers.slice(1).forEach((name, i) => {
@@ -111,7 +114,7 @@ headers.slice(1).forEach((name, i) => {
 ### Structure geometry
 
 ```js
-import { parsePDB, structureStats, radiusOfGyration } from './src/core/index.js';
+import { parsePDB, structureStats, radiusOfGyration } from 'stemkit-core';
 
 const { atoms } = parsePDB(readFileSync('protein.pdb', 'utf8'));
 const stats = structureStats(atoms);
@@ -122,7 +125,7 @@ console.log(`MW ${stats.totalMass.toFixed(1)} Da, Rg ${radiusOfGyration(atoms).t
 ### HPC submission script
 
 ```js
-import { generateScript } from './src/core/index.js';
+import { generateScript } from 'stemkit-core';
 
 const { script, warnings } = generateScript({
   engine: 'gromacs', jobName: 'prod_md', partition: 'gpu',
@@ -142,7 +145,7 @@ variable names, and `submitCommand` says how the file is submitted (`bsub <
 submit.sh` for LSF, which reads `#BSUB` lines from standard input only).
 
 ```js
-import { buildHeader, launcher, submitCommand } from './src/core/index.js';
+import { buildHeader, launcher, submitCommand } from 'stemkit-core';
 
 const { script, warnings } = buildHeader({
   scheduler: 'pbs', engine: 'lammps', jobName: 'melt',
@@ -158,7 +161,7 @@ console.log(submitCommand('pbs'));    // qsub submit.sh
 ### Statistics with assumption checks
 
 ```js
-import { independentTTest, leveneTest, dagostinoNormality } from './src/core/index.js';
+import { independentTTest, leveneTest, dagostinoNormality } from 'stemkit-core';
 
 const t = independentTTest(control, treated);          // Welch by default
 console.log(`d = ${t.d.toFixed(2)}, 95% CI [${t.ci.map(v => v.toFixed(2))}]`);
@@ -173,7 +176,7 @@ console.log(dagostinoNormality(control).ok ? 'Normality tenable' : 'Consider Man
 import {
   descriptives, recommendTest, welchAnova, gamesHowell,
   kruskalWallis, dunnTest, spearmanCorrelation, oneSampleTTest
-} from './src/core/index.js';
+} from 'stemkit-core';
 
 const groups = [placebo, low, high];
 const names = ['Placebo', 'Low', 'High'];
@@ -225,7 +228,7 @@ npm run test:coverage   # with coverage
 ```
 
 The suite comprises 1208 tests across all 17 domain modules (`src/core` also holds the aggregate
-export and the injection layer, which carry no domain logic). Numerical results are validated against
+export, the Node entry and the injection layer, which carry no domain logic). Numerical results are validated against
 independent references rather than against the implementation itself:
 
 - **SciPy 1.17.1**, t-tests, ANOVA, Pearson, Mann–Whitney, Wilcoxon, Levene,
@@ -244,8 +247,8 @@ independent references rather than against the implementation itself:
 
 ## Numerical notes
 
-Three issues surfaced during extraction that affect published output. All are
-fixed here and covered by regression tests.
+Three places where the obvious implementation gives a wrong number, and what
+the library does instead. Each has a regression test.
 
 **Standardised moments.** Skewness and kurtosis are defined against the
 *population* standard deviation. Using the sample (n−1) value deflates
@@ -275,9 +278,12 @@ publication-grade nonlinear fits, use Levenberg–Marquardt on untransformed dat
 
 ## Citation
 
-If this software contributes to work you publish, please cite the SoftwareX paper
-(see `paper/paper.md`).
+Cite the archived release, DOI
+[10.5281/zenodo.21543112](https://doi.org/10.5281/zenodo.21543112), which
+resolves to the current version. `CITATION.cff` in the repository has the full
+metadata.
 
 ## Licence
 
-MIT | see `LICENSE`.
+MIT; see `LICENSE`. The four bundled libraries keep their own MIT licences:
+`js/dependencies/LICENSES.md`.

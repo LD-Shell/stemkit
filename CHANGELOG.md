@@ -123,7 +123,8 @@ is new.
   side panel scrolls on its own, can be resized by dragging or with the arrow
   keys and collapsed, and remembers its width, state and last open tab.
 - Viewer toolbar and keyboard shortcuts (`R` reset, `S` spin, `M` measure,
-  `H` hydrogens, `L` labels, `F` fullscreen, `?` shortcut sheet, `Esc`).
+  `H` hydrogens, `L` labels, `F` fit, `Shift+F` fullscreen, `?` shortcut sheet,
+  `Esc`).
 - Files can be dropped anywhere on the page; large files report read
   progress; a file that fails to parse names the file and the reason and
   returns to the upload zone. The PDB fetch distinguishes a missing entry

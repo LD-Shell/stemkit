@@ -20,7 +20,7 @@ cd stemkit
 python3 -m http.server 8000     # then open http://localhost:8000/
 ```
 
-Opening the HTML files over `file://` will not work. Fourteen tools load ES
+Opening the HTML files over `file://` will not work. Sixteen tools load ES
 modules, which browsers block outside HTTP.
 
 Use the library, from npm (Node 18 or later, no dependencies):
@@ -56,6 +56,8 @@ node tests/smoke.mjs            # end-to-end against a real install
 | `npm run check:chrome` | shared header, theme script and tool names agree across pages |
 | `npm run build:css` | rebuild Tailwind after editing `src/tailwind/input.css` |
 | `npm run watch:css` | same, on change |
+| `npm run build:sitemap` | regenerate `sitemap.xml` from the pages |
+| `npm run check:sitemap` | fail if `sitemap.xml` is out of date |
 
 ## What is here
 
@@ -66,14 +68,15 @@ node tests/smoke.mjs            # end-to-end against a real install
 | Data and statistics | plot digitiser, data cleaner, statistics calculator, error-bar generator, outlier detector, curve fitter, plot builder |
 | Molecular simulation | XVG visualiser, structure inspector, coordinate manipulator, MD workflow generator (GROMACS, LAMMPS, PLUMED) |
 | Writing and citations | BibTeX sanitiser, BibTeX deduplicator, DOI to BibTeX, journal abbreviator (ISO 4), visual LaTeX tables, equation formatter |
-| Units | scientific converter: energy, length, pressure, dipole, polarizability, spectroscopy, temperature |
+| Units | scientific converter: energy, length, time, force, pressure, dipole, charge, polarizability, spectroscopy, temperature, heat capacity |
 
 Three further pages are workflow helpers, not research tools, and are not part
 of the scholarly contribution: Pomodoro timer, decision matrix, kinetics
 sandbox.
 
 `stemkit-core` holds the computation: 17 DOM-free domain modules, plus an
-aggregate export (`index.js`) and a dependency-injection layer (`vendor.js`).
+aggregate export (`index.js`), a Node entry (`node.js`) and a
+dependency-injection layer (`vendor.js`).
 API reference in [`src/core/README.md`](src/core/README.md).
 
 ## Why the computation is a separate library

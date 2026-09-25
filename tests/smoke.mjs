@@ -10,7 +10,7 @@
  *   node tests/smoke.mjs
  *
  * Prints one OK line per module checked, then a summary count. Every module is
- * covered except `iso4`, which postdates this file.
+ * covered except `iso4` and `journals`.
  */
 
 import {
