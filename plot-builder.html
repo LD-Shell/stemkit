@@ -6,17 +6,17 @@
     
     <title>Publication Plot Builder | Layer & Export SVG | STEMKit</title>
     <meta name="title" content="Publication Plot Builder | Layer & Export SVG | STEMKit">
-    <meta name="description" content="Build publication-ready plots directly in your browser. Layer multiple CSV datasets, customize axes, and export to SVG or high-res PNG without writing Python code.">
+    <meta name="description" content="Build publication-ready plots in your browser: layer several CSV datasets, set axes and size, and export SVG or high-resolution PNG without code.">
     <meta name="keywords" content="scientific plotting, multi-dataset graph, browser originlab alternative, plotly csv, export svg plot, STEMKit graphing">
     
     <link rel="canonical" href="https://stemkit.net/plot-builder.html">
     <meta property="og:url" content="https://stemkit.net/plot-builder.html">
-    <meta property="twitter:url" content="https://stemkit.net/plot-builder.html">
+    <meta name="twitter:url" content="https://stemkit.net/plot-builder.html">
     
     <meta property="og:title" content="Publication Plot Builder | Layer & Export SVG">
-    <meta property="twitter:title" content="Publication Plot Builder | Layer & Export SVG">
+    <meta name="twitter:title" content="Publication Plot Builder | Layer & Export SVG">
     <meta property="og:description" content="Visually layer multiple datasets and export publication-ready SVG graphics instantly.">
-    <meta property="twitter:description" content="Visually layer multiple datasets and export publication-ready SVG graphics instantly.">
+    <meta name="twitter:description" content="Visually layer multiple datasets and export publication-ready SVG graphics instantly.">
     
     <script type="application/ld+json">
         {
@@ -37,9 +37,14 @@
     <meta name="theme-color" content="#1f5c96">
 
     <meta property="og:type" content="website">
-    <meta property="og:image" content="https://stemkit.net/assets/og-image.webp?v=2">
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp?v=2">
+    <meta property="og:image" content="https://stemkit.net/assets/og-image.jpg">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="STEMKit: research tools that run in your browser">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://stemkit.net/assets/og-image.jpg">
+    <meta name="twitter:image:alt" content="STEMKit: research tools that run in your browser">
 
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=2">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico?v=2">
@@ -62,8 +67,8 @@
 
     <link rel="stylesheet" href="css/all.min.css">
     
-    <script src="js/dependencies/papaparse.min.js"></script>
-    <script src="js/dependencies/plotly.min.js"></script>
+    <script defer src="js/dependencies/papaparse.min.js"></script>
+    <script defer src="js/dependencies/plotly.min.js"></script>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
@@ -339,7 +344,7 @@
                 <div class="pb-view-h">
                     <div class="pb-view-t">
                         <h2 id="pb-view-h" class="stk-ptitle">Preview</h2>
-                        <p id="sizeReadout" class="pb-readout"></p>
+                        <p id="sizeReadout" class="pb-readout">3.5 × 2.6 in · 300 dpi · 1050 × 780 px</p>
                     </div>
                     <div class="pb-actions">
                         <button type="button" id="copyPyBtn" class="stk-btn stk-btn-sm" disabled title="A matplotlib script that draws this figure"><i class="fa-brands fa-python" aria-hidden="true"></i> <span>Python<span class="pb-long"> script</span></span></button>
@@ -365,6 +370,20 @@
                     <span id="exportStatus" class="pb-status" role="status" aria-live="polite"></span>
                 </div>
             </section>
+            <script>
+                // Size the empty frame before the first paint, the way fitSheet() in
+                // js/plot-builder.js will for the default 3.5 × 2.6 in figure, so
+                // nothing moves while the plotting library loads.
+                (function () {
+                    var stage = document.getElementById('pbStage'), sheet = document.getElementById('pbSheet');
+                    var cs = getComputedStyle(stage);
+                    var aw = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+                    var ah = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+                    var W = 3.5 * 96, H = 2.6 * 96, k = Math.max(0.02, Math.min(aw / W, ah / H)) || 1;
+                    sheet.style.width = (W * k).toFixed(2) + 'px';
+                    sheet.style.height = (H * k).toFixed(2) + 'px';
+                })();
+            </script>
         </main>
         
         <div class="stk-wrap">

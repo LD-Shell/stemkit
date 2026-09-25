@@ -5,24 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Structure Inspector | 3D WebGL Molecular Viewer | STEMKit</title>
     <meta name="title" content="Structure Inspector | 3D WebGL Molecular Viewer | STEMKit">
-    <meta name="description" content="Free browser-based 3D molecular viewer. Load PDB, GRO, XYZ, CIF, MOL2 or CUBE files, select atoms by chain, residue, element or distance, measure bonds and angles, and export publication-quality images, all rendered locally with WebGL.">
+    <meta name="description" content="Free 3D molecular viewer: load PDB, GRO, XYZ, CIF, MOL2 or CUBE files, find residues and species, measure bonds and angles, and export images.">
 
     <link rel="canonical" href="https://stemkit.net/structure-inspector.html">
     <meta property="og:url" content="https://stemkit.net/structure-inspector.html">
-    <meta property="twitter:url" content="https://stemkit.net/structure-inspector.html">
+    <meta name="twitter:url" content="https://stemkit.net/structure-inspector.html">
 
     <meta property="og:title" content="Structure Inspector | 3D WebGL Molecular Viewer">
-    <meta property="twitter:title" content="Structure Inspector | 3D WebGL Molecular Viewer">
+    <meta name="twitter:title" content="Structure Inspector | 3D WebGL Molecular Viewer">
     <meta property="og:description" content="View PDB, GRO, XYZ and CIF structures in 3D, find residues by name, measure distances and angles, and export high-resolution images, all in your browser.">
-    <meta property="twitter:description" content="View PDB, GRO, XYZ and CIF structures in 3D, find residues by name, measure distances and angles, and export high-resolution images, all in your browser.">
+    <meta name="twitter:description" content="View PDB, GRO, XYZ and CIF structures in 3D, find residues by name, measure distances and angles, and export high-resolution images, all in your browser.">
 
     <meta name="author" content="Olanrewaju M. Daramola">
     <meta name="theme-color" content="#1f5c96">
 
     <meta property="og:type" content="website">
-    <meta property="og:image" content="https://stemkit.net/assets/og-image.webp?v=2">
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:image" content="https://stemkit.net/assets/og-image.webp?v=2">
+    <meta property="og:image" content="https://stemkit.net/assets/og-image.jpg">
+    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="STEMKit: research tools that run in your browser">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://stemkit.net/assets/og-image.jpg">
+    <meta name="twitter:image:alt" content="STEMKit: research tools that run in your browser">
 
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=2">
     <link rel="icon" type="image/x-icon" href="assets/favicon.ico?v=2">
@@ -43,9 +48,12 @@
     </script>
 
     <link rel="stylesheet" href="css/all.min.css">
-    <script src="js/dependencies/3Dmol-min.js"></script>
+    <script defer src="js/dependencies/3Dmol-min.js"></script>
 
 
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "WebApplication", "name": "STEMKit Structure Inspector", "url": "https://stemkit.net/structure-inspector.html", "description": "A 3D molecular viewer in the browser: load PDB, GRO, XYZ, CIF, MOL2 or CUBE files, find residues, chains and species, measure distances and angles, show the simulation box and export images.", "applicationCategory": "UtilityApplication", "operatingSystem": "All", "author": {"@type": "Person", "name": "Olanrewaju M. Daramola"}, "browserRequirements": "Requires JavaScript and WebGL", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "featureList": ["PDB, GRO, XYZ, CIF, MOL2 and CUBE files", "Find by residue, chain, atom or species", "Distance and angle measurement", "Simulation box display", "PNG export", "Files stay on your device"]}
+</script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "HowTo", "name": "How to inspect a molecular structure in 3D", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Open a structure", "text": "Drop a PDB, GRO, XYZ, CIF, MOL2 or SDF coordinate file on the page, enter a four-character PDB ID to fetch it from RCSB, or open a sample."}, {"@type": "HowToStep", "position": 2, "name": "Move around", "text": "Drag to rotate, scroll or pinch to zoom, right-drag or drag with two fingers to pan, or use the on-canvas pad, zoom rail and X, Y, Z views. Click an atom to centre on it."}, {"@type": "HowToStep", "position": 3, "name": "Find what you need", "text": "Type a residue or species name such as SOL, NA or ALA 12 in Find to highlight and zoom to it, step through the matches, and hide water or ions in one click."}, {"@type": "HowToStep", "position": 4, "name": "Style, measure and export", "text": "Pick a representation, show the simulation box, click two atoms in measure mode for a distance, or three with Angle mode ticked for an angle, then export a high-resolution PNG."}]}
 </script>
@@ -1165,6 +1173,6 @@
     <div id="toastContainer" class="stk-toasts" aria-live="polite"></div>
 
     <script src="js/site.js"></script>
-    <script src="js/structure-inspector.js"></script>
+    <script defer src="js/structure-inspector.js"></script>
 </body>
 </html>

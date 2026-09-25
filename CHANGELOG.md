@@ -69,6 +69,15 @@ did not match: bugs where the code was wrong, wording where the page was.
   resolve from the site root.
 - Structured data no longer shows raw HTML entities.
 
+### Changed: search and speed
+
+- Plotly, 3Dmol and the other libraries load without holding up the first
+  paint, which came after a 3.6 MB download on the plotting pages. The plot
+  builder no longer shifts while Plotly loads.
+- Titles and descriptions fit in search results; the share image is a JPEG
+  with its size and alt text; the privacy page and the structure inspector
+  have the preview tags and structured data the other pages have.
+
 ### Removed
 
 - `home-sections-preview.html`, a scratch page still served with invented
