@@ -76,15 +76,6 @@ produced by clicking is hard to regenerate six months later. Moving the
 computation into an importable library makes the same code path scriptable,
 version-pinnable and testable.
 
-It also surfaced defects that had shipped:
-
-- wavelength conversion returned a plausible but wrong number
-- skewness used the sample, not population, standard deviation
-- virtual sites in water inflated system mass by 67%
-- adjusted G1 fed into the D'Agostino-Pearson transform, 21% error in K2 at n = 10
-
-Each now has a regression test. Full list in [`CHANGELOG.md`](CHANGELOG.md).
-
 ## Docs
 
 | File | Covers |
