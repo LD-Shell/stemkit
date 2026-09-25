@@ -2,7 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21543112.svg)](https://doi.org/10.5281/zenodo.21543112)
 
-Browser tools for computational chemistry, plus `@stemkit/core`, the tested
+Browser tools for computational chemistry, plus `stemkit-core`, the tested
 library underneath them.
 
 All computation is client-side. No uploads, no accounts, no install. Tools work
@@ -23,19 +23,26 @@ python3 -m http.server 8000     # then open http://localhost:8000/
 Opening the HTML files over `file://` will not work. Fourteen tools load ES
 modules, which browsers block outside HTTP.
 
-Use the library:
+Use the library, from npm (Node 18 or later, no dependencies):
+
+```bash
+npm install stemkit-core
+```
+
+```js
+import { readFileSync } from 'node:fs';
+import { parseXvg, extractColumn, columnStats } from 'stemkit-core';
+
+const { matrix } = parseXvg(readFileSync('rmsd.xvg', 'utf8'));
+console.log(columnStats(extractColumn(matrix, 1)));
+```
+
+Run the tests, from a clone:
 
 ```bash
 npm install
 npm test                        # 1208 tests, 17 modules
 node tests/smoke.mjs            # end-to-end against a real install
-```
-
-```js
-import { parseXvg, columnStats } from '@stemkit/core';
-
-const { matrix, headers } = parseXvg(readFileSync('rmsd.xvg', 'utf8'));
-console.log(columnStats(matrix.map(r => r[1])));
 ```
 
 ## npm scripts
@@ -65,7 +72,7 @@ Three further pages are workflow helpers, not research tools, and are not part
 of the scholarly contribution: Pomodoro timer, decision matrix, kinetics
 sandbox.
 
-`@stemkit/core` holds the computation: 17 DOM-free domain modules, plus an
+`stemkit-core` holds the computation: 17 DOM-free domain modules, plus an
 aggregate export (`index.js`) and a dependency-injection layer (`vendor.js`).
 API reference in [`src/core/README.md`](src/core/README.md).
 

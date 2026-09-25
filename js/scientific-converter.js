@@ -1,7 +1,7 @@
 /**
  * Scientific Converter | UI layer.
  *
- * The unit database and all conversion arithmetic live in @stemkit/core; this
+ * The unit database and all conversion arithmetic live in stemkit-core; this
  * file renders the live conversion matrix and handles DOM wiring only.
  *
  * The page presents every unit in a category at once: typing into any field

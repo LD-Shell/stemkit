@@ -1,7 +1,7 @@
 /**
  * XVG Visualizer | UI layer.
  *
- * All parsing, statistics, and code-generation live in @stemkit/core; this file
+ * All parsing, statistics, and code-generation live in stemkit-core; this file
  * is responsible only for DOM wiring, event handling, and Plotly rendering.
  */
 import {

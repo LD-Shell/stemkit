@@ -1,5 +1,5 @@
 /**
- * @module @stemkit/core
+ * @module stemkit-core
  *
  * Public entry point for the STEMKit computational core: the parsers,
  * numerical routines, and generators that underpin the browser tools, with no
@@ -7,15 +7,11 @@
  *
  * Two usage patterns are supported.
  *
- * **Node.js**, register the vendored UMD libraries once at start-up, then
- * import whatever you need:
+ * **Node.js**, `stemkit-core` resolves to `node.js`, which registers the
+ * vendored UMD libraries and re-exports this module:
  *
  * ```js
- * import { createRequire } from 'module';
- * import { registerVendor, independentTTest } from '@stemkit/core';
- *
- * const require = createRequire(import.meta.url);
- * registerVendor({ jStat: require('./js/dependencies/jstat.min.js') });
+ * import { independentTTest } from 'stemkit-core';
  *
  * const result = independentTTest(control, treated);
  * ```

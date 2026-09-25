@@ -1,21 +1,21 @@
 # Changelog
 
-Notable changes to STEMKit and `@stemkit/core`.
+Notable changes to STEMKit and `stemkit-core`.
 
 `[output]` marks a change that alters a reported number. Figures produced with an
 earlier version are worth re-checking.
 
-## Unreleased
+## v0.2.0 — 2026-09-25
 
 Four fixes below change what a tool reports; they are marked `[output]`.
-The rest is layout, controls and wording. In `@stemkit/core` the only change
+The rest is layout, controls and wording. In `stemkit-core` the only change
 to an existing function is the chi-squared tail below; everything else there
 is new.
 
 ### Fixed: numbers and figures
 
 - `[output]` **Error bar generator: statistics under the wrong headings.** Since
-  the move onto `@stemkit/core` the table printed its cells in another order
+  the move onto `stemkit-core` the table printed its cells in another order
   than its headings: the CI half-width under Median, the median under IQR, the
   IQR under CV, the CV under Min/Max, the minimum under t\*, and t\* not at all.
   The statistics were computed correctly; a value read off the table was
@@ -91,8 +91,12 @@ is new.
 - The privacy page says which two features contact another service (DOI
   lookup at doi.org, PDB fetch from RCSB).
 
-### Added: `@stemkit/core`
+### Added: `stemkit-core`
 
+- **On npm as `stemkit-core`**, renamed from `@stemkit/core`, which was never
+  published. Under Node the package entry (`core/node.js`) registers the four
+  bundled libraries, so a script no longer calls `registerVendor`. The package
+  has no dependencies.
 - **`core/scheduler`**: directive headers, environment-variable names, launch
   prefixes and submit commands for SLURM, PBS Professional / OpenPBS, LSF and
   Grid Engine, sharing `core/slurm`'s validation. The SLURM path delegates to

@@ -1,15 +1,24 @@
 {
-  "name": "@stemkit/core",
-  "version": "0.1.0",
+  "name": "stemkit-core",
+  "version": "0.2.0",
   "description": "Dependency-injected computational core for STEMKit: GROMACS/PLUMED trajectory parsing, statistics, molecular structure geometry, curve fitting, unit conversion, and HPC script generation.",
   "type": "module",
   "main": "src/core/index.js",
   "exports": {
-    ".": "./src/core/index.js",
+    ".": {
+      "node": "./src/core/node.js",
+      "default": "./src/core/index.js"
+    },
     "./*": "./src/core/*.js"
   },
   "files": [
     "src/core",
+    "js/dependencies/package.json",
+    "js/dependencies/LICENSES.md",
+    "js/dependencies/jstat.min.js",
+    "js/dependencies/papaparse.min.js",
+    "js/dependencies/regression.min.js",
+    "js/dependencies/bibtexParse.min.js",
     "README.md",
     "LICENSE"
   ],
@@ -17,6 +26,7 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "prepublishOnly": "npm test && node tests/smoke.mjs",
     "check:links": "node tools/check-links.mjs",
     "check:links:internal": "node tools/check-links.mjs --internal-only",
     "check:chrome": "node tools/check-chrome.mjs",

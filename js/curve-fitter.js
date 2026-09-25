@@ -2,7 +2,7 @@
  * Curve Fitter | UI layer.
  *
  * Parsing, fitting, goodness-of-fit statistics, and Python export live in
- * @stemkit/core; this file handles DOM wiring and Plotly rendering only.
+ * stemkit-core; this file handles DOM wiring and Plotly rendering only.
  *
  * Note on the models: exponential, power, and logarithmic fits are performed
  * by linearisation (least squares in log space, y-weighted), which is

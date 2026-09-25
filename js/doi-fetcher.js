@@ -1,7 +1,7 @@
 /**
  * DOI to BibTeX | UI layer.
  *
- * DOI-list parsing and BibTeX field filtering live in @stemkit/core; this file
+ * DOI-list parsing and BibTeX field filtering live in stemkit-core; this file
  * handles fetching and DOM wiring only.
  */
 import { filterBibtexFields } from '../src/core/bibtex.js';

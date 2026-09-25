@@ -2,7 +2,7 @@
  * BibTeX Deduplicator | UI layer.
  *
  * Parsing, union-find duplicate detection, completeness scoring, and
- * serialisation live in @stemkit/core; this file handles DOM wiring and
+ * serialisation live in stemkit-core; this file handles DOM wiring and
  * conflict resolution.
  */
 import { registerFromGlobals } from '../src/core/vendor.js';

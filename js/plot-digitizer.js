@@ -2,7 +2,7 @@
  * Plot Digitizer | UI layer.
  *
  * Pixel-to-data mapping, calibration validation, point management, CSV
- * generation, and Python escaping live in @stemkit/core. This file handles
+ * generation, and Python escaping live in stemkit-core. This file handles
  * canvas rendering, pointer input, and the zoom/loupe interaction.
  */
 import {

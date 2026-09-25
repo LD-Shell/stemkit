@@ -1,7 +1,7 @@
 /**
  * Outlier Detector | UI layer.
  *
- * Detection algorithms live in @stemkit/core; this file handles DOM wiring,
+ * Detection algorithms live in stemkit-core; this file handles DOM wiring,
  * file intake, and rendering only.
  */
 import { registerFromGlobals } from '../src/core/vendor.js';

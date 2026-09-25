@@ -26,7 +26,8 @@
  *
  *   Browser:  the UMD `<script>` tags already set window.jStat, window.Papa,
  *             etc.; `registerFromGlobals()` picks them up.
- *   Node:     `registerVendor({ jStat: require('...') })` from the test setup.
+ *   Node:     `node.js`, the package entry under Node, and the test setup
+ *             call `registerVendor({ jStat: require('...') })`.
  *
  * The core therefore stays environment-neutral, and the vendored libraries
  * remain the single source of truth for the numerics in both targets.
@@ -104,8 +105,8 @@ export function requireVendor(name) {
     throw new Error(
       `STEMKit core: "${name}" is not registered (${HINTS[name]}). ` +
       `In the browser, load the UMD script before your module and call ` +
-      `registerFromGlobals(). In Node, call registerVendor({ ${name}: ... }) ` +
-      `using createRequire on js/dependencies/.`
+      `registerFromGlobals(). In Node, import from 'stemkit-core', which ` +
+      `registers it, or call registerVendor({ ${name}: ... }).`
     );
   }
   return registry[name];

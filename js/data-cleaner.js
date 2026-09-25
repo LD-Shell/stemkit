@@ -2,7 +2,7 @@
  * CSV Data Cleaner | UI layer.
  *
  * Parsing, cleaning operations, numeric transforms, and column statistics live
- * in @stemkit/core; this file handles DOM wiring and the table preview.
+ * in stemkit-core; this file handles DOM wiring and the table preview.
  *
  * Standardisation convention: the Z-score transform uses the *population*
  * standard deviation, matching scikit-learn's StandardScaler. Pandas defaults

@@ -42,7 +42,8 @@ stemkit/
 │                           plus index, privacy and 404
 ├── src/
 │   ├── core/               the library: 17 domain modules, no DOM,
-│   │                       plus index.js (barrel) and vendor.js (DI)
+│   │                       plus index.js (barrel), node.js (Node entry)
+│   │                       and vendor.js (DI)
 │   ├── tailwind/input.css  design tokens, shared .stk-* components,
 │   │                       hand-written rules that survive a rebuild
 │   ├── tools/              per-tool stylesheets, 20 files
@@ -63,7 +64,7 @@ stemkit/
 ├── paper/                  manuscript, LaTeX and Markdown
 ├── css/, assets/, sound/   fonts (Inter and Font Awesome are vendored),
 │                           icons, sample structures, audio
-└── package.json            @stemkit/core
+└── package.json            stemkit-core
 ```
 
 ## Deploy
@@ -73,6 +74,15 @@ at `stemkit.net`.
 
 Not needed in production, harmless if deployed: `tests/`, `docs/`, `paper/`,
 `package.json`, `node_modules/`.
+
+## Publish the library
+
+```bash
+npm pack --dry-run     # lists what ships: src/core, four bundles, README, LICENSE
+npm publish
+```
+
+Bump `version` in `package.json` first; npm never accepts the same version twice.
 
 ## Gotchas
 

@@ -1,4 +1,4 @@
-# @stemkit/core
+# stemkit-core
 
 The computational core of [STEMKit](https://stemkit.net), the parsers,
 numerical routines, and generators behind its browser tools, extracted into
@@ -18,22 +18,21 @@ the same code path can be scripted, version-pinned, and tested.
 
 ## Installation
 
-The repository is a complete, runnable site; `docs/SETUP.md` covers deployment
-and the layout in more detail.
-
 ```bash
-git clone https://github.com/LD-Shell/stemkit.git
-cd stemkit
-npm install
+npm install stemkit-core
 ```
+
+Node.js 18 or later. The package has no dependencies: the four libraries some
+modules call are bundled with it (see below).
+
+To work on the library, clone the repository, a complete runnable site;
+`docs/SETUP.md` covers the layout.
 
 ## Quick start
 
-Several modules have no third-party dependency and work immediately:
-
 ```js
-import { parseXvg, columnStats, extractColumn } from './src/core/index.js';
-import { readFileSync } from 'fs';
+import { parseXvg, columnStats, extractColumn } from 'stemkit-core';
+import { readFileSync } from 'node:fs';
 
 const result = parseXvg(readFileSync('rmsd.xvg', 'utf8'));
 console.log(result.title);        // "RMSD & Radius of Gyration"
@@ -52,23 +51,18 @@ import, and `createRequire` is a hard resolution failure in a browser, so the
 core takes them by **injection** instead: it declares what it needs and each
 host supplies it.
 
-**Node.js:**
+**Node.js:** importing `stemkit-core` resolves to `node.js`, which registers
+all four before anything runs, so there is nothing to set up:
 
 ```js
-import { createRequire } from 'module';
-import { registerVendor, independentTTest } from './src/core/index.js';
-
-const require = createRequire(import.meta.url);
-registerVendor({
-  jStat: require('./js/dependencies/jstat.min.js'),
-  Papa: require('./js/dependencies/papaparse.min.js'),
-  regression: require('./js/dependencies/regression.min.js'),
-  bibtexParse: require('./js/dependencies/bibtexParse.min.js')
-});
+import { independentTTest } from 'stemkit-core';
 
 const t = independentTTest(control, treated);
 console.log(`t(${t.df.toFixed(2)}) = ${t.t.toFixed(3)}, p = ${t.p.toExponential(3)}`);
 ```
+
+`registerVendor({ jStat: ... })` replaces any of them, for example with a
+different build.
 
 **Browser**, the `<script>` tags already installed the globals:
 

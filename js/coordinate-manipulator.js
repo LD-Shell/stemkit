@@ -2,7 +2,7 @@
  * Coordinate Manipulator | UI layer.
  *
  * Structure parsing, geometry, rotations, unit handling, box calculation, and
- * output formatting live in @stemkit/core; this file handles DOM wiring only.
+ * output formatting live in stemkit-core; this file handles DOM wiring only.
  *
  * The element-inference correction in the core changes results here: heme iron
  * (`FE` in `HEM`), selenomethionine selenium, and numeric-prefixed hydrogens

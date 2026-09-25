@@ -3,7 +3,9 @@
  *
  * Exercises one representative path per core module against a real install,
  * catching the class of problem a unit test cannot: a broken barrel export, a
- * mis-scoped `type` field, or a vendored bundle that fails to load.
+ * mis-scoped `type` field, or a vendored bundle that fails to load. It imports
+ * the package by name, as a user's script does, so under Node it runs through
+ * `node.js`, which registers the vendored bundles.
  *
  *   node tests/smoke.mjs
  *
@@ -11,12 +13,7 @@
  * covered except `iso4`, which postdates this file.
  */
 
-import { createRequire } from 'module';
-import { fileURLToPath } from 'url';
-import path from 'path';
-
 import {
-  registerVendor,
   parseXvg, generateSampleXvg,
   independentTTest,
   parsePDB, structureStats,
@@ -32,18 +29,7 @@ import {
   parseDelimited, dropMissing,
   generatePlumedInput,
   selectAtoms, SpatialGrid
-} from '../src/core/index.js';
-
-const require = createRequire(import.meta.url);
-const here = path.dirname(fileURLToPath(import.meta.url));
-const dep = (name) => path.join(here, '..', 'js', 'dependencies', name);
-
-registerVendor({
-  jStat: require(dep('jstat.min.js')),
-  Papa: require(dep('papaparse.min.js')),
-  regression: require(dep('regression.min.js')),
-  bibtexParse: require(dep('bibtexParse.min.js'))
-});
+} from 'stemkit-core';
 
 let ok = 0;
 let fail = 0;

@@ -2,7 +2,7 @@
  * Statistical Calculator | UI layer.
  *
  * Every statistic, assumption check, distribution tail, box-plot whisker and
- * test recommendation lives in @stemkit/core; this file handles DOM wiring,
+ * test recommendation lives in stemkit-core; this file handles DOM wiring,
  * KaTeX rendering, the SVG plot, table formatting and the publication-ready
  * summary text.
  *

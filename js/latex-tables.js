@@ -1,7 +1,7 @@
 /**
  * LaTeX Table Generator | UI layer.
  *
- * Parsing, escaping, and LaTeX/Markdown generation live in @stemkit/core;
+ * Parsing, escaping, and LaTeX/Markdown generation live in stemkit-core;
  * this file handles DOM wiring and the HTML preview.
  */
 import {

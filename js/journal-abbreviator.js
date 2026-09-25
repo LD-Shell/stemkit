@@ -2,7 +2,7 @@
  * Journal Abbreviator | UI layer.
  *
  * The dictionary engine, matching, and unknown-title detection live in
- * @stemkit/core; this file handles DOM wiring and highlighted rendering.
+ * stemkit-core; this file handles DOM wiring and highlighted rendering.
  */
 import {
   buildEngine,

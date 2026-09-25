@@ -2,7 +2,7 @@
  * Error Bar Generator | UI layer.
  *
  * Group statistics, error-bar selection, tick placement, the CI-overlap
- * heuristic, and CSV export live in @stemkit/core. This file handles DOM
+ * heuristic, and CSV export live in stemkit-core. This file handles DOM
  * wiring, SVG rendering, and file export.
  */
 import { registerFromGlobals } from '../src/core/vendor.js';

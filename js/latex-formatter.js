@@ -1,7 +1,7 @@
 /**
  * LaTeX Formatter | UI layer.
  *
- * Matrix generation and zero-width stripping live in @stemkit/core; this file
+ * Matrix generation and zero-width stripping live in stemkit-core; this file
  * handles the MathLive/KaTeX binding.
  *
  * Note: the previous version of this file contained a syntax error, an

@@ -2,7 +2,7 @@
  * BibTeX Sanitizer | UI layer.
  *
  * The brace-aware field reader and the sanitising pipeline live in
- * @stemkit/core (`sanitiseText`); this file handles DOM wiring only.
+ * stemkit-core (`sanitiseText`); this file handles DOM wiring only.
  *
  * The core deliberately operates on the source text rather than round-tripping
  * through a parser: the vendored bibtex-parse-js strips nested braces, so

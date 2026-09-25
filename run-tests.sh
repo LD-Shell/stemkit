@@ -23,8 +23,8 @@ exec > >(tee "$REPORT") 2>&1
 hr() { printf '%s\n' "------------------------------------------------------------"; }
 
 # --- 1. sanity: are we in the right directory? -----------------------------
-if [ ! -f package.json ] || ! grep -q '"@stemkit/core"' package.json; then
-  echo "ERROR: run this from the repository root (no @stemkit/core package.json here)."
+if [ ! -f package.json ] || ! grep -q '"stemkit-core"' package.json; then
+  echo "ERROR: run this from the repository root (no stemkit-core package.json here)."
   exit 1
 fi
 
