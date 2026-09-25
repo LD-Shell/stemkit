@@ -4,11 +4,13 @@
  * Parsing, fitting, goodness-of-fit statistics, and Python export live in
  * stemkit-core; this file handles DOM wiring and Plotly rendering only.
  *
- * Note on the models: exponential, power, and logarithmic fits are performed
- * by linearisation (least squares in log space, y-weighted), which is
- * regression.js behaviour. R-squared is recomputed on the original data so
- * that values are comparable across model families. The core exposes a
- * `linearised` flag, surfaced in the fit metadata below.
+ * Note on the models: exponential and power fits are performed by
+ * linearisation (least squares on ln y; regression.js weights the exponential
+ * fit by y and leaves the power fit unweighted). The logarithmic model is
+ * linear in its parameters and is fitted by ordinary least squares. R-squared
+ * is recomputed on the original data so that values are comparable across
+ * model families. The core exposes a `linearised` flag, surfaced in the fit
+ * metadata below.
  */
 import { registerFromGlobals } from '../src/core/vendor.js';
 import {
@@ -346,17 +348,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   /* --- How the model is fitted and scored -----------------------------------
-   * Two things are easy to assume wrongly here. Three of the models are not
-   * fitted by least squares on the data as given: they are linearised in log
-   * space first, which is fast and closed-form but minimises a different
-   * quantity. And R-squared has more than one definition in circulation. Both
-   * are stated rather than left to be discovered from a surprising number.
+   * Two things are easy to assume wrongly here. The exponential and power
+   * models are not fitted by least squares on the data as given: they are
+   * linearised in log space first, which is fast and closed-form but minimises
+   * a different quantity. And R-squared has more than one definition in
+   * circulation. Both are stated rather than left to be discovered from a
+   * surprising number.
    */
   const MODEL_TEX = {
     linear: String.raw`y = mx + c`,
     exponential: String.raw`y = a\,e^{bx} \;\longrightarrow\; \ln y = \ln a + bx`,
     power: String.raw`y = a\,x^{b} \;\longrightarrow\; \ln y = \ln a + b\ln x`,
-    logarithmic: String.raw`y = a\ln x + b`,
+    logarithmic: String.raw`y = a + b\ln x`,
     polynomial2: String.raw`y = a_2x^2 + a_1x + a_0`,
     polynomial3: String.raw`y = a_3x^3 + a_2x^2 + a_1x + a_0`
   };

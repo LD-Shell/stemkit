@@ -46,6 +46,31 @@ describe('parseXYData', () => {
     expect(r.warnings.some(w => w.includes('text headers'))).toBe(true);
   });
 
+  test('skips a row whose x or y field is empty instead of shifting it', () => {
+    const r = parseXYData('1,2,9\n1.5,,3\n,7,1\n2,4,9');
+    expect(r.data).toEqual([[1, 2], [2, 4]]);
+    expect(r.emptyFields).toBe(2);
+    expect(r.warnings.some(w => w.includes('no value in the X or Y column'))).toBe(true);
+  });
+
+  test('keeps a row whose only empty field is in a column that is not read', () => {
+    const r = parseXYData('1,2,,4\n3,4,5,\n5,6,7,8', 0, 1);
+    expect(r.data).toEqual([[1, 2], [3, 4], [5, 6]]);
+    expect(r.emptyFields).toBe(0);
+    expect(r.warnings).toEqual([]);
+    // The same gap is skipped once that column is the one being read.
+    const y2 = parseXYData('1,2,,4\n3,4,5,\n5,6,7,8', 0, 2);
+    expect(y2.data).toEqual([[3, 5], [5, 7]]);
+    expect(y2.emptyFields).toBe(1);
+  });
+
+  test('reads rows that end with a comma', () => {
+    const r = parseXYData('x,y,\n1,2,\n3,4,\n');
+    expect(r.data).toEqual([[1, 2], [3, 4]]);
+    expect(r.emptyFields).toBe(0);
+    expect(r.nonNumeric).toBe(1);
+  });
+
   test('handles scientific notation and negatives', () => {
     expect(parseXYData('-1.5e2 2.5e-3').data).toEqual([[-150, 0.0025]]);
   });
@@ -216,7 +241,8 @@ describe('fitCurve | other models', () => {
   test('exponential recovers the growth rate of a doubling series', () => {
     const f = fitCurve(EXPONENTIAL, 'exponential');
     // regression.js weights the log-space fit by y, so the estimate differs
-    // slightly from an unweighted log-OLS (which would give ln 2 = 0.69315).
+    // slightly from an unweighted log-OLS, which gives 0.693167 on this
+    // series; the series was generated from ln 2 = 0.693147.
     expect(f.equation[1]).toBeCloseTo(0.6902163057, 6);
     expect(f.equation[1]).toBeCloseTo(Math.LN2, 2);
   });
@@ -416,6 +442,32 @@ describe('generateMatplotlibCode', () => {
 
   test('omits that warning for a directly fitted model', () => {
     expect(generateMatplotlibCode(fit)).not.toContain('linearisation');
+  });
+
+  test('describes the weighting each linearised model actually used', () => {
+    // regression.js weights the exponential fit by y, but not the power fit:
+    // its power coefficients are the plain least-squares line of ln y on ln x.
+    const data = [[1, 1.1], [2, 3.8], [3, 9.4], [4, 15.2], [5, 26.1]];
+    const powerFit = fitCurve(data, 'power');
+    const lx = data.map(([x]) => Math.log(x));
+    const ly = data.map(([, y]) => Math.log(y));
+    const mx = lx.reduce((s, v) => s + v, 0) / lx.length;
+    const my = ly.reduce((s, v) => s + v, 0) / ly.length;
+    let sxy = 0;
+    let sxx = 0;
+    lx.forEach((v, i) => { sxy += (v - mx) * (ly[i] - my); sxx += (v - mx) ** 2; });
+    const b = sxy / sxx;
+    expect(powerFit.equation[1]).toBeCloseTo(b, 5);
+    expect(powerFit.equation[0]).toBeCloseTo(Math.exp(my - b * mx), 5);
+
+    const powerCode = generateMatplotlibCode(powerFit);
+    expect(powerCode).toContain('unweighted least squares of ln y on ln x');
+    expect(powerCode).not.toContain('weighted by y');
+    expect(powerCode).not.toContain('y-weighted');
+
+    const expCode = generateMatplotlibCode(fitCurve(EXPONENTIAL, 'exponential'));
+    expect(expCode).toContain('weighted by y');
+    expect(expCode).not.toContain('unweighted');
   });
 
   test('returns guidance when no fit is supplied', () => {

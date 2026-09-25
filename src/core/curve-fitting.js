@@ -8,19 +8,22 @@
  * that the raw library does not provide.
  *
  * A caveat worth stating plainly, because it affects interpretation of every
- * exponential, power, and logarithmic fit: regression.js fits these models by
- * **linearisation**, taking logarithms and running least squares in the
+ * exponential and power fit: regression.js fits these models by
+ * **linearisation**, taking the logarithm of y and running least squares in the
  * transformed space. That minimises error in log space, not in the original
  * units, so the result is not the maximum-likelihood fit under additive
- * Gaussian noise. regression.js additionally *weights* the log-space fit by y,
- * which shifts estimates slightly relative to an unweighted log-OLS: for a
- * perturbed doubling series it returns 0.690216 where plain
- * log-OLS gives ln 2 = 0.69315. Neither is wrong, but they answer different
- * questions, and the difference is large enough to matter when a rate constant
- * is being reported. For publication-grade nonlinear fits, a
+ * Gaussian noise. For the exponential model regression.js additionally
+ * *weights* the log-space fit by y, which shifts estimates slightly relative to
+ * an unweighted log-OLS: for a perturbed doubling series generated from
+ * ln 2 = 0.693147 it returns 0.690216 where plain log-OLS gives 0.693167.
+ * Neither is wrong, but they answer different questions, and the difference
+ * is large enough to matter when a rate constant is being reported. The power
+ * fit is the unweighted one, least squares of ln y on ln x. For publication-grade nonlinear fits, a
  * Levenberg–Marquardt routine on the untransformed data is the correct tool.
  * `fitCurve` reports the linearisation through the `linearised` flag so
- * callers can surface it rather than bury it.
+ * callers can surface it rather than bury it. The logarithmic model needs no
+ * such caveat: it is linear in its parameters and is solved by ordinary least
+ * squares.
  */
 
 import { requireVendor } from './vendor.js';
@@ -56,38 +59,58 @@ export const PARAM_COUNT = Object.freeze({
 export const LINEARISED_MODELS = Object.freeze(['exponential', 'power']);
 
 /**
+ * Split one line into fields: on commas when it has any, otherwise on
+ * whitespace. Empty comma-separated fields are kept, so a gap stays a gap
+ * instead of pulling the later values one column to the left.
+ *
+ * @param {string} line - A trimmed, non-empty line.
+ * @returns {string[]}
+ */
+function splitFields(line) {
+  return line.includes(',') ? line.split(',').map(t => t.trim()) : line.split(/\s+/);
+}
+
+/**
  * Parse whitespace- or comma-delimited text into (x, y) pairs.
  *
  * Points are sorted by x so that a fitted curve can be drawn as a simple
- * polyline. Rows that lack the requested columns, or whose entries are
- * non-numeric (headers, for instance), are counted and reported rather than
- * silently discarded.
+ * polyline. Rows that lack the requested columns, whose x or y entry is
+ * non-numeric (headers, for instance), or whose x or y field is empty are
+ * counted and reported rather than silently discarded. Because empty fields
+ * keep their place, a gap in a column that is not read, or a comma at the end
+ * of the line, leaves the row usable.
  *
  * @param {string} rawText
  * @param {number} xIdx - Zero-based column index for the abscissa.
  * @param {number} yIdx - Zero-based column index for the ordinate.
  * @returns {{data:Array<[number,number]>, warnings:string[],
- *            missingColumns:number, nonNumeric:number}}
+ *            missingColumns:number, nonNumeric:number, emptyFields:number}}
  */
 export function parseXYData(rawText, xIdx = 0, yIdx = 1) {
   const data = [];
   let missingColumns = 0;
   let nonNumeric = 0;
+  let emptyFields = 0;
 
   if (typeof rawText !== 'string' || rawText.trim() === '') {
-    return { data, warnings: [], missingColumns, nonNumeric };
+    return { data, warnings: [], missingColumns, nonNumeric, emptyFields };
   }
   if (!Number.isInteger(xIdx) || !Number.isInteger(yIdx) || xIdx < 0 || yIdx < 0) {
     return { data, warnings: ['Column indices must be non-negative integers.'],
-             missingColumns, nonNumeric };
+             missingColumns, nonNumeric, emptyFields };
   }
 
   for (const line of rawText.split(/\r\n|\r|\n/)) {
     if (line.trim() === '') continue;
-    const tokens = line.trim().split(/[\s,]+/).filter(Boolean);
+    const tokens = splitFields(line.trim());
 
     if (tokens.length <= Math.max(xIdx, yIdx)) {
       missingColumns++;
+      continue;
+    }
+    // Number('') is 0, so an empty x or y has to be caught before conversion.
+    if (tokens[xIdx] === '' || tokens[yIdx] === '') {
+      emptyFields++;
       continue;
     }
 
@@ -107,9 +130,12 @@ export function parseXYData(rawText, xIdx = 0, yIdx = 1) {
   if (nonNumeric > 0) {
     warnings.push(`Ignored ${nonNumeric} line(s) with text headers or invalid numbers.`);
   }
+  if (emptyFields > 0) {
+    warnings.push(`Skipped ${emptyFields} line(s) with no value in the X or Y column.`);
+  }
 
   data.sort((a, b) => a[0] - b[0]);
-  return { data, warnings, missingColumns, nonNumeric };
+  return { data, warnings, missingColumns, nonNumeric, emptyFields };
 }
 
 /**
@@ -482,10 +508,16 @@ export function generateMatplotlibCode(fit) {
   c += `# --- Fitted ${fit.model} model (from STEMKit, R^2 = ${r2}) ---\n`;
 
   if (fit.linearised) {
-    c += '# NOTE: this model was fitted by linearisation (least squares in log\n';
-    c += '# space, y-weighted), not by non-linear least squares on the original\n';
-    c += '# data. For a maximum-likelihood fit under additive Gaussian noise,\n';
-    c += '# use scipy.optimize.curve_fit on the untransformed values.\n';
+    // regression.js weights the exponential fit by y; the power fit is plain
+    // least squares of ln y on ln x.
+    const how = {
+      exponential: 'least squares on ln y, weighted by y',
+      power: 'unweighted least squares of ln y on ln x'
+    }[fit.model] || 'least squares in log space';
+    c += `# NOTE: this model was fitted by linearisation (${how}),\n`;
+    c += '# not by non-linear least squares on the original data. For a\n';
+    c += '# maximum-likelihood fit under additive Gaussian noise, use\n';
+    c += '# scipy.optimize.curve_fit on the untransformed values.\n';
   }
 
   c += `def model(x):\n    return ${expr.body}\n\n`;
