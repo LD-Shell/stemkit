@@ -27,7 +27,7 @@ Use the library:
 
 ```bash
 npm install
-npm test                        # 1128 tests, 17 modules
+npm test                        # 1208 tests, 17 modules
 node tests/smoke.mjs            # end-to-end against a real install
 ```
 
@@ -42,7 +42,7 @@ console.log(columnStats(matrix.map(r => r[1])));
 
 | Script | Does |
 |---|---|
-| `npm test` | Jest, 1128 tests |
+| `npm test` | Jest, 1208 tests |
 | `npm run test:coverage` | coverage report (see `docs/COVERAGE.md`) |
 | `npm run check:links` | internal and external link check |
 | `npm run check:links:internal` | internal only, no network |
