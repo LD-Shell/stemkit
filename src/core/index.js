@@ -70,6 +70,7 @@ export * as ErrorBars from './error-bars.js';
 export * as Journals from './journals.js';
 export * as Iso4 from './iso4.js';
 export * as Plumed from './plumed.js';
+export * as PlumedSyntax from './plumed-syntax.js';
 export * as Selection from './selection.js';
 
 /* ------------------------------------------------------------------ *
