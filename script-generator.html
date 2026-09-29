@@ -792,6 +792,20 @@
                                 <p class="stk-group-t">Method parameters</p>
                                 <div id="plumedBiasParams"></div>
                             </div>
+                            <div class="sg-option" id="plumedCalcWrap">
+                                <p class="stk-group-t">What these numbers mean</p>
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="plumedCalcBarrier">Barrier you expect <span class="plumed-help" tabindex="0" data-tip="The highest free-energy barrier between the states you want to see, in the energy unit of the input. A rough figure is enough: a hydrogen bond is about 20 kJ/mol, a ligand leaving a pocket 40 to 80.">?</span></label>
+                                        <input type="text" id="plumedCalcBarrier" value="40" inputmode="decimal" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="plumedCalcDt">MD time step (fs) <span class="plumed-help" tabindex="0" data-tip="The dt of the MD engine, which turns PACE, a number of steps, into a time.">?</span></label>
+                                        <input type="text" id="plumedCalcDt" value="2" inputmode="decimal" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                </div>
+                                <dl id="plumedCalc" class="sg-calc"></dl>
+                            </div>
                             <div class="sg-option" id="plumedSpeedWrap">
                                 <p class="stk-group-t">Speed and replicas</p>
                                 <label class="stk-check sg-check-block"><input type="checkbox" id="plumedGrid" checked> <span><strong>Store the bias on a grid</strong> (<code>GRID_MIN/MAX/BIN</code>). Essential for metadynamics speed: the cost stays flat as hills accumulate. The bounds are set on each biased variable.</span></label>
@@ -873,6 +887,7 @@
                 <div id="plumedViews" class="stk-tabs sg-views" role="tablist" aria-label="PLUMED tools" hidden>
                     <button type="button" class="stk-tab" role="tab" data-plumed-view="input" aria-selected="true" aria-controls="scriptBox"><i class="fa-solid fa-file-code" aria-hidden="true"></i> Input file</button>
                     <button type="button" class="stk-tab" role="tab" data-plumed-view="check" aria-selected="false" aria-controls="plumedCheckBox"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Check a file</button>
+                    <button type="button" class="stk-tab" role="tab" data-plumed-view="analyse" aria-selected="false" aria-controls="plumedAnBox"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Analyse a run</button>
                 </div>
 
                 <section id="scriptBox" class="stk-panel sg-out" aria-labelledby="primaryOutputLabel">
@@ -913,6 +928,69 @@
                         </div>
                         <div id="plumedCheckIssues"></div>
                         <div id="plumedCheckExplain" hidden></div>
+                    </div>
+                </section>
+
+                <section id="plumedAnBox" class="stk-panel sg-out sg-tool" role="tabpanel" aria-labelledby="plumedAnTitle" hidden>
+                    <div class="stk-panel-h sg-out-h">
+                        <h2 class="stk-panel-t" id="plumedAnTitle">Analyse a run</h2>
+                        <div class="sg-out-actions">
+                            <button type="button" class="stk-btn stk-btn-sm" id="plumedAnChoose"><i class="fa-regular fa-folder-open" aria-hidden="true"></i> Open files</button>
+                            <input type="file" id="plumedAnFile" multiple hidden>
+                            <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost" id="plumedAnClear" hidden><i class="fa-solid fa-eraser" aria-hidden="true"></i> Clear</button>
+                        </div>
+                    </div>
+                    <div class="sg-tool-body stk-scroll">
+                        <div id="plumedAnEmpty">
+                            <div id="plumedAnDrop" class="stk-drop stk-drop-sm" aria-labelledby="plumedAnDropTitle">
+                                <span class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-file-arrow-up"></i></span>
+                                <h3 id="plumedAnDropTitle" class="stk-drop-title">Drop a COLVAR, a HILLS file, or both</h3>
+                                <p class="stk-drop-text">A COLVAR from a short run with no bias gives the hill width and the grid of each variable. HILLS from a metadynamics run gives the free-energy surface and shows whether it has settled. The files stay in your browser.</p>
+                                <div class="stk-drop-actions">
+                                    <button type="button" id="plumedAnSample" class="stk-btn stk-btn-ghost stk-btn-sm">Load a sample</button>
+                                </div>
+                                <p class="stk-drop-formats"><span>COLVAR</span><span>HILLS</span></p>
+                            </div>
+                        </div>
+
+                        <section id="plumedAnColvar" class="sg-an" aria-labelledby="plumedAnColvarTitle" hidden>
+                            <h3 class="sg-an-t" id="plumedAnColvarTitle">The variables</h3>
+                            <p id="plumedAnColvarHead" class="stk-hint"></p>
+                            <div class="stk-table-wrap">
+                                <table class="sg-an-table">
+                                    <thead><tr><th scope="col">Value</th><th scope="col">Mean</th><th scope="col">Std. dev.</th><th scope="col">Range seen</th><th scope="col">Sigma</th><th scope="col">Grid</th><th scope="col"><span class="sr-only">Notes</span></th></tr></thead>
+                                    <tbody id="plumedAnTable"></tbody>
+                                </table>
+                            </div>
+                            <p id="plumedAnAdvice" class="stk-hint"></p>
+                            <button type="button" id="plumedAnApply" class="stk-btn stk-btn-sm stk-btn-primary sg-btn-start" disabled></button>
+                            <div class="stk-field sg-an-pick">
+                                <label for="plumedAnColumn">Show</label>
+                                <select id="plumedAnColumn" class="stk-select stk-select-sm stk-mono"></select>
+                            </div>
+                            <div id="plumedAnTrace" class="sg-plot" role="img" aria-label="The chosen value through the run"></div>
+                            <div id="plumedAnReweight" hidden>
+                                <h3 class="sg-an-t">Free energy along it, reweighted</h3>
+                                <p id="plumedAnReweightNote" class="stk-hint"></p>
+                                <div id="plumedAnReweightPlot" class="sg-plot" role="img" aria-label="Reweighted free energy along the chosen value"></div>
+                            </div>
+                        </section>
+
+                        <section id="plumedAnHills" class="sg-an" aria-labelledby="plumedAnHillsTitle" hidden>
+                            <h3 class="sg-an-t" id="plumedAnHillsTitle">The bias</h3>
+                            <p id="plumedAnHillsHead" class="stk-hint"></p>
+                            <div id="plumedAnHeights" class="sg-plot sg-plot-sm" role="img" aria-label="Hill height through the run"></div>
+                            <div class="sg-an-bar">
+                                <h3 class="sg-an-t">Free-energy surface</h3>
+                                <div class="stk-field sg-an-pick" hidden>
+                                    <label for="plumedAnAlong">Along</label>
+                                    <select id="plumedAnAlong" class="stk-select stk-select-sm stk-mono"></select>
+                                </div>
+                                <button type="button" id="plumedAnFesGet" class="stk-btn stk-btn-sm"><i class="fa-solid fa-download" aria-hidden="true"></i> fes.dat</button>
+                            </div>
+                            <div id="plumedAnFes" class="sg-plot sg-plot-lg" role="img" aria-label="Free-energy surface from the hills"></div>
+                            <p id="plumedAnFesNote" class="stk-hint"></p>
+                        </section>
                     </div>
                 </section>
 

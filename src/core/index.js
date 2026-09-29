@@ -72,6 +72,8 @@ export * as Iso4 from './iso4.js';
 export * as Plumed from './plumed.js';
 export * as PlumedSyntax from './plumed-syntax.js';
 export * as PlumedParse from './plumed-parse.js';
+export * as PlumedAtoms from './plumed-atoms.js';
+export * as PlumedAnalysis from './plumed-analysis.js';
 export * as Selection from './selection.js';
 
 /* ------------------------------------------------------------------ *

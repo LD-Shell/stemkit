@@ -252,6 +252,7 @@ a.plumed-doclink:hover { text-decoration: underline; }
 @media (max-width: 1023.98px) {
   .sg-tool { flex: none; }
   .sg-tool-body { max-height: none; overflow: visible; }
+}
 .sg-check-text { min-height: 9rem; font-size: .75rem; line-height: 1.55; white-space: pre; overflow: auto; background: #0b1120; color: #e2e8f0; border-color: var(--stk-border-strong); tab-size: 4; flex-shrink: 0; }
 .sg-check-text::placeholder { color: #8b9bb4; }
 .sg-check-text.is-over { border-color: var(--stk-accent); box-shadow: 0 0 0 3px var(--stk-ring); }
@@ -288,6 +289,35 @@ a.plumed-doclink:hover { text-decoration: underline; }
 .sg-explain-t th { white-space: nowrap; color: var(--stk-fg); }
 .sg-explain-t td:nth-child(2) { max-width: 16rem; overflow-wrap: anywhere; }
 .sg-explain-t td:last-child { color: var(--stk-fg-3); min-width: 12rem; }
+
+/* Analysis: charts and the table beside them. */
+.sg-an { display: flex; flex-direction: column; gap: .6rem; min-width: 0; }
+.sg-an + .sg-an { padding-top: .9rem; border-top: 1px solid var(--stk-border); }
+.sg-an .stk-hint { margin: 0; }
+.sg-an-t { margin: 0; font-size: .875rem; font-weight: 700; color: var(--stk-fg); }
+.sg-an-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; margin-top: .4rem; }
+.sg-an-bar > .sg-an-t { margin-right: auto; }
+.sg-an-pick { flex-direction: row; align-items: center; gap: .4rem; }
+.sg-an-pick > label { margin: 0; }
+.sg-an-pick > .stk-select { width: auto; min-width: 8rem; max-width: 100%; }
+.sg-an-table { width: 100%; border-collapse: collapse; font-size: .75rem; line-height: 1.4; }
+.sg-an-table th, .sg-an-table td { padding: .35rem .7rem .35rem 0; text-align: left; border-bottom: 1px solid var(--stk-border); white-space: nowrap; color: var(--stk-fg-2); font-variant-numeric: tabular-nums; }
+.sg-an-table thead th { font-weight: 600; color: var(--stk-fg-3); }
+.sg-an-table tbody th { font-weight: 600; color: var(--stk-fg); }
+.sg-an-table code { font-family: var(--stk-font-mono); color: var(--stk-fg); }
+.sg-an-table tbody tr:last-child th, .sg-an-table tbody tr:last-child td { border-bottom: 0; }
+.sg-plot { width: 100%; min-height: 280px; border: 1px solid var(--stk-border); border-radius: var(--stk-radius-sm); background: var(--stk-surface); overflow: hidden; }
+.sg-plot-sm { min-height: 220px; }
+.sg-plot-lg { min-height: 320px; }
+.sg-plot > .stk-hint { padding: .75rem; }
+/* What the method parameters come to, in words and numbers. */
+.sg-calc { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem .75rem; margin: 0; }
+.sg-calc > div { display: flex; flex-direction: column; gap: .05rem; min-width: 0; padding: .4rem .55rem; border: 1px solid var(--stk-border); border-radius: var(--stk-radius-sm); background: var(--stk-surface-2); }
+.sg-calc dt { font-size: .6875rem; line-height: 1.35; color: var(--stk-fg-3); }
+.sg-calc dd { margin: 0; font-size: .8125rem; font-weight: 600; color: var(--stk-fg); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.sg-calc dd small { font-weight: 400; font-size: .6875rem; color: var(--stk-fg-3); }
+.sg-calc > .sg-calc-wide { grid-column: 1 / -1; }
+@media (max-width: 379.98px) { .sg-calc { grid-template-columns: minmax(0, 1fr); } }
 
 /* ---------------------------------------------------------------------------
    Documentation: the per-engine tabs in the method section

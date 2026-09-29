@@ -19,6 +19,8 @@ import {
 import { loadSyntax, plumedDocUrl } from '../src/core/plumed-syntax.js';
 import { createPlumedCheck } from './script-generator-plumed-check.js';
 import { createPlumedAtoms } from './script-generator-plumed-atoms.js';
+import { createPlumedAnalyse } from './script-generator-plumed-analyse.js';
+import { thermalEnergy, wellTempered, depositionRate } from '../src/core/plumed-analysis.js';
 
 const BIAS_GROUPS = {
   none: 'None',
@@ -211,6 +213,7 @@ export function createPlumedBuilder(ctx) {
   }
 
   function generate() {
+    renderCalc();
     const out = $('slurmOutput');
     if (!out) return;
     const result = generatePlumedInput(readConfig());
@@ -1082,6 +1085,9 @@ export function createPlumedBuilder(ctx) {
   on('plumedRestart', 'change', generate);
   on('plumedInclude', 'input', () => { renderFnList(); generate(); });
   on('plumedStride', 'input', renderPrintList);
+  on('plumedCalcBarrier', 'input', renderCalc);
+  on('plumedCalcDt', 'input', renderCalc);
+  on('plumedTemp', 'input', () => analyse.refresh());
   on('plumedCategory', 'change', populateCVSelect);
   on('plumedCVSelect', 'change', updateCVDesc);
   on('plumedAddCV', 'click', addCV);
@@ -1112,7 +1118,7 @@ export function createPlumedBuilder(ctx) {
    * Views of the output column
    * ---------------------------------------------------------------- */
 
-  const VIEW_BOX = { input: 'scriptBox', check: 'plumedCheckBox' };
+  const VIEW_BOX = { input: 'scriptBox', check: 'plumedCheckBox', analyse: 'plumedAnBox' };
 
   function showView(view) {
     state.view = VIEW_BOX[view] ? view : 'input';
@@ -1122,6 +1128,71 @@ export function createPlumedBuilder(ctx) {
     for (const [v, id] of Object.entries(VIEW_BOX)) {
       if ($(id)) $(id).hidden = v !== state.view;
     }
+    if (state.view === 'analyse') analyse.render();
+  }
+
+  /* ---------------------------------------------------------------- *
+   * What the method parameters come to
+   * ---------------------------------------------------------------- */
+
+  const ENERGY_NAME = { 'kj/mol': 'kJ/mol', 'kcal/mol': 'kcal/mol', eV: 'eV', Ha: 'Ha' };
+
+  function renderCalc() {
+    const host = $('plumedCalc');
+    const wrap = $('plumedCalcWrap');
+    if (!host || !wrap) return;
+    const method = getStr('plumedBias', 'none');
+    wrap.hidden = !['metad', 'wt_metad', 'pbmetad', 'opes'].includes(method);
+    if (wrap.hidden) return;
+    const energy = getStr('plumedUnitEnergy', 'kj/mol');
+    const e = ENERGY_NAME[energy] || energy;
+    const p = biasParams(method);
+    const num = (v) => { const n = parseFloat(String(v).replace(',', '.')); return Number.isFinite(n) ? n : NaN; };
+    const temp = num(p.TEMP) || num(getStr('plumedTemp', ''));
+    const kT = thermalEnergy(temp, energy);
+    const barrier = num(getStr('plumedCalcBarrier', ''));
+    const dt = num(getStr('plumedCalcDt', '')) / 1000;
+    const show = (v, d = 3) => (Number.isFinite(v) ? Number(v.toPrecision(d)).toString() : '–');
+    const items = [['Thermal energy kT', `${show(kT)} ${e} <small>at ${show(temp, 4)} K</small>`]];
+
+    if (method === 'wt_metad' || method === 'pbmetad') {
+      const wt = wellTempered({ barrier, biasFactor: num(p.BIASFACTOR), temperature: temp, unit: energy });
+      if (wt) {
+        items.push(['Barrier left once the bias has settled',
+          `${show(wt.residual)} ${e} <small>${show(wt.residualInKT)} kT</small>`]);
+        items.push(['The variable is sampled as if at', `${show(wt.effectiveTemperature, 4)} K`]);
+        items.push(['Bias factor that leaves the barrier at 2 kT', `${wt.suggested}`]);
+      }
+    }
+    if (method === 'opes') {
+      const b = num(p.BARRIER);
+      if (Number.isFinite(b) && Number.isFinite(kT)) {
+        items.push(['Bias factor OPES takes from BARRIER', `${show(b / kT)} <small>BARRIER / kT</small>`]);
+        if (Number.isFinite(barrier) && b < barrier) {
+          items.push(['BARRIER against the barrier you expect',
+            `${show(b)} under ${show(barrier)} ${e} <small>raise it, or the barrier is crossed rarely</small>`]);
+        }
+      }
+    }
+    const height = num(p.HEIGHT);
+    const pace = num(p.PACE) || num(getStr('plumedStride', ''));
+    if (method !== 'opes') {
+      const rate = depositionRate({ height, pace, timestep: dt, depth: barrier });
+      if (rate) {
+        items.push(['A hill is laid down every', `${show(pace * dt)} ps <small>${show(rate.hillsPerNs, 4)} per ns</small>`]);
+        items.push(['Bias added at the start', `${show(rate.perPs)} ${e} per ps`]);
+        if (rate.fillNs !== null) {
+          items.push(['Earliest the barrier could be reached',
+            `${show(rate.fillNs)} ns <small>if every hill fell in one basin; expect several times this</small>`, true]);
+        }
+        if (Number.isFinite(kT) && height > kT) {
+          items.push(['Hill height against kT',
+            `${show(height / kT)} kT <small>above kT the surface is rough; a height near kT/2 is usual</small>`, true]);
+        }
+      }
+    }
+    host.innerHTML = items.map(([k, v, wide]) =>
+      `<div${wide ? ' class="sg-calc-wide"' : ''}><dt>${escapeHtml(k)}</dt><dd>${v}</dd></div>`).join('');
   }
 
   /** Replace what the builder holds with an imported description. */
@@ -1199,6 +1270,38 @@ export function createPlumedBuilder(ctx) {
       setIncludes(includeList().filter(f => f !== name));
       generate();
       if (ctx.scheduleSave) ctx.scheduleSave();
+    }
+  });
+
+  const analyse = createPlumedAnalyse(ctx, {
+    temperature: () => parseFloat(getStr('plumedTemp', '300')) || 300,
+    energyUnit: () => getStr('plumedUnitEnergy', 'kj/mol'),
+    /** What the bias acts on, with the kind of variable behind each value. */
+    targets() {
+      const out = [];
+      for (const cv of state.cvs) {
+        if (cv.isGroup || cv.noBias || !cv.bias) continue;
+        const comps = componentsForCV(cv, CV_DEFS, options());
+        const comp = comps.length ? (comps.includes(cv.biasValues.comp) ? cv.biasValues.comp : comps[0]) : '';
+        out.push({ arg: cv.label + comp, type: cv.type, item: cv });
+      }
+      for (const fn of state.functions) if (fn.bias) out.push({ arg: fn.label, type: fn.type, item: fn });
+      return out;
+    },
+    applySuggestions(list) {
+      let n = 0;
+      for (const t of this.targets()) {
+        const s = list.find(x => x.arg === t.arg);
+        if (!s) continue;
+        Object.assign(t.item.biasValues, { sigma: s.sigma, min: s.min, max: s.max, bin: s.bin });
+        n += 1;
+      }
+      if (n) {
+        renderAll();
+        generate();
+        if (ctx.scheduleSave) ctx.scheduleSave();
+      }
+      return n;
     }
   });
 
