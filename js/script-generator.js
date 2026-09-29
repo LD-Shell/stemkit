@@ -592,6 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleVisibility($('outputSplit'), engine === 'gromacs');
 
         if (engine === 'plumed') plumedTab.enter();
+        else plumedTab.leave();
         syncSchedulerUI();
         generateSubmitScript();
         if (engine === 'gromacs') generateTopologyHeader();
@@ -780,6 +781,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // =====================================================================
     const plumedTab = createPlumedBuilder({
         $, getStr, isChecked, setWarnings, renderOutput, escapeHtml,
+        showToast: (...a) => showToast(...a),
+        downloadText: (...a) => downloadText(...a),
+        scheduleSave: () => scheduleSave(),
+        setFields: (values) => {
+            settingsFields().forEach(el => {
+                if (Object.prototype.hasOwnProperty.call(values, el.id)) setFieldValue(el, values[el.id]);
+            });
+        },
         syncVisibility: () => syncVisibility(),
         onVersionChange: () => syncSchedulerUI()
     });
@@ -950,7 +959,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function settingsFields() {
         return Array.from(document.querySelectorAll(
             '#builderLayout input[id], #builderLayout select[id], #builderLayout textarea[id], #builderLayout [role="switch"][id]'
-        )).filter(el => !(el.tagName === 'INPUT' && (el.type === 'file' || el.type === 'button')));
+        )).filter(el => !(el.tagName === 'INPUT' && (el.type === 'file' || el.type === 'button')) &&
+            !el.hasAttribute('data-nosave'));
     }
 
     function fieldValue(el) {

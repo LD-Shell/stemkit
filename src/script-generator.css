@@ -214,6 +214,52 @@ a.plumed-doclink { color: var(--stk-accent-text); font-weight: 600; text-decorat
 a.plumed-doclink:hover { text-decoration: underline; }
 
 /* ---------------------------------------------------------------------------
+   PLUMED tools in the output column: checking a file, run files, analysis
+--------------------------------------------------------------------------- */
+.sg-views { flex-shrink: 0; }
+.sg-tool { flex: 1 1 0; min-height: 10rem; }
+.sg-tool-body { flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: .75rem; padding: .85rem 1rem 1rem; }
+@media (max-width: 1023.98px) {
+  .sg-tool-body { max-height: none; overflow: visible; }
+}
+.sg-check-text { min-height: 9rem; font-size: .75rem; line-height: 1.55; white-space: pre; overflow: auto; background: #0b1120; color: #e2e8f0; border-color: var(--stk-border-strong); tab-size: 4; flex-shrink: 0; }
+.sg-check-text::placeholder { color: #8b9bb4; }
+.sg-check-text.is-over { border-color: var(--stk-accent); box-shadow: 0 0 0 3px var(--stk-ring); }
+.sg-check-summary { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; min-height: 1.4rem; }
+.sg-check-summary:empty { display: none; }
+.sg-check-against { margin-left: auto; font-size: .75rem; color: var(--stk-fg-3); }
+.sg-check-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
+.sg-issues { display: flex; flex-direction: column; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.sg-issue { display: grid; grid-template-columns: 6.2rem minmax(0, 1fr); gap: .6rem; align-items: start; padding: .5rem .65rem; border: 1px solid var(--stk-border); border-left-width: 3px; border-radius: var(--stk-radius-sm); background: var(--stk-surface); }
+.sg-issue p { margin: 0; font-size: .8125rem; line-height: 1.5; color: var(--stk-fg-2); overflow-wrap: anywhere; }
+.sg-issue code, .sg-explain code { font-family: var(--stk-font-mono); font-size: .92em; }
+.sg-issue-error { border-left-color: var(--stk-danger); }
+.sg-issue-warning { border-left-color: var(--stk-warn); }
+.sg-issue-note { border-left-color: var(--stk-accent); }
+.sg-issue-line { display: inline-flex; align-items: center; gap: .35rem; padding: .1rem .3rem; margin: -.1rem -.3rem; border: 0; border-radius: var(--stk-radius-sm); background: transparent; font: inherit; font-size: .75rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--stk-fg); cursor: pointer; text-align: left; white-space: nowrap; }
+.sg-issue-line:hover { background: var(--stk-surface-2); }
+.sg-issue-line:focus-visible { outline: 2px solid var(--stk-accent); outline-offset: 1px; }
+.sg-issue-error .sg-issue-line i { color: var(--stk-danger); }
+.sg-issue-warning .sg-issue-line i { color: var(--stk-warn); }
+.sg-issue-note .sg-issue-line i { color: var(--stk-accent-text); }
+@media (max-width: 479.98px) {
+  .sg-issue { grid-template-columns: minmax(0, 1fr); gap: .25rem; }
+}
+#plumedCheckExplain { display: flex; flex-direction: column; gap: .5rem; }
+#plumedCheckExplain[hidden] { display: none; }
+.sg-explain { padding: .6rem .7rem; border: 1px solid var(--stk-border); border-radius: var(--stk-radius-sm); background: var(--stk-surface); min-width: 0; }
+.sg-explain > header { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; }
+.sg-explain > header .plumed-doclink { margin-left: auto; font-size: .75rem; }
+.sg-explain-name { font-weight: 700; color: var(--stk-accent-text); overflow-wrap: anywhere; }
+.sg-explain > p { margin: .3rem 0 0; font-size: .8125rem; line-height: 1.5; color: var(--stk-fg-2); }
+.sg-explain-scroll { margin-top: .45rem; overflow-x: auto; }
+.sg-explain-t { width: 100%; border-collapse: collapse; font-size: .75rem; line-height: 1.45; }
+.sg-explain-t th, .sg-explain-t td { padding: .25rem .5rem .25rem 0; border-top: 1px solid var(--stk-border); text-align: left; vertical-align: top; color: var(--stk-fg-2); font-weight: 400; }
+.sg-explain-t th { white-space: nowrap; color: var(--stk-fg); }
+.sg-explain-t td:nth-child(2) { max-width: 16rem; overflow-wrap: anywhere; }
+.sg-explain-t td:last-child { color: var(--stk-fg-3); min-width: 12rem; }
+
+/* ---------------------------------------------------------------------------
    Documentation: the per-engine tabs in the method section
 --------------------------------------------------------------------------- */
 .hl { color: var(--stk-accent-text); font-weight: 600; }

@@ -786,6 +786,11 @@
             <!-- OUTPUT COLUMN -->
             <div id="outputColumn" class="sg-output">
 
+                <div id="plumedViews" class="stk-tabs sg-views" role="tablist" aria-label="PLUMED tools" hidden>
+                    <button type="button" class="stk-tab" role="tab" data-plumed-view="input" aria-selected="true" aria-controls="scriptBox"><i class="fa-solid fa-file-code" aria-hidden="true"></i> Input file</button>
+                    <button type="button" class="stk-tab" role="tab" data-plumed-view="check" aria-selected="false" aria-controls="plumedCheckBox"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Check a file</button>
+                </div>
+
                 <section id="scriptBox" class="stk-panel sg-out" aria-labelledby="primaryOutputLabel">
                     <div class="stk-panel-h sg-out-h">
                         <h2 class="stk-panel-t"><span class="stk-mono" id="primaryOutputLabel">submit.sh</span> <span class="stk-badge stk-badge-accent" id="schedulerBadge">SLURM</span></h2>
@@ -798,6 +803,33 @@
                         <pre class="sg-code"><code id="slurmOutput" class="select-all"></code></pre>
                     </div>
                     <div class="sg-out-f" id="submitHint"></div>
+                </section>
+
+                <section id="plumedCheckBox" class="stk-panel sg-out sg-tool" role="tabpanel" aria-labelledby="plumedCheckTitle" hidden>
+                    <div class="stk-panel-h sg-out-h">
+                        <h2 class="stk-panel-t" id="plumedCheckTitle">Check a PLUMED input</h2>
+                        <div class="sg-out-actions">
+                            <button type="button" class="stk-btn stk-btn-sm" id="plumedCheckOpen"><i class="fa-regular fa-folder-open" aria-hidden="true"></i> Open a file</button>
+                            <input type="file" id="plumedCheckFile" accept=".dat,.txt,.plumed,text/plain" hidden>
+                            <button type="button" class="stk-btn stk-btn-sm" id="plumedCheckCurrent" title="Check the file the builder has written"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> From the builder</button>
+                            <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost" id="plumedCheckClear"><i class="fa-solid fa-eraser" aria-hidden="true"></i> Clear</button>
+                        </div>
+                    </div>
+                    <div class="sg-tool-body stk-scroll">
+                        <label class="sr-only" for="plumedCheckText">PLUMED input to check</label>
+                        <textarea id="plumedCheckText" class="stk-textarea stk-mono sg-check-text" rows="9" spellcheck="false" autocomplete="off" data-nosave placeholder="Paste a plumed.dat here, or drop the file on this box."></textarea>
+                        <div id="plumedCheckSummary" class="sg-check-summary" role="status"></div>
+                        <div id="plumedCheckNotes" class="stk-callout stk-callout-accent" hidden></div>
+                        <div class="sg-check-bar">
+                            <div class="stk-seg" role="tablist" aria-label="What to show">
+                                <button type="button" role="tab" data-check-tab="issues" aria-selected="true">Problems</button>
+                                <button type="button" role="tab" data-check-tab="explain" aria-selected="false">Line by line</button>
+                            </div>
+                            <button type="button" class="stk-btn stk-btn-sm stk-btn-primary" id="plumedCheckImport" disabled title="Edit this file in the builder on the left"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> Open in the builder</button>
+                        </div>
+                        <div id="plumedCheckIssues"></div>
+                        <div id="plumedCheckExplain" hidden></div>
+                    </div>
                 </section>
 
                 <div id="outputSplit" class="sg-split" role="separator" aria-orientation="horizontal" aria-label="Resize the output panes" aria-controls="topologyOutputBox" tabindex="0" title="Drag to resize"></div>

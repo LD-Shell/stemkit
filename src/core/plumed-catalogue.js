@@ -434,7 +434,8 @@ export const CV_DEFS = {
       { k: 'D_0', label: 'D_0 (nm)', type: 'num', def: '0.0', help: 'Offset of the switching function; the switch begins to decay at D_0.' },
       { k: 'D_MAX', label: 'D_MAX (nm)', type: 'num', def: '0.5', help: 'Distance beyond which the switch is exactly zero. Setting it enables linked-cell neighbour search, a large speedup. Set it a bit above where the switch has decayed to ~0.' },
       { k: 'MEAN', label: 'MEAN', type: 'flag', def: true, help: 'Output the mean of the per-atom Q6 values (a single scalar CV).' },
-      { k: 'VMEAN', label: 'VMEAN', type: 'flag', def: false, help: 'Output the norm of the mean Steinhardt vector.' }
+      { k: 'VMEAN', label: 'VMEAN', type: 'flag', def: false, help: 'Output the norm of the mean Steinhardt vector.' },
+      { k: 'LOWMEM', label: 'LOWMEM', type: 'flag', def: false, until: '2.9' }
     ]
   },
   Q4: {
@@ -446,7 +447,8 @@ export const CV_DEFS = {
       { k: 'D_0', label: 'D_0 (nm)', type: 'num', def: '0.0' },
       { k: 'D_MAX', label: 'D_MAX (nm)', type: 'num', def: '0.5', help: 'Distance beyond which the switch is exactly zero; enables linked-cell speedup.' },
       { k: 'MEAN', label: 'MEAN', type: 'flag', def: true },
-      { k: 'VMEAN', label: 'VMEAN', type: 'flag', def: false }
+      { k: 'VMEAN', label: 'VMEAN', type: 'flag', def: false },
+      { k: 'LOWMEM', label: 'LOWMEM', type: 'flag', def: false, until: '2.9' }
     ]
   },
   Q3: {
@@ -457,7 +459,8 @@ export const CV_DEFS = {
       { k: 'R_0', label: 'R_0 (nm)', type: 'num', def: '0.25', required: true },
       { k: 'D_0', label: 'D_0 (nm)', type: 'num', def: '0.0' },
       { k: 'D_MAX', label: 'D_MAX (nm)', type: 'num', def: '0.5', help: 'Distance beyond which the switch is exactly zero; enables linked-cell speedup.' },
-      { k: 'MEAN', label: 'MEAN', type: 'flag', def: true }
+      { k: 'MEAN', label: 'MEAN', type: 'flag', def: true },
+      { k: 'LOWMEM', label: 'LOWMEM', type: 'flag', def: false, until: '2.9' }
     ]
   },
   COORDINATIONNUMBER: {
@@ -468,7 +471,8 @@ export const CV_DEFS = {
       { k: 'R_0', label: 'R_0 (nm)', type: 'num', def: '0.3', required: true },
       { k: 'D_0', label: 'D_0 (nm)', type: 'num', def: '0.0' },
       { k: 'D_MAX', label: 'D_MAX (nm)', type: 'num', def: '0.6', help: 'Distance beyond which the switch is exactly zero; enables linked-cell speedup.' },
-      { k: 'MEAN', label: 'MEAN', type: 'flag', def: true }
+      { k: 'MEAN', label: 'MEAN', type: 'flag', def: true },
+      { k: 'LOWMEM', label: 'LOWMEM', type: 'flag', def: false, until: '2.9' }
     ]
   },
   // ================================================================
@@ -490,7 +494,8 @@ export const CV_DEFS = {
       { k: 'NN', label: 'NN', type: 'num', def: '6' },
       { k: 'MM', label: 'MM (0 = 2*NN)', type: 'num', def: '0' },
       { k: 'D_MAX', label: 'D_MAX (nm)', type: 'num', def: '0.6', help: 'Distance beyond which the switch is exactly zero; enables linked-cell neighbour search, a large speedup.' },
-      { k: 'MOMENTS', label: 'MOMENTS (opt.)', type: 'text', def: '', help: 'Moments of the distribution of coordination numbers to output, e.g. 2 or 2-4. Each becomes a component, label.moment-2.' }
+      { k: 'MOMENTS', label: 'MOMENTS (opt.)', type: 'text', def: '', help: 'Moments of the distribution of coordination numbers to output, e.g. 2 or 2-4. Each becomes a component, label.moment-2.' },
+      { k: 'LOWMEM', label: 'LOWMEM', type: 'flag', def: false, until: '2.9' }
     ]
   },
   COORDINATION_MOMENTS: {
@@ -539,7 +544,8 @@ export const CV_DEFS = {
       { k: 'D_MAX', label: 'D_MAX (nm)', type: 'num', def: '0.6', help: 'Distance beyond which the switch is exactly zero; enables the linked-cell speedup.' },
       { k: 'PHI', label: 'PHI (rad)', type: 'num', def: '' },
       { k: 'THETA', label: 'THETA (rad)', type: 'num', def: '' },
-      { k: 'PSI', label: 'PSI (rad)', type: 'num', def: '' }
+      { k: 'PSI', label: 'PSI (rad)', type: 'num', def: '' },
+      { k: 'LOWMEM', label: 'LOWMEM', type: 'flag', def: false, until: '2.9' }
     ]
   },
   LOCAL_Q6: {
@@ -612,6 +618,7 @@ export const CV_DEFS = {
       { k: 'SPECIES', label: 'SPECIES', type: 'atoms', def: '1-64', required: true },
       { k: 'SWITCH', label: 'SWITCH (block)', type: 'text', def: '{CUBIC D_0=0.3 D_MAX=0.45}', required: true, help: 'Switching function for the contact matrix: 1 up to D_0, falling to 0 at D_MAX. Place the pair between the first and second neighbour shells of your crystal; the manual\'s 1.2 and 1.5 are in Lennard-Jones units.' },
       { k: 'ALPHA', label: 'ALPHA', type: 'num', def: '3.0', help: 'Alpha parameter of the angular function. PLUMED uses 3.0 when it is left out.' },
+      { k: 'LOWMEM', label: 'LOWMEM', type: 'flag', def: false, until: '2.9' }
     ]
   },
   // ================================================================

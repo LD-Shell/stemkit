@@ -962,11 +962,13 @@ describe('checkCV', () => {
     expect(checkCV(cv, CV_DEFS, { units: { length: 'A' } }).some(w => w.includes('reduced units'))).toBe(false);
   });
 
-  test('a D_MAX that cuts the switching function off', () => {
-    const cv = createCV('COORDINATION', 1, { values: { R_0: '0.3', D_MAX: '0.35' } });
-    expect(checkCV(cv).some(w => w.includes('cut off abruptly'))).toBe(true);
-    cv.values.D_MAX = '0.8';
+  test('a D_MAX inside R_0 reshapes the switching function', () => {
+    const cv = createCV('COORDINATION', 1, { values: { R_0: '0.3', D_MAX: '0.25' } });
+    expect(checkCV(cv).some(w => w.includes('is inside `R_0`'))).toBe(true);
+    cv.values.D_MAX = '0.4';
     expect(checkCV(cv)).toEqual([]);
+    cv.values.D_0 = '0.5';
+    expect(checkCV(cv).some(w => w.includes('must be larger than `D_0`'))).toBe(true);
   });
 
   test('a neighbour list needs its two parameters', () => {

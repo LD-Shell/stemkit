@@ -17,6 +17,7 @@ import {
   generatePlumedInput, messageToHtml
 } from '../src/core/plumed.js';
 import { loadSyntax, plumedDocUrl } from '../src/core/plumed-syntax.js';
+import { createPlumedCheck } from './script-generator-plumed-check.js';
 
 const BIAS_GROUPS = {
   none: 'None',
@@ -52,6 +53,7 @@ export function createPlumedBuilder(ctx) {
     prints: [newPrint('COLVAR', '')],
     biasVals: {},
     open: new Set(),
+    view: 'input',
     syntax: null,
     lastResult: null
   };
@@ -79,6 +81,7 @@ export function createPlumedBuilder(ctx) {
       renderBiasParams();
       renderAll();
       generate();
+      check.run();
     }).catch(() => { /* the file is still built, without the table's checks */ });
   }
 
@@ -1037,7 +1040,9 @@ export function createPlumedBuilder(ctx) {
     renderAll();
     if (ctx.onVersionChange) ctx.onVersionChange();
     generate();
+    check.run();
   });
+  on('plumedNatoms', 'input', () => check.run());
   on('plumedAddFn', 'click', addFunction);
   on('plumedAddRestraint', 'click', addRestraint);
   on('plumedAddPrint', 'click', addPrint);
@@ -1070,11 +1075,65 @@ export function createPlumedBuilder(ctx) {
     });
   }
 
+  /* ---------------------------------------------------------------- *
+   * Views of the output column
+   * ---------------------------------------------------------------- */
+
+  const VIEW_BOX = { input: 'scriptBox', check: 'plumedCheckBox' };
+
+  function showView(view) {
+    state.view = VIEW_BOX[view] ? view : 'input';
+    document.querySelectorAll('[data-plumed-view]').forEach((b) => {
+      b.setAttribute('aria-selected', b.getAttribute('data-plumed-view') === state.view ? 'true' : 'false');
+    });
+    for (const [v, id] of Object.entries(VIEW_BOX)) {
+      if ($(id)) $(id).hidden = v !== state.view;
+    }
+  }
+
+  /** Replace what the builder holds with an imported description. */
+  function load(config, fields) {
+    if (ctx.setFields) ctx.setFields(fields);
+    state.biasVals = {};
+    if (config.bias && config.bias.method !== 'none') {
+      state.biasVals[config.bias.method] = { ...config.bias.params };
+    }
+    restore({
+      cvs: config.cvs, functions: config.functions, restraints: config.restraints,
+      prints: config.prints.map(p => ({ ...p })), bias: state.biasVals
+    });
+    if (ctx.syncVisibility) ctx.syncVisibility();
+    populateBiasSelect();
+    renderBiasParams();
+    syncMethod();
+    generate();
+    renderAll();
+    if (ctx.scheduleSave) ctx.scheduleSave();
+  }
+
+  const check = createPlumedCheck(ctx, {
+    version,
+    syntax,
+    natoms: () => parseInt(getStr('plumedNatoms', ''), 10) || 0,
+    currentInput: () => (state.lastResult ? state.lastResult.input : ''),
+    load,
+    showView
+  });
+
+  document.querySelectorAll('[data-plumed-view]').forEach((b) => {
+    b.addEventListener('click', () => showView(b.getAttribute('data-plumed-view')));
+  });
+
   return {
     version,
     generate,
     serialise,
     restore,
+    /** Called when another engine takes the page. */
+    leave() {
+      if ($('plumedViews')) $('plumedViews').hidden = true;
+      for (const id of Object.values(VIEW_BOX)) if ($(id)) $(id).hidden = id !== 'scriptBox';
+    },
     /** Called when the PLUMED tab is shown. */
     enter() {
       ensureSyntax();
@@ -1084,6 +1143,9 @@ export function createPlumedBuilder(ctx) {
       syncMethod();
       generate();
       renderAll();
+      if ($('plumedViews')) $('plumedViews').hidden = false;
+      showView(state.view);
+      check.run();
     }
   };
 }

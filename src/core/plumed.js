@@ -1425,14 +1425,17 @@ export function checkCV(instance, catalogue = CV_DEFS, options = {}) {
     if (r0 !== null && dmax !== null) {
       if (dmax <= d0) {
         warnings.push(`${instance.type} (${label}): \`D_MAX\` must be larger than \`D_0\`.`);
-      } else if (dmax < d0 + 1.5 * r0) {
+      } else if (dmax < d0 + r0) {
+        // PLUMED stretches and shifts the function so that it reaches zero at
+        // D_MAX; this close to R_0 that changes its shape considerably.
         const s = rationalSwitch(dmax - 1e-9, {
           r0, d0, nn: parseNumber(values.NN) || 6, mm: parseNumber(values.MM) || 0
         });
         warnings.push(
-          `${instance.type} (${label}): at \`D_MAX=${values.D_MAX}\` the switching function is ` +
-          `still ${s.toFixed(2)}, so contacts are cut off abruptly. PLUMED stretches the ` +
-          `function to reach zero there; set D_MAX near ${(d0 + 2 * r0).toFixed(2)} or beyond.`);
+          `${instance.type} (${label}): \`D_MAX=${values.D_MAX}\` is inside \`R_0\`, where the ` +
+          `switching function is still ${s.toFixed(2)}. PLUMED rescales the function to reach ` +
+          'zero at D_MAX, so its shape is no longer the one R_0 describes. Set D_MAX ' +
+          `beyond ${(d0 + r0).toFixed(2)}.`);
       }
     }
   }
