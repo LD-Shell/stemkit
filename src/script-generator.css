@@ -228,9 +228,11 @@ a.plumed-doclink:hover { text-decoration: underline; }
 .sg-pickout .stk-badge { flex-shrink: 0; }
 .sg-btnrow { display: flex; flex-wrap: wrap; gap: .4rem; }
 .sg-files { display: flex; flex-direction: column; gap: .35rem; margin: 0; padding: 0; list-style: none; }
-.sg-files li { display: flex; align-items: center; gap: .5rem; min-width: 0; padding: .35rem .35rem .35rem .6rem; border: 1px solid var(--stk-border); border-radius: var(--stk-radius-sm); background: var(--stk-surface-2); font-size: .75rem; }
-.sg-files code { font-family: var(--stk-font-mono); font-weight: 600; color: var(--stk-fg); }
-.sg-files span { flex: 1 1 auto; min-width: 0; color: var(--stk-fg-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-files li { display: flex; align-items: flex-start; gap: .5rem; min-width: 0; padding: .4rem .35rem .4rem .6rem; border: 1px solid var(--stk-border); border-radius: var(--stk-radius-sm); background: var(--stk-surface-2); font-size: .75rem; }
+.sg-file-t { display: flex; flex-direction: column; gap: .1rem; flex: 1 1 auto; min-width: 0; padding-top: .2rem; }
+.sg-files code { font-family: var(--stk-font-mono); font-weight: 600; color: var(--stk-fg); overflow-wrap: anywhere; }
+/* The note says what the file holds; it wraps rather than being cut off. */
+.sg-file-note { color: var(--stk-fg-3); line-height: 1.45; overflow-wrap: anywhere; }
 /* A button beside an atom field that sends it to the picker. */
 .sg-cv-atoms { display: flex; gap: .3rem; min-width: 0; }
 .sg-cv-atoms > .stk-input { flex: 1 1 auto; }
@@ -245,9 +247,11 @@ a.plumed-doclink:hover { text-decoration: underline; }
 .sg-views { flex-shrink: 0; }
 .sg-tool { flex: 1 1 0; min-height: 10rem; }
 .sg-tool-body { flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: .75rem; padding: .85rem 1rem 1rem; }
+/* Below the two-column layout the column has no height to share, so a tool
+   panel takes the height of what it shows and the page scrolls. */
 @media (max-width: 1023.98px) {
+  .sg-tool { flex: none; }
   .sg-tool-body { max-height: none; overflow: visible; }
-}
 .sg-check-text { min-height: 9rem; font-size: .75rem; line-height: 1.55; white-space: pre; overflow: auto; background: #0b1120; color: #e2e8f0; border-color: var(--stk-border-strong); tab-size: 4; flex-shrink: 0; }
 .sg-check-text::placeholder { color: #8b9bb4; }
 .sg-check-text.is-over { border-color: var(--stk-accent); box-shadow: 0 0 0 3px var(--stk-ring); }

@@ -166,7 +166,7 @@ export function createPlumedAtoms(ctx, builder) {
     const names = Object.keys(files);
     wrap.hidden = !names.length;
     host.innerHTML = names.map(n => `<li>
-        <code>${escapeHtml(n)}</code><span>${escapeHtml(files[n].note || '')}</span>
+        <div class="sg-file-t"><code>${escapeHtml(n)}</code>${files[n].note ? `<span class="sg-file-note">${escapeHtml(files[n].note)}</span>` : ''}</div>
         <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost" data-file-get="${escapeHtml(n)}"><i class="fa-solid fa-download" aria-hidden="true"></i><span class="sr-only">Download ${escapeHtml(n)}</span></button>
         <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost" data-file-del="${escapeHtml(n)}"><i class="fa-solid fa-trash" aria-hidden="true"></i><span class="sr-only">Remove ${escapeHtml(n)}</span></button>
       </li>`).join('');
