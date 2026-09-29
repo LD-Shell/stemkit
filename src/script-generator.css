@@ -214,6 +214,32 @@ a.plumed-doclink { color: var(--stk-accent-text); font-weight: 600; text-decorat
 a.plumed-doclink:hover { text-decoration: underline; }
 
 /* ---------------------------------------------------------------------------
+   PLUMED: atoms from a structure file
+--------------------------------------------------------------------------- */
+.sg-species { width: 100%; border-collapse: collapse; font-size: .75rem; line-height: 1.4; }
+.sg-species th, .sg-species td { padding: .3rem .6rem .3rem 0; text-align: left; border-bottom: 1px solid var(--stk-border); white-space: nowrap; }
+.sg-species th { font-weight: 600; color: var(--stk-fg-3); }
+.sg-species td { color: var(--stk-fg); font-variant-numeric: tabular-nums; }
+.sg-species td:first-child, .sg-species td:last-child { font-family: var(--stk-font-mono); }
+.sg-species tr:last-child td { border-bottom: 0; }
+.sg-pickout { display: flex; align-items: flex-start; gap: .5rem; min-height: 2rem; padding: .4rem .55rem; border: 1px solid var(--stk-border); border-radius: var(--stk-radius-sm); background: var(--stk-surface-2); }
+.sg-pickout-list { flex: 1 1 auto; min-width: 0; max-height: 4.5rem; overflow: auto; font-family: var(--stk-font-mono); font-size: .75rem; line-height: 1.5; color: var(--stk-fg); overflow-wrap: anywhere; }
+.sg-pickout-list:empty::before { content: "No atoms selected"; color: var(--stk-fg-3); font-family: inherit; }
+.sg-pickout .stk-badge { flex-shrink: 0; }
+.sg-btnrow { display: flex; flex-wrap: wrap; gap: .4rem; }
+.sg-files { display: flex; flex-direction: column; gap: .35rem; margin: 0; padding: 0; list-style: none; }
+.sg-files li { display: flex; align-items: center; gap: .5rem; min-width: 0; padding: .35rem .35rem .35rem .6rem; border: 1px solid var(--stk-border); border-radius: var(--stk-radius-sm); background: var(--stk-surface-2); font-size: .75rem; }
+.sg-files code { font-family: var(--stk-font-mono); font-weight: 600; color: var(--stk-fg); }
+.sg-files span { flex: 1 1 auto; min-width: 0; color: var(--stk-fg-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A button beside an atom field that sends it to the picker. */
+.sg-cv-atoms { display: flex; gap: .3rem; min-width: 0; }
+.sg-cv-atoms > .stk-input { flex: 1 1 auto; }
+.sg-cv-atoms > .stk-btn { flex-shrink: 0; }
+#plumedPick.is-target { animation: sg-flash 1.1s ease-out 1; }
+@keyframes sg-flash { 0% { box-shadow: 0 0 0 3px var(--stk-ring); } 100% { box-shadow: 0 0 0 3px transparent; } }
+@media (prefers-reduced-motion: reduce) { #plumedPick.is-target { animation: none; } }
+
+/* ---------------------------------------------------------------------------
    PLUMED tools in the output column: checking a file, run files, analysis
 --------------------------------------------------------------------------- */
 .sg-views { flex-shrink: 0; }

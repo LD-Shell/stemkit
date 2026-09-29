@@ -1542,7 +1542,7 @@ function splitList(value) {
  *   natoms?: number,
  *   units?: {length?:string, energy?:string, time?:string},
  *   preamble?: {restart?:boolean, load?:string[]|string, include?:string[]|string,
- *     flush?:string|number},
+ *     flush?:string|number, trusted?:string[], definedLabels?:string[]},
  *   molinfo?: {structure?:string, moltype?:string},
  *   whole?: {enabled?:boolean, residues?:boolean, entities?:string[]|string},
  *   cvs?: Array<object>,
@@ -1661,6 +1661,8 @@ export function generatePlumedInput(config = {}) {
 
   /* --- Collective variables --- */
   const definedAtoms = new Set(splitList(pre.definedLabels));
+  const trusted = new Set(splitList(pre.trusted));
+  const unknownIncludes = includes.some(f => !trusted.has(f));
   const prereqs = new Set();
   const cvLines = [];
   if (c.cvs.length) lines.push('# --- Collective variables ---');
@@ -1671,7 +1673,7 @@ export function generatePlumedInput(config = {}) {
     if (def) {
       warnings.push(...checkCV(cv, catalogue, {
         version, natoms: c.natoms, units: { ...DEFAULT_UNITS, ...(units || {}) },
-        known: includes.length ? null : definedAtoms
+        known: unknownIncludes ? null : definedAtoms
       }));
       if (def.prereq && PREREQS[def.prereq] && !(def.prereqSkipIf && def.prereqSkipIf(cv))) {
         prereqs.add(def.prereq);
@@ -1700,7 +1702,8 @@ export function generatePlumedInput(config = {}) {
 
   /* --- Functions --- */
   const known = new Set(availableArguments({ ...c, functions: [] }).map(a => a.arg));
-  const trustUnknown = includes.length > 0;
+  // An included file this page did not write may define anything.
+  const trustUnknown = unknownIncludes;
   if (c.functions.length) {
     lines.push('# --- Functions of the variables above ---');
     for (const fn of c.functions) {

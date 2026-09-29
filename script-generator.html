@@ -533,6 +533,90 @@
 
                     <div id="plumedWarnings" class="stk-callout stk-callout-warn" role="status" hidden></div>
 
+                    <!-- Structure -->
+                    <section class="stk-panel" aria-labelledby="plumedStructTitle">
+                        <div class="stk-panel-h">
+                            <h2 class="stk-panel-t" id="plumedStructTitle"><i class="fa-solid fa-cubes-stacked"></i> Atoms from your structure</h2>
+                            <span class="sg-panel-tools">
+                                <button type="button" id="plumedStructClear" class="stk-btn stk-btn-sm stk-btn-ghost" hidden><i class="fa-solid fa-xmark" aria-hidden="true"></i> Remove</button>
+                            </span>
+                        </div>
+                        <div class="stk-panel-b sg-form">
+                            <div id="plumedStructDrop" class="stk-drop stk-drop-sm" aria-labelledby="plumedStructDropTitle">
+                                <span class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-file-arrow-up"></i></span>
+                                <h3 id="plumedStructDropTitle" class="stk-drop-title">Drop the structure the run starts from</h3>
+                                <p class="stk-drop-text">Optional. With it, atoms are picked by name, not typed by number, and every atom list is checked. The file stays in your browser.</p>
+                                <div class="stk-drop-actions">
+                                    <button type="button" id="plumedStructChoose" class="stk-btn stk-btn-primary stk-btn-sm">Choose file</button>
+                                    <button type="button" id="plumedStructSample" class="stk-btn stk-btn-ghost stk-btn-sm">Load a sample</button>
+                                </div>
+                                <p class="stk-drop-formats"><span>.gro</span><span>.pdb</span></p>
+                                <input type="file" id="plumedStructFile" accept=".gro,.pdb,.ent" hidden>
+                            </div>
+
+                            <div id="plumedStructBody" class="sg-form" hidden>
+                                <p id="plumedStructSummary" class="stk-hint"></p>
+                                <div class="stk-table-wrap">
+                                    <table class="sg-species">
+                                        <thead><tr><th scope="col">Molecule</th><th scope="col">Copies</th><th scope="col">Atoms each</th><th scope="col">Atom numbers</th></tr></thead>
+                                        <tbody id="plumedStructSpecies"></tbody>
+                                    </table>
+                                </div>
+
+                                <div class="sg-option" id="plumedPick">
+                                    <p class="stk-group-t">Pick atoms</p>
+                                    <div class="sg-grid">
+                                        <div class="stk-field">
+                                            <label for="plumedPickSpecies">Molecule</label>
+                                            <select id="plumedPickSpecies" class="stk-select stk-select-sm"></select>
+                                        </div>
+                                        <div class="stk-field">
+                                            <label for="plumedPickAtom">Atom name</label>
+                                            <select id="plumedPickAtom" class="stk-select stk-select-sm"></select>
+                                        </div>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="plumedPickQuery">Selection <span class="plumed-help" tabindex="0" data-tip="Terms joined by spaces, all of which must hold: resn:UREA atom:C, chain:A resi:1-50 atom:CA, !elem:H, within:0.5,resn:LIG. The two menus above write the common case for you.">?</span></label>
+                                        <input type="text" id="plumedPickQuery" class="stk-input stk-input-sm stk-mono" data-nosave placeholder="e.g. resn:UREA atom:C" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="sg-pickout">
+                                        <code id="plumedPickResult" class="sg-pickout-list"></code>
+                                        <span id="plumedPickCount" class="stk-badge"></span>
+                                    </div>
+                                    <div class="sg-addrow">
+                                        <select id="plumedPickTarget" class="stk-select stk-select-sm" aria-label="Where to put the atoms"></select>
+                                        <button type="button" id="plumedPickUse" class="stk-btn stk-btn-sm stk-btn-primary">Use</button>
+                                        <button type="button" id="plumedPickCopy" class="stk-btn stk-btn-sm" aria-label="Copy the atom list"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
+                                    </div>
+                                </div>
+
+                                <div class="sg-option" id="plumedPerMol">
+                                    <p class="stk-group-t">The same atoms of every copy</p>
+                                    <div class="stk-field">
+                                        <label for="plumedMolSpecies">Molecule</label>
+                                        <select id="plumedMolSpecies" class="stk-select stk-select-sm"></select>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label>Atoms <span class="plumed-help" tabindex="0" data-tip="Tick the atoms of one copy. A group takes that atom from every copy; a centre sits between the ticked atoms of each copy, or at the centre of the whole molecule when none is ticked.">?</span></label>
+                                        <div id="plumedMolAtoms" class="sg-picks"></div>
+                                    </div>
+                                    <div class="sg-btnrow">
+                                        <button type="button" id="plumedMolGroups" class="stk-btn stk-btn-sm"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> A group per atom</button>
+                                        <button type="button" id="plumedMolCenters" class="stk-btn stk-btn-sm"><i class="fa-solid fa-bullseye" aria-hidden="true"></i> A centre per copy</button>
+                                        <button type="button" id="plumedMolDirections" class="stk-btn stk-btn-sm"><i class="fa-solid fa-arrows-up-down-left-right" aria-hidden="true"></i> A direction per copy</button>
+                                    </div>
+                                    <p id="plumedMolNote" class="stk-hint" role="status"></p>
+                                </div>
+                            </div>
+
+                            <div id="plumedFilesWrap" class="sg-option" hidden>
+                                <p class="stk-group-t">Files written for this input</p>
+                                <ul id="plumedFiles" class="sg-files"></ul>
+                                <p class="stk-hint">Each is read by an <code>INCLUDE</code> line and must sit beside <code>plumed.dat</code> when the job runs. They are part of the download under Run files.</p>
+                            </div>
+                        </div>
+                    </section>
+
                     <!-- System and setup -->
                     <section class="stk-panel" aria-labelledby="plumedSetupTitle">
                         <div class="stk-panel-h">

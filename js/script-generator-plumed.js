@@ -18,6 +18,7 @@ import {
 } from '../src/core/plumed.js';
 import { loadSyntax, plumedDocUrl } from '../src/core/plumed-syntax.js';
 import { createPlumedCheck } from './script-generator-plumed-check.js';
+import { createPlumedAtoms } from './script-generator-plumed-atoms.js';
 
 const BIAS_GROUPS = {
   none: 'None',
@@ -51,6 +52,8 @@ export function createPlumedBuilder(ctx) {
     restraints: [],
     restraintSeq: 0,
     prints: [newPrint('COLVAR', '')],
+    // Files an INCLUDE line reads, written by the per-molecule tools.
+    files: {},
     biasVals: {},
     open: new Set(),
     view: 'input',
@@ -147,6 +150,8 @@ export function createPlumedBuilder(ctx) {
         restart: isChecked('plumedRestart'),
         load: getStr('plumedLoad', ''),
         include: getStr('plumedInclude', ''),
+        definedLabels: Object.values(state.files).flatMap(f => f.labels || []),
+        trusted: Object.keys(state.files),
         flush: getStr('plumedFlush', '')
       },
       cvs: state.cvs,
@@ -386,10 +391,16 @@ export function createPlumedBuilder(ctx) {
       </div>`;
     }
     const wide = f.k === '__raw' || (f.type === 'text' && String(value ?? '').length > 26);
+    const input = `<input type="text" id="${attr(id)}" class="stk-input stk-input-sm stk-mono" data-cv="${attr(inst.id)}"
+             data-field="${attr(f.k)}" value="${attr(value ?? '')}" autocomplete="off" spellcheck="false"${dis}>`;
+    const pick = f.type === 'atoms' && !off && atomsTool && atomsTool.hasStructure()
+      ? `<div class="sg-cv-atoms">${input}<button type="button" class="stk-btn stk-btn-sm stk-btn-icon" data-pick="${attr(inst.id)}"
+           data-field="${attr(f.k)}" aria-label="Pick ${attr(f.k)} of ${attr(inst.label)} from the structure"
+           title="Pick from the structure"><i class="fa-solid fa-crosshairs" aria-hidden="true"></i></button></div>`
+      : input;
     return `<div class="${cls}${wide ? ' sg-cv-wide' : ''}">
       <label for="${attr(id)}">${escapeHtml(f.label || f.k)}${help}</label>
-      <input type="text" id="${attr(id)}" class="stk-input stk-input-sm stk-mono" data-cv="${attr(inst.id)}"
-             data-field="${attr(f.k)}" value="${attr(value ?? '')}" autocomplete="off" spellcheck="false"${dis}>
+      ${pick}
     </div>`;
   }
 
@@ -528,6 +539,9 @@ export function createPlumedBuilder(ctx) {
       host.appendChild(card);
     }
 
+    host.querySelectorAll('[data-pick]').forEach((el) => {
+      el.addEventListener('click', () => atomsTool.pickFor(el.getAttribute('data-pick'), el.getAttribute('data-field')));
+    });
     host.querySelectorAll('[data-more]').forEach((el) => {
       el.addEventListener('toggle', () => {
         if (el.open) state.open.add(el.getAttribute('data-more'));
@@ -943,6 +957,7 @@ export function createPlumedBuilder(ctx) {
       restraintSeq: state.restraintSeq,
       restraints: JSON.parse(JSON.stringify(state.restraints)),
       prints: JSON.parse(JSON.stringify(state.prints)),
+      files: JSON.parse(JSON.stringify(state.files)),
       bias: JSON.parse(JSON.stringify(state.biasVals))
     };
   }
@@ -1006,6 +1021,16 @@ export function createPlumedBuilder(ctx) {
       ...newPrint(text(fields.plumedPrintFile, 'COLVAR') || 'COLVAR', text(fields.plumedPrintStride)),
       extra: text(fields.plumedPrintExtra)
     }];
+    state.files = {};
+    if (p.files && typeof p.files === 'object') {
+      for (const [name, f] of Object.entries(p.files)) {
+        if (!f || typeof f.text !== 'string' || !/^[\w.-]+$/.test(name)) continue;
+        state.files[name] = {
+          text: f.text, note: text(f.note), forVersion: text(f.forVersion),
+          labels: Array.isArray(f.labels) ? f.labels.map(l => text(l)) : []
+        };
+      }
+    }
     state.biasVals = {};
     if (p.bias && typeof p.bias === 'object') {
       for (const method of Object.keys(p.bias)) {
@@ -1041,6 +1066,14 @@ export function createPlumedBuilder(ctx) {
     if (ctx.onVersionChange) ctx.onVersionChange();
     generate();
     check.run();
+    // Directions are written MOLECULES for 2.9 and DISTANCES from 2.10.
+    const old = (v) => v === '2.9';
+    const stale = Object.keys(state.files).filter(n =>
+      state.files[n].forVersion && old(state.files[n].forVersion) !== old(version()));
+    if (stale.length && ctx.showToast) {
+      ctx.showToast(`${stale.join(', ')} was written for PLUMED ${state.files[stale[0]].forVersion}. ` +
+        'Write it again for this version.', 'warn');
+    }
   });
   on('plumedNatoms', 'input', () => check.run());
   on('plumedAddFn', 'click', addFunction);
@@ -1111,6 +1144,64 @@ export function createPlumedBuilder(ctx) {
     if (ctx.scheduleSave) ctx.scheduleSave();
   }
 
+  function includeList() {
+    return getStr('plumedInclude', '').split(/[\n,;]+|\s+/).map(x => x.trim()).filter(Boolean);
+  }
+
+  function setIncludes(list) {
+    if (ctx.setFields) ctx.setFields({ plumedInclude: list.join('\n') });
+  }
+
+  const atomsTool = createPlumedAtoms(ctx, {
+    version,
+    files: () => state.files,
+    setNatoms: (n) => { if (ctx.setFields) ctx.setFields({ plumedNatoms: String(n) }); generate(); },
+    addCV(type, values, label) {
+      const inst = createCV(type, ++state.seq, { ...options(), values });
+      if (!inst) return;
+      const taken = new Set([...state.cvs, ...state.functions].map(c => c.label));
+      let name = label || inst.label;
+      for (let i = 2; taken.has(name); i++) name = `${label}${i}`;
+      inst.label = name;
+      state.cvs.push(inst);
+      renderAll();
+      generate();
+      if (ctx.scheduleSave) ctx.scheduleSave();
+    },
+    atomFields() {
+      const out = [];
+      for (const cv of state.cvs) {
+        const def = CV_DEFS[cv.type];
+        for (const f of fieldsFor({ ...def, compStyle: undefined }, options())) {
+          if (f.type === 'atoms') out.push({ id: cv.id, field: f.k, label: cv.label });
+        }
+      }
+      return out;
+    },
+    setAtomField(id, field, value) {
+      const cv = state.cvs.find(c => c.id === id);
+      if (!cv) return;
+      cv.values[field] = value;
+      renderAll();
+      generate();
+      if (ctx.scheduleSave) ctx.scheduleSave();
+    },
+    addInclude(name, text, note, labels, forVersion) {
+      state.files[name] = { text, note, labels: labels || [], forVersion: forVersion || '' };
+      const list = includeList();
+      if (!list.includes(name)) setIncludes([...list, name]);
+      renderFnList();
+      generate();
+      if (ctx.scheduleSave) ctx.scheduleSave();
+    },
+    removeFile(name) {
+      delete state.files[name];
+      setIncludes(includeList().filter(f => f !== name));
+      generate();
+      if (ctx.scheduleSave) ctx.scheduleSave();
+    }
+  });
+
   const check = createPlumedCheck(ctx, {
     version,
     syntax,
@@ -1146,6 +1237,9 @@ export function createPlumedBuilder(ctx) {
       if ($('plumedViews')) $('plumedViews').hidden = false;
       showView(state.view);
       check.run();
-    }
+      atomsTool.render();
+    },
+    /** The side files of the input, by name. */
+    files: () => state.files
   };
 }
