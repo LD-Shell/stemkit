@@ -1075,6 +1075,12 @@ describe('generatePlumedInput, the full description', () => {
     });
     expect(r.input).toContain('PRINT ARG=d1 FILE=COLVAR STRIDE=500');
     expect(r.input).toContain('PRINT ARG=d1 FILE=FAST STRIDE=10');
+    const empty = generatePlumedInput({
+      cvs: [d1()], bias: { method: 'none' },
+      prints: [{ file: 'COLVAR' }, { file: 'EMPTY', args: [], only: true }]
+    });
+    expect(empty.input).not.toContain('FILE=EMPTY');
+    expect(empty.warnings.some(w => w.includes('nothing to write'))).toBe(true);
     const same = generatePlumedInput({
       cvs: [d1()], bias: { method: 'none' }, prints: [{ file: 'A' }, { file: 'A' }]
     });

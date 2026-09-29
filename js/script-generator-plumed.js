@@ -10,9 +10,11 @@
  */
 
 import {
-  CV_DEFS, CV_EXAMPLES, BIAS_DEFS, KEY_HELP, PREREQS, PLUMED_VERSIONS, DEFAULT_PLUMED_VERSION,
+  CV_DEFS, CV_EXAMPLES, BIAS_DEFS, FUNCTION_DEFS, FUNCTION_EXAMPLES, KEY_HELP, PREREQS,
+  PLUMED_VERSIONS, DEFAULT_PLUMED_VERSION,
   cvAvailable, fieldsFor, reductionFieldsFor, componentsForCV, hiddenFieldsForBias,
-  actionNameFor, createCV, defaultBiasValues, generatePlumedInput, messageToHtml
+  actionNameFor, availableArguments, createCV, createFunction, defaultBiasValues,
+  generatePlumedInput, messageToHtml
 } from '../src/core/plumed.js';
 import { loadSyntax, plumedDocUrl } from '../src/core/plumed-syntax.js';
 
@@ -38,10 +40,18 @@ export function createPlumedBuilder(ctx) {
   const { $, getStr, isChecked, setWarnings, renderOutput, escapeHtml } = ctx;
   const attr = (s) => escapeHtml(s);
 
+  const newPrint = (file, stride) => ({ file, stride, extra: '', all: true, args: [] });
+
   const state = {
     cvs: [],
     seq: 0,
+    functions: [],
+    fnSeq: 0,
+    restraints: [],
+    restraintSeq: 0,
+    prints: [newPrint('COLVAR', '')],
     biasVals: {},
+    open: new Set(),
     syntax: null,
     lastResult: null
   };
@@ -67,7 +77,7 @@ export function createPlumedBuilder(ctx) {
       state.syntax = s;
       populateCVSelect();
       renderBiasParams();
-      renderCVList();
+      renderAll();
       generate();
     }).catch(() => { /* the file is still built, without the table's checks */ });
   }
@@ -129,7 +139,16 @@ export function createPlumedBuilder(ctx) {
         residues: isChecked('plumedWholeResidues'),
         entities: getStr('plumedWholeEntities', '')
       },
+      natoms: parseInt(getStr('plumedNatoms', ''), 10) || undefined,
+      preamble: {
+        restart: isChecked('plumedRestart'),
+        load: getStr('plumedLoad', ''),
+        include: getStr('plumedInclude', ''),
+        flush: getStr('plumedFlush', '')
+      },
       cvs: state.cvs,
+      functions: state.functions,
+      restraints: state.restraints,
       bias: {
         method,
         params: biasParams(method),
@@ -145,12 +164,42 @@ export function createPlumedBuilder(ctx) {
           rstride: getStr('plumedWalkersRstride', '100')
         }
       },
-      prints: [{
-        file: getStr('plumedPrintFile', 'COLVAR'),
-        stride: getStr('plumedPrintStride', stride),
-        extra: getStr('plumedPrintExtra', '')
-      }]
+      prints: state.prints.map(p => ({
+        file: p.file,
+        stride: String(p.stride || '').trim() || stride,
+        extra: p.extra,
+        args: p.all ? [] : p.args,
+        only: !p.all
+      }))
     };
+  }
+
+  /** The values a function, a wall or an output can refer to. */
+  function argumentList(upTo) {
+    const config = readConfig();
+    if (upTo) {
+      const i = state.functions.findIndex(f => f.id === upTo);
+      config.functions = i < 0 ? [] : state.functions.slice(0, i);
+    }
+    return availableArguments(config).map(a => a.arg);
+  }
+
+  function renderAll() {
+    renderCVList();
+    renderFnList();
+    renderRestraintList();
+    renderPrintList();
+    renderVersionNote();
+  }
+
+  function renderVersionNote() {
+    const host = $('plumedVersionNote');
+    if (!host) return;
+    const s = syntax();
+    host.innerHTML = s
+      ? `Keywords, defaults and modules are checked against PLUMED <strong>${escapeHtml(s.release)}</strong>, ` +
+        `${s.actionNames().length} actions. Match it to <code>plumed info --version</code> on the machine that runs the job.`
+      : 'Set the version to match <code>plumed info --version</code> on the machine that runs the job.';
   }
 
   function generate() {
@@ -230,13 +279,13 @@ export function createPlumedBuilder(ctx) {
     const inst = createCV(cvSel.value, ++state.seq, options());
     if (!inst) return;
     state.cvs.push(inst);
-    renderCVList();
+    renderAll();
     generate();
   }
 
   function removeCV(id) {
     state.cvs = state.cvs.filter(c => c.id !== id);
-    renderCVList();
+    renderAll();
     generate();
   }
 
@@ -341,24 +390,25 @@ export function createPlumedBuilder(ctx) {
     </div>`;
   }
 
-  function biasBlockHtml(inst, def) {
-    const comps = componentsForCV(inst, CV_DEFS, options());
+  function biasBlockHtml(inst, def, kind = 'cv') {
+    const comps = kind === 'cv' ? componentsForCV(inst, CV_DEFS, options()) : [];
+    const key = kind === 'cv' ? 'data-cv-bias' : 'data-fn-bias';
     let target;
     if (comps.length) {
       const cur = comps.includes(inst.biasValues.comp) ? inst.biasValues.comp : comps[0];
       const opts = comps.map(c =>
         `<option value="${attr(c)}"${c === cur ? ' selected' : ''}>${escapeHtml(inst.label + c)}</option>`).join('');
-      target = `<select class="stk-select stk-select-sm stk-mono" data-cv-bias="${attr(inst.id)}" data-field="comp">${opts}</select>`;
+      target = `<select class="stk-select stk-select-sm stk-mono" ${key}="${attr(inst.id)}" data-field="comp">${opts}</select>`;
     } else if (def.isCustom) {
       target = `<p class="stk-hint">The bias acts on <code>${escapeHtml(inst.label)}</code>. If the action ` +
         'outputs several values, name them under Components above.</p>';
     } else {
       target = `<p class="stk-hint">One value: the bias acts on <code>${escapeHtml(inst.label)}</code>.</p>`;
     }
-    const cell = (key, label, tip) => `<div class="sg-cv-field">
+    const cell = (name, label, tip) => `<div class="sg-cv-field">
         <label>${label}${helpBadge(tip)}</label>
-        <input type="text" class="stk-input stk-input-sm stk-mono" data-cv-bias="${attr(inst.id)}"
-               data-field="${key}" value="${attr(inst.biasValues[key] ?? '')}" autocomplete="off" spellcheck="false">
+        <input type="text" class="stk-input stk-input-sm stk-mono" ${key}="${attr(inst.id)}"
+               data-field="${name}" value="${attr(inst.biasValues[name] ?? '')}" autocomplete="off" spellcheck="false">
       </div>`;
     return `<div class="sg-cv-bias">
       <div class="sg-cv-field">
@@ -429,13 +479,19 @@ export function createPlumedBuilder(ctx) {
     };
     if (own.length) html += `<div class="sg-cv-grid">${own.map(draw).join('')}</div>`;
     if (shared.length) {
-      const first = componentsForCV(inst, CV_DEFS, opts)[0] || '.mean';
-      html += `<p class="sg-cv-sub">Reductions${helpBadge(
+      const comps = componentsForCV(inst, CV_DEFS, opts);
+      const first = comps[0] || '.mean';
+      const on = shared.filter(f => (f.type === 'flag' ? !!inst.values[f.k] : String(inst.values[f.k] ?? '').trim() !== '')).length;
+      // Closed by default: nine more fields would bury the ones that matter.
+      const isOpen = state.open.has(inst.id);
+      html += `<details class="sg-cv-more" data-more="${attr(inst.id)}"${isOpen ? ' open' : ''}>
+        <summary><span>Reductions</span><span class="stk-badge">${on} on</span>${helpBadge(
         'A multicolvar computes one value per atom; a reduction turns them into a single number. ' +
         'Tick a flag, or give a block such as {RATIONAL R_0=0.5}. Several blocks separated by ; ' +
         `are numbered, giving ${inst.label}.morethan-1, ${inst.label}.morethan-2. Each reduction ` +
-        `switched on becomes a value to bias or print, such as ${inst.label}${first}.`)}</p>`;
-      html += `<div class="sg-cv-grid">${shared.map(draw).join('')}</div>`;
+        `switched on becomes a value to bias or print, such as ${inst.label}${first}.`)}</summary>
+        <div class="sg-cv-grid">${shared.map(draw).join('')}</div>
+      </details>`;
     }
     if (off) {
       html += `<p class="stk-hint"><i class="fa-solid fa-ban" aria-hidden="true"></i> ${off} field${off > 1 ? 's' : ''} ` +
@@ -469,6 +525,12 @@ export function createPlumedBuilder(ctx) {
       host.appendChild(card);
     }
 
+    host.querySelectorAll('[data-more]').forEach((el) => {
+      el.addEventListener('toggle', () => {
+        if (el.open) state.open.add(el.getAttribute('data-more'));
+        else state.open.delete(el.getAttribute('data-more'));
+      });
+    });
     host.querySelectorAll('[data-remove]').forEach((el) => {
       el.addEventListener('click', () => removeCV(el.getAttribute('data-remove')));
     });
@@ -517,8 +579,348 @@ export function createPlumedBuilder(ctx) {
       const comps = componentsForCV(inst, CV_DEFS, options());
       if (comps.length && !comps.includes(inst.biasValues.comp)) inst.biasValues.comp = comps[0];
       if (!comps.length) inst.biasValues.comp = '';
-      renderCVList();
+      renderAll();
     }
+    generate();
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Keeping the caret through a redraw
+   * ---------------------------------------------------------------- */
+
+  function rememberFocus(host) {
+    const el = document.activeElement;
+    if (!el || !host.contains(el) || !el.getAttribute('data-k')) return null;
+    return { k: el.getAttribute('data-k'), at: el.selectionStart };
+  }
+
+  function restoreFocus(host, focus) {
+    if (!focus) return;
+    const el = host.querySelector(`[data-k="${CSS.escape(focus.k)}"]`);
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    if (typeof focus.at === 'number' && el.setSelectionRange) {
+      try { el.setSelectionRange(focus.at, focus.at); } catch (_) { /* not a text field */ }
+    }
+  }
+
+  const removeButton = (attrName, id, label) =>
+    `<button type="button" class="stk-btn stk-btn-sm stk-btn-ghost stk-btn-icon" ${attrName}="${attr(id)}"
+             aria-label="Remove ${attr(label)}" title="Remove"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>`;
+
+  /* ---------------------------------------------------------------- *
+   * Functions
+   * ---------------------------------------------------------------- */
+
+  function populateFnSelect() {
+    const sel = $('plumedFnType');
+    if (!sel || sel.options.length) return;
+    for (const k of Object.keys(FUNCTION_DEFS)) {
+      const opt = document.createElement('option');
+      opt.value = k;
+      opt.textContent = FUNCTION_DEFS[k].label;
+      sel.appendChild(opt);
+    }
+  }
+
+  function fnCardHtml(fn) {
+    const def = FUNCTION_DEFS[fn.type];
+    const offered = argumentList(fn.id).filter(a => !fn.args.includes(a));
+    const chips = fn.args.map((a, i) => {
+      const known = argumentList(fn.id).includes(a) || getStr('plumedInclude', '') !== '';
+      return `<li class="sg-chip${known ? '' : ' sg-chip-bad'}" title="${known ? '' : 'Nothing above defines this value'}">
+        <span class="sg-chip-n">${i + 1}</span><code>${escapeHtml(a)}</code>
+        <button type="button" data-fn-up="${attr(fn.id)}" data-i="${i}" aria-label="Move ${attr(a)} earlier" title="Move earlier"${i === 0 ? ' disabled' : ''}><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>
+        <button type="button" data-fn-del="${attr(fn.id)}" data-i="${i}" aria-label="Remove ${attr(a)}" title="Remove"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </li>`;
+    }).join('');
+    const opts = ['<option value="">Add an argument…</option>']
+      .concat(offered.map(a => `<option value="${attr(a)}">${escapeHtml(a)}</option>`)).join('');
+
+    let html = `<div class="sg-cv-h">
+      <div class="sg-cv-id">
+        <span class="sg-cv-type">${escapeHtml(fn.type)}</span>
+        <input type="text" class="stk-input stk-input-sm stk-mono sg-cv-label" data-fn="${attr(fn.id)}" data-field="__label"
+               data-k="${attr(fn.id)}-label" value="${attr(fn.label)}" aria-label="Label of this function" title="Label"
+               autocomplete="off" spellcheck="false">
+      </div>
+      <div class="sg-cv-tools">
+        <label class="stk-check sg-cv-biasflag" title="Feed this function to the bias; off means it is only computed and printed">
+          <input type="checkbox" data-fn="${attr(fn.id)}" data-field="__bias"${fn.bias ? ' checked' : ''}> Bias</label>
+        ${removeButton('data-fn-remove', fn.id, fn.label)}
+      </div>
+    </div>
+    <p class="plumed-cv-example">${escapeHtml(def.desc)}</p>
+    <div class="sg-cv-field">
+      <label>Arguments, in order${helpBadge('The values the function takes. The order matters: the first coefficient, or the first name in VAR, belongs to the first argument.')}</label>
+      ${fn.args.length ? `<ol class="sg-chips">${chips}</ol>` : '<p class="stk-hint">None yet. Pick the values to combine.</p>'}
+      <div class="sg-addrow">
+        <select class="stk-select stk-select-sm stk-mono" data-fn-add="${attr(fn.id)}" aria-label="Add an argument to ${attr(fn.label)}"${offered.length ? '' : ' disabled'}>${opts}</select>
+        <button type="button" class="stk-btn stk-btn-sm" data-fn-all="${attr(fn.id)}"${offered.length ? '' : ' disabled'}>Add all</button>
+      </div>
+    </div>
+    <div class="sg-cv-grid">`;
+    for (const f of def.fields) {
+      const id = `${fn.id}-${f.k}`;
+      const help = helpBadge(f.help || '');
+      if (f.type === 'flag') {
+        html += `<div class="sg-cv-flag"><input type="checkbox" id="${attr(id)}" data-fn="${attr(fn.id)}" data-field="${attr(f.k)}"${fn.values[f.k] ? ' checked' : ''}>
+          <label for="${attr(id)}">${escapeHtml(f.label)}</label>${help}</div>`;
+      } else {
+        const wide = f.k === 'COEFFICIENTS' || f.k === 'FUNC';
+        html += `<div class="sg-cv-field${wide ? ' sg-cv-wide' : ''}"><label for="${attr(id)}">${escapeHtml(f.label)}${help}</label>
+          <input type="text" id="${attr(id)}" class="stk-input stk-input-sm stk-mono" data-fn="${attr(fn.id)}" data-field="${attr(f.k)}"
+                 data-k="${attr(id)}" value="${attr(fn.values[f.k] ?? '')}" autocomplete="off" spellcheck="false"></div>`;
+      }
+    }
+    html += '</div>';
+    if (fn.type === 'COMBINE' && fn.args.length) {
+      const n = String(fn.values.COEFFICIENTS || '').split(',').filter(x => x.trim() !== '').length;
+      const ok = n === 0 || n === fn.args.length;
+      html += `<p class="stk-hint${ok ? '' : ' sg-hint-bad'}">${n === 0
+        ? `${fn.args.length} argument${fn.args.length === 1 ? '' : 's'}; with no coefficients each counts once.`
+        : `${n} coefficient${n === 1 ? '' : 's'} for ${fn.args.length} argument${fn.args.length === 1 ? '' : 's'}.`}</p>`;
+    }
+    if (fn.bias) html += biasBlockHtml(fn, def, 'fn');
+    return html;
+  }
+
+  function renderFnList() {
+    const host = $('plumedFnList');
+    if (!host) return;
+    populateFnSelect();
+    const focus = rememberFocus(host);
+    host.innerHTML = '';
+    for (const fn of state.functions) {
+      const card = document.createElement('div');
+      card.className = 'sg-cv';
+      card.innerHTML = fnCardHtml(fn);
+      host.appendChild(card);
+    }
+    const find = (id) => state.functions.find(f => f.id === id);
+    const redraw = () => { renderFnList(); renderRestraintList(); renderPrintList(); generate(); };
+
+    host.querySelectorAll('[data-fn-remove]').forEach(el => el.addEventListener('click', () => {
+      state.functions = state.functions.filter(f => f.id !== el.getAttribute('data-fn-remove'));
+      redraw();
+    }));
+    host.querySelectorAll('[data-fn-add]').forEach(el => el.addEventListener('change', () => {
+      const fn = find(el.getAttribute('data-fn-add'));
+      if (fn && el.value) { fn.args.push(el.value); redraw(); }
+    }));
+    host.querySelectorAll('[data-fn-all]').forEach(el => el.addEventListener('click', () => {
+      const fn = find(el.getAttribute('data-fn-all'));
+      if (!fn) return;
+      for (const a of argumentList(fn.id)) if (!fn.args.includes(a)) fn.args.push(a);
+      redraw();
+    }));
+    host.querySelectorAll('[data-fn-del]').forEach(el => el.addEventListener('click', () => {
+      const fn = find(el.getAttribute('data-fn-del'));
+      if (fn) { fn.args.splice(Number(el.getAttribute('data-i')), 1); redraw(); }
+    }));
+    host.querySelectorAll('[data-fn-up]').forEach(el => el.addEventListener('click', () => {
+      const fn = find(el.getAttribute('data-fn-up'));
+      const i = Number(el.getAttribute('data-i'));
+      if (fn && i > 0) { [fn.args[i - 1], fn.args[i]] = [fn.args[i], fn.args[i - 1]]; redraw(); }
+    }));
+    host.querySelectorAll('[data-fn]').forEach((el) => {
+      el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', () => {
+        const fn = find(el.getAttribute('data-fn'));
+        if (!fn) return;
+        const field = el.getAttribute('data-field');
+        if (field === '__label') fn.label = el.value.trim() || fn.id;
+        else if (field === '__bias') fn.bias = el.checked;
+        else if (el.type === 'checkbox') fn.values[field] = el.checked;
+        else fn.values[field] = el.value;
+        if (['__label', '__bias', 'COEFFICIENTS'].includes(field)) redraw();
+        else generate();
+      });
+    });
+    host.querySelectorAll('[data-fn-bias]').forEach((el) => {
+      el.addEventListener('input', () => {
+        const fn = find(el.getAttribute('data-fn-bias'));
+        if (!fn) return;
+        fn.biasValues[el.getAttribute('data-field')] = el.value;
+        generate();
+      });
+    });
+    restoreFocus(host, focus);
+  }
+
+  function addFunction() {
+    const type = getStr('plumedFnType', 'COMBINE');
+    const fn = createFunction(type, ++state.fnSeq);
+    if (!fn) return;
+    state.functions.push(fn);
+    renderFnList();
+    renderRestraintList();
+    renderPrintList();
+    generate();
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Walls and restraints
+   * ---------------------------------------------------------------- */
+
+  const RESTRAINT_NAMES = { upper: 'UPPER_WALLS', lower: 'LOWER_WALLS', restraint: 'RESTRAINT' };
+  const RESTRAINT_PREFIX = { upper: 'uw', lower: 'lw', restraint: 'res' };
+
+  function renderRestraintList() {
+    const host = $('plumedRestraintList');
+    if (!host) return;
+    const focus = rememberFocus(host);
+    const args = argumentList();
+    host.innerHTML = '';
+    for (const r of state.restraints) {
+      const opts = ['<option value="">Pick a value…</option>']
+        .concat(args.map(a => `<option value="${attr(a)}"${a === r.arg ? ' selected' : ''}>${escapeHtml(a)}</option>`));
+      if (r.arg && !args.includes(r.arg)) {
+        opts.push(`<option value="${attr(r.arg)}" selected>${escapeHtml(r.arg)} (not defined)</option>`);
+      }
+      const input = (k, label, tip, ph = '') => `<div class="sg-cv-field">
+          <label>${label}${helpBadge(tip)}</label>
+          <input type="text" class="stk-input stk-input-sm stk-mono" data-res="${attr(r.id)}" data-field="${k}"
+                 data-k="${attr(r.id)}-${k}" value="${attr(r[k] ?? '')}" placeholder="${attr(ph)}" autocomplete="off" spellcheck="false">
+        </div>`;
+      const wall = r.type !== 'restraint';
+      const card = document.createElement('div');
+      card.className = 'sg-cv';
+      card.innerHTML = `<div class="sg-cv-h">
+          <div class="sg-cv-id">
+            <span class="sg-cv-type">${RESTRAINT_NAMES[r.type]}</span>
+            <input type="text" class="stk-input stk-input-sm stk-mono sg-cv-label" data-res="${attr(r.id)}" data-field="label"
+                   data-k="${attr(r.id)}-label" value="${attr(r.label)}" aria-label="Label" title="Label" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="sg-cv-tools">${removeButton('data-res-remove', r.id, r.label)}</div>
+        </div>
+        <div class="sg-cv-grid">
+          <div class="sg-cv-field sg-cv-wide">
+            <label>Acts on</label>
+            <select class="stk-select stk-select-sm stk-mono" data-res="${attr(r.id)}" data-field="arg">${opts.join('')}</select>
+          </div>
+          ${input('at', 'AT', r.type === 'upper'
+            ? 'The wall is felt when the value rises above this.'
+            : r.type === 'lower' ? 'The wall is felt when the value falls below this.' : 'The value the restraint pulls toward.')}
+          ${input('kappa', 'KAPPA', 'Force constant, in energy per unit of the value squared. The energy is KAPPA times the distance past the wall, to the power EXP.')}
+          ${wall ? input('exp', 'EXP', 'Power of the wall. 2 is harmonic; 4 is flatter near the wall and steeper beyond.', '2') : ''}
+          ${wall ? input('offset', 'OFFSET', 'Shifts where the wall starts, without moving AT.', '0') : ''}
+        </div>`;
+      host.appendChild(card);
+    }
+    const find = (id) => state.restraints.find(x => x.id === id);
+    host.querySelectorAll('[data-res-remove]').forEach(el => el.addEventListener('click', () => {
+      state.restraints = state.restraints.filter(x => x.id !== el.getAttribute('data-res-remove'));
+      renderRestraintList();
+      renderPrintList();
+      generate();
+    }));
+    host.querySelectorAll('[data-res]').forEach((el) => {
+      el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => {
+        const r = find(el.getAttribute('data-res'));
+        if (!r) return;
+        const field = el.getAttribute('data-field');
+        r[field] = field === 'label' ? (el.value.trim() || r.id) : el.value;
+        if (field === 'label') renderPrintList();
+        generate();
+      });
+    });
+    restoreFocus(host, focus);
+  }
+
+  function addRestraint() {
+    const type = getStr('plumedRestraintType', 'upper');
+    if (!RESTRAINT_NAMES[type]) return;
+    const n = ++state.restraintSeq;
+    const first = argumentList()[0] || '';
+    state.restraints.push({
+      id: `res${n}`, type, label: `${RESTRAINT_PREFIX[type]}${n}`, arg: first,
+      at: '', kappa: type === 'restraint' ? '200' : '150', exp: '', eps: '', offset: ''
+    });
+    renderRestraintList();
+    renderPrintList();
+    generate();
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Output files
+   * ---------------------------------------------------------------- */
+
+  function printableList() {
+    const result = state.lastResult;
+    const bias = result ? result.printable || [] : [];
+    const out = argumentList();
+    for (const a of bias) if (!out.includes(a)) out.push(a);
+    return out;
+  }
+
+  function renderPrintList() {
+    const host = $('plumedPrintList');
+    if (!host) return;
+    const focus = rememberFocus(host);
+    const all = printableList();
+    host.innerHTML = '';
+    state.prints.forEach((p, i) => {
+      const card = document.createElement('div');
+      card.className = 'sg-cv';
+      const picks = all.map(a => `<label class="sg-pick"><input type="checkbox" data-print="${i}" data-arg="${attr(a)}"` +
+        `${p.args.includes(a) ? ' checked' : ''}> <code>${escapeHtml(a)}</code></label>`).join('');
+      card.innerHTML = `<div class="sg-cv-grid">
+          <div class="sg-cv-field">
+            <label>File${helpBadge('Name of the file this PRINT writes. The first is COLVAR by convention.')}</label>
+            <input type="text" class="stk-input stk-input-sm stk-mono" data-print="${i}" data-field="file" data-k="print-${i}-file"
+                   value="${attr(p.file)}" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="sg-cv-field">
+            <label>Every (steps)${helpBadge('How often a line is written. Blank takes the default STRIDE of the method panel. A larger value means a smaller file and coarser time resolution.')}</label>
+            <input type="text" class="stk-input stk-input-sm stk-mono" data-print="${i}" data-field="stride" data-k="print-${i}-stride"
+                   value="${attr(p.stride)}" placeholder="default: ${attr(getStr('plumedStride', '500'))}" inputmode="numeric" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="sg-cv-flag">
+            <input type="checkbox" id="print-${i}-all" data-print="${i}" data-field="all"${p.all ? ' checked' : ''}>
+            <label for="print-${i}-all">Everything: each variable, function and bias</label>
+            ${state.prints.length > 1 ? removeButton('data-print-remove', String(i), p.file) : ''}
+          </div>
+          ${p.all ? '' : `<div class="sg-cv-field sg-cv-wide"><label>Values to write</label>
+            <div class="sg-picks">${picks || '<p class="stk-hint">Add a variable first.</p>'}</div></div>`}
+          <div class="sg-cv-field sg-cv-wide">
+            <label>Also write${helpBadge('Further values, separated by commas, such as metad.work or a value from an included file. Wildcards are allowed: metad.* writes every component of metad.')}</label>
+            <input type="text" class="stk-input stk-input-sm stk-mono" data-print="${i}" data-field="extra" data-k="print-${i}-extra"
+                   value="${attr(p.extra)}" placeholder="optional, e.g. metad.work" autocomplete="off" spellcheck="false">
+          </div>
+        </div>`;
+      host.appendChild(card);
+    });
+    host.querySelectorAll('[data-print-remove]').forEach(el => el.addEventListener('click', () => {
+      state.prints.splice(Number(el.getAttribute('data-print-remove')), 1);
+      renderPrintList();
+      generate();
+    }));
+    host.querySelectorAll('[data-print]').forEach((el) => {
+      el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', () => {
+        const p = state.prints[Number(el.getAttribute('data-print'))];
+        if (!p) return;
+        const arg = el.getAttribute('data-arg');
+        if (arg) {
+          if (el.checked && !p.args.includes(arg)) p.args.push(arg);
+          if (!el.checked) p.args = p.args.filter(a => a !== arg);
+        } else if (el.getAttribute('data-field') === 'all') {
+          p.all = el.checked;
+          renderPrintList();
+        } else {
+          p[el.getAttribute('data-field')] = el.value;
+        }
+        generate();
+      });
+    });
+    restoreFocus(host, focus);
+  }
+
+  function addPrint() {
+    const n = state.prints.length;
+    const p = newPrint(n === 0 ? 'COLVAR' : `COLVAR.${n}`, '');
+    if (n > 0) p.all = false;
+    state.prints.push(p);
+    renderPrintList();
     generate();
   }
 
@@ -533,14 +935,20 @@ export function createPlumedBuilder(ctx) {
         id: c.id, type: c.type, label: c.label, bias: c.bias, isGroup: c.isGroup,
         noBias: c.noBias, values: { ...c.values }, biasValues: { ...c.biasValues }
       })),
+      fnSeq: state.fnSeq,
+      functions: JSON.parse(JSON.stringify(state.functions)),
+      restraintSeq: state.restraintSeq,
+      restraints: JSON.parse(JSON.stringify(state.restraints)),
+      prints: JSON.parse(JSON.stringify(state.prints)),
       bias: JSON.parse(JSON.stringify(state.biasVals))
     };
   }
 
   // Unknown entries are dropped: a file from a newer page, or one naming a
   // variable this page no longer has, still restores everything it can.
-  function restore(data) {
+  function restore(data, fields = {}) {
     const p = data && typeof data === 'object' ? data : {};
+    const text = (v, d = '') => (v === undefined || v === null ? d : String(v));
     state.cvs = Array.isArray(p.cvs) ? p.cvs
       .filter(c => c && CV_DEFS[c.type] && typeof c.id === 'string')
       .map((c) => {
@@ -563,6 +971,38 @@ export function createPlumedBuilder(ctx) {
       Number.isInteger(p.seq) ? p.seq : 0,
       ...state.cvs.map(c => parseInt(String(c.id).replace(/^cv/, ''), 10) || 0)
     );
+    state.functions = Array.isArray(p.functions) ? p.functions
+      .filter(f => f && FUNCTION_DEFS[f.type] && typeof f.id === 'string')
+      .map(f => ({
+        id: f.id,
+        type: f.type,
+        label: text(f.label, f.id),
+        args: Array.isArray(f.args) ? f.args.map(a => text(a)).filter(Boolean) : [],
+        values: f.values && typeof f.values === 'object' ? { ...f.values } : {},
+        bias: !!f.bias,
+        biasValues: {
+          comp: '', min: '-5.0', max: '5.0', bin: '200', sigma: '0.1',
+          ...(f.biasValues && typeof f.biasValues === 'object' ? f.biasValues : {})
+        }
+      })) : [];
+    state.fnSeq = Math.max(Number.isInteger(p.fnSeq) ? p.fnSeq : 0,
+      ...state.functions.map(f => parseInt(f.id.replace(/^fn/, ''), 10) || 0));
+    state.restraints = Array.isArray(p.restraints) ? p.restraints
+      .filter(r => r && RESTRAINT_NAMES[r.type] && typeof r.id === 'string')
+      .map(r => ({
+        id: r.id, type: r.type, label: text(r.label, r.id), arg: text(r.arg), at: text(r.at),
+        kappa: text(r.kappa), exp: text(r.exp), eps: text(r.eps), offset: text(r.offset)
+      })) : [];
+    state.restraintSeq = Math.max(Number.isInteger(p.restraintSeq) ? p.restraintSeq : 0,
+      ...state.restraints.map(r => parseInt(r.id.replace(/^res/, ''), 10) || 0));
+    state.prints = Array.isArray(p.prints) && p.prints.length ? p.prints.filter(Boolean).map(x => ({
+      file: text(x.file, 'COLVAR'), stride: text(x.stride), extra: text(x.extra),
+      all: x.all !== false, args: Array.isArray(x.args) ? x.args.map(a => text(a)) : []
+    })) : [{
+      // Settings saved before the output list: one PRINT, kept in three fields.
+      ...newPrint(text(fields.plumedPrintFile, 'COLVAR') || 'COLVAR', text(fields.plumedPrintStride)),
+      extra: text(fields.plumedPrintExtra)
+    }];
     state.biasVals = {};
     if (p.bias && typeof p.bias === 'object') {
       for (const method of Object.keys(p.bias)) {
@@ -577,6 +1017,14 @@ export function createPlumedBuilder(ctx) {
    * Events
    * ---------------------------------------------------------------- */
 
+  /* The grid, the reweighting factor and walkers belong to the metadynamics
+     family; the other methods have no use for them. */
+  function syncMethod() {
+    const method = getStr('plumedBias', 'none');
+    const wrap = $('plumedSpeedWrap');
+    if (wrap) wrap.hidden = !['metad', 'wt_metad', 'pbmetad', 'opes'].includes(method);
+  }
+
   const on = (id, events, fn) => {
     const el = $(id);
     if (el) events.split(' ').forEach(e => el.addEventListener(e, fn));
@@ -586,21 +1034,29 @@ export function createPlumedBuilder(ctx) {
     ensureSyntax();
     populateCVSelect();
     renderBiasParams();
-    renderCVList();
+    renderAll();
     if (ctx.onVersionChange) ctx.onVersionChange();
     generate();
   });
+  on('plumedAddFn', 'click', addFunction);
+  on('plumedAddRestraint', 'click', addRestraint);
+  on('plumedAddPrint', 'click', addPrint);
+  on('plumedRestart', 'change', generate);
+  on('plumedInclude', 'input', () => { renderFnList(); generate(); });
+  on('plumedStride', 'input', renderPrintList);
   on('plumedCategory', 'change', populateCVSelect);
   on('plumedCVSelect', 'change', updateCVDesc);
   on('plumedAddCV', 'click', addCV);
   on('plumedBias', 'change', () => {
     renderBiasParams();
     renderCVList();
+    syncMethod();
     generate();
+    renderPrintList();
   });
   on('plumedTemp', 'input', renderBiasParams);
-  for (const id of ['plumedTemp', 'plumedStride', 'plumedMolinfo', 'plumedPrintFile', 'plumedPrintStride',
-    'plumedPrintExtra', 'plumedUnitLength', 'plumedUnitEnergy', 'plumedUnitTime', 'plumedWalkersN',
+  for (const id of ['plumedTemp', 'plumedStride', 'plumedMolinfo', 'plumedNatoms', 'plumedLoad',
+    'plumedFlush', 'plumedUnitLength', 'plumedUnitEnergy', 'plumedUnitTime', 'plumedWalkersN',
     'plumedWalkersId', 'plumedWalkersDir', 'plumedWalkersRstride', 'plumedWholeEntities']) {
     on(id, 'input change', generate);
   }
@@ -625,7 +1081,9 @@ export function createPlumedBuilder(ctx) {
       populateCVSelect();
       populateBiasSelect();
       renderBiasParams();
-      renderCVList();
+      syncMethod();
+      generate();
+      renderAll();
     }
   };
 }

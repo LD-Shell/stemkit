@@ -1548,10 +1548,11 @@ function splitList(value) {
  *     grid?:boolean, rct?:boolean, walkers?:object},
  *   restraints?: Array<object>,
  *   prints?: Array<{file?:string, stride?:string|number, extra?:string|string[],
- *     args?:string[]}>
+ *     args?:string[], only?:boolean}>
  * }} config
- * @returns {{input:string, warnings:string[], cvLines:string[],
- *   arguments:string[], actions:string[], modules:string[]}}
+ * @returns {{input:string, warnings:string[], cvLines:string[], arguments:string[],
+ *   printable:string[], biased:string[], actions:string[], modules:string[]}}
+ *   `printable` lists the values the bias and the walls add to `arguments`.
  */
 export function generatePlumedInput(config = {}) {
   const c = normaliseConfig(config);
@@ -1784,8 +1785,14 @@ export function generatePlumedInput(config = {}) {
   c.prints.forEach((p, i) => {
     const extra = splitList(p.extra);
     let args;
-    if (Array.isArray(p.args) && p.args.length) args = p.args.map(str).filter(Boolean);
+    if (Array.isArray(p.args) && (p.args.length || p.only)) args = p.args.map(str).filter(Boolean);
     else args = [...all, ...bias.components, ...extraComponents];
+    if (!args.length && !extra.length) {
+      warnings.push(
+        `The output file \`${str(p.file) || `COLVAR.${i}`}\` has nothing to write. Pick the values ` +
+        'it should hold, or remove it.');
+      return;
+    }
     for (const x of extra) if (!args.includes(x)) args.push(x);
     if (!c.legacy && !trustUnknown) {
       for (const a of args) {
@@ -1810,9 +1817,9 @@ export function generatePlumedInput(config = {}) {
     warnings.push('Two PRINT actions write to the same file. Give each its own file name.');
   }
 
-  return finish(cvLines, targets.map(t => t.arg));
+  return finish(cvLines, targets.map(t => t.arg), [...bias.components, ...extraComponents]);
 
-  function finish(cvLinesOut = [], biased = []) {
+  function finish(cvLinesOut = [], biased = [], printableOut = []) {
     const modules = [];
     if (syntax) {
       const seen = new Set();
@@ -1852,6 +1859,7 @@ export function generatePlumedInput(config = {}) {
       warnings: unique,
       cvLines: cvLinesOut,
       arguments: availableArguments(c).map(a => a.arg),
+      printable: printableOut,
       biased,
       actions,
       modules

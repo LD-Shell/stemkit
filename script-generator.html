@@ -533,56 +533,16 @@
 
                     <div id="plumedWarnings" class="stk-callout stk-callout-warn" role="status" hidden></div>
 
-                    <!-- Bias method -->
-                    <section class="stk-panel" aria-labelledby="biasTitle" data-stk-step="1" data-stk-done="filled:#plumedBias">
+                    <!-- System and setup -->
+                    <section class="stk-panel" aria-labelledby="plumedSetupTitle">
                         <div class="stk-panel-h">
-                            <h2 class="stk-panel-t" id="biasTitle"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1: </span>Choose the bias and sampling method</h2>
+                            <h2 class="stk-panel-t" id="plumedSetupTitle"><i class="fa-solid fa-sliders"></i> System and setup</h2>
+                            <span class="sg-panel-tools">
+                                <label class="sg-inline-select">PLUMED <select id="plumedVersion" class="stk-select stk-select-sm stk-mono"><option value="2.9">2.9</option><option value="2.10">2.10</option><option value="2.11">2.11</option></select></label>
+                            </span>
                         </div>
                         <div class="stk-panel-b sg-form">
-                            <div class="stk-field">
-                                <label for="plumedBias">Method <span class="plumed-help" tabindex="0" data-tip="The enhanced-sampling or restraint method applied to the CVs marked Bias. Its editable parameters appear below.">?</span></label>
-                                <select id="plumedBias" class="stk-select">
-                                    <optgroup label="None">
-                                        <option value="none">None (track CVs only)</option>
-                                    </optgroup>
-                                    <optgroup label="Free energy (metadynamics)">
-                                        <option value="metad">Metadynamics (standard)</option>
-                                        <option value="wt_metad" selected>Well-Tempered Metadynamics</option>
-                                        <option value="pbmetad">Parallel-Bias Metadynamics (PBMETAD)</option>
-                                        <option value="opes">OPES (probability enhanced)</option>
-                                    </optgroup>
-                                    <optgroup label="Restraints &amp; walls">
-                                        <option value="restraint">Harmonic RESTRAINT (umbrella)</option>
-                                        <option value="moving">MOVINGRESTRAINT (steered MD)</option>
-                                        <option value="upper">UPPER_WALLS</option>
-                                        <option value="lower">LOWER_WALLS</option>
-                                        <option value="abmd">ABMD (ratchet)</option>
-                                    </optgroup>
-                                </select>
-                            </div>
-                            <div class="sg-grid">
-                                <div class="stk-field">
-                                    <label for="plumedTemp">TEMP (K) <span class="plumed-help" tabindex="0" data-tip="System temperature (K), written as TEMP for the methods that take one (well-tempered and parallel-bias metadynamics, OPES). A TEMP typed in the method parameters below overrides it for that method.">?</span></label>
-                                    <input type="text" id="plumedTemp" value="300" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
-                                </div>
-                                <div class="stk-field">
-                                    <label for="plumedStride">Default STRIDE <span class="plumed-help" tabindex="0" data-tip="Fallback deposition and print frequency (in steps) used when a method or the PRINT card does not specify its own.">?</span></label>
-                                    <input type="text" id="plumedStride" value="500" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
-                                </div>
-                            </div>
-                            <div class="sg-option">
-                                <p class="stk-group-t">Method parameters</p>
-                                <div id="plumedBiasParams"></div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Units -->
-                    <section class="stk-panel" aria-labelledby="unitsTitle">
-                        <div class="stk-panel-h">
-                            <h2 class="stk-panel-t" id="unitsTitle"><i class="fa-solid fa-ruler"></i> Units</h2>
-                        </div>
-                        <div class="stk-panel-b sg-form">
+                            <p class="stk-hint" id="plumedVersionNote"></p>
                             <div class="sg-grid sg-grid-3">
                                 <div class="stk-field">
                                     <label for="plumedUnitLength">Length <span class="plumed-help" tabindex="0" data-tip="Length unit for all values in the PLUMED input. Default nm. A UNITS line is written only when you change a unit from its default.">?</span></label>
@@ -612,16 +572,57 @@
                                 </div>
                             </div>
                             <p class="stk-hint">PLUMED defaults to <code>nm</code>, <code>kJ/mol</code>, <code>ps</code>. A <code>UNITS</code> line is written only when you change one; every length and energy you type (R_0, D_MAX, HEIGHT, KAPPA) must then be in the chosen units.</p>
+
+                            <div class="sg-option sg-grid">
+                                <div class="stk-field">
+                                    <label for="plumedMolinfo">MOLINFO structure <span class="plumed-help" tabindex="0" data-tip="A PDB used only to enable @-shortcuts like @backbone or @phi-2, and the residue selections of the secondary-structure CVs. It does not load index groups; use a GROUP with NDX_FILE/NDX_GROUP for that.">?</span></label>
+                                    <input type="text" id="plumedMolinfo" value="" placeholder="optional, e.g. reference.pdb" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                </div>
+                                <div class="stk-field">
+                                    <label for="plumedNatoms">Atoms in the system <span class="plumed-help" tabindex="0" data-tip="Optional. With the number of atoms known, every atom list is checked against it, and the check command under the file is complete.">?</span></label>
+                                    <input type="text" id="plumedNatoms" value="" placeholder="optional, e.g. 11655" inputmode="numeric" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                </div>
+                            </div>
+
+                            <div class="sg-option">
+                                <div class="stk-switch-row">
+                                    <span id="plumedWholeLabel">Rebuild whole molecules (<code>WHOLEMOLECULES</code>) <span class="plumed-help" tabindex="0" data-tip="Emits a WHOLEMOLECULES line before the CVs so PLUMED reconstructs molecules split across periodic boundaries. Required (except with TYPE=DRMSD) for CVs like ALPHARMSD/PARABETARMSD on codes such as GROMACS. Placed before the CVs so they see the corrected coordinates.">?</span></span>
+                                    <button type="button" id="plumedWhole" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="plumedWholeLabel"></button>
+                                </div>
+                                <div id="plumedWholeWrap" class="sg-form" hidden>
+                                    <div class="stk-field">
+                                        <label for="plumedWholeEntities">Entities, one atom list per line</label>
+                                        <textarea id="plumedWholeEntities" rows="2" placeholder="1-100&#10;101-150" class="stk-textarea stk-mono" spellcheck="false"></textarea>
+                                    </div>
+                                    <label class="stk-check"><input type="checkbox" id="plumedWholeResidues"> <span>Use <code>RESIDUES=all MOLTYPE=protein</code> instead (needs MOLINFO)</span></label>
+                                    <p class="stk-hint">Written once, right after <code>MOLINFO</code> and before the CVs. Each line becomes <code>ENTITY0</code>, <code>ENTITY1</code>, &hellip; Not needed if the secondary-structure CVs all use <code>TYPE=DRMSD</code>.</p>
+                                </div>
+                            </div>
+
+                            <div class="sg-option">
+                                <div class="stk-switch-row">
+                                    <span id="plumedRestartLabel">Continue an earlier run (<code>RESTART</code>) <span class="plumed-help" tabindex="0" data-tip="PLUMED then appends to HILLS, COLVAR and the other outputs and reads the hills already deposited. Without it a continued run starts a new bias and moves the old files aside. Switch it on only for the continuation, with the files of the first part in place.">?</span></span>
+                                    <button type="button" id="plumedRestart" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="plumedRestartLabel"></button>
+                                </div>
+                            </div>
+
+                            <div class="sg-option sg-grid">
+                                <div class="stk-field">
+                                    <label for="plumedLoad">Code to load (<code>LOAD</code>) <span class="plumed-help" tabindex="0" data-tip="Source files or shared libraries that add actions to PLUMED, one per line, e.g. PairEntropy.cpp. Use an action they add through the Custom entry of the variable list. PLUMED compiles a .cpp file as it starts, so the run machine needs the compiler.">?</span></label>
+                                    <textarea id="plumedLoad" rows="2" placeholder="optional, one file per line" class="stk-textarea stk-mono" spellcheck="false"></textarea>
+                                </div>
+                                <div class="stk-field">
+                                    <label for="plumedInclude">Files to include (<code>INCLUDE</code>) <span class="plumed-help" tabindex="0" data-tip="Other PLUMED files read in place, one per line: a long list of groups or centres kept apart from the main input. Labels they define can be used below; they are not checked, since the page cannot see the file.">?</span></label>
+                                    <textarea id="plumedInclude" rows="2" placeholder="optional, e.g. centers.dat" class="stk-textarea stk-mono" spellcheck="false"></textarea>
+                                </div>
+                            </div>
                         </div>
                     </section>
 
                     <!-- CV builder -->
-                    <section class="stk-panel" aria-labelledby="cvTitle" data-stk-step="2" data-stk-done="visible:#plumedCVList > div">
+                    <section class="stk-panel" aria-labelledby="cvTitle" data-stk-step="1" data-stk-done="visible:#plumedCVList .sg-cv">
                         <div class="stk-panel-h">
-                            <h2 class="stk-panel-t" id="cvTitle"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Add collective variables</h2>
-                            <span class="sg-panel-tools">
-                                <label class="sg-inline-select">PLUMED <select id="plumedVersion" class="stk-select stk-select-sm stk-mono"><option value="2.9">2.9</option><option value="2.10">2.10</option><option value="2.11">2.11</option></select></label>
-                            </span>
+                            <h2 class="stk-panel-t" id="cvTitle"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1: </span>Add collective variables</h2>
                         </div>
                         <div class="stk-panel-b sg-form">
                             <div class="sg-grid">
@@ -633,7 +634,7 @@
                                         <option value="contacts">Coordination &amp; contacts</option>
                                         <option value="shape">Shape &amp; gyration</option>
                                         <option value="rmsd">RMSD &amp; path</option>
-                                        <option value="position">Position &amp; cell</option>
+                                        <option value="position">Atoms, position &amp; cell</option>
                                         <option value="nucleic">Nucleic-acid / sugar</option>
                                         <option value="order">Structure / order parameters</option>
                                         <option value="energy">Energy &amp; electrostatics</option>
@@ -645,46 +646,80 @@
                                     <select id="plumedCVSelect" class="stk-select"></select>
                                 </div>
                             </div>
-                            <p id="plumedCVDesc" class="stk-hint min-h-[2.2em]"></p>
-                            <button type="button" id="plumedAddCV" class="stk-btn stk-btn-primary w-full"><i class="fa-solid fa-plus"></i> Add collective variable</button>
+                            <p id="plumedCVDesc" class="stk-hint sg-cv-desc"></p>
+                            <button type="button" id="plumedAddCV" class="stk-btn stk-btn-primary sg-btn-block"><i class="fa-solid fa-plus"></i> Add collective variable</button>
                             <div id="plumedCVList" class="sg-cv-list"></div>
-                            <div class="sg-option stk-field">
-                                <label for="plumedMolinfo">MOLINFO reference structure <span class="plumed-help" tabindex="0" data-tip="A PDB used only to enable @-shortcuts like @backbone or @phi-2. It does not load index groups; use a GROUP CV with NDX_FILE/NDX_GROUP for that.">?</span></label>
-                                <input type="text" id="plumedMolinfo" value="" placeholder="optional, e.g. reference.pdb" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
-                                <p class="stk-hint">One <code>MOLINFO</code> applies to the whole file and is written once, before the CVs. It is only needed for <code>@</code>-shortcuts such as <code>@phi-2</code> or <code>@backbone</code>. To pull atoms from an index file, add a <strong>GROUP</strong> CV and set its <code>NDX_FILE</code> and <code>NDX_GROUP</code> instead.</p>
-                            </div>
-                            <div class="sg-option">
-                                <div class="stk-switch-row">
-                                    <span id="plumedWholeLabel">Rebuild whole molecules (<code>WHOLEMOLECULES</code>) <span class="plumed-help" tabindex="0" data-tip="Emits a WHOLEMOLECULES line before the CVs so PLUMED reconstructs molecules split across periodic boundaries. Required (except with TYPE=DRMSD) for CVs like ALPHARMSD/PARABETARMSD on codes such as GROMACS. Placed before the CVs so they see the corrected coordinates.">?</span></span>
-                                    <button type="button" id="plumedWhole" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="plumedWholeLabel"></button>
-                                </div>
-                                <div id="plumedWholeWrap" class="sg-form" hidden>
-                                    <div class="stk-field">
-                                        <label for="plumedWholeEntities">Entities (one per line, or use RESIDUES=all)</label>
-                                        <textarea id="plumedWholeEntities" rows="2" placeholder="1-100&#10;30-40" class="stk-textarea stk-mono" spellcheck="false"></textarea>
-                                    </div>
-                                    <label class="stk-check"><input type="checkbox" id="plumedWholeResidues"> <span>Use <code>RESIDUES=all MOLTYPE=protein</code> instead (needs MOLINFO)</span></label>
-                                    <p class="stk-hint">Written once, right after <code>MOLINFO</code> and before the CVs. Each non-empty line becomes <code>ENTITY0</code>, <code>ENTITY1</code>, &hellip; Not needed if the secondary-structure CVs all use <code>TYPE=DRMSD</code>.</p>
-                                </div>
-                            </div>
                         </div>
                     </section>
 
-                    <!-- Speed optimisation -->
-                    <section class="stk-panel" aria-labelledby="speedTitle">
+                    <!-- Functions -->
+                    <section class="stk-panel" aria-labelledby="fnTitle">
                         <div class="stk-panel-h">
-                            <h2 class="stk-panel-t" id="speedTitle"><i class="fa-solid fa-gauge-high"></i> Speed</h2>
+                            <h2 class="stk-panel-t" id="fnTitle"><i class="fa-solid fa-square-root-variable"></i> Functions of the variables</h2>
                         </div>
                         <div class="stk-panel-b sg-form">
-                            <label class="stk-check sg-check-block"><input type="checkbox" id="plumedGrid" checked> <span><strong>Store the bias on a grid</strong> (<code>GRID_MIN/MAX/BIN</code>). Essential for metadynamics speed: the cost stays flat as hills accumulate. Bounds default to the CV type.</span></label>
-                            <label class="stk-check sg-check-block"><input type="checkbox" id="plumedRct"> <span><strong>On-the-fly reweighting</strong> (<code>CALC_RCT</code>, <code>RCT_USTRIDE=10</code>) computes c(t); a stride above 1 keeps it cheap. Requires a grid.</span></label>
-                            <div class="sg-option stk-field">
-                                <label for="plumedWalkersMode">Multiple walkers <span class="plumed-help" tabindex="0" data-tip="Several simulations share one growing bias, so the free-energy surface converges faster. MPI mode couples replicas launched in one multi-replica job (mpirun -np N ... -multi, or GROMACS -multidir) and needs an MPI-enabled PLUMED. Shared-directory mode instead has each walker write hills to a shared directory and periodically read the others; it works for independent jobs and for engines such as ASE.">?</span></label>
-                                <select id="plumedWalkersMode" class="stk-select">
-                                    <option value="none">Off (single walker)</option>
-                                    <option value="mpi">MPI (WALKERS_MPI), one multi-replica job</option>
-                                    <option value="disk">Shared directory (WALKERS_N/ID/DIR), independent jobs</option>
+                            <p class="stk-hint">Optional. A function combines values defined above into a new one, which is printed and can be biased like any variable: a weighted sum fitted by a dimensionality-reduction method, or the difference of two distances.</p>
+                            <div class="sg-addrow">
+                                <select id="plumedFnType" class="stk-select" aria-label="Function to add"></select>
+                                <button type="button" id="plumedAddFn" class="stk-btn"><i class="fa-solid fa-plus"></i> Add function</button>
+                            </div>
+                            <div id="plumedFnList" class="sg-cv-list"></div>
+                        </div>
+                    </section>
+
+                    <!-- Bias method -->
+                    <section class="stk-panel" aria-labelledby="biasTitle" data-stk-step="2" data-stk-done="filled:#plumedBias">
+                        <div class="stk-panel-h">
+                            <h2 class="stk-panel-t" id="biasTitle"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Choose the bias and sampling method</h2>
+                        </div>
+                        <div class="stk-panel-b sg-form">
+                            <div class="stk-field">
+                                <label for="plumedBias">Method <span class="plumed-help" tabindex="0" data-tip="The enhanced-sampling or restraint method applied to the variables and functions marked Bias. Its editable parameters appear below.">?</span></label>
+                                <select id="plumedBias" class="stk-select">
+                                    <optgroup label="None">
+                                        <option value="none">None (track CVs only)</option>
+                                    </optgroup>
+                                    <optgroup label="Free energy (metadynamics)">
+                                        <option value="metad">Metadynamics (standard)</option>
+                                        <option value="wt_metad" selected>Well-Tempered Metadynamics</option>
+                                        <option value="pbmetad">Parallel-Bias Metadynamics (PBMETAD)</option>
+                                        <option value="opes">OPES (probability enhanced)</option>
+                                    </optgroup>
+                                    <optgroup label="Restraints &amp; walls">
+                                        <option value="restraint">Harmonic RESTRAINT (umbrella)</option>
+                                        <option value="moving">MOVINGRESTRAINT (steered MD)</option>
+                                        <option value="upper">UPPER_WALLS</option>
+                                        <option value="lower">LOWER_WALLS</option>
+                                        <option value="abmd">ABMD (ratchet)</option>
+                                    </optgroup>
                                 </select>
+                            </div>
+                            <div class="sg-grid">
+                                <div class="stk-field">
+                                    <label for="plumedTemp">TEMP (K) <span class="plumed-help" tabindex="0" data-tip="System temperature (K), written as TEMP for the methods that take one (well-tempered and parallel-bias metadynamics, OPES). A TEMP typed in the method parameters below overrides it for that method.">?</span></label>
+                                    <input type="text" id="plumedTemp" value="300" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                </div>
+                                <div class="stk-field">
+                                    <label for="plumedStride">Default STRIDE <span class="plumed-help" tabindex="0" data-tip="Fallback deposition and print frequency (in steps) used when a method or an output does not specify its own.">?</span></label>
+                                    <input type="text" id="plumedStride" value="500" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                </div>
+                            </div>
+                            <div class="sg-option">
+                                <p class="stk-group-t">Method parameters</p>
+                                <div id="plumedBiasParams"></div>
+                            </div>
+                            <div class="sg-option" id="plumedSpeedWrap">
+                                <p class="stk-group-t">Speed and replicas</p>
+                                <label class="stk-check sg-check-block"><input type="checkbox" id="plumedGrid" checked> <span><strong>Store the bias on a grid</strong> (<code>GRID_MIN/MAX/BIN</code>). Essential for metadynamics speed: the cost stays flat as hills accumulate. The bounds are set on each biased variable.</span></label>
+                                <label class="stk-check sg-check-block"><input type="checkbox" id="plumedRct"> <span><strong>On-the-fly reweighting</strong> (<code>CALC_RCT</code>, <code>RCT_USTRIDE=10</code>) computes c(t); a stride above 1 keeps it cheap. Requires a grid.</span></label>
+                                <div class="stk-field">
+                                    <label for="plumedWalkersMode">Multiple walkers <span class="plumed-help" tabindex="0" data-tip="Several simulations share one growing bias, so the free-energy surface converges faster. MPI mode couples replicas launched in one multi-replica job (GROMACS -multidir) and needs an MPI-enabled PLUMED. Shared-directory mode instead has each walker write hills to a shared directory and periodically read the others; it works for independent jobs.">?</span></label>
+                                    <select id="plumedWalkersMode" class="stk-select">
+                                        <option value="none">Off (single walker)</option>
+                                        <option value="mpi">MPI (WALKERS_MPI), one multi-replica job</option>
+                                        <option value="disk">Shared directory (WALKERS_N/ID/DIR), independent jobs</option>
+                                    </select>
+                                </div>
                                 <div id="plumedWalkersDisk" class="sg-form" hidden>
                                     <div class="sg-grid">
                                         <div class="stk-field">
@@ -692,7 +727,7 @@
                                             <input type="text" id="plumedWalkersN" value="4" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                                         </div>
                                         <div class="stk-field">
-                                            <label for="plumedWalkersId">WALKERS_ID <span class="plumed-help" tabindex="0" data-tip="This walker's index, starting from 0. Each walker needs a different id, so in a job array this is normally driven by the array index variable.">?</span></label>
+                                            <label for="plumedWalkersId">WALKERS_ID <span class="plumed-help" tabindex="0" data-tip="The index of the walker this file is for, starting from 0. The run files write one input per walker, each with its own id.">?</span></label>
                                             <input type="text" id="plumedWalkersId" value="0" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                                         </div>
                                         <div class="stk-field">
@@ -704,33 +739,43 @@
                                             <input type="text" id="plumedWalkersRstride" value="100" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                                         </div>
                                     </div>
-                                    <p class="stk-hint">Every walker must share the same <code>WALKERS_DIR</code> and use a different <code>WALKERS_ID</code> (0, 1, 2, &hellip;). In a job array set the id from the array index, e.g. <code>${SLURM_ARRAY_TASK_ID}</code>. Not supported by OPES; use MPI mode there.</p>
+                                    <p class="stk-hint">Every walker must share the same <code>WALKERS_DIR</code> and use a different <code>WALKERS_ID</code> (0, 1, 2, &hellip;). Not supported by OPES; use MPI mode there.</p>
                                 </div>
+                                <p class="stk-hint">For <code>COORDINATION</code>, also set <code>D_MAX</code>, or enable <code>NLIST</code> with a tuned <code>NL_CUTOFF</code> and <code>NL_STRIDE</code>, on the variable itself. See the method notes below.</p>
                             </div>
-                            <p class="stk-hint">For <code>COORDINATION</code>, also enable <code>NLIST</code> with a tuned <code>NL_CUTOFF</code> and <code>NL_STRIDE</code> on the CV itself. See the method notes below.</p>
+                        </div>
+                    </section>
+
+                    <!-- Restraints and walls -->
+                    <section class="stk-panel" aria-labelledby="restraintTitle">
+                        <div class="stk-panel-h">
+                            <h2 class="stk-panel-t" id="restraintTitle"><i class="fa-solid fa-border-top-left"></i> Walls and restraints</h2>
+                        </div>
+                        <div class="stk-panel-b sg-form">
+                            <p class="stk-hint">Optional, and in addition to the method above. A wall keeps the run inside the region of interest: an upper wall on a distance stops a ligand from leaving for the bulk while metadynamics acts on the same distance.</p>
+                            <div class="sg-addrow">
+                                <select id="plumedRestraintType" class="stk-select" aria-label="Restraint to add">
+                                    <option value="upper">Upper wall (UPPER_WALLS)</option>
+                                    <option value="lower">Lower wall (LOWER_WALLS)</option>
+                                    <option value="restraint">Harmonic restraint (RESTRAINT)</option>
+                                </select>
+                                <button type="button" id="plumedAddRestraint" class="stk-btn"><i class="fa-solid fa-plus"></i> Add</button>
+                            </div>
+                            <div id="plumedRestraintList" class="sg-cv-list"></div>
                         </div>
                     </section>
 
                     <!-- PRINT / output -->
                     <section class="stk-panel" aria-labelledby="printTitle">
                         <div class="stk-panel-h">
-                            <h2 class="stk-panel-t" id="printTitle"><i class="fa-solid fa-file-lines"></i> PRINT output</h2>
+                            <h2 class="stk-panel-t" id="printTitle"><i class="fa-solid fa-file-lines"></i> Output files</h2>
                         </div>
                         <div class="stk-panel-b sg-form">
-                            <div class="sg-grid">
-                                <div class="stk-field">
-                                    <label for="plumedPrintFile">Output file <span class="plumed-help" tabindex="0" data-tip="Name of the COLVAR-style file the PRINT action writes the selected quantities to.">?</span></label>
-                                    <input type="text" id="plumedPrintFile" value="COLVAR" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
-                                </div>
-                                <div class="stk-field">
-                                    <label for="plumedPrintStride">Print STRIDE <span class="plumed-help" tabindex="0" data-tip="How often (in steps) values are written to the output file. Larger means smaller files and coarser time resolution.">?</span></label>
-                                    <input type="text" id="plumedPrintStride" value="500" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
-                                </div>
-                            </div>
-                            <div class="stk-field">
-                                <label for="plumedPrintExtra">Extra quantities to print <span class="plumed-help" tabindex="0" data-tip="Additional components to append to the PRINT ARG list (comma- or space-separated), e.g. metad.rbias or a CV component like cn.morethan.">?</span></label>
-                                <input type="text" id="plumedPrintExtra" value="" placeholder="e.g. metad.rbias, cn.morethan" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
-                                <p class="stk-hint">All CV labels and the active bias components are printed automatically. Anything added here is appended to the <code>PRINT ARG</code> list.</p>
+                            <div id="plumedPrintList" class="sg-cv-list"></div>
+                            <button type="button" id="plumedAddPrint" class="stk-btn stk-btn-sm sg-btn-start"><i class="fa-solid fa-plus"></i> Add another output file</button>
+                            <div class="sg-option stk-field">
+                                <label for="plumedFlush">Flush the files every (steps) <span class="plumed-help" tabindex="0" data-tip="Writes FLUSH STRIDE, so that the output files on disk are complete up to the last multiple of this many steps. Useful when a job may be killed at its wall time. Leave blank for the PLUMED default.">?</span></label>
+                                <input type="text" id="plumedFlush" value="" placeholder="optional, e.g. 10000" inputmode="numeric" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
                             </div>
                         </div>
                     </section>

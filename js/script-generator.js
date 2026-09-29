@@ -991,7 +991,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (Object.prototype.hasOwnProperty.call(fields, el.id)) setFieldValue(el, fields[el.id]);
         });
 
-        plumedTab.restore(data.plumed);
+        plumedTab.restore(data.plumed, fields);
 
         manualOverride = isChecked('topAdvancedToggle');
         if (!manualOverride) applyForcefieldPreset();
