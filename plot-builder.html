@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <title>Publication Plot Builder | Layer & Export SVG | STEMKit</title>
-    <meta name="title" content="Publication Plot Builder | Layer & Export SVG | STEMKit">
-    <meta name="description" content="Build publication-ready plots in your browser: layer several CSV datasets, set axes and size, and export SVG or high-resolution PNG without code.">
+    <title>Publication Plot Builder | CSV to PDF, SVG &amp; Python | STEMKit</title>
+    <meta name="title" content="Publication Plot Builder | CSV to PDF, SVG &amp; Python | STEMKit">
+    <meta name="description" content="Build publication-ready plots in your browser: layer columns from several CSV files as lines, points, error bars or bands, set the size for a journal, and export PDF, SVG or PNG with the matplotlib script that draws it.">
     <meta name="keywords" content="scientific plotting, multi-dataset graph, browser originlab alternative, plotly csv, export svg plot, STEMKit graphing">
     
     <link rel="canonical" href="https://stemkit.net/plot-builder.html">
@@ -29,7 +29,7 @@
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "Vector SVG Export", "Multi-dataset Layering", "Custom Axis Scaling", "100% Client-Side Rendering" ]
+            "featureList": [ "PDF, SVG and PNG export at the exact size", "Several CSV files in one figure", "Error bars, bands and stacked panels", "Matplotlib script that reads your CSV files", "100% client-side" ]
         }
     </script>
     
@@ -67,11 +67,12 @@
 
     <link rel="stylesheet" href="css/all.min.css">
     
-    <script defer src="js/dependencies/papaparse.min.js"></script>
     <script defer src="js/dependencies/plotly.min.js"></script>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tools/figure.css">
+    <link rel="stylesheet" href="src/tools/python-panel.css">
     <link rel="stylesheet" href="src/tools/plot-builder.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300 overflow-x-hidden">
@@ -79,7 +80,7 @@
     <a href="#main" class="stk-skip">Skip to content</a>
 
     <nav class="sticky top-0 z-50 w-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-300 flex-shrink-0" aria-label="Site">
-        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center gap-4 h-16 sm:h-20">
                 <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity" aria-label="STEMKit home">
                     <svg class="stk-logo" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><rect width="32" height="32" rx="7.5"/><path d="M16 5.2 25.35 10.6v10.8L16 26.8 6.65 21.4V10.6ZM16.8 8.9l4.96 2.87M21.76 20.23 16.8 23.1M9.46 18.87v-5.74"/></svg>
@@ -129,285 +130,125 @@
     </nav>
 
     <div class="flex-grow w-full flex flex-col relative">
-        <main id="main" class="stk-shell pb-shell flex-grow max-w-[1600px] mx-auto px-4 py-6 w-full flex flex-col lg:flex-row gap-6">
-            <h1 class="sr-only">Plot Builder</h1>
+        <main id="main" class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col">
 
-            <aside class="stk-shell-pane pb-pane w-full lg:w-[450px] flex flex-col gap-5 lg:pr-2 pb-8 flex-shrink-0" aria-label="Figure settings">
+            <header class="stk-pagehead">
+                <div>
+                    <h1 class="stk-pagehead-title">Plot Builder</h1>
+                    <p class="stk-pagehead-lede">Plot columns from one or more CSV files as lines, points, error bars or shaded bands, style the figure for a journal, and save it as PDF, PNG or SVG at the exact size you set, with the matplotlib script that draws it.</p>
+                    <ul class="stk-pagehead-meta">
+                        <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser; your files stay on this machine</li>
+                        <li><i class="fa-brands fa-python" aria-hidden="true"></i> The script reads your CSV files by column name</li>
+                        <li><a href="#sizes"><i class="fa-solid fa-ruler-combined" aria-hidden="true"></i> How sizes work</a></li>
+                    </ul>
+                </div>
+                <div class="stk-pagehead-actions">
+                    <button type="button" id="pbExample" class="stk-btn stk-btn-sm"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load an example</button>
+                    <button type="button" id="pbReset" class="stk-btn stk-btn-sm stk-btn-ghost" title="Remove the files and series, reset the plot style, and forget the style this page saved"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset</button>
+                </div>
+            </header>
 
-                <section class="pb-panel" data-stk-step="1" data-stk-done="text:#fileInventory" aria-labelledby="pb-s1">
-                    <h2 id="pb-s1" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1: </span>Add data</h2>
+            <div id="pbToasts" class="stk-toasts" aria-live="polite"></div>
 
-                    <div id="uploadZone" class="stk-drop stk-drop-sm">
-                        <input type="file" id="fileInput" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" multiple hidden>
-                        <span class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-file-csv"></i></span>
-                        <h3 class="stk-drop-title">Drop CSV files here</h3>
-                        <p class="stk-drop-text">A header row, then columns of numbers.</p>
-                        <div class="stk-drop-actions">
-                            <button type="button" id="chooseFileBtn" class="stk-btn stk-btn-sm stk-btn-primary"><i class="fa-solid fa-folder-open" aria-hidden="true"></i> Choose files</button>
-                            <button type="button" id="loadSampleBtn" class="stk-btn stk-btn-sm stk-btn-ghost" data-pb-sample><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load example</button>
+            <div id="pbWorkspace" class="pb-ws">
+                <div class="pb-top">
+
+                    <!-- Inputs: files, series, the plot's style -->
+                    <aside id="pbRail" class="pb-rail" aria-label="Files, series and plot style">
+                        <div class="stk-tabs pb-tabs" role="tablist" aria-label="Inputs">
+                            <button type="button" role="tab" id="pbTabData" class="stk-tab pb-tab" data-tab="data" aria-controls="pbData" aria-selected="true"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span>Data</span><span id="pbTabDataInfo" class="pb-tab-info stk-tnum"></span></button>
+                            <button type="button" role="tab" id="pbTabSeries" class="stk-tab pb-tab" data-tab="series" aria-controls="pbSeries" aria-selected="false" tabindex="-1"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span>Series</span><span id="pbTabSeriesInfo" class="pb-tab-info stk-tnum"></span></button>
+                            <button type="button" role="tab" id="pbTabStyle" class="stk-tab pb-tab" data-tab="style" aria-controls="pbStyle" aria-selected="false" tabindex="-1"><i class="fa-solid fa-sliders pb-tab-icon" aria-hidden="true"></i><span>Style</span></button>
                         </div>
-                        <p class="stk-drop-formats"><span>.csv</span><span>.tsv</span><span>.txt</span></p>
-                    </div>
 
-                    <ul id="fileInventory" class="pb-files" aria-label="Loaded files"></ul>
-                </section>
-
-                <section class="pb-panel" data-stk-step="2" data-stk-done="text:#traceList" aria-labelledby="pb-s2">
-                    <div class="pb-panel-h">
-                        <h2 id="pb-s2" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Traces</h2>
-                        <button type="button" id="addTraceBtn" class="stk-btn stk-btn-sm stk-btn-soft" disabled><i class="fa-solid fa-plus" aria-hidden="true"></i> Add trace</button>
-                    </div>
-                    <p id="traceEmpty" class="pb-note">Each trace plots one column against another. The first is drawn as soon as a file loads.</p>
-                    <div id="traceList" class="pb-traces"></div>
-                </section>
-
-                <section class="pb-panel" data-stk-step="3" data-stk-done="text:#exportStatus" aria-labelledby="pb-s3">
-                    <h2 id="pb-s3" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 3: </span>Style and export</h2>
-
-                    <div class="stk-group">
-                        <h3 class="stk-group-t">Labels</h3>
-                        <div class="stk-field">
-                            <label for="plotTitle">Title</label>
-                            <input type="text" id="plotTitle" class="stk-input stk-input-sm" placeholder="None" autocomplete="off">
-                        </div>
-                        <div class="pb-grid2">
-                            <div class="stk-field">
-                                <label for="xAxisLabel">X-axis label</label>
-                                <input type="text" id="xAxisLabel" class="stk-input stk-input-sm" placeholder="Column name" autocomplete="off">
+                        <section id="pbData" class="pb-pane" role="tabpanel" aria-labelledby="pbTabData" tabindex="-1">
+                            <div class="pb-pane-h">
+                                <p class="pb-pane-lede">Tables with a header row, one or several.</p>
+                                <div class="pb-h-actions">
+                                    <button type="button" id="pbOpenFiles" class="stk-btn stk-btn-sm"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Open files</button>
+                                    <input type="file" id="pbFile" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" multiple hidden>
+                                </div>
                             </div>
-                            <div class="stk-field">
-                                <label for="yAxisLabel">Y-axis label</label>
-                                <input type="text" id="yAxisLabel" class="stk-input stk-input-sm" placeholder="Column name" autocomplete="off">
+                            <div id="pbDrop" class="stk-drop stk-drop-sm pb-drop" aria-labelledby="pbDropTitle">
+                                <span class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-file-csv"></i></span>
+                                <h3 id="pbDropTitle" class="stk-drop-title">Drop CSV files here</h3>
+                                <p class="stk-drop-text">A header row naming the columns, then rows of numbers, separated by commas, tabs or semicolons.</p>
+                                <p class="stk-drop-formats"><span>.csv</span><span>.tsv</span><span>.txt</span></p>
                             </div>
-                        </div>
-                        <p class="stk-hint">Blank axis labels use the column names. Write <code>OD&lt;sub&gt;600&lt;/sub&gt;</code> or <code>m&lt;sup&gt;2&lt;/sup&gt;</code> for sub- and superscripts.</p>
-                    </div>
+                            <ul id="pbFiles" class="pb-files" aria-label="Loaded files"></ul>
+                        </section>
 
-                    <div class="stk-group">
-                        <h3 class="stk-group-t">Figure size</h3>
-                        <div class="stk-field">
-                            <label for="sizePreset">Size</label>
-                            <select id="sizePreset" class="stk-select stk-select-sm">
-                                <option value="single" selected>Single column, 3.5 × 2.6 in</option>
-                                <option value="double">Double column, 7.2 × 4.5 in</option>
-                                <option value="slide">Slide 16:9, 10 × 5.625 in</option>
-                                <option value="square">Square, 4 × 4 in</option>
-                                <option value="custom">Custom</option>
-                            </select>
-                        </div>
-                        <div class="pb-grid3">
-                            <div class="stk-field">
-                                <label for="exportWidth">Width</label>
-                                <input type="number" id="exportWidth" class="stk-input stk-input-sm" value="3.5" min="0" step="any" inputmode="decimal">
+                        <section id="pbSeries" class="pb-pane" role="tabpanel" aria-labelledby="pbTabSeries" tabindex="-1" hidden>
+                            <div class="pb-pane-h">
+                                <p class="pb-pane-lede">Each series plots one column against another.</p>
+                                <button type="button" id="pbAddSeries" class="stk-btn stk-btn-sm" disabled><i class="fa-solid fa-plus" aria-hidden="true"></i> Add a series</button>
                             </div>
-                            <div class="stk-field">
-                                <label for="exportHeight">Height</label>
-                                <input type="number" id="exportHeight" class="stk-input stk-input-sm" value="2.6" min="0" step="any" inputmode="decimal">
-                            </div>
-                            <div class="stk-field">
-                                <label for="exportDpi">Resolution</label>
-                                <select id="exportDpi" class="stk-select stk-select-sm">
-                                    <option value="72">72 dpi</option>
-                                    <option value="150">150 dpi</option>
-                                    <option value="300" selected>300 dpi</option>
-                                    <option value="600">600 dpi</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="pb-segrow">
-                            <span id="unitLabel" class="stk-label-sm">Units</span>
-                            <div class="stk-seg" role="group" aria-labelledby="unitLabel" data-pb-seg="unit">
-                                <button type="button" data-value="in" aria-pressed="true">in</button>
-                                <button type="button" data-value="cm" aria-pressed="false">cm</button>
-                                <button type="button" data-value="mm" aria-pressed="false">mm</button>
-                                <button type="button" data-value="px" aria-pressed="false">px</button>
-                            </div>
-                        </div>
-                        <p id="sizeNote" class="stk-hint" aria-live="polite"></p>
-                    </div>
+                            <p id="pbSeriesEmpty" class="pb-pane-empty">Open a file on the <strong>Data</strong> tab, or load the example. Its first two columns of numbers are plotted at once.</p>
+                            <div id="pbSeriesList" class="pb-cards"></div>
+                        </section>
 
-                    <div class="stk-group">
-                        <h3 class="stk-group-t">Axes</h3>
-                        <div class="pb-axisrow">
-                            <span class="pb-axisname">X</span>
-                            <input type="number" id="xMin" class="stk-input stk-input-sm" placeholder="Auto" step="any" aria-label="X axis from">
-                            <span class="pb-to" aria-hidden="true">to</span>
-                            <input type="number" id="xMax" class="stk-input stk-input-sm" placeholder="Auto" step="any" aria-label="X axis to">
-                            <label class="stk-check"><input type="checkbox" id="xLogScale"> Log</label>
-                        </div>
-                        <div class="pb-axisrow">
-                            <span class="pb-axisname">Y</span>
-                            <input type="number" id="yMin" class="stk-input stk-input-sm" placeholder="Auto" step="any" aria-label="Y axis from">
-                            <span class="pb-to" aria-hidden="true">to</span>
-                            <input type="number" id="yMax" class="stk-input stk-input-sm" placeholder="Auto" step="any" aria-label="Y axis to">
-                            <label class="stk-check"><input type="checkbox" id="yLogScale"> Log</label>
-                        </div>
-                        <p id="rangeNote" class="stk-hint">Blank limits fit the data. Drag across the preview to zoom, double-click it to fit again.</p>
-                        <div class="pb-segrow">
-                            <span id="frameLabel" class="stk-label-sm">Frame</span>
-                            <div class="stk-seg" role="group" aria-labelledby="frameLabel" data-pb-seg="frame">
-                                <button type="button" data-value="box" aria-pressed="true">Box</button>
-                                <button type="button" data-value="open" aria-pressed="false">Open</button>
-                            </div>
-                        </div>
-                        <div class="pb-segrow">
-                            <span id="ticksLabel" class="stk-label-sm">Ticks</span>
-                            <div class="stk-seg" role="group" aria-labelledby="ticksLabel" data-pb-seg="ticks">
-                                <button type="button" data-value="inside" aria-pressed="true">Inside</button>
-                                <button type="button" data-value="outside" aria-pressed="false">Outside</button>
-                                <button type="button" data-value="" aria-pressed="false">None</button>
-                            </div>
-                        </div>
-                        <div class="pb-segrow">
-                            <span class="stk-label-sm">Grid</span>
-                            <div class="pb-checks">
-                                <label class="stk-check"><input type="checkbox" id="showGridX"> Vertical</label>
-                                <label class="stk-check"><input type="checkbox" id="showGridY"> Horizontal</label>
-                            </div>
-                        </div>
-                        <div class="stk-field" id="gridOpacityField">
-                            <div class="pb-slider-h"><label for="gridOpacity">Grid strength</label><span class="pb-val" aria-hidden="true"><span id="gridOpacityVal">50</span>%</span></div>
-                            <input id="gridOpacity" type="range" class="stk-range" min="10" max="100" step="5" value="50" data-unit="%">
-                        </div>
-                    </div>
+                        <section id="pbStyle" class="pb-pane pb-pane-style" role="tabpanel" aria-labelledby="pbTabStyle" tabindex="-1" hidden>
+                            <div id="pbStyleHost" class="pb-style-host"></div>
+                        </section>
+                    </aside>
 
-                    <div class="stk-group">
-                        <h3 class="stk-group-t">Legend</h3>
-                        <div class="stk-field">
-                            <label for="legendPosition">Position</label>
-                            <select id="legendPosition" class="stk-select stk-select-sm">
-                                <option value="top-left" selected>Inside, top left</option>
-                                <option value="top-right">Inside, top right</option>
-                                <option value="bottom-left">Inside, bottom left</option>
-                                <option value="bottom-right">Inside, bottom right</option>
-                                <option value="outside">Outside, right</option>
-                                <option value="hidden">No legend</option>
-                            </select>
-                        </div>
-                        <p class="stk-hint">A single trace needs no legend; it appears with the second.</p>
-                    </div>
-
-                    <div class="stk-group">
-                        <h3 class="stk-group-t">Text and lines</h3>
-                        <div class="pb-grid2">
-                            <div class="stk-field">
-                                <label for="fontFamily">Font</label>
-                                <select id="fontFamily" class="stk-select stk-select-sm">
-                                    <option value="arial" selected>Arial / Helvetica</option>
-                                    <option value="times">Times New Roman</option>
-                                    <option value="dejavu">DejaVu Sans</option>
-                                    <option value="courier">Courier New</option>
-                                </select>
-                            </div>
-                            <div class="stk-field">
-                                <span id="bgLabel" class="stk-label-sm">Background</span>
-                                <div class="stk-seg stk-seg-fill" role="group" aria-labelledby="bgLabel" data-pb-seg="background">
-                                    <button type="button" data-value="white" aria-pressed="true">White</button>
-                                    <button type="button" data-value="transparent" aria-pressed="false">None</button>
-                                    <button type="button" data-value="dark" aria-pressed="false">Dark</button>
+                    <!-- The figure, at its saved size -->
+                    <section id="pbPlot" class="pb-plot fg" aria-labelledby="pbPlotTitle">
+                        <div class="fg-h">
+                            <h2 id="pbPlotTitle" class="fg-t">Plot</h2>
+                            <span id="pbSize" class="fg-size stk-tnum" title="The size of the saved figure"></span>
+                            <div class="fg-actions">
+                                <label class="fg-toggle" id="pbLogXWrap" hidden><input type="checkbox" id="pbLogX"> <span>Log x</span></label>
+                                <label class="fg-toggle" id="pbLogYWrap" hidden><input type="checkbox" id="pbLogY"> <span>Log y</span></label>
+                                <button type="button" id="pbEditStyle" class="stk-btn stk-btn-sm stk-btn-ghost" data-fg-style><i class="fa-solid fa-sliders" aria-hidden="true"></i> Style</button>
+                                <div class="fg-export" role="group" aria-label="Export the figure">
+                                    <button type="button" class="stk-btn stk-btn-sm" data-export="pdf" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> PDF</button>
+                                    <button type="button" class="stk-btn stk-btn-sm" data-export="png" disabled>PNG</button>
+                                    <button type="button" class="stk-btn stk-btn-sm" data-export="svg" disabled>SVG</button>
                                 </div>
                             </div>
                         </div>
-                        <div class="pb-grid2 pb-sliders">
-                            <div class="stk-field">
-                                <div class="pb-slider-h"><label for="titleSize">Title</label><span class="pb-val" aria-hidden="true"><span id="titleSizeVal">10</span> pt</span></div>
-                                <input id="titleSize" type="range" class="stk-range" min="6" max="28" step="0.5" value="10" data-unit="pt">
+                        <div class="fg-stage">
+                            <div id="pbPlotEmpty" class="fg-empty">
+                                <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                                <p class="fg-empty-title">Your figure will appear here</p>
+                                <p class="fg-empty-text">Open a CSV file on the left, or load the example. The preview is the figure at the size it will be saved, and redraws as you change anything.</p>
+                                <button type="button" id="pbTryExample" class="stk-btn stk-btn-sm"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load an example</button>
                             </div>
-                            <div class="stk-field">
-                                <div class="pb-slider-h"><label for="axisSize">Axis labels</label><span class="pb-val" aria-hidden="true"><span id="axisSizeVal">9</span> pt</span></div>
-                                <input id="axisSize" type="range" class="stk-range" min="5" max="24" step="0.5" value="9" data-unit="pt">
-                            </div>
-                            <div class="stk-field">
-                                <div class="pb-slider-h"><label for="tickSize">Tick labels</label><span class="pb-val" aria-hidden="true"><span id="tickSizeVal">8</span> pt</span></div>
-                                <input id="tickSize" type="range" class="stk-range" min="5" max="20" step="0.5" value="8" data-unit="pt">
-                            </div>
-                            <div class="stk-field">
-                                <div class="pb-slider-h"><label for="legendSize">Legend</label><span class="pb-val" aria-hidden="true"><span id="legendSizeVal">8</span> pt</span></div>
-                                <input id="legendSize" type="range" class="stk-range" min="5" max="20" step="0.5" value="8" data-unit="pt">
-                            </div>
-                            <div class="stk-field">
-                                <div class="pb-slider-h"><label for="lineWidth">Line width</label><span class="pb-val" aria-hidden="true"><span id="lineWidthVal">1.25</span> pt</span></div>
-                                <input id="lineWidth" type="range" class="stk-range" min="0.25" max="6" step="0.25" value="1.25" data-unit="pt">
-                            </div>
-                            <div class="stk-field">
-                                <div class="pb-slider-h"><label for="markerSize">Marker size</label><span class="pb-val" aria-hidden="true"><span id="markerSizeVal">4</span> pt</span></div>
-                                <input id="markerSize" type="range" class="stk-range" min="1" max="16" step="0.5" value="4" data-unit="pt">
-                            </div>
+                            <div id="pbFigure" class="fg-figure" hidden></div>
                         </div>
-                        <p class="stk-hint">Sizes are in points at the printed size, as a journal asks for them: 7 to 9 pt for text in a single-column figure.</p>
-                    </div>
-                </section>
-
-            </aside>
-
-            <section class="stk-shell-main pb-view flex-grow" aria-labelledby="pb-view-h">
-                <div class="pb-view-h">
-                    <div class="pb-view-t">
-                        <h2 id="pb-view-h" class="stk-ptitle">Preview</h2>
-                        <p id="sizeReadout" class="pb-readout">3.5 × 2.6 in · 300 dpi · 1050 × 780 px</p>
-                    </div>
-                    <div class="pb-actions">
-                        <button type="button" id="copyPyBtn" class="stk-btn stk-btn-sm" disabled title="A matplotlib script that draws this figure"><i class="fa-brands fa-python" aria-hidden="true"></i> <span>Python<span class="pb-long"> script</span></span></button>
-                        <button type="button" id="downloadSvgBtn" class="stk-btn stk-btn-sm" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> <span><span class="pb-long">Download </span>SVG</span></button>
-                        <button type="button" id="downloadPngBtn" class="stk-btn stk-btn-sm stk-btn-primary" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> <span><span class="pb-long">Download </span>PNG</span></button>
-                    </div>
+                        <div id="pbPlotNotes" class="fg-notes" hidden></div>
+                        <p id="pbHint" class="pb-hint" hidden>Drag across the plot to zoom in; double-click it to fit the data again. Point at the data to read its values.</p>
+                    </section>
                 </div>
 
-                <div id="pbStage" class="pb-stage">
-                    <div id="pbSheet" class="pb-sheet is-empty">
-                        <div class="pb-plotwrap" data-stk-reveal><div id="plotlyCanvas" class="pb-plot" role="img" aria-label="Figure preview"></div></div>
-                        <div id="emptyPlotState" class="pb-emptyfig">
-                            <span class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-chart-line"></i></span>
-                            <p class="pb-emptyfig-t">Your figure appears here</p>
-                            <p class="pb-emptyfig-s">This frame is the figure at its export size, <span data-pb-size>3.5 × 2.6 in</span>, scaled to fit. It redraws as you change anything.</p>
-                            <button type="button" class="stk-btn stk-btn-primary" data-pb-sample><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load example</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="pb-view-f">
-                    <span class="pb-hint"><span id="viewScale"></span><span id="viewHint" hidden> Drag to zoom, double-click to fit.</span></span>
-                    <span id="exportStatus" class="pb-status" role="status" aria-live="polite"></span>
-                </div>
-            </section>
-            <script>
-                // Size the empty frame before the first paint, the way fitSheet() in
-                // js/plot-builder.js will for the default 3.5 × 2.6 in figure, so
-                // nothing moves while the plotting library loads.
-                (function () {
-                    var stage = document.getElementById('pbStage'), sheet = document.getElementById('pbSheet');
-                    var cs = getComputedStyle(stage);
-                    var aw = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-                    var ah = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-                    var W = 3.5 * 96, H = 2.6 * 96, k = Math.max(0.02, Math.min(aw / W, ah / H)) || 1;
-                    sheet.style.width = (W * k).toFixed(2) + 'px';
-                    sheet.style.height = (H * k).toFixed(2) + 'px';
-                })();
-            </script>
+                <!-- The matplotlib script that draws the same figure -->
+                <div id="pbPython" class="pb-python"></div>
+            </div>
         </main>
-        
+
         <div class="stk-wrap">
         <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
             <span class="stk-chip"><i class="fa-solid fa-circle-play"></i> Guide</span>
             <h2 class="stk-h2">How to build a figure</h2>
-            <p class="stk-lead">Combine columns from one or more CSV files in one figure, style it while the preview redraws, then download a PNG or SVG, or a matplotlib script that draws the same figure.</p>
+            <p class="stk-lead">Combine columns from one or more CSV files in one figure, style it while the preview redraws, then save it as PDF, PNG or SVG, or copy the matplotlib script that draws the same figure from your files.</p>
             <div class="stk-grid stk-grid-2" style="margin-top:1.5rem;">
-                <div class="stk-step"><span class="stk-num">1</span><div><h3>Add data</h3><p>Drop one or more CSV, TSV or text files with a header row, or click <strong>Load example</strong>. Rows where a chosen column is not a number are left out of that trace.</p></div></div>
-                <div class="stk-step"><span class="stk-num">2</span><div><h3>Set the traces</h3><p>A trace plots one column against another, from any loaded file. The first is drawn as soon as a file loads. Add more to overlay them, and give each a legend name, colour, line style and marker.</p></div></div>
-                <div class="stk-step"><span class="stk-num">3</span><div><h3>Style it</h3><p>Label the axes, choose the figure size, set limits, log scales, frame, ticks, grid and legend, then the font and the text and line sizes. Every change redraws the preview.</p></div></div>
-                <div class="stk-step"><span class="stk-num">4</span><div><h3>Export or reproduce</h3><p><strong>Download PNG</strong> or <strong>Download SVG</strong> at the size you set, or open <strong>Python script</strong> for a matplotlib script that draws the same figure from your CSV.</p></div></div>
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Add data</h3><p>Drop one or more CSV, TSV or text files with a header row on the <strong>Data</strong> tab, or click <strong>Load an example</strong>. A cell that is blank or not a number is left out: a line breaks there, as it does in matplotlib.</p></div></div>
+                <div class="stk-step"><span class="stk-num">2</span><div><h3>Set up the series</h3><p>On the <strong>Series</strong> tab each series plots one column against another, from any loaded file, as a line, points, both, or a shaded band between two columns. Pick error columns for error bars, and put a series in a second panel to share the x axis with a quantity of another scale.</p></div></div>
+                <div class="stk-step"><span class="stk-num">3</span><div><h3>Style it</h3><p>The <strong>Style</strong> tab holds the size, fonts, labels, limits, log scales, ticks, each series' colour, line and marker, the legend, grid and frame. It is the same panel as on the site's other plotting tools, and your size, fonts and frame are kept for your next visit.</p></div></div>
+                <div class="stk-step"><span class="stk-num">4</span><div><h3>Save or reproduce</h3><p>Save the figure with <strong>PDF</strong>, <strong>PNG</strong> or <strong>SVG</strong> at the size you set, or copy the <strong>Python script</strong> under the plot: it reads your CSV files by column name, or carries the numbers inside it.</p></div></div>
             </div>
         </section>
 
         <section class="stk-section" id="sizes" aria-label="How sizes work">
             <span class="stk-chip"><i class="fa-solid fa-ruler-combined"></i> Sizes</span>
             <h2 class="stk-h2">What you see is the size you get</h2>
-            <p class="stk-lead">The figure has a physical size, set the way journals set it: width and height in inches, centimetres or millimetres, a resolution in dpi, and text and lines in points (1&nbsp;pt = 1/72&nbsp;in).</p>
+            <p class="stk-lead">The figure has a physical size, set the way journals set it: a width and height in inches, centimetres or millimetres, a resolution in dpi for PNG, and text and lines in points (1&nbsp;pt = 1/72&nbsp;in).</p>
             <div style="margin-top:1.25rem; display:flex; flex-direction:column; gap:1rem; max-width:52rem;">
-                <div><h3>The preview</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">The preview draws the figure at its export size and scales the whole of it to fit the screen, so text, lines, margins and the legend keep the proportions they will have on paper. The line above it says how much it is enlarged: an 8&nbsp;pt label looks larger at 230% than it will print.</p></div>
-                <div><h3>PNG</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">Width times resolution gives the pixels: 3.5&nbsp;in at 300&nbsp;dpi is 1050&nbsp;px. The resolution is written into the file, so Word, LaTeX and Illustrator place it at 3.5&nbsp;in rather than guessing. Sizes in pixels are converted at the chosen resolution: 1200&nbsp;px at 300&nbsp;dpi is a 4&nbsp;in figure.</p></div>
-                <div><h3>SVG</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">The SVG is sized in points (3.5&nbsp;in is 252&nbsp;pt), and its text stays text, so it can be edited and scaled without loss. The fonts on offer are the ones installed almost everywhere, so the file looks the same when it is opened elsewhere.</p></div>
-                <div><h3>The Python script</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">The matplotlib script uses the same figure size and dpi, point sizes, colours, axis limits, scales, ticks and legend, and puts the plot area where the browser put it. It saves at exactly the size you set: it does not use <code>bbox_inches='tight'</code>, which would crop the figure to a different size.</p></div>
+                <div><h3>The preview</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">The preview draws the figure at its saved size and scales the whole of it to fit the screen, so text, lines, margins and the legend keep the proportions they will have on paper. The line above it gives the saved size, and how large the preview is shown: an 8&nbsp;pt label looks larger at 180% than it will print.</p></div>
+                <div><h3>PNG</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">Width times resolution gives the pixels: 3.5&nbsp;in at 300&nbsp;dpi is 1050&nbsp;px. The resolution is written into the file, so Word, LaTeX and Illustrator place it at 3.5&nbsp;in rather than guessing. A size typed in pixels is converted at the resolution: 1200&nbsp;px at 300&nbsp;dpi is a 4&nbsp;in figure.</p></div>
+                <div><h3>PDF and SVG</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">Both are vector files measured in points (3.5&nbsp;in is 252&nbsp;pt) whose text stays text, so they can be edited and scaled without loss. The fonts are the ones installed almost everywhere (Arial, Times New Roman, Courier New), so the files look the same when they are opened elsewhere.</p></div>
+                <div><h3>The Python script</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">The matplotlib script uses the same size, fonts, colours, limits, ticks and legend, and the preview is laid out as matplotlib lays out the script's figure, down to where the ticks fall. By default the figure is saved at exactly the size you set; <em>Fit the page to the drawing</em> under <strong>Style &rsaquo; Export</strong> trims it to what is drawn, as <code>bbox_inches='tight'</code> does.</p></div>
             </div>
         </section>
 
@@ -416,10 +257,11 @@
             <h2 class="stk-h2">Making a figure that reads well</h2>
             <p class="stk-lead">A few conventions that make scientific figures clearer and more honest.</p>
             <div style="margin-top:1.25rem; display:flex; flex-direction:column; gap:1rem; max-width:52rem;">
-                <div><h3>Label your axes with units</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">An axis without units is ambiguous. Write the quantity and its unit, e.g. <em>Time (s)</em> or <em>Concentration (mM)</em>. The label fields feed the preview, both downloads and the matplotlib script.</p></div>
-                <div><h3>Use log scales deliberately</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">A log axis linearises exponential or power-law data and shows several orders of magnitude at once, but it can flatter noisy data. Use it when the process is multiplicative, and say so in the caption. Points at or below zero cannot be drawn on a log axis; the trace says how many were left out.</p></div>
-                <div><h3>Colours that survive greyscale and colour blindness</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">Around 8% of men have some colour-vision deficiency, and many journals print in greyscale. The default colours are the Okabe&ndash;Ito palette recommended by Wong (2011), which stays distinct for the common forms of colour blindness. Give traces different line styles or markers as well, so colour is not the only difference.</p></div>
-                <div><h3>Reproducibility</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">The <strong>Python script</strong> means a figure isn't a dead end: it regenerates the plot from the same CSV, and can carry the data inside it, so you can version-control it alongside your analysis. Everything runs in your browser; no data leaves your machine.</p></div>
+                <div><h3>Label your axes with units</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">An axis without units is ambiguous. Write the quantity and its unit, such as <em>Time (s)</em> or <em>Concentration (mM)</em>. Put mathematics between dollar signs, as matplotlib does: <code>OD$_{600}$</code>, <code>$\Delta G$ (kJ/mol)</code>, <code>Area (m$^2$)</code>.</p></div>
+                <div><h3>Use log scales deliberately</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">A log axis linearises exponential or power-law data and shows several orders of magnitude at once, but it can flatter noisy data. Use it when the process is multiplicative, and say so in the caption. Points at or below zero cannot be drawn on a log axis; the series says how many are left out.</p></div>
+                <div><h3>Show the spread</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">A mean without its spread hides how sure it is. Choose the column of standard deviations or errors as the series' <em>Y error</em>, or draw a band between a lower and an upper column, and say in the caption which it is: SD, SEM or a confidence interval.</p></div>
+                <div><h3>Colours that survive greyscale and colour blindness</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">Around 8% of men have some colour-vision deficiency, and many journals print in greyscale. The default colours are checked to stay distinct for the common forms of colour blindness, and series drawn with points take a different marker each, so colour is not the only difference.</p></div>
+                <div><h3>Reproducibility</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">The <strong>Python script</strong> means a figure isn't a dead end: it redraws the plot from the same CSV files, or carries the numbers inside it, so you can keep it under version control with your analysis. Everything runs in your browser; no data leaves your machine.</p></div>
             </div>
         </section>
 
@@ -429,12 +271,12 @@
             <ol class="stk-refs-list" style="margin-top:1rem;">
                 <li>Hunter, J.&nbsp;D. (2007). Matplotlib: A 2D graphics environment. <em>Computing in Science &amp; Engineering</em>, 9(3), 90&ndash;95. <a href="https://matplotlib.org/stable/" target="_blank" rel="noopener">matplotlib.org</a>.</li>
                 <li>Rougier, N.&nbsp;P., Droettboom, M., &amp; Bourne, P.&nbsp;E. (2014). Ten simple rules for better figures. <em>PLOS Computational Biology</em>, 10(9), e1003833.</li>
-                <li>Wong, B. (2011). Points of view: Color blindness. <em>Nature Methods</em>, 8(6), 441. <span style="opacity:.8">(the colour-blind-safe palette used for the default trace colours)</span></li>
-                <li>Software: <a href="https://plotly.com/javascript/" target="_blank" rel="noopener">Plotly.js</a> (rendering and export) and <a href="https://www.papaparse.com/" target="_blank" rel="noopener">PapaParse</a> (CSV parsing). The script targets <a href="https://pandas.pydata.org/" target="_blank" rel="noopener">pandas</a> and matplotlib 3.5 or later.</li>
+                <li>Wong, B. (2011). Points of view: Color blindness. <em>Nature Methods</em>, 8(6), 441.</li>
+                <li>Software: <a href="https://plotly.com/javascript/" target="_blank" rel="noopener">Plotly.js</a> draws the preview and the exports. The script needs Python 3 with <a href="https://numpy.org/" target="_blank" rel="noopener">NumPy</a> and matplotlib 3.6 or later.</li>
             </ol>
         </section>
         </div>
-        
+
         <section class="stk-next" data-stk-next hidden aria-label="Next steps"></section>
 
     <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 py-12">
@@ -497,27 +339,7 @@
     </footer>
     </div>
 
-    <div id="toastContainer" class="stk-toasts" aria-live="polite"></div>
-
-    <div id="codeModal" class="stk-modal" role="dialog" aria-modal="true" aria-labelledby="codeModalTitle" hidden>
-        <div class="stk-modal-box pb-code-box">
-            <div class="stk-panel-h">
-                <h2 id="codeModalTitle" class="stk-panel-t"><i class="fa-brands fa-python" aria-hidden="true"></i> Python script</h2>
-                <div class="pb-actions">
-                    <button type="button" id="copyCodeBtn" class="stk-btn stk-btn-sm stk-btn-primary"><i class="fa-solid fa-copy" aria-hidden="true"></i> Copy</button>
-                    <button type="button" id="downloadPyBtn" class="stk-btn stk-btn-sm"><i class="fa-solid fa-download" aria-hidden="true"></i> Download .py</button>
-                    <button type="button" id="closeCodeBtn" class="stk-btn stk-btn-sm stk-btn-ghost stk-btn-icon" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-                </div>
-            </div>
-            <div class="stk-panel-b pb-code-body">
-                <label class="stk-check" id="embedDataRow"><input type="checkbox" id="embedData"> <span id="embedDataText">Put the data in the script, so it runs on its own</span></label>
-                <pre id="codeBlock" class="stk-code" tabindex="0"></pre>
-            </div>
-            <p class="pb-code-foot">Draws this figure with pandas and matplotlib 3.5 or later: the same size, dpi, fonts, colours, limits, ticks and legend.</p>
-        </div>
-    </div>
-
     <script src="js/site.js"></script>
-    <script src="js/plot-builder.js" defer></script>
+    <script type="module" src="js/plot-builder.js"></script>
 </body>
 </html>

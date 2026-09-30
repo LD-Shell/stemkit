@@ -1,221 +1,219 @@
 /*
- * plot-builder -- tool-specific styles.
+ * Plot Builder: tool-specific styles.
  *
- * The workspace: three step panels in a scrolling side pane, and a preview
- * that shows the figure at its export proportions. Shared components (.stk-*)
- * live in src/tailwind/input.css; everything here reads the same tokens, so
- * it follows the theme without .dark twins.
+ * The plot area, its preview and the style panel are the shared figure
+ * component (src/tools/figure.css), the script is the shared Python panel
+ * (src/tools/python-panel.css), and the tabs, fields, buttons and cards are
+ * the shared components in src/tailwind/input.css. What is here is the
+ * workspace, laid out as the Curve Fitter's: the inputs as three tabs in a
+ * rail on the left, the figure and its script on the right, divided by
+ * hairlines within one card. Everything reads the design tokens, so it
+ * follows the theme without .dark twins.
  */
 
-/* Side pane ----------------------------------------------------------------- */
+.stk-pagehead { margin-bottom: 1.25rem; }
 
-.pb-pane { scrollbar-width: thin; scrollbar-color: var(--stk-border-strong) transparent; }
-
-.pb-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1.25rem;
-    background: var(--stk-surface);
-    border: 1px solid var(--stk-border);
-    border-radius: var(--stk-radius-xl);
-    box-shadow: var(--stk-shadow-sm);
-    min-width: 0;
+/* ---------------------------------------------------------------------------
+   The workspace
+   ---------------------------------------------------------------------------
+   From 1024 px: the rail on the left, pinned under the site header with its
+   own scroll, and the plot above the script on the right. Narrower, the plot
+   comes first and stays in view while the inputs scroll under it (when the
+   screen is tall enough for both), then the inputs, then the script. The
+   rail and the plot share .pb-top so that the pinned plot lets go before the
+   script. Nothing here may clip its children: an ancestor with overflow
+   hidden would stop the rail and the plot from sticking.
+   --pb-head (the site header's height) and --pb-plot-h (the plot's) are kept
+   up to date by the page script.
+--------------------------------------------------------------------------- */
+.pb-ws {
+  --pb-head: 81px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--stk-surface);
+  border: 1px solid var(--stk-border);
+  border-radius: var(--stk-radius-xl);
+  box-shadow: var(--stk-shadow-sm);
 }
-.pb-panel-h { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
-.pb-panel .stk-group + .stk-group { margin-top: .25rem; }
-.pb-panel .stk-group-t { font-size: .8125rem; color: var(--stk-fg-2); font-weight: 650; }
-.pb-panel .stk-hint code { font-family: var(--stk-font-mono); font-size: .92em; color: var(--stk-fg-2); }
-.pb-note { font-size: .8125rem; line-height: 1.5; color: var(--stk-fg-3); }
+.pb-top { display: flex; flex-direction: column; min-width: 0; }
+.pb-plot { order: -1; min-width: 0; background: var(--stk-surface); border-radius: var(--stk-radius-xl) var(--stk-radius-xl) 0 0; }
+.pb-rail { min-width: 0; border-top: 1px solid var(--stk-border); }
+.pb-python { min-width: 0; border-top: 1px solid var(--stk-border); }
 
-.pb-grid2, .pb-grid3 { display: grid; gap: .6rem; min-width: 0; }
-.pb-grid2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.pb-grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.pb-sliders { row-gap: .8rem; column-gap: 1rem; }
+@media (max-width: 1023.98px) and (min-height: 600px) {
+  .pb-plot {
+    position: sticky;
+    top: var(--pb-head);
+    z-index: 20;
+    border-bottom: 1px solid var(--stk-border);
+    box-shadow: 0 10px 18px -16px rgba(15, 23, 42, .45);
+  }
+  .pb-rail { border-top: 0; }
+  /* A field brought into view by the keyboard lands below the pinned plot, not under it. */
+  .pb-rail :is(input, select, button, summary, textarea) { scroll-margin-top: calc(var(--pb-head) + var(--pb-plot-h, 0px) + .5rem); }
+  .pb-plot .fg-stage { margin-bottom: .75rem; }
+  .pb-plot .fg-notes { display: none; }
+}
+
+@media (min-width: 1024px) {
+  .pb-ws {
+    display: grid;
+    grid-template-columns: minmax(0, 23.5rem) minmax(0, 1fr);
+    grid-template-areas: "rail plot" "rail python";
+    grid-template-rows: auto 1fr;
+    align-items: start;
+  }
+  .pb-top { display: contents; }
+  .pb-rail {
+    grid-area: rail;
+    position: sticky;
+    top: var(--pb-head);
+    max-height: calc(100vh - var(--pb-head));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-top: 0;
+    border-right: 1px solid var(--stk-border);
+    scrollbar-width: thin;
+    scrollbar-color: var(--stk-border-strong) transparent;
+  }
+  /* The divider runs the height of the taller side: the rail's edge and the outputs' edge overlap. */
+  .pb-plot { grid-area: plot; order: 0; border-radius: 0 var(--stk-radius-xl) 0 0; }
+  .pb-python { grid-area: python; border-top: 1px solid var(--stk-border); }
+  .pb-plot, .pb-python { margin-left: -1px; border-left: 1px solid var(--stk-border); }
+}
+@media (min-width: 1280px) {
+  .pb-ws { grid-template-columns: minmax(0, 25.5rem) minmax(0, 1fr); }
+}
+
+/* The Python panel is a section of the workspace here, not a card of its own. */
+.pb-python .pyp { border: 0; border-radius: 0 0 var(--stk-radius-xl) var(--stk-radius-xl); box-shadow: none; background: transparent; }
+.pb-python .pyp-body { max-height: 30rem; }
+@media (min-width: 1024px) {
+  .pb-python .pyp { border-radius: 0 0 var(--stk-radius-xl) 0; }
+}
+
+/* ---------------------------------------------------------------------------
+   The rail: tabs and their panes
+--------------------------------------------------------------------------- */
+.pb-tabs { position: sticky; top: 0; z-index: 3; padding: 0 .5rem; background: var(--stk-surface); border-radius: var(--stk-radius-xl) var(--stk-radius-xl) 0 0; }
+.pb-tabs .pb-tab { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: .45rem; height: 2.9rem; }
+.pb-tab .stk-stepn { width: 1.3rem; height: 1.3rem; font-size: .6875rem; }
+.pb-tab-icon { font-size: .8rem; }
+.pb-tab-info { min-width: 1.25rem; padding: .05rem .4rem; border-radius: 9999px; font-size: .6875rem; font-weight: 600; color: var(--stk-fg-3); background: var(--stk-surface-2); box-shadow: inset 0 0 0 1px var(--stk-border); }
+.pb-tab-info:empty { display: none; }
+.pb-tab:focus-visible { outline: 2px solid var(--stk-accent); outline-offset: -3px; border-radius: var(--stk-radius); }
+@media (max-width: 1023.98px) {
+  .pb-tabs { position: static; border-radius: 0; }
+}
+
+.pb-pane { display: flex; flex-direction: column; gap: .95rem; padding: 1rem; min-width: 0; }
+.pb-pane[hidden] { display: none; }
+.pb-pane:focus { outline: none; }
+.pb-pane-h { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+.pb-pane-lede { margin: 0; font-size: .8125rem; color: var(--stk-fg-3); }
+.pb-pane-empty { margin: 0; padding: 1rem; font-size: .8125rem; line-height: 1.5; color: var(--stk-fg-3); background: var(--stk-surface-2); border: 1.5px dashed var(--stk-border-strong); border-radius: var(--stk-radius-lg); }
+.pb-pane-empty[hidden] { display: none; }
+.pb-pane-style { padding: .75rem; }
+.pb-h-actions { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.pb-drop { cursor: pointer; }
+.pb-drop.is-over { border-color: var(--stk-accent); background: var(--stk-accent-soft); }
 
 /* Loaded files */
 .pb-files { display: flex; flex-direction: column; gap: .4rem; margin: 0; padding: 0; list-style: none; }
 .pb-files:empty { display: none; }
 .pb-file {
-    display: flex;
-    align-items: center;
-    gap: .6rem;
-    padding: .45rem .5rem .45rem .7rem;
-    border: 1px solid var(--stk-border);
-    border-radius: var(--stk-radius);
-    background: var(--stk-surface-2);
-    font-size: .8125rem;
-    min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: .6rem;
+  padding: .45rem .4rem .45rem .7rem;
+  border: 1px solid var(--stk-border);
+  border-radius: var(--stk-radius);
+  background: var(--stk-surface-2);
+  font-size: .8125rem;
+  min-width: 0;
 }
-.pb-file > i { color: var(--stk-accent-text); flex-shrink: 0; }
-.pb-file-name { font-weight: 600; color: var(--stk-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.pb-file-meta { margin-left: auto; color: var(--stk-fg-3); font-size: .75rem; white-space: nowrap; }
+.pb-file > i { color: var(--stk-accent-text); }
+.pb-file-t { display: flex; flex-direction: column; min-width: 0; }
+.pb-file-name { font-weight: 600; color: var(--stk-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-file-meta { color: var(--stk-fg-3); font-size: .75rem; }
+.pb-file-warn { grid-column: 2 / -1; margin: .3rem 0 0; font-size: .75rem; line-height: 1.45; color: var(--stk-warn); }
 
-/* Traces */
-.pb-traces { display: flex; flex-direction: column; gap: .75rem; }
-.pb-traces:empty { display: none; }
-.pb-trace {
-    display: flex;
-    flex-direction: column;
-    gap: .6rem;
-    padding: .75rem;
-    border: 1px solid var(--stk-border);
-    border-radius: var(--stk-radius-lg);
-    background: var(--stk-surface-2);
-    min-width: 0;
+/* Series cards */
+.pb-cards { display: flex; flex-direction: column; gap: .75rem; }
+.pb-cards:empty { display: none; }
+.pb-card {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  padding: .75rem;
+  border: 1px solid var(--stk-border);
+  border-radius: var(--stk-radius-lg);
+  background: var(--stk-surface-2);
+  min-width: 0;
 }
-.pb-trace-h { display: flex; align-items: center; gap: .5rem; }
-.pb-trace-h .stk-input { flex: 1 1 auto; min-width: 0; font-weight: 600; }
-.pb-swatch {
-    flex-shrink: 0;
-    width: var(--stk-control-h-sm);
-    height: var(--stk-control-h-sm);
-    padding: 0;
-    border: 1px solid var(--stk-border-strong);
-    border-radius: var(--stk-radius);
-    background: var(--stk-surface);
-    cursor: pointer;
+.pb-card-h { display: flex; align-items: center; gap: .5rem; min-width: 0; }
+.pb-card-h .stk-input { flex: 1 1 auto; min-width: 0; font-weight: 600; }
+.pb-chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--stk-control-h-sm);
+  height: var(--stk-control-h-sm);
+  padding: 0;
+  border: 1px solid var(--stk-border-strong);
+  border-radius: var(--stk-radius);
+  background: var(--stk-surface);
+  cursor: pointer;
 }
-.pb-swatch::-webkit-color-swatch-wrapper { padding: 3px; }
-.pb-swatch::-webkit-color-swatch { border: 0; border-radius: calc(var(--stk-radius) - 3px); }
-.pb-swatch::-moz-color-swatch { border: 0; border-radius: calc(var(--stk-radius) - 3px); }
-.pb-trace-note { font-size: .75rem; line-height: 1.45; color: var(--stk-warn); }
-.pb-trace-note:empty { display: none; }
+.pb-chip > span { display: block; width: 1rem; height: 1rem; border-radius: 4px; background: var(--pb-c, var(--stk-fg-faint)); box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .15); }
+.pb-chip:hover { border-color: var(--stk-accent); }
+.pb-chip:focus-visible { outline: 2px solid var(--stk-accent); outline-offset: 2px; }
+.pb-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; min-width: 0; }
+.pb-grid2 > [hidden] { display: none; }
+.pb-card .stk-field { min-width: 0; }
+.pb-card .stk-seg { width: 100%; }
+.pb-card .stk-seg > button { flex: 1 1 0; min-width: 0; padding: 0 .4rem; }
+.pb-card-note { margin: 0; font-size: .75rem; line-height: 1.45; color: var(--stk-warn); }
+.pb-card-note:empty { display: none; }
 
-/* Figure size, axes */
-.pb-segrow { display: flex; align-items: center; justify-content: space-between; gap: .75rem; min-width: 0; }
-.pb-segrow > .stk-label-sm { flex-shrink: 0; }
-.pb-checks { display: flex; gap: 1rem; flex-wrap: wrap; }
-.pb-axisrow { display: grid; grid-template-columns: 1rem minmax(0, 1fr) auto minmax(0, 1fr) auto; align-items: center; gap: .5rem; }
-.pb-axisname { font-size: .8125rem; font-weight: 700; color: var(--stk-fg-2); text-align: center; }
-.pb-to { font-size: .75rem; color: var(--stk-fg-3); }
-.pb-axisrow .stk-check { font-size: .8125rem; }
-#sizeNote:empty { display: none; }
-.pb-warn { color: var(--stk-warn); }
-.pb-slider-h { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
-.pb-slider-h label { font-size: .75rem; font-weight: 600; color: var(--stk-fg-3); }
-.pb-val { font-size: .75rem; font-weight: 600; color: var(--stk-accent-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.stk-field.is-off { opacity: .5; }
+/* ---------------------------------------------------------------------------
+   The plot
+--------------------------------------------------------------------------- */
+.pb-plot .fg-figure { cursor: crosshair; }
+.pb-hint { margin: -.5rem 1rem .9rem; font-size: .75rem; line-height: 1.45; color: var(--stk-fg-muted); }
+.pb-hint[hidden] { display: none; }
+@media (hover: none), (max-width: 1023.98px) {
+  .pb-hint { display: none; }
+}
+.fg-size .pb-scale { color: var(--stk-fg-muted); }
+@media (max-width: 639.98px) {
+  .fg-size .pb-scale { display: none; }
+}
 
-/* Preview ------------------------------------------------------------------- */
-
-.pb-view {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    background: var(--stk-surface);
-    border: 1px solid var(--stk-border);
-    border-radius: var(--stk-radius-xl);
-    box-shadow: var(--stk-shadow-sm);
-    overflow: hidden;
+/* The rectangle dragged across the plot, and the value under the pointer. */
+.pb-zoom {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  border: 1px solid var(--stk-accent);
+  background: color-mix(in srgb, var(--stk-accent) 12%, transparent);
 }
-.pb-view-h {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: .6rem 1rem;
-    padding: .75rem 1rem;
-    border-bottom: 1px solid var(--stk-border);
+.pb-tip {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  padding: .3rem .5rem;
+  border-radius: var(--stk-radius);
+  background: var(--stk-fg);
+  color: var(--stk-surface);
+  font-size: .75rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  box-shadow: var(--stk-shadow);
+  transform: translate(-50%, calc(-100% - 10px));
 }
-.pb-view-t { display: flex; align-items: baseline; flex-wrap: wrap; gap: .25rem .75rem; min-width: 0; }
-.pb-readout { font-size: .75rem; color: var(--stk-fg-3); font-variant-numeric: tabular-nums; }
-.pb-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
-
-/* The stage holds the sheet, the figure at its export aspect ratio scaled to
-   fit. The plot inside is laid out at the export size and scaled with a CSS
-   transform, so what is on screen is the exported figure, enlarged. */
-.pb-stage {
-    position: relative;
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1.25rem;
-    overflow: hidden;
-    background: var(--stk-surface-2);
-}
-.pb-sheet {
-    position: relative;
-    flex: none;
-    background: #fff;
-    box-shadow: 0 0 0 1px rgba(15, 23, 42, .08), 0 6px 20px rgba(15, 23, 42, .10);
-}
-.pb-sheet.is-dark { background: #0f172a; }
-.pb-sheet.is-transparent {
-    background-color: #fff;
-    background-image:
-        linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%),
-        linear-gradient(45deg, #e5e7eb 25%, transparent 25%, transparent 75%, #e5e7eb 75%);
-    background-size: 16px 16px;
-    background-position: 0 0, 8px 8px;
-}
-.pb-sheet.is-empty { background: var(--stk-surface); box-shadow: none; }
-/* The wrapper carries the reveal animation, so it never fights the scale on the plot. */
-.pb-plotwrap { position: absolute; inset: 0; overflow: hidden; }
-.pb-sheet.is-empty .pb-plotwrap { visibility: hidden; }
-.pb-plot { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
-
-.pb-emptyfig {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: .4rem;
-    padding: 1.25rem;
-    text-align: center;
-    border: 1.5px dashed var(--stk-border-strong);
-    overflow: hidden;
-}
-.pb-emptyfig[hidden] { display: none; }
-.pb-emptyfig .stk-drop-icon { margin-bottom: .25rem; }
-.pb-emptyfig-t { font-size: 1.05rem; font-weight: 700; color: var(--stk-fg); }
-.pb-emptyfig-s { max-width: 26rem; font-size: .8125rem; line-height: 1.5; color: var(--stk-fg-3); margin-bottom: .5rem; }
-
-.pb-view-f {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: .75rem;
-    min-height: 2.25rem;
-    padding: .4rem 1rem;
-    border-top: 1px solid var(--stk-border);
-    font-size: .75rem;
-    color: var(--stk-fg-3);
-}
-.pb-status { margin-left: auto; text-align: right; color: var(--stk-fg-2); }
-
-/* Python script dialog */
-.pb-code-box { width: min(56rem, 100%); max-height: min(88vh, 48rem); }
-.pb-code-body { display: flex; flex-direction: column; gap: .75rem; min-height: 0; overflow: hidden; }
-.pb-code-body .stk-code { flex: 1 1 auto; min-height: 0; overflow: auto; }
-.pb-code-body [hidden] { display: none; }
-.pb-code-foot { padding: .6rem 1rem; border-top: 1px solid var(--stk-border); font-size: .75rem; color: var(--stk-fg-3); }
-
-/* Narrow screens: the preview comes first and stays in view while the
-   settings scroll under it, so every change can be seen as it is made. */
-@media (max-width: 1023px) {
-    .pb-view {
-        order: -1;
-        position: sticky;
-        top: 65px;              /* under the 64 px header and its border */
-        z-index: 20;
-        box-shadow: var(--stk-shadow);
-    }
-    .pb-stage { height: min(36vh, 20rem); flex: none; padding: .75rem; }
-    .pb-view-h { padding: .6rem .75rem; }
-    .pb-view-f { display: none; }
-}
-@media (min-width: 640px) and (max-width: 1023px) {
-    .pb-view { top: 81px; }
-    .pb-stage { height: min(42vh, 24rem); }
-}
-@media (max-width: 480px) {
-    .pb-view-h { gap: .4rem .75rem; }
-    .pb-emptyfig .stk-drop-icon, .pb-emptyfig-s { display: none; }
-    /* "Download PNG" reads "PNG" on a phone; the full name stays for screen readers. */
-    .pb-long { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-}
+.pb-tip b { font-weight: 650; }
+.pb-tip[hidden] { display: none; }
