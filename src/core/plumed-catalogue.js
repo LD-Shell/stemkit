@@ -909,32 +909,32 @@ export const BIAS_DEFS = {
     { k: 'LABEL', label: 'Label', def: 'steer', help: LABEL_HELP },
     { k: 'STEP0', label: 'STEP0', def: '0', help: 'MD step at which the restraint takes the AT0/KAPPA0 values (the start of the pulling schedule).' },
     { k: 'AT0', label: 'AT0', def: '0.0', perCV: true, help: 'Restraint centre per CV at STEP0 (the starting position).' },
-    { k: 'KAPPA0', label: 'KAPPA0', def: '0', perCV: true, help: 'Force constant per CV at STEP0. Often 0 so the pull ramps up.' },
+    { k: 'KAPPA0', label: 'KAPPA0', def: '0', perCV: true, help: 'Force constant per CV at STEP0, in energy per CV-unit² (the energy is ½ KAPPA (x − AT)²). Often 0 so the pull ramps up.' },
     { k: 'STEP1', label: 'STEP1', def: '100000', help: 'MD step at which the restraint reaches the AT1/KAPPA1 values (end of the pull). Values are linearly interpolated between steps.' },
     { k: 'AT1', label: 'AT1', def: '1.0', perCV: true, help: 'Restraint centre per CV at STEP1 (the target position you steer toward).' },
-    { k: 'KAPPA1', label: 'KAPPA1', def: '200', perCV: true, help: 'Force constant per CV at STEP1.' }
+    { k: 'KAPPA1', label: 'KAPPA1', def: '200', perCV: true, help: 'Force constant per CV at STEP1, in energy per CV-unit².' }
   ]},
   upper: { cat: 'restraint', action: 'UPPER_WALLS', label: 'UPPER_WALLS', params: [
     { k: 'LABEL', label: 'Label', def: 'uwall', help: LABEL_HELP },
     { k: 'AT', label: 'AT', def: '2.0', perCV: true, help: 'Position of the wall per CV. The potential is felt when the CV goes above this value (above AT − OFFSET when OFFSET is set).' },
-    { k: 'KAPPA', label: 'KAPPA', def: '150', perCV: true, help: 'Force constant of the wall per CV (energy per CV-unit²).' },
+    { k: 'KAPPA', label: 'KAPPA', def: '150', perCV: true, help: 'Force constant of the wall per CV, in energy per CV-unit to the power EXP while EPS is 1: the energy is KAPPA ((x − AT + OFFSET) / EPS)^EXP, with no ½.' },
     { k: 'EXP', label: 'EXP', def: '2', perCV: true, help: 'Exponent of the wall potential (2 = harmonic; higher = steeper/stiffer).' },
-    { k: 'EPS', label: 'EPS', def: '1', perCV: true, help: 'Rescaling factor inside the wall expression (usually 1).' },
+    { k: 'EPS', label: 'EPS', def: '1', perCV: true, help: 'Divides the distance past the wall before EXP is applied, in the unit of the CV. Usually 1, which keeps KAPPA in energy per CV-unit to the power EXP.' },
     { k: 'OFFSET', label: 'OFFSET', def: '0', perCV: true, help: 'Moves the start of the wall down to AT − OFFSET, without moving AT: the upper wall acts above AT − OFFSET.' }
   ]},
   lower: { cat: 'restraint', action: 'LOWER_WALLS', label: 'LOWER_WALLS', params: [
     { k: 'LABEL', label: 'Label', def: 'lwall', help: LABEL_HELP },
     { k: 'AT', label: 'AT', def: '0.2', perCV: true, help: 'Position of the wall per CV. The potential is felt when the CV goes below this value (below AT + OFFSET when OFFSET is set).' },
-    { k: 'KAPPA', label: 'KAPPA', def: '150', perCV: true, help: 'Force constant of the wall per CV (energy per CV-unit²).' },
+    { k: 'KAPPA', label: 'KAPPA', def: '150', perCV: true, help: 'Force constant of the wall per CV, in energy per CV-unit to the power EXP while EPS is 1: the energy is KAPPA ((AT + OFFSET − x) / EPS)^EXP, with no ½.' },
     { k: 'EXP', label: 'EXP', def: '2', perCV: true, help: 'Exponent of the wall potential (2 = harmonic; higher = steeper).' },
-    { k: 'EPS', label: 'EPS', def: '1', perCV: true, help: 'Rescaling factor inside the wall expression (usually 1).' },
+    { k: 'EPS', label: 'EPS', def: '1', perCV: true, help: 'Divides the distance past the wall before EXP is applied, in the unit of the CV. Usually 1, which keeps KAPPA in energy per CV-unit to the power EXP.' },
     { k: 'OFFSET', label: 'OFFSET', def: '0', perCV: true, help: 'Moves the start of the wall up to AT + OFFSET, without moving AT: the lower wall acts below AT + OFFSET.' }
   ]},
   abmd: { cat: 'restraint', action: 'ABMD', label: 'ABMD (ratchet)', params: [
     { k: 'LABEL', label: 'Label', def: 'abmd', help: LABEL_HELP },
     { k: 'TO', label: 'TO', def: '0.0', perCV: true, help: 'Target value per CV the ratchet moves toward. The restraint only tightens as the CV approaches TO, it never pushes backward.' },
-    { k: 'KAPPA', label: 'KAPPA', def: '50', perCV: true, help: 'Force constant per CV of the moving (ratchet) restraint.' },
-    { k: 'NOISE', label: 'NOISE', def: '', perCV: true, help: 'Optional white-noise intensity per CV, effectively adds a temperature to the ABMD so it can occasionally relax backward. Leave blank for a strict ratchet.' }
+    { k: 'KAPPA', label: 'KAPPA', def: '50', perCV: true, help: 'Force constant per CV of the ratchet, in energy per CV-unit to the fourth power: the energy is ½ KAPPA ((x − TO)² − ρmin)², ρmin being the closest squared approach so far.' },
+    { k: 'NOISE', label: 'NOISE', def: '', perCV: true, help: 'Optional white-noise intensity per CV, effectively adds a temperature to the ABMD so it can occasionally relax backward. In CV-unit², like ρmin. Leave blank for a strict ratchet.' }
   ]}
 };
 

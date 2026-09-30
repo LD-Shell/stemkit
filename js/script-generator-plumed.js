@@ -13,7 +13,7 @@ import {
   CV_DEFS, CV_EXAMPLES, BIAS_DEFS, FUNCTION_DEFS, FUNCTION_EXAMPLES, KEY_HELP, PREREQS,
   PLUMED_VERSIONS, DEFAULT_PLUMED_VERSION,
   cvAvailable, fieldsFor, reductionFieldsFor, componentsForCV, hiddenFieldsForBias,
-  actionNameFor, availableArguments, createCV, createFunction, defaultBiasValues, lengthPower,
+  actionNameFor, availableArguments, biasedArguments, createCV, createFunction, defaultBiasValues,
   generatePlumedInput, messageToHtml
 } from '../src/core/plumed.js';
 import { loadSyntax, plumedDocUrl } from '../src/core/plumed-syntax.js';
@@ -23,7 +23,8 @@ import { createPlumedAnalyse } from './script-generator-plumed-analyse.js';
 import { thermalEnergy, wellTempered, depositionRate } from '../src/core/plumed-analysis.js';
 import {
   methodTemperature, restraintHelp, speedOptions, withLengthUnit, convertLengthDefaults, LENGTH_NAMES,
-  modulesToEnable, convertBiasDefaults, startingParam, ENERGY_PARAMS
+  modulesToEnable, startingParam, lengthFields, biasStart, cardStarts, rebaseStarts, convertEnergy,
+  CATALOGUE_UNITS
 } from './script-generator-plumed-model.js';
 
 const BIAS_GROUPS = {
@@ -86,8 +87,9 @@ export function createPlumedBuilder(ctx) {
     view: 'input',
     syntax: null,
     lastResult: null,
-    // The length unit the cards' starting values are written in; see syncLengthUnit.
-    lengthUnit: 'nm'
+    // The units the starting values the page keeps are written in; see syncUnits.
+    lengthUnit: 'nm',
+    energyUnit: 'kj/mol'
   };
 
   /* ---------------------------------------------------------------- *
@@ -109,6 +111,8 @@ export function createPlumedBuilder(ctx) {
     loadSyntax(v).then((s) => {
       if (version() !== s.version) return;
       state.syntax = s;
+      // The table can leave out a reduction the release does not register.
+      keepComps();
       populateCVSelect();
       renderBiasParams();
       renderAll();
@@ -147,17 +151,61 @@ export function createPlumedBuilder(ctx) {
    * The file
    * ---------------------------------------------------------------- */
 
-  /* A parameter's value: as typed, or its starting value, with HEIGHT and
-     BARRIER in the energy unit the UNITS line sets. */
+  /* The units the UNITS line sets. */
+  const unitsNow = () => ({
+    length: getStr('plumedUnitLength', 'nm'),
+    energy: getStr('plumedUnitEnergy', 'kj/mol')
+  });
+
+  /* The variables and functions, for what they define and what is biased. */
+  const valuesConfig = () => ({ ...options(), cvs: state.cvs, functions: state.functions });
+
+  /* A parameter's starting value, in `units`, for the values biased now: a
+     wall on a distance starts at AT=20 in Å and one on a torsion at 2.0, and
+     its KAPPA follows the energy unit, the argument's unit and EXP. */
+  function paramStart(method, p, units = unitsNow(), targets = biasedPowers()) {
+    const own = state.biasVals[method] || {};
+    const expParam = ((BIAS_DEFS[method] || {}).params || []).find(x => x.k === 'EXP');
+    const exp = own.EXP !== undefined ? own.EXP : (expParam ? expParam.def : '');
+    return startingParam(p, units, { method, targets, exp });
+  }
+
+  /* The power of length in each biased value, in the order ARG lists them. */
+  const biasedPowers = () => biasedArguments(valuesConfig()).map(t => ({ power: t.power }));
+
+  /* A parameter's value: as typed, or its starting value in the file's units. */
   function biasParams(method) {
     const out = {};
     const def = BIAS_DEFS[method];
     const own = state.biasVals[method] || {};
-    const energy = getStr('plumedUnitEnergy', 'kj/mol');
     for (const p of (def && def.params) || []) {
-      out[p.k] = own[p.k] !== undefined ? own[p.k] : startingParam(p, energy);
+      out[p.k] = own[p.k] !== undefined ? own[p.k] : paramStart(method, p);
     }
     return out;
+  }
+
+  /* The method's parameters not typed, by keyword, with their starts. */
+  function paramStarts(units = unitsNow()) {
+    const method = getStr('plumedBias', 'none');
+    const own = state.biasVals[method] || {};
+    const targets = biasedPowers();
+    const out = {};
+    for (const p of ((BIAS_DEFS[method] || {}).params) || []) {
+      if (own[p.k] === undefined) out[p.k] = paramStart(method, p, units, targets);
+    }
+    return out;
+  }
+
+  /* A starting value on show follows what is biased without a redraw, so a
+     box being typed in keeps its caret; a typed value is never touched. */
+  function refreshParamStarts() {
+    const host = $('plumedBiasParams');
+    if (!host) return;
+    const starts = paramStarts();
+    host.querySelectorAll('[data-bias-key]').forEach((el) => {
+      const k = el.getAttribute('data-bias-key');
+      if (starts[k] !== undefined && el.value !== starts[k]) el.value = starts[k];
+    });
   }
 
   function readConfig() {
@@ -253,6 +301,8 @@ export function createPlumedBuilder(ctx) {
     const result = generatePlumedInput(config);
     state.lastResult = result;
     state.lengthUnit = config.units.length;
+    state.energyUnit = config.units.energy;
+    refreshParamStarts();
     renderOutput(out, result.input.replace(/\n$/, ''));
     setWarnings($('plumedWarnings'), result.warnings.map(messageToHtml));
   }
@@ -323,20 +373,111 @@ export function createPlumedBuilder(ctx) {
     const unit = getStr('plumedUnitLength', 'nm');
     const def = CV_DEFS[inst.type];
     if (unit !== 'nm' && def) {
-      inst.values = convertLengthDefaults(inst.values, def.fields, 'nm', unit).values;
-      inst.biasValues = moveBiasValues(inst, 'nm', unit).values;
+      inst.values = convertLengthDefaults(inst.values, lengthFields(def, inst.type), 'nm', unit).values;
+      inst.biasValues = rebaseStarts(inst.biasValues, cvStart(inst, 'nm'), cvStart(inst, unit), BIAS_KEYS).values;
     }
     return inst;
   }
 
-  /* The grid bounds and SIGMA of a length still at their starting values,
-     moved from one length unit to another. */
-  function moveBiasValues(inst, from, to) {
-    const bv = inst.biasValues || {};
-    const opts = { values: inst.values };
-    const start = defaultBiasValues(inst.type, bv.comp || '', opts);
-    return convertBiasDefaults(bv, start, lengthPower(inst.type, bv.comp || '', opts), from, to);
+  const BIAS_KEYS = ['min', 'max', 'bin', 'sigma'];
+
+  /* After the target release changes, the component each bias acts on is
+     kept under its new name (`.mean` in 2.9 is `_mean` from 2.10 for the
+     shortcut families). One the release does not have gives way to the
+     first, and its starting grid and SIGMA to that one's. */
+  function keepComps() {
+    const unit = getStr('plumedUnitLength', 'nm');
+    for (const cv of state.cvs) {
+      const comps = componentsForCV(cv, CV_DEFS, options());
+      const was = String(cv.biasValues.comp || '');
+      if (!comps.length || !was || comps.includes(was)) continue;
+      const same = comps.find(c => c.slice(1) === was.slice(1));
+      if (!same) {
+        cv.biasValues = rebaseStarts(cv.biasValues, biasStart(cv.type, was, cv.values, unit),
+          biasStart(cv.type, comps[0], cv.values, unit), BIAS_KEYS).values;
+      }
+      cv.biasValues.comp = same || comps[0];
+    }
   }
+
+  /* The component a CV's bias acts on: the one chosen, or its first. */
+  function biasedComp(inst) {
+    const comps = componentsForCV(inst, CV_DEFS, options());
+    if (!comps.length) return (CV_DEFS[inst.type] || {}).compStyle === 'none' ? '' : String(inst.biasValues.comp || '').trim();
+    return comps.includes(inst.biasValues.comp) ? inst.biasValues.comp : comps[0];
+  }
+
+  /* The starting grid and SIGMA of a CV's biased value, in a length unit. */
+  const cvStart = (inst, unit) => biasStart(inst.type, biasedComp(inst), inst.values, unit);
+
+  /* What each value a function, a wall or an output can refer to measures,
+     as a power of length, by name. */
+  function argumentPowers() {
+    return new Map(availableArguments(valuesConfig()).map(a => [a.arg, a.power]));
+  }
+
+  /* Every starting value the page keeps in its state, under given units:
+     each CV's grid and SIGMA, each card's KAPPA (none for a card whose
+     argument is not defined, so renaming a variable moves nothing), the
+     calculator's barrier, and the method's parameters not typed. Taken
+     before and after a change, it tells which values were still at their
+     start and what they start at now. */
+  function starts(units = unitsNow()) {
+    const powers = argumentPowers();
+    const out = { cvs: {}, cards: {}, params: paramStarts(units) };
+    for (const cv of state.cvs) out.cvs[cv.id] = cvStart(cv, units.length);
+    for (const r of state.restraints) {
+      out.cards[r.id] = powers.has(r.arg) ? cardStarts(r.type, { power: powers.get(r.arg), exp: r.exp }, units) : null;
+    }
+    // The calculator's barrier starts as the page is written, in kJ/mol.
+    const box = $('plumedCalcBarrier');
+    if (box && box.defaultValue) out.barrier = convertEnergy(box.defaultValue, CATALOGUE_UNITS.energy, units.energy, 3);
+    return out;
+  }
+
+  /* Move every value still at its start in `before` to its start now, and
+     say which moved: [{kind, what, keys}], `kind` being cv, card, calc or
+     method and `what` naming where the keys live. */
+  function follow(before, after = starts()) {
+    const moved = [];
+    for (const cv of state.cvs) {
+      const r = rebaseStarts(cv.biasValues, before.cvs[cv.id], after.cvs[cv.id], BIAS_KEYS);
+      cv.biasValues = r.values;
+      if (r.changed.length) moved.push({ kind: 'cv', what: cv.label + biasedComp(cv), keys: r.changed });
+    }
+    for (const card of state.restraints) {
+      const r = rebaseStarts(card, before.cards[card.id], after.cards[card.id], ['kappa']);
+      if (r.changed.length) {
+        card.kappa = r.values.kappa;
+        moved.push({ kind: 'card', what: card.label, keys: ['KAPPA'] });
+      }
+    }
+    const box = $('plumedCalcBarrier');
+    if (box) {
+      const r = rebaseStarts({ barrier: box.value }, before, after, ['barrier']);
+      if (r.changed.length) {
+        box.value = r.values.barrier;
+        moved.push({ kind: 'calc', what: 'the calculator', keys: ['expected barrier'] });
+      }
+    }
+    const params = Object.keys(after.params).filter(k =>
+      before.params[k] !== undefined && before.params[k] !== after.params[k]);
+    if (params.length) moved.push({ kind: 'method', what: 'the method', keys: params });
+    return moved;
+  }
+
+  /* The keywords a list of moves names, for a toast: grid, SIGMA, KAPPA. */
+  function movedNames(moved) {
+    const name = { min: 'grid', max: 'grid', bin: 'grid bins', sigma: 'SIGMA' };
+    const out = [];
+    for (const m of moved) for (const k of m.keys) {
+      const n = name[k] || k;
+      if (!out.includes(n)) out.push(n);
+    }
+    return out;
+  }
+
+  const listText = (xs) => (xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0] || '');
 
   function addCV() {
     const cvSel = $('plumedCVSelect');
@@ -350,32 +491,50 @@ export function createPlumedBuilder(ctx) {
     generate();
   }
 
-  /* A new length unit: the cards' labels follow it, and starting values the
-     person has not changed move with it. A value they typed stays as typed,
-     since the page cannot tell which unit it was typed for. */
-  function syncLengthUnit() {
-    const to = getStr('plumedUnitLength', 'nm');
-    const from = state.lengthUnit;
-    if (from === to) return;
-    let moved = 0;
-    for (const cv of state.cvs) {
-      const def = CV_DEFS[cv.type];
-      if (!def) continue;
-      const r = convertLengthDefaults(cv.values, def.fields, from, to);
-      cv.values = r.values;
-      moved += r.changed.length;
-      const b = moveBiasValues(cv, from, to);
-      cv.biasValues = b.values;
-      moved += b.changed.length;
+  const ENERGY_NAMES = { 'kj/mol': 'kJ/mol', 'kcal/mol': 'kcal/mol', eV: 'eV', Ha: 'Hartree' };
+
+  /* A new length or energy unit: the cards' labels follow it, and starting
+     values the person has not changed move with it, each by its own unit (a
+     wall's KAPPA by energy per length to the power EXP; a count, an angle
+     and a coordination number not by length at all). A value they typed
+     stays as typed, since the page cannot tell which unit it was typed for. */
+  function syncUnits() {
+    const to = unitsNow();
+    const from = { length: state.lengthUnit, energy: state.energyUnit };
+    if (from.length === to.length && from.energy === to.energy) return;
+    const before = starts(from);
+    const moved = [];
+    if (from.length !== to.length) {
+      for (const cv of state.cvs) {
+        const def = CV_DEFS[cv.type];
+        if (!def) continue;
+        const r = convertLengthDefaults(cv.values, lengthFields(def, cv.type), from.length, to.length);
+        cv.values = r.values;
+        if (r.changed.length) moved.push({ kind: 'field', what: cv.label, keys: r.changed });
+      }
     }
-    state.lengthUnit = to;
+    state.lengthUnit = to.length;
+    state.energyUnit = to.energy;
+    moved.push(...follow(before, starts(to)));
+    renderBiasParams();
     renderAll();
     generate();
-    if (moved && ctx.showToast) {
-      const name = LENGTH_NAMES[to] || to;
-      ctx.showToast(`${moved} starting length${moved === 1 ? '' : 's'} rewritten in ${name}. ` +
-        `Check that any length you typed is in ${name} too.`, 'ok');
+    const count = moved.reduce((n, m) => n + m.keys.length, 0);
+    if (count && ctx.showToast) {
+      const names = [];
+      if (from.length !== to.length) names.push(LENGTH_NAMES[to.length] || to.length);
+      if (from.energy !== to.energy) names.push(ENERGY_NAMES[to.energy] || to.energy);
+      const units = names.join(' and ');
+      ctx.showToast(`${count} starting value${count === 1 ? '' : 's'} rewritten in ${units} ` +
+        `(${listText(movedNames(moved))}). Check that any value you typed is in ${units} too.`, 'ok');
     }
+  }
+
+  /* After the value a bias acts on changes, say which starting values moved
+     to its own. */
+  function toastFollowed(target, moved) {
+    if (!moved.length || !ctx.showToast) return;
+    ctx.showToast(`Starting ${listText(movedNames(moved))} reset for ${target}. Values you typed are kept.`, 'ok');
   }
 
   function removeCV(id) {
@@ -419,10 +578,9 @@ export function createPlumedBuilder(ctx) {
     if (params.length) {
       if (!state.biasVals[method]) state.biasVals[method] = {};
       html += '<div class="sg-cv-grid">';
-      const energy = getStr('plumedUnitEnergy', 'kj/mol');
       for (const p of params) {
         const own = state.biasVals[method][p.k];
-        const cur = own !== undefined ? own : startingParam(p, energy);
+        const cur = own !== undefined ? own : paramStart(method, p);
         const placeholder = p.fallback
           ? `global: ${getStr(p.fallback, 'unset')}`
           : (p.def === '' ? '(optional)' : '');
@@ -653,8 +811,21 @@ export function createPlumedBuilder(ctx) {
       el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => {
         const inst = state.cvs.find(c => c.id === el.getAttribute('data-cv-bias'));
         if (!inst) return;
-        inst.biasValues[el.getAttribute('data-field')] = el.value;
+        const field = el.getAttribute('data-field');
+        if (field !== 'comp') {
+          inst.biasValues[field] = el.value;
+          generate();
+          return;
+        }
+        // Another component has its own grid and SIGMA (a count of 98
+        // distances is not a length of 5 nm), and the method's starting AT
+        // and KAPPA follow it; values typed stay.
+        const before = starts();
+        inst.biasValues.comp = el.value;
+        const moved = follow(before);
+        renderCVList();
         generate();
+        toastFollowed(inst.label + biasedComp(inst), moved);
       });
     });
 
@@ -673,10 +844,27 @@ export function createPlumedBuilder(ctx) {
     }
   }
 
+  /* The grid boxes of a CV, shown again after its starts moved without a redraw. */
+  function showBiasValues(inst) {
+    const host = $('plumedCVList');
+    if (!host) return;
+    host.querySelectorAll(`[data-cv-bias="${CSS.escape(inst.id)}"]`).forEach((el) => {
+      const k = el.getAttribute('data-field');
+      if (el.tagName !== 'SELECT' && BIAS_KEYS.includes(k) && el.value !== String(inst.biasValues[k] ?? '')) {
+        el.value = String(inst.biasValues[k] ?? '');
+      }
+    });
+  }
+
   function onFieldEdit(el) {
     const inst = state.cvs.find(c => c.id === el.getAttribute('data-cv'));
     if (!inst) return;
     const field = el.getAttribute('data-field');
+    // A field can change what the bias acts on (a reduction switched off
+    // moves it to another component) or what that value spans (98 atoms in
+    // GROUP make a count of up to 98): starts follow, typed values stay.
+    const before = starts();
+    const comp = biasedComp(inst);
     if (field === '__label') {
       inst.label = el.value.trim() || inst.id;
     } else if (field === '__bias') {
@@ -686,13 +874,21 @@ export function createPlumedBuilder(ctx) {
     } else {
       inst.values[field] = el.value;
     }
-    if (field === '__bias' || REDRAW_FIELDS.has(field)) {
+    const redraw = field === '__bias' || REDRAW_FIELDS.has(field);
+    if (redraw) {
       const comps = componentsForCV(inst, CV_DEFS, options());
       if (comps.length && !comps.includes(inst.biasValues.comp)) inst.biasValues.comp = comps[0];
       if (!comps.length) inst.biasValues.comp = '';
-      renderAll();
+    }
+    const moved = follow(before);
+    if (redraw) renderAll();
+    else {
+      showBiasValues(inst);
+      if (moved.some(m => m.kind === 'card')) renderRestraintList();
     }
     generate();
+    // A new component is news; a grid that grew with the atoms typed is not.
+    if (field !== '__label' && biasedComp(inst) !== comp) toastFollowed(inst.label + biasedComp(inst), moved);
   }
 
   /* ---------------------------------------------------------------- *
@@ -930,8 +1126,16 @@ export function createPlumedBuilder(ctx) {
         const r = find(el.getAttribute('data-res'));
         if (!r) return;
         const field = el.getAttribute('data-field');
+        // KAPPA's start depends on the argument's unit and on EXP.
+        const before = field === 'arg' || field === 'exp' ? starts() : null;
         r[field] = field === 'label' ? (el.value.trim() || r.id) : el.value;
         if (field === 'label') renderPrintList();
+        if (before) {
+          const moved = follow(before);
+          const box = host.querySelector(`[data-k="${CSS.escape(`${r.id}-kappa`)}"]`);
+          if (box && box.value !== r.kappa) box.value = r.kappa;
+          if (field === 'arg') toastFollowed(r.arg, moved.filter(m => m.kind === 'card' && m.what === r.label));
+        }
         generate();
       });
     });
@@ -943,9 +1147,11 @@ export function createPlumedBuilder(ctx) {
     if (!RESTRAINT_NAMES[type]) return;
     const n = ++state.restraintSeq;
     const first = argumentList()[0] || '';
+    // KAPPA starts in the file's units, for the value the card acts on.
+    const start = cardStarts(type, { power: argumentPowers().get(first) || 0, exp: '' }, unitsNow());
     state.restraints.push({
       id: `res${n}`, type, label: `${RESTRAINT_PREFIX[type]}${n}`, arg: first,
-      at: '', kappa: type === 'restraint' ? '200' : '150', exp: '', eps: '', offset: ''
+      at: '', kappa: start.kappa, exp: '', eps: '', offset: ''
     });
     renderRestraintList();
     renderPrintList();
@@ -1129,8 +1335,9 @@ export function createPlumedBuilder(ctx) {
         };
       }
     }
-    // The values just restored are in the unit the Length field now shows.
+    // The values just restored are in the units the fields now show.
     state.lengthUnit = getStr('plumedUnitLength', 'nm');
+    state.energyUnit = getStr('plumedUnitEnergy', 'kj/mol');
     state.biasVals = {};
     if (p.bias && typeof p.bias === 'object') {
       for (const method of Object.keys(p.bias)) {
@@ -1172,6 +1379,7 @@ export function createPlumedBuilder(ctx) {
   };
 
   on('plumedVersion', 'change', () => {
+    keepComps();
     ensureSyntax();
     populateCVSelect();
     renderBiasParams();
@@ -1211,23 +1419,12 @@ export function createPlumedBuilder(ctx) {
     analyse.refresh();
   });
   on('plumedTemp', 'input', renderBiasParams);
-  on('plumedUnitLength', 'input change', syncLengthUnit);
-  // HEIGHT and BARRIER not typed follow the energy unit; the boxes show it.
-  on('plumedUnitEnergy', 'change', () => {
-    renderBiasParams();
-    const method = getStr('plumedBias', 'none');
-    const own = state.biasVals[method] || {};
-    const moved = ((BIAS_DEFS[method] || {}).params || [])
-      .filter(p => ENERGY_PARAMS.includes(p.k) && own[p.k] === undefined && String(p.def || '').trim());
-    if (moved.length && ctx.showToast) {
-      const unit = getStr('plumedUnitEnergy', 'kj/mol');
-      const name = { 'kj/mol': 'kJ/mol', Ha: 'Hartree' }[unit] || unit;
-      ctx.showToast(`Starting ${moved.map(p => p.k).join(' and ')} rewritten in ${name}. ` +
-        `Check that any energy you typed is in ${name} too.`, 'ok');
-    }
-  });
+  // Before the handlers below: a select fires input first, and the values
+  // must move before anything reads the new unit.
+  on('plumedUnitLength', 'input change', syncUnits);
+  on('plumedUnitEnergy', 'input change', syncUnits);
   for (const id of ['plumedTemp', 'plumedStride', 'plumedMolinfo', 'plumedNatoms', 'plumedLoad',
-    'plumedFlush', 'plumedUnitEnergy', 'plumedUnitTime', 'plumedWalkersN',
+    'plumedFlush', 'plumedUnitTime', 'plumedWalkersN',
     'plumedWalkersId', 'plumedWalkersDir', 'plumedWalkersRstride', 'plumedWholeEntities']) {
     on(id, 'input change', generate);
   }

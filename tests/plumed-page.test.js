@@ -556,7 +556,7 @@ describe('The PLUMED panels promise only what the page does', () => {
   });
 
   test('the units note says which starting values follow a new unit', () => {
-    expect(plumedPanels).toMatch(/Starting values you have not changed follow the new unit \(lengths, a length's grid and SIGMA, HEIGHT and BARRIER\)/);
+    expect(plumedPanels).toMatch(/Starting values you have not changed follow the new units, each by its own unit \(lengths and switching functions, a length's grid and SIGMA, HEIGHT and BARRIER, and the AT and KAPPA of restraints and walls; a count or an angle has no length\)/);
   });
 
   test('a clean check claims only what the checks cover', () => {

@@ -489,8 +489,12 @@ export function componentsForCV(instance, catalogue = CV_DEFS, options = {}) {
  * PRINT: CV labels and components, then function labels. A CV the target
  * release cannot write defines nothing, so it offers nothing.
  *
+ * `power` is {@link lengthPower} of the value; a function's is 0, since the
+ * builder does not know the unit of a function, so only the energy part of
+ * a force constant on it follows the units.
+ *
  * @param {object} config
- * @returns {Array<{arg:string, source:string, kind:'cv'|'function'}>}
+ * @returns {Array<{arg:string, source:string, kind:'cv'|'function', power:number}>}
  */
 export function availableArguments(config = {}) {
   const catalogue = config.catalogue || CV_DEFS;
@@ -502,11 +506,51 @@ export function availableArguments(config = {}) {
     if (def.isGroup || cv.isGroup) continue;
     if (catalogue[cv.type] && !cvWritten(cv, catalogue, config.version)) continue;
     const comps = componentsForCV(cv, catalogue, options);
-    if (comps.length) comps.forEach(c => out.push({ arg: cv.label + c, source: cv.label, kind: 'cv' }));
-    else out.push({ arg: cv.label, source: cv.label, kind: 'cv' });
+    const power = (c) => lengthPower(cv.type, c, { values: cv.values });
+    if (comps.length) comps.forEach(c => out.push({ arg: cv.label + c, source: cv.label, kind: 'cv', power: power(c) }));
+    else out.push({ arg: cv.label, source: cv.label, kind: 'cv', power: power('') });
   }
   for (const fn of config.functions || []) {
-    if (fn && fn.label) out.push({ arg: fn.label, source: fn.label, kind: 'function' });
+    if (fn && fn.label) out.push({ arg: fn.label, source: fn.label, kind: 'function', power: 0 });
+  }
+  return out;
+}
+
+/**
+ * The values the bias acts on, in the order its ARG lists them: each CV
+ * with Bias on (the component chosen for it, or its first), then each
+ * function with Bias on. A CV the target release cannot write has no value
+ * to bias. generatePlumedInput builds its targets from this list, so the
+ * page's per-argument starting values line up with the file's ARG.
+ *
+ * @param {object} config - As for generatePlumedInput: `cvs`, `functions`,
+ *        `version`, `syntax`, `catalogue`.
+ * @returns {Array<{arg:string, label:string, type:string, comp:string,
+ *   source:object, kind:'cv'|'function', power:number}>} `source` is the CV
+ *   or function; `power` as in {@link availableArguments}.
+ */
+export function biasedArguments(config = {}) {
+  const catalogue = config.catalogue || CV_DEFS;
+  const version = config.version || DEFAULT_PLUMED_VERSION;
+  const out = [];
+  for (const cv of config.cvs || []) {
+    if (!cv) continue;
+    const def = catalogue[cv.type] || {};
+    if (!cv.bias || def.isGroup || cv.isGroup || def.noBias) continue;
+    // A CV the target cannot write has no value to bias.
+    if (catalogue[cv.type] && !cvWritten(cv, catalogue, version)) continue;
+    const comps = componentsForCV(cv, catalogue, { version, syntax: config.syntax });
+    let comp = str((cv.biasValues || {}).comp);
+    if (comps.length && !comps.includes(comp)) comp = comps[0];
+    if (!comps.length && def.compStyle === 'none') comp = '';
+    out.push({
+      arg: cv.label + comp, label: cv.label, type: cv.type, comp, source: cv, kind: 'cv',
+      power: lengthPower(cv.type, comp, { values: cv.values })
+    });
+  }
+  for (const fn of config.functions || []) {
+    if (!fn || !fn.bias) continue;
+    out.push({ arg: fn.label, label: fn.label, type: fn.type, comp: '', source: fn, kind: 'function', power: 0 });
   }
   return out;
 }
@@ -518,13 +562,15 @@ export function availableArguments(config = {}) {
 /* The range of the per-item value of the order parameters and angles, which
    their mean, lowest, highest and similar reductions share. TETRAHEDRAL is a
    sum of four cubes that PLUMED does not normalise: an ideal tetrahedron
-   gives 8/sqrt(3) = 4.62. LOCAL_Q, FCCUBIC and TETRA_ANGULAR go negative. */
+   gives 8/sqrt(3) = 4.62. LOCAL_Q, FCCUBIC and TETRA_ANGULAR go negative.
+   COORD_ANGLES's mean is a mean of angles weighted by their bonds. */
 const PER_ITEM_RANGE = Object.freeze({
   Q6: [0, 1], Q4: [0, 1], Q3: [0, 1], SMAC: [0, 1], ATOMIC_SMAC: [0, 1], TETRA_RADIAL: [0, 1],
   LOCAL_Q6: [-1, 1], LOCAL_Q4: [-1, 1], LOCAL_Q3: [-1, 1], FCCUBIC: [-1, 1],
   TETRA_ANGULAR: [-3, 1], TETRAHEDRAL: [-4.62, 4.62],
-  ANGLES: [0, Math.PI], XANGLES: [0, Math.PI]
+  ANGLES: [0, Math.PI], XANGLES: [0, Math.PI], COORD_ANGLES: [0, Math.PI]
 });
+const ANGLE_ITEMS = new Set(['ANGLES', 'XANGLES', 'COORD_ANGLES']);
 /* Starting grids for those ranges, wide enough for every value. */
 const PER_ITEM_GRID = Object.freeze({
   '0,1': { min: '0.0', max: '1.0', bin: '200', sigma: '0.02' },
@@ -532,8 +578,12 @@ const PER_ITEM_GRID = Object.freeze({
   '-3,1': { min: '-3.0', max: '1.0', bin: '400', sigma: '0.02' },
   '-4.62,4.62': { min: '-5.0', max: '5.0', bin: '200', sigma: '0.1' }
 });
-/* Reductions that count or add up rather than summarise the per-item values. */
-const COUNT_REDUCTIONS = new Set(['sum', 'morethan', 'lessthan', 'between', 'vsum']);
+/* Reductions that count the items below, above or between thresholds: PLUMED
+   sums a switching function of each item (MultiColvarShortcuts.cpp), so the
+   value runs from 0 to the number of items, whatever the items are. */
+const COUNT_REDUCTIONS = new Set(['morethan', 'lessthan', 'between']);
+/* Reductions that add the items up. */
+const SUM_REDUCTIONS = new Set(['sum', 'vsum']);
 const LENGTH_TYPES = Object.freeze([
   'DISTANCE', 'RMSD', 'DRMSD', 'GYRATION', 'POSITION', 'INPLANEDISTANCES'
 ]);
@@ -541,6 +591,72 @@ const COORDINATION_TYPES = Object.freeze([
   'COORDINATION', 'COORDINATIONNUMBER', 'COORDINATIONNUMBER_ADV', 'COORDINATION_MOMENTS',
   'CONTACTMAP'
 ]);
+
+/* How many atoms a list names, or 0 when it holds a label, a selection or a
+   mistake, which only PLUMED can count. */
+function atomsIn(spec) {
+  // Counted, not listed: a range of a million atoms is one number here.
+  const r = parseAtomList(spec, { limit: 0 });
+  return r.labels.length || r.errors.length ? 0 : r.count;
+}
+
+/* How many items a multicolvar computes, when its atoms are written as
+   numbers: one per SPECIES atom (SPECIESA when there are two sets) for the
+   symmetry functions, one per numbered ATOMS for the angle and torsion
+   families, one per triple for ANGLES and one per VECTORSTART, VECTOREND
+   and GROUP atom for INPLANEDISTANCES (src/multicolvar/Angles.cpp,
+   InPlaneDistances.cpp). Null when it cannot be told here, and for the
+   angles PLUMED weights by a switching function (COORD_ANGLES, ANGLES with
+   SWITCH), whose count is well under the number of angles. */
+function itemCount(type, values = {}) {
+  const has = (k) => !blank(values[k]);
+  const numbered = () => new Set(str(values.ATOMS).match(/\bATOMS\d+=/g) || []).size;
+  let n = 0;
+  if (type === 'INPLANEDISTANCES') {
+    n = atomsIn(values.VECTORSTART) * atomsIn(values.VECTOREND) * atomsIn(values.GROUP);
+  } else if (type === 'ANGLES') {
+    if (has('SWITCH')) return null;
+    if (has('GROUP')) {
+      const g = atomsIn(values.GROUP);
+      n = g * (g - 1) * (g - 2) / 6;
+    } else if (has('GROUPC')) {
+      n = atomsIn(values.GROUPA) * atomsIn(values.GROUPB) * atomsIn(values.GROUPC);
+    } else {
+      const b = atomsIn(values.GROUPB);
+      n = atomsIn(values.GROUPA) * b * (b - 1) / 2;
+    }
+  } else if (['TORSIONS', 'XYTORSIONS', 'XANGLES'].includes(type)) {
+    n = numbered();
+  } else if (((CV_DEFS[type] || {}).fields || []).some(f => f.k === 'SPECIES')) {
+    n = atomsIn(has('SPECIESA') ? values.SPECIESA : values.SPECIES);
+  }
+  return n > 0 ? n : null;
+}
+
+/* The range the builder gives one item of a multicolvar, for the grid of a
+   sum of them: the order parameters' own range, and the starting grid of a
+   length or a coordination number. */
+function itemRange(type) {
+  if (PER_ITEM_RANGE[type]) return PER_ITEM_RANGE[type];
+  if (LENGTH_TYPES.includes(type)) return [0, 5];
+  if (COORDINATION_TYPES.includes(type)) return [0, 20];
+  return null;
+}
+
+/* A starting grid from lo to hi for a count or a sum. A hill is a fifth of
+   an item wide, as for a coordination number, or a hundredth of the range
+   when that is wider, and there are enough bins for a spacing under half of
+   SIGMA. With no bounds the generic 0..10 is kept, which the checks flag. */
+function spanGrid(lo, hi) {
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) {
+    return { min: '0.0', max: '10.0', bin: '200', sigma: '0.2' };
+  }
+  const a = Math.floor(lo);
+  const b = Math.ceil(hi);
+  const sigma = Math.max(0.2, Number(((b - a) / 100).toPrecision(1)));
+  const bin = Math.max(200, Math.ceil((2 * (b - a)) / sigma / 100) * 100);
+  return { min: a === 0 ? '0.0' : String(a), max: String(b), bin: String(bin), sigma: String(sigma) };
+}
 
 /**
  * What values a biased argument takes, which decides its grid and what is
@@ -555,12 +671,14 @@ const COORDINATION_TYPES = Object.freeze([
  * @param {{values?:object, period?:string}} [options] - `values` of the CV;
  *        `period` is a function's `PERIODIC` value.
  * @returns {{periodic:string[]|null, range:number[]|null, angle:boolean,
- *   count:boolean, items:number|null}} `periodic` is the period as PLUMED
- *   writes it; `range` the values a bounded quantity takes; `items` the
- *   largest a count can be, when it is known.
+ *   count:boolean, sum:boolean, items:number|null}} `periodic` is the period
+ *   as PLUMED writes it; `range` the values a bounded quantity takes;
+ *   `count` marks a count of items, from 0 to `items`; `sum` a sum of
+ *   `items` values that is not a count. `items` is null when the atoms do
+ *   not tell it.
  */
 export function valueDomain(type, comp = '', options = {}) {
-  const d = { periodic: null, range: null, angle: false, count: false, items: null };
+  const d = { periodic: null, range: null, angle: false, count: false, sum: false, items: null };
   const c = str(comp).replace(/^[._]/, '');
   const base = c.replace(/-\d+$/, '');
   const values = options.values || {};
@@ -577,18 +695,30 @@ export function valueDomain(type, comp = '', options = {}) {
     else if (c === 'theta') Object.assign(d, { range: [0, Math.PI], angle: true });
     return d;
   }
-  if (COUNT_REDUCTIONS.has(base) && (type === 'TORSIONS' || type === 'XYTORSIONS' ||
-    PER_ITEM_RANGE[type])) {
-    d.count = true;
-    if (type === 'TORSIONS' || type === 'XYTORSIONS') {
-      const n = new Set(str(values.ATOMS).match(/\bATOMS\d+=/g) || []).size;
-      if (n) d.items = n;
-    }
+  if (type === 'CONTACTMAP') {
+    // Each contact is WEIGHT (s(r) - REFERENCE) (colvar/ContactMap.cpp): one
+    // switching function, from 0 to 1, until a weight or a reference is
+    // given. SUM adds them, which counts the contacts made.
+    const text = str(values.ATOMS);
+    if (/\b(REFERENCE|WEIGHT)\d*=/.test(text) || values.CMDIST) return d;
+    if (/^contact-\d+$/.test(c)) return { ...d, range: [0, 1] };
+    if (!c && values.SUM) return { ...d, count: true, items: new Set(text.match(/\bATOMS\d+=/g) || []).size || null };
     return d;
+  }
+  const multi = isMulticolvar(CV_DEFS[type]);
+  if (multi && (COUNT_REDUCTIONS.has(base) || SUM_REDUCTIONS.has(base))) {
+    const items = itemCount(type, values);
+    const per = PER_ITEM_RANGE[type];
+    // A sum of values between 0 and 1 counts too: Q6 summed over 64 atoms
+    // is at most 64.
+    if (COUNT_REDUCTIONS.has(base) || (per && per[0] === 0 && per[1] === 1)) {
+      return { ...d, count: true, items };
+    }
+    return { ...d, sum: true, items, range: per && items ? [items * per[0], items * per[1]] : null };
   }
   if (PER_ITEM_RANGE[type]) {
     d.range = PER_ITEM_RANGE[type].slice();
-    d.angle = type === 'ANGLES' || type === 'XANGLES';
+    d.angle = ANGLE_ITEMS.has(type);
   }
   return d;
 }
@@ -597,8 +727,15 @@ export function valueDomain(type, comp = '', options = {}) {
 function gridForDomain(d, type, comp) {
   if (d.periodic) return { min: d.periodic[0], max: d.periodic[1] };
   if (d.angle) return { min: '0.0', max: 'pi' };
-  if (d.count) return d.items ? { min: '0.0', max: String(d.items) } : null;
-  if (d.range) return { ...PER_ITEM_GRID[d.range.join(',')] };
+  if (d.count) return spanGrid(0, d.items);
+  if (d.sum) {
+    // N items each in lo..hi add up to N lo..N hi: 98 in-plane distances of
+    // up to 5 nm, or 100 coordination numbers of up to 20.
+    const one = itemRange(type);
+    return d.items && one ? spanGrid(d.items * one[0], d.items * one[1]) : spanGrid();
+  }
+  if (d.range && PER_ITEM_GRID[d.range.join(',')]) return { ...PER_ITEM_GRID[d.range.join(',')] };
+  if (d.range) return spanGrid(d.range[0], d.range[1]);
   if (type === 'PUCKERING') {
     // Cremer-Pople coordinates and amplitudes are lengths of a few hundredths
     // of a nanometre; the amplitude is never negative.
@@ -647,17 +784,20 @@ export function defaultBiasValues(type, comp, options = {}) {
 
 /**
  * The power of length in the unit of a biased value, which is how its grid
- * bounds and SIGMA scale under `UNITS LENGTH`: 1 for a length (DISTANCE,
- * RMSD, a radius of gyration), 2 for an area (PLANE, RMSD or DRMSD with SQUARED,
- * GYRATION TYPE=TRACE), 0 for anything else (angles, counts, order
- * parameters, and the values whose unit the builder does not know, which
- * start from the generic 0..10 grid).
+ * bounds and SIGMA scale under `UNITS LENGTH`, and with them the AT, KAPPA
+ * and the other values of a restraint on it (see {@link biasKeywordUnit}):
+ * 1 for a length (DISTANCE, RMSD, a radius of gyration, a sum of in-plane
+ * distances), 2 for an area (PLANE, RMSD or DRMSD with SQUARED, GYRATION
+ * TYPE=TRACE), R_POWER for COORDINATION_MOMENTS, 0 for anything else
+ * (angles, counts, coordination numbers, order parameters, and the values
+ * whose unit the builder does not know, which start from the generic 0..10
+ * grid).
  *
  * @param {string} type - Catalogue key.
  * @param {string} [comp] - The biased component, separator included, or ''.
  * @param {{values?:object}} [options] - The CV's values: TYPE of GYRATION,
- *        SQUARED of RMSD, and the atoms of a count.
- * @returns {0|1|2}
+ *        SQUARED of RMSD, R_POWER, and the atoms of a count.
+ * @returns {number}
  */
 export function lengthPower(type, comp = '', options = {}) {
   const values = options.values || {};
@@ -665,6 +805,14 @@ export function lengthPower(type, comp = '', options = {}) {
   const base = c.replace(/-\d+$/, '');
   const d = valueDomain(type, str(comp), options);
   if (d.periodic || d.angle || d.count || d.range) return 0;
+  if (type === 'COORDINATION_MOMENTS') {
+    // Each item is the sum of s(r) r^k over the neighbours, k = R_POWER, and
+    // moment-m the mean m-th power of its spread (symfunc/CoordinationNumbers.cpp).
+    const k = Number(str(values.R_POWER));
+    if (!Number.isFinite(k) || !str(values.R_POWER)) return 0;
+    const m = /^moment-(\d+)$/.exec(c);
+    return m ? k * Number(m[1]) : k;
+  }
   if (type === 'PLANE') return 2;
   if (type === 'PUCKERING' || type === 'PROJECTION_ON_AXIS') return 1;
   if (!LENGTH_TYPES.includes(type)) return 0;
@@ -679,6 +827,57 @@ export function lengthPower(type, comp = '', options = {}) {
   }
   if ((type === 'RMSD' || type === 'DRMSD') && values.SQUARED === true) return 2;
   return 1;
+}
+
+/**
+ * The unit of a bias keyword as powers of length and energy, from what
+ * PLUMED computes with it (src/bias/*.cpp), for an argument whose unit is
+ * length to the power `power` (see {@link lengthPower}):
+ *
+ *   RESTRAINT          ½ KAPPA (x - AT)² + SLOPE (x - AT)
+ *   UPPER/LOWER_WALLS  KAPPA ((x - AT ± OFFSET) / EPS)^EXP
+ *   MOVINGRESTRAINT    ½ KAPPAn (x - ATn)² at STEPn, interpolated between
+ *   ABMD               ½ KAPPA (ρ - ρmin)², ρ = (x - TO)²; NOISE and MIN are ρ
+ *   METAD, PBMETAD     HEIGHT; OPES_METAD BARRIER; SIGMA in the unit of x
+ *
+ * EPS is in the unit of x too, but its starting value of 1 is kept as it
+ * reads, as users write it, so a wall's KAPPA carries the length instead:
+ * energy per (unit of x)^EXP, the same energy for any EPS left as it was.
+ * PLUMED converts none of these itself; they are read in the file's units.
+ *
+ * @param {string} method - Key of BIAS_DEFS (`restraint`, `upper`, `lower`,
+ *        `moving`, `abmd`, `metad`...); a wall or restraint card uses its type.
+ * @param {string} key - The keyword, in either case (`KAPPA` or `kappa`).
+ * @param {{power?:number, exp?:number|string}} [options] - `exp` is the wall's
+ *        EXP for this argument; blank or not a number is PLUMED's 2.
+ * @returns {{length:number, energy:number}|null} Null for a keyword with no
+ *          unit (PACE, EXP, EPS, STEP0, BIASFACTOR, TEMP, FILE...).
+ */
+export function biasKeywordUnit(method, key, options = {}) {
+  const k = str(key).toUpperCase();
+  const p = Number(options.power) || 0;
+  const e = str(options.exp) !== '' && Number.isFinite(Number(str(options.exp))) ? Number(str(options.exp)) : 2;
+  const unit = (length, energy) => ({ length: length || 0, energy });
+  if (k === 'HEIGHT' || k === 'BARRIER') return unit(0, 1);
+  switch (method) {
+    case 'restraint':
+      return { AT: unit(p, 0), KAPPA: unit(-2 * p, 1), SLOPE: unit(-p, 1) }[k] || null;
+    case 'moving':
+      if (/^AT\d+$/.test(k)) return unit(p, 0);
+      return /^KAPPA\d+$/.test(k) ? unit(-2 * p, 1) : null;
+    case 'upper':
+    case 'lower':
+      return { AT: unit(p, 0), OFFSET: unit(p, 0), KAPPA: unit(-p * e, 1) }[k] || null;
+    case 'abmd':
+      return { TO: unit(p, 0), KAPPA: unit(-4 * p, 1), NOISE: unit(2 * p, 0), MIN: unit(2 * p, 0) }[k] || null;
+    case 'metad':
+    case 'wt_metad':
+    case 'pbmetad':
+    case 'opes':
+      return k === 'SIGMA' ? unit(p, 0) : null;
+    default:
+      return null;
+  }
 }
 
 /**
@@ -2064,18 +2263,25 @@ export function generatePlumedInput(config = {}) {
 
   /* --- Bias --- */
   const targets = [];
-  for (const cv of c.cvs) {
+  for (const b of biasedArguments({ cvs: c.cvs, functions: c.functions, catalogue, version, syntax })) {
+    const bv = b.source.biasValues || {};
+    if (b.kind === 'function') {
+      const fn = b.source;
+      const period = str(fn.values && fn.values.PERIODIC);
+      const periodic = period && period.toUpperCase() !== 'NO';
+      const type = periodic ? 'FUNCTION_PERIODIC' : fn.type;
+      targets.push({
+        arg: fn.label, label: fn.label, type,
+        domain: valueDomain(type, '', { period }),
+        min: bv.min, max: bv.max, bin: bv.bin, sigma: bv.sigma
+      });
+      continue;
+    }
+    const cv = b.source;
     const def = catalogue[cv.type] || {};
-    if (!cv.bias || def.isGroup || cv.isGroup || def.noBias) continue;
-    // A CV the target cannot write has no value to bias.
-    if (catalogue[cv.type] && !cvWritten(cv, catalogue, version)) continue;
-    const bv = cv.biasValues || {};
-    const comps = componentsForCV(cv, catalogue, { version, syntax });
-    let comp = str(bv.comp);
-    if (comps.length && !comps.includes(comp)) comp = comps[0];
-    if (!comps.length && def.compStyle === 'none') comp = '';
+    const comp = b.comp;
     const t = {
-      arg: cv.label + comp, label: cv.label, type: cv.type,
+      arg: b.arg, label: cv.label, type: cv.type,
       domain: valueDomain(cv.type, comp, { values: cv.values })
     };
     // From 2.10 a shortcut multicolvar makes `cv.mean` a value of its own,
@@ -2086,18 +2292,6 @@ export function generatePlumedInput(config = {}) {
     }
     if (!c.legacy) Object.assign(t, { min: bv.min, max: bv.max, bin: bv.bin, sigma: bv.sigma });
     targets.push(t);
-  }
-  for (const fn of c.functions) {
-    if (!fn.bias) continue;
-    const bv = fn.biasValues || {};
-    const period = str(fn.values && fn.values.PERIODIC);
-    const periodic = period && period.toUpperCase() !== 'NO';
-    const type = periodic ? 'FUNCTION_PERIODIC' : fn.type;
-    targets.push({
-      arg: fn.label, label: fn.label, type,
-      domain: valueDomain(type, '', { period }),
-      min: bv.min, max: bv.max, bin: bv.bin, sigma: bv.sigma
-    });
   }
 
   const biasOptions = c.legacy ? {} : {

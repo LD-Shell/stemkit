@@ -151,7 +151,7 @@
 .sg-cv-flag input { width: .95rem; height: .95rem; accent-color: var(--stk-accent); cursor: pointer; flex-shrink: 0; }
 .sg-cv-flag label { font-size: .75rem; color: var(--stk-fg-2); cursor: pointer; }
 .sg-cv-sub { margin-top: .15rem; text-transform: uppercase; letter-spacing: .04em; }
-.sg-cv-per { margin-left: .15rem; font-weight: 500; color: var(--stk-fg-faint); }
+.sg-cv-per { margin-left: .15rem; font-weight: 500; color: var(--stk-fg-3); }
 .sg-cv .stk-hint, #plumedBiasParams .stk-hint { margin: 0; font-size: .6875rem; line-height: 1.45; }
 .sg-cv .stk-hint { color: var(--stk-fg-2); }
 .sg-cv-more { border-top: 1px solid var(--stk-border); padding-top: .45rem; }
