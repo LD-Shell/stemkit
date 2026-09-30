@@ -246,7 +246,7 @@ npm test                # full suite
 npm run test:coverage   # with coverage
 ```
 
-The suite comprises 3292 tests across all 39 domain modules (`src/core` also holds the aggregate
+The suite comprises 3355 tests across all 39 domain modules (`src/core` also holds the aggregate
 export, the Node entry and the injection layer, which carry no domain logic). Numerical results are validated against
 independent references rather than against the implementation itself:
 

@@ -207,6 +207,25 @@ it was fixed, each with a regression test.
 - Page text that said something false about GROMACS or PLUMED is corrected:
   thermostat and barostat guidance, walker commands, the check command, wall
   offsets, units and version notes.
+- `[output]` **PLUMED units.** Switching-function cut-offs (R_0 and D_0 of
+  SMAC, FCCUBIC, ANGLES, CONTACTMAP and INPLANEDISTANCES) did not follow
+  UNITS LENGTH, so `R_0=0.5` silently meant 0.5 Å. Restraint, wall,
+  moving-restraint and ABMD values (AT, KAPPA, SLOPE, OFFSET, TO) now follow
+  a change of UNITS like the grid and SIGMA do; the same bias written in
+  nm with kJ/mol and in the page's Å with kcal/mol gives the same energy in
+  PLUMED 2.11 to 1e-12. Counts start on grids sized from their atom lists (the
+  old 0–20 grid made PLUMED stop on larger counts), and changing the biased
+  component resets its starting values.
+- **GROMACS pulling:** with a structure loaded, the page works out the
+  distance between pull groups as grompp does and says when grompp will stop
+  because it exceeds 0.49 of the box, with the fix; it agrees with grompp
+  within 0.0015 nm.
+- **GROMACS launch:** the thread-MPI `gmx` gets `-ntmpi 1` (it started a rank
+  per visible core and oversubscribed shared nodes), a job without GPUs gets
+  `-nb cpu` (it took a GPU the node showed but the job did not ask for), and
+  threads are pinned with `-pin auto` rather than `-pin on`, which pinned from
+  core 0 whatever the scheduler gave. A placeholder 1 Å `CRYST1` line is read
+  as no box.
 
 ### Fixed: output
 
