@@ -25,14 +25,15 @@ console shows a CORS error. Serve over HTTP.
 
 ```bash
 npm install
-npm test               # 1284 tests, 17 modules
+npm test               # 2066 tests, 29 modules
 npm run test:coverage  # see docs/COVERAGE.md
 node tests/smoke.mjs   # end-to-end against a real install
 ```
 
 The smoke test catches what unit tests cannot: a broken aggregate export, a
-mis-scoped `type` field, a vendored bundle that fails to load. It calls into 15
-of the 17 modules; `iso4` and `journals` have no case yet.
+mis-scoped `type` field, a vendored bundle that fails to load. It calls into 19
+of the 29 modules; `iso4`, `journals`, `pdf`, `zip` and the PLUMED modules
+beyond `plumed` have no case yet.
 
 ## Layout
 
@@ -41,7 +42,7 @@ stemkit/
 ├── *.html                  18 research tools, 3 workflow utilities,
 │                           plus index, privacy and 404
 ├── src/
-│   ├── core/               the library: 17 domain modules, no DOM,
+│   ├── core/               the library: 29 domain modules, no DOM,
 │   │                       plus index.js (barrel), node.js (Node entry)
 │   │                       and vendor.js (DI)
 │   ├── tailwind/input.css  design tokens, shared .stk-* components,

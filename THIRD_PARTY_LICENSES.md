@@ -38,7 +38,9 @@ metadata or its repository, not inferred from the code.
 
 The npm package `stemkit-core` ships four of these (jStat, Papa Parse,
 regression.js, bibtex-parse-js), with their notices in
-`js/dependencies/LICENSES.md`.
+`js/dependencies/LICENSES.md`. regression.js is kept for the package's
+`curve-fitting` module; no page loads it since the Curve Fitter moved to
+`nonlinear-fit`.
 
 ## Fonts and icons
 

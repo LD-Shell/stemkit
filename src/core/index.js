@@ -25,7 +25,8 @@
  * ```
  *
  * Modules that need no third-party code, `xvg-parser`, `structure`, `slurm`,
- * `scheduler`, `digitizer`, `latex`, `units`, work without any registration at
+ * `scheduler`, `digitizer`, `latex`, `units`, `expression`, `nonlinear-fit`,
+ * `fit-python`, `plot-style`, `pdf`, `zip`, work without any registration at
  * all.
  *
  * ## Name collisions
@@ -76,6 +77,12 @@ export * as PlumedAtoms from './plumed-atoms.js';
 export * as PlumedAnalysis from './plumed-analysis.js';
 export * as PlumedRun from './plumed-run.js';
 export * as Selection from './selection.js';
+export * as Expression from './expression.js';
+export * as NonlinearFit from './nonlinear-fit.js';
+export * as FitPython from './fit-python.js';
+export * as PlotStyle from './plot-style.js';
+export * as Pdf from './pdf.js';
+export * as Zip from './zip.js';
 
 /* ------------------------------------------------------------------ *
  * Flat exports | collision-free modules
@@ -98,6 +105,16 @@ export {
 } from './iso4.js';
 export * from './plumed.js';
 export * from './selection.js';
+
+// The equation fitter's entry points. The rest of `expression` (compile,
+// differentiate, FUNCTIONS, special, ...) has names too general to claim
+// flat; reach it as `Expression.compile` and so on.
+export { parseEquation, parseExpression, classify, toLatex } from './expression.js';
+export { fitModel, studentTQuantile } from './nonlinear-fit.js';
+export { generateFitScript } from './fit-python.js';
+export { defaultPlotStyle, normalisePlotStyle } from './plot-style.js';
+export { pdfFromSvg, pdfFromJpeg } from './pdf.js';
+export { buildZip } from './zip.js';
 
 /* ------------------------------------------------------------------ *
  * Flat exports, modules with collisions, resolved explicitly

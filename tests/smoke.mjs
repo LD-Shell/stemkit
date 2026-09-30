@@ -9,8 +9,9 @@
  *
  *   node tests/smoke.mjs
  *
- * Prints one OK line per module checked, then a summary count. Every module is
- * covered except `iso4` and `journals`.
+ * Prints one OK line per module checked, then a summary count. It reaches 19
+ * of the 29 modules; `iso4`, `journals`, `pdf`, `zip` and the PLUMED modules
+ * beyond `plumed` have no case yet.
  */
 
 import {
@@ -22,6 +23,7 @@ import {
   convert,
   parseBibtex, deduplicateAuto,
   fitCurve,
+  parseEquation, classify, fitModel, generateFitScript, defaultPlotStyle,
   detectModifiedZScore,
   summariseGroup,
   toDataCoordinates,
@@ -119,6 +121,22 @@ check('curve-fitting', () => {
   const f = fitCurve([[1, 2], [2, 4], [3, 6]], 'linear');
   assert(f.r2 > 0.999, `expected a near-perfect fit, got r2 = ${f.r2}`);
   assert(Math.abs(f.equation[0] - 2) < 1e-6, 'slope wrong');
+});
+
+check('equation fitting', () => {
+  const eq = parseEquation('y = A*exp(-t/tau) + y0');
+  assert(eq.ok !== false && eq.ast, 'equation not parsed');
+  const { independent, parameters } = classify(eq);
+  assert(independent.join() === 't' && parameters.join() === 'A,tau,y0', 'names not classified');
+  const t = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+  const y = t.map(v => 5 * Math.exp(-v / 2) + 1);
+  const f = fitModel({ ast: eq.ast, independent, parameters: parameters.map(name => ({ name })), columns: { t }, y });
+  assert(f.ok && Math.abs(f.parameters[1].value - 2) < 1e-6, 'tau not recovered');
+  const py = generateFitScript({
+    equation: 'y = A*exp(-t/tau) + y0', ast: eq.ast, dependent: 'y', independent,
+    parameters: parameters.map(name => ({ name })), data: { columns: { t }, y }, style: defaultPlotStyle(), fit: f
+  });
+  assert(py.includes('curve_fit'), 'no curve_fit in the script');
 });
 
 check('outliers', () => {

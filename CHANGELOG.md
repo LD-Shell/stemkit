@@ -5,6 +5,71 @@ Notable changes to STEMKit and `stemkit-core`.
 `[output]` marks a change that alters a reported number. Figures produced with an
 earlier version are worth re-checking.
 
+## Unreleased
+
+### Added: a curve fitter for any equation
+
+- **Type the equation, not pick a model.** `y = A*exp(-t/tau) + y0`,
+  `I(V) = I0*(exp(V/(n*Vt)) - 1)` or `z = a*x + b*y + c`: the page reads it as
+  it is typed, shows it typeset, points at the character a mistake is at, and
+  sorts the names into variables (matched to data columns by name) and
+  parameters. Seventeen presets fill in common models. Parameters take a
+  starting value, bounds, or a fixed value; physical constants are offered
+  at their CODATA values.
+- **The fit runs as you type**, by Levenberg–Marquardt on the untransformed
+  data, weighted when an uncertainty column is given, with starting values
+  found by the fitter. Each parameter comes with its standard error and 95%
+  interval, and the fit with R², adjusted R², RMSE, reduced χ², AIC, BIC and
+  the parameter correlations. The numbers match `scipy.optimize.curve_fit` to
+  better than 1e-7.
+- **The plot is styled on the page and saved as PDF, PNG or SVG**: size,
+  fonts, ticks (automatic, every step, a count, or listed with labels), log
+  axes, limits, markers, error bars, the fit line, a confidence band, a
+  residual panel, legend, grid, frame and colours. The preview follows
+  matplotlib's own tick and layout rules, so it shows what the Python script
+  will draw.
+- **The Python script** (SciPy and matplotlib) is written as you work: the
+  same fit and the same figure, with the data embedded or read from a CSV.
+- New core modules: `expression` (parsing, derivatives and LaTeX, with no
+  `eval`), `nonlinear-fit`, `fit-python`, `plot-style` and `pdf` (a PDF writer
+  for SVG figures). The page no longer loads regression.js; `curve-fitting`
+  keeps it for the npm package.
+
+### Added: PLUMED workbench
+
+- **Keyword tables for PLUMED 2.9, 2.10 and 2.11**, generated from PLUMED's
+  own `syntax.json`, drive the input generator, its version notes and the
+  module warnings.
+- **Check, explain and open an existing `plumed.dat`**, parsed by PLUMED's
+  own rules and tuned on the inputs of PLUMED's regression tests.
+- **Atoms from a structure file**: groups, and centres and directions per
+  molecule, numbered by position as PLUMED counts them.
+- **Analyse a run**: COLVAR gives hill widths and grid bounds; HILLS gives the
+  free-energy surface, matching `plumed sum_hills` to nine decimal places, and
+  whether the bias has settled; the printed bias reweights other quantities.
+  The same analysis comes as a Python script for files on a cluster.
+- **Run files that start and continue a job** with one script, for GROMACS
+  and LAMMPS: one run, MPI walkers, walkers as separate jobs, and umbrella
+  windows. Checked by killing jobs at random for every method and layout.
+- Functions, walls, setup lines (`LOAD`, `INCLUDE`, `RESTART`, `FLUSH`) and
+  several output files in the generator.
+
+### Fixed: output
+
+- `[output]` **Generated PLUMED inputs that PLUMED rejected.** Every
+  metadynamics, PBMETAD, OPES and steered-MD input closed its block with
+  `... METAD`, which PLUMED refuses. About twenty variables printed or biased
+  components that do not exist, such as `cv1` for POSITION or `.s` for
+  PATHMSD, which has `.sss`. All 308 generated inputs now parse in
+  PLUMED 2.9, 2.10 and 2.11.
+- `[output]` **An OPES run continued from the kernels file** and came back
+  about 18 kJ/mol off even after a clean stop; it now restarts from the state
+  file. With MPI walkers, PBMETAD restarted every walker but the first
+  without its bias.
+- **Subscripts and superscripts in typeset formulas** were drawn at full size
+  on every page with KaTeX: the stylesheet was from a newer release than the
+  script.
+
 ## v0.2.1 — 2026-09-25
 
 Every page's claims were checked against its code. This release fixes what

@@ -82,11 +82,23 @@ Modules needing no registration: `xvg-parser`, `structure`, `selection`,
 | `xvg-parser` | GROMACS/Grace `.xvg` and PLUMED `COLVAR` parsing | none |
 | `statistics` | Descriptives, t-tests, classic and Welch's ANOVA, Pearson and Spearman correlation, non-parametrics, post-hoc comparisons, assumption checks, test choice | jStat |
 | `outliers` | Z-score, modified Z-score, Tukey IQR, Grubbs' test | jStat |
-| `curve-fitting` | Least-squares fitting with goodness-of-fit and adequacy checks | regression.js |
+| `curve-fitting` | Preset models (linear, polynomial, exponential, power, logarithmic) with goodness-of-fit and adequacy checks | regression.js |
+| `expression` | Parsing typed equations (`y = A*exp(-t/tau) + y0`) into a syntax tree: variables and parameters sorted, exact derivatives, LaTeX and text, with no `eval` | none |
+| `nonlinear-fit` | Levenberg–Marquardt fitting of any typed equation, with automatic starting values, bounds, fixed parameters, weights, standard errors, confidence intervals and bands; matches `scipy.optimize.curve_fit` | none |
+| `fit-python` | The Python script (SciPy `curve_fit` and matplotlib) that repeats a fit and draws its figure | none |
+| `plot-style` | One description of a fitted plot's look, shared by the browser preview and the matplotlib script | none |
+| `pdf` | A PDF writer: vector pages from SVG, or a JPEG page | none |
 | `structure` | PDB/GRO/XYZ parsing, centre of mass, R<sub>g</sub>, rotations, format conversion | none |
 | `slurm` | SLURM batch-script generation for GROMACS and LAMMPS | none |
 | `scheduler` | Directive headers, environment variables and launchers for SLURM, PBS Pro / OpenPBS, LSF and Grid Engine | none |
 | `plumed` | PLUMED input generation, version gating, CV validation | none |
+| `plumed-catalogue` | The builder's curated actions, fields, starting values and notes | none |
+| `plumed-syntax` | PLUMED 2.9, 2.10 and 2.11 keyword tables, generated from PLUMED's own `syntax.json` | none |
+| `plumed-parse` | Reading an existing PLUMED input: parse, check, explain, and open it in the builder | none |
+| `plumed-atoms` | Atom lists, groups and per-molecule centres from a structure file | none |
+| `plumed-analysis` | COLVAR and HILLS reading, hill width and grid suggestions, free-energy surfaces matching `sum_hills`, reweighting | none |
+| `plumed-run` | Run files that start and continue a job: walkers, umbrella windows, restarts | none |
+| `zip` | Uncompressed zip archives of text files | none |
 | `selection` | Atom selection language, spatial neighbour queries | none |
 | `units` | 64 units in 10 categories, plus temperature; CODATA 2018 / SI 2019 | none |
 | `data-cleaning` | Tabular cleaning, deduplication, imputation, profiling | Papa Parse |
@@ -227,7 +239,7 @@ npm test                # full suite
 npm run test:coverage   # with coverage
 ```
 
-The suite comprises 1284 tests across all 17 domain modules (`src/core` also holds the aggregate
+The suite comprises 2066 tests across all 29 domain modules (`src/core` also holds the aggregate
 export, the Node entry and the injection layer, which carry no domain logic). Numerical results are validated against
 independent references rather than against the implementation itself:
 
@@ -240,6 +252,12 @@ independent references rather than against the implementation itself:
   which SciPy lacks, are checked against their formulas evaluated with
   `scipy.stats`
 - **NumPy**, `polyfit` coefficients, descriptive statistics
+- **SciPy 1.11.4** `curve_fit` and `scipy.stats.t`, nonlinear fits (weighted,
+  with absolute sigma, with a fixed parameter), their standard errors and
+  confidence bands, and t quantiles; the generated Python scripts are run and
+  their figures inspected with **matplotlib 3.6.3**
+- **PLUMED 2.9, 2.10 and 2.11**, every generated input parsed by the real
+  program; hill sums checked against `plumed sum_hills`
 - **`scipy.constants`**, every CODATA conversion factor
 - **Physical invariants**, water's molecular weight and centre of mass,
   rotation-matrix orthonormality, distance preservation under rotation,
@@ -247,7 +265,7 @@ independent references rather than against the implementation itself:
 
 ## Numerical notes
 
-Three places where the obvious implementation gives a wrong number, and what
+Four places where the obvious implementation gives a wrong number, and what
 the library does instead. Each has a regression test.
 
 **Standardised moments.** Skewness and kurtosis are defined against the
@@ -268,6 +286,16 @@ in `HEM`) and selenomethionine selenium, and drop numeric-prefixed hydrogens
 (`1HB`, `2HG1`) entirely, giving wrong molecular weights and centres of mass
 for metalloproteins. The resolution here is checked against 40 real atom names.
 
+**Uncertainties of a nonlinear fit.** `fitModel` follows `curve_fit`: the
+covariance is (JᵀWJ)⁻¹ scaled by the reduced chi-square, unless the
+uncertainties are declared absolute. It uses exact derivatives of the typed
+equation where `curve_fit` uses forward differences, so the two agree to
+better than 1e-7 in the values and to about 1e-6 in the standard errors and
+bands, the size of the forward-difference error. The Student's t quantiles
+behind the intervals keep full precision at any number of degrees of
+freedom: the plain difference of two log-gammas they need is already off by
+about 1e-9 at two million.
+
 One caveat is inherited rather than fixed: `regression.js` fits the
 exponential and power models by **linearisation**, minimising error in log
 space rather than the original units, and weights the exponential fit by y
@@ -278,7 +306,8 @@ gives a rate of 0.690216, where unweighted log-space least squares gives
 0.693167 (the series was generated from ln 2 = 0.693147). Neither is wrong,
 but they answer different questions.
 `fitCurve` sets a `linearised` flag so callers can surface it; for
-publication-grade nonlinear fits, use Levenberg–Marquardt on untransformed data.
+publication-grade nonlinear fits, use `fitModel`, which fits the untransformed
+data by Levenberg–Marquardt.
 
 ## Citation
 
