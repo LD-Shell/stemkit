@@ -160,19 +160,66 @@
         <div id="cfToasts" class="stk-toasts" aria-live="polite"></div>
         <p id="cfLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
 
-        <div class="cf-layout">
+        <div id="cfWorkspace" class="cf-ws">
 
-            <!-- 1. Data -->
-            <section id="cfData" class="stk-panel cf-a-data" data-stk-step="1" data-stk-done="visible:#cfDataOk" aria-labelledby="cfDataTitle">
-                <div class="stk-panel-h">
-                    <h2 class="stk-panel-t" id="cfDataTitle"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1: </span>Data</h2>
-                    <div class="cf-h-actions">
-                        <button type="button" id="cfOpenFile" class="stk-btn stk-btn-sm"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Open a file</button>
-                        <button type="button" id="cfClearData" class="stk-btn stk-btn-sm stk-btn-ghost" hidden><i class="fa-solid fa-eraser" aria-hidden="true"></i> Clear</button>
-                        <input type="file" id="cfFile" accept=".csv,.tsv,.txt,.dat,.xvg,text/csv,text/plain,text/tab-separated-values" hidden>
+            <!-- The equation, in a bar that stays in view while the results scroll -->
+            <section id="cfBar" class="cf-bar" aria-label="Equation">
+                <div class="cf-bar-row">
+                    <div class="cf-bar-tools">
+                        <div class="cf-pop">
+                            <button type="button" id="cfModelsBtn" class="stk-btn stk-btn-sm cf-bar-btn" aria-expanded="false" aria-controls="cfModelsMenu" title="Start from a common model"><i class="fa-solid fa-shapes" aria-hidden="true"></i> <span>Models</span> <i class="fa-solid fa-chevron-down cf-caret" aria-hidden="true"></i></button>
+                            <div id="cfModelsMenu" class="cf-menu" hidden>
+                                <input type="search" id="cfModelsFind" class="stk-input stk-input-sm cf-menu-find" placeholder="Find a model" aria-label="Find a model" autocomplete="off" spellcheck="false">
+                                <div id="cfPresets" class="cf-menu-list"></div>
+                                <p id="cfModelsNone" class="cf-menu-none" hidden>No model matches. Type your own equation instead.</p>
+                            </div>
+                        </div>
+                        <div class="cf-pop">
+                            <button type="button" id="cfFnBtn" class="stk-btn stk-btn-sm cf-bar-btn cf-bar-fx" aria-expanded="false" aria-controls="cfFnMenu" title="Functions and constants you can use"><span class="cf-fx" aria-hidden="true">f(x)</span><span class="sr-only">Functions and constants</span></button>
+                            <div id="cfFnMenu" class="cf-menu cf-menu-fn" hidden>
+                                <p class="cf-menu-note">Inserted at the cursor. Angles are in radians; <span class="cf-mono">log</span> and <span class="cf-mono">ln</span> are both the natural logarithm.</p>
+                                <div id="cfFnList" class="cf-fn-list"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cf-bar-field">
+                        <label for="cfEq" class="sr-only">Equation to fit</label>
+                        <div class="cf-eq">
+                                                    <div id="cfEqMirror" class="cf-eq-mirror" aria-hidden="true"></div>
+                                                    <textarea id="cfEq" class="cf-eq-input" rows="1" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="y = A*exp(-t/tau) + y0" aria-describedby="cfEqMsg cfEqNotes cfEqHelp"></textarea>
+                        </div>
+                    </div>
+                    <div class="cf-bar-status" aria-live="off">
+                        <span id="cfStatus" class="stk-badge"></span>
+                        <span id="cfBarFit" class="cf-bar-fit stk-tnum" hidden></span>
+                        <button type="button" id="cfFitNow" class="stk-btn stk-btn-sm stk-btn-primary" hidden><i class="fa-solid fa-play" aria-hidden="true"></i> Fit</button>
                     </div>
                 </div>
-                <div class="stk-panel-b cf-stack">
+                <div class="cf-bar-sub">
+                    <div id="cfEqTex" class="cf-eq-tex" hidden></div>
+                    <p id="cfEqMsg" class="stk-error cf-eq-msg" hidden></p>
+                    <div id="cfEqNotes" class="cf-notes" hidden></div>
+                    <p id="cfEqHelp" class="cf-bar-help">Write <kbd class="cf-k">*</kbd> to multiply and <kbd class="cf-k">^</kbd> for powers; every name that is not a variable is fitted.</p>
+                </div>
+            </section>
+
+            <!-- Inputs: data, the model's names, the plot's style -->
+            <aside id="cfRail" class="cf-rail" aria-label="Data, model and plot style">
+                <div class="stk-tabs cf-tabs" role="tablist" aria-label="Inputs">
+                    <button type="button" role="tab" id="cfTabData" class="stk-tab cf-tab" data-tab="data" aria-controls="cfData" aria-selected="true"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span>Data</span><span id="cfTabDataInfo" class="cf-tab-info stk-tnum"></span></button>
+                    <button type="button" role="tab" id="cfTabModel" class="stk-tab cf-tab" data-tab="model" aria-controls="cfModel" aria-selected="false" tabindex="-1"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span>Model</span><span id="cfTabModelInfo" class="cf-tab-info stk-tnum"></span></button>
+                    <button type="button" role="tab" id="cfTabStyle" class="stk-tab cf-tab" data-tab="style" aria-controls="cfStyle" aria-selected="false" tabindex="-1"><i class="fa-solid fa-sliders cf-tab-icon" aria-hidden="true"></i><span>Style</span></button>
+                </div>
+
+                <section id="cfData" class="cf-pane" role="tabpanel" aria-labelledby="cfTabData" tabindex="-1">
+                    <div class="cf-pane-h">
+                        <p class="cf-pane-lede">Paste columns of numbers, or open a file.</p>
+                        <div class="cf-h-actions">
+                            <button type="button" id="cfOpenFile" class="stk-btn stk-btn-sm"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Open a file</button>
+                            <button type="button" id="cfClearData" class="stk-btn stk-btn-sm stk-btn-ghost" hidden><i class="fa-solid fa-eraser" aria-hidden="true"></i> Clear</button>
+                            <input type="file" id="cfFile" accept=".csv,.tsv,.txt,.dat,.xvg,text/csv,text/plain,text/tab-separated-values" hidden>
+                        </div>
+                    </div>
                     <div id="cfDrop" class="stk-drop stk-drop-sm cf-drop" aria-labelledby="cfDropTitle">
                         <span class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-file-arrow-up"></i></span>
                         <h3 id="cfDropTitle" class="stk-drop-title">Drop a data file here</h3>
@@ -192,40 +239,10 @@
                         <ul id="cfColumns" class="cf-cols" aria-label="Columns found"></ul>
                     </div>
                     <div id="cfDataIssues" class="stk-callout stk-callout-warn" hidden></div>
-                </div>
-            </section>
+                </section>
 
-            <!-- 2. Equation -->
-            <section id="cfModel" class="stk-panel cf-a-model" data-stk-step="2" data-stk-done="visible:#cfModelOk" aria-labelledby="cfModelTitle">
-                <div class="stk-panel-h">
-                    <h2 class="stk-panel-t" id="cfModelTitle"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Equation</h2>
-                </div>
-                <div class="stk-panel-b cf-stack">
-                    <div class="stk-field">
-                        <label for="cfEq">Equation to fit</label>
-                        <div class="cf-eq">
-                            <div id="cfEqMirror" class="cf-eq-mirror" aria-hidden="true"></div>
-                            <textarea id="cfEq" class="cf-eq-input" rows="1" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="y = A*exp(-t/tau) + y0" aria-describedby="cfEqMsg cfEqNotes cfEqHelp"></textarea>
-                        </div>
-                        <div id="cfEqTex" class="cf-eq-tex" hidden></div>
-                        <p id="cfEqMsg" class="stk-error cf-eq-msg" hidden></p>
-                        <div id="cfEqNotes" class="cf-notes" hidden></div>
-                        <p id="cfEqHelp" class="stk-hint">Write <kbd class="cf-k">*</kbd> to multiply and <kbd class="cf-k">^</kbd> for powers. Every name that is not a variable is fitted.</p>
-                    </div>
-
-                    <details class="stk-disclosure cf-fns">
-                        <summary>Functions and constants you can use</summary>
-                        <div>
-                            <p class="stk-hint">Click one to insert it at the cursor. Angles are in radians; <span class="cf-mono">log</span> and <span class="cf-mono">ln</span> are both the natural logarithm.</p>
-                            <div id="cfFnList" class="cf-fn-list"></div>
-                        </div>
-                    </details>
-
-                    <div class="cf-chips" role="group" aria-labelledby="cfPresetsLabel">
-                        <span id="cfPresetsLabel" class="cf-chips-label">Start from</span>
-                        <div id="cfPresets" class="cf-chips-list"></div>
-                    </div>
-
+                <section id="cfModel" class="cf-pane" role="tabpanel" aria-labelledby="cfTabModel" tabindex="-1" hidden>
+                    <p id="cfModelEmpty" class="cf-pane-empty">Type an equation in the bar above, or pick one from <strong>Models</strong>. Its variables and parameters appear here.</p>
                     <div id="cfVarsGroup" class="stk-group" hidden>
                         <h3 class="stk-group-t">Variables <span class="cf-group-hint">which data column each name reads</span></h3>
                         <div id="cfPickVar" class="stk-callout stk-callout-accent cf-pickvar" hidden></div>
@@ -252,129 +269,119 @@
                         <div id="cfConstants" class="cf-consts" hidden></div>
                     </div>
                     <span id="cfModelOk" class="cf-marker" hidden></span>
-                </div>
-            </section>
+                </section>
 
-            <!-- 3. Results -->
-            <section id="cfResults" class="stk-panel cf-a-results" data-stk-step="3" data-stk-done="visible:#cfParamTable" aria-labelledby="cfResultsTitle">
-                <div class="stk-panel-h">
-                    <h2 class="stk-panel-t" id="cfResultsTitle"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 3: </span>Results</h2>
-                    <div class="cf-h-actions">
-                        <span id="cfStatus" class="stk-badge"></span>
-                        <button type="button" id="cfFitNow" class="stk-btn stk-btn-sm stk-btn-primary" hidden><i class="fa-solid fa-play" aria-hidden="true"></i> Fit</button>
-                    </div>
-                </div>
-                <div class="stk-panel-b cf-stack">
-                    <p id="cfResultsEmpty" class="cf-empty-note">Add data and an equation. The fit runs as you type.</p>
-                    <div id="cfBigNote" class="stk-callout stk-callout-accent" hidden></div>
-                    <div id="cfFailure" class="stk-callout stk-callout-danger" role="alert" hidden></div>
-                    <div id="cfResultBody" class="cf-stack" hidden>
-                        <div class="cf-fitted">
-                            <div class="cf-fitted-h">
-                                <span class="cf-label">Fitted equation</span>
-                                <span class="cf-fitted-actions">
-                                    <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost cf-mini" data-copy="equation"><i class="fa-regular fa-copy" aria-hidden="true"></i> Text</button>
-                                    <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost cf-mini" data-copy="equation-tex"><i class="fa-regular fa-copy" aria-hidden="true"></i> LaTeX</button>
-                                </span>
+                <section id="cfStyle" class="cf-pane cf-pane-style" role="tabpanel" aria-labelledby="cfTabStyle" tabindex="-1" hidden>
+                    <div id="cfStyleHost" class="cf-style-host"></div>
+                </section>
+            </aside>
+
+            <!-- Outputs: the figure, the numbers, the script -->
+            <div class="cf-canvas">
+                <section id="cfPlot" class="cf-sec cf-sec-plot" aria-labelledby="cfPlotTitle">
+                    <div class="cf-sec-h">
+                        <h2 id="cfPlotTitle" class="cf-sec-t">Plot</h2>
+                        <span id="cfSize" class="cf-size stk-tnum" title="The size of the saved figure"></span>
+                        <div class="cf-h-actions cf-plot-actions">
+                            <label class="cf-toggle"><input type="checkbox" id="cfQuickResid"> <span>Residuals</span></label>
+                            <label class="cf-toggle" id="cfQuickBandWrap"><input type="checkbox" id="cfQuickBand"> <span>Confidence band</span></label>
+                            <button type="button" id="cfEditStyle" class="stk-btn stk-btn-sm stk-btn-ghost"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Style</button>
+                            <div class="cf-export" role="group" aria-label="Export the figure">
+                                <button type="button" class="stk-btn stk-btn-sm" data-export="pdf" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> PDF</button>
+                                <button type="button" class="stk-btn stk-btn-sm" data-export="png" disabled>PNG</button>
+                                <button type="button" class="stk-btn stk-btn-sm" data-export="svg" disabled>SVG</button>
                             </div>
-                            <div id="cfFittedTex" class="cf-fitted-tex"></div>
                         </div>
-                        <div class="stk-table-wrap">
-                            <table id="cfParamTable" class="cf-table">
-                                <caption class="sr-only">Fitted parameters</caption>
-                                <thead><tr><th scope="col">Parameter</th><th scope="col">Value &plusmn; std. error</th><th scope="col">95% interval</th></tr></thead>
-                                <tbody id="cfParamRows"></tbody>
-                            </table>
+                    </div>
+                    <div class="cf-stage">
+                        <div id="cfPlotEmpty" class="cf-empty">
+                            <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                            <p class="cf-empty-title">Your data and the fitted curve will appear here</p>
+                            <p class="cf-empty-text">Add data on the left and type the equation above, or load an example.</p>
+                            <button type="button" id="cfTryExample" class="stk-btn stk-btn-sm"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load an example</button>
                         </div>
-                        <dl id="cfStats" class="cf-stats stk-tnum"></dl>
-                        <div id="cfWarnings" class="stk-callout stk-callout-warn" hidden></div>
-                        <details id="cfCorr" class="stk-disclosure" hidden>
-                            <summary><span>Parameter correlations <span id="cfCorrBadge" class="stk-badge stk-badge-warn"></span></span></summary>
-                            <div>
-                                <div class="stk-table-wrap"><table id="cfCorrTable" class="cf-table cf-corr"></table></div>
-                                <p class="stk-hint">Values near &plusmn;1 mean the data fix only a combination of the two parameters; they are marked when |r| &gt; 0.95.</p>
+                        <div id="cfFigure" class="cf-figure" hidden></div>
+                    </div>
+                    <div id="cfPlotNotes" class="cf-plot-notes" hidden></div>
+                    <span id="cfPlotDrawn" class="cf-marker" hidden></span>
+                </section>
+
+                <section id="cfResults" class="cf-sec" aria-labelledby="cfResultsTitle">
+                    <div class="cf-sec-h">
+                        <h2 id="cfResultsTitle" class="cf-sec-t">Results</h2>
+                    </div>
+                    <div class="cf-sec-b">
+                        <p id="cfResultsEmpty" class="cf-empty-note">Add data and an equation. The fit runs as you type.</p>
+                        <div id="cfBigNote" class="stk-callout stk-callout-accent" hidden></div>
+                        <div id="cfFailure" class="stk-callout stk-callout-danger" role="alert" hidden></div>
+                        <div id="cfResultBody" class="cf-stack" hidden>
+                            <div class="cf-fitted">
+                                <div class="cf-fitted-h">
+                                    <span class="cf-label">Fitted equation</span>
+                                    <span class="cf-fitted-actions">
+                                        <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost cf-mini" data-copy="equation"><i class="fa-regular fa-copy" aria-hidden="true"></i> Text</button>
+                                        <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost cf-mini" data-copy="equation-tex"><i class="fa-regular fa-copy" aria-hidden="true"></i> LaTeX</button>
+                                    </span>
+                                </div>
+                                <div id="cfFittedTex" class="cf-fitted-tex"></div>
                             </div>
-                        </details>
-                        <details id="cfTheory" class="stk-disclosure">
-                            <summary>How these numbers are computed</summary>
-                            <div id="cfTheoryBody" class="cf-theory"></div>
-                        </details>
-                        <div class="cf-copyrow" role="group" aria-label="Copy the results">
-                            <span class="cf-label">Copy the results as</span>
-                            <button type="button" class="stk-btn stk-btn-sm" data-copy="text"><i class="fa-regular fa-copy" aria-hidden="true"></i> Text</button>
-                            <button type="button" class="stk-btn stk-btn-sm" data-copy="csv"><i class="fa-solid fa-table" aria-hidden="true"></i> CSV</button>
-                            <button type="button" class="stk-btn stk-btn-sm" data-copy="latex"><i class="fa-solid fa-square-root-variable" aria-hidden="true"></i> LaTeX table</button>
+                            <div class="stk-table-wrap">
+                                <table id="cfParamTable" class="cf-table">
+                                    <caption class="sr-only">Fitted parameters</caption>
+                                    <thead><tr><th scope="col">Parameter</th><th scope="col">Value &plusmn; std. error</th><th scope="col">95% interval</th></tr></thead>
+                                    <tbody id="cfParamRows"></tbody>
+                                </table>
+                            </div>
+                            <dl id="cfStats" class="cf-stats stk-tnum"></dl>
+                            <div id="cfWarnings" class="stk-callout stk-callout-warn" hidden></div>
+                            <details id="cfCorr" class="stk-disclosure" hidden>
+                                <summary><span>Parameter correlations <span id="cfCorrBadge" class="stk-badge stk-badge-warn"></span></span></summary>
+                                <div>
+                                    <div class="stk-table-wrap"><table id="cfCorrTable" class="cf-table cf-corr"></table></div>
+                                    <p class="stk-hint">Values near &plusmn;1 mean the data fix only a combination of the two parameters; they are marked when |r| &gt; 0.95.</p>
+                                </div>
+                            </details>
+                            <details id="cfTheory" class="stk-disclosure">
+                                <summary>How these numbers are computed</summary>
+                                <div id="cfTheoryBody" class="cf-theory"></div>
+                            </details>
+                            <div class="cf-copyrow" role="group" aria-label="Copy the results">
+                                <span class="cf-label">Copy the results as</span>
+                                <button type="button" class="stk-btn stk-btn-sm" data-copy="text"><i class="fa-regular fa-copy" aria-hidden="true"></i> Text</button>
+                                <button type="button" class="stk-btn stk-btn-sm" data-copy="csv"><i class="fa-solid fa-table" aria-hidden="true"></i> CSV</button>
+                                <button type="button" class="stk-btn stk-btn-sm" data-copy="latex"><i class="fa-solid fa-square-root-variable" aria-hidden="true"></i> LaTeX table</button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            <!-- 4. Plot -->
-            <section id="cfPlot" class="stk-panel cf-a-plot" data-stk-step="4" data-stk-done="visible:#cfPlotDrawn" aria-labelledby="cfPlotTitle">
-                <div class="stk-panel-h">
-                    <h2 class="stk-panel-t" id="cfPlotTitle"><span class="stk-stepn" aria-hidden="true"><span>4</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 4: </span>Plot</h2>
-                    <div class="cf-h-actions">
-                        <span id="cfSize" class="stk-badge stk-tnum" title="The size of the exported figure"></span>
-                        <div class="cf-export" role="group" aria-label="Export the figure">
-                            <button type="button" class="stk-btn stk-btn-sm" data-export="pdf" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> PDF</button>
-                            <button type="button" class="stk-btn stk-btn-sm" data-export="png" disabled>PNG</button>
-                            <button type="button" class="stk-btn stk-btn-sm" data-export="svg" disabled>SVG</button>
+                <section id="cfPython" class="cf-sec cf-sec-py" aria-labelledby="cfPyTitle">
+                    <div class="cf-sec-h">
+                        <h2 id="cfPyTitle" class="cf-sec-t">Python script <span id="cfPyName" class="stk-badge stk-mono">fit.py</span></h2>
+                        <div class="cf-h-actions">
+                            <button type="button" id="cfPyCopy" class="stk-btn stk-btn-sm stk-btn-primary" disabled><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy</button>
+                            <button type="button" id="cfPyDownload" class="stk-btn stk-btn-sm" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> Download .py</button>
                         </div>
                     </div>
-                </div>
-                <div class="cf-stage">
-                    <div id="cfPlotEmpty" class="cf-empty">
-                        <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
-                        <p class="cf-empty-title">Your data and the fitted curve will appear here</p>
-                        <p class="cf-empty-text">Add data in step 1 and an equation in step 2, or load an example.</p>
-                        <button type="button" id="cfTryExample" class="stk-btn stk-btn-sm"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load an example</button>
+                    <div class="cf-py-opts">
+                        <div class="stk-seg" role="group" aria-label="Where the script reads the data">
+                            <button type="button" id="cfSrcEmbed" data-src="embed" aria-pressed="true" class="is-active">Data in the script</button>
+                            <button type="button" id="cfSrcCsv" data-src="csv" aria-pressed="false">Read a CSV file</button>
+                        </div>
+                        <div id="cfCsvOpts" class="cf-csv" hidden>
+                            <label for="cfCsvName" class="cf-label">File name</label>
+                            <input type="text" id="cfCsvName" class="stk-input stk-input-sm stk-mono cf-csv-name" value="data.csv" spellcheck="false" autocomplete="off">
+                            <button type="button" id="cfCsvDownload" class="stk-btn stk-btn-sm" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> Download the CSV</button>
+                        </div>
                     </div>
-                    <div id="cfFigure" class="cf-figure" hidden></div>
-                </div>
-                <div id="cfPlotNotes" class="cf-plot-notes" hidden></div>
-                <span id="cfPlotDrawn" class="cf-marker" hidden></span>
-            </section>
-
-            <!-- Plot style: part of step 4, beside the preview on wide screens -->
-            <section id="cfStyle" class="stk-panel cf-a-style" aria-labelledby="cfStyleTitle">
-                <div class="stk-panel-h">
-                    <h2 class="stk-panel-t" id="cfStyleTitle"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Plot style</h2>
-                    <div class="cf-h-actions">
-                        <button type="button" id="cfStyleToggle" class="stk-btn stk-btn-sm" aria-expanded="true" aria-controls="cfStyleHost"><i class="fa-solid fa-chevron-up" aria-hidden="true"></i> <span>Hide</span></button>
+                    <div class="cf-code-body stk-scroll" tabindex="0" aria-label="Python script">
+                        <pre class="cf-code"><code id="cfPyCode"></code></pre>
                     </div>
-                </div>
-                <div id="cfStyleHost" class="stk-panel-b cf-style-host"></div>
-            </section>
-
-
+                    <p id="cfPyFoot" class="cf-py-f">Runs with Python 3, numpy, scipy and matplotlib 3.6 or later: <code>python fit.py</code>. It prints the parameters and saves the figure.</p>
+                    <span id="cfPyTaken" class="cf-marker" hidden></span>
+                </section>
+            </div>
         </div>
-
-        <!-- 5. Python -->
-        <section id="cfPython" class="stk-panel cf-a-python" data-stk-step="5" data-stk-done="visible:#cfPyTaken" aria-labelledby="cfPyTitle">
-            <div class="stk-panel-h">
-                <h2 class="stk-panel-t" id="cfPyTitle"><span class="stk-stepn" aria-hidden="true"><span>5</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 5: </span>Python script <span id="cfPyName" class="stk-badge stk-mono">fit.py</span></h2>
-                <div class="cf-h-actions">
-                    <button type="button" id="cfPyCopy" class="stk-btn stk-btn-sm stk-btn-primary" disabled><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy</button>
-                    <button type="button" id="cfPyDownload" class="stk-btn stk-btn-sm" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> Download .py</button>
-                </div>
-            </div>
-            <div class="cf-py-opts">
-                <div class="stk-seg" role="group" aria-label="Where the script reads the data">
-                    <button type="button" id="cfSrcEmbed" data-src="embed" aria-pressed="true" class="is-active">Data in the script</button>
-                    <button type="button" id="cfSrcCsv" data-src="csv" aria-pressed="false">Read a CSV file</button>
-                </div>
-                <div id="cfCsvOpts" class="cf-csv" hidden>
-                    <label for="cfCsvName" class="cf-label">File name</label>
-                    <input type="text" id="cfCsvName" class="stk-input stk-input-sm stk-mono cf-csv-name" value="data.csv" spellcheck="false" autocomplete="off">
-                    <button type="button" id="cfCsvDownload" class="stk-btn stk-btn-sm" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> Download the CSV</button>
-                </div>
-            </div>
-            <div class="cf-code-body stk-scroll" tabindex="0" aria-label="Python script">
-                <pre class="cf-code"><code id="cfPyCode"></code></pre>
-            </div>
-            <p id="cfPyFoot" class="cf-py-f">Runs with Python 3, numpy, scipy and matplotlib 3.6 or later: <code>python fit.py</code>. It prints the parameters and saves the figure.</p>
-            <span id="cfPyTaken" class="cf-marker" hidden></span>
-        </section>
 
     <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
         <div class="stk-wrap">
@@ -382,7 +389,7 @@
             <h2 class="stk-h2">How to fit an equation to your data</h2>
             <p class="stk-lead">Paste the data, type the equation, and read the parameters; the plot and the Python script follow every change. Nothing leaves your browser.</p>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-step"><span class="stk-num">1</span><div><h3>Add your data</h3><p>Paste columns of numbers, drop a file on the data panel or open one (.csv, .tsv, .txt, .dat). Tabs, commas, semicolons and spaces all work; with semicolons, tabs or spaces a decimal comma such as <code>1,5</code> is read as 1.5. A first row of names, such as <code>Time (s)</code>, names the columns (<code>time</code>).</p></div></div>
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Add your data</h3><p>Paste columns of numbers, drop a file anywhere on the fitter or open one (.csv, .tsv, .txt, .dat). Tabs, commas, semicolons and spaces all work; with semicolons, tabs or spaces a decimal comma such as <code>1,5</code> is read as 1.5. A first row of names, such as <code>Time (s)</code>, names the columns (<code>time</code>).</p></div></div>
                 <div class="stk-step"><span class="stk-num">2</span><div><h3>Type the equation</h3><p>Write it in your own names, such as <code>y = A*exp(-t/tau) + y0</code>, or start from a preset. The page shows how it read the equation and points at any mistake. Check that each variable reads the right column, and add starting values, bounds or fixed values if you need them.</p></div></div>
                 <div class="stk-step"><span class="stk-num">3</span><div><h3>Read the results</h3><p>Each parameter comes with its standard error, 95% confidence interval and relative uncertainty, and the fit with R², RMSE, AIC and BIC (reduced χ² when you give uncertainties). Warnings say in words when a parameter is poorly determined. Copy the table as text, CSV or LaTeX.</p></div></div>
                 <div class="stk-step"><span class="stk-num">4</span><div><h3>Style and export the plot</h3><p>Set the figure size, fonts, axis labels, ticks, colours, a residual panel and the confidence band. The preview is the exported figure in miniature. Export it as PDF, PNG or SVG.</p></div></div>

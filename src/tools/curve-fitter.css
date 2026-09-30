@@ -4,53 +4,196 @@
  * The panels, fields, buttons, tabs and callouts are the shared components in
  * src/tailwind/input.css, and the documentation sections are
  * src/stemkit-docs.css; both read the design tokens. What is here is the
- * layout those do not cover: the grid that keeps the plot beside the inputs,
- * the equation box with its error underline, the variable and parameter
- * rows, the result tables and the Python pane, which stays dark in both
- * themes like the other script panes on the site.
+ * layout those do not cover: the workspace (the equation bar, the input tabs
+ * and the outputs beside them), the equation box with its error underline,
+ * the variable and parameter rows, the result tables and the Python pane,
+ * which stays dark in both themes like the other script panes on the site.
  */
 
 .stk-pagehead { margin-bottom: 1.25rem; }
 .cf-mono { font-family: var(--stk-font-mono); font-size: .92em; }
 
 /* ---------------------------------------------------------------------------
-   Layout
+   The workspace
    ---------------------------------------------------------------------------
-   One grid. Stacked below 1024 px, in reading order: data, equation,
-   results, plot, plot style, Python. From 1024 px the inputs and results
-   take a column on the left and the plot stays in view on the right while
-   they scroll; the style panel sits under the results, beside the preview it
-   changes. The Python script comes after the grid, full width: a sticky grid
-   item is held inside the whole grid, so inside it the plot would slide over
-   the script.
+   One instrument rather than a stack of cards: the equation bar across the
+   top, the inputs as three tabs in a rail on the left, and what comes out
+   (plot, results, script) on the right, divided by hairlines. From 1024 px
+   the bar is pinned under the site header and the rail beside the outputs
+   with its own scroll, so the equation and the inputs stay in reach while
+   the results are read. Nothing here may clip its children: an ancestor with
+   overflow hidden would stop the bar and the rail from sticking to the page.
+   --cf-head (the site header) and --cf-bar (the bar's height) are kept up to
+   date by the page script.
 --------------------------------------------------------------------------- */
-.cf-layout {
+.cf-ws {
+  --cf-head: 81px;
+  --cf-bar: 4.5rem;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: "data" "model" "results" "plot" "style";
-  gap: 1rem;
-  align-items: start;
+  grid-template-areas: "bar" "rail" "canvas";
+  min-width: 0;
+  background: var(--stk-surface);
+  border: 1px solid var(--stk-border);
+  border-radius: var(--stk-radius-xl);
+  box-shadow: var(--stk-shadow-sm);
 }
-.cf-a-data { grid-area: data; }
-.cf-a-model { grid-area: model; }
-.cf-a-results { grid-area: results; }
-.cf-a-plot { grid-area: plot; }
-.cf-a-style { grid-area: style; }
+.cf-bar { grid-area: bar; }
+.cf-rail { grid-area: rail; }
+.cf-canvas { grid-area: canvas; }
+.cf-bar-mark { height: 0; }
 @media (min-width: 1024px) {
-  .cf-layout {
-    grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
-    grid-template-rows: auto auto auto 1fr;
-    grid-template-areas:
-      "data    plot"
-      "model   plot"
-      "results plot"
-      "style   plot";
-    gap: 1.25rem;
+  .cf-ws {
+    grid-template-columns: minmax(0, 23.5rem) minmax(0, 1fr);
+    grid-template-areas: "bar bar" "rail canvas";
+    align-items: start;
   }
-  .cf-a-plot { position: sticky; top: 6rem; }
+  .cf-bar { position: sticky; top: var(--cf-head); z-index: 20; }
+  .cf-rail {
+    position: sticky;
+    top: calc(var(--cf-head) + var(--cf-bar));
+    max-height: calc(100vh - var(--cf-head) - var(--cf-bar));
+    overflow-y: auto;
+    border-right: 1px solid var(--stk-border);
+  }
 }
 @media (min-width: 1280px) {
-  .cf-layout { grid-template-columns: minmax(0, 28rem) minmax(0, 1fr); }
+  .cf-ws { grid-template-columns: minmax(0, 25.5rem) minmax(0, 1fr); }
+}
+
+/* The equation bar -------------------------------------------------------- */
+.cf-bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "tools field status" ". sub sub";
+  column-gap: .75rem;
+  padding: .85rem 1rem .8rem;
+  background: var(--stk-surface);
+  border-bottom: 1px solid var(--stk-border);
+  border-radius: calc(var(--stk-radius-xl) - 1px) calc(var(--stk-radius-xl) - 1px) 0 0;
+  transition: box-shadow var(--stk-ease);
+}
+.cf-bar-row { display: contents; }
+.cf-bar-tools { grid-area: tools; display: flex; gap: .35rem; align-self: start; padding-top: .3rem; }
+.cf-bar-field { grid-area: field; min-width: 0; }
+.cf-bar-status { grid-area: status; display: flex; align-items: center; gap: .6rem; align-self: start; min-height: 2.85rem; }
+.cf-bar-status .stk-badge:empty { display: none; }
+.cf-bar-fit { font-size: .8125rem; font-weight: 600; color: var(--stk-fg-2); white-space: nowrap; }
+.cf-bar-fit sup, .cf-bar-fit sub { font-size: .7em; }
+.cf-bar-sub { grid-area: sub; display: flex; flex-direction: column; gap: .4rem; min-width: 0; }
+.cf-bar-sub:not(:has(> :not([hidden]))) { display: none; }
+.cf-bar-help { margin: .45rem 0 0; font-size: .75rem; line-height: 1.45; color: var(--stk-fg-muted); }
+.cf-bar:has(.cf-eq-input:not(:placeholder-shown)) .cf-bar-help { display: none; }
+.cf-bar-btn { height: 2.25rem; }
+.cf-bar-btn .cf-caret { font-size: .6rem; opacity: .7; }
+.cf-bar-btn[aria-expanded="true"] { border-color: var(--stk-accent); color: var(--stk-accent-text); }
+.cf-fx { font-family: "Times New Roman", Times, serif; font-style: italic; font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
+/* The typeset equation reads as a line under the input, not a box. */
+.cf-bar .cf-eq-tex { min-height: 0; padding: .15rem .75rem 0; background: transparent; border: 0; border-radius: 0; }
+.cf-bar .cf-eq-tex .katex-display { margin: .05rem 0; text-align: left; }
+.cf-bar .cf-eq-tex .katex-display > .katex { text-align: left; }
+.cf-bar .cf-eq-tex .katex { font-size: 1.2em; }
+/* Pinned: the typeset line and the notes give way, errors stay. */
+.cf-bar.is-stuck { border-radius: 0; box-shadow: 0 10px 18px -14px rgba(15, 23, 42, .45); }
+.cf-bar.is-stuck .cf-eq-tex, .cf-bar.is-stuck .cf-notes, .cf-bar.is-stuck .cf-bar-help { display: none; }
+@media (max-width: 639.98px) {
+  .cf-bar { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "field field" "tools status" "sub sub"; row-gap: .5rem; padding: .75rem; }
+  .cf-bar-tools { position: relative; padding-top: 0; }
+  /* Both menus open from the left of the row, so neither runs off the screen. */
+  .cf-bar-tools .cf-pop { position: static; }
+  .cf-bar-status { align-self: center; min-height: 0; min-width: 0; justify-content: flex-end; flex-wrap: wrap; row-gap: .25rem; }
+  /* R² already says the fit worked; warnings and errors keep their badge. */
+  .cf-bar-status .stk-badge-ok { display: none; }
+}
+
+/* Menus from the bar: models and functions --------------------------------- */
+.cf-pop { position: relative; }
+.cf-menu {
+  position: absolute;
+  top: calc(100% + .4rem);
+  left: 0;
+  z-index: 40;
+  width: min(27rem, calc(100vw - 2rem));
+  max-height: min(65vh, 30rem);
+  overflow-y: auto;
+  padding: .5rem;
+  background: var(--stk-surface);
+  border: 1px solid var(--stk-border);
+  border-radius: var(--stk-radius-lg);
+  box-shadow: var(--stk-shadow-lg);
+}
+.cf-menu[hidden] { display: none; }
+.cf-menu-find { width: 100%; margin-bottom: .35rem; }
+.cf-menu-group { padding: .25rem 0; }
+.cf-menu-group[hidden] { display: none; }
+.cf-menu-group + .cf-menu-group { border-top: 1px solid var(--stk-border); }
+.cf-menu-gt { margin: .3rem .5rem .2rem; font-size: .6875rem; font-weight: 650; color: var(--stk-fg-muted); }
+.cf-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .1rem;
+  width: 100%;
+  padding: .4rem .5rem;
+  border: 0;
+  border-radius: var(--stk-radius);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.cf-menu-item[hidden] { display: none; }
+.cf-menu-item:hover, .cf-menu-item:focus-visible { background: var(--stk-accent-soft); outline: none; }
+.cf-menu-item:focus-visible { box-shadow: inset 0 0 0 1.5px var(--stk-accent); }
+.cf-menu-item[aria-pressed="true"] .cf-mi-name::after { content: "  \2713"; color: var(--stk-accent-text); }
+.cf-mi-name { font-size: .8125rem; font-weight: 600; color: var(--stk-fg); }
+.cf-mi-eq { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--stk-font-mono); font-size: .7rem; color: var(--stk-fg-3); }
+.cf-menu-none { margin: .5rem; font-size: .8125rem; color: var(--stk-fg-muted); }
+.cf-menu-fn { width: min(24rem, calc(100vw - 2rem)); padding: .75rem; }
+.cf-menu-note { margin: 0 0 .6rem; font-size: .75rem; line-height: 1.45; color: var(--stk-fg-3); }
+
+/* The input rail: tabs and their panes -------------------------------------- */
+.cf-tabs { position: sticky; top: 0; z-index: 3; padding: 0 .5rem; background: var(--stk-surface); }
+.cf-tabs .cf-tab { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: .45rem; height: 2.9rem; }
+.cf-tab .stk-stepn { width: 1.3rem; height: 1.3rem; font-size: .6875rem; }
+.cf-tab-icon { font-size: .8rem; }
+.cf-tab-info { min-width: 1.25rem; padding: .05rem .4rem; border-radius: 9999px; font-size: .6875rem; font-weight: 600; color: var(--stk-fg-3); background: var(--stk-surface-2); box-shadow: inset 0 0 0 1px var(--stk-border); }
+.cf-tab-info:empty { display: none; }
+.cf-tab-alert::before { content: ""; position: absolute; top: .6rem; right: .55rem; width: .5rem; height: .5rem; border-radius: 9999px; background: var(--stk-danger); box-shadow: 0 0 0 2px var(--stk-surface); }
+.cf-tab:focus-visible { outline: 2px solid var(--stk-accent); outline-offset: -3px; border-radius: var(--stk-radius); }
+.cf-pane { display: flex; flex-direction: column; gap: .95rem; padding: 1rem; min-width: 0; }
+.cf-pane[hidden] { display: none; }
+.cf-pane:focus { outline: none; }
+.cf-pane-h { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+.cf-pane-lede { margin: 0; font-size: .8125rem; color: var(--stk-fg-3); }
+.cf-pane-empty { margin: 0; padding: 1rem; font-size: .8125rem; line-height: 1.5; color: var(--stk-fg-3); background: var(--stk-surface-2); border: 1.5px dashed var(--stk-border-strong); border-radius: var(--stk-radius-lg); }
+.cf-pane-empty[hidden] { display: none; }
+.cf-pane-style { padding: .75rem; }
+@media (max-width: 1023.98px) {
+  .cf-rail { border-bottom: 1px solid var(--stk-border); }
+}
+
+/* The outputs: plot, results, script ---------------------------------------- */
+.cf-canvas { min-width: 0; container-type: inline-size; }
+.cf-sec + .cf-sec { border-top: 1px solid var(--stk-border); }
+.cf-sec-h { display: flex; align-items: center; gap: .5rem .75rem; flex-wrap: wrap; padding: .8rem 1rem; }
+.cf-sec-t { display: flex; align-items: center; gap: .5rem; margin: 0; font-size: .9375rem; font-weight: 650; letter-spacing: -.005em; color: var(--stk-fg); }
+.cf-sec-h > .cf-h-actions { margin-left: auto; }
+.cf-sec-b { display: flex; flex-direction: column; gap: .9rem; padding: 0 1rem 1.1rem; min-width: 0; }
+.cf-size { font-size: .75rem; font-weight: 500; color: var(--stk-fg-muted); }
+.cf-size:empty { display: none; }
+.cf-plot-actions { gap: .35rem .5rem; }
+.cf-toggle { display: inline-flex; align-items: center; gap: .35rem; height: 1.875rem; padding: 0 .55rem; border-radius: var(--stk-radius); font-size: .75rem; font-weight: 600; color: var(--stk-fg-2); cursor: pointer; user-select: none; box-shadow: inset 0 0 0 1px var(--stk-border); }
+.cf-toggle[hidden] { display: none; }
+.cf-toggle input { width: .9rem; height: .9rem; margin: 0; accent-color: var(--stk-accent); cursor: pointer; }
+.cf-toggle:has(input:checked) { color: var(--stk-accent-text); background: var(--stk-accent-soft); box-shadow: inset 0 0 0 1px var(--stk-accent-soft-border); }
+.cf-toggle:has(input:focus-visible) { outline: 2px solid var(--stk-accent); outline-offset: 2px; }
+
+/* Results: the table beside the fit statistics once there is room. */
+@container (min-width: 46rem) {
+  #cfResultBody { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: .9rem 1.25rem; align-items: start; }
+  #cfResultBody > * { grid-column: 1 / -1; }
+  #cfResultBody > .stk-table-wrap { grid-column: 1; }
+  #cfResultBody > .cf-stats { grid-column: 2; grid-template-columns: minmax(0, 1fr); }
 }
 
 .cf-stack { display: flex; flex-direction: column; gap: .9rem; min-width: 0; }
@@ -64,11 +207,11 @@
 .cf-k { font-family: var(--stk-font-mono); font-size: .85em; padding: 0 .3em; border-radius: var(--stk-radius-sm); background: var(--stk-surface-2); border: 1px solid var(--stk-border); color: var(--stk-fg-2); }
 
 /* ---------------------------------------------------------------------------
-   Step 1: data
+   Data
 --------------------------------------------------------------------------- */
 .cf-drop { min-height: 0; padding: 1.1rem 1rem; }
 .cf-drop .stk-drop-formats { margin-top: .35rem; }
-.cf-a-data.is-over .cf-data-text { border-color: var(--stk-accent); box-shadow: 0 0 0 4px var(--stk-accent-soft); }
+#cfData.is-over .cf-data-text { border-color: var(--stk-accent); box-shadow: 0 0 0 4px var(--stk-accent-soft); }
 .cf-data-text { min-height: 8.5rem; font-size: .75rem; line-height: 1.5; white-space: pre; overflow: auto; tab-size: 8; }
 
 .cf-chips { display: flex; align-items: baseline; gap: .5rem; min-width: 0; }
@@ -85,12 +228,12 @@
 .cf-cols li { display: flex; align-items: baseline; gap: .4rem; min-width: 0; color: var(--stk-fg-3); }
 .cf-col-id { font-family: var(--stk-font-mono); font-weight: 650; color: var(--stk-fg); }
 .cf-col-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cf-col-range { margin-left: auto; flex-shrink: 0; font-family: var(--stk-font-mono); color: var(--stk-fg-3); font-variant-numeric: tabular-nums; }
+.cf-col-range { margin-left: auto; flex-shrink: 0; color: var(--stk-fg-3); font-variant-numeric: tabular-nums; }
 .cf-col-use { flex-shrink: 0; font-size: .6875rem; font-weight: 600; color: var(--stk-accent-text); }
 .cf-issue-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .15rem; }
 
 /* ---------------------------------------------------------------------------
-   Step 2: the equation
+   The equation
    ---------------------------------------------------------------------------
    The text box is transparent over a mirror of the same text in the same
    font and box, so a parse error can be underlined where it is. Both wrap
@@ -182,7 +325,7 @@
 .cf-const { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .6rem; }
 
 /* ---------------------------------------------------------------------------
-   Step 3: results
+   Results
 --------------------------------------------------------------------------- */
 .cf-empty-note { margin: 0; font-size: .8125rem; line-height: 1.5; color: var(--stk-fg-muted); }
 .cf-fitted { display: flex; flex-direction: column; gap: .3rem; }
@@ -191,11 +334,11 @@
 .cf-fitted-tex { padding: .5rem .75rem; border-radius: var(--stk-radius); background: var(--stk-accent-soft); border: 1px solid var(--stk-accent-soft-border); color: var(--stk-fg); overflow-x: auto; overflow-y: hidden; }
 .cf-fitted-tex .katex-display { margin: .2rem 0; }
 
-.cf-table { width: 100%; border-collapse: collapse; font-size: .78rem; font-variant-numeric: tabular-nums; }
+.cf-table { width: 100%; border-collapse: collapse; font-size: .8125rem; font-variant-numeric: tabular-nums; }
 .cf-table th { text-align: left; font-size: .6875rem; font-weight: 650; color: var(--stk-fg-muted); padding: .35rem .5rem .35rem 0; border-bottom: 1px solid var(--stk-border); white-space: nowrap; }
 .cf-table td { padding: .4rem .75rem .4rem 0; border-bottom: 1px solid var(--stk-border); vertical-align: top; color: var(--stk-fg); }
 .cf-table tr:last-child td { border-bottom: 0; }
-.cf-table .cf-num { font-family: var(--stk-font-mono); white-space: nowrap; }
+.cf-table .cf-num { white-space: nowrap; }
 .cf-table .cf-ci { white-space: normal; }
 .cf-nw { white-space: nowrap; }
 .cf-table .cf-sub { display: block; margin-top: .1rem; font-family: inherit; font-size: .6875rem; color: var(--stk-fg-muted); white-space: nowrap; }
@@ -203,10 +346,11 @@
 .cf-flag { display: inline-flex; margin-top: .2rem; }
 .cf-pm { color: var(--stk-fg-muted); padding: 0 .3em; }
 
-.cf-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); gap: .35rem; margin: 0; }
-.cf-stats > div { padding: .4rem .55rem; border-radius: var(--stk-radius); background: var(--stk-surface-2); border: 1px solid var(--stk-border); min-width: 0; }
-.cf-stats dt { font-size: .6875rem; font-weight: 600; color: var(--stk-fg-3); }
-.cf-stats dd { margin: .1rem 0 0; font-family: var(--stk-font-mono); font-size: .8125rem; font-weight: 650; color: var(--stk-fg); overflow-wrap: anywhere; }
+.cf-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); column-gap: 1.25rem; margin: 0; padding: .1rem .75rem; border-radius: var(--stk-radius); background: var(--stk-surface-2); }
+.cf-stats > div { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; padding: .4rem 0; border-bottom: 1px solid var(--stk-border); min-width: 0; }
+.cf-stats > div:last-child { border-bottom: 0; }
+.cf-stats dt { font-size: .75rem; font-weight: 500; color: var(--stk-fg-3); }
+.cf-stats dd { margin: 0; font-size: .8125rem; font-weight: 650; color: var(--stk-fg); text-align: right; overflow-wrap: anywhere; }
 
 .cf-warn-list { display: flex; flex-direction: column; gap: .35rem; margin: 0; padding: 0; list-style: none; min-width: 0; }
 .cf-warn-list li { overflow-wrap: anywhere; }
@@ -227,19 +371,19 @@
 .cf-copyrow .cf-label { margin-right: .2rem; }
 
 /* ---------------------------------------------------------------------------
-   Step 4: the plot and its style panel
+   The plot
    ---------------------------------------------------------------------------
    Before there is anything to draw, the stage says what will appear; the
    figure host is only filled once there is data.
 --------------------------------------------------------------------------- */
 .cf-export { display: inline-flex; gap: .3rem; }
-.cf-stage { position: relative; margin: .75rem; min-height: 18rem; }
+.cf-stage { position: relative; margin: 0 1rem 1rem; min-height: 18rem; }
 .cf-figure { position: relative; width: 100%; min-width: 0; overflow: hidden; }
 .cf-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .4rem; min-height: 18rem; padding: 1.5rem; text-align: center; border: 1.5px dashed var(--stk-border-strong); border-radius: var(--stk-radius-lg); background: var(--stk-surface-2); }
 .cf-empty > i { font-size: 1.6rem; color: var(--stk-fg-faint); margin-bottom: .35rem; }
 .cf-empty-title { font-size: .95rem; font-weight: 600; color: var(--stk-fg-2); margin: 0; }
 .cf-empty-text { font-size: .8125rem; color: var(--stk-fg-3); margin: 0 0 .5rem; max-width: 26rem; }
-.cf-plot-notes { margin: 0 .75rem .75rem; padding: .5rem .7rem; border-radius: var(--stk-radius); background: var(--stk-surface-2); border: 1px solid var(--stk-border); font-size: .75rem; line-height: 1.45; color: var(--stk-fg-3); }
+.cf-plot-notes { margin: 0 1rem 1rem; padding: .5rem .7rem; border-radius: var(--stk-radius); background: var(--stk-surface-2); border: 1px solid var(--stk-border); font-size: .75rem; line-height: 1.45; color: var(--stk-fg-3); }
 .cf-plot-notes p { margin: 0; }
 .cf-plot-notes p + p { margin-top: .25rem; }
 @media (min-width: 1024px) {
@@ -248,14 +392,11 @@
 }
 
 .cf-style-host { min-width: 0; }
-.cf-style-host[hidden] { display: none; }
 .cf-style-wait { margin: 0; font-size: .8125rem; color: var(--stk-fg-muted); }
 
 /* ---------------------------------------------------------------------------
-   Step 5: the Python script
+   The Python script
 --------------------------------------------------------------------------- */
-.cf-a-python { display: flex; flex-direction: column; overflow: hidden; margin-top: 1rem; }
-@media (min-width: 1024px) { .cf-a-python { margin-top: 1.25rem; } }
 .cf-py-opts { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; padding: .65rem 1rem; border-bottom: 1px solid var(--stk-border); }
 .cf-csv { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; min-width: 0; }
 .cf-csv-name { width: 13rem; max-width: 100%; }
@@ -267,8 +408,9 @@
 .cf-code .tok-s { color: #fde68a; }
 .cf-code .tok-n { color: #7dd3fc; }
 .cf-code-empty { color: #94a3b8; font-family: inherit; }
-.cf-py-f { margin: 0; padding: .5rem 1rem; border-top: 1px solid var(--stk-border); font-size: .75rem; line-height: 1.45; color: var(--stk-fg-muted); }
+.cf-py-f { margin: 0; padding: .6rem 1rem; border-top: 1px solid var(--stk-border); border-radius: 0 0 calc(var(--stk-radius-xl) - 1px) 0; font-size: .75rem; line-height: 1.45; color: var(--stk-fg-muted); }
 .cf-py-f code { font-family: var(--stk-font-mono); color: var(--stk-fg); }
+@media (max-width: 1023.98px) { .cf-py-f { border-radius: 0 0 calc(var(--stk-radius-xl) - 1px) calc(var(--stk-radius-xl) - 1px); } }
 
 @media (max-width: 479.98px) {
   .cf-chips { flex-direction: column; gap: .35rem; }

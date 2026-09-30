@@ -30,6 +30,10 @@ earlier version are worth re-checking.
   will draw.
 - **The Python script** (SciPy and matplotlib) is written as you work: the
   same fit and the same figure, with the data embedded or read from a CSV.
+- **One workspace.** The equation sits in a bar that stays in view while the
+  results scroll, with the models in a searchable menu beside it. Data, model
+  and plot style are tabs next to the plot, each marked done or in need of
+  attention, and a file can be dropped anywhere on the fitter.
 - New core modules: `expression` (parsing, derivatives and LaTeX, with no
   `eval`), `nonlinear-fit`, `fit-python`, `plot-style` and `pdf` (a PDF writer
   for SVG figures). The page no longer loads regression.js; `curve-fitting`

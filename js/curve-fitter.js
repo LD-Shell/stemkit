@@ -467,6 +467,15 @@ export const PRESETS = [
   { id: 'damped', label: 'Damped oscillation', eq: '{y} = A*exp(-{x}/tau)*cos(2*pi*{x}/P + phi) + y0', bounds: { P: { min: 0 }, tau: { min: 0 } } }
 ];
 
+/* How the Models menu groups the presets. */
+const PRESET_GROUPS = [
+  ['Lines and polynomials', ['line', 'quadratic', 'cubic']],
+  ['Exponentials and powers', ['decay', 'growth', 'double', 'power', 'log']],
+  ['Peaks', ['gauss', 'lorentz', 'pvoigt']],
+  ['Growth, rates and binding', ['logistic', 'mm', 'hill', 'arrhenius']],
+  ['Oscillations', ['sine', 'damped']]
+];
+
 /**
  * A preset's equation in the given names. A name that would clash with one
  * of the preset's parameters falls back to the preset's own name.
@@ -863,7 +872,13 @@ function startPage() {
     theory: $('cfTheory'), theoryBody: $('cfTheoryBody'),
     size: $('cfSize'), plotEmpty: $('cfPlotEmpty'), figure: $('cfFigure'), plotNotes: $('cfPlotNotes'),
     plotDrawn: $('cfPlotDrawn'), tryExample: $('cfTryExample'),
-    styleHost: $('cfStyleHost'), styleToggle: $('cfStyleToggle'),
+    styleHost: $('cfStyleHost'),
+    workspace: $('cfWorkspace'), bar: $('cfBar'), barFit: $('cfBarFit'), rail: $('cfRail'),
+    tabs: Array.from(document.querySelectorAll('#cfRail [role="tab"]')),
+    tabDataInfo: $('cfTabDataInfo'), tabModelInfo: $('cfTabModelInfo'), modelEmpty: $('cfModelEmpty'),
+    modelsBtn: $('cfModelsBtn'), modelsMenu: $('cfModelsMenu'), modelsFind: $('cfModelsFind'), modelsNone: $('cfModelsNone'),
+    fnBtn: $('cfFnBtn'), fnMenu: $('cfFnMenu'),
+    quickResid: $('cfQuickResid'), quickBand: $('cfQuickBand'), quickBandWrap: $('cfQuickBandWrap'), editStyle: $('cfEditStyle'),
     pyName: $('cfPyName'), pyCopy: $('cfPyCopy'), pyDownload: $('cfPyDownload'), pyCode: $('cfPyCode'),
     srcEmbed: $('cfSrcEmbed'), srcCsv: $('cfSrcCsv'), csvOpts: $('cfCsvOpts'), csvName: $('cfCsvName'),
     csvDownload: $('cfCsvDownload'), pyTaken: $('cfPyTaken'), pyFoot: $('cfPyFoot')
@@ -1001,6 +1016,141 @@ function startPage() {
     }
   }
 
+  /* ---------------- the workspace: tabs, menus, the equation bar ---------------- */
+
+  const TAB_KEY = 'stemkit.curve-fitter.tab';
+  // Below this width the workspace stacks and nothing is pinned.
+  const narrow = window.matchMedia('(max-width: 1023.98px)');
+
+  /*
+   * The inputs are three tabs beside the outputs. The chosen one is
+   * remembered; arrow keys move between tabs as the ARIA pattern has it.
+   */
+  function selectTab(name, { focus = false, reveal = false } = {}) {
+    ui.tabs.forEach(t => {
+      const on = t.dataset.tab === name;
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+      if (on && focus) t.focus();
+    });
+    try { localStorage.setItem(TAB_KEY, name); } catch (e) { /* storage blocked */ }
+    if (reveal && narrow.matches) ui.rail.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
+  ui.tabs.forEach((t, i) => {
+    t.addEventListener('click', () => selectTab(t.dataset.tab));
+    t.addEventListener('keydown', e => {
+      const n = ui.tabs.length;
+      const to = { ArrowRight: i + 1, ArrowLeft: i - 1 + n, Home: 0, End: n - 1 }[e.key];
+      if (to === undefined) return;
+      e.preventDefault();
+      selectTab(ui.tabs[to % n].dataset.tab, { focus: true });
+    });
+  });
+
+  /* Each tab says how far it has got: done, needs attention, or not yet. */
+  function syncTabs() {
+    const t = state.table;
+    const m = state.model;
+    const hasData = t.rows >= 2 && t.columns.length >= 1;
+    const eqBad = !!(state.eq && !state.eq.ok);
+    const modelDone = !!(m && m.ready);
+    const modelNeeds = eqBad || !!(m && hasData && (m.needVariable || m.problems.some(p => p.startsWith('column:') || p === 'parameters')));
+    const [tabData, tabModel] = ui.tabs;
+    tabData.setAttribute('data-stk-state', hasData ? 'done' : 'current');
+    tabModel.setAttribute('data-stk-state', modelDone ? 'done' : hasData ? 'current' : 'pending');
+    tabModel.classList.toggle('cf-tab-alert', modelNeeds);
+    ui.tabDataInfo.textContent = hasData ? t.rows.toLocaleString('en-GB') : '';
+    ui.tabModelInfo.textContent = m && m.parameters.length ? String(m.parameters.length) : '';
+    ui.tabDataInfo.title = hasData ? `${plural(t.rows, 'row')} of data` : '';
+    ui.tabModelInfo.title = m ? `${plural(m.parameters.length, 'parameter')} to fit` : '';
+    ui.modelEmpty.hidden = !(ui.varsGroup.hidden && ui.paramsGroup.hidden);
+  }
+
+  /* The Models and f(x) menus: one open at a time, closed by Escape or a click outside. */
+  const menus = [[ui.modelsBtn, ui.modelsMenu], [ui.fnBtn, ui.fnMenu]];
+  function closeMenus(returnFocus = false) {
+    menus.forEach(([btn, menu]) => {
+      if (menu.hidden) return;
+      menu.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+      if (returnFocus) btn.focus();
+    });
+  }
+  menus.forEach(([btn, menu]) => {
+    btn.addEventListener('click', () => {
+      const open = menu.hidden;
+      closeMenus();
+      if (!open) return;
+      menu.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
+      if (menu === ui.modelsMenu) { ui.modelsFind.value = ''; filterModels(); ui.modelsFind.focus(); } else {
+        const first = menu.querySelector('button');
+        if (first) first.focus();
+      }
+    });
+    menu.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); closeMenus(true); return; }
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      const items = Array.from(menu.querySelectorAll('button')).filter(b => !b.hidden && !b.closest('[hidden]'));
+      if (!items.length) return;
+      e.preventDefault();
+      const at = items.indexOf(document.activeElement);
+      const next = e.key === 'ArrowDown' ? (at + 1) % items.length : at <= 0 ? items.length - 1 : at - 1;
+      items[next].focus();
+    });
+  });
+  document.addEventListener('click', e => {
+    if (!menus.some(([btn, menu]) => btn.contains(e.target) || menu.contains(e.target))) closeMenus();
+  });
+  document.addEventListener('focusin', e => {
+    if (!menus.some(([btn, menu]) => btn.contains(e.target) || menu.contains(e.target))) closeMenus();
+  });
+
+  function filterModels() {
+    const q = ui.modelsFind.value.trim().toLowerCase();
+    let shown = 0;
+    ui.presets.querySelectorAll('.cf-menu-group').forEach(g => {
+      let any = false;
+      g.querySelectorAll('[data-preset]').forEach(b => {
+        const hit = !q || b.textContent.toLowerCase().includes(q) || g.getAttribute('aria-label').toLowerCase().includes(q);
+        b.hidden = !hit;
+        if (hit) { any = true; shown++; }
+      });
+      g.hidden = !any;
+    });
+    ui.modelsNone.hidden = shown > 0;
+  }
+  ui.modelsFind.addEventListener('input', filterModels);
+  ui.modelsFind.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const first = ui.presets.querySelector('[data-preset]:not([hidden])');
+    if (first && !first.closest('[hidden]')) { e.preventDefault(); first.click(); }
+  });
+
+  // The bar pins under the site header and the rail under the bar, so both
+  // heights are passed to the stylesheet as they change.
+  const siteHeader = document.querySelector('nav[aria-label="Site"]');
+  const headHeight = () => (siteHeader ? Math.round(siteHeader.getBoundingClientRect().height) : 0);
+  const measureBar = () => {
+    ui.workspace.style.setProperty('--cf-head', `${headHeight()}px`);
+    ui.workspace.style.setProperty('--cf-bar', `${Math.round(ui.bar.getBoundingClientRect().height)}px`);
+  };
+  if ('ResizeObserver' in window) new ResizeObserver(measureBar).observe(ui.bar);
+  window.addEventListener('resize', debounce(measureBar, 100));
+  measureBar();
+
+  // Once pinned, the bar drops the typeset line and the notes to stay short.
+  const barMark = document.createElement('div');
+  barMark.className = 'cf-bar-mark';
+  barMark.setAttribute('aria-hidden', 'true');
+  ui.workspace.before(barMark);
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([entry]) => {
+      ui.bar.classList.toggle('is-stuck', !narrow.matches && !entry.isIntersecting && entry.boundingClientRect.top < headHeight());
+    }, { rootMargin: `-${headHeight() + 1}px 0px 0px 0px` }).observe(barMark);
+  }
+
   /* ---------------- step 1: data ---------------- */
 
   const parseDataSoon = debounce(() => applyData(), 180);
@@ -1049,7 +1199,7 @@ function startPage() {
         t.header ? 'column names from the header' : 'no header row'
       ];
       if (state.dataName) bits.unshift(`<span class="cf-mono">${esc(clip(state.dataName, 28))}</span>`);
-      ui.dataStats.innerHTML = bits.join(' &middot; ');
+      ui.dataStats.innerHTML = bits.join(', ');
       renderColumnList();
     }
     const problems = [...t.skipped.map(s => ({ ...s, skipped: true })), ...t.issues].sort((a, b) => a.line - b.line);
@@ -1122,22 +1272,23 @@ function startPage() {
     reader.readAsText(file);
   }
 
-  // Drop a file anywhere on the data panel.
+  // Drop a file anywhere on the workspace; the data tab comes forward to take it.
   let dragDepth = 0;
   const hasFiles = e => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
-  ui.dataPanel.addEventListener('dragenter', e => {
+  ui.workspace.addEventListener('dragenter', e => {
     if (!hasFiles(e)) return;
     e.preventDefault();
+    if (!dragDepth) selectTab('data');
     dragDepth++;
     ui.dataPanel.classList.add('is-over');
     ui.drop.classList.add('is-over');
   });
-  ui.dataPanel.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
-  ui.dataPanel.addEventListener('dragleave', () => {
+  ui.workspace.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+  ui.workspace.addEventListener('dragleave', () => {
     dragDepth = Math.max(0, dragDepth - 1);
     if (!dragDepth) { ui.dataPanel.classList.remove('is-over'); ui.drop.classList.remove('is-over'); }
   });
-  ui.dataPanel.addEventListener('drop', e => {
+  ui.workspace.addEventListener('drop', e => {
     if (!hasFiles(e)) return;
     e.preventDefault();
     dragDepth = 0;
@@ -1177,10 +1328,16 @@ function startPage() {
 
   /* ---------------- step 2: the equation ---------------- */
 
-  ui.presets.innerHTML = PRESETS.map(p => `<button type="button" class="cf-chip" data-preset="${p.id}" aria-pressed="false" title="${esc(presetEquation(p).text)}">${esc(p.label)}</button>`).join('');
+  ui.presets.innerHTML = PRESET_GROUPS.map(([group, ids]) =>
+    `<div class="cf-menu-group" role="group" aria-label="${esc(group)}"><p class="cf-menu-gt" aria-hidden="true">${esc(group)}</p>` +
+    ids.map(id => PRESETS.find(p => p.id === id)).filter(Boolean).map(p =>
+      `<button type="button" class="cf-menu-item" data-preset="${p.id}" aria-pressed="false">` +
+      `<span class="cf-mi-name">${esc(p.label)}</span><span class="cf-mi-eq">${esc(presetEquation(p).text)}</span></button>`).join('') +
+    '</div>').join('');
   ui.presets.addEventListener('click', e => {
     const b = e.target.closest('[data-preset]');
     if (!b) return;
+    closeMenus();
     const p = PRESETS.find(x => x.id === b.dataset.preset);
     const r = presetEquation(p, currentNames());
     state.roles = { [r.x]: 'variable' };
@@ -1219,6 +1376,7 @@ function startPage() {
     el.focus();
     el.setRangeText(text, start, end, 'end');
     if (f.insert.endsWith('()') && !selected) el.setSelectionRange(start + text.length - 1, start + text.length - 1);
+    closeMenus(false);
     onEquationInput();
   });
 
@@ -1284,12 +1442,13 @@ function startPage() {
     renderConstants();
     if (!ui.dataOk.hidden) renderColumnList();
     ui.modelOk.hidden = !(state.model && state.model.ready);
-    ui.presets.querySelectorAll('.cf-chip').forEach(c => {
+    ui.presets.querySelectorAll('[data-preset]').forEach(c => {
       const p = PRESETS.find(x => x.id === c.dataset.preset);
       const r = presetEquation(p, currentNames());
       c.setAttribute('aria-pressed', String(r.text.replace(/\s+/g, '') === text.replace(/\s+/g, '')));
     });
     updateStyleContext();
+    syncTabs();
     if (syncLabels()) schedulePython();
   }
 
@@ -1430,7 +1589,7 @@ function startPage() {
       const rows = [];
       const selectFor = (key, label, value, opts) => hasCols
         ? `<select class="stk-select stk-select-sm" data-key="${esc(key)}" aria-label="${esc(label)}">${columnOptions(value, opts)}</select>`
-        : '<span class="stk-hint">Add data in step 1</span>';
+        : '<span class="stk-hint">Add data on the Data tab</span>';
       const depCol = m.map.columns[m.dependent];
       rows.push(`<div class="cf-var"><span class="cf-var-name"><span class="cf-var-sym">${nameHtml(m.dependent)}</span><span class="cf-var-role">measured values</span></span>` +
         selectFor(`col:${m.dependent}`, `Column for ${m.dependent}, the measured values`, depCol ?? -2, {}) + '<span class="cf-var-act"></span></div>');
@@ -1765,15 +1924,15 @@ function startPage() {
 
   function emptyReason() {
     const m = state.model;
-    if (state.table.rows < 2) return state.eq && state.eq.ok ? 'Add data in step 1 and the fit runs straight away.' : 'Add data and an equation. The fit runs as you type.';
-    if (!state.eq) return 'Type an equation in step 2, or start from one of the presets.';
-    if (!state.eq.ok) return 'Correct the equation in step 2 to see the fit.';
+    if (state.table.rows < 2) return state.eq && state.eq.ok ? 'Add data on the Data tab and the fit runs straight away.' : 'Add data and an equation. The fit runs as you type.';
+    if (!state.eq) return 'Type an equation in the bar above, or pick one from Models.';
+    if (!state.eq.ok) return 'Correct the equation in the bar above to see the fit.';
     if (!m) return '';
-    if (m.needVariable) return 'Say which name in the equation is the measured variable (step 2).';
+    if (m.needVariable) return 'Say which name in the equation is the measured variable, on the Model tab.';
     if (m.problems.includes('parameters')) return 'The equation has nothing to fit: every name in it is a variable or a constant.';
     if (m.problems.some(p => p.startsWith('column:'))) {
       const missing = m.problems.filter(p => p.startsWith('column:')).map(p => p.slice(7));
-      return `There is no data column left for ${missing.join(' and ')}. Add a column or choose one in step 2.`;
+      return `There is no data column left for ${missing.join(' and ')}. Add a column or choose one on the Model tab.`;
     }
     return '';
   }
@@ -1787,6 +1946,7 @@ function startPage() {
       ui.resultsEmpty.textContent = emptyReason();
       ui.resultsEmpty.hidden = !ui.resultsEmpty.textContent;
       if (!(state.table.rows > AUTO_FIT_ROWS && buildFitSpec())) setStatus('', '');
+      ui.barFit.hidden = true;
       return;
     }
     ui.resultsEmpty.hidden = true;
@@ -1794,9 +1954,12 @@ function startPage() {
       const extra = (f.warnings || []).filter(w => w !== f.message);
       ui.failure.innerHTML = `<i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><div class="cf-warn-list"><p>${esc(f.message)}</p>${extra.map(w => `<p>${esc(w)}</p>`).join('')}</div>`;
       setStatus('No fit', 'danger');
+      ui.barFit.hidden = true;
       return;
     }
     setStatus(f.converged ? `Converged in ${plural(f.iterations, 'step')}` : 'Did not converge', f.converged ? 'ok' : 'warn');
+    ui.barFit.innerHTML = `R<sup>2</sup>${f.weighted ? '<sub>w</sub>' : ''} ${fmt(f.r2, 6)}`;
+    ui.barFit.hidden = false;
 
     const eq = state.eq;
     const m = state.model;
@@ -2115,24 +2278,31 @@ function startPage() {
       independent: m ? m.independent : ['x'],
       dependent: m ? m.dependent : 'y'
     });
+    syncQuickToggles();
   }
 
   function onStyleChange(style) {
     state.style = normalisePlotStyle(style);
+    syncQuickToggles();
     updatePlot();
     schedulePython();
     save();
   }
 
-  const narrow = window.matchMedia('(max-width: 1023.98px)');
-  function setStyleOpen(open) {
-    ui.styleHost.hidden = !open;
-    ui.styleToggle.setAttribute('aria-expanded', String(open));
-    ui.styleToggle.querySelector('span').textContent = open ? 'Hide' : 'Show';
-    ui.styleToggle.querySelector('i').className = `fa-solid ${open ? 'fa-chevron-up' : 'fa-chevron-down'}`;
+  /* The two switches beside the plot are shortcuts into the style. */
+  function syncQuickToggles() {
+    ui.quickResid.checked = state.style.residuals.show;
+    ui.quickBand.checked = state.style.band.show;
+    ui.quickBandWrap.hidden = !!(state.model && state.model.multivariate);
   }
-  setStyleOpen(!narrow.matches);
-  ui.styleToggle.addEventListener('click', () => setStyleOpen(ui.styleHost.hidden));
+  const quickToggle = (key, input) => input.addEventListener('change', () => {
+    const style = normalisePlotStyle({ ...state.style, [key]: { ...state.style[key], show: input.checked } });
+    setPanelStyle(style);
+    onStyleChange(style);
+  });
+  quickToggle('residuals', ui.quickResid);
+  quickToggle('band', ui.quickBand);
+  ui.editStyle.addEventListener('click', () => selectTab('style', { focus: true, reveal: true }));
 
   document.querySelectorAll('[data-export]').forEach(b => b.addEventListener('click', () => exportAs(b.dataset.export, b)));
 
@@ -2348,6 +2518,7 @@ function startPage() {
     renderData();
     refreshModel();
     runFit(true);
+    selectTab('data');
     save.cancel();
     toast('Cleared the data, the equation and the plot style.', '', {
       label: 'Undo',
@@ -2403,16 +2574,17 @@ function startPage() {
   }
 
   /*
-   * Beside the inputs the plot stays in view, so it may be no taller than
-   * the window leaves it; stacked on a narrow screen it may be as large as
-   * the width allows.
+   * Beside the inputs the whole figure should fit under the site header and
+   * the equation bar, so it can be read while the inputs change; stacked on a
+   * narrow screen it may be as large as the width allows.
    */
   function previewMaxScale() {
     if (narrow.matches) return 2;
-    const room = window.innerHeight - 96 - 150;
+    const room = window.innerHeight - 80 - 76 - 120;
     const tall = state.style.height * 96;
     return Math.max(0.2, Math.min(2, room / tall));
   }
+
 
   async function requestDraw() {
     if (!fitPlot) return;
@@ -2497,6 +2669,9 @@ function startPage() {
   autoGrow();
   renderData();
   refreshModel();
+  let savedTab = null;
+  try { savedTab = localStorage.getItem(TAB_KEY); } catch (e) { savedTab = null; }
+  selectTab(state.table.rows >= 2 && ['model', 'style'].includes(savedTab) ? savedTab : 'data');
   runFit(true);
   renderPython();
 }
