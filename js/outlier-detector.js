@@ -1,8 +1,11 @@
 /**
  * Outlier Detector | UI layer.
  *
- * Detection algorithms live in stemkit-core; this file handles DOM wiring,
- * file intake, and rendering only.
+ * Detection lives in stemkit-core (src/core/outliers.js), and so do the
+ * chart and its Python script (src/core/outliers-figure.js). This file
+ * handles the file, the controls and the table, and hands the chart to the
+ * shared plot area (js/figure-plot.js), which draws it, keeps the Style panel
+ * and the exports, and writes the script into the Python panel.
  */
 import { registerFromGlobals } from '../src/core/vendor.js';
 import {
@@ -12,11 +15,13 @@ import {
   partitionRows,
   grubbsTest
 } from '../src/core/outliers.js';
+import { outlierFigure, outlierScript } from '../src/core/outliers-figure.js';
 
 // Papa is loaded as a UMD global by the page's <script> tags.
 registerFromGlobals();
 
 const PREVIEW_ROWS = 200;
+const STYLE_KEY = 'stemkit.outlier-detector.figure';
 
 const METHOD_NAMES = {
   zscore: 'the Z-score',
@@ -31,6 +36,11 @@ document.addEventListener('DOMContentLoaded', () => {
   let headers = [];
   let outlierIndices = new Set();
   let scanned = false;
+  // The file the data came from (null for the example), and the last scan,
+  // which the chart and the script are drawn from.
+  let sourceFile = null;
+  let lastScan = null;
+  let showLines = true;
 
   // # --- 2. Interface bindings ---
   const uploadZone = document.getElementById('uploadZone');
@@ -138,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         const fields = (results.meta.fields || []).filter(h => h !== null && h !== undefined && h !== '');
-        loadRows(results.data, fields, file.name);
+        loadRows(results.data, fields, file.name, { name: file.name, delimiter: results.meta.delimiter || ',' });
       },
       error: () => showToast('Could not read that file.', 'error')
     });
@@ -156,11 +166,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + 's')}`;
 
-  function loadRows(rows, fields, fileName) {
+  function loadRows(rows, fields, fileName, file = null) {
     rawData = rows;
     headers = fields;
     outlierIndices.clear();
     scanned = false;
+    sourceFile = file;
+    lastScan = null;
+    drawPlot();
 
     document.getElementById('fileName').textContent = fileName;
     document.getElementById('dataMeta').textContent =
@@ -207,6 +220,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (values.length < 4) {
       showScanResult(null);
+      lastScan = null;
+      drawPlot();
       renderArrayView();
       showToast(`"${targetCol}" needs at least 4 numeric values; it has ${values.length}.`, 'error');
       return;
@@ -222,6 +237,8 @@ document.addEventListener('DOMContentLoaded', () => {
       outlierIndices.add(i);
     }
     scanned = true;
+    lastScan = { values, rows: indexMap.map(i => i + 1), method, threshold, column: targetCol };
+    drawPlot();
 
     const notes = [];
     if (result.degenerate) notes.push('Every value is the same, so there is no spread to flag against.');
@@ -267,7 +284,63 @@ document.addEventListener('DOMContentLoaded', () => {
     grubbsNote.textContent = r.grubbs;
   }
 
-  // # --- 6. Table view ---
+  // # --- 6. The chart ---
+  const plotSection = document.getElementById('odPlot');
+  const pyHost = document.getElementById('odPython');
+  const linesToggle = document.getElementById('odLines');
+  const emptyScan = document.getElementById('odEmptyScan');
+  let plot = null;
+  let storedStyle = {};
+  try { storedStyle = JSON.parse(localStorage.getItem(STYLE_KEY) || '{}'); } catch (e) { storedStyle = {}; }
+
+  function drawPlot() {
+    if (!plot) return;
+    plot.update(lastScan ? outlierFigure({ ...lastScan, lines: showLines }) : null);
+  }
+  if (linesToggle) linesToggle.addEventListener('change', () => { showLines = linesToggle.checked; drawPlot(); });
+  if (emptyScan) emptyScan.addEventListener('click', () => runScan({ quiet: false }));
+
+  import('./figure-plot.js').then(({ mountFigure }) => {
+    plot = mountFigure(plotSection, {
+      style: storedStyle,
+      // The plot spans the page: it grows with the width only as far as the
+      // window's height lets the whole figure stay in view.
+      maxScale: () => {
+        const info = plot && plot.info();
+        const tall = info && info.heightPx ? info.heightPx : 4.8 * 96;
+        return Math.max(0.5, Math.min(2, (window.innerHeight - 200) / tall));
+      },
+      onStyleChange: (style) => { try { localStorage.setItem(STYLE_KEY, JSON.stringify(style)); } catch (e) { /* storage full or blocked */ } },
+      label: "Each value of the column against its row, the flagged values marked apart, and the rule's lines",
+      onExport: (r, err, format) => {
+        if (err) showToast(`The ${format.toUpperCase()} could not be made: ${err && err.message ? err.message : err}`, 'error');
+        else showToast(`Saved ${r.filename}.`, 'success');
+      },
+      python: pyHost ? {
+        host: pyHost,
+        title: 'Python script',
+        filename: 'outliers.py',
+        sources: [{ id: 'files', label: 'Read the CSV' }, { id: 'embed', label: 'Data in the script' }],
+        script: (figure, source) => (lastScan ? outlierScript(figure, { ...lastScan, source, file: sourceFile }) : ''),
+        note: (figure, source) => {
+          const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+          const reads = source === 'files' && sourceFile
+            ? `, reading <code>${esc(sourceFile.name)}</code> from the same folder` : '';
+          return `Runs with Python 3, numpy, scipy and matplotlib 3.6 or later: <code>python outliers.py</code>. ` +
+            `It prints the flagged rows and Grubbs' test and saves <code>${esc(figure.export.filename)}.${esc(figure.export.format)}</code>${reads}.`;
+        }
+      } : false
+    });
+    drawPlot();
+  }).catch((err) => {
+    const notes = plotSection && plotSection.querySelector('.fg-notes');
+    if (notes) {
+      notes.textContent = `The chart could not load (${err && err.message ? err.message : err}). Reload the page to try again; detection and the downloads still work.`;
+      notes.hidden = false;
+    }
+  });
+
+  // # --- 7. Table view ---
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -306,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
       : shown;
   }
 
-  // # --- 7. Export ---
+  // # --- 8. Export ---
   exportCleanBtn.addEventListener('click', () => {
     const { clean } = partitionRows(rawData, [...outlierIndices]);
     triggerDownload(clean, 'data_without_outliers.csv');
@@ -331,7 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast(`Saved ${filename} (${plural(dataArray.length, 'row')}).`, 'success');
   }
 
-  // # --- 8. Toasts ---
+  // # --- 9. Toasts ---
   function showToast(msg, type) {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');

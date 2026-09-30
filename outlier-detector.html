@@ -68,13 +68,13 @@
 
     <link rel="stylesheet" href="css/all.min.css">
     <link rel="stylesheet" href="css/dependencies/katex.min.css">
-    <link rel="stylesheet" href="css/all.min.css">
-    
+
     <script defer src="js/dependencies/papaparse.min.js"></script>
     <script defer src="js/dependencies/jstat.min.js"></script>
+    <script defer src="js/dependencies/plotly.min.js"></script>
 
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "HowTo", "name": "How to detect outliers in your data", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Load your data", "text": "Drag in a .csv/.tsv/.txt file, or choose one. Or press Load a sample to try a sample with two planted outliers."}, {"@type": "HowToStep", "position": 2, "name": "Pick a column and method", "text": "Choose the numeric column and one of Z-Score, IQR, or the robust Modified Z-Score."}, {"@type": "HowToStep", "position": 3, "name": "Set the threshold", "text": "Adjust the multiplier; the hint explains what the current setting flags. Defaults follow standard practice."}, {"@type": "HowToStep", "position": 4, "name": "Find and download", "text": "Press Find outliers to highlight them in the table, then download the data without them or the outliers alone."}]}
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to detect outliers in your data", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Load your data", "text": "Drag in a .csv/.tsv/.txt file, or choose one. Or press Load a sample to try a sample with two planted outliers."}, {"@type": "HowToStep", "position": 2, "name": "Pick a column and method", "text": "Choose the numeric column and one of Z-Score, IQR, or the robust Modified Z-Score."}, {"@type": "HowToStep", "position": 3, "name": "Set the threshold", "text": "Adjust the multiplier; the hint explains what the current setting flags. Defaults follow standard practice."}, {"@type": "HowToStep", "position": 4, "name": "Find and download", "text": "Press Find outliers to mark them on the chart and in the table, then download the data without them or the outliers alone, save the chart as PDF, PNG or SVG, or copy the Python script that flags them and draws the chart."}]}
 </script>
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my data uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Parsing and detection run locally in your browser via PapaParse and jStat."}}, {"@type": "Question", "name": "Which method should I use?", "acceptedAnswer": {"@type": "Answer", "text": "Z-Score for roughly normal data, IQR for skewed data, and the Modified Z-Score when you want robustness to the outliers themselves (a good general default)."}}, {"@type": "Question", "name": "What thresholds are typical?", "acceptedAnswer": {"@type": "Answer", "text": "k = 3 for Z-Score, k = 1.5 for Tukey's IQR fences, and k = 3.5 for the modified Z-Score (Iglewicz–Hoaglin)."}}, {"@type": "Question", "name": "How many values do I need?", "acceptedAnswer": {"@type": "Answer", "text": "At least four numeric values in the chosen column for a meaningful estimate of spread."}}, {"@type": "Question", "name": "Does downloading without outliers change my original file?", "acceptedAnswer": {"@type": "Answer", "text": "No. It downloads a new CSV with the flagged rows removed; your source file is untouched."}}]}
@@ -82,6 +82,8 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tools/figure.css">
+    <link rel="stylesheet" href="src/tools/python-panel.css">
     <link rel="stylesheet" href="src/tools/outlier-detector.css">
     <script defer src="js/dependencies/katex.min.js"></script>
 </head>
@@ -230,6 +232,35 @@
                 </section>
             </div>
 
+            <!-- The values, the flagged ones, the rule's lines: the shared plot area (js/figure-plot.js) -->
+            <section id="odPlot" class="fg fg-card" aria-labelledby="odPlotTitle">
+                <div class="fg-h">
+                    <h2 id="odPlotTitle" class="fg-t">Plot</h2>
+                    <span class="fg-size stk-tnum" title="The size of the saved figure"></span>
+                    <div class="fg-actions">
+                        <label class="fg-toggle" title="The rule's centre and threshold lines"><input type="checkbox" id="odLines" checked> <span>Threshold lines</span></label>
+                        <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost" data-fg-style aria-haspopup="dialog"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Style</button>
+                        <div class="fg-export" role="group" aria-label="Export the figure">
+                            <button type="button" class="stk-btn stk-btn-sm" data-export="pdf" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> PDF</button>
+                            <button type="button" class="stk-btn stk-btn-sm" data-export="png" disabled>PNG</button>
+                            <button type="button" class="stk-btn stk-btn-sm" data-export="svg" disabled>SVG</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="fg-stage">
+                    <div class="fg-empty">
+                        <i class="fa-solid fa-chart-simple" aria-hidden="true"></i>
+                        <p class="fg-empty-title">The values and the outliers appear here</p>
+                        <p class="fg-empty-text">Each value against its row, the flagged ones marked, and the lines the rule draws.</p>
+                        <button type="button" id="odEmptyScan" class="stk-btn stk-btn-sm"><i class="fa-solid fa-magnifying-glass-chart" aria-hidden="true"></i> Find outliers</button>
+                    </div>
+                    <div id="odFigure" class="fg-figure" hidden></div>
+                </div>
+                <div class="fg-notes" hidden></div>
+            </section>
+
+            <div id="odPython"></div>
+
             <section class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden flex flex-col h-[500px]" aria-labelledby="od-preview">
                 <div class="border-b border-slate-200 dark:border-slate-800 px-5 py-3 flex flex-wrap justify-between items-center gap-2">
                     <h2 id="od-preview" class="stk-ptitle">Preview</h2>
@@ -249,7 +280,7 @@
             <span class="stk-chip"><i class="fa-solid fa-magnifying-glass-chart"></i> How-to guide</span>
             <h2 class="stk-h2">How to detect outliers in your data</h2>
             <p class="stk-lead">Upload a CSV, pick a column and a detection rule, and flag anomalous values, then export either the cleaned data or just the anomalies.</p>
-            <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Load your data</h3><p>Drag in a .csv/.tsv/.txt file, or press <strong>Choose file</strong>. Or press <strong>Load a sample</strong> to try fifteen measurements with two planted outliers.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Pick a column &amp; method</h3><p>Choose the numeric column and one of Z-Score, IQR, or the robust Modified Z-Score.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Set the threshold</h3><p>Adjust the multiplier; the hint explains what the current setting flags. Defaults follow standard practice.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Find and download</h3><p>Press <strong>Find outliers</strong> to highlight them in the table. Changing the column, rule or threshold afterwards updates the result. Then download the data without the outliers, or the outliers alone.</p></div></div></div>
+            <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Load your data</h3><p>Drag in a .csv/.tsv/.txt file, or press <strong>Choose file</strong>. Or press <strong>Load a sample</strong> to try fifteen measurements with two planted outliers.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Pick a column &amp; method</h3><p>Choose the numeric column and one of Z-Score, IQR, or the robust Modified Z-Score.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Set the threshold</h3><p>Adjust the multiplier; the hint explains what the current setting flags. Defaults follow standard practice.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Find and download</h3><p>Press <strong>Find outliers</strong> to mark them on the chart, with the lines the rule draws, and in the table. Changing the column, rule or threshold afterwards updates the result. Then download the data without the outliers, or the outliers alone; save the chart as <strong>PDF</strong>, <strong>PNG</strong> or <strong>SVG</strong> (press <strong>Style</strong> to set its look); or copy the <strong>Python script</strong>, which reads your file, flags the same rows with numpy and draws the same chart with matplotlib.</p></div></div></div>
         </div>
     </section>
 
@@ -257,7 +288,7 @@
         <div class="stk-wrap">
             <h2 class="stk-h2">How it works</h2>
             <div class="stk-grid stk-grid-2"><div class="stk-card"><h3>Three complementary rules</h3><p><strong>Z-Score</strong> assumes roughly normal data. <strong>IQR</strong> (Tukey) is non-parametric and good for skew. <strong>Modified Z-Score</strong> uses the median and MAD, so it is robust, a few extreme values don't hide the rest.</p></div><div class="stk-card"><h3>Why robustness matters</h3><p>The mean and standard deviation are themselves distorted by outliers, so a single huge value can mask others. Median/MAD-based detection avoids this, which is why 3.5 on the modified Z-Score is a widely recommended default.</p></div></div>
-            <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>A quick illustration: in the built-in example the classic Z-Score (k=3) flags only the value 250, while the Modified Z-Score (k=3.5) also catches the low value 3, because the mean and SD were inflated by 250 itself. The preview highlights up to 200 rows; export always covers the full dataset.</div></div>
+            <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>A quick illustration: in the built-in example the classic Z-Score (k=3) flags only the value 250, while the Modified Z-Score (k=3.5) also catches the low value 3, because the mean and SD were inflated by 250 itself. The chart shows every value and the table highlights up to 200 rows; export always covers the full dataset.</div></div>
         </div>
     </section>
 

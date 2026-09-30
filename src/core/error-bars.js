@@ -183,6 +183,8 @@ export function groupRows(rows) {
  * @param {Array<Array<*>>} rows
  * @param {{level?:number, hasHeader?:boolean|'auto'}} [options]
  * @returns {{results:object[], skipped:number, headerDetected:boolean}}
+ *          Each result is `summariseGroup`'s, plus `values`: the group's
+ *          replicates in the order they were read.
  */
 export function computeGroups(rows, options = {}) {
   const { level = 0.95, hasHeader = 'auto' } = options;
@@ -200,7 +202,8 @@ export function computeGroups(rows, options = {}) {
   const results = [];
   for (const [key, values] of groups) {
     const s = summariseGroup(key, values, level);
-    if (s) results.push(s);
+    // The replicates stay with their summary, for the plot and the tests.
+    if (s) results.push({ ...s, values });
   }
   return { results, skipped, headerDetected };
 }

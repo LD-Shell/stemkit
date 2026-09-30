@@ -41,7 +41,6 @@ import {
   classifyFields,
   pivotLongToGroups,
   descriptives,
-  boxPlotStats,
   alignPairs,
   formatP,
   interpretD,
@@ -49,7 +48,7 @@ import {
   interpretR
 } from '../src/core/statistics.js';
 import { generateLatexTable, generateMarkdownTable } from '../src/core/latex.js';
-import { niceTicks } from '../src/core/error-bars.js';
+import { statisticsFigure, statisticsScript } from '../src/core/statistics-figure.js';
 import { toCSV } from '../src/core/data-cleaning.js';
 
 // jStat, Papa, and KaTeX are loaded as UMD globals by the page's <script> tags.
@@ -95,13 +94,6 @@ const fx = (v, d) => (Number.isFinite(v) ? v.toFixed(d) : 'n/a');
 /** Full-precision value for CSV, without float noise such as 23.419999999999998. */
 const num = (v) => (Number.isFinite(v) ? String(Number(v.toPrecision(12))) : '');
 const formatNumber = (v) => String(Number(v.toPrecision(10)));
-/** Smallest and largest value without spreading a long array into Math.min. */
-function extent(values) {
-  let lo = Infinity;
-  let hi = -Infinity;
-  for (const v of values) { if (v < lo) lo = v; if (v > hi) hi = v; }
-  return [lo, hi];
-}
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -159,7 +151,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const pubSummary = $('pubSummary');
   const copyBtn = $('copyBtn');
   const theoryContainer = $('theoryContainer');
-  const plotHost = $('plotHost');
   const plotCaption = $('plotCaption');
   const descTable = $('descTable');
   const descNote = $('descNote');
@@ -483,6 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!view) return;
 
+    lastRun = { test: sel.type, mu0: sel.mu0 };
     // Shown before rendering, so the plot can measure the space it has.
     resultsContainer.classList.remove('hidden');
     renderView(view);
@@ -1174,195 +1166,16 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   }
 
-  // --- 7. Plot (inline SVG) ---
+  // --- 7. Plot ---
   //
-  // Colours come from the page's tokens through the .sp-* classes in
-  // src/tools/stats-calculator.css, so the plot follows the theme. A
-  // download is always the light version on white, with the same classes
-  // resolved by an embedded stylesheet, since it will end up in a paper.
+  // The shared plot area (js/figure-plot.js): the figure for the test comes
+  // from src/core/statistics-figure.js, drawn as matplotlib will draw it, with
+  // the Style panel, PDF, PNG and SVG, and the Python script that runs the
+  // same test and draws the same plot.
 
-  const PLOT_FONT = "Inter, 'Helvetica Neue', Arial, sans-serif";
-  const EXPORT_CSS =
-    '.sp-grid{stroke:#e2e8f0}.sp-axis{stroke:#94a3b8}.sp-tick{fill:#475569}.sp-title{fill:#334155}' +
-    '.sp-lab{fill:#1e293b}.sp-n{fill:#64748b}.sp-box{fill:#e0ebf6;stroke:#334155}.sp-whisk{stroke:#334155}' +
-    '.sp-med{stroke:#0f172a}.sp-pt{fill:#1f5c96;fill-opacity:.72;stroke:#fff}.sp-pair{stroke:#94a3b8}' +
-    '.sp-mean{fill:#0f172a;stroke:#fff}.sp-ci{stroke:#0f172a}.sp-ref{stroke:#64748b}.sp-reflab{fill:#334155}' +
-    '.sp-fit{stroke:#334155}.sp-key{fill:#475569}';
-
-  const approxWidth = (text, size) => String(text).length * size * 0.56;
-
-  function tickFormatter(ticks) {
-    const step = ticks.length > 1 ? Math.abs(ticks[1] - ticks[0]) : 1;
-    const dp = Math.min(8, decimalsOf(Number(step.toPrecision(6))));
-    const big = Math.max(...ticks.map(Math.abs));
-    if (big >= 1e6 || (big > 0 && big < 1e-4)) return (v) => minus(v.toExponential(1));
-    return (v) => minus((Math.abs(v) < step / 1e6 ? 0 : v).toFixed(dp));
-  }
-
-  /** A seeded generator, so the jitter is the same every time the plot is drawn. */
-  function mulberry32(seed) {
-    return function () {
-      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
-      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  function truncate(text, maxWidth, size) {
-    const s = String(text);
-    if (approxWidth(s, size) <= maxWidth) return s;
-    const keep = Math.max(1, Math.floor(maxWidth / (size * 0.56)) - 1);
-    return s.slice(0, keep) + '…';
-  }
-
-  function yAxis(ticks, fmt, Y, M, W, label, H) {
-    let s = '';
-    for (const t of ticks) {
-      const y = Y(t).toFixed(1);
-      s += `<line class="sp-grid" x1="${M.l}" x2="${W - M.r}" y1="${y}" y2="${y}" stroke-width="1"/>`;
-      s += `<text class="sp-tick" x="${M.l - 8}" y="${y}" dy="0.32em" text-anchor="end" font-size="11">${escapeHtml(fmt(t))}</text>`;
-    }
-    const cy = (M.t + (H - M.b)) / 2;
-    s += `<text class="sp-title" transform="translate(14 ${cy.toFixed(1)}) rotate(-90)" text-anchor="middle" font-size="12" font-weight="600">${escapeHtml(label)}</text>`;
-    return s;
-  }
-
-  const leftMargin = (ticks, fmt) => 26 + Math.max(...ticks.map(t => approxWidth(fmt(t), 11))) + 8;
-
-  /** Box plots with the observations, and the mean with its 95% CI. */
-  function drawGroups(m, W, H) {
-    const k = m.groups.length;
-    const info = m.groups.map(g => ({ box: boxPlotStats(g.values), d: descriptives(g.values) }));
-    let [lo, hi] = extent(m.groups.map(g => g.values).flat());
-    for (const { d } of info) {
-      if (Number.isFinite(d.ci[0])) { lo = Math.min(lo, d.ci[0]); hi = Math.max(hi, d.ci[1]); }
-    }
-    if (m.ref) { lo = Math.min(lo, m.ref.value); hi = Math.max(hi, m.ref.value); }
-    if (lo === hi) { lo -= 1; hi += 1; }
-    const pad = (hi - lo) * 0.04;
-    // Padding never takes a non-negative scale below zero.
-    const ticks = niceTicks(lo >= 0 ? Math.max(0, lo - pad) : lo - pad, hi + pad, H < 300 ? 4 : 5);
-    const fmt = tickFormatter(ticks);
-    const y0 = ticks[0];
-    const y1 = ticks[ticks.length - 1];
-    const M = { l: leftMargin(ticks, fmt), r: 10, t: 14, b: m.xLabel ? 62 : 44 };
-    const pw = W - M.l - M.r;
-    const ph = H - M.t - M.b;
-    const Y = (v) => M.t + ph * (1 - (v - y0) / (y1 - y0));
-    const band = pw / k;
-    const cx = (i) => M.l + band * (i + 0.5);
-    const boxW = Math.max(10, Math.min(band * 0.34, 56));
-    const jit = boxW * 0.42;
-    const meanDx = boxW / 2 + Math.max(7, Math.min(14, band * 0.1));
-    const nMax = Math.max(...m.groups.map(g => g.values.length));
-    const r = nMax > 60 ? 2.5 : nMax > 25 ? 3.2 : 4;
-    const fmtV = (v) => minus(formatNumber(v));
-    const pairOffset = (j, n) => (n > 1 ? (j / (n - 1) - 0.5) * 2 * jit * 0.8 : 0);
-
-    let s = yAxis(ticks, fmt, Y, M, W, m.yLabel, H);
-    s += `<line class="sp-axis" x1="${M.l}" x2="${W - M.r}" y1="${M.t + ph}" y2="${M.t + ph}" stroke-width="1"/>`;
-
-    if (m.ref) {
-      const yr = Y(m.ref.value).toFixed(1);
-      s += `<line class="sp-ref" x1="${M.l}" x2="${W - M.r}" y1="${yr}" y2="${yr}" stroke-width="1.5" stroke-dasharray="5 4"><title>${escapeHtml(m.ref.label)}</title></line>`;
-      s += `<text class="sp-reflab" x="${W - M.r - 2}" y="${yr}" dy="-0.45em" text-anchor="end" font-size="11" font-weight="600">${escapeHtml(minus(m.ref.label))}</text>`;
-    }
-
-    // Pair lines go under everything else, so the boxes stay readable.
-    if (m.kind === 'paired') {
-      const [a, b] = m.groups.map(g => g.values);
-      for (let j = 0; j < a.length; j++) {
-        const off = pairOffset(j, a.length);
-        s += `<line class="sp-pair" x1="${(cx(0) + off).toFixed(1)}" y1="${Y(a[j]).toFixed(1)}" x2="${(cx(1) + off).toFixed(1)}" y2="${Y(b[j]).toFixed(1)}" stroke-width="1" stroke-opacity="0.7"/>`;
-      }
-    }
-
-    m.groups.forEach((g, i) => {
-      const { box, d } = info[i];
-      const x = cx(i);
-
-      // Box and whiskers.
-      s += `<g><title>${escapeHtml(`${g.name}: median ${fmtV(box.median)}, quartiles ${fmtV(box.q1)} to ${fmtV(box.q3)}, whiskers ${fmtV(box.whiskerLow)} to ${fmtV(box.whiskerHigh)}`)}</title>`;
-      s += `<line class="sp-whisk" x1="${x}" x2="${x}" y1="${Y(box.whiskerHigh).toFixed(1)}" y2="${Y(box.q3).toFixed(1)}" stroke-width="1.25"/>`;
-      s += `<line class="sp-whisk" x1="${x}" x2="${x}" y1="${Y(box.q1).toFixed(1)}" y2="${Y(box.whiskerLow).toFixed(1)}" stroke-width="1.25"/>`;
-      for (const w of [box.whiskerHigh, box.whiskerLow]) {
-        s += `<line class="sp-whisk" x1="${(x - boxW * 0.2).toFixed(1)}" x2="${(x + boxW * 0.2).toFixed(1)}" y1="${Y(w).toFixed(1)}" y2="${Y(w).toFixed(1)}" stroke-width="1.25"/>`;
-      }
-      const top = Y(box.q3);
-      s += `<rect class="sp-box" x="${(x - boxW / 2).toFixed(1)}" y="${top.toFixed(1)}" width="${boxW.toFixed(1)}" height="${Math.max(1, Y(box.q1) - top).toFixed(1)}" rx="3" stroke-width="1.25"/>`;
-      s += `<line class="sp-med" x1="${(x - boxW / 2).toFixed(1)}" x2="${(x + boxW / 2).toFixed(1)}" y1="${Y(box.median).toFixed(1)}" y2="${Y(box.median).toFixed(1)}" stroke-width="2.25"/></g>`;
-
-      // The observations.
-      const rand = mulberry32(1013 * (i + 1));
-      g.values.forEach((v, j) => {
-        const off = m.kind === 'paired' ? pairOffset(j, g.values.length) : (rand() * 2 - 1) * jit;
-        s += `<circle class="sp-pt" cx="${(x + off).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="${r}" stroke-width="1.25"><title>${escapeHtml(`${g.name}: ${fmtV(v)}`)}</title></circle>`;
-      });
-
-      // Mean with its 95% CI, to the right of the box.
-      if (Number.isFinite(d.ci[0])) {
-        const mx = x + meanDx;
-        s += `<g><title>${escapeHtml(`${g.name}: mean ${fmtV(d.mean)}, 95% CI ${fmtV(d.ci[0])} to ${fmtV(d.ci[1])}`)}</title>`;
-        s += `<line class="sp-ci" x1="${mx.toFixed(1)}" x2="${mx.toFixed(1)}" y1="${Y(d.ci[0]).toFixed(1)}" y2="${Y(d.ci[1]).toFixed(1)}" stroke-width="1.75"/>`;
-        for (const c of d.ci) s += `<line class="sp-ci" x1="${(mx - 3.5).toFixed(1)}" x2="${(mx + 3.5).toFixed(1)}" y1="${Y(c).toFixed(1)}" y2="${Y(c).toFixed(1)}" stroke-width="1.75"/>`;
-        const ym = Y(d.mean);
-        s += `<path class="sp-mean" d="M${mx.toFixed(1)} ${(ym - 5).toFixed(1)}l5 5-5 5-5-5z" stroke-width="1.25"/></g>`;
-      }
-
-      // Group label and n under the axis.
-      const lab = truncate(g.name, band - 6, 12);
-      s += `<text class="sp-lab" x="${x}" y="${M.t + ph + 18}" text-anchor="middle" font-size="12" font-weight="600">${lab !== g.name ? `<title>${escapeHtml(g.name)}</title>` : ''}${escapeHtml(lab)}</text>`;
-      s += `<text class="sp-n" x="${x}" y="${M.t + ph + 33}" text-anchor="middle" font-size="11">n = ${g.values.length}</text>`;
-    });
-
-    if (m.xLabel) {
-      s += `<text class="sp-title" x="${(M.l + pw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="12" font-weight="600">${escapeHtml(m.xLabel)}</text>`;
-    }
-    return s;
-  }
-
-  /** Scatter with the least-squares line. */
-  function drawScatter(m, W, H) {
-    const padded = (a) => {
-      const [lo, hi] = extent(a);
-      const p = (hi - lo) * 0.05 || 1;
-      return [lo >= 0 ? Math.max(0, lo - p) : lo - p, hi + p];
-    };
-    const [xl, xh] = padded(m.x);
-    const [yl, yh] = padded(m.y);
-    const xt = niceTicks(xl, xh, W < 420 ? 4 : 6);
-    const yt = niceTicks(yl, yh, H < 300 ? 4 : 5);
-    const fmtX = tickFormatter(xt);
-    const fmtY = tickFormatter(yt);
-    const M = { l: leftMargin(yt, fmtY), r: 14, t: 14, b: 50 };
-    const pw = W - M.l - M.r;
-    const ph = H - M.t - M.b;
-    const [x0, x1] = [xt[0], xt[xt.length - 1]];
-    const [y0, y1] = [yt[0], yt[yt.length - 1]];
-    const X = (v) => M.l + pw * (v - x0) / (x1 - x0);
-    const Y = (v) => M.t + ph * (1 - (v - y0) / (y1 - y0));
-
-    let s = yAxis(yt, fmtY, Y, M, W, m.yLabel, H);
-    for (const t of xt) {
-      const x = X(t).toFixed(1);
-      s += `<line class="sp-grid" x1="${x}" x2="${x}" y1="${M.t}" y2="${M.t + ph}" stroke-width="1"/>`;
-      s += `<text class="sp-tick" x="${x}" y="${M.t + ph + 17}" text-anchor="middle" font-size="11">${escapeHtml(fmtX(t))}</text>`;
-    }
-    s += `<line class="sp-axis" x1="${M.l}" x2="${W - M.r}" y1="${M.t + ph}" y2="${M.t + ph}" stroke-width="1"/>`;
-    s += `<text class="sp-title" x="${(M.l + pw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="12" font-weight="600">${escapeHtml(m.xLabel)}</text>`;
-
-    if (m.line && Number.isFinite(m.line.slope)) {
-      const { slope, intercept } = m.line;
-      s += `<clipPath id="spClip"><rect x="${M.l}" y="${M.t}" width="${pw}" height="${ph}"/></clipPath>`;
-      s += `<line class="sp-fit" clip-path="url(#spClip)" x1="${X(x0).toFixed(1)}" y1="${Y(intercept + slope * x0).toFixed(1)}" x2="${X(x1).toFixed(1)}" y2="${Y(intercept + slope * x1).toFixed(1)}" stroke-width="2" stroke-linecap="round"><title>${escapeHtml(lineEquation(m.line))}</title></line>`;
-    }
-    const r = m.x.length > 150 ? 2.5 : m.x.length > 60 ? 3.2 : 4;
-    m.x.forEach((v, i) => {
-      s += `<circle class="sp-pt" cx="${X(v).toFixed(1)}" cy="${Y(m.y[i]).toFixed(1)}" r="${r}" stroke-width="1.25"><title>${escapeHtml(minus(`${m.xLabel} ${formatNumber(v)}, ${m.yLabel} ${formatNumber(m.y[i])}`))}</title></circle>`;
-    });
-    return s;
-  }
+  const STYLE_KEY = 'stemkit.stats-calculator.figure';
+  let plot = null;
+  let lastRun = null;
 
   const lineEquation = (l) =>
     minus(`y = ${Number(l.slope.toPrecision(4))}x ${l.intercept < 0 ? '−' : '+'} ${Number(Math.abs(l.intercept).toPrecision(4))}`);
@@ -1371,96 +1184,64 @@ document.addEventListener('DOMContentLoaded', () => {
     if (m.kind === 'scatter') {
       const eq = m.line && Number.isFinite(m.line.slope) ? lineEquation(m.line) : null;
       return {
-        title: `Scatter plot of ${m.yLabel} against ${m.xLabel}`,
         caption: `${m.yLabel} against ${m.xLabel}, n = ${m.x.length} pairs` +
-          (eq ? `, with the least-squares line ${eq}.` : '.') +
-          (m.spearman ? " The line is for reference: Spearman's ρ measures a monotonic trend, which need not be straight." : ''),
-        key: eq ? `Line: least squares, ${eq}` : ''
+          (eq ? `, with the least-squares line ${eq} across the data.` : '.') +
+          (m.spearman ? " The line is for reference: Spearman's ρ measures a monotonic trend, which need not be straight." : '')
       };
     }
-    const names = m.groups.map(g => g.name);
-    const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
     return {
-      title: `Box plots of ${m.yLabel === 'Value' ? 'the values' : m.yLabel} for ${list}`,
       caption: 'Boxes show the median and quartiles, and whiskers reach the furthest values within 1.5 × IQR. ' +
         `Dots are the ${m.kind === 'paired' ? 'observations, joined by pair' : 'observations'}; ` +
         'the diamond and bar beside each box are the mean and its 95% CI.' +
-        (m.ref ? ` The dashed line marks ${m.ref.label}.` : ''),
-      key: 'Box: median and quartiles. Whiskers: 1.5 × IQR. Diamond and bar: mean and 95% CI.'
+        (m.ref ? ` The dashed line marks ${m.ref.label}.` : '')
     };
   }
 
-  function svgFor(m, W, H, exporting) {
-    const text = plotText(m);
-    const keyH = exporting && text.key ? 22 : 0;
-    const body = m.kind === 'scatter' ? drawScatter(m, W, H) : drawGroups(m, W, H);
-    const titleId = exporting ? 'title' : 'spTitle';
-    const descId = exporting ? 'desc' : 'spDesc';
-    return `<svg xmlns="http://www.w3.org/2000/svg" class="sp" viewBox="0 0 ${W} ${H + keyH}" width="${W}" height="${H + keyH}" ` +
-      `role="img" aria-labelledby="${titleId} ${descId}" font-family="${PLOT_FONT}">` +
-      `<title id="${titleId}">${escapeHtml(text.title)}</title><desc id="${descId}">${escapeHtml(text.caption)}</desc>` +
-      (exporting ? `<style>${EXPORT_CSS}</style><rect width="100%" height="100%" fill="#ffffff"/>` : '') +
-      body +
-      (keyH ? `<text class="sp-key" x="${W / 2}" y="${H + 12}" text-anchor="middle" font-size="11">${escapeHtml(text.key)}</text>` : '') +
-      '</svg>';
+  /** The figure for the last run, named for the test. */
+  function figureFor(view) {
+    const fig = statisticsFigure(view.plot);
+    if (fig && lastRun) fig.export.filename = `stemkit-${lastRun.test.replace(/_/g, '-')}`;
+    return fig;
   }
 
-  let plotWidth = 0;
   function renderPlot() {
-    if (!lastView || !resultsShown()) return;
-    const W = Math.max(260, Math.floor(plotHost.clientWidth));
-    const H = Math.round(Math.max(260, Math.min(400, W * 0.62)));
-    plotWidth = W;
-    plotHost.innerHTML = svgFor(lastView.plot, W, H, false);
+    if (!lastView || !resultsShown()) { if (plot) plot.update(null); return; }
     plotCaption.textContent = plotText(lastView.plot).caption;
+    if (plot) plot.update(figureFor(lastView));
   }
 
-  if ('ResizeObserver' in window) {
-    let resizeTimer = null;
-    new ResizeObserver(() => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        if (lastView && resultsShown() && Math.abs(Math.floor(plotHost.clientWidth) - plotWidth) > 2) renderPlot();
-      }, 80);
-    }).observe(plotHost);
+  function exported(r, err, format) {
+    if (err) {
+      showToast(`The ${format.toUpperCase()} could not be made: ${err && err.message ? err.message : err}`, 'error');
+      return;
+    }
+    showToast(`Saved ${r.filename}.`, 'success');
   }
 
-  function downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-
-  document.querySelectorAll('[data-plot-download]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (!lastView) return;
-      const svg = svgFor(lastView.plot, 720, 440, true);
-      const base = `stemkit-${testType.value.replace(/_/g, '-')}-plot`;
-      if (btn.getAttribute('data-plot-download') === 'svg') {
-        downloadBlob(new Blob([svg], { type: 'image/svg+xml' }), `${base}.svg`);
-        return;
-      }
-      // PNG at three times the size, which prints sharply at column width.
-      const scale = 3;
-      const img = new Image();
-      const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
-      const fail = () => showToast('The PNG could not be made in this browser.', 'error');
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
-        canvas.toBlob(b => (b ? downloadBlob(b, `${base}.png`) : fail()), 'image/png');
-      };
-      img.onerror = () => { URL.revokeObjectURL(url); fail(); };
-      img.src = url;
+  let storedStyle = {};
+  try { storedStyle = JSON.parse(localStorage.getItem(STYLE_KEY) || '{}'); } catch (e) { storedStyle = {}; }
+  import('./figure-plot.js').then(({ mountFigure }) => {
+    plot = mountFigure($('statsPlot'), {
+      style: storedStyle,
+      onStyleChange: (style) => { try { localStorage.setItem(STYLE_KEY, JSON.stringify(style)); } catch (e) { /* storage full or blocked */ } },
+      label: 'The plot for the test: the groups as box plots with each observation and the mean with its 95% interval, or the two variables as a scatter plot',
+      onExport: exported,
+      python: $('statsPython') ? {
+        host: $('statsPython'),
+        title: 'Python script',
+        filename: 'statistics.py',
+        script: (figure) => (lastView && lastRun
+          ? statisticsScript(figure, { test: lastRun.test, model: lastView.plot, mu0: lastRun.mu0 })
+          : '')
+      } : false
     });
+    renderPlot();
+  }).catch((err) => {
+    const notes = document.querySelector('#statsPlot .fg-notes');
+    if (notes) {
+      notes.textContent = `The plot could not load (${err && err.message ? err.message : err}). Reload the page to try again; the results still work.`;
+      notes.hidden = false;
+    }
   });
 
   // --- 8. Theory (KaTeX) ---

@@ -149,29 +149,11 @@
 .res-sub-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.6rem; }
 .res-h { font-size:.95rem; font-weight:700; color:var(--stk-fg); }
 .res-actions { display:flex; flex-wrap:wrap; gap:.35rem; }
-.plot-host { width:100%; min-height:16rem; border:1px solid var(--stk-border); border-radius:var(--stk-radius-lg); background:var(--stk-surface); overflow:hidden; }
-.plot-host svg { display:block; width:100%; height:auto; }
-.plot-caption { margin-top:.5rem; font-size:.78rem; line-height:1.5; color:var(--stk-fg-3); }
-
-/* The plot's marks. Every colour is a token, so the plot follows the theme;
-   the download embeds the light values instead (EXPORT_CSS in the script). */
-.sp-grid { stroke:var(--stk-border); }
-.sp-axis { stroke:var(--stk-fg-faint); }
-.sp-tick { fill:var(--stk-fg-3); }
-.sp-title { fill:var(--stk-fg-2); }
-.sp-lab { fill:var(--stk-fg); }
-.sp-n { fill:var(--stk-fg-muted); }
-.sp-box { fill:var(--stk-accent-soft); stroke:var(--stk-fg-3); }
-.sp-whisk { stroke:var(--stk-fg-3); }
-.sp-med { stroke:var(--stk-fg); }
-.sp-pt { fill:var(--stk-accent); fill-opacity:.72; stroke:var(--stk-surface); }
-.dark .sp-pt { fill:var(--stk-accent-text); fill-opacity:.7; }
-.sp-pair { stroke:var(--stk-fg-faint); }
-.sp-mean { fill:var(--stk-fg); stroke:var(--stk-surface); }
-.sp-ci { stroke:var(--stk-fg); }
-.sp-ref { stroke:var(--stk-fg-muted); }
-.sp-reflab { fill:var(--stk-fg-2); }
-.sp-fit { stroke:var(--stk-fg-2); }
+/* The plot area is the shared one (src/tools/figure.css); its caption says
+   what the marks are. */
+.res-figure .plot-caption { margin:-.35rem 1rem 1rem; font-size:.78rem; line-height:1.5; color:var(--stk-fg-3); }
+.res-figure .plot-caption:empty { display:none; }
+.res-python { margin-top:1.75rem; min-width:0; }
 
 /* Result tables, ruled like booktabs: heavier rules above the head and below
    the last row, hairlines between. */
@@ -193,7 +175,6 @@
    themes (Chrome otherwise greys them out once the list loses focus). */
 #groupSelect option { padding: .15rem .35rem; border-radius: .25rem; }
 #groupSelect option:checked { background: var(--stk-accent) linear-gradient(0deg, var(--stk-accent) 0%, var(--stk-accent) 100%); color: var(--stk-accent-fg); }
-.dark .sp-pt { fill-opacity: .8; }
 /* The screen-reader text inside the tables is absolutely positioned; without
    a positioned scroller around it, it escapes the scroll box and widens the
    page on a phone. */

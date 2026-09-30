@@ -29,7 +29,7 @@
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "t-tests: Welch, Student, paired, one-sample", "One-way and Welch's ANOVA with Tukey HSD and Games–Howell", "Kruskal–Wallis with Dunn's test", "Pearson and Spearman correlation", "Descriptive statistics tables in CSV, Markdown and LaTeX", "Box plots and scatter plots as SVG and PNG", "Publication Summary Generator" ]
+            "featureList": [ "t-tests: Welch, Student, paired, one-sample", "One-way and Welch's ANOVA with Tukey HSD and Games–Howell", "Kruskal–Wallis with Dunn's test", "Pearson and Spearman correlation", "Descriptive statistics tables in CSV, Markdown and LaTeX", "Box plots and scatter plots as PDF, SVG and PNG, styled on the page", "A Python script that reruns the test with scipy and draws the plot with matplotlib", "Publication Summary Generator" ]
         }
     </script>
     
@@ -70,10 +70,13 @@
     <script defer src="js/dependencies/katex.min.js"></script>
     <script defer src="js/dependencies/papaparse.min.js"></script>
     <script defer src="js/dependencies/jstat.min.js"></script>
+    <script defer src="js/dependencies/plotly.min.js"></script>
 
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tools/figure.css">
+    <link rel="stylesheet" href="src/tools/python-panel.css">
     <link rel="stylesheet" href="src/tools/stats-calculator.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
@@ -322,17 +325,30 @@
                         </div>
                     </div>
 
-                    <figure class="res-figure" id="plotFigure">
-                        <div class="res-sub-head">
-                            <h3 class="res-h">Plot</h3>
-                            <div class="res-actions" role="group" aria-label="Download the plot">
-                                <button type="button" class="stk-btn stk-btn-sm" data-plot-download="svg"><i class="fa-solid fa-download" aria-hidden="true"></i> SVG</button>
-                                <button type="button" class="stk-btn stk-btn-sm" data-plot-download="png"><i class="fa-solid fa-download" aria-hidden="true"></i> PNG</button>
+                    <section id="statsPlot" class="fg fg-card res-figure" aria-labelledby="statsPlotTitle">
+                        <div class="fg-h">
+                            <h3 id="statsPlotTitle" class="fg-t">Plot</h3>
+                            <span class="fg-size stk-tnum" title="The size of the saved figure"></span>
+                            <div class="fg-actions">
+                                <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost" data-fg-style aria-haspopup="dialog"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Style</button>
+                                <div class="fg-export" role="group" aria-label="Export the figure">
+                                    <button type="button" class="stk-btn stk-btn-sm" data-export="pdf" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> PDF</button>
+                                    <button type="button" class="stk-btn stk-btn-sm" data-export="png" disabled>PNG</button>
+                                    <button type="button" class="stk-btn stk-btn-sm" data-export="svg" disabled>SVG</button>
+                                </div>
                             </div>
                         </div>
-                        <div class="plot-host" id="plotHost"></div>
-                        <figcaption class="plot-caption" id="plotCaption"></figcaption>
-                    </figure>
+                        <div class="fg-stage">
+                            <div class="fg-empty">
+                                <i class="fa-solid fa-chart-simple" aria-hidden="true"></i>
+                                <p class="fg-empty-title">The plot for the test appears here</p>
+                                <p class="fg-empty-text">Box plots with every observation, or a scatter plot for a correlation.</p>
+                            </div>
+                            <div id="statsFigure" class="fg-figure" hidden></div>
+                        </div>
+                        <p class="plot-caption" id="plotCaption"></p>
+                        <div class="fg-notes" hidden></div>
+                    </section>
                 </div>
 
                 <section class="res-section" aria-labelledby="desc-h">
@@ -361,6 +377,8 @@
                     <div class="stk-table-wrap"><table class="res-table" id="pairTable"></table></div>
                     <p class="res-note" id="pairNote"></p>
                 </section>
+
+                <div id="statsPython" class="res-python"></div>
 
                 <details class="res-theory group bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg open:shadow-sm transition-all">
                     <summary class="px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer list-none flex justify-between items-center">
@@ -487,7 +505,7 @@
                     <p class="stk-where" style="font-style:italic;">"Welch's independent-samples t-test (unequal variances) compared Control (M = 23.42, SD = 0.57, n = 10) and Treatment (M = 29.06, SD = 0.90, n = 10). The difference was statistically significant, t(15.22) = -16.819, p &lt; .001, 95% CI [-6.35, -4.93], Cohen's d = -7.52 (large)."</p>
                     <p class="stk-where">Leading zeros are dropped from p-values (APA style: p = .032, not 0.032). p-values below .001 are reported as "&lt; .001" rather than a spuriously precise figure. For three or more groups the summary also names the pairs that differ after correction, and those that do not.</p>
                     <p class="stk-where"><span class="hl">Descriptive statistics.</span> Each group gets n, mean, SD (n − 1), SEM = SD/√n, the 95% t interval of the mean, median, IQR, minimum and maximum; a paired design adds the differences as a row. Quartiles interpolate linearly between observations, NumPy's default and R's type 7 (Hyndman &amp; Fan 1996); SPSS and Minitab use type 6, which can differ in small samples. Values are shown to one decimal more than the data carry. <em>Copy CSV</em> gives full precision with the interval and quartiles in their own columns; <em>Markdown</em> and <em>LaTeX</em> give the rounded table, the LaTeX with booktabs rules, proper minus signs and the <code>booktabs</code> package named in a comment.</p>
-                    <p class="stk-where"><span class="hl">The plot.</span> For group comparisons, a box shows the median and quartiles and whiskers reach the furthest values within 1.5 × IQR of the box (Tukey 1977); every observation is drawn, jittered sideways by a fixed amount so the plot is the same each time, and joined by pair in a paired design; the diamond and bar beside each box are the mean and its 95% CI, so skew shows as a gap between the median and the mean. One-sample tests add a dashed line at μ₀. Correlations are a scatter with the ordinary least-squares line of y on x; for Spearman the line is for reference only. Hover a point or box for its values. The SVG and PNG downloads are always the light version on white, with a key line, sized for a journal column (the PNG at 3×).</p>
+                    <p class="stk-where"><span class="hl">The plot.</span> For group comparisons, a box shows the median and quartiles and whiskers reach the furthest values within 1.5 × IQR of the box (Tukey 1977); every observation is drawn, spread sideways by a fixed pattern so the plot is the same each time, and joined by pair in a paired design; the diamond and bar beside each box are the mean and its 95% CI, so skew shows as a gap between the median and the mean. One-sample tests add a dashed line at μ₀. Correlations are a scatter with the ordinary least-squares line of y on x, drawn across the data; for Spearman the line is for reference only. The preview is the saved figure: press Style to set its size, fonts, colours and axes, then save it as PDF, PNG or SVG. The Python script under the results holds the data the test used, reruns the test with scipy (the rank tests the page computes with a normal approximation are written out with numpy, as the page computes them), prints the result, and draws the same plot with matplotlib.</p>
                 </div>
 
                 <h3 class="stk-refs-h">References</h3>
@@ -537,7 +555,7 @@
                     <details class="stk-faq"><summary>How do I compare more than two groups, and find out which ones differ?</summary><div>Choose one of the tests under "Three or more independent groups" and the group selector switches to a multi-select: hold Ctrl/Cmd (or Shift) to pick every column that represents a group. In long format, every level of your group column becomes a selectable group. With three or more groups the results add a <strong>pairwise comparisons</strong> table: Tukey HSD after the one-way ANOVA, Games–Howell after Welch's ANOVA, and Dunn's test with Holm's adjustment after Kruskal–Wallis. Running separate t-tests between every pair instead would inflate the chance of a false positive: with 5 groups there are 10 pairs, and at .05 each the chance of at least one false positive approaches 40%.</div></details>
                     <details class="stk-faq"><summary>How do I test my measurements against a certified or theoretical value?</summary><div>Choose "One-sample t-test", pick the column, and enter the reference value in <strong>Compare with (μ₀)</strong>: a certified concentration, a literature melting point, or 0 for "no change". The result gives the mean's 95% CI and the difference from μ₀ with its CI, and the plot draws μ₀ as a dashed line. If the replicates are skewed, the one-sample Wilcoxon signed-rank test compares their median with μ₀ instead.</div></details>
                     <details class="stk-faq"><summary>When should I trust the non-parametric tests instead?</summary><div>When the normality check flags a departure (especially with small samples), or when your data are ordinal or have heavy outliers. Mann–Whitney U replaces the independent t-test, Wilcoxon signed-rank the paired and one-sample t-tests, Kruskal–Wallis the ANOVA, and Spearman's ρ the Pearson correlation. They work on ranks and make no normality assumption. The two-group and signed-rank tests use a normal approximation, and Kruskal–Wallis a chi-squared one, which are accurate for moderate-to-large n; for very small samples, confirm against exact tables.</div></details>
-                    <details class="stk-faq"><summary>What does the plot show, and can I put it in a paper?</summary><div>For groups: a box plot (median, quartiles, whiskers to 1.5 × IQR), every observation as a dot, and the mean with its 95% CI beside each box, which together show the spread, the outliers, the sample size and the precision of the mean that a bar chart hides. For correlations: a scatter with the least-squares line. The SVG and PNG downloads use a white background and fixed colours whatever theme you are viewing in, so they can go straight into a manuscript; the SVG stays editable in Inkscape or Illustrator.</div></details>
+                    <details class="stk-faq"><summary>What does the plot show, and can I put it in a paper?</summary><div>For groups: a box plot (median, quartiles, whiskers to 1.5 × IQR), every observation as a dot, and the mean with its 95% CI beside each box, which together show the spread, the outliers, the sample size and the precision of the mean that a bar chart hides. For correlations: a scatter with the least-squares line. The figure has its own white background whatever theme you are viewing in; set its size and fonts with Style and save it as PDF, PNG or SVG (text stays editable in the PDF and SVG), or copy the Python script, which draws the same figure with matplotlib.</div></details>
                     <details class="stk-faq"><summary>Why are my p-values reported without a leading zero?</summary><div>That's APA style, probabilities that can't exceed 1 are written as p = .032, not 0.032. Values below .001 are shown as "&lt; .001" because the exact figure isn't meaningfully precise at that scale.</div></details>
                     <details class="stk-faq"><summary>Is my data sent anywhere?</summary><div>No. Parsing (PapaParse), all statistics and the plot run locally in your browser. Nothing you paste or upload is transmitted or stored.</div></details>
                 </div>
