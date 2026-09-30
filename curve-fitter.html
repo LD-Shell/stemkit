@@ -4,19 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
-    <title>Curve Fitter & Regression Calculator | STEMKit</title>
-    <meta name="title" content="Curve Fitter & Regression Calculator | STEMKit">
-    <meta name="description" content="Least-squares curve fitting in your browser: linear, polynomial, exponential, power and logarithmic models, with coefficients, R² and RMSE.">
-    <meta name="keywords" content="curve fitter online, least squares curve fit, exponential curve fit, polynomial regression, client side plotting, r-squared calculator">
+    <title>Curve Fitter: Fit Any Equation to Your Data | STEMKit</title>
+    <meta name="title" content="Curve Fitter: Fit Any Equation to Your Data | STEMKit">
+    <meta name="description" content="Type an equation in your own variable names and fit it to your data in the browser: parameters with standard errors and 95% confidence intervals, a plot you style and export as PDF, PNG or SVG, and the SciPy script that reproduces it.">
+    <meta name="keywords" content="curve fitter online, nonlinear curve fit, custom equation fit, least squares, curve_fit python, scipy curve fit, parameter uncertainty, confidence interval, weighted fit, gaussian fit, exponential decay fit, arrhenius fit, michaelis menten fit">
     
     <link rel="canonical" href="https://stemkit.net/curve-fitter.html">
     <meta property="og:url" content="https://stemkit.net/curve-fitter.html">
     <meta name="twitter:url" content="https://stemkit.net/curve-fitter.html">
     
-    <meta property="og:title" content="Curve Fitter & Regression Calculator | STEMKit">
-    <meta name="twitter:title" content="Curve Fitter & Regression Calculator | STEMKit">
-    <meta property="og:description" content="Paste X/Y data to get least-squares coefficients, R² and RMSE for linear, polynomial, exponential, power or logarithmic models.">
-    <meta name="twitter:description" content="Paste X/Y data to get least-squares coefficients, R² and RMSE for linear, polynomial, exponential, power or logarithmic models.">
+    <meta property="og:title" content="Curve Fitter: Fit Any Equation to Your Data | STEMKit">
+    <meta name="twitter:title" content="Curve Fitter: Fit Any Equation to Your Data | STEMKit">
+    <meta property="og:description" content="Type the equation, paste the data: parameters with uncertainties, a publication plot and the Python script, computed in your browser.">
+    <meta name="twitter:description" content="Type the equation, paste the data: parameters with uncertainties, a publication plot and the Python script, computed in your browser.">
     
     <script type="application/ld+json">
         {
@@ -24,13 +24,13 @@
             "@type": "WebApplication",
             "name": "STEMKit Curve Fitter",
             "url": "https://stemkit.net/curve-fitter.html",
-            "description": "Least-squares curve fitting in the browser: linear, polynomial and logarithmic models by ordinary least squares, exponential and power models by linearisation, with R² and RMSE on the original data.",
+            "description": "Non-linear least-squares fitting of an equation typed in your own variable names, in the browser. Parameters with standard errors and 95% confidence intervals computed as scipy.optimize.curve_fit computes them, weighted fits with measurement uncertainties, several independent variables, a styled plot exported as PDF, PNG or SVG, and a Python script that reproduces the fit and the figure.",
             "author": { "@type": "Person", "name": "Olanrewaju M. Daramola" },
             "applicationCategory": "UtilityApplication",
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "Linear, Polynomial, Exponential, Power and Logarithmic Models", "R² and RMSE on the Original Data", "Interactive Plotting", "100% Client-Side" ]
+            "featureList": [ "Fit Any Equation Typed in Your Own Variable Names", "Non-linear Least Squares Matching scipy.optimize.curve_fit", "Standard Errors, 95% Confidence Intervals and Parameter Correlations", "Weighted Fits With Measurement Uncertainties", "Several Independent Variables", "Plot Export as PDF, PNG and SVG", "Python Script With SciPy and matplotlib", "100% Client-Side" ]
         }
     </script>
     
@@ -70,20 +70,19 @@
     <link rel="stylesheet" href="css/dependencies/katex.min.css">
     
     <script defer src="js/dependencies/plotly.min.js"></script>
-    <script defer src="js/dependencies/regression.min.js"></script>
-
+    <script defer src="js/dependencies/katex.min.js"></script>
 
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "HowTo", "name": "How to fit a curve to your data", "totalTime": "PT2M", "step": [{"@type": "HowToStep", "position": 1, "name": "Paste X/Y data", "text": "Enter two columns (X then Y) separated by spaces, tabs or commas, one point per line. Or pick an example (Linear, Exponential, Power and more)."}, {"@type": "HowToStep", "position": 2, "name": "Choose a model", "text": "Pick linear, polynomial, exponential, power or logarithmic from the dropdown, based on the shape you expect."}, {"@type": "HowToStep", "position": 3, "name": "Compute the fit", "text": "Press Fit curve. The fitted curve is drawn over your points and the equation appears below."}, {"@type": "HowToStep", "position": 4, "name": "Check the fit quality", "text": "Read R² and RMSE, watch for the overfitting warning, then use Copy equation to take the equation and statistics."}]}
+{"@context": "https://schema.org", "@type": "HowTo", "name": "How to fit an equation to your data", "totalTime": "PT3M", "step": [{"@type": "HowToStep", "position": 1, "name": "Add your data", "text": "Paste columns of numbers or open a CSV, TSV, TXT or DAT file. A header row names the columns; tabs, commas, semicolons and spaces all work, and decimal commas are read with semicolons."}, {"@type": "HowToStep", "position": 2, "name": "Type the equation", "text": "Write the model in your own names, such as y = A*exp(-t/tau) + y0, or start from a preset. Check which data column each variable reads, and give starting values, bounds or fixed values if you want them."}, {"@type": "HowToStep", "position": 3, "name": "Read the results", "text": "The fit runs as you type. Each parameter is shown with its standard error, 95% confidence interval and relative uncertainty, with R², RMSE, reduced chi-squared, AIC and BIC. Copy them as text, CSV or a LaTeX table."}, {"@type": "HowToStep", "position": 4, "name": "Style and export the plot", "text": "Set the size, fonts, ticks, colours, residual panel and confidence band; the preview follows every change. Export the figure as PDF, PNG or SVG."}, {"@type": "HowToStep", "position": 5, "name": "Copy the Python script", "text": "Copy or download the script, which fits the same data with scipy.optimize.curve_fit and draws the same figure with matplotlib."}]}
 </script>
 <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my data sent to a server?", "acceptedAnswer": {"@type": "Answer", "text": "No. Parsing, fitting and plotting all happen in your browser using regression.js and Plotly."}}, {"@type": "Question", "name": "Why does my exponential fit look slightly off?", "acceptedAnswer": {"@type": "Answer", "text": "Exponential and power models are fitted by linearisation (least squares in log space), not true non-linear least squares, so the curve can look biased when data spans many orders of magnitude."}}, {"@type": "Question", "name": "What do R² and RMSE mean?", "acceptedAnswer": {"@type": "Answer", "text": "R² is the fraction of variance the model explains (1 is perfect). RMSE is the root-mean-square residual, in the same units as Y, smaller is better."}}, {"@type": "Question", "name": "Why did I get a warning about too few points?", "acceptedAnswer": {"@type": "Answer", "text": "If you have as many (or fewer) points as the model has parameters, the fit is exact or under-determined and R² is not informative. Add more data."}}, {"@type": "Question", "name": "Which model should I pick?", "acceptedAnswer": {"@type": "Answer", "text": "Match the expected shape: straight line → linear; growth/decay → exponential; curves through the origin → power; diminishing returns → logarithmic; one/two bends → polynomial 2/3."}}]}
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is my data sent to a server?", "acceptedAnswer": {"@type": "Answer", "text": "No. Reading the data, fitting, plotting and writing the script all happen in your browser. Nothing is uploaded."}}, {"@type": "Question", "name": "Do the results match SciPy?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The fit minimises the same sum of squares as scipy.optimize.curve_fit with the Levenberg-Marquardt method, and the covariance, standard errors and confidence intervals are computed as curve_fit computes them, including the absolute_sigma setting. The Python script the page writes prints the same values."}}, {"@type": "Question", "name": "How does the page decide which names are fitted?", "acceptedAnswer": {"@type": "Answer", "text": "Every name in the equation that is not a variable, a function, pi or e is a parameter. The variable is the one listed in f(x) =, or a usual name such as x, t, T or V, or a name that matches a column header. You can move any name between variable and parameter."}}, {"@type": "Question", "name": "What if the fit finds a poor curve or does not converge?", "acceptedAnswer": {"@type": "Answer", "text": "The page searches for starting values itself, but a model with several minima can still settle in the wrong one. Give starting values near the answer, set bounds, or hold a parameter fixed at a known value."}}, {"@type": "Question", "name": "Why does it say two parameters cannot be told apart?", "acceptedAnswer": {"@type": "Answer", "text": "The data fix only a combination of them. In k = A*exp(-Ea/(R*T)) only the ratio Ea/R matters, so R has to be held at its known value. The page offers to do that for common physical constants."}}, {"@type": "Question", "name": "What do the standard errors and confidence intervals mean?", "acceptedAnswer": {"@type": "Answer", "text": "The standard error is the square root of the parameter's variance from the fit's covariance matrix, scaled by the reduced chi-squared unless your uncertainties are absolute. The 95% interval is the value plus or minus Student's t on n - p degrees of freedom times the standard error."}}, {"@type": "Question", "name": "Can I fit a function of two variables?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Write z = a*x + b*y + c, or list the variables as f(x, y) =, and map each to a column. The plot then shows the observed values against the fitted ones."}}]}
 </script>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tools/fit-plot.css">
     <link rel="stylesheet" href="src/tools/curve-fitter.css">
-    <script defer src="js/dependencies/katex.min.js"></script>
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300 overflow-x-hidden">
 
@@ -139,127 +138,256 @@
         </div>
     </nav>
 
-    <main id="main" class="flex-grow max-w-7xl mx-auto px-6 py-8 w-full flex flex-col gap-6">
-        
+
+    <main id="main" class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col">
+
         <header class="stk-pagehead">
             <div>
                 <h1 class="stk-pagehead-title">Curve Fitter</h1>
-                <p class="stk-pagehead-lede">Fit a linear, polynomial, exponential, power or logarithmic model to X&ndash;Y data and get the equation, R&sup2; and RMSE.</p>
+                <p class="stk-pagehead-lede">Type the equation you want to fit, in your own variable names. The fit runs as you type and gives each parameter with its uncertainty, a plot you can style for a paper, and the Python script that reproduces both.</p>
                 <ul class="stk-pagehead-meta">
-                    <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
+                    <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser; your data stays on this machine</li>
+                    <li><i class="fa-solid fa-equals" aria-hidden="true"></i> Numbers match <span class="cf-mono">scipy.optimize.curve_fit</span></li>
                     <li><a href="#method"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Method and equations</a></li>
                 </ul>
             </div>
+            <div class="stk-pagehead-actions">
+                <button type="button" id="cfExample" class="stk-btn stk-btn-sm"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load an example</button>
+                <button type="button" id="cfReset" class="stk-btn stk-btn-sm stk-btn-ghost" title="Clear the data, the equation and the plot style, and forget what this page saved"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset</button>
+            </div>
         </header>
 
-        <div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none" role="status" aria-live="polite"></div>
+        <div id="cfToasts" class="stk-toasts" aria-live="polite"></div>
+        <p id="cfLive" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
 
-        <div class="flex flex-col lg:flex-row gap-6 items-stretch">
+        <div class="cf-layout">
 
-            <div class="w-full lg:w-[400px] flex flex-col gap-6 shrink-0">
-
-                <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-5 flex flex-col flex-grow cf-data-panel" data-stk-step="1" data-stk-done="filled:#dataInput" aria-labelledby="cf-step1">
-                    <div class="flex items-center justify-between gap-3 mb-3 shrink-0">
-                        <h2 id="cf-step1" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1: </span>Add your data</h2>
-                        <button type="button" id="btnUpload" class="stk-btn stk-btn-sm stk-btn-soft"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Upload file</button>
-                        <input type="file" id="fileInput" accept=".csv,.txt,.dat,.tsv" class="hidden">
-                    </div>
-
-                    <div class="relative flex-grow w-full">
-                        <label for="dataInput" class="sr-only">Data columns</label>
-                        <textarea id="dataInput" class="absolute inset-0 w-full h-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-mono focus:ring-2 focus:ring-brand-500 outline-none resize-none whitespace-pre overflow-auto custom-scroll" placeholder="Paste columns of numbers, one point per line&#10;&#10;Time   Yield   Temp&#10;0.5    1.2     300&#10;1.0    2.8     400&#10;1.5    4.5     500&#10;2.0    7.1     600"></textarea>
-                    </div>
-
-                    <div class="cf-samples">
-                        <span class="cf-samples-label">Try an example:</span>
-                        <button type="button" class="cf-chip" data-sample="linear">Linear</button>
-                        <button type="button" class="cf-chip" data-sample="exponential">Exponential</button>
-                        <button type="button" class="cf-chip" data-sample="power">Power</button>
-                        <button type="button" class="cf-chip" data-sample="logarithmic">Logarithmic</button>
-                        <button type="button" class="cf-chip" data-sample="polynomial2">Quadratic</button>
-                    </div>
-
-                    <div class="mt-4 flex flex-col gap-2 border-t border-slate-100 dark:border-slate-800 pt-3 shrink-0">
-                        <div class="flex items-center justify-between gap-3 flex-wrap">
-                            <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">Columns to fit</span>
-                            <div class="flex items-center gap-3">
-                                <label class="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 whitespace-nowrap">
-                                    X <input type="number" id="colX" value="1" min="1" class="w-14 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-1.5 text-center outline-none focus:ring-2 focus:ring-brand-500 transition-colors">
-                                </label>
-                                <label class="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5 whitespace-nowrap">
-                                    Y <input type="number" id="colY" value="2" min="1" class="w-14 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-1.5 text-center outline-none focus:ring-2 focus:ring-brand-500 transition-colors">
-                                </label>
-                            </div>
-                        </div>
-                        <div id="parseWarnings" class="hidden text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 p-2 rounded-lg border border-amber-200 dark:border-amber-800/50 leading-snug"></div>
-                    </div>
-                </section>
-
-                <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-5 shrink-0" data-stk-step="2" data-stk-done="visible:#fitResult" aria-labelledby="cf-step2">
-                    <h2 id="cf-step2" class="stk-ptitle mb-3"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Choose a model</h2>
-                    <label for="modelSelect" class="sr-only">Model</label>
-                    <select id="modelSelect" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-sm text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-brand-500 outline-none">
-                        <option value="linear">Linear: y = mx + c</option>
-                        <option value="exponential">Exponential: y = a &middot; e^(bx)</option>
-                        <option value="power">Power: y = a &middot; x^b</option>
-                        <option value="logarithmic">Logarithmic: y = a + b &middot; ln(x)</option>
-                        <option value="polynomial2">Quadratic: y = ax² + bx + c</option>
-                        <option value="polynomial3">Cubic: y = ax³ + bx² + cx + d</option>
-                    </select>
-                    <details id="modelTheory" class="mt-3">
-                        <summary class="cursor-pointer text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-brand-700 dark:hover:text-brand-300">How this model is fitted and scored</summary>
-                        <div id="theoryContainer" class="mt-2"></div>
-                    </details>
-                    <button type="button" id="btnFit" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 w-full mt-4 text-white font-bold py-2.5 rounded-xl transition-colors shadow-sm active:scale-[0.98] text-sm flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-wave-square text-xs" aria-hidden="true"></i> Fit curve
-                    </button>
-                </section>
-
-            </div>
-
-            <section class="flex-grow min-w-0 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col" data-stk-step="3" data-stk-done="visible:#fitResult" aria-labelledby="cf-step3">
-                <div class="flex items-center justify-between gap-3 flex-wrap px-5 pt-5">
-                    <h2 id="cf-step3" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 3: </span>Fitted curve</h2>
-                    <div class="flex items-center gap-2">
-                        <button type="button" id="btnCopyEquation" class="stk-btn stk-btn-sm" disabled><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy equation</button>
-                        <button type="button" id="btnPython" class="stk-btn stk-btn-sm" disabled title="matplotlib code that reproduces this fit"><i class="fa-brands fa-python" aria-hidden="true"></i> Python code</button>
+            <!-- 1. Data -->
+            <section id="cfData" class="stk-panel cf-a-data" data-stk-step="1" data-stk-done="visible:#cfDataOk" aria-labelledby="cfDataTitle">
+                <div class="stk-panel-h">
+                    <h2 class="stk-panel-t" id="cfDataTitle"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1: </span>Data</h2>
+                    <div class="cf-h-actions">
+                        <button type="button" id="cfOpenFile" class="stk-btn stk-btn-sm"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Open a file</button>
+                        <button type="button" id="cfClearData" class="stk-btn stk-btn-sm stk-btn-ghost" hidden><i class="fa-solid fa-eraser" aria-hidden="true"></i> Clear</button>
+                        <input type="file" id="cfFile" accept=".csv,.tsv,.txt,.dat,.xvg,text/csv,text/plain,text/tab-separated-values" hidden>
                     </div>
                 </div>
-
-                <div class="cf-stage">
-                    <div id="fitEmpty" class="cf-empty">
-                        <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
-                        <p class="cf-empty-title">Your points and the fitted curve will appear here</p>
-                        <p class="cf-empty-text">Add data in step 1 and press Fit curve, or try an example.</p>
-                        <button type="button" id="btnTryExample" class="stk-btn stk-btn-sm"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Try an example</button>
+                <div class="stk-panel-b cf-stack">
+                    <div id="cfDrop" class="stk-drop stk-drop-sm cf-drop" aria-labelledby="cfDropTitle">
+                        <span class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-file-arrow-up"></i></span>
+                        <h3 id="cfDropTitle" class="stk-drop-title">Drop a data file here</h3>
+                        <p class="stk-drop-text">or paste columns of numbers below. A first row of names becomes the column names.</p>
+                        <p class="stk-drop-formats"><span>.csv</span><span>.tsv</span><span>.txt</span><span>.dat</span></p>
                     </div>
-                    <div id="plotContainer" class="cf-plot"></div>
-                </div>
-
-                <div id="fitResult" class="cf-result hidden" data-stk-reveal>
-                    <p class="cf-result-label">Equation</p>
-                    <p id="equationOutput" class="cf-equation"></p>
-                    <dl class="cf-stats">
-                        <div><dt>R&sup2;</dt><dd id="r2Value"></dd></div>
-                        <div><dt>RMSE</dt><dd id="rmseValue"></dd></div>
-                        <div><dt>Points</dt><dd id="nValue"></dd></div>
-                    </dl>
-                    <p id="fitMeta" class="cf-meta"></p>
+                    <div class="stk-field">
+                        <label for="cfDataText">Data, one row per line</label>
+                        <textarea id="cfDataText" class="stk-textarea stk-mono cf-data-text stk-scroll" rows="7" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="t (s)   signal (mV)&#10;0.00    3.61&#10;0.25    3.17&#10;0.50    2.80"></textarea>
+                    </div>
+                    <div class="cf-chips" role="group" aria-labelledby="cfSamplesLabel">
+                        <span id="cfSamplesLabel" class="cf-chips-label">Samples</span>
+                        <div id="cfSamples" class="cf-chips-list"></div>
+                    </div>
+                    <div id="cfDataOk" class="cf-summary" hidden>
+                        <p id="cfDataStats" class="cf-summary-line stk-tnum"></p>
+                        <ul id="cfColumns" class="cf-cols" aria-label="Columns found"></ul>
+                    </div>
+                    <div id="cfDataIssues" class="stk-callout stk-callout-warn" hidden></div>
                 </div>
             </section>
 
+            <!-- 2. Equation -->
+            <section id="cfModel" class="stk-panel cf-a-model" data-stk-step="2" data-stk-done="visible:#cfModelOk" aria-labelledby="cfModelTitle">
+                <div class="stk-panel-h">
+                    <h2 class="stk-panel-t" id="cfModelTitle"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 2: </span>Equation</h2>
+                </div>
+                <div class="stk-panel-b cf-stack">
+                    <div class="stk-field">
+                        <label for="cfEq">Equation to fit</label>
+                        <div class="cf-eq">
+                            <div id="cfEqMirror" class="cf-eq-mirror" aria-hidden="true"></div>
+                            <textarea id="cfEq" class="cf-eq-input" rows="1" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" placeholder="y = A*exp(-t/tau) + y0" aria-describedby="cfEqMsg cfEqNotes cfEqHelp"></textarea>
+                        </div>
+                        <div id="cfEqTex" class="cf-eq-tex" hidden></div>
+                        <p id="cfEqMsg" class="stk-error cf-eq-msg" hidden></p>
+                        <div id="cfEqNotes" class="cf-notes" hidden></div>
+                        <p id="cfEqHelp" class="stk-hint">Write <kbd class="cf-k">*</kbd> to multiply and <kbd class="cf-k">^</kbd> for powers. Every name that is not a variable is fitted.</p>
+                    </div>
+
+                    <details class="stk-disclosure cf-fns">
+                        <summary>Functions and constants you can use</summary>
+                        <div>
+                            <p class="stk-hint">Click one to insert it at the cursor. Angles are in radians; <span class="cf-mono">log</span> and <span class="cf-mono">ln</span> are both the natural logarithm.</p>
+                            <div id="cfFnList" class="cf-fn-list"></div>
+                        </div>
+                    </details>
+
+                    <div class="cf-chips" role="group" aria-labelledby="cfPresetsLabel">
+                        <span id="cfPresetsLabel" class="cf-chips-label">Start from</span>
+                        <div id="cfPresets" class="cf-chips-list"></div>
+                    </div>
+
+                    <div id="cfVarsGroup" class="stk-group" hidden>
+                        <h3 class="stk-group-t">Variables <span class="cf-group-hint">which data column each name reads</span></h3>
+                        <div id="cfPickVar" class="stk-callout stk-callout-accent cf-pickvar" hidden></div>
+                        <div id="cfVars" class="cf-vars"></div>
+                        <label class="stk-check cf-abs" id="cfAbsWrap" hidden><input type="checkbox" id="cfAbsSigma"> <span>The uncertainties are absolute (standard deviations, not relative weights)</span></label>
+                    </div>
+
+                    <div id="cfParamsGroup" class="stk-group" hidden>
+                        <h3 class="stk-group-t">Parameters
+                            <button type="button" id="cfUseFitted" class="stk-btn stk-btn-sm stk-btn-ghost cf-mini" disabled title="Copy the fitted values into the starting values"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i> Start from the fit</button>
+                        </h3>
+                        <div class="cf-ptable">
+                            <div class="cf-prow cf-prow-h" aria-hidden="true">
+                                <span>Name</span>
+                                <span>Start</span>
+                                <span>Min</span>
+                                <span>Max</span>
+                                <span title="Hold at the starting value">Fix</span>
+                                <span></span>
+                            </div>
+                            <div id="cfParams" role="list" aria-label="Parameters"></div>
+                        </div>
+                        <p class="stk-hint">Leave <em>Start</em> empty and the page finds a starting value. <em>Fix</em> holds a parameter at its starting value.</p>
+                        <div id="cfConstants" class="cf-consts" hidden></div>
+                    </div>
+                    <span id="cfModelOk" class="cf-marker" hidden></span>
+                </div>
+            </section>
+
+            <!-- 3. Results -->
+            <section id="cfResults" class="stk-panel cf-a-results" data-stk-step="3" data-stk-done="visible:#cfParamTable" aria-labelledby="cfResultsTitle">
+                <div class="stk-panel-h">
+                    <h2 class="stk-panel-t" id="cfResultsTitle"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 3: </span>Results</h2>
+                    <div class="cf-h-actions">
+                        <span id="cfStatus" class="stk-badge"></span>
+                        <button type="button" id="cfFitNow" class="stk-btn stk-btn-sm stk-btn-primary" hidden><i class="fa-solid fa-play" aria-hidden="true"></i> Fit</button>
+                    </div>
+                </div>
+                <div class="stk-panel-b cf-stack">
+                    <p id="cfResultsEmpty" class="cf-empty-note">Add data and an equation. The fit runs as you type.</p>
+                    <div id="cfBigNote" class="stk-callout stk-callout-accent" hidden></div>
+                    <div id="cfFailure" class="stk-callout stk-callout-danger" role="alert" hidden></div>
+                    <div id="cfResultBody" class="cf-stack" hidden>
+                        <div class="cf-fitted">
+                            <div class="cf-fitted-h">
+                                <span class="cf-label">Fitted equation</span>
+                                <span class="cf-fitted-actions">
+                                    <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost cf-mini" data-copy="equation"><i class="fa-regular fa-copy" aria-hidden="true"></i> Text</button>
+                                    <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost cf-mini" data-copy="equation-tex"><i class="fa-regular fa-copy" aria-hidden="true"></i> LaTeX</button>
+                                </span>
+                            </div>
+                            <div id="cfFittedTex" class="cf-fitted-tex"></div>
+                        </div>
+                        <div class="stk-table-wrap">
+                            <table id="cfParamTable" class="cf-table">
+                                <caption class="sr-only">Fitted parameters</caption>
+                                <thead><tr><th scope="col">Parameter</th><th scope="col">Value &plusmn; std. error</th><th scope="col">95% interval</th></tr></thead>
+                                <tbody id="cfParamRows"></tbody>
+                            </table>
+                        </div>
+                        <dl id="cfStats" class="cf-stats stk-tnum"></dl>
+                        <div id="cfWarnings" class="stk-callout stk-callout-warn" hidden></div>
+                        <details id="cfCorr" class="stk-disclosure" hidden>
+                            <summary><span>Parameter correlations <span id="cfCorrBadge" class="stk-badge stk-badge-warn"></span></span></summary>
+                            <div>
+                                <div class="stk-table-wrap"><table id="cfCorrTable" class="cf-table cf-corr"></table></div>
+                                <p class="stk-hint">Values near &plusmn;1 mean the data fix only a combination of the two parameters; they are marked when |r| &gt; 0.95.</p>
+                            </div>
+                        </details>
+                        <details id="cfTheory" class="stk-disclosure">
+                            <summary>How these numbers are computed</summary>
+                            <div id="cfTheoryBody" class="cf-theory"></div>
+                        </details>
+                        <div class="cf-copyrow" role="group" aria-label="Copy the results">
+                            <span class="cf-label">Copy the results as</span>
+                            <button type="button" class="stk-btn stk-btn-sm" data-copy="text"><i class="fa-regular fa-copy" aria-hidden="true"></i> Text</button>
+                            <button type="button" class="stk-btn stk-btn-sm" data-copy="csv"><i class="fa-solid fa-table" aria-hidden="true"></i> CSV</button>
+                            <button type="button" class="stk-btn stk-btn-sm" data-copy="latex"><i class="fa-solid fa-square-root-variable" aria-hidden="true"></i> LaTeX table</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. Plot -->
+            <section id="cfPlot" class="stk-panel cf-a-plot" data-stk-step="4" data-stk-done="visible:#cfPlotDrawn" aria-labelledby="cfPlotTitle">
+                <div class="stk-panel-h">
+                    <h2 class="stk-panel-t" id="cfPlotTitle"><span class="stk-stepn" aria-hidden="true"><span>4</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 4: </span>Plot</h2>
+                    <div class="cf-h-actions">
+                        <span id="cfSize" class="stk-badge stk-tnum" title="The size of the exported figure"></span>
+                        <div class="cf-export" role="group" aria-label="Export the figure">
+                            <button type="button" class="stk-btn stk-btn-sm" data-export="pdf" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> PDF</button>
+                            <button type="button" class="stk-btn stk-btn-sm" data-export="png" disabled>PNG</button>
+                            <button type="button" class="stk-btn stk-btn-sm" data-export="svg" disabled>SVG</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="cf-stage">
+                    <div id="cfPlotEmpty" class="cf-empty">
+                        <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                        <p class="cf-empty-title">Your data and the fitted curve will appear here</p>
+                        <p class="cf-empty-text">Add data in step 1 and an equation in step 2, or load an example.</p>
+                        <button type="button" id="cfTryExample" class="stk-btn stk-btn-sm"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load an example</button>
+                    </div>
+                    <div id="cfFigure" class="cf-figure" hidden></div>
+                </div>
+                <div id="cfPlotNotes" class="cf-plot-notes" hidden></div>
+                <span id="cfPlotDrawn" class="cf-marker" hidden></span>
+            </section>
+
+            <!-- Plot style: part of step 4, beside the preview on wide screens -->
+            <section id="cfStyle" class="stk-panel cf-a-style" aria-labelledby="cfStyleTitle">
+                <div class="stk-panel-h">
+                    <h2 class="stk-panel-t" id="cfStyleTitle"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Plot style</h2>
+                    <div class="cf-h-actions">
+                        <button type="button" id="cfStyleToggle" class="stk-btn stk-btn-sm" aria-expanded="true" aria-controls="cfStyleHost"><i class="fa-solid fa-chevron-up" aria-hidden="true"></i> <span>Hide</span></button>
+                    </div>
+                </div>
+                <div id="cfStyleHost" class="stk-panel-b cf-style-host"></div>
+            </section>
+
+
         </div>
-    
+
+        <!-- 5. Python -->
+        <section id="cfPython" class="stk-panel cf-a-python" data-stk-step="5" data-stk-done="visible:#cfPyTaken" aria-labelledby="cfPyTitle">
+            <div class="stk-panel-h">
+                <h2 class="stk-panel-t" id="cfPyTitle"><span class="stk-stepn" aria-hidden="true"><span>5</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 5: </span>Python script <span id="cfPyName" class="stk-badge stk-mono">fit.py</span></h2>
+                <div class="cf-h-actions">
+                    <button type="button" id="cfPyCopy" class="stk-btn stk-btn-sm stk-btn-primary" disabled><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy</button>
+                    <button type="button" id="cfPyDownload" class="stk-btn stk-btn-sm" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> Download .py</button>
+                </div>
+            </div>
+            <div class="cf-py-opts">
+                <div class="stk-seg" role="group" aria-label="Where the script reads the data">
+                    <button type="button" id="cfSrcEmbed" data-src="embed" aria-pressed="true" class="is-active">Data in the script</button>
+                    <button type="button" id="cfSrcCsv" data-src="csv" aria-pressed="false">Read a CSV file</button>
+                </div>
+                <div id="cfCsvOpts" class="cf-csv" hidden>
+                    <label for="cfCsvName" class="cf-label">File name</label>
+                    <input type="text" id="cfCsvName" class="stk-input stk-input-sm stk-mono cf-csv-name" value="data.csv" spellcheck="false" autocomplete="off">
+                    <button type="button" id="cfCsvDownload" class="stk-btn stk-btn-sm" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> Download the CSV</button>
+                </div>
+            </div>
+            <div class="cf-code-body stk-scroll" tabindex="0" aria-label="Python script">
+                <pre class="cf-code"><code id="cfPyCode"></code></pre>
+            </div>
+            <p id="cfPyFoot" class="cf-py-f">Runs with Python 3, numpy, scipy and matplotlib 3.6 or later: <code>python fit.py</code>. It prints the parameters and saves the figure.</p>
+            <span id="cfPyTaken" class="cf-marker" hidden></span>
+        </section>
+
     <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
         <div class="stk-wrap">
             <span class="stk-chip"><i class="fa-solid fa-wave-square"></i> How-to guide</span>
-            <h2 class="stk-h2">How to fit a curve to your data</h2>
-            <p class="stk-lead">Paste columns of numbers, choose a model, and read off the fitted equation, R² and RMSE, all computed locally in your browser.</p>
+            <h2 class="stk-h2">How to fit an equation to your data</h2>
+            <p class="stk-lead">Paste the data, type the equation, and read the parameters; the plot and the Python script follow every change. Nothing leaves your browser.</p>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-step"><span class="stk-num">1</span><div><h3>Paste data</h3><p>Enter your data columns separated by spaces, tabs or commas, one point per line, or upload a file. Or pick one of the examples under the box.</p></div></div>
-                <div class="stk-step"><span class="stk-num">2</span><div><h3>Pick the columns</h3><p>Under <strong>Columns to fit</strong>, give the column numbers of your X (independent) and Y (dependent) variables.</p></div></div>
-                <div class="stk-step"><span class="stk-num">3</span><div><h3>Choose a model</h3><p>Pick linear, polynomial, exponential, power or logarithmic from the list, based on the shape you expect.</p></div></div>
-                <div class="stk-step"><span class="stk-num">4</span><div><h3>Check the fit</h3><p>Press <strong>Fit curve</strong>. Read R² and RMSE, watch for the overfitting warning, then use <strong>Copy equation</strong> or <strong>Python code</strong> to take the result with you.</p></div></div>
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Add your data</h3><p>Paste columns of numbers, drop a file on the data panel or open one (.csv, .tsv, .txt, .dat). Tabs, commas, semicolons and spaces all work; with semicolons, tabs or spaces a decimal comma such as <code>1,5</code> is read as 1.5. A first row of names, such as <code>Time (s)</code>, names the columns (<code>time</code>).</p></div></div>
+                <div class="stk-step"><span class="stk-num">2</span><div><h3>Type the equation</h3><p>Write it in your own names, such as <code>y = A*exp(-t/tau) + y0</code>, or start from a preset. The page shows how it read the equation and points at any mistake. Check that each variable reads the right column, and add starting values, bounds or fixed values if you need them.</p></div></div>
+                <div class="stk-step"><span class="stk-num">3</span><div><h3>Read the results</h3><p>Each parameter comes with its standard error, 95% confidence interval and relative uncertainty, and the fit with R², RMSE, AIC and BIC (reduced χ² when you give uncertainties). Warnings say in words when a parameter is poorly determined. Copy the table as text, CSV or LaTeX.</p></div></div>
+                <div class="stk-step"><span class="stk-num">4</span><div><h3>Style and export the plot</h3><p>Set the figure size, fonts, axis labels, ticks, colours, a residual panel and the confidence band. The preview is the exported figure in miniature. Export it as PDF, PNG or SVG.</p></div></div>
+                <div class="stk-step"><span class="stk-num">5</span><div><h3>Take the Python script</h3><p>Copy or download the script. It holds the data, or reads it from a CSV file you download beside it, fits it with <code>curve_fit</code>, prints the same parameters and saves the same figure.</p></div></div>
+                <div class="stk-step"><span class="stk-num">&#10003;</span><div><h3>Come back later</h3><p>The page remembers your equation, column choices, parameter settings and plot style in this browser, and the data too when it is under 200 kB. <strong>Reset</strong> clears it all.</p></div></div>
             </div>
         </div>
     </section>
@@ -268,11 +396,14 @@
         <div class="stk-wrap">
             <h2 class="stk-h2">How the fitting works</h2>
             <div class="stk-grid stk-grid-2">
-                <div class="stk-card"><h3>Least-squares regression</h3><p>Linear, polynomial and logarithmic models are fitted by ordinary least squares; the logarithmic model is linear in its parameters, so regressing y on ln&nbsp;x needs no transformation of y. R² (coefficient of determination) reports the fraction of variance explained; RMSE is the typical residual size in the units of Y. Both are computed on your original data.</p></div><div class="stk-card"><h3>Linearised non-linear models</h3><p>Exponential and power fits are obtained by transforming y (fitting a straight line to ln&nbsp;y; the exponential fit also weights each point by y). This is fast and standard, but it minimises error on the <em>transformed</em> data, so parameters can differ from a true non-linear least-squares fit when values span several orders of magnitude.</p></div>
+                <div class="stk-card"><h3>Your equation, read as mathematics</h3><p>The equation is parsed into a tree, never run as code, so it can only compute arithmetic. <code>2x</code> and <code>3(x + 1)</code> multiply, <code>^</code> and <code>**</code> are powers, and <code>bx</code> is one name (write <code>b*x</code>). A likely slip, such as <code>t/2tau</code> or a misspelt function, is pointed out with the reading the page used.</p></div>
+                <div class="stk-card"><h3>Non-linear least squares</h3><p>The parameters minimise the sum of squared residuals on your data as given, with no log transform. The minimiser is Levenberg&ndash;Marquardt with exact derivatives of your equation, as SciPy&rsquo;s <code>curve_fit</code> uses when there are no bounds. With uncertainties, each residual is divided by its &sigma;.</p></div>
+                <div class="stk-card"><h3>Starting values found for you</h3><p>Parameters the equation is linear in are solved exactly for each trial value of the others, and the rest are searched over several decades. A frequency or period inside <code>sin</code> or <code>cos</code> starts from the strongest periodicity in the data (a Lomb&ndash;Scargle periodogram), and frequencies too high for the spacing of the points to show are never tried. When a fit ends poorly the page tries again from other starting points. Any starting value, bound or fixed value you give is respected.</p></div>
+                <div class="stk-card"><h3>Uncertainties as SciPy reports them</h3><p>Standard errors come from the covariance matrix, scaled by the reduced &chi;&sup2; unless your uncertainties are absolute, exactly as <code>curve_fit</code> does with <code>absolute_sigma</code>. The 95% intervals use Student&rsquo;s <em>t</em>. Parameters the data cannot separate are named, with a suggestion.</p></div>
             </div>
             <div class="stk-note" style="margin-top:1rem;">
                 <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>
-                <div><strong>Watch out for overfitting.</strong> A model with as many parameters as data points will pass through every point and report R² = 1, even if the underlying relationship is different. A cubic needs several points beyond its 4 parameters before R² becomes meaningful; the tool warns you when your sample is too small for the chosen model.</div>
+                <div><strong>A good R² is not proof of the model.</strong> Look at the residual panel: residuals that wander in a pattern rather than scatter around zero mean the equation misses something, however close R² is to 1. A model with nearly as many parameters as points will fit anything.</div>
             </div>
         </div>
     </section>
@@ -280,31 +411,29 @@
     <section class="stk-section" id="method" aria-label="Method and equations">
         <div class="stk-wrap" style="max-width:52rem;">
             <span class="stk-chip"><i class="fa-solid fa-square-root-variable"></i> Method and equations</span>
-            <h2 class="stk-h2">The math behind the fit</h2>
-            <p class="stk-lead">Fits are computed by <strong>least-squares regression</strong> and assessed with R&sup2; and RMSE, all in your browser.</p>
-            
-            <p class="stk-eqn-label">Linear, polynomial and logarithmic parameters are chosen by ordinary least squares, minimising the residual sum of squares:</p>
-            <div class="stk-math"><span class="stk-tex" data-display>\underset{θ}{\min }\sum_{i=1}^{n}{({y}_{i}-f({x}_{i};θ))}^{2}</span></div>
-            <p class="stk-eqn-label">Goodness of fit is reported with the coefficient of determination and the root-mean-square error:</p>
-            <div class="stk-math"><span class="stk-tex" data-display>{R}^{2}=1-\frac{\sum_{i}{({y}_{i}-{\hat{y}}_{i})}^{2}}{\sum_{i}{({y}_{i}-\bar{y})}^{2}}</span></div>
-            <div class="stk-math"><span class="stk-tex" data-display>\mathrm{RMSE}=\sqrt{\frac{1}{n}\sum_{i=1}^{n}{({y}_{i}-{\hat{y}}_{i})}^{2}}</span></div>
-            <p class="stk-where">where <span class="stk-tex">{y}_{i}</span> are the observed values, <span class="stk-tex">{\hat{y}}_{i}</span> the fitted values, <span class="stk-tex">\bar{y}</span> the mean of <em>y</em>, and <em>n</em> the number of points. <span class="stk-tex">{R}^{2}</span> and RMSE are computed on the original data.</p>
-            <p class="stk-eqn-label">Model forms available:</p>
-            <ul class="stk-model-list">
-                <li><b>Linear</b> <span class="stk-tex">y=mx+c</span></li>
-                <li><b>Polynomial</b> <span class="stk-tex">y=\sum_{k=0}^{d}{a}_{k}{x}^{k}</span> (degree <span class="stk-tex">d</span> = 2 or 3)</li>
-                <li><b>Exponential</b> <span class="stk-tex">y=a{e}^{bx}</span> &rarr; fitted as <span class="stk-tex">\ln y=\ln a+bx</span></li>
-                <li><b>Power</b> <span class="stk-tex">y=a{x}^{b}</span> &rarr; fitted as <span class="stk-tex">\ln y=\ln a+b\ln x</span></li>
-                <li><b>Logarithmic</b> <span class="stk-tex">y=a+b\ln x</span></li>
-            </ul>
-            <p class="stk-where">The exponential and power models are fitted by <strong>linearisation</strong> (least squares on ln&nbsp;<em>y</em>, with each point weighted by <em>y</em> for the exponential), which minimises error in log space rather than in the original space. The logarithmic model is linear in its parameters, so it is ordinary least squares on <em>y</em> against ln&nbsp;<em>x</em>.</p>
+            <h2 class="stk-h2">The mathematics behind the fit</h2>
+            <p class="stk-lead">The fit minimises the weighted sum of squared residuals, and every number the page reports follows <strong>scipy.optimize.curve_fit</strong>.</p>
+
+            <p class="stk-eqn-label">For a model <span class="stk-tex">f(x;\,\theta)</span> with parameters <span class="stk-tex">\theta</span>, the fit minimises</p>
+            <div class="stk-math"><span class="stk-tex" data-display>\chi^2(\theta)=\sum_{i=1}^{n} w_i\,\bigl(y_i-f(x_i;\theta)\bigr)^2,\qquad w_i=\frac{1}{\sigma_i^2}\ \text{or}\ 1</span></div>
+            <p class="stk-eqn-label">Levenberg&ndash;Marquardt takes steps <span class="stk-tex">\delta</span> that solve, with the Jacobian <span class="stk-tex">J_{ij}=\partial f(x_i)/\partial\theta_j</span> and the residuals <span class="stk-tex">r</span>,</p>
+            <div class="stk-math"><span class="stk-tex" data-display>\bigl(J^{\mathsf T}WJ+\lambda D\bigr)\,\delta=J^{\mathsf T}W\,r</span></div>
+            <p class="stk-eqn-label">The covariance of the <span class="stk-tex">p</span> free parameters, the standard errors and the 95% intervals are</p>
+            <div class="stk-math"><span class="stk-tex" data-display>C=s^2\bigl(J^{\mathsf T}WJ\bigr)^{-1},\qquad s^2=\frac{\chi^2}{n-p},\qquad \theta_j\pm t_{0.975,\,n-p}\sqrt{C_{jj}}</span></div>
+            <p class="stk-where">where <span class="stk-tex">s^2=1</span> when the uncertainties are absolute. The confidence band around the curve carries <span class="stk-tex">C</span> through the gradient of <span class="stk-tex">f</span> with respect to the parameters (the delta method).</p>
+            <p class="stk-eqn-label">Goodness of fit, with <span class="stk-tex">\bar y_w</span> the weighted mean of <span class="stk-tex">y</span>:</p>
+            <div class="stk-math"><span class="stk-tex" data-display>R^2=1-\frac{\chi^2}{\sum_i w_i(y_i-\bar y_w)^2},\qquad \bar R^2=1-(1-R^2)\,\frac{n-1}{n-p}</span></div>
+            <div class="stk-math"><span class="stk-tex" data-display>\mathrm{RMSE}=\sqrt{\frac{1}{n}\sum_i\bigl(y_i-\hat y_i\bigr)^2},\qquad \chi^2_\nu=\frac{\chi^2}{n-p}</span></div>
+            <div class="stk-math"><span class="stk-tex" data-display>\mathrm{AIC}=n\ln\frac{\chi^2}{n}+2p,\qquad \mathrm{BIC}=n\ln\frac{\chi^2}{n}+p\ln n</span></div>
+            <p class="stk-where">RMSE is unweighted and in the units of <span class="stk-tex">y</span>. <span class="stk-tex">R^2</span>, AIC and BIC use the weights when you give uncertainties. AIC and BIC compare models fitted to the same data: lower is better. A fixed parameter does not count in <span class="stk-tex">p</span>.</p>
             <h3 class="stk-refs-h">References &amp; documentation</h3>
             <ol class="stk-refs-list">
-                
-                <li>Draper, N.&nbsp;R., &amp; Smith, H. (1998). <em>Applied Regression Analysis</em> (3rd ed.). Wiley.</li>
+                <li>Levenberg, K. (1944). A method for the solution of certain non-linear problems in least squares. <em>Quarterly of Applied Mathematics</em>, 2(2), 164&ndash;168.</li>
+                <li>Marquardt, D.&nbsp;W. (1963). An algorithm for least-squares estimation of nonlinear parameters. <em>Journal of the Society for Industrial and Applied Mathematics</em>, 11(2), 431&ndash;441.</li>
+                <li>Mor&eacute;, J.&nbsp;J. (1978). The Levenberg&ndash;Marquardt algorithm: implementation and theory. In <em>Numerical Analysis</em>, Lecture Notes in Mathematics 630, 105&ndash;116. Springer.</li>
+                <li>Nielsen, H.&nbsp;B. (1999). <em>Damping parameter in Marquardt&rsquo;s method</em>. Report IMM-REP-1999-05, Technical University of Denmark.</li>
+                <li>Virtanen, P., Gommers, R., Oliphant, T.&nbsp;E., et&nbsp;al. (2020). SciPy 1.0: fundamental algorithms for scientific computing in Python. <em>Nature Methods</em>, 17, 261&ndash;272. <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.curve_fit.html" target="_blank" rel="noopener">curve_fit documentation</a>.</li>
                 <li>Heckert, N.&nbsp;A., Filliben, J.&nbsp;J., Croarkin, C., et&nbsp;al. (2002). <em>NIST/SEMATECH e-Handbook of Statistical Methods</em>, Ch.&nbsp;4 &ldquo;Process Modeling&rdquo;. <a href="https://www.itl.nist.gov/div898/handbook/" target="_blank" rel="noopener">itl.nist.gov/div898/handbook</a>.</li>
-                <li>Wikipedia: <a href="https://en.wikipedia.org/wiki/Least_squares" target="_blank" rel="noopener">Least squares</a> &middot; <a href="https://en.wikipedia.org/wiki/Coefficient_of_determination" target="_blank" rel="noopener">Coefficient of determination</a>.</li>
-                <li>Regression library: <a href="https://github.com/Tom-Alexander/regression-js" target="_blank" rel="noopener">regression.js</a> (Tom Alexander).</li>
             </ol>
         </div>
     </section>
@@ -313,10 +442,10 @@
         <div class="stk-wrap" style="max-width:52rem;">
             <h2 class="stk-h2">Frequently asked questions</h2>
             <div style="margin-top:1rem;">
-                <details class="stk-faq"><summary>Is my data sent to a server?</summary><div>No. Parsing, fitting and plotting all happen in your browser using regression.js and Plotly.</div></details><details class="stk-faq"><summary>Why does my exponential fit look slightly off?</summary><div>Exponential and power models are fitted by linearisation (least squares in log space), not true non-linear least squares, so the curve can look biased when data spans many orders of magnitude.</div></details><details class="stk-faq"><summary>What do R² and RMSE mean?</summary><div>R² is the fraction of variance the model explains (1 is perfect). RMSE is the root-mean-square residual, in the same units as Y, smaller is better.</div></details><details class="stk-faq"><summary>Why did I get a warning about too few points?</summary><div>If you have as many (or fewer) points as the model has parameters, the fit is exact or under-determined and R² is not informative. Add more data.</div></details><details class="stk-faq"><summary>Which model should I pick?</summary><div>Match the expected shape: straight line → linear; growth/decay → exponential; curves through the origin → power; diminishing returns → logarithmic; one/two bends → polynomial 2/3.</div></details>
+                <details class="stk-faq"><summary>Is my data sent to a server?</summary><div>No. Reading the data, fitting, plotting and writing the script all happen in your browser. Nothing is uploaded.</div></details><details class="stk-faq"><summary>Do the results match SciPy?</summary><div>Yes. The fit minimises the same sum of squares as <code>scipy.optimize.curve_fit</code> with the Levenberg&ndash;Marquardt method, and the covariance, standard errors and confidence intervals are computed as <code>curve_fit</code> computes them, including the <code>absolute_sigma</code> setting. The script the page writes starts from the page&rsquo;s result and prints the same values. With bounds, SciPy switches to its trust-region method, which ends in the same place when the fit settles inside the bounds.</div></details><details class="stk-faq"><summary>How does the page decide which names are fitted?</summary><div>Every name in the equation that is not a variable, a function, <code>pi</code> or <code>e</code> is a parameter. The variable is the one listed in <code>f(x) =</code>, or a usual name such as <code>x</code>, <code>t</code>, <code>T</code> or <code>V</code>, or a name that matches a column header. You can move any name between variable and parameter, and fit <code>e</code> as a parameter if you meant one.</div></details><details class="stk-faq"><summary>What if the fit finds a poor curve or does not converge?</summary><div>The page searches for starting values itself, but a model with several minima, such as a sum of peaks or an oscillation, can still settle in the wrong one. Give starting values near the answer, set bounds, or hold a parameter fixed at a known value; <strong>Start from the fit</strong> copies the current result into the starting values so you can refine it step by step.</div></details><details class="stk-faq"><summary>Why does it say two parameters cannot be told apart?</summary><div>The data fix only a combination of them. In <code>k = A*exp(-Ea/(R*T))</code> only the ratio <code>Ea/R</code> matters, so <code>R</code> has to be held at its known value. The page recognises common physical constants (R, k_B, N_A, F, h, hbar, Vt) and offers to hold them fixed.</div></details><details class="stk-faq"><summary>What do the standard errors and confidence intervals mean?</summary><div>The standard error is the square root of the parameter&rsquo;s variance from the covariance matrix, scaled by the reduced &chi;&sup2; unless your uncertainties are absolute. The 95% interval is the value plus or minus Student&rsquo;s <em>t</em> on <em>n</em>&nbsp;&minus;&nbsp;<em>p</em> degrees of freedom times the standard error. A parameter that ends on a bound is flagged, because its uncertainty then describes a constrained estimate.</div></details><details class="stk-faq"><summary>What are the uncertainty column and &ldquo;absolute&rdquo;?</summary><div>Give a column of one-standard-deviation uncertainties of <em>y</em> and each point is weighted by 1/&sigma;&sup2;. Tick <em>absolute</em> when they are real standard deviations: the parameter errors then follow from them directly, and the reduced &chi;&sup2; tells you whether the scatter matches them (about 1). Untick it when they are only relative weights: the errors are then scaled to the scatter of the data.</div></details><details class="stk-faq"><summary>Can I fit a function of two variables?</summary><div>Yes. Write <code>z = a*x + b*y + c</code>, or list the variables as <code>f(x, y) =</code>, and give each its column. The plot then shows the observed values against the fitted ones, with the line where they would be equal.</div></details>
             </div>
             <div class="stk-refs">
-                <a href="https://en.wikipedia.org/wiki/Coefficient_of_determination" target="_blank" rel="noopener"><i class="fa-solid fa-percent"></i> What R² (R-squared) means</a><a href="https://en.wikipedia.org/wiki/Least_squares" target="_blank" rel="noopener"><i class="fa-solid fa-chart-line"></i> Least-squares fitting</a><a href="https://github.com/Tom-Alexander/regression-js" target="_blank" rel="noopener"><i class="fa-solid fa-code"></i> regression.js library</a>
+                <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.curve_fit.html" target="_blank" rel="noopener"><i class="fa-brands fa-python"></i> scipy.optimize.curve_fit</a><a href="https://en.wikipedia.org/wiki/Levenberg%E2%80%93Marquardt_algorithm" target="_blank" rel="noopener"><i class="fa-solid fa-chart-line"></i> Levenberg&ndash;Marquardt algorithm</a><a href="https://en.wikipedia.org/wiki/Coefficient_of_determination" target="_blank" rel="noopener"><i class="fa-solid fa-percent"></i> What R² means</a>
             </div>
             <p class="stk-credit">Runs entirely in your browser, no data leaves your device.</p>
         </div>
@@ -386,22 +515,7 @@
     </footer>
 
     <script src="js/site.js"></script>
-    <script type="module" src="js/curve-fitter.js"></script>    
-    
-    <!-- Python code modal -->
-    <div id="cfCodeModal" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background:rgba(15,23,42,.6);">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
-            <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
-                <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-brands fa-python text-brand-500"></i> matplotlib code</h3>
-                <div class="flex items-center gap-2">
-                    <button id="cfCopyCode" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-md text-xs font-bold transition-colors"><i class="fa-solid fa-copy mr-1"></i> Copy</button>
-                    <button id="cfCloseCode" class="w-8 h-8 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-            </div>
-            <div class="p-1 overflow-auto"><pre id="cfCodeBlock" class="text-xs leading-relaxed p-4 font-mono text-slate-800 dark:text-slate-200 whitespace-pre overflow-x-auto"></pre></div>
-            <div class="px-4 py-2.5 border-t border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400">Reproduces the fit and plot. Requires <code>numpy</code> and <code>matplotlib</code>.</div>
-        </div>
-    </div>
+    <script type="module" src="js/curve-fitter.js"></script>
 
 </body>
 </html>
