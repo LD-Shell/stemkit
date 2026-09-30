@@ -50,7 +50,7 @@ earlier version are worth re-checking.
   and output sizes), Index and Job. Every `.mdp` file is written in full,
   each line with a comment saying why and a link to the GROMACS manual, and
   one download holds `submit.sh`, the `.mdp` files, `index.ndx` and a README.
-- **Checked by the real program**: 117 combinations (five force fields,
+- **Checked by the real program**: 122 combinations (five force fields,
   every stage, both barostats, with and without hydrogen mass
   repartitioning, and membrane, anisotropic, Nose-Hoover, annealing and
   pulling variants) pass `grompp` from GROMACS 2025 with no warnings beyond
@@ -61,10 +61,12 @@ earlier version are worth re-checking.
   defaults, units, allowed values, the manual's text and a link, settable in
   one file or all of them.
 - **Check a file**: paste an existing `.mdp` to see whether grompp will stop
-  and why (the checker agrees with grompp on 102 broken files), read it line
+  and why (the checker agrees with grompp on 169 broken files), read it line
   by line, and open it in the builder.
 - **Index groups**: drop a `.gro` or `.pdb` to get exactly the groups
-  `gmx make_ndx` makes, suggested groups (ligand, protein with ligand, pocket,
+  `gmx make_ndx` makes (the one it leaves nameless, for a blank residue name,
+  is called `Group`, because GROMACS cannot read `[  ]` back), suggested
+  groups (ligand, protein with ligand, pocket,
   membrane, solvent), the temperature-coupling groups for the system with the
   reason, and a group builder; the tc-grps are checked to cover every atom
   once.
@@ -150,6 +152,61 @@ earlier version are worth re-checking.
   topology header offers GROMOS 54A7 and Martini 3; the header is a tab of its
   own and is left out of the zip so it cannot overwrite a real `topol.top`.
 - The PLUMED sample hills file is the two-variable run (`assets/samples/plumed/HILLS`).
+- **`parsePDB` reads the first model of a multi-model PDB**, as GROMACS and
+  PLUMED do, and says how many it skipped (`modelCount`, `warnings`); pass
+  `{ models: 'all' }` for the old behaviour. It keeps four-letter residue
+  names (POPC, TIP3) and residue number 0, and `parseGRO` reads files written
+  at any precision. Selections take the box (`box`, `boxVectors`) and measure
+  `within:` to the nearest periodic image, matching `gmx select`.
+
+### Fixed: GROMACS and PLUMED, cross-checked against the programs
+
+Twelve independent audits ran the tools against GROMACS 2025 (`grompp`,
+`mdrun`, `make_ndx`) and PLUMED 2.9, 2.10 and 2.11 and read their source;
+every finding was reproduced by at least two of three separate checks before
+it was fixed, each with a regression test.
+
+- `[output]` **PLUMED free energies.** A 1D surface taken from a 2D HILLS file
+  summed the hills along one variable instead of integrating the other out;
+  a restarted run's hills that were read back were dropped as a copy;
+  walkers' files joined with `cat` lost most of their hills; hills wider than
+  half a periodic axis, ADAPTIVE hills and files without a kernel type were
+  summed differently from `plumed sum_hills`; reweighting used one bias column
+  and missed the walls, and ran at the global temperature rather than the
+  method's own.
+- `[output]` **PLUMED run files.** A 4 fs run lost half its hills (the kit's
+  time step was never checked against the `.tpr`); LAMMPS MPI walkers were
+  identical copies; umbrella windows could all sit at AT = 0; MOVINGRESTRAINT
+  work lost the last interval before each checkpoint; OPES never wrote its
+  state; GROMACS MPI walkers asked for one rank, which `-multidir` refuses.
+- **PLUMED inputs PLUMED rejected or misread**, among them PLANE,
+  DIHEDRAL_CORRELATION, ERMSD, PCARMSD and PUCKERING components, DRMSD without
+  WHOLEMOLECULES from 2.10, NLIST settings lost under METAD, and several CV
+  options; all 311 generated inputs now parse in 2.9, 2.10 and 2.11, and 303
+  run on a trajectory. The input checker no longer flags things PLUMED
+  accepts, and now catches missing compulsory keywords, undefined references
+  and parse failures it missed.
+- **GROMACS stages that would have failed:** energy minimisation was given
+  GPU flags `mdrun` rejects, as was `-update gpu` with Nose-Hoover or virtual
+  sites and `-pme gpu` without PME; conjugate-gradient minimisation from a
+  solvated start; thread-MPI and MPI builds got the wrong rank options; file
+  names with spaces were not quoted.
+- **GROMACS set-up:** GROMOS 54A7 constrains all bonds, as it was
+  parametrised (it used h-bonds); Martini 3 pair lists and LINCS follow the
+  force field's settings; pulling sets a central PBC atom per group and
+  checks the group names; temperature-coupling groups are no longer split
+  into baths too small to hold a temperature.
+- **The .mdp checker** now stops where grompp stops for AWH, rotation and
+  swap set-ups, a group named twice, `sc-r-power` other than 6,
+  `fourierspacing` of zero, and more, and no longer stops where grompp does
+  not; it reads Unicode spaces, bare CR line ends and hexadecimal numbers as
+  grompp does. It agrees with grompp on 169 broken files.
+- **Index groups:** element filters no longer read SOD, CLA, POT or CAL as
+  sulphur, carbon or phosphorus; CHARMM nucleotides and glycans are not
+  cosolvent; selections within a distance respect periodic boundaries.
+- Page text that said something false about GROMACS or PLUMED is corrected:
+  thermostat and barostat guidance, walker commands, the check command, wall
+  offsets, units and version notes.
 
 ### Fixed: output
 
@@ -173,6 +230,19 @@ earlier version are worth re-checking.
 - **Subscripts and superscripts in typeset formulas** were drawn at full size
   on every page with KaTeX: the stylesheet was from a newer release than the
   script.
+
+### Fixed: pages that described the tools wrongly
+
+- **MD Workflow Generator, PLUMED notes:** they said `D_MAX` gives
+  `COORDINATION` linked cells. PLUMED has none for it, in 2.9, 2.10 or 2.11:
+  `D_MAX` only brings the switch to zero, and the speed-up is `NLIST`. Linked
+  cells belong to multicolvars such as `COORDINATIONNUMBER` and `Q6`, which
+  the notes now name. Checked with `plumed driver`: `D_MAX` left a
+  two-group `COORDINATION` as slow as before.
+- The same notes offered PLUMED 2.9 or 2.10 "next to the CV list"; the menu
+  has 2.9, 2.10 and 2.11 and sits in the System and setup panel. They named
+  `plumed --version`, which PLUMED refuses, for `plumed info --version`, and
+  described the file's header wrongly.
 
 ## v0.2.1 — 2026-09-25
 

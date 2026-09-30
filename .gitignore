@@ -6,3 +6,4 @@ error-bar-plot-preview.html
 error-bar-theory-preview.html
 theory-preview.html
 test-report.txt
+__pycache__/

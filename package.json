@@ -78,6 +78,19 @@
     ],
     "collectCoverageFrom": [
       "src/core/**/*.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/lammps/",
+      "<rootDir>/plumed2/",
+      "<rootDir>/gromacs-2025.1/",
+      "<rootDir>/.claude/"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/lammps/",
+      "<rootDir>/plumed2/",
+      "<rootDir>/gromacs-2025.1/",
+      "<rootDir>/.claude/"
     ]
   }
 }
