@@ -319,9 +319,10 @@ export function createPlumedAnalyse(ctx, builder) {
     const lastTwo = slices.slice(-2);
     let change = 0;
     if (lastTwo.length === 2) {
+      // Compare where the surface is low enough to be sampled, below 16 kT.
+      const low = 16 * thermalEnergy(builder.temperature(), builder.energyUnit());
       for (let i = 0; i < lastTwo[0].f.length; i++) {
-        // Compare where the surface is low enough to matter.
-        if (lastTwo[1].f[i] < 40) change = Math.max(change, Math.abs(lastTwo[1].f[i] - lastTwo[0].f[i]));
+        if (lastTwo[1].f[i] < low) change = Math.max(change, Math.abs(lastTwo[1].f[i] - lastTwo[0].f[i]));
       }
     }
     note.innerHTML = 'Each line sums the hills up to a time; the darkest is the whole run. Lines that lie on top ' +
