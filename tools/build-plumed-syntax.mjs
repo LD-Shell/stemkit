@@ -120,6 +120,44 @@ function registeredModules() {
 }
 const registered = registeredModules();
 
+/* Shortcuts that hand the rest of their line to another action, read from the
+   source: `readInputLine( label + ": CENTER_FAST " + convertInputLineToString() )`.
+   PLUMED accepts a keyword of that action on the shortcut's line, so the checker
+   must too; syntax.json does not record it. Returns action -> [actions]. */
+function passedOn() {
+  const out = {};
+  const src = path.join(source, 'src');
+  const reg = /PLUMED_REGISTER_ACTION\(\s*[^,]+,\s*"([A-Z0-9_]+)"\s*\)/g;
+  const call = /readInputLine\(([^;]*?)convertInputLineToString\(\)/g;
+  for (const dir of fs.readdirSync(src).sort()) {
+    const full = path.join(src, dir);
+    if (!fs.statSync(full).isDirectory()) continue;
+    for (const file of fs.readdirSync(full).sort()) {
+      if (!file.endsWith('.cpp')) continue;
+      const text = fs.readFileSync(path.join(full, file), 'utf8');
+      const names = [];
+      let m;
+      while ((m = reg.exec(text))) names.push(m[1]);
+      if (!names.length) continue;
+      const targets = [];
+      while ((m = call.exec(text))) {
+        // The action is the first capitalised word of a string literal in the
+        // call, after the label's colon when there is one.
+        for (const lit of m[1].match(/"[^"]*"/g) || []) {
+          const w = /(?:^"|:\s*|^"\s*)([A-Z][A-Z0-9_]{2,})(?=\s|"|$)/.exec(lit);
+          if (w) { if (!targets.includes(w[1])) targets.push(w[1]); break; }
+        }
+      }
+      for (const n of names) {
+        const t = targets.filter(x => x !== n);
+        if (t.length) out[n] = t;
+      }
+    }
+  }
+  return out;
+}
+const passes = passedOn();
+
 /* Where the manual for this release lives, and how it names its pages. */
 function docStyle() {
   const link = String((raw.METAD && raw.METAD.hyperlink) || '');
@@ -177,6 +215,12 @@ for (const name of Object.keys(raw).sort()) {
 
   const action = { m: entry.module || registered[name] || '', d: intern(entry.description), k: keywords };
   if (Object.keys(outputs).length) action.o = outputs;
+  // The actions a shortcut may create (from 2.10, where syntax.json lists
+  // them), so a module they live in can be named, and the actions it hands
+  // its line to.
+  if (Array.isArray(entry.needs) && entry.needs.length) action.nd = entry.needs.slice();
+  if (passes[name]) action.pa = passes[name];
+  if (entry.syntax.IS_SHORTCUT !== undefined) action.sc = 1;
   if (Array.isArray(entry.dois) && entry.dois.length) action.doi = entry.dois;
   if (entry.displayname && entry.displayname !== name) action.n = entry.displayname;
   actions[name] = action;
@@ -203,7 +247,9 @@ const banner = `/**
  *
  * Read it through createSyntax() in ../plumed-syntax.js rather than directly:
  * keyword rows are [style, description index, numbered?, default?] and the
- * descriptions are interned in \`strings\`.
+ * descriptions are interned in \`strings\`. \`nd\` lists the actions a shortcut
+ * may create, \`pa\` those it passes the rest of its line to, and \`sc\` marks a
+ * shortcut.
  */
 `;
 

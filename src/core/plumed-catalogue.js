@@ -17,6 +17,15 @@
  * there, `componentsWhen` the ones a flag adds, and `compStyle` marks a
  * multicolvar, whose components follow from the reductions switched on. With
  * none of these the label itself is the value.
+ *
+ * A field may also say how it is written: `writeAs` names the keyword it is
+ * written under (PLANE's atoms go out as `ATOMS1`, the form PLUMED computes),
+ * `excludedBy` lists fields that replace it when set (it is then left out and
+ * no longer required), and `pairedWith` names a field it cannot be given
+ * without. Keys starting with `__` are the form's own and never written.
+ *
+ * `fallback` is only ever an action name for older releases that reads the
+ * same keywords; advice about what to write instead is `olderHint`.
  */
 
 /** Groups the builder files collective variables under. */
@@ -46,7 +55,7 @@ export const KEY_HELP = {
   D_0: 'The d_0 offset of the switching function (nm).',
   SWITCH: 'Full switching-function definition, e.g. {RATIONAL R_0=0.3 NN=6 MM=12}. Overrides R_0/NN/MM.',
   SPECIES: 'The atoms whose local order parameter is computed (each atom is compared with its neighbours).',
-  D_MAX: 'Distance beyond which the switching function is exactly zero. Setting it lets PLUMED use linked cells for neighbour search, a large speedup. Choose it a little above where the switch has decayed to ~0.',
+  D_MAX: 'Distance beyond which the switching function is exactly zero. For the order parameters (COORDINATIONNUMBER, Q6, ...) it also lets PLUMED search neighbours with linked cells, a large speedup; COORDINATION has no linked cells and still visits every pair. Choose it a little above where the switch has decayed to ~0.',
   MEAN: 'Output the mean of the per-atom values as a single scalar CV.',
   VMEAN: 'Output the norm of the mean per-atom vector.',
   __raw: 'Everything after the label. Write any valid PLUMED action, e.g. COORDINATION GROUPA=1-10 GROUPB=20-40 R_0=0.3.',
@@ -58,14 +67,14 @@ export const KEY_HELP = {
   TYPE: 'Which quantity to compute (e.g. RADIUS of gyration, or a shape descriptor).',
   MASS_WEIGHTED: 'Weight atoms by mass (uses the centre of mass).',
   REFERENCE: 'A PDB file with the reference structure/atoms for this CV.',
-  LAMBDA: 'Smoothing parameter for path CVs; roughly 2.3/(RMSD between adjacent frames).',
+  LAMBDA: 'Smoothing parameter for path CVs, in 1/nm². PLUMED measures the distance to each frame as a mean-square displacement, so take roughly 2.3 divided by the mean-square displacement (MSD, nm²) between adjacent frames, not by their RMSD.',
   SQUARED: 'Return the mean-squared displacement instead of the RMSD.',
   AT: 'The reference (centre) value(s) the restraint/wall is applied at.',
   KAPPA: 'Force constant(s) of the restraint/wall (energy per CV-unit^2).',
   SLOPE: 'Adds a linear term to the restraint (energy per CV-unit).',
   EXP: 'Exponent of the wall potential (default 2 = harmonic).',
   EPS: 'Rescaling factor inside the wall potential (default 1).',
-  OFFSET: 'Offset added to the wall position.',
+  OFFSET: 'Moves where the wall starts: an upper wall acts above AT − OFFSET, a lower wall below AT + OFFSET.',
   I: 'Ionic strength (mol/L) for the Debye-Hückel screening.',
   TEMP: 'System temperature (K). Needed for well-tempered methods and reweighting.',
   LOWER_CUTOFF: 'Ignore reference distances below this value (nm).',
@@ -78,7 +87,7 @@ export const KEY_HELP = {
   NEIGH_SIZE: 'Size of the neighbor list for PATH computations.',
   Q: 'The exponent of the dimer potential.',
   DSIGMA: 'The interaction strength of the dimer bond.',
-  ALLATOMS: 'Use every atom of the system (overrides ATOMS1/ATOMS2).',
+  ALLATOMS: 'Use every atom of the system instead of ATOMS1/ATOMS2, which are then left out of the line (PLUMED rejects both together).',
   NOVSITES: 'Flag indicating configuration has no virtual sites at centroid positions.',
   // --- Advanced order-parameter / multicolvar keywords ---
   SPECIESA: 'First set of atoms (the ones whose order parameter is computed). Use with SPECIESB for a two-group variant.',
@@ -111,11 +120,18 @@ export const KEY_HELP = {
   NAME: 'Name of the variable as the MD engine computes it.'
 };
 
+/* Is a target release older than 2.10, the multicolvar rewrite? The catalogue
+   cannot import plumed.js, which imports it. */
+function before210(version) {
+  const [major, minor] = String(version || '2.9').split('.').map(Number);
+  return major < 2 || (major === 2 && (minor || 0) < 10);
+}
+
 /** Input-level prerequisites a CV can declare with `prereq`. */
 export const PREREQS = {
   wholemolecules: {
     label: 'WHOLEMOLECULES',
-    note: 'requires a WHOLEMOLECULES line (before this CV) so PLUMED reconstructs whole chains across periodic boundaries, otherwise the CV is wrong for codes like GROMACS. Not needed if you use TYPE=DRMSD.'
+    note: 'requires a WHOLEMOLECULES line (before this CV) so PLUMED reconstructs whole chains across periodic boundaries, otherwise the CV is wrong for codes like GROMACS, which hand PLUMED molecules split by the box. From PLUMED 2.10 this holds for every TYPE, DRMSD included; only 2.9 makes the segments whole itself for DRMSD.'
   }
 };
 
@@ -189,7 +205,9 @@ export const CV_DEFS = {
   DIHEDRAL_CORRELATION: {
     cat: 'angles', minVersion: '2.11', desc: 'Measure the correlation between a pair of dihedral angles (phi and psi).',
     fields: [
-      { k: 'ATOMS', label: 'ATOMS (8 atoms)', type: 'atoms', def: '1,2,3,4,5,6,7,8', required: true },
+      // The scalar form (ATOMS=) crashes PLUMED 2.11.0-dev on the first step
+      // with a segmentation fault; the numbered form runs.
+      { k: 'ATOMS', label: 'ATOMS (8 atoms)', type: 'atoms', def: '1,2,3,4,5,6,7,8', required: true, writeAs: 'ATOMS1', help: 'Eight atoms, the two torsions one after the other. Written as ATOMS1=, since the ATOMS= form crashes PLUMED 2.11.0-dev on the first step.' },
       { k: 'NOPBC', label: 'NOPBC', type: 'flag', def: false }
     ]
   },
@@ -203,7 +221,7 @@ export const CV_DEFS = {
       { k: 'D_0', label: 'D_0 (nm)', type: 'num', def: '0.0' },
       { k: 'NN', label: 'NN', type: 'num', def: '6' },
       { k: 'MM', label: 'MM (0 = 2*NN)', type: 'num', def: '0' },
-      { k: 'D_MAX', label: 'D_MAX (nm)', type: 'num', def: '', help: 'Distance beyond which the switch is exactly zero. Setting it makes PLUMED use fast linked cells, an alternative to a neighbour list. Leave blank if you use NLIST instead.' },
+      { k: 'D_MAX', label: 'D_MAX (nm)', type: 'num', def: '', help: 'Distance beyond which the switch is exactly zero. COORDINATION has no linked cells: it still visits every GROUPA–GROUPB pair, so D_MAX does not make it faster. For large groups enable NLIST, or use COORDINATIONNUMBER, which does use linked cells.' },
       { k: 'NLIST', label: 'NLIST (neighbour list)', type: 'flag', def: false },
       { k: 'NL_CUTOFF', label: 'NL_CUTOFF (nm)', type: 'num', def: '' },
       { k: 'NL_STRIDE', label: 'NL_STRIDE (steps)', type: 'num', def: '' }
@@ -265,7 +283,7 @@ export const CV_DEFS = {
     cat: 'energy', desc: 'Calculates EEF1 solvation free energy for a group of non-hydrogen atoms. Needs MOLINFO.',
     needsMolinfo: true,
     fields: [
-      { k: 'ATOMS', label: 'ATOMS (Non-H)', type: 'atoms', def: '1-100', required: true },
+      { k: 'ATOMS', label: 'ATOMS (Non-H)', type: 'atoms', def: '@nonhydrogens', required: true, help: 'The heavy atoms of the solute; PLUMED stops at a hydrogen. @nonhydrogens takes them from the MOLINFO structure, which suits an implicit-solvent run whose structure holds only the solute. EEF1-SB has parameters for the standard amino acids only, so leave out caps such as ACE and NME (PLUMED reports an invalid atom type): name a GROUP of heavy atoms instead, e.g. one read from an index file.' },
       { k: 'NL_BUFFER', label: 'NL_BUFFER (nm)', type: 'num', def: '0.1' },
       { k: 'NL_STRIDE', label: 'NL_STRIDE', type: 'num', def: '40' }
     ]
@@ -276,9 +294,9 @@ export const CV_DEFS = {
       { k: 'TEMP', label: 'TEMP (K)', type: 'num', def: '300', required: true },
       { k: 'Q', label: 'Q (exponent)', type: 'num', def: '0.5', required: true },
       { k: 'DSIGMA', label: 'DSIGMA', type: 'text', def: '0.002', required: true },
-      { k: 'ATOMS1', label: 'ATOMS1', type: 'atoms', def: '1,5,7' },
-      { k: 'ATOMS2', label: 'ATOMS2', type: 'atoms', def: '23,27,29' },
-      { k: 'ALLATOMS', label: 'ALLATOMS', type: 'flag', def: false, help: 'Overrides ATOMS1/ATOMS2 to use every atom.' },
+      { k: 'ATOMS1', label: 'ATOMS1', type: 'atoms', def: '1,5,7', excludedBy: ['ALLATOMS'] },
+      { k: 'ATOMS2', label: 'ATOMS2', type: 'atoms', def: '23,27,29', excludedBy: ['ALLATOMS'] },
+      { k: 'ALLATOMS', label: 'ALLATOMS', type: 'flag', def: false, help: 'Use every atom instead of ATOMS1/ATOMS2, which are then left out of the line: PLUMED reads them only without ALLATOMS and stops at them otherwise.' },
       { k: 'NOVSITES', label: 'NOVSITES', type: 'flag', def: false, help: 'Flag indicating no virtual sites at centroid positions.' }
     ]
   },
@@ -302,7 +320,10 @@ export const CV_DEFS = {
   PLANE: {
     cat: 'position', minVersion: '2.10', components: ['x', 'y', 'z'], desc: 'Calculate the plane perpendicular to two vectors representing planar orientation.',
     fields: [
-      { k: 'ATOMS', label: 'ATOMS (3 or 4)', type: 'atoms', def: '1,2,3', required: true },
+      // PLUMED 2.10 and 2.11 abort on the first step of the scalar form
+      // (ATOMS=), "cannot use setValue in multi-component actions"; the
+      // numbered form computes the same normal and can be biased.
+      { k: 'ATOMS', label: 'ATOMS (3 or 4)', type: 'atoms', def: '1,2,3', required: true, writeAs: 'ATOMS1', help: 'Three atoms, or four for two vectors. Written as ATOMS1=, since PLUMED 2.10 and 2.11 abort on the first step of the ATOMS= form.' },
       { k: 'NOPBC', label: 'NOPBC', type: 'flag', def: false }
     ]
   },
@@ -336,10 +357,11 @@ export const CV_DEFS = {
   },
   PCARMSD: {
     cat: 'rmsd', desc: 'Calculate the PCA components against an average structure.',
-    components: ['eig-0', 'eig-1', 'residual'],
+    components: 'pcarmsd',
     fields: [
       { k: 'AVERAGE', label: 'AVERAGE (.pdb)', type: 'text', def: 'average.pdb', required: true },
       { k: 'EIGENVECTORS', label: 'EIGENVECTORS (.pdb)', type: 'text', def: 'eigenvec.pdb', required: true },
+      { k: '__eigenvectors', label: 'Eigenvectors in the file', type: 'num', def: '1', help: 'How many frames (eigenvectors) EIGENVECTORS holds. PLUMED makes one component per frame, eig-0, eig-1, ..., so this sets which ones can be printed and biased. It is not written to the file.' },
       { k: 'SQUARED_ROOT', label: 'SQUARED_ROOT', type: 'flag', def: false }
     ]
   },
@@ -372,11 +394,15 @@ export const CV_DEFS = {
   ALPHARMSD: {
     cat: 'rmsd', act: 'ALPHARMSD',
     prereq: 'wholemolecules', needsMolinfo: true,
-    prereqSkipIf: (inst) => String(inst.values.TYPE || '').toUpperCase() === 'DRMSD',
+    // Only 2.9 makes each segment whole for DRMSD. From 2.10 every structure
+    // goes through SECONDARY_STRUCTURE_RMSD with its strands aligned, which
+    // skips that step, so a molecule split by the box reads about zero.
+    prereqSkipIf: (inst, version) => before210(version) &&
+      String((inst.values || {}).TYPE || '').toUpperCase() === 'DRMSD',
     desc: 'Alpha-helical content: counts six-residue segments whose configuration resembles an idealised alpha helix (bare label = number of segments). Needs MOLINFO.',
     fields: [
       { k: 'RESIDUES', label: 'RESIDUES', type: 'text', def: 'all', required: true, help: 'Residues that could form the structure, "all" or a list. Requires a MOLINFO reference structure.' },
-      { k: 'TYPE', label: 'TYPE', type: 'select', def: 'DRMSD', options: ['DRMSD', 'OPTIMAL', 'SIMPLE'], help: 'How the RMSD to the ideal element is measured. DRMSD needs no WHOLEMOLECULES; OPTIMAL/SIMPLE do.' },
+      { k: 'TYPE', label: 'TYPE', type: 'select', def: 'DRMSD', options: ['DRMSD', 'OPTIMAL', 'SIMPLE'], help: 'How the RMSD to the ideal element is measured. Every type needs WHOLEMOLECULES from PLUMED 2.10; in 2.9 DRMSD makes the segments whole itself.' },
       { k: 'R_0', label: 'R_0 (nm)', type: 'num', def: '0.08', required: true, help: 'r_0 of the switching function. The reference value used in the original paper was 0.08 nm.' },
       { k: 'D_0', label: 'D_0 (nm)', type: 'num', def: '0.0' },
       { k: 'NN', label: 'NN', type: 'num', def: '8' },
@@ -387,11 +413,15 @@ export const CV_DEFS = {
   ANTIBETARMSD: {
     cat: 'rmsd', act: 'ANTIBETARMSD',
     prereq: 'wholemolecules', needsMolinfo: true,
-    prereqSkipIf: (inst) => String(inst.values.TYPE || '').toUpperCase() === 'DRMSD',
+    // Only 2.9 makes each segment whole for DRMSD. From 2.10 every structure
+    // goes through SECONDARY_STRUCTURE_RMSD with its strands aligned, which
+    // skips that step, so a molecule split by the box reads about zero.
+    prereqSkipIf: (inst, version) => before210(version) &&
+      String((inst.values || {}).TYPE || '').toUpperCase() === 'DRMSD',
     desc: 'Antiparallel beta-sheet content: counts six-residue segments resembling an idealised antiparallel beta sheet (bare label = number of segments). Needs MOLINFO.',
     fields: [
       { k: 'RESIDUES', label: 'RESIDUES', type: 'text', def: 'all', required: true, help: 'Residues that could form the sheet, "all" or a list. Requires a MOLINFO reference structure.' },
-      { k: 'TYPE', label: 'TYPE', type: 'select', def: 'DRMSD', options: ['DRMSD', 'OPTIMAL', 'SIMPLE'], help: 'RMSD metric. DRMSD needs no WHOLEMOLECULES; OPTIMAL/SIMPLE do.' },
+      { k: 'TYPE', label: 'TYPE', type: 'select', def: 'DRMSD', options: ['DRMSD', 'OPTIMAL', 'SIMPLE'], help: 'RMSD metric. Every type needs WHOLEMOLECULES from PLUMED 2.10; in 2.9 DRMSD makes the segments whole itself.' },
       { k: 'R_0', label: 'R_0 (nm)', type: 'num', def: '0.08', required: true, help: 'r_0 of the switching function (paper value 0.08 nm).' },
       { k: 'D_0', label: 'D_0 (nm)', type: 'num', def: '0.0' },
       { k: 'NN', label: 'NN', type: 'num', def: '8' },
@@ -404,11 +434,15 @@ export const CV_DEFS = {
   PARABETARMSD: {
     cat: 'rmsd', act: 'PARABETARMSD',
     prereq: 'wholemolecules', needsMolinfo: true,
-    prereqSkipIf: (inst) => String(inst.values.TYPE || '').toUpperCase() === 'DRMSD',
+    // Only 2.9 makes each segment whole for DRMSD. From 2.10 every structure
+    // goes through SECONDARY_STRUCTURE_RMSD with its strands aligned, which
+    // skips that step, so a molecule split by the box reads about zero.
+    prereqSkipIf: (inst, version) => before210(version) &&
+      String((inst.values || {}).TYPE || '').toUpperCase() === 'DRMSD',
     desc: 'Parallel beta-sheet content: counts six-residue segments resembling an idealised parallel beta sheet (bare label = number of segments). Needs MOLINFO.',
     fields: [
       { k: 'RESIDUES', label: 'RESIDUES', type: 'text', def: 'all', required: true, help: 'Residues that could form the sheet, "all" or a list. Requires a MOLINFO reference structure.' },
-      { k: 'TYPE', label: 'TYPE', type: 'select', def: 'DRMSD', options: ['DRMSD', 'OPTIMAL', 'SIMPLE'], help: 'RMSD metric. DRMSD needs no WHOLEMOLECULES; OPTIMAL/SIMPLE do.' },
+      { k: 'TYPE', label: 'TYPE', type: 'select', def: 'DRMSD', options: ['DRMSD', 'OPTIMAL', 'SIMPLE'], help: 'RMSD metric. Every type needs WHOLEMOLECULES from PLUMED 2.10; in 2.9 DRMSD makes the segments whole itself.' },
       { k: 'R_0', label: 'R_0 (nm)', type: 'num', def: '0.08', required: true, help: 'r_0 of the switching function (paper value 0.08 nm).' },
       { k: 'D_0', label: 'D_0 (nm)', type: 'num', def: '0.0' },
       { k: 'NN', label: 'NN', type: 'num', def: '8' },
@@ -419,9 +453,11 @@ export const CV_DEFS = {
     ]
   },
   ERMSD: {
-    cat: 'nucleic', desc: 'eRMSD for nucleic-acid structures vs a reference.',
+    cat: 'nucleic', desc: 'eRMSD for nucleic-acid structures vs a reference. Needs MOLINFO.',
+    needsMolinfo: true,
     fields: [
-      { k: 'REFERENCE', label: 'REFERENCE (.pdb)', type: 'text', def: 'ref.pdb', required: true },
+      { k: 'ATOMS', label: 'ATOMS (3 per nucleotide)', type: 'atoms', def: '@lcs-1,@lcs-2,@lcs-3,@lcs-4', required: true, help: 'Three atoms per nucleotide that set up its local frame: @lcs-N picks them for residue N from the MOLINFO structure. List every nucleotide that enters the eRMSD, e.g. @lcs-1,@lcs-2,...,@lcs-12; PLUMED needs at least two.' },
+      { k: 'REFERENCE', label: 'REFERENCE (.pdb)', type: 'text', def: 'ref.pdb', required: true, help: 'The reference structure, numbered like the system: PLUMED takes each atom of ATOMS from it by its number.' },
       { k: 'CUTOFF', label: 'CUTOFF', type: 'num', def: '2.4', help: 'Only pairs of nucleotides closer than this enter the eRMSD. It is measured in eRMSD\'s scaled, dimensionless distance, not in nm; the default is 2.4.' }
     ]
   },
@@ -486,9 +522,9 @@ export const CV_DEFS = {
     desc: 'Number of atoms within a defined first coordination sphere (multicolvar form). Critical for defining hydration shells.',
     switchSpeed: true, compStyle: 'dot',
     fields: [
-      { k: 'SPECIES', label: 'SPECIES', type: 'atoms', def: '1-100', required: true },
-      { k: 'SPECIESA', label: 'SPECIESA (opt.)', type: 'atoms', def: '' },
-      { k: 'SPECIESB', label: 'SPECIESB (opt.)', type: 'atoms', def: '' },
+      { k: 'SPECIES', label: 'SPECIES', type: 'atoms', def: '1-100', required: true, excludedBy: ['SPECIESA', 'SPECIESB'], help: 'The atoms whose coordination number is computed, counting neighbours among the same atoms. Left out when SPECIESA and SPECIESB are given: PLUMED reads SPECIES first and would ignore the pair.' },
+      { k: 'SPECIESA', label: 'SPECIESA (opt.)', type: 'atoms', def: '', pairedWith: 'SPECIESB', help: 'The atoms whose coordination number is computed, when their neighbours are counted in SPECIESB. Replaces SPECIES.' },
+      { k: 'SPECIESB', label: 'SPECIESB (opt.)', type: 'atoms', def: '', pairedWith: 'SPECIESA', help: 'The atoms counted as neighbours of each SPECIESA atom. Needs SPECIESA.' },
       { k: 'R_0', label: 'R_0 (nm)', type: 'num', def: '0.3', required: true },
       { k: 'D_0', label: 'D_0 (nm)', type: 'num', def: '0.0' },
       { k: 'NN', label: 'NN', type: 'num', def: '6' },
@@ -499,7 +535,7 @@ export const CV_DEFS = {
     ]
   },
   COORDINATION_MOMENTS: {
-    cat: 'contacts', minVersion: '2.10', fallback: 'COORDINATIONNUMBER with R_POWER and MOMENTS', act: 'COORDINATION_MOMENTS',
+    cat: 'contacts', minVersion: '2.10', olderHint: 'COORDINATIONNUMBER with R_POWER and MOMENTS', act: 'COORDINATION_MOMENTS',
     desc: 'Moments of the distance distribution in the first coordination sphere.',
     switchSpeed: true, compStyle: 'dot',
     fields: [
@@ -598,7 +634,7 @@ export const CV_DEFS = {
     ]
   },
   ATOMIC_SMAC: {
-    cat: 'order', minVersion: '2.10', fallback: 'SMAC (molecular SMAC)', act: 'ATOMIC_SMAC',
+    cat: 'order', minVersion: '2.10', olderHint: 'SMAC (molecular SMAC)', act: 'ATOMIC_SMAC',
     desc: 'Atomic SMAC: whether the environment is ordered, from the distribution of angles between bonds in the first coordination sphere.',
     compStyle: 'dot',
     fields: [
@@ -681,7 +717,7 @@ export const CV_DEFS = {
     ]
   },
   COORD_ANGLES: {
-    cat: 'contacts', minVersion: '2.10', fallback: 'ANGLES with GROUP and SWITCH', act: 'COORD_ANGLES', compStyle: 'underscore',
+    cat: 'contacts', minVersion: '2.10', olderHint: 'ANGLES with GROUPA, GROUPB and SWITCH', act: 'COORD_ANGLES', compStyle: 'underscore',
     desc: 'Functions of the distribution of angles between bonds in the first coordination spheres of a set of central atoms.',
     fields: [
       { k: 'CATOMS', label: 'CATOMS (central)', type: 'atoms', def: '1', required: true, help: 'Central atoms; all angles between the bonds radiating from each are computed.' },
@@ -691,6 +727,9 @@ export const CV_DEFS = {
   },
   INPLANEDISTANCES: {
     cat: 'geometry', act: 'INPLANEDISTANCES', compStyle: 'underscore',
+    // Counting the atoms inside a cylinder is what the entry is for, and
+    // PLUMED 2.9 aborts on its MEAN (a linked-cell assertion).
+    seed: { LESS_THAN: '{RATIONAL R_0=0.5 D_MAX=1.0}' },
     desc: 'Perpendicular distances between a group of atoms and an axis (defined by two atoms), i.e. distances within the plane perpendicular to that axis.',
     fields: [
       { k: 'VECTORSTART', label: 'VECTORSTART', type: 'atoms', def: '1', required: true, help: 'First atom defining the axis.' },
@@ -717,13 +756,15 @@ export const CV_DEFS = {
     ]
   },
   MASS: {
-    cat: 'custom', minVersion: '2.10', desc: 'Extracts the masses of one or multiple atoms.',
+    // A constant (a vector from 2.10), not a function of the coordinates:
+    // biasing it does nothing, and next to a scalar CV RESTRAINT stops.
+    cat: 'custom', minVersion: '2.10', noBias: true, desc: 'Extracts the masses of one or multiple atoms. Not biased itself; use it inside a CUSTOM expression.',
     fields: [
       { k: 'ATOMS', label: 'ATOMS', type: 'atoms', def: '1', required: true }
     ]
   },
   CHARGE: {
-    cat: 'custom', minVersion: '2.10', desc: 'Extracts the charges of one or multiple atoms.',
+    cat: 'custom', minVersion: '2.10', noBias: true, desc: 'Extracts the charges of one or multiple atoms. Not biased itself; use it inside a CUSTOM expression.',
     fields: [
       { k: 'ATOMS', label: 'ATOMS', type: 'atoms', def: '1', required: true }
     ]
@@ -820,37 +861,52 @@ export const BIAS_CATEGORIES = {
   'restraint':'Restraints & walls'
 };
 
-/** Bias methods and their editable parameters. `perCV` parameters take one value per biased argument. */
+const LABEL_HELP = 'The label of the bias line, which its values are printed under (label.bias). Change it when another line already uses the name.';
+const HILLS_HELP = 'File the hills are written to, and read back from when the run is restarted.';
+
+/**
+ * Bias methods and their editable parameters. `perCV` parameters take one
+ * value per biased argument; `LABEL` is the label of the line, not a keyword.
+ */
 export const BIAS_DEFS = {
   none:      { cat: 'none',  label: 'None (track CVs only)', params: [] },
   metad: { cat: 'metad', action: 'METAD', label: 'Metadynamics (standard)', params: [
+    { k: 'LABEL', label: 'Label', def: 'metad', help: LABEL_HELP },
     { k: 'HEIGHT', label: 'HEIGHT', def: '1.2', help: 'Height of the Gaussian hills, in energy units. Larger hills fill the surface faster but converge less precisely.' },
-    { k: 'PACE', label: 'PACE', def: '500', help: 'How often (in MD steps) a hill is deposited. Smaller = more frequent, faster filling but more overhead.' }
+    { k: 'PACE', label: 'PACE', def: '500', help: 'How often (in MD steps) a hill is deposited. Smaller = more frequent, faster filling but more overhead.' },
+    { k: 'FILE', label: 'FILE', def: 'HILLS', help: HILLS_HELP }
   ]},
   wt_metad: { cat: 'metad', action: 'METAD', label: 'Well-Tempered Metadynamics', params: [
+    { k: 'LABEL', label: 'Label', def: 'metad', help: LABEL_HELP },
     { k: 'HEIGHT', label: 'HEIGHT', def: '1.2', help: 'Initial hill height (energy units). In well-tempered MetaD the height is progressively scaled down.' },
     { k: 'PACE', label: 'PACE', def: '500', help: 'Steps between hill deposition.' },
     { k: 'BIASFACTOR', label: 'BIASFACTOR', def: '10', help: 'Well-tempered bias factor γ. Higher = explores higher free-energy barriers; typical range 5–20. Needs TEMP.' },
-    { k: 'TEMP', label: 'TEMP (K)', def: '', fallback: 'plumedTemp', help: 'System temperature. Required for well-tempered metadynamics. Leave blank to use the global TEMP above.' }
+    { k: 'TEMP', label: 'TEMP (K)', def: '', fallback: 'plumedTemp', help: 'System temperature. Required for well-tempered metadynamics. Leave blank to use the global TEMP above.' },
+    { k: 'FILE', label: 'FILE', def: 'HILLS', help: HILLS_HELP }
   ]},
   pbmetad: { cat: 'metad', action: 'PBMETAD', label: 'Parallel-Bias Metadynamics (PBMETAD)', params: [
+    { k: 'LABEL', label: 'Label', def: 'pb', help: LABEL_HELP },
     { k: 'HEIGHT', label: 'HEIGHT', def: '1.2', help: 'Initial hill height (energy units).' },
     { k: 'PACE', label: 'PACE', def: '500', help: 'Steps between hill deposition.' },
     { k: 'BIASFACTOR', label: 'BIASFACTOR', def: '10', help: 'Well-tempered bias factor γ (typical 5–20).' },
     { k: 'TEMP', label: 'TEMP (K)', def: '', fallback: 'plumedTemp', help: 'System temperature. Leave blank to use the global TEMP above.' }
   ]},
   opes: { cat: 'metad', action: 'OPES_METAD', label: 'OPES (probability enhanced)', params: [
+    { k: 'LABEL', label: 'Label', def: 'opes', help: LABEL_HELP },
     { k: 'PACE', label: 'PACE', def: '500', help: 'How often (steps) a kernel is deposited.' },
     { k: 'BARRIER', label: 'BARRIER', def: '30', help: 'The largest free-energy barrier (energy units) you expect to cross. The single most important OPES setting, it also sets BIASFACTOR, EPSILON and KERNEL_CUTOFF to sensible values. Set it a bit above your estimated barrier.' },
     { k: 'TEMP', label: 'TEMP (K)', def: '', fallback: 'plumedTemp', help: 'System temperature. Leave blank to use the global TEMP above.' },
-    { k: 'SIGMA', label: 'SIGMA', def: 'ADAPTIVE', help: 'Initial kernel widths. Leave as ADAPTIVE (recommended) to let OPES estimate them from the fluctuations; or give one value per biased CV to fix them.' }
+    { k: 'SIGMA', label: 'SIGMA', def: 'ADAPTIVE', help: 'Initial kernel widths. Leave as ADAPTIVE (recommended) to let OPES estimate them from the fluctuations; or give one value per biased CV to fix them.' },
+    { k: 'FILE', label: 'FILE', def: 'Kernels.data', help: 'File the compressed kernels are written to. A restart reads the state file, which is exact, rather than this one.' }
   ]},
   restraint: { cat: 'restraint', action: 'RESTRAINT', label: 'Harmonic RESTRAINT (umbrella)', params: [
+    { k: 'LABEL', label: 'Label', def: 'restraint', help: LABEL_HELP },
     { k: 'AT', label: 'AT', def: '0.0', perCV: true, help: 'The centre of the restraint for each CV, the value it is pulled toward.' },
     { k: 'KAPPA', label: 'KAPPA', def: '200', perCV: true, help: 'Harmonic force constant per CV (energy per CV-unit²). Larger = stiffer restraint.' },
     { k: 'SLOPE', label: 'SLOPE', def: '', perCV: true, help: 'Optional linear term per CV (energy per CV-unit); adds a constant force. Leave blank for a pure harmonic restraint.' }
   ]},
   moving: { cat: 'restraint', action: 'MOVINGRESTRAINT', label: 'MOVINGRESTRAINT (steered MD)', params: [
+    { k: 'LABEL', label: 'Label', def: 'steer', help: LABEL_HELP },
     { k: 'STEP0', label: 'STEP0', def: '0', help: 'MD step at which the restraint takes the AT0/KAPPA0 values (the start of the pulling schedule).' },
     { k: 'AT0', label: 'AT0', def: '0.0', perCV: true, help: 'Restraint centre per CV at STEP0 (the starting position).' },
     { k: 'KAPPA0', label: 'KAPPA0', def: '0', perCV: true, help: 'Force constant per CV at STEP0. Often 0 so the pull ramps up.' },
@@ -859,20 +915,23 @@ export const BIAS_DEFS = {
     { k: 'KAPPA1', label: 'KAPPA1', def: '200', perCV: true, help: 'Force constant per CV at STEP1.' }
   ]},
   upper: { cat: 'restraint', action: 'UPPER_WALLS', label: 'UPPER_WALLS', params: [
-    { k: 'AT', label: 'AT', def: '2.0', perCV: true, help: 'Position of the wall per CV. The potential is felt when the CV goes above this value.' },
+    { k: 'LABEL', label: 'Label', def: 'uwall', help: LABEL_HELP },
+    { k: 'AT', label: 'AT', def: '2.0', perCV: true, help: 'Position of the wall per CV. The potential is felt when the CV goes above this value (above AT − OFFSET when OFFSET is set).' },
     { k: 'KAPPA', label: 'KAPPA', def: '150', perCV: true, help: 'Force constant of the wall per CV (energy per CV-unit²).' },
     { k: 'EXP', label: 'EXP', def: '2', perCV: true, help: 'Exponent of the wall potential (2 = harmonic; higher = steeper/stiffer).' },
     { k: 'EPS', label: 'EPS', def: '1', perCV: true, help: 'Rescaling factor inside the wall expression (usually 1).' },
-    { k: 'OFFSET', label: 'OFFSET', def: '0', perCV: true, help: 'Offset added to the wall position (shifts where the potential starts).' }
+    { k: 'OFFSET', label: 'OFFSET', def: '0', perCV: true, help: 'Moves the start of the wall down to AT − OFFSET, without moving AT: the upper wall acts above AT − OFFSET.' }
   ]},
   lower: { cat: 'restraint', action: 'LOWER_WALLS', label: 'LOWER_WALLS', params: [
-    { k: 'AT', label: 'AT', def: '0.2', perCV: true, help: 'Position of the wall per CV. The potential is felt when the CV goes below this value.' },
+    { k: 'LABEL', label: 'Label', def: 'lwall', help: LABEL_HELP },
+    { k: 'AT', label: 'AT', def: '0.2', perCV: true, help: 'Position of the wall per CV. The potential is felt when the CV goes below this value (below AT + OFFSET when OFFSET is set).' },
     { k: 'KAPPA', label: 'KAPPA', def: '150', perCV: true, help: 'Force constant of the wall per CV (energy per CV-unit²).' },
     { k: 'EXP', label: 'EXP', def: '2', perCV: true, help: 'Exponent of the wall potential (2 = harmonic; higher = steeper).' },
     { k: 'EPS', label: 'EPS', def: '1', perCV: true, help: 'Rescaling factor inside the wall expression (usually 1).' },
-    { k: 'OFFSET', label: 'OFFSET', def: '0', perCV: true, help: 'Offset added to the wall position.' }
+    { k: 'OFFSET', label: 'OFFSET', def: '0', perCV: true, help: 'Moves the start of the wall up to AT + OFFSET, without moving AT: the lower wall acts below AT + OFFSET.' }
   ]},
   abmd: { cat: 'restraint', action: 'ABMD', label: 'ABMD (ratchet)', params: [
+    { k: 'LABEL', label: 'Label', def: 'abmd', help: LABEL_HELP },
     { k: 'TO', label: 'TO', def: '0.0', perCV: true, help: 'Target value per CV the ratchet moves toward. The restraint only tightens as the CV approaches TO, it never pushes backward.' },
     { k: 'KAPPA', label: 'KAPPA', def: '50', perCV: true, help: 'Force constant per CV of the moving (ratchet) restraint.' },
     { k: 'NOISE', label: 'NOISE', def: '', perCV: true, help: 'Optional white-noise intensity per CV, effectively adds a temperature to the ABMD so it can occasionally relax backward. Leave blank for a strict ratchet.' }

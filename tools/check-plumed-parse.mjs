@@ -8,8 +8,12 @@
  * approximate: it resolves shortcuts, reads reference files and checks that
  * every printed component exists.
  *
+ * Parsing is not running: PLANE and DIHEDRAL_CORRELATION once parsed and then
+ * aborted or crashed on the first step. With --run every input is also
+ * computed on two frames of a small made-up trajectory, which catches that.
+ *
  *     PLUMED_BINS="2.9=/path/plumed-2.9,2.10=/path/plumed-2.10" \
- *         node tools/check-plumed-parse.mjs [--verbose] [--keep]
+ *         node tools/check-plumed-parse.mjs [--run] [--verbose] [--keep]
  *
  * Exits 0 when nothing fails, or when PLUMED_BINS is unset (nothing to check).
  */
@@ -26,6 +30,7 @@ import { loadSyntax } from '../src/core/plumed-syntax.js';
 
 const verbose = process.argv.includes('--verbose');
 const keep = process.argv.includes('--keep');
+const runFrames = process.argv.includes('--run');
 
 const bins = {};
 for (const pair of String(process.env.PLUMED_BINS || '').split(',').filter(Boolean)) {
@@ -60,6 +65,40 @@ function peptide(shift = 0) {
   return out;
 }
 
+/* A short RNA, residues RG RC RG RC, with the atoms @lcs-N picks (C2, C4,
+   C6) and a few more, for ERMSD. */
+function rna() {
+  const out = [];
+  let serial = 1;
+  ['RG', 'RC', 'RG', 'RC'].forEach((res, r) => {
+    for (const [i, name] of ['P', "C4'", 'N1', 'C2', 'C4', 'C6'].entries()) {
+      out.push(pdbLine(serial++, name, res, r + 1,
+        (r + 1) * 6.0 + i * 0.9, Math.sin(r + i) * 2.5, Math.cos(r * 2 + i) * 2.5));
+    }
+  });
+  return out;
+}
+
+/* Two frames of NATOMS atoms on a slightly jittered simple-cubic lattice of
+   0.25 nm, in a periodic box it fills, so that every atom has the four
+   neighbours within 0.5 nm that the tetrahedral order parameters need and no
+   three atoms are collinear. Only the running is checked, not the values. */
+function trajectory() {
+  const side = Math.ceil(Math.cbrt(NATOMS));
+  const a = 0.25;
+  const frames = [];
+  for (let f = 0; f < 2; f++) {
+    const lines = [String(NATOMS), `${(side * a).toFixed(3)} ${(side * a).toFixed(3)} ${(side * a).toFixed(3)}`];
+    for (let i = 0; i < NATOMS; i++) {
+      const g = [i % side, Math.floor(i / side) % side, Math.floor(i / (side * side))];
+      const x = g.map((n, d) => n * a + 0.02 * Math.sin(1.7 * i + 2.3 * d + 0.5 * f) + 0.01);
+      lines.push(`X ${x.map(v => v.toFixed(4)).join(' ')}`);
+    }
+    frames.push(lines.join('\n'));
+  }
+  return frames.join('\n');
+}
+
 function frame(shift, remark) {
   const lines = remark ? [remark] : [];
   for (let i = 1; i <= 10; i++) {
@@ -83,18 +122,29 @@ function writeFixtures(dir) {
   w('average.pdb', frame(0));
   w('eigenvec.pdb', [1, 2].map(s => frame(s)).join('\n'));
   w('centers.dat', 'c1: CENTER ATOMS=1,2\nc2: CENTER ATOMS=3,4');
+  w('rna.pdb', [...rna(), 'END'].join('\n'));
+  w('traj.xyz', trajectory());
 }
 
 /* ---- cases ---- */
 
 /* Entries that read files this script cannot write a stand-in for. */
 const SKIP = {
-  GHBFIX: 'reads force-field parameter tables',
-  ERMSD: 'reads a nucleic-acid reference structure'
+  GHBFIX: 'reads force-field parameter tables'
 };
 
-/* Starting values that refer to more atoms than the stand-in structure has. */
-const FIXTURE_VALUES = { EEFSOLV: { ATOMS: '1-60' } };
+/* Cases that parse but cannot be computed here, by release. The driver has
+   no MD engine, and PLUMED 2.9's INPLANEDISTANCES aborts or crashes depending
+   on the reduction and the geometry, which the builder warns about. */
+const RUN_SKIP = {
+  '*': ['cv ENERGY', 'cv EXTRACV'],
+  '2.9': ['cv INPLANEDISTANCES', 'cv INPLANEDISTANCES (reductions)']
+};
+
+/* Starting values that name files other than the ones an entry expects. */
+const FIXTURE_VALUES = { ERMSD: { REFERENCE: 'rna.pdb' } };
+/* The structure MOLINFO reads, when it is not the peptide. */
+const MOLINFO_FOR = { ERMSD: 'rna.pdb' };
 
 /* Actions an entry refers to by label, defined first. */
 function needsFor(type, version) {
@@ -125,8 +175,8 @@ function cvCases(version, syntax) {
     for (const pick of picks) {
       const config = { version, syntax, natoms: NATOMS, cvs: [], bias: { method: 'none' } };
       if (def.needsMolinfo || def.prereq) {
-        config.molinfo = { structure: 'reference.pdb' };
-        config.whole = { enabled: true, entities: ['1-60'] };
+        config.molinfo = { structure: MOLINFO_FOR[type] || 'reference.pdb' };
+        if (!MOLINFO_FOR[type]) config.whole = { enabled: true, entities: ['1-60'] };
       }
       for (const need of needsFor(type, version)) {
         const dep = createCV(need.type, ++seq, { version, syntax, label: need.label, values: need.values });
@@ -242,14 +292,17 @@ function parse(bin, dir, input) {
     if (!FIXTURES.has(f)) fs.rmSync(path.join(dir, f), { recursive: true, force: true });
   }
   fs.writeFileSync(path.join(dir, 'plumed.dat'), input);
+  const args = runFrames
+    ? ['driver', '--ixyz', 'traj.xyz', '--plumed', 'plumed.dat']
+    : ['driver', '--natoms', String(NATOMS), '--parse-only', '--plumed', 'plumed.dat'];
   try {
-    execFileSync(bin, ['driver', '--natoms', String(NATOMS), '--parse-only', '--plumed', 'plumed.dat'],
+    execFileSync(bin, args,
       { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 60000 });
     return '';
   } catch (e) {
     const out = `${e.stdout || ''}\n${e.stderr || ''}`;
     const lines = out.split('\n').map(l => l.replace(/^PLUMED:\s?/, '').trim());
-    const at = lines.findIndex(l => /ERROR|error/.test(l));
+    const at = lines.findIndex(l => /ERROR|error|assertion failed|Segmentation fault/.test(l));
     return (at > -1 ? lines.slice(at, at + 3) : lines.slice(-6)).filter(Boolean).join(' / ')
       .slice(0, 400) || 'failed without a message';
   }
@@ -264,6 +317,7 @@ for (const version of Object.keys(bins)) {
   const cases = [...cvCases(version, syntax), ...biasCases(version, syntax), ...otherCases(version, syntax)];
   let bad = 0;
   for (const c of cases) {
+    if (runFrames && [...RUN_SKIP['*'], ...(RUN_SKIP[version] || [])].includes(c.name)) continue;
     const { input } = generatePlumedInput(c.config);
     const error = parse(bins[version], dir, input);
     total += 1;
@@ -273,10 +327,13 @@ for (const version of Object.keys(bins)) {
       if (verbose) console.log(input.split('\n').filter(l => l && !l.startsWith('#')).map(l => `      | ${l}`).join('\n'));
     }
   }
-  console.log(`PLUMED ${version}: ${cases.length - bad} of ${cases.length} inputs parse.`);
+  const tried = runFrames
+    ? cases.filter(c => ![...RUN_SKIP['*'], ...(RUN_SKIP[version] || [])].includes(c.name)).length
+    : cases.length;
+  console.log(`PLUMED ${version}: ${tried - bad} of ${tried} inputs ${runFrames ? 'run' : 'parse'}.`);
   failed += bad;
   if (keep) console.log(`  files kept in ${dir}`);
   else fs.rmSync(dir, { recursive: true, force: true });
 }
-console.log(failed ? `${failed} of ${total} failed.` : `All ${total} inputs parse.`);
+console.log(failed ? `${failed} of ${total} failed.` : `All ${total} inputs ${runFrames ? 'run' : 'parse'}.`);
 process.exit(failed ? 1 : 0);

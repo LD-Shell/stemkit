@@ -80,6 +80,61 @@ describe('words', () => {
     expect(splitWords('X={a}').unbalanced).toBe(false);
   });
 
+  test('tells a stray `}` from a `{` left open', () => {
+    expect(splitWords('X=a}').extraClose).toBe(true);
+    expect(splitWords('X={a b').extraClose).toBe(false);
+    expect(splitWords('X={a}').extraClose).toBe(false);
+  });
+});
+
+describe('messages that give the right reason', () => {
+  const errors = (text) => parsePlumedInput(text).errors;
+
+  test('`d:DISTANCE` needs a space after the colon, and the label still counts', () => {
+    // PLUMED reads one word and stops: Action "D:DISTANCE" is not known.
+    const text = 'd:DISTANCE ATOMS=1,2\nPRINT ARG=d FILE=COLVAR STRIDE=100\n';
+    const r = parsePlumedInput(text);
+    expect(r.errors).toHaveLength(1);
+    expect(r.errors[0].text).toContain('`d:DISTANCE` needs a space after the colon: write `d: DISTANCE`.');
+    expect(r.errors[0].text).not.toMatch(/capitals/);
+    expect(r.actions[0]).toMatchObject({ label: 'd', action: 'DISTANCE' });
+    const lint = lintPlumedInput(text);
+    expect(lint.issues.filter(i => i.level === 'error')).toHaveLength(1);
+    expect(lint.issues.some(i => /nothing in the file defines/.test(i.text))).toBe(false);
+  });
+
+  test('`METAD...` needs a space before the dots, and is read as the block it opens', () => {
+    const text = 'd: DISTANCE ATOMS=1,2\nmetad: METAD...\n  ARG=d PACE=500 HEIGHT=1 SIGMA=0.1\n...\n';
+    const r = parsePlumedInput(text);
+    expect(r.errors.map(e => e.line)).toEqual([2]);
+    expect(r.errors[0].text).toContain('`METAD...` needs a space before the dots: write `metad: METAD ...`.');
+    expect(r.actions[1]).toMatchObject({ label: 'metad', action: 'METAD', block: true, endLine: 4 });
+    expect(r.actions[1].keywords.map(k => k.key)).toEqual(['ARG', 'PACE', 'HEIGHT', 'SIGMA']);
+    // With words after it, the fix moves the dots to the end of the line.
+    const later = errors('d: DISTANCE ATOMS=1,2\nMETAD... LABEL=m\n  ARG=d\n...\n');
+    expect(later).toHaveLength(1);
+    expect(later[0].text).toContain('write `METAD LABEL=m ...`');
+    // A spaced block, and `...` alone, are not touched.
+    expect(errors('d: DISTANCE ATOMS=1,2\nm: METAD ...\n  ARG=d\n...\n')).toEqual([]);
+  });
+
+  test('a stray `}` is named as one, once', () => {
+    // PLUMED: "Extra closed parenthesis in 'd: DISTANCE ATOMS=1,2 }'".
+    const text = 'd: DISTANCE ATOMS=1,2 }\nPRINT ARG=d FILE=COLVAR STRIDE=100\n';
+    const r = errors(text);
+    expect(r).toHaveLength(1);
+    expect(r[0].text).toBe('Unbalanced braces: a `}` on this line closes no `{`. ' +
+      'PLUMED stops here ("Extra closed parenthesis").');
+    expect(errors('d: DISTANCE ...\n  ATOMS=1,2 }\n...\n')[0].text)
+      .toBe('Unbalanced braces: a `}` closes no `{`. PLUMED stops here ("Extra closed parenthesis").');
+    // The brace is not taken for a keyword as well.
+    expect(lintPlumedInput(text).issues.filter(i => i.level === 'error')).toHaveLength(1);
+    expect(errors('c: COORDINATION GROUPA=1 GROUPB=2 SWITCH={RATIONAL R_0=0.3\n')[0].text)
+      .toContain('A `{` opened on this line is not closed on it.');
+  });
+});
+
+describe('keywords', () => {
   test('a keyword is a flag or a key and a value', () => {
     expect(splitKeyword('NOPBC')).toEqual({ key: 'NOPBC', value: null, braced: false });
     expect(splitKeyword('ATOMS=1,2')).toEqual({ key: 'ATOMS', value: '1,2', braced: false });
@@ -123,13 +178,17 @@ describe('parsePlumedInput', () => {
     expect(parsePlumedInput('... METAD').errors[0].text).toContain('no block is open');
   });
 
-  test('a brace may stay open over several lines', () => {
+  test('a brace may stay open over several lines only inside a block', () => {
     const { actions, errors } = parsePlumedInput('c: COORDINATION ...\nGROUPA={\n1\n2\n}\nR_0=0.3\n...');
     expect(errors).toEqual([]);
     expect(keywordValue(actions[0], 'GROUPA')).toBe('1 2');
+    // PLUMED 2.11 stops here: "non matching parenthesis". The lines the brace
+    // swallows are read with it, so the mistake is reported once.
     const bare = parsePlumedInput('g: GROUP ATOMS={1\n2 3}\nd: DISTANCE ATOMS=1,2');
-    expect(bare.errors).toEqual([]);
-    expect(bare.actions).toHaveLength(2);
+    expect(bare.errors).toHaveLength(1);
+    expect(bare.errors[0]).toMatchObject({ line: 1 });
+    expect(bare.errors[0].text).toContain('non matching parenthesis');
+    expect(bare.actions.map(a => a.label)).toEqual(['g', 'd']);
   });
 
   test('names and keywords may be written in either case', () => {
@@ -207,15 +266,17 @@ describe('lintPlumedInput', () => {
     expect(typo.issues[0].text).toContain('Did you mean `DISTANCE`?');
     const far = lintPlumedInput('d: SOMETHING_ELSE ATOMS=1,2', { syntax });
     expect(far.issues[0].level).toBe('warning');
-    // A LOAD file explains a name that is new, not one that is a letter off.
+    // With a LOAD, an unknown action may come from the loaded file, however
+    // close its name is to a built-in one: DISTANCE2 is copied from DISTANCE.
     const loaded = lintPlumedInput('LOAD FILE=a.cpp\nd: DISTANSE ATOMS=1,2\ne: MANY_ANGLE CENTER=1-9', { syntax });
-    expect(loaded.issues.map(i => i.level)).toEqual(['error', 'note']);
+    expect(loaded.issues.map(i => i.level)).toEqual(['note', 'note']);
+    expect(loaded.issues[0].text).toContain('did you mean `DISTANCE`?');
   });
 
   test('an unknown keyword, and numbered ones that are known', async () => {
     const syntax = await loadSyntax('2.10');
     const r = lintPlumedInput('d: DISTANCE ATOM=1,2', { syntax });
-    expect(texts(r, 'warning')[0]).toContain('Did you mean `ATOMS`?');
+    expect(texts(r, 'error')[0]).toContain('Did you mean `ATOMS`?');
     const ok = lintPlumedInput(
       'c: COORDINATIONNUMBER SPECIES=1-10 SWITCH={RATIONAL R_0=0.3} MORE_THAN1={RATIONAL R_0=2} MORE_THAN2={RATIONAL R_0=4}',
       { syntax });
@@ -224,8 +285,8 @@ describe('lintPlumedInput', () => {
 
   test('a keyword one release has and another lacks', async () => {
     const line = 'k: CONSTANT VALUE=1.0 NODERIV';
-    expect(lintPlumedInput(line, { syntax: await loadSyntax('2.9') }).summary.warnings).toBe(0);
-    expect(lintPlumedInput(line, { syntax: await loadSyntax('2.10') }).summary.warnings).toBe(1);
+    expect(lintPlumedInput(line, { syntax: await loadSyntax('2.9') }).summary.errors).toBe(0);
+    expect(lintPlumedInput(line, { syntax: await loadSyntax('2.10') }).summary.errors).toBe(1);
   });
 
   test('a flag given a value, a value missing', async () => {
@@ -237,7 +298,8 @@ describe('lintPlumedInput', () => {
   test('labels: twice, with a dot', () => {
     const r = lintPlumedInput('d: DISTANCE ATOMS=1,2\nd: DISTANCE ATOMS=3,4\na.b: DISTANCE ATOMS=1,2');
     expect(texts(r, 'error').some(t => t.includes('used twice, first on line 1'))).toBe(true);
-    expect(texts(r, 'error').some(t => t.includes('contains a dot'))).toBe(true);
+    // PLUMED accepts a dotted label with a warning; only a reference to it fails.
+    expect(texts(r, 'warning').some(t => t.includes('contains a dot'))).toBe(true);
   });
 
   test('an argument nothing defines, or defined too late', () => {
@@ -259,7 +321,7 @@ describe('lintPlumedInput', () => {
     expect(texts(lintPlumedInput('d: DISTANCE ATOMS=0,1', { syntax }))[0]).toContain('counts atoms from 1');
     expect(texts(lintPlumedInput('d: DISTANCE ATOMS=1,500', { syntax, natoms: 100 }))[0])
       .toContain('names atom 500, but the system has 100 atoms');
-    expect(texts(lintPlumedInput('d: DISTANCE ATOMS=1-2400:8', { syntax, natoms: 2400 }))).toEqual([]);
+    expect(texts(lintPlumedInput('c: COM ATOMS=1-2400:8', { syntax, natoms: 2400 }))).toEqual([]);
     expect(texts(lintPlumedInput('d: DISTANCE ATOMS=c1,2', { syntax }))[0]).toContain('not a group or a centre');
     expect(texts(lintPlumedInput('c1: CENTER ATOMS=1-5\nd: DISTANCE ATOMS=c1,20', { syntax }))).toEqual([]);
   });
@@ -488,5 +550,184 @@ describe('importPlumedInput', () => {
     expect(config.bias.method).toBe('none');
     expect(config.prints).toHaveLength(1);
     expect(notes).toEqual([]);
+  });
+});
+
+/*
+ * The checker against PLUMED 2.11 itself: each input below is one PLUMED
+ * stops on (an error is expected) or runs (none is), as found by running
+ * `plumed driver --parse-only` on it.
+ */
+describe('agrees with PLUMED on what stops it', () => {
+  let syntax;
+  const lint = async (t, v = '2.11') => lintPlumedInput(t, { syntax: syntax && v === '2.11' ? syntax : await loadSyntax(v) });
+  const errors = async (t, v) => (await lint(t, v)).issues.filter(i => i.level === 'error').map(i => i.text);
+  const loud = async (t, v) => (await lint(t, v)).issues.filter(i => i.level !== 'note').map(i => i.text);
+  const PRINT = '\nPRINT ARG=d FILE=colvar STRIDE=100\n';
+
+  test.each([
+    ['a flag in the wrong case (#24)', 'd: DISTANCE ATOMS=1,2 components\nPRINT ARG=d.x FILE=colvar STRIDE=100', 'written `COMPONENTS`'],
+    ['an action alone on a line in lower case (#24)', `restart\nd: DISTANCE ATOMS=1,2${PRINT}`, 'write `RESTART`'],
+    ['a switching-function type in lower case (#24)', 'c: COORDINATION GROUPA=1-10 GROUPB=11-20 SWITCH={rational R_0=0.3}', 'exactly as written: `RATIONAL`'],
+    ['a brace left open outside a block (#25)', `g: GROUP ATOMS={1\n2 3}\nd: DISTANCE ATOMS=1,2${PRINT}`, 'non matching parenthesis'],
+    ['a compulsory keyword left out (#26)', 'd: DISTANCE ATOMS=1,2\nm: METAD ARG=d PACE=500 HEIGHT=1.2 GRID_MIN=0 GRID_MAX=3', '`METAD` needs `SIGMA`'],
+    ['the keyword a shortcut hands on left out (#26)', 'd: DISTANCE ATOMS=1,2\nr: RESTRAINT ARG=d KAPPA=10', '`RESTRAINT` needs `AT`'],
+    ['a label with a digit added (#27)', `d: DISTANCE ATOMS=1,2\nPRINT ARG=d1 FILE=colvar`, 'uses `d1`, which nothing'],
+    ['a label with a suffix it does not make (#27)', 'phi: TORSION ATOMS=1,2,3,4\nPRINT ARG=phi_1 FILE=colvar', 'uses `phi_1`'],
+    ['a component without its flag (#27)', 'd: DISTANCE ATOMS=1,2\nPRINT ARG=d.x FILE=colvar', 'exists only when `d` sets `COMPONENTS`'],
+    ['a bias component without its flag (#27)', 'd: DISTANCE ATOMS=1,2\nm: METAD ARG=d SIGMA=0.1 HEIGHT=1.2 PACE=500\nPRINT ARG=m.rbias FILE=colvar', 'sets `CALC_RCT`'],
+    ['a wildcard of nothing (#27)', 'd: DISTANCE ATOMS=1,2\nPRINT ARG=e.* FILE=colvar', 'uses `e.*`'],
+    ['a setup action after DEBUG (#28)', `DEBUG DETAILED_TIMERS\nUNITS LENGTH=A\nd: DISTANCE ATOMS=1,2${PRINT}`, 'is a setup action'],
+    ['a labelled UNITS (#28)', `u: UNITS LENGTH=A\nd: DISTANCE ATOMS=1,2${PRINT}`, 'takes no label'],
+    ['SERIAL where it is not registered (#29)', `d: DISTANCE ATOMS=1,2 SERIAL${PRINT}`, '`SERIAL` is not a keyword of `DISTANCE`'],
+    ['NOPBC on METAD (#29)', 'd: DISTANCE ATOMS=1,2\nm: METAD ARG=d SIGMA=0.1 HEIGHT=1 PACE=500 NOPBC', '`NOPBC` is not a keyword of `METAD`'],
+    ['a word a switching function does not take (#30)', 'c: COORDINATION GROUPA=1-10 GROUPB=11-20 SWITCH={RATIONAL R0=0.3}', '`R0=0.3`'],
+    ['an unknown switching-function type (#30)', 'c: COORDINATION GROUPA=1-10 GROUPB=11-20 SWITCH={RATIONALE R_0=0.3}', 'does not know'],
+    ['a switching function without R_0 (#30)', 'c: COORDINATION GROUPA=1-10 GROUPB=11-20 SWITCH={RATIONAL D_0=0.3}', 'has no `R_0`'],
+    ['an atom name selection without MOLINFO (#31)', 'g: GROUP ATOMS=@CA-2', 'needs a `MOLINFO`'],
+    ['a no-break space between words (#32)', `d: DISTANCE ATOMS=1,2 NOPBC${PRINT}`, 'no-break space (U+00A0)'],
+    ['one KAPPA for two arguments (#34)', 'd1: DISTANCE ATOMS=1,2\nd2: DISTANCE ATOMS=3,4\nr: RESTRAINT ARG=d1,d2 AT=1,1 KAPPA=10', 'has 2 arguments but `KAPPA` has 1 value'],
+    ['a flag given a value (#34)', `d: DISTANCE ATOMS=1,2 NOPBC=yes${PRINT}`, 'write it alone'],
+    ['WALKERS_ID without WALKERS_N (#42)', 'd: DISTANCE ATOMS=1,2\nm: METAD ARG=d SIGMA=0.1 HEIGHT=1 PACE=500 WALKERS_ID=1', 'without `WALKERS_N`'],
+    ['a periodic grid that is not its period (#52)', 't: TORSION ATOMS=1,2,3,4\nm: METAD ARG=t PACE=500 HEIGHT=1.2 SIGMA=0.1 GRID_MIN=0 GRID_MAX=3', 'read exactly `-pi` and `pi`'],
+    ['three atoms for a distance (#52)', 'd: DISTANCE ATOMS=1,2,3', 'takes 2 atoms'],
+    ['two KAPPA for one argument (#52)', 'd: DISTANCE ATOMS=1,2\nr: RESTRAINT ARG=d AT=1 KAPPA=10,10', '`KAPPA` has 2 values'],
+    ['NLIST without its cutoff (#52)', 'c: COORDINATION GROUPA=1-10 GROUPB=11-20 R_0=0.3 NLIST', 'without a positive `NL_CUTOFF`'],
+    ['the bare label of an action with components only (#52)', 'd: DISTANCE ATOMS=1,2 COMPONENTS\nPRINT ARG=d FILE=C', 'components only'],
+    ['SPECIES naming nothing (#52)', 's: SMAC SPECIES=m1 KERNEL1={GAUSSIAN CENTER=0 SIGMA=0.48} SWITCH={RATIONAL R_0=0.6} MEAN', 'names `m1`']
+  ])('%s', async (_, input, message) => {
+    syntax = syntax || await loadSyntax('2.11');
+    const e = await errors(input);
+    expect(e.some(t => t.includes(message))).toBe(true);
+  });
+
+  test.each([
+    ['KEY=value in any case', 'd: distance atoms=1,2\nPRINT arg=d file=colvar stride=100'],
+    ['a flag registered in mixed case (#39)', `d: DISTANCE ATOMS=1,2${PRINT}DEBUG logActivity FILE=act`],
+    ['keywords a shortcut hands on (#37)', 'c: CENTER ATOMS=1-5 SET_MASS=1 SET_CHARGE=-2.5\nd: DISTANCE ATOMS=c,6\nPRINT ARG=d FILE=colvar STRIDE=100'],
+    ['a component a shortcut makes (#27)', 'cn: COORDINATIONNUMBER SPECIES=1-10 SWITCH={RATIONAL R_0=0.3} MEAN\nPRINT ARG=cn_mean,cn.mean FILE=colvar STRIDE=100'],
+    ['a histogram bead in BETWEEN', 'cn: COORDINATIONNUMBER SPECIES=1-10 SWITCH={RATIONAL R_0=0.3}\nb: BETWEEN ARG=cn SWITCH={GAUSSIAN LOWER=1 UPPER=2 SMEAR=0.5}\ns: SUM ARG=b PERIODIC=NO\nPRINT ARG=s FILE=colvar STRIDE=100'],
+    ['R_0 given through SWITCH', 'c: COORDINATION GROUPA=1-10 GROUPB=11-20 SWITCH={RATIONAL R_0=0.3}\nPRINT ARG=c FILE=colvar STRIDE=100'],
+    ['@mdatoms without MOLINFO', 'g: GROUP ATOMS=@mdatoms'],
+    ['a range that runs down', 't: TORSION ATOMS=10-1:-3\nPRINT ARG=t FILE=colvar STRIDE=100'],
+    ['a block closed at the end of the file (#41)', 'd: DISTANCE ATOMS=1,2\nPRINT ...\n ARG=d FILE=colvar STRIDE=100'],
+    ['a trailing ... inside a block (#41)', 'd: DISTANCE ATOMS=1,2\nMETAD ...\n LABEL=m ARG=d ...\n SIGMA=0.1 HEIGHT=1 PACE=1\n...\nPRINT ARG=m.bias FILE=C STRIDE=1'],
+    ['a dotted and an @ label (#41)', 'a.b: DISTANCE ATOMS=1,2\n@c: DISTANCE ATOMS=3,4\nPRINT ARG=@c FILE=colvar STRIDE=100']
+  ])('no error for %s, which PLUMED runs', async (_, input) => {
+    expect(await errors(input)).toEqual([]);
+  });
+
+  test('a LOAD file may define an action named like a built-in one (#38, #53)', async () => {
+    const r = await lint('LOAD FILE=Distance2.cpp\nd2: DISTANCE2 ATOMS=1,2\nPRINT ARG=d2 FILE=colvar STRIDE=100');
+    expect(r.summary.errors).toBe(0);
+    expect(r.issues[0]).toMatchObject({ level: 'note' });
+  });
+
+  test('LOAD is a setup action in 2.9 and may stand anywhere from 2.10 (#28)', async () => {
+    const t = 'd: DISTANCE ATOMS=1,2\nLOAD FILE=a.cpp';
+    expect((await errors(t, '2.9')).some(x => x.includes('setup action'))).toBe(true);
+    expect((await errors(t, '2.10')).some(x => x.includes('setup action'))).toBe(false);
+  });
+
+  test('the switching function of MORE_THAN is not a distance (#35)', async () => {
+    const r = await lint('cn: COORDINATIONNUMBER SPECIES=1-10 SWITCH={RATIONAL R_0=0.3}\nmt: MORE_THAN ARG=cn SWITCH={RATIONAL R_0=4}\ns: SUM ARG=mt PERIODIC=NO\nPRINT ARG=s FILE=colvar STRIDE=100');
+    expect(r.issues.some(i => i.text.includes(' nm'))).toBe(false);
+  });
+
+  test('two outputs to one file: the first is moved aside, not interleaved (#36)', async () => {
+    const t = 'd1: DISTANCE ATOMS=1,2\nd2: DISTANCE ATOMS=3,4\nPRINT ARG=d1 FILE=colvar STRIDE=1\nPRINT ARG=d2 FILE=colvar STRIDE=1';
+    const w = await loud(t);
+    expect(w.some(x => x.includes('bck.0.colvar'))).toBe(true);
+    expect(w.some(x => x.includes('interleaved'))).toBe(false);
+    expect((await loud(`RESTART\n${t}`)).some(x => x.includes('interleave'))).toBe(true);
+  });
+
+  test('the modules a shortcut expands into are named (#16)', async () => {
+    const r = await lint('q: Q6 SPECIES=1-64 SWITCH={RATIONAL R_0=0.3} MEAN\nPRINT ARG=q.mean FILE=C STRIDE=1');
+    expect(r.issues.some(i => i.text.includes('**adjmat** module'))).toBe(true);
+  });
+});
+
+describe('explains who uses what (#40)', () => {
+  test('atoms, LOGWEIGHTS and exact labels count', async () => {
+    const e = explainPlumedInput(
+      'a: FIXEDATOM AT=0,0,0\nd: DISTANCE ATOMS=a,6\nd_1: DISTANCE ATOMS=1,2\nr: RESTRAINT ARG=d AT=1 KAPPA=10\n' +
+      'rw: REWEIGHT_BIAS TEMP=300\nhh: HISTOGRAM ARG=d GRID_MIN=0 GRID_MAX=3 GRID_BIN=100 BANDWIDTH=0.1 LOGWEIGHTS=rw\n' +
+      'DUMPGRID ARG=hh FILE=h.dat STRIDE=10\nPRINT ARG=d_1 FILE=colvar STRIDE=100\nRESTART NO',
+      { syntax: await loadSyntax('2.11') });
+    const by = Object.fromEntries(e.filter(x => x.label).map(x => [x.label, x.outputs]));
+    expect(by.a).toBe('Used as `a` by `d`.');
+    expect(by.rw).toBe('Used as `rw` by `hh`.');
+    expect(by.d).toBe('Used as `d` by `r`, `hh`.');
+    expect(by.d_1).toBe('Used as `d_1` by `PRINT`.');
+    expect(e.find(x => x.action === 'RESTART').summary).toContain('Switches restarting off');
+  });
+});
+
+describe('the builder writes back what the file says (#33, #54)', () => {
+  const again = (t) => {
+    const { config, notes } = importPlumedInput(t);
+    return { notes, out: generatePlumedInput({ ...config, version: '2.11' }), config };
+  };
+
+  test('labels, files, order, formats and strides are kept', () => {
+    const { notes, out } = again(
+      'd: DISTANCE ATOMS=1,2\nv: DISTANCE ATOMS1=3,4 ATOMS2=5,6\ns: SUM ARG=v PERIODIC=NO\n' +
+      'c: CUSTOM ARG=d FUNC=2*x PERIODIC=NO\nsrt: SORT ARG=c,d\n' +
+      'mtd: METAD ARG=d SIGMA=0.1 HEIGHT=1 PACE=500 GRID_MIN=0 GRID_MAX=3 FILE=HILLS_d\n' +
+      'PRINT ARG=d,s,srt.1,mtd.bias FILE=COLVAR FMT=%10.5f');
+    const body = out.input;
+    expect(body).toContain('v: DISTANCE ATOMS1=3,4 ATOMS2=5,6');
+    expect(body.indexOf('c: CUSTOM')).toBeLessThan(body.indexOf('srt: SORT'));
+    expect(body).toContain('mtd: METAD ...');
+    expect(body).toContain('FILE=HILLS_d');
+    expect(body).not.toContain('GRID_BIN');
+    expect(body).toContain('PRINT ARG=d,s,srt.1,mtd.bias FILE=COLVAR STRIDE=1 FMT=%10.5f');
+    expect(notes.some(n => n.includes('`c` (CUSTOM) is used on line 5'))).toBe(true);
+    expect(out.warnings.filter(w => /defines|Duplicate/.test(w))).toEqual([]);
+  });
+
+  test('a restraint keeps its label (#54)', () => {
+    const { out, config } = again('d: DISTANCE ATOMS=1,2\nr: RESTRAINT ARG=d AT=1.5 KAPPA=500\nPRINT ARG=d,r.bias FILE=COLVAR STRIDE=10');
+    expect(config.bias.params.LABEL).toBe('r');
+    expect(out.input).toContain('r: RESTRAINT ARG=d AT=1.5 KAPPA=500');
+  });
+
+  test('a wall another line refers to is not split, and one with SLOPE stays as written', () => {
+    const { out } = again(
+      'a: DISTANCE ATOMS=1,2\nb: DISTANCE ATOMS=3,4\nm: METAD ARG=a SIGMA=0.1 HEIGHT=1 PACE=500 GRID_MIN=0 GRID_MAX=3\n' +
+      'uw: UPPER_WALLS ARG=a,b AT=2.5,3.0 KAPPA=150,150\nr: RESTRAINT ARG=b AT=1 KAPPA=10 SLOPE=2\n' +
+      'PRINT ARG=m.bias,uw.bias,r.bias FILE=C STRIDE=10');
+    expect(out.input).toContain('uw: UPPER_WALLS ARG=a,b AT=2.5,3.0 KAPPA=150,150');
+    expect(out.input).toContain('r: RESTRAINT ARG=b AT=1 KAPPA=10 SLOPE=2');
+  });
+
+  test('a file without PRINT is written back without one', () => {
+    const { out } = again('d: DISTANCE ATOMS=1,2\nDUMPATOMS ATOMS=1-10 FILE=a.xyz STRIDE=10');
+    expect(out.input).not.toContain('PRINT');
+  });
+
+  test('a wildcard sees the same lines as in the file', () => {
+    const { out } = again(
+      'r0: DISTANCE ATOMS=1,2\nr1: DISTANCE ATOMS=3,4\nsum: COMBINE ARG=* PERIODIC=NO\n' +
+      'RESTRAINT ARG=sum AT=2 KAPPA=1\nm: METAD ARG=r0 SIGMA=1 HEIGHT=0.1 PACE=10\nPRINT ARG=sum FILE=C STRIDE=1');
+    const body = out.input;
+    expect(body.indexOf('sum: COMBINE')).toBeLessThan(body.indexOf('METAD'));
+  });
+
+  test('an action that takes no label is written without one', () => {
+    const { out } = again('d: DISTANCE ATOMS=1,2\nVES_OUTPUT_FES BIAS=b FES_OUTPUT=100\nPRINT ARG=d FILE=C STRIDE=1');
+    expect(out.input).toContain('\nVES_OUTPUT_FES BIAS=b FES_OUTPUT=100\n');
+  });
+
+  test('a second MOLINFO stays where it is', () => {
+    const { out } = again('MOLINFO STRUCTURE=a.pdb\nt: TORSION ATOMS=@phi-2\nMOLINFO STRUCTURE=b.pdb\nPRINT ARG=t FILE=C STRIDE=1');
+    expect(out.input).toContain('MOLINFO STRUCTURE=a.pdb');
+    expect(out.input).toContain('\nMOLINFO STRUCTURE=b.pdb\n');
+  });
+
+  test('flags keep the case they were written in (#33)', () => {
+    const { out } = again('d: DISTANCE ATOMS=1,2\nPRINT ARG=d FILE=C STRIDE=1\nDEBUG logActivity FILE=act');
+    expect(out.input).toContain('DEBUG logActivity FILE=act');
   });
 });

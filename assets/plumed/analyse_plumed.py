@@ -22,9 +22,17 @@ sum is PLUMED's own: on the test files in tests/fixtures/plumed it matches
 A run continued from a checkpoint is read as one run. PLUMED writes the header
 again where each part starts. When a job was killed between two checkpoints,
 the next part starts from the last checkpoint, earlier than where the file
-ends, so part of the file is written twice; the older copy is dropped and the
-number of rows dropped is reported (`--keep-overlap` keeps them). A last line
-cut off mid-write is left out.
+ends, so part of a COLVAR is written twice; the older copy is dropped and the
+number of rows dropped is reported (`--keep-overlap` keeps them). A HILLS file
+keeps every hill: a restarted METAD reads every hill in the file back into its
+bias, those laid after the checkpoint too, and `plumed sum_hills` sums them
+all. A last line cut off mid-write is left out.
+
+With hills over more variables than the surface is drawn along, the others
+are integrated out at the run's kT (`--temp`, `--energy`), as
+`plumed sum_hills --idw <cv> --kt <kT>` does. Hills from ADAPTIVE=DIFF or GEOM
+(multivariate) are summed with their full covariance. A reweighting adds up
+every bias the COLVAR printed (the METAD's rbias and each wall's bias).
 
 Needs Python 3.8 or later and numpy. matplotlib is optional: without it the
 data files are written and the plots are skipped.
@@ -75,6 +83,10 @@ RAMP_TO = (20, 62, 105)
 # widths, passes 6.25, and since 2.8 stretches the Gaussian so that it reaches
 # zero there (the file then says "kerneltype stretched-gaussian").
 DP2_CUTOFF = 6.25
+# A variable integrated out is summed over this many points, and fewer when
+# the whole grid would pass INTEGRATE_POINTS (four or more variables).
+INTEGRATE_BINS = 100
+INTEGRATE_POINTS = 4000000
 
 
 # ------------------------------------------------------------------ #
@@ -163,6 +175,41 @@ def read_text(path):
         return fh.read()
 
 
+def reached_back(rows, starts, covered, ti, t0):
+    """How many rows a new part starting at time t0 reaches back over that no
+    earlier part reached: the rows at the end with a time at or after t0, as
+    far back as they go. Within a part the time never goes back, so each part
+    is searched by bisection, and many walkers joined together read quickly."""
+    end = len(rows)
+    start = end
+    for p in range(len(starts) - 1, -1, -1):
+        a = starts[p]
+        b = starts[p + 1] if p + 1 < len(starts) else end
+        if a >= b:
+            continue
+        if rows[a][ti] >= t0:
+            start = a
+            continue
+        lo, hi = a, b
+        while lo < hi:
+            mid = (lo + hi) >> 1
+            if rows[mid][ti] >= t0:
+                hi = mid
+            else:
+                lo = mid + 1
+        start = lo
+        break
+    added = end - start
+    merged = start
+    while covered and covered[-1][1] > start:
+        a, b = covered.pop()
+        added -= b - max(a, start)
+        merged = min(merged, a)
+    if end > merged:
+        covered.append((merged, end))
+    return added
+
+
 def parse_colvar(text, keep_overlap=False, name=''):
     """Parse a COLVAR, HILLS or any other file in PLUMED's column format.
 
@@ -170,10 +217,15 @@ def parse_colvar(text, keep_overlap=False, name=''):
     names; a row with a value that is not a number is dropped and counted.
 
     A new part of the run starts where the header is written again, or where
-    the time goes back. There the rows of the older part at or after the new
-    part's first time are dropped, since the new part writes them again. Rows
-    that share a time are not a new part: walkers that share one HILLS file
-    write a hill each at the same time.
+    the time goes back. In a COLVAR the rows of the older part at or after the
+    new part's first time are dropped, since the new part writes them again.
+    Rows that share a time are not a new part: walkers that share one HILLS
+    file write a hill each at the same time.
+
+    A HILLS file keeps every row: a restarted METAD reads every hill in the
+    file back into its bias, whatever its time, and plumed sum_hills sums them
+    all; the time also goes back where walkers' files were joined into one.
+    Such hills are counted in 'overlap' and said.
     """
     errors = []
     sets = {}
@@ -181,7 +233,10 @@ def parse_colvar(text, keep_overlap=False, name=''):
     headers = 0
     skipped = 0
     dropped = 0
+    overlap = 0
+    hills = False
     rows = []
+    covered = []
     starts = [0]
     new_part = False
     ti = None
@@ -208,6 +263,7 @@ def parse_colvar(text, keep_overlap=False, name=''):
                 if not fields:
                     fields = words[1:]
                     ti = 0 if fields and fields[0] == 'time' else None
+                    hills = file_kind(fields) == 'hills'
                 else:
                     new_part = True
             elif words and words[0] == 'SET' and len(words) >= 3:
@@ -237,12 +293,14 @@ def parse_colvar(text, keep_overlap=False, name=''):
             skipped += 1
             continue
         if ti is not None and rows and (new_part or row[ti] < rows[-1][ti]):
-            if not keep_overlap:
+            if not keep_overlap and not hills:
                 while rows and rows[-1][ti] >= row[ti]:
                     rows.pop()
                     dropped += 1
                 while len(starts) > 1 and starts[-1] > len(rows):
                     starts.pop()
+            else:
+                overlap += reached_back(rows, starts, covered, ti, row[ti])
             if starts[-1] != len(rows):
                 starts.append(len(rows))
         new_part = False
@@ -253,10 +311,16 @@ def parse_colvar(text, keep_overlap=False, name=''):
             '%d row%s written again by a later part of the run %s dropped (the older copy); '
             'the job was probably stopped between two checkpoints.'
             % (dropped, '' if dropped == 1 else 's', 'was' if dropped == 1 else 'were'))
-    return finish_parse(name, fields, rows, sets, skipped, headers, dropped, errors, starts, cut_skipped)
+    if hills and overlap:
+        errors.append(
+            '%d hill%s at or after the time where a later part of the file starts: a run continued from an '
+            'earlier checkpoint, or walkers\' files joined into one. %s kept, since a restarted METAD reads every '
+            'hill in the file back into its bias, and plumed sum_hills sums them all.'
+            % (overlap, ' lies' if overlap == 1 else 's lie', 'It is' if overlap == 1 else 'They are all'))
+    return finish_parse(name, fields, rows, sets, skipped, headers, dropped, errors, starts, cut_skipped, overlap)
 
 
-def finish_parse(name, fields, rows, sets, skipped, headers, dropped, errors, starts, cut_skipped):
+def finish_parse(name, fields, rows, sets, skipped, headers, dropped, errors, starts, cut_skipped, overlap=0):
     data = np.array(rows, dtype=float) if rows else np.zeros((0, len(fields)))
     columns = {f: data[:, j].copy() for j, f in enumerate(fields)}
     periods = {}
@@ -268,7 +332,8 @@ def finish_parse(name, fields, rows, sets, skipped, headers, dropped, errors, st
         a = constant(lo)
         b = constant(hi)
         if a is not None and b is not None and b > a:
-            periods[f] = {'min': a, 'max': b}
+            # The SET line's own words too, as METAD wants a periodic grid written.
+            periods[f] = {'min': a, 'max': b, 'minText': lo, 'maxText': hi}
     if fields and not rows and not errors:
         errors.append('The file holds no rows of numbers.')
     if skipped:
@@ -278,7 +343,7 @@ def finish_parse(name, fields, rows, sets, skipped, headers, dropped, errors, st
         errors.append('The last line was cut off mid-write, as happens when a job is stopped; it was left out.')
     return {
         'name': name, 'fields': fields, 'columns': columns, 'rows': len(rows), 'sets': sets,
-        'periods': periods, 'skipped': skipped, 'headers': headers, 'dropped': dropped,
+        'periods': periods, 'skipped': skipped, 'headers': headers, 'dropped': dropped, 'overlap': overlap,
         'parts': len(starts), 'starts': starts, 'errors': errors, 'cut': cut_skipped,
     }
 
@@ -289,8 +354,19 @@ def file_kind(fields):
 
 
 def hills_variables(fields):
+    """The variables of a HILLS file, in order; a multivariate file (ADAPTIVE)
+    has sigma_x_x columns instead of sigma_x."""
     f = fields or []
-    return [x for x in f if 'sigma_' + x in f]
+    return [x for x in f if 'sigma_' + x in f or 'sigma_%s_%s' % (x, x) in f]
+
+
+def hills_multivariate(hills):
+    """Whether the hills are multivariate (ADAPTIVE=DIFF or GEOM)."""
+    said = str(hills['sets'].get('multivariate', '')).strip().lower()
+    if said in ('true', 'false'):
+        return said == 'true'
+    every = hills_variables(hills['fields'])
+    return bool(every) and all('sigma_' + v not in hills['fields'] for v in every)
 
 
 def value_columns(c):
@@ -303,6 +379,24 @@ def bias_column(c):
             if re.search(pattern, f):
                 return f
     return ''
+
+
+def bias_columns(c):
+    """Every bias column whose energy the run carried: each *.rbias in place
+    of the same action's *.bias, and the *.bias of every other action (walls,
+    restraints). A frame's weight is exp(sum of them / kT)."""
+    f = c['fields']
+    offset = {x[:-len('.rbias')] for x in f if x.endswith('.rbias')}
+    return [x for x in f if x.endswith('.rbias') or (x.endswith('.bias') and x[:-len('.bias')] not in offset)]
+
+
+def total_bias(c, names):
+    """The sum of some columns, row by row, in the order given."""
+    out = np.zeros(c['rows'])
+    for name in names:
+        if name in c['columns']:
+            out = out + c['columns'][name]
+    return out
 
 
 def load(paths, keep_overlap=False):
@@ -388,13 +482,28 @@ def column_summary(values, period=None):
     return {'n': n, 'min': vmin, 'max': vmax, 'mean': mean, 'sd': math.sqrt(ss / (n - 1)) if n > 1 else 0.0}
 
 
+def outward(value, sigma, up):
+    """A grid bound rounded outwards, away from the values it must hold, on
+    the decade of the hill width (outward in the core). Rounding to the
+    nearest two significant figures could move a bound inside the values
+    seen; the step is at most one hill width and the pad at least ten."""
+    e = math.floor(math.log10(sigma))
+    scale = 10 ** abs(e)
+    v = value * scale if e < 0 else value / scale
+    k = math.ceil(v - 1e-9) if up else math.floor(v + 1e-9)
+    return k / scale if e < 0 else float(k * scale)
+
+
 def suggest_bias(values, period=None, non_negative=False, sigma_fraction=0.5):
     """Hill width and grid for one variable, from an unbiased run.
 
     The width is a fraction (half, by default) of the standard deviation in
     the basin the run sampled. The grid is the observed range widened by its
-    own width on each side, and by at least ten hill widths; a periodic
-    variable takes its period.
+    own width on each side, and by at least ten hill widths, rounded
+    outwards; a variable that cannot be negative starts five widths below
+    zero, unless the run saw it below zero. A periodic variable takes its
+    period, written as the COLVAR's SET line writes it (METAD compares the
+    text, and stops on 6.28 where it wants 2*pi).
     """
     summary = column_summary(values, period)
     notes = []
@@ -406,30 +515,35 @@ def suggest_bias(values, period=None, non_negative=False, sigma_fraction=0.5):
     sigma = round_sig(summary['sd'] * sigma_fraction, 2)
     if period:
         lo, hi = period['min'], period['max']
+
+        def edge_text(v):
+            if abs(abs(v) - math.pi) < 1e-6:
+                return '-pi' if v < 0 else 'pi'
+            return tidy(v)
+
+        lo_text = period.get('minText') or edge_text(lo)
+        hi_text = period.get('maxText') or edge_text(hi)
         notes.append('The variable is periodic, so the grid is its period.')
     else:
         span = summary['max'] - summary['min']
         pad = max(span, 10 * sigma)
-        lo = summary['min'] - pad
-        hi = summary['max'] + pad
-        if non_negative and lo < 0:
+        lo = outward(summary['min'] - pad, sigma, False)
+        hi = outward(summary['max'] + pad, sigma, True)
+        lo_text = js_str(lo)
+        hi_text = js_str(hi)
+        if non_negative and summary['min'] >= 0 and lo < 0:
             # Room for the tail of a hill placed at zero, and no more.
             lo = -5 * sigma
+            lo_text = tidy(lo)
             notes.append('The variable cannot be negative, so the grid starts just below zero.')
-        lo = round_sig(lo, 2)
-        hi = round_sig(hi, 2)
+        elif non_negative and summary['min'] < 0:
+            notes.append('The run saw values below zero, so the grid is padded below as well as above.')
         notes.append('The grid is wider than what this run sampled, since the bias will push the variable '
                      'further. Widen it if the biased run stops with a value outside the grid.')
     bins = math.ceil((hi - lo) / (sigma / 5))
     if summary['n'] < 200:
         notes.append('Only %d values: a longer run gives a steadier estimate of the fluctuation.' % summary['n'])
-
-    def written(v, edge):
-        if edge and abs(abs(v) - math.pi) < 1e-6:
-            return '-pi' if v < 0 else 'pi'
-        return tidy(v)
-
-    return {'sigma': tidy(sigma), 'min': written(lo, bool(period)), 'max': written(hi, bool(period)),
+    return {'sigma': tidy(sigma), 'min': lo_text, 'max': hi_text,
             'bin': str(min(bins, 5000)), 'summary': summary, 'notes': notes}
 
 
@@ -461,92 +575,172 @@ def axis(lo, hi, bins, periodic):
     return {'x': lo + np.arange(bins) * dx, 'dx': dx, 'n': bins}
 
 
+def hill_widths(hills, name):
+    """The width of each hill along one variable: its sigma, or for a
+    multivariate hill the square root of its variance along that variable."""
+    cols = hills['columns']
+    if 'sigma_' + name in cols:
+        return cols['sigma_' + name]
+    every = hills_variables(hills['fields'])
+    out = np.zeros(hills['rows'])
+    for c in range(every.index(name) + 1):
+        col = cols.get('sigma_%s_%s' % (name, every[c]))
+        if col is not None:
+            out = out + col * col
+    return np.sqrt(out)
+
+
 def range_of(hills, name, lo=None, hi=None):
     period = hills['periods'].get(name)
     if period:
         return {'min': period['min'], 'max': period['max'], 'periodic': True}
     col = hills['columns'][name]
-    pad = 3 * float(hills['columns']['sigma_' + name].max())
+    pad = 3 * float(hill_widths(hills, name).max())
     return {'min': float(col.min()) - pad if lo is None else lo,
             'max': float(col.max()) + pad if hi is None else hi,
             'periodic': False}
 
 
-def sum_hills(hills, variables=None, bins=None, up_to=None, ranges=None):
+def hill_covariance(hills, names, i):
+    """The covariance L L^T of multivariate hill i: PLUMED writes the lower
+    triangle L as sigma_<a>_<b>, a after b in the METAD's order."""
+    n = len(names)
+    L = np.zeros((n, n))
+    for r in range(n):
+        for c in range(r + 1):
+            col = hills['columns'].get('sigma_%s_%s' % (names[r], names[c]))
+            L[r, c] = col[i] if col is not None else 0.0
+    return L @ L.T
+
+
+def hill_kernel(hills):
+    """The shape of a hill as PLUMED 2.11's sum_hills reads it: stretched and
+    cut where dp2 reaches 6.25, unless the file says "kerneltype gaussian". A
+    file with no kerneltype (PLUMED 2.7 or older) is read as stretched too;
+    its run applied the plain Gaussian, about 0.2% apart. A plain Gaussian
+    has no cut of its own: it is added wherever its window reaches."""
+    kind = str(hills['sets'].get('kerneltype', '')).strip().lower()
+    if kind in ('gaussian', 'truncated-gaussian'):
+        return lambda dp2: np.exp(-dp2)
+    floor = math.exp(-DP2_CUTOFF)
+    stretch = 1 / (1 - floor)
+    return lambda dp2: np.where(dp2 < DP2_CUTOFF, (np.exp(-dp2) - floor) * stretch, 0.0)
+
+
+def hill_window(a, r, centre, span):
+    """The grid points a hill reaches along one axis, and their distance from
+    its centre: span points either side of the point at or below the centre,
+    as PLUMED places the window. A periodic axis wraps, and a hill wider than
+    about half the period reaches some points twice, as in sum_hills."""
+    at = math.floor((centre - r['min']) / a['dx'])
+    j = np.arange(at - span, at + span + 1)
+    width = r['max'] - r['min']
+    if r['periodic']:
+        idx = j % a['n']
+    else:
+        keep = (j >= 0) & (j < a['n'])
+        j = j[keep]
+        idx = j
+    d = r['min'] + j * a['dx'] - centre
+    if r['periodic']:
+        d = d - width * np.floor(d / width + 0.5)
+    return idx, d
+
+
+def sum_hills(hills, variables=None, bins=None, up_to=None, ranges=None, kT=None, integrate_bins=None):
     """Sum the hills into a free-energy surface in one or two dimensions, as
     `plumed sum_hills` does: each hill a Gaussian of the height and widths in
-    its row, cut off and stretched as PLUMED does. The lowest point is zero.
-    `up_to` sums only the first so many hills."""
+    its row (or its covariance, for ADAPTIVE hills), cut off, stretched and
+    placed on the grid as PLUMED does. The lowest point is zero. `up_to` sums
+    only the first so many hills.
+
+    The variables of the file not asked for are integrated out at the thermal
+    energy kT, F(d) = -kT ln sum_t exp(-F(d,t)/kT), as
+    `plumed sum_hills --idw d --kt <kT>` does; without kT there is no such
+    surface (None), as PLUMED refuses it without --kt."""
     every = hills_variables(hills['fields'])
-    chosen = [v for v in (variables or every) if v in every][:2]
-    if not chosen or not hills['rows']:
+    asked = variables or every
+    chosen = [v for k, v in enumerate(asked) if v in every and v not in asked[:k]][:2]
+    if not chosen or not hills['rows'] or 'height' not in hills['columns']:
+        return None
+    rest = [v for v in every if v not in chosen]
+    if rest and not (kT is not None and kT > 0):
         return None
     ranges = ranges or {}
     height = hills['columns']['height']
     count = hills['rows'] if up_to is None else min(hills['rows'], max(0, up_to))
-    rg = [range_of(hills, v, *ranges.get(v, (None, None))) for v in chosen]
     dim = len(chosen)
     want = bins or (300 if dim == 1 else 120)
     nb = list(want) if isinstance(want, (list, tuple)) else [want, want]
-    ax = [axis(r['min'], r['max'], nb[k], r['periodic']) for k, r in enumerate(rg)]
-    cols = [hills['columns'][v] for v in chosen]
-    sigs = [hills['columns']['sigma_' + v] for v in chosen]
-    stretched = 'stretched' in str(hills['sets'].get('kerneltype', '')).lower()
-    floor = math.exp(-DP2_CUTOFF)
-    stretch = 1 / (1 - floor) if stretched else 1.0
+    kept = [int(b) for b in nb[:dim]]
+    kept_size = int(np.prod(kept))
+    other = max(2, js_round(integrate_bins or INTEGRATE_BINS))
+    while other > 10 and kept_size * other ** len(rest) > INTEGRATE_POINTS:
+        other -= 1
+    order = chosen + rest
+    counts = kept + [other] * len(rest)
+    rg = [range_of(hills, v, *ranges.get(v, (None, None))) for v in order]
+    ax = [axis(r['min'], r['max'], counts[k], r['periodic']) for k, r in enumerate(rg)]
+    cols = [hills['columns'][v] for v in order]
+    kernel = hill_kernel(hills)
+    multi = hills_multivariate(hills)
+    file_order = hills_variables(hills['fields'])
+    pos = [file_order.index(v) for v in order]
+    cut = math.sqrt(2 * DP2_CUTOFF)
+    n = len(order)
 
-    def kernel(dp2):
-        g = np.exp(-dp2)
-        if stretched:
-            g = (g - floor) * stretch
-        return np.where(dp2 < DP2_CUTOFF, g, 0.0)
+    def shaped(a, k):
+        """A window's values along axis k of the grid, for broadcasting."""
+        return a.reshape([-1 if j == k else 1 for j in range(n)])
 
-    def reach(k, centre, sigma):
-        """The bins a hill reaches along one axis, with (d/sigma)^2/2 on each."""
-        a = ax[k]
-        r = rg[k]
-        span = math.ceil((math.sqrt(2 * DP2_CUTOFF) * sigma) / a['dx'])
-        at = js_round((centre - r['min']) / a['dx'])
-        j = np.arange(at - span, at + span + 1)
-        width = r['max'] - r['min']
-        if r['periodic']:
-            idx = j % a['n']
-        else:
-            keep = (j >= 0) & (j < a['n'])
-            j = j[keep]
-            idx = j
-        d = r['min'] + j * a['dx'] - centre
-        if r['periodic']:
-            d = d - width * np.floor(d / width + 0.5)
-        unique = not r['periodic'] or 2 * span + 1 <= a['n']
-        return idx, (d * d) / (2 * sigma * sigma), unique
-
-    f = np.zeros(ax[0]['n'] if dim == 1 else (ax[0]['n'], ax[1]['n']))
+    f = np.zeros(counts)
     for i in range(count):
-        ia, da, ua = reach(0, cols[0][i], sigs[0][i])
-        if dim == 1:
-            w = height[i] * kernel(da)
-            if ua:
-                f[ia] -= w
-            else:
-                np.subtract.at(f, ia, w)
-            continue
-        ib, db, ub = reach(1, cols[1][i], sigs[1][i])
-        w = height[i] * kernel(da[:, None] + db[None, :])
-        if ua and ub:
-            f[np.ix_(ia, ib)] -= w
+        if multi:
+            # The covariance in the grid's order, its inverse (the metric), and
+            # a window from its longest axis, as PLUMED sizes it.
+            cov = hill_covariance(hills, file_order, i)[np.ix_(pos, pos)]
+            metric = np.linalg.inv(cov)
+            values, vectors = np.linalg.eigh(cov)
+            top = int(np.argmax(values))
+            spans = [math.ceil((cut * abs(math.sqrt(values[top]) * vectors[k, top])) / ax[k]['dx'])
+                     for k in range(n)]
         else:
-            np.subtract.at(f, (ia[:, None], ib[None, :]), w)
+            sig = [hills['columns']['sigma_' + v][i] for v in order]
+            spans = [math.ceil((cut * sig[k]) / ax[k]['dx']) for k in range(n)]
+        win = [hill_window(ax[k], rg[k], cols[k][i], spans[k]) for k in range(n)]
+        if multi:
+            r2 = 0.0
+            for a in range(n):
+                for b in range(n):
+                    r2 = r2 + metric[a, b] * shaped(win[a][1], a) * shaped(win[b][1], b)
+            w = height[i] * kernel(0.5 * r2)
+        else:
+            dp2 = 0.0
+            for k in range(n):
+                d = win[k][1]
+                dp2 = dp2 + shaped((d * d) / (2 * sig[k] * sig[k]), k)
+            w = height[i] * kernel(dp2)
+        index = np.ix_(*[idx for idx, _ in win])
+        if all(not rg[k]['periodic'] or 2 * spans[k] + 1 <= ax[k]['n'] for k in range(n)):
+            f[index] -= w
+        else:
+            np.subtract.at(f, index, w)
 
+    if rest:
+        u = -f.reshape(tuple(kept) + (-1,)) / kT
+        top = u.max(axis=-1)
+        f = -kT * (top + np.log(np.exp(u - top[..., None]).sum(axis=-1)))
     f = f - f.min()
     return {'variables': chosen, 'x': ax[0]['x'], 'y': ax[1]['x'] if dim == 2 else None, 'f': f,
             'hills': count, 'max': float(f.max()) if count else 0.0,
-            'periodic': [r['periodic'] for r in rg], 'ranges': rg}
+            'periodic': [r['periodic'] for r in rg[:dim]], 'ranges': rg[:dim],
+            'integrated': rest, 'integrated_bins': [other] * len(rest), 'kT': kT if rest else None}
 
 
-def fes_over_time(hills, variable=None, slices=5, bins=300, lo=None, hi=None):
+def fes_over_time(hills, variable=None, slices=5, bins=300, lo=None, hi=None, kT=None, integrate_bins=None):
     """The surface of one variable at several times through the run, all on
-    the same axis, to see whether it still changes."""
+    the same axis, to see whether it still changes. The other variables of
+    the hills are integrated out at kT, as in sum_hills."""
     every = hills_variables(hills['fields'])
     variable = variable or (every[0] if every else None)
     if not variable or not hills['rows']:
@@ -558,9 +752,11 @@ def fes_over_time(hills, variable=None, slices=5, bins=300, lo=None, hi=None):
     for k in range(1, n + 1):
         up_to = js_round(hills['rows'] * k / n)
         s = sum_hills(hills, [variable], bins, up_to,
-                      {} if r['periodic'] else {variable: (r['min'], r['max'])})
+                      {} if r['periodic'] else {variable: (r['min'], r['max'])}, kT, integrate_bins)
+        if s is None:
+            return []
         out.append({'time': float(time[up_to - 1]) if time is not None else up_to,
-                    'hills': up_to, 'x': s['x'], 'f': s['f']})
+                    'hills': up_to, 'x': s['x'], 'f': s['f'], 'integrated': s['integrated']})
     return out
 
 
@@ -726,6 +922,8 @@ def write_fes(out, s, name='fes.dat'):
         n = len(s['x'] if k == 0 else s['y'])
         lines += ['#! SET min_%s %s' % (var, edge(r['min'])), '#! SET max_%s %s' % (var, edge(r['max'])),
                   '#! SET nbins_%s %d' % (var, n), '#! SET periodic_%s %s' % (var, 'true' if r['periodic'] else 'false')]
+    if s.get('integrated'):
+        lines += ['#! SET integrated %s' % ','.join(s['integrated']), '#! SET kT %s' % num(s['kT'])]
     if s['y'] is None:
         lines += ['%s %s' % (num(x), num(f)) for x, f in zip(s['x'], s['f'])]
     else:
@@ -868,6 +1066,17 @@ def cmd_suggest(args, files=None):
     say('  wrote %s' % write(args.out, 'suggest.dat', lines))
 
 
+def surface_note(s, kT, energy):
+    """What the surface is, in a sentence, with the sum_hills that gives it."""
+    head = 'The surface is the negative sum of all %s hills' % '{:,}'.format(s['hills'])
+    if not s['integrated']:
+        return head + ', as plumed sum_hills gives it, with its lowest point at zero.'
+    return ('%s over %s, with %s integrated out at kT = %s %s (each point -kT ln of the sum of exp(-F/kT) over '
+            '%s), as plumed sum_hills --idw %s --kt %s gives it, with its lowest point at zero.'
+            % (head, ' and '.join(s['variables'] + s['integrated']), ' and '.join(s['integrated']), fmt(kT), energy,
+               ' and '.join(s['integrated']), ','.join(s['variables']), fmt(kT, 6)))
+
+
 def cmd_fes(args, files=None):
     files = files or load(args.files, args.keep_overlap)
     for c in files:
@@ -876,6 +1085,8 @@ def cmd_fes(args, files=None):
             fail('%s is not a HILLS file: it has no height and sigma_ columns.' % c['name'])
     hills = pool(files)
     every = hills_variables(hills['fields'])
+    if not every:
+        fail('%s: no variable has a sigma_ column to go with it, so the hills cannot be summed.' % hills['name'])
     chosen = [v for v in (args.cv, args.cv2) if v]
     for v in chosen:
         if v not in every:
@@ -910,10 +1121,9 @@ def cmd_fes(args, files=None):
     if bins and len(bins) == 1 and len(chosen) == 2:
         bins = bins * 2
     if len(chosen) == 2:
-        s = sum_hills(hills, chosen, bins or [100, 100], None, ranges)
+        s = sum_hills(hills, chosen, bins or [100, 100], None, ranges, kT, args.integrate_bins)
         path = write_fes(args.out, s)
-        say('The surface is the negative sum of all %s hills, as plumed sum_hills gives it, with its lowest '
-            'point at zero.' % '{:,}'.format(s['hills']))
+        say(surface_note(s, kT, energy))
         say('  wrote %s' % path)
         fig, ax = plots.figure(4.4)
         if fig:
@@ -931,9 +1141,10 @@ def cmd_fes(args, files=None):
         return
     v = chosen[0]
     b = bins[0] if bins else 300
-    s = sum_hills(hills, [v], b, None, ranges)
+    s = sum_hills(hills, [v], b, None, ranges, kT, args.integrate_bins)
+    say(surface_note(s, kT, energy))
     say('  wrote %s' % write_fes(args.out, s))
-    slices = fes_over_time(hills, v, args.slices, b, *ranges[v])
+    slices = fes_over_time(hills, v, args.slices, b, *ranges[v], kT=kT, integrate_bins=args.integrate_bins)
     change = None
     if len(slices) >= 2:
         prev, last = slices[-2]['f'], slices[-1]['f']
@@ -943,6 +1154,8 @@ def cmd_fes(args, files=None):
     head = '#! FIELDS %s %s' % (v, ' '.join('file.free.%d' % (k + 1) for k in range(len(slices))))
     sets = ['#! SET time_%d %s' % (k + 1, num(sl['time'])) for k, sl in enumerate(slices)]
     sets += ['#! SET hills_%d %d' % (k + 1, sl['hills']) for k, sl in enumerate(slices)]
+    if s['integrated']:
+        sets += ['#! SET integrated %s' % ','.join(s['integrated']), '#! SET kT %s' % num(kT)]
     body = ['%s %s' % (num(x), ' '.join(num(sl['f'][i]) for sl in slices)) for i, x in enumerate(slices[0]['x'])] if slices else []
     say('  wrote %s' % write(args.out, 'fes_slices.dat', [head] + sets + body))
     say('Each slice sums the hills up to a time; slices that lie on top of one another say the surface has '
@@ -978,17 +1191,23 @@ def cmd_reweight(args, files=None):
         arg = args.arg or (cols[0] if cols else '')
         if arg not in c['columns']:
             fail('%s has no column "%s"; it has %s.' % (c['name'], arg, ', '.join(c['fields'])))
-        bias = args.bias or bias_column(c)
-        if not bias or bias not in c['columns']:
+        biases = split_list(args.bias) or bias_columns(c)
+        if not biases:
             fail('%s has no bias column to reweight with. Print the bias (for example metad.bias, or metad.rbias '
                  'with CALC_RCT) into it, or name the column with --bias.' % c['name'])
-        rbias = bias.endswith('.rbias')
+        for b in biases:
+            if b not in c['columns']:
+                fail('%s has no bias column "%s"; it has %s.' % (c['name'], b, ', '.join(c['fields'])))
+        # Every bias the run applied, added up: a wall beside the metadynamics
+        # pushed the run as much as the hills did.
+        bias = ' + '.join(biases)
+        rbias = any(b.endswith('.rbias') for b in biases)
         fraction = args.skip if args.skip is not None else (0.0 if rbias else 0.2)
         skip = int(fraction) if fraction >= 1 else int(math.floor(c['rows'] * fraction))
         los = per_variable(args.min, 1)
         his = per_variable(args.max, 1)
         bins = args.bins if isinstance(args.bins, int) else 60
-        r = reweight(c['columns'][arg], c['columns'][bias], kT, bins, skip, los[0], his[0],
+        r = reweight(c['columns'][arg], total_bias(c, biases), kT, bins, skip, los[0], his[0],
                      c['periods'].get(arg))
         if not r:
             fail('%s: there is too little to reweight.' % c['name'])
@@ -1114,7 +1333,8 @@ def cmd_inspect(args):
         t = c['columns'].get('time')
         out.append({
             'file': c['name'], 'kind': file_kind(c['fields']), 'fields': c['fields'], 'rows': c['rows'],
-            'parts': c['parts'], 'headers': c['headers'], 'dropped': c['dropped'], 'skipped': c['skipped'],
+            'parts': c['parts'], 'headers': c['headers'], 'dropped': c['dropped'], 'overlap': c['overlap'],
+            'skipped': c['skipped'],
             'cut': c['cut'], 'periods': c['periods'],
             'time': [float(t[0]), float(t[-1])] if t is not None and t.size else None,
             'errors': c['errors'],
@@ -1159,7 +1379,8 @@ def parser():
     common.add_argument('--no-plots', action='store_true', help='write the data files only')
     common.add_argument('--format', default='png', choices=['png', 'pdf', 'svg'], help='plot format')
     common.add_argument('--keep-overlap', action='store_true',
-                        help='keep rows a restarted part wrote again, instead of the newer copy only')
+                        help='keep COLVAR rows a restarted part wrote again, instead of the newer copy only '
+                             '(HILLS files always keep every hill, as PLUMED does)')
     common.add_argument('--quiet', action='store_true', help='print only warnings and errors')
 
     epilog = 'commands:\n' + '\n'.join('  %-9s %s\n  %-9s   e.g. %s' % (n, d, '', e) for n, d, e in COMMANDS)
@@ -1188,6 +1409,7 @@ def parser():
     a.add_argument('--min', default=None)
     a.add_argument('--max', default=None)
     a.add_argument('--slices', type=int, default=5)
+    a.add_argument('--integrate-bins', type=int, default=None)
     a.add_argument('--bias', default='')
     a.add_argument('--skip', type=float, default=None)
     a.add_argument('--pool', action='store_true')
@@ -1206,11 +1428,15 @@ def parser():
     f.add_argument('--min', default=None, help='lower end of each axis, e.g. 0 or 0,-pi (periodic ones take their period)')
     f.add_argument('--max', default=None, help='upper end of each axis')
     f.add_argument('--slices', type=int, default=5, help='surfaces at this many times through the run')
+    f.add_argument('--integrate-bins', type=int, default=None,
+                   help='points on each axis of a variable integrated out (default %d)' % INTEGRATE_BINS)
 
     r = add('reweight', COMMANDS[3][1])
     r.add_argument('files', nargs='+', metavar='COLVAR')
     r.add_argument('--arg', default='', help='the value to reweight along (default: the first)')
-    r.add_argument('--bias', default='', help='the bias column (default: the first *.rbias, else *.bias)')
+    r.add_argument('--bias', default='',
+                   help='the bias columns to add up, comma-separated (default: every *.rbias, and every *.bias '
+                        'of an action with no *.rbias, such as the walls)')
     r.add_argument('--bins', type=int, default=60)
     r.add_argument('--skip', type=float, default=None,
                    help='frames to leave out at the start: a fraction below 1, a count from 1 up '

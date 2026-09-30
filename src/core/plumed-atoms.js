@@ -3,10 +3,13 @@
  *
  * From a structure file to the atom lists a PLUMED input needs.
  *
- * PLUMED numbers atoms by their position in the system as the MD engine holds
- * it, counting from 1. That is the order of the structure file, not the serial
- * number written in it: a `.gro` or PDB serial wraps round after 99 999 and
- * may have gaps, so every list here is built from positions.
+ * Every list here numbers atoms by their position in the structure file,
+ * counting from 1, not by the serial number written in it: a `.gro` or PDB
+ * serial wraps round after 99 999 and may have gaps. That is how GROMACS
+ * passes atoms to PLUMED. Under LAMMPS, fix plumed passes `atom->tag - 1`
+ * (fix_plumed.cpp:350), so PLUMED counts by atom ID, and these lists hold
+ * only when the file lists the atoms in order of ID, from 1 (fix plumed
+ * already refuses IDs with gaps).
  *
  * Systems for nucleation or solvation studies hold hundreds of copies of one
  * molecule, and the input needs the same atom of every copy (`1-2400:8`), a
@@ -15,6 +18,7 @@
  */
 
 import { selectAtoms } from './selection.js';
+import { elementSymbol } from './structure.js';
 import { versionAtLeast } from './plumed.js';
 
 const LABEL_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -170,7 +174,7 @@ export function perMoleculeGroups(atoms, species, atomNames, options = {}) {
   const warnings = [];
   const groups = [];
   if (!mols.length) {
-    return { lines: [], groups, warnings: [`The structure has no molecule named "${species}".`] };
+    return { lines: [], groups, warnings: [`The structure has no residue named "${species}".`] };
   }
   for (const name of atomNames || []) {
     const indices = [];
@@ -181,11 +185,11 @@ export function perMoleculeGroups(atoms, species, atomNames, options = {}) {
       else indices.push(i);
     }
     if (!indices.length) {
-      warnings.push(`No ${species} molecule has an atom named "${name}".`);
+      warnings.push(`No ${species} residue has an atom named "${name}".`);
       continue;
     }
     if (missing) {
-      warnings.push(`${missing} of ${mols.length} ${species} molecules have no atom named "${name}".`);
+      warnings.push(`${missing} of ${mols.length} ${species} residues have no atom named "${name}".`);
     }
     const label = safeLabel((options.labels && options.labels[name]) || name, 'g');
     groups.push({ label, atoms: compressAtomList(indices), count: indices.length });
@@ -219,7 +223,7 @@ export function perMoleculeCenters(atoms, species, options = {}) {
   if (!mols.length) {
     return {
       lines, labels, groupLine: '', group,
-      warnings: [`The structure has no molecule named "${species}".`]
+      warnings: [`The structure has no residue named "${species}".`]
     };
   }
   let skipped = 0;
@@ -234,7 +238,7 @@ export function perMoleculeCenters(atoms, species, options = {}) {
     lines.push(`${label}: ${action === 'COM' ? 'COM' : 'CENTER'} ATOMS=${compressAtomList(wanted.map(a => a.index), { minRun: 3 })}${flag}`);
   });
   if (skipped) {
-    warnings.push(`${skipped} of ${mols.length} ${species} molecules have none of the atoms named.`);
+    warnings.push(`${skipped} of ${mols.length} ${species} residues have none of the atoms named.`);
   }
   if (labels.includes(group)) {
     warnings.push(`The group label "${group}" is also the label of a centre. Choose another.`);
@@ -264,7 +268,7 @@ export function moleculeOrientations(atoms, species, options = {}) {
   const warnings = [];
   const rows = [];
   if (!mols.length) {
-    return { lines: [], label, count: 0, warnings: [`The structure has no molecule named "${species}".`] };
+    return { lines: [], label, count: 0, warnings: [`The structure has no residue named "${species}".`] };
   }
   if (!start || !end) {
     return { lines: [], label, count: 0, warnings: ['Name the two atoms that give the direction.'] };
@@ -279,7 +283,7 @@ export function moleculeOrientations(atoms, species, options = {}) {
     rows.push([a, b, c]);
   }
   if (missing) {
-    warnings.push(`${missing} of ${mols.length} ${species} molecules lack one of the atoms named.`);
+    warnings.push(`${missing} of ${mols.length} ${species} residues lack one of the atoms named.`);
   }
   if (!rows.length) return { lines: [], label, count: 0, warnings };
 
@@ -322,8 +326,8 @@ export function wholeMoleculeEntities(atoms, species, options = {}) {
   }
   if (runs.length > limit) {
     warnings.push(
-      `${runs.length} molecules would each be an entity. Rebuilding that many every step is ` +
-      'slow; rebuild only the molecules a collective variable spans.');
+      `${runs.length} ${joinChains ? 'chains and residues' : 'residues'} would each be an entity. ` +
+      'Rebuilding that many every step is slow; rebuild only those a collective variable spans.');
   }
   return { entities: runs.slice(0, limit).map(r => compressAtomList(r.indices)), warnings };
 }
@@ -331,13 +335,25 @@ export function wholeMoleculeEntities(atoms, species, options = {}) {
 /**
  * Select atoms with the STEMKit query language and write them for PLUMED.
  *
+ * A `.gro` file, and a PDB that GROMACS writes from one, leave the element
+ * column blank, so `elem:H` would match nothing and `!elem:H` everything. An
+ * atom without an element gets the one its name implies (HW1 is H, OW is O),
+ * as structure.js reads it elsewhere.
+ *
  * @param {object[]} atoms
  * @param {string} query - e.g. `resn:UREA atom:C`, `chain:A resi:1-50 atom:CA`.
- * @param {{unit?:string, coordinateUnit?:string, byres?:boolean}} [options]
+ * @param {{unit?:string, coordinateUnit?:string, byres?:boolean,
+ *   box?:number[]|null, boxVectors?:number[]|null}} [options] - Passed to
+ *   selectAtoms: with the file's `box` (and `boxVectors`), in nm as
+ *   core/structure.js keeps them, `within:` measures to the nearest image.
  * @returns {{list:string, count:number, indices:number[], errors:string[]}}
  */
 export function selectForPlumed(atoms, query, options = {}) {
-  const numbered = numberAtoms(atoms);
+  const numbered = numberAtoms(atoms).map((a) => {
+    if (String(a.element || a.elem || '').trim()) return a;
+    const e = elementSymbol(a);
+    return e && e !== 'X' ? { ...a, element: e } : a;
+  });
   const r = selectAtoms(numbered, query, options);
   const indices = r.atoms.map(a => a.index);
   return { list: compressAtomList(indices), count: indices.length, indices, errors: r.errors };

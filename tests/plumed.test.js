@@ -6,7 +6,7 @@ import {
   componentsForCV, availableArguments, defaultBiasValues, createCV, createFunction,
   buildCVLine, buildSwitchBlock, rationalSwitch, buildFunctionLine, buildBiasLine,
   buildRestraintLine, buildPrintLine, validateLabels, parseAtomList, checkCV,
-  generatePlumedInput, messageToHtml, messageToText
+  generatePlumedInput, messageToHtml, messageToText, lengthPower
 } from '../src/core/plumed.js';
 import { loadSyntax } from '../src/core/plumed-syntax.js';
 
@@ -154,10 +154,12 @@ describe('pushFieldToken', () => {
 });
 
 describe('hiddenFieldsForBias', () => {
-  test('hides neighbour-list keys for a biased CV under metadynamics', () => {
+  test('keeps the neighbour-list keys of a biased CV under metadynamics', () => {
+    // The list sets the cost of the CV, whatever biases it, and NLIST without
+    // NL_CUTOFF stops PLUMED ("NL_CUTOFF should be explicitly specified").
     const h = hiddenFieldsForBias({ type: 'COORDINATION', bias: true }, 'wt_metad', CAT);
-    expect(h.has('NL_CUTOFF')).toBe(true);
-    expect(h.has('NL_STRIDE')).toBe(true);
+    expect(h.has('NL_CUTOFF')).toBe(false);
+    expect(h.has('NL_STRIDE')).toBe(false);
   });
 
   test('hides nothing for an unbiased CV', () => {
@@ -174,9 +176,8 @@ describe('hiddenFieldsForBias', () => {
     expect(hiddenFieldsForBias({ type: 'COORDINATION', bias: true }, 'none', CAT).size).toBe(0);
   });
 
-  test('the redundancy map is declared for the documented methods', () => {
-    expect(Object.keys(BIAS_REDUNDANCY)).toContain('wt_metad');
-    expect(Object.keys(BIAS_REDUNDANCY)).toContain('metad');
+  test('no method hides a CV parameter at present', () => {
+    expect(Object.keys(BIAS_REDUNDANCY)).toEqual([]);
   });
 });
 
@@ -213,13 +214,13 @@ describe('buildCVLine', () => {
     expect(r.warnings[0]).toContain('2.11');
   });
 
-  test('suppresses redundant keys for a biased CV', () => {
+  test('writes the neighbour list of a biased CV under metadynamics', () => {
     const r = buildCVLine(
       { type: 'COORDINATION', label: 'cn', bias: true,
         values: { GROUPA: '1-10', NL_CUTOFF: '0.6' } },
       CAT, { biasMethod: 'wt_metad' }
     );
-    expect(r.line).not.toContain('NL_CUTOFF');
+    expect(r.line).toContain('NL_CUTOFF=0.6');
   });
 
   test('keeps those keys for an unbiased CV', () => {
@@ -265,7 +266,7 @@ describe('buildSwitchBlock', () => {
     expect(buildSwitchBlock({ r0: 0.3, nn: 6, dmax: 1 }).block).not.toContain('NN=');
   });
 
-  test('warns when D_MAX is absent, since it enables linked cells', () => {
+  test('warns when D_MAX is absent, since it enables linked cells in multicolvars', () => {
     const r = buildSwitchBlock({ r0: 0.3 });
     expect(r.warnings.some(w => w.includes('D_MAX'))).toBe(true);
   });
@@ -858,6 +859,20 @@ describe('buildBiasLine with per-argument grids', () => {
     expect(over.warnings.some(w => w.includes('out of range'))).toBe(true);
   });
 
+  test('the walker advice asks for what PLUMED and the page do', () => {
+    // `plumed --multi N` is refused ("Unknown option --multi"); the option
+    // belongs to `plumed driver`. The page writes one input, not one per walker.
+    const mpi = buildBiasLine('wt_metad', targets, {}, { ...options, walkers: { mode: 'mpi' } });
+    const text = mpi.warnings.join(' ');
+    expect(text).toContain('`mpirun -np N plumed driver --multi N …`');
+    expect(text).not.toMatch(/`plumed --multi/);
+    const disk = buildBiasLine('wt_metad', targets, {},
+      { ...options, walkers: { mode: 'disk', n: 3, id: 0, dir: '../hills' } });
+    const own = disk.warnings.find(w => w.includes('different'));
+    expect(own).toContain('Save one copy of this input per walker, each with its own `WALKERS_ID` (0 to 2).');
+    expect(own).not.toMatch(/run files/i);
+  });
+
   test('OPES takes MPI walkers only', () => {
     const r = buildBiasLine('opes', targets, {},
       { ...options, walkers: { mode: 'disk', n: 4, id: 0 } });
@@ -1131,9 +1146,14 @@ describe('generatePlumedInput, the full description', () => {
     const old = generatePlumedInput({ version: '2.9', syntax: await loadSyntax('2.9'), cvs: [q] });
     expect(old.modules).toEqual(['crystallization']);
     expect(old.input).toContain('# Needs PLUMED built with: --enable-modules=crystallization');
+    // From 2.10 Q6 is a shortcut whose CONTACT_MATRIX is in adjmat, which
+    // --enable-modules=symfunc alone does not build.
     const next = generatePlumedInput({ version: '2.10', syntax: await loadSyntax('2.10'), cvs: [q] });
-    expect(next.modules).toEqual(['symfunc']);
+    expect(next.modules).toEqual(['symfunc', 'adjmat']);
     expect(next.warnings.some(w => w.includes('**symfunc** module'))).toBe(true);
+    expect(next.warnings.some(w => w.includes('**adjmat** module for the actions it expands into'))).toBe(true);
+    expect(next.warnings.every(w => !w.includes('enable-modules') || w.includes('--enable-modules=symfunc:adjmat'))).toBe(true);
+    expect(next.input).toContain('# Needs PLUMED built with: --enable-modules=symfunc:adjmat');
   });
 
   test('secondary structure is part of a default build', async () => {
@@ -1211,6 +1231,36 @@ describe('generatePlumedInput, the full description', () => {
       'PRINT ARG=ma1.mean,ma1.moment2,cn.morethan-1,cn.morethan-2,cn.moment-2,q6.mean,' +
       'l1_1,l1_2,l1r_1,l1r_2,metad.bias,metad.rbias,metad.rct');
     expect(r.biased).toEqual(['l1r_1', 'l1r_2']);
+  });
+});
+
+describe('the header and units', () => {
+  test('the check command in the header has the atom count when it is known', () => {
+    const line = (natoms) => generatePlumedInput({ version: '2.11', natoms }).input.split('\n')[3];
+    expect(line(216)).toBe('# Check it before the run:  plumed driver --natoms 216 --parse-only --plumed plumed.dat');
+    expect(line('216')).toContain('--natoms 216 ');
+    for (const n of [undefined, 0, -3, 2.5, 'x']) expect(line(n)).toContain('--natoms N ');
+  });
+
+  test('lengthPower says which starting grids are lengths', () => {
+    expect(lengthPower('DISTANCE')).toBe(1);
+    expect(lengthPower('DISTANCE', '.x')).toBe(1);
+    expect(lengthPower('RMSD')).toBe(1);
+    expect(lengthPower('RMSD', '', { values: { SQUARED: true } })).toBe(2);
+    expect(lengthPower('GYRATION', '', { values: { TYPE: 'TRACE' } })).toBe(2);
+    expect(lengthPower('GYRATION', '', { values: { TYPE: 'KAPPA2' } })).toBe(0);
+    expect(lengthPower('GYRATION', '', { values: { TYPE: 'ASPHERICITY' } })).toBe(1);
+    expect(lengthPower('PUCKERING', '.amp')).toBe(1);
+    expect(lengthPower('PUCKERING', '.phs')).toBe(0);
+    expect(lengthPower('PLANE', '.x')).toBe(2);
+    expect(lengthPower('INPLANEDISTANCES', '.mean')).toBe(1);
+    expect(lengthPower('INPLANEDISTANCES', '.lessthan')).toBe(0);
+    for (const t of ['TORSION', 'ANGLE', 'COORDINATION', 'CUSTOM']) expect(lengthPower(t)).toBe(0);
+    expect(lengthPower('Q6', '.mean')).toBe(0);
+    // Every length's starting grid is a real length, not the generic 0..10.
+    for (const t of ['DISTANCE', 'RMSD', 'DRMSD', 'GYRATION', 'POSITION']) {
+      expect(defaultBiasValues(t)).toMatchObject({ max: '5.0', sigma: '0.05' });
+    }
   });
 });
 

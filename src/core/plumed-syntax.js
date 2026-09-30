@@ -169,6 +169,71 @@ export function createSyntax(table) {
     },
 
     /**
+     * Actions a shortcut may create when it expands, as PLUMED declares them
+     * (from 2.10; the 2.9 table has none).
+     *
+     * @param {string} action
+     * @returns {string[]}
+     */
+    needs(action) {
+      if (!api.has(action)) return [];
+      return (actions[action].nd || []).filter(a => api.has(a));
+    },
+
+    /**
+     * Actions a shortcut hands the rest of its line to, so that a keyword of
+     * one of them is accepted on the shortcut's line.
+     *
+     * @param {string} action
+     * @returns {string[]}
+     */
+    passesTo(action) {
+      if (!api.has(action)) return [];
+      return (actions[action].pa || []).filter(a => api.has(a));
+    },
+
+    /** @param {string} action @returns {boolean} Is it a shortcut? */
+    isShortcut(action) {
+      return api.has(action) && actions[action].sc === 1;
+    },
+
+    /**
+     * The action and everything it may expand into, followed to the end.
+     *
+     * @param {string} action
+     * @returns {string[]} The action first.
+     */
+    expansion(action) {
+      if (!api.has(action)) return [];
+      const seen = [action];
+      for (let i = 0; i < seen.length; i++) {
+        for (const a of [...api.needs(seen[i]), ...api.passesTo(seen[i])]) {
+          if (!seen.includes(a)) seen.push(a);
+        }
+      }
+      return seen;
+    },
+
+    /**
+     * Every module an action needs: its own and those of the actions it may
+     * expand into. From 2.10 the symmetry functions, for one, are shortcuts
+     * whose CONTACT_MATRIX lives in adjmat, so building symfunc alone is not
+     * enough. The list is an upper bound: a shortcut declares every action it
+     * might create, whatever its keywords.
+     *
+     * @param {string} action
+     * @returns {Array<{name:string, defaultOn:boolean}>} Own module first.
+     */
+    modulesFor(action) {
+      const out = [];
+      for (const a of api.expansion(action)) {
+        const m = api.moduleOf(a);
+        if (m && m.name && !out.some(x => x.name === m.name)) out.push(m);
+      }
+      return out;
+    },
+
+    /**
      * Is a module part of a default `./configure` build? Unknown modules are
      * reported as on, so a gap in the table never raises a false alarm.
      *

@@ -10,19 +10,29 @@
  *   - `#` starts a comment that runs to the end of the line;
  *   - a line ending in `...` opens a block that continues until a line starting
  *     with `...`, which may repeat the first word of the block and nothing else;
- *   - words are separated by blanks, except inside `{ }`, which may nest;
+ *     only inside a block may a `{` stay open over several lines;
+ *   - words are separated by spaces and tabs, and nothing else (a no-break
+ *     space pasted from a web page joins two words), except inside `{ }`,
+ *     which may nest;
  *   - an action is labelled `label: ACTION ...` or `ACTION LABEL=label ...`;
- *   - action names and keywords may be written in either case;
+ *   - `KEY=value` matches its keyword in either case, but a flag must be
+ *     written exactly as registered (`NOPBC`, `logActivity`), and so must an
+ *     action written alone on a line (`RESTART`, not `restart`);
  *   - `ENDPLUMED` ends the input, whatever follows it.
  *
  * The checks that need to know the language, which keywords an action has and
  * which module it lives in, take a table from `plumed-syntax.js`. They were
- * tuned on the input files of PLUMED's regression tests, which all parse, so a
- * message about one of them is a false alarm.
+ * tuned on the input files of the regression tests of PLUMED 2.9, 2.10 and
+ * 2.11, which those releases run, so an error about one of them is a false
+ * alarm; and on the same files with one mistake put in, which PLUMED stops at.
+ * An error is something PLUMED stops at; a warning is something it runs but
+ * that is probably not meant.
  */
 
 import { CV_DEFS, FUNCTION_DEFS, BIAS_DEFS } from './plumed-catalogue.js';
-import { parseAtomList, defaultBiasValues, LENGTH_IN_NM } from './plumed.js';
+import {
+  parseAtomList, defaultBiasValues, LENGTH_IN_NM, versionAtLeast, biasLabelFor
+} from './plumed.js';
 
 const ACTION_RE = /^[A-Z][A-Z0-9_]*$/;
 const str = (v) => (v === undefined || v === null ? '' : String(v).trim());
@@ -44,32 +54,50 @@ export function stripComment(line) {
   return { code: s.slice(0, i), comment: s.slice(i + 1).trim() };
 }
 
+/* PLUMED separates words by spaces, tabs and line ends only (Tools::getWords). */
+const BLANK = /[ \t\n]/;
+const trimBlanks = (t) => String(t).replace(/^[ \t]+|[ \t]+$/g, '');
+const blankWords = (t) => trimBlanks(t).split(/[ \t]+/).filter(Boolean);
+
 /**
- * Split a line into words, keeping a `{ ... }` group together.
+ * Split a line into words, keeping a `{ ... }` group together. Only spaces
+ * and tabs separate words, as in PLUMED.
  *
  * @param {string} text
- * @returns {{words:string[], unbalanced:boolean}}
+ * @returns {{words:string[], unbalanced:boolean, extraClose:boolean}}
+ *   `unbalanced` is set by either mistake; `extraClose` only by a `}` that
+ *   closes no `{`, which PLUMED reports first ("Extra closed parenthesis").
  */
 export function splitWords(text) {
   const words = [];
   let cur = '';
   let depth = 0;
   let unbalanced = false;
+  let extraClose = false;
   for (const ch of String(text == null ? '' : text)) {
     if (ch === '{') depth += 1;
     if (ch === '}') {
       depth -= 1;
-      if (depth < 0) { unbalanced = true; depth = 0; }
+      if (depth < 0) { unbalanced = true; extraClose = true; depth = 0; }
     }
-    if (depth === 0 && /\s/.test(ch)) {
+    if (depth === 0 && BLANK.test(ch)) {
       if (cur) { words.push(cur); cur = ''; }
     } else {
-      cur += /\s/.test(ch) ? ' ' : ch;
+      cur += BLANK.test(ch) ? ' ' : ch;
     }
   }
   if (cur) words.push(cur);
   if (depth !== 0) unbalanced = true;
-  return { words, unbalanced };
+  return { words, unbalanced, extraClose };
+}
+
+/* Whitespace PLUMED does not take for a separator, with a name to report. */
+const ODD_SPACE = /[^\S \t\n]/;
+function oddSpaceName(ch) {
+  const names = { '\u00a0': 'a no-break space', '\u202f': 'a narrow no-break space', '\u2009': 'a thin space',
+    '\u3000': 'an ideographic space', '\v': 'a vertical tab', '\f': 'a form feed', '\ufeff': 'a byte-order mark' };
+  const code = ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0');
+  return `${names[ch] || 'an unusual space'} (U+${code})`;
 }
 
 /**
@@ -102,7 +130,9 @@ export function splitKeyword(word) {
  * @property {string} label - Its label, or '' when it has none.
  * @property {number} line - First line, counted from 1.
  * @property {number} endLine - Last line.
- * @property {Array<{key:string, value:string|null, braced:boolean}>} keywords
+ * @property {Array<{key:string, value:string|null, braced:boolean}>} keywords -
+ *           A `KEY=value` key is in capitals, since PLUMED matches it in
+ *           either case; a flag keeps the case it was written in.
  * @property {boolean} block - Written over several lines with `...`.
  * @property {string[]} comments - Comments directly above the action.
  */
@@ -111,8 +141,10 @@ export function splitKeyword(word) {
  * Parse a PLUMED input.
  *
  * @param {string} text
- * @returns {{actions:ParsedAction[], errors:Array<{line:number, text:string}>,
- *   ended:number|null}} `ended` is the line of `ENDPLUMED`, if there is one.
+ * @returns {{actions:ParsedAction[], errors:Array<{line:number, text:string,
+ *   level?:'warning'}>, ended:number|null}} `ended` is the line of
+ *   `ENDPLUMED`, if there is one. An entry of `errors` with `level: 'warning'`
+ *   is something PLUMED accepts but that is probably not meant.
  */
 export function parsePlumedInput(text) {
   const lines = String(text == null ? '' : text).replace(/\r\n?/g, '\n').split('\n');
@@ -129,24 +161,35 @@ export function parsePlumedInput(text) {
     }
     return d;
   };
+  const reportOddSpace = (code, lineNo) => {
+    const m = ODD_SPACE.exec(code);
+    if (!m) return;
+    errors.push({
+      line: lineNo,
+      text: `The line holds ${oddSpaceName(m[0])}. PLUMED separates words only by spaces and ` +
+        'tabs, so the words on either side read as one; retype it as a plain space.'
+    });
+  };
 
   let i = 0;
   while (i < lines.length) {
     const lineNo = i + 1;
     const { code, comment } = stripComment(lines[i]);
     i += 1;
+    reportOddSpace(code, lineNo);
 
-    if (!code.trim()) {
+    if (!trimBlanks(code)) {
       if (comment) comments.push(comment);
       else comments = [];
       continue;
     }
-    const firstWord = code.trim().split(/\s+/)[0];
+    const lineWords = blankWords(code);
+    const firstWord = lineWords[0];
     if (firstWord === 'ENDPLUMED') {
       ended = lineNo;
       break;
     }
-    if (firstWord === '...') {
+    if (firstWord === '...' && lineWords.length > 1) {
       errors.push({ line: lineNo, text: 'A line starts with `...` but no block is open.' });
       comments = [];
       continue;
@@ -160,21 +203,49 @@ export function parsePlumedInput(text) {
     let body = code;
     let endLine = lineNo;
     let block = false;
+    let openBrace = false;
 
-    if (/(^|\s)\.\.\.\s*$/.test(code)) {
+    // `METAD...`, with no space before the dots: PLUMED opens a block only
+    // when a line ends with `...` as a word of its own, and otherwise stops
+    // at an action named `METAD...`. The line is read as the block it was
+    // meant to open, so the lines after it are not reported one by one.
+    const at = firstWord.length > 1 && firstWord.endsWith(':') ? 1 : 0;
+    const glued = /^[A-Za-z][A-Za-z0-9_]*\.\.\.$/.test(lineWords[at] || '') ? lineWords[at] : '';
+    if (glued) {
+      const rest = lineWords.slice(at + 1);
+      if (rest[rest.length - 1] === '...') rest.pop();
+      const fixed = [...lineWords.slice(0, at), glued.slice(0, -3), ...rest, '...'];
+      errors.push({
+        line: lineNo,
+        text: `\`${glued}\` needs a space before the dots: write \`${fixed.join(' ')}\`. PLUMED ` +
+          'opens a block only when a line ends with `...` as a word of its own; otherwise it ' +
+          `stops at an action named \`${glued}\`.`
+      });
+      lineWords.splice(0, lineWords.length, ...fixed);
+    }
+
+    if (lineWords[lineWords.length - 1] === '...') {
       block = true;
-      body = code.replace(/\.\.\.\s*$/, ' ');
-      const first = body.trim().split(/\s+/)[0] || '';
+      body = lineWords.slice(0, -1).join(' ');
+      if (!body) {
+        errors.push({
+          level: 'warning', line: lineNo,
+          text: 'A line holding only `...` opens a block: PLUMED joins the lines after it into ' +
+            'one action, up to the next `...`. Start the block on the line of its action.'
+        });
+      }
       let closed = false;
       while (i < lines.length) {
         const n = i + 1;
         const part = stripComment(lines[i]).code;
         i += 1;
-        const words = part.trim().split(/\s+/).filter(Boolean);
+        reportOddSpace(part, n);
+        const words = blankWords(part);
         if (words[0] === '...') {
           closed = true;
           endLine = n;
           const rest = words.slice(1);
+          const first = blankWords(body)[0] || '';
           if (rest.length > 1) {
             errors.push({
               line: n,
@@ -190,43 +261,88 @@ export function parsePlumedInput(text) {
           }
           break;
         }
-        body += ` ${part}`;
+        // PLUMED drops a `...` at the end of a line inside a block.
+        const kept = words[words.length - 1] === '...' ? words.slice(0, -1) : words;
+        body += ` ${kept.join(' ')}`;
         if (words.length) endLine = n;
       }
       if (!closed) {
         errors.push({
-          line: lineNo,
-          text: `The block opened with \`${first}\` is never closed. End it with a line holding \`...\`.`
+          level: 'warning', line: lineNo,
+          text: `The block opened with \`${blankWords(body)[0] || '...'}\` is never closed. PLUMED ` +
+            'reads it to the end of the file as one action; end it with a line holding `...`.'
         });
       }
-    } else {
-      // A brace left open carries the value over to the next lines.
+    } else if (depthOf(body) > 0) {
+      // PLUMED stops at a brace left open outside a block. The lines up to
+      // the one that closes it are read with it, so that one mistake is
+      // reported once and not again on every line it swallowed.
+      const opened = lineNo;
+      openBrace = true;
       while (depthOf(body) > 0 && i < lines.length) {
         body += ` ${stripComment(lines[i]).code}`;
         endLine = i + 1;
         i += 1;
       }
+      errors.push({
+        line: opened,
+        text: 'A `{` opened on this line is not closed on it. PLUMED joins lines only inside a ' +
+          '`...` block, so it stops here ("non matching parenthesis"). Close the brace on the ' +
+          'same line, or write the action as a block.'
+      });
     }
 
     const split = splitWords(body);
     let all = split.words;
-    if (split.unbalanced) {
-      errors.push({ line: lineNo, text: 'Unbalanced braces: a `{` has no matching `}`.' });
+    if (split.extraClose && !openBrace) {
+      // PLUMED meets the stray `}` before anything else on the line.
+      errors.push({
+        line: lineNo,
+        text: `Unbalanced braces: a \`}\`${block ? '' : ' on this line'} closes no \`{\`. ` +
+          'PLUMED stops here ("Extra closed parenthesis").'
+      });
+      all = all.filter(w => !/^}+$/.test(w));
+    } else if (split.unbalanced && !openBrace) {
+      errors.push({
+        line: lineNo,
+        text: block
+          ? 'Unbalanced braces: a `{` has no matching `}`.'
+          : 'Unbalanced braces: a `{` has no matching `}` on this line. PLUMED stops ' +
+            '("non matching parenthesis"): a brace may continue onto the next lines only ' +
+            'inside a `...` block.'
+      });
     }
     if (!all.length) {
       comments = [];
       continue;
     }
 
+    // PLUMED capitalises the action name only when the line holds more than
+    // one word (Tools::interpretLabel): `restart` alone stays `restart`.
+    const words = all.length;
     let label = '';
     if (all.length && all[0].endsWith(':') && all[0].length > 1) {
       label = all[0].slice(0, -1);
       all = all.slice(1);
     }
-    // PLUMED reads names and keywords in either case; values keep theirs.
+    // `d:DISTANCE`, with no space after the colon, is one word to PLUMED,
+    // which stops at an action it does not know (`D:DISTANCE`). It is read
+    // as meant, so the label is still defined for the lines that use it.
+    const glue = !label && /^([^\s:{}=]+):([A-Za-z][A-Za-z0-9_]*)$/.exec(all[0] || '');
+    if (glue) {
+      errors.push({
+        line: lineNo,
+        text: `\`${all[0]}\` needs a space after the colon: write \`${glue[1]}: ${glue[2]}\`. ` +
+          `PLUMED reads \`${all[0]}\` as one word, the name of an action it does not know.`
+      });
+      label = glue[1];
+      all = [glue[2], ...all.slice(1)];
+    }
     const written = all[0] || '';
-    const action = /^[A-Za-z][A-Za-z0-9_]*$/.test(written) ? written.toUpperCase() : written;
-    const keywords = all.slice(1).map(splitKeyword).map(k => ({ ...k, key: k.key.toUpperCase() }));
+    const action = words > 1 && /^[A-Za-z][A-Za-z0-9_]*$/.test(written) ? written.toUpperCase() : written;
+    // A key is matched in either case, a flag exactly as written.
+    const keywords = all.slice(1).map(splitKeyword)
+      .map(k => (k.value === null ? k : { ...k, key: k.key.toUpperCase() }));
 
     const named = keywords.findIndex(k => k.key === 'LABEL' && k.value !== null);
     if (named > -1) {
@@ -244,9 +360,13 @@ export function parsePlumedInput(text) {
     if (!action) {
       errors.push({ line: lineNo, text: `The label \`${label}\` is not followed by an action.` });
     } else if (!ACTION_RE.test(action)) {
+      const upper = written.toUpperCase();
       errors.push({
         line: lineNo,
-        text: `\`${action}\` cannot be an action name: PLUMED actions are written in capitals.`
+        text: words === 1 && ACTION_RE.test(upper)
+          ? `\`${written}\` alone on a line is read exactly as written, and PLUMED names its ` +
+            `actions in capitals: write \`${upper}\`.`
+          : `\`${action}\` cannot be an action name: PLUMED actions are written in capitals.`
       });
     }
     actions.push({ action, label, line: lineNo, endLine, keywords, block, comments });
@@ -278,38 +398,63 @@ function listOf(value) {
  * The label a reference points at: `cn.morethan-1` and `cn_morethan-1` both
  * point at `cn` when `cn` is an action.
  *
+ * Only a shortcut names the actions it creates after its own label
+ * (`cn_mean`, `pamm-1_mean`); `phi_1` is no value of a TORSION `phi`, and
+ * PLUMED stops at it. `options.prefixed` says which labels may be followed
+ * by such a suffix; without it every label may, as the parser alone cannot
+ * tell.
+ *
  * @param {string} ref
  * @param {Set<string>} labels
+ * @param {{prefixed?:(label:string)=>boolean}} [options]
  * @returns {string|null} Null when nothing defined matches.
  */
-export function resolveReference(ref, labels) {
+export function resolveReference(ref, labels, options = {}) {
   const r = str(ref);
   if (!r) return null;
   if (labels.has(r)) return r;
   const dot = r.indexOf('.');
   if (dot > 0 && labels.has(r.slice(0, dot))) return r.slice(0, dot);
-  // Shortcuts name the actions they create after their own label: label_mean,
-  // label-1_mean, label1.
+  const may = typeof options.prefixed === 'function' ? options.prefixed : () => true;
   let best = null;
   for (const l of labels) {
-    if (r.length > l.length && r.startsWith(l) && /[_\-.\d]/.test(r[l.length]) &&
+    if (r.length > l.length && r.startsWith(l) && /[_\-.\d]/.test(r[l.length]) && may(l) &&
       (!best || l.length > best.length)) best = l;
   }
   return best;
 }
 
+/* A number, an @replicas list, or a regular expression, none of them a label. */
 function isLiteralReference(ref) {
   const r = str(ref);
-  return /[*?()]/.test(r) || r.startsWith('@') || /^[-+]?(\d|\.\d)/.test(r);
+  return /[()]/.test(r) || r.startsWith('@') || /^[-+]?(\d|\.\d)/.test(r);
+}
+
+/* A wildcard: `*`, `*.bias`, `m.*`. Only the label before the dot, when it
+   holds no wildcard itself, has to exist. */
+function wildcardLabel(ref) {
+  const r = str(ref);
+  if (!/[*?]/.test(r)) return null;
+  const dot = r.indexOf('.');
+  if (dot < 1) return '';
+  const head = r.slice(0, dot);
+  return /[*?]/.test(head) ? '' : head;
 }
 
 /* ------------------------------------------------------------------ *
  * Checks
  * ------------------------------------------------------------------ */
 
-const SETUP_ACTIONS = new Set(['RESTART', 'UNITS', 'LOAD', 'INCLUDE']);
-/* Actions PLUMED allows anywhere, so a setup action may follow them. */
-const ANY_ORDER = new Set(['MOLINFO', 'DEBUG', 'ENDPLUMED']);
+/* Setup actions must come before every other action; the ones PLUMED lets
+   stand anywhere may come before them too. LOAD was a setup action in 2.9
+   and may stand anywhere from 2.10 (core/ActionSetup.cpp, ActionAnyorder). */
+function orderRules(version) {
+  const old = version === '2.9';
+  return {
+    setup: new Set(old ? ['RESTART', 'UNITS', 'LOAD'] : ['RESTART', 'UNITS']),
+    any: new Set(old ? ['MOLINFO', 'INCLUDE'] : ['MOLINFO', 'INCLUDE', 'LOAD'])
+  };
+}
 const METAD_FAMILY = new Set(['METAD', 'PBMETAD', 'OPES_METAD', 'OPES_METAD_EXPLORE']);
 const PER_ARG = {
   METAD: ['SIGMA', 'GRID_MIN', 'GRID_MAX', 'GRID_BIN', 'GRID_SPACING', 'SIGMA_MIN', 'SIGMA_MAX'],
@@ -322,16 +467,52 @@ const PER_ARG = {
   ABMD: ['TO', 'KAPPA', 'NOISE', 'SEED', 'MIN'],
   COMBINE: ['COEFFICIENTS', 'PARAMETERS', 'POWERS']
 };
-/* Keywords every action of a kind takes, which the table lists for some only. */
-const EVERYWHERE = new Set(['NUMERICAL_DERIVATIVES', 'NOPBC', 'SERIAL', 'TIMINGS', 'LOWMEM', '__FILL__']);
 
 /* Keywords whose words are atoms or the labels of groups and centres. */
 const ATOM_KEYS = /^(ATOMS?|GROUP[ABC]?|SPECIES[AB]?|ENTITY|CENTER|ORIGIN|AXIS_ATOMS|VECTORSTART|VECTOREND|CATOMS)\d*$/;
+/* Keywords that name other actions by their label. */
+const LABEL_KEYS = /^(SPECIES|SPECIESA|SPECIESB)$/;
+/* @ words PLUMED resolves without MOLINFO (core/ActionAtomistic.cpp). */
+const NO_MOLINFO = /^@(allatoms|mdatoms|ndx:)/;
 
-const SWITCH_NAMES = new Set([
-  'RATIONAL', 'EXP', 'GAUSSIAN', 'SMAP', 'Q', 'CUBIC', 'TANH', 'COSINUS', 'CUSTOM', 'MATHEVAL',
-  'NATIVEQ', 'FAST_RATIONAL', 'COSINE'
-]);
+/* Switching functions as PLUMED reads them (tools/SwitchingFunction.cpp):
+   the type is matched exactly, R_0 is needed by every type but CUBIC, and a
+   word left over stops the run. */
+const SWITCH_TYPES = {
+  RATIONAL: ['NN', 'MM'], SMAP: ['A', 'B'], Q: ['BETA', 'LAMBDA', 'REF'], EXP: [], GAUSSIAN: [],
+  TANH: [], COSINUS: [], CUBIC: [], CUSTOM: ['FUNC'], MATHEVAL: ['FUNC']
+};
+const SWITCH_COMMON = ['D_0', 'D_MAX', 'R_0'];
+const SWITCH_FLAGS = ['STRETCH', 'NOSTRETCH'];
+/* Keywords that hold a switching function. */
+const SWITCH_KEYS = /^(SWITCH\d*|SWITCH[AB]|SWITCH_COORD|[HA]SWITCH|MORE_THAN\d*|LESS_THAN\d*)$/;
+/* Keywords whose switching function acts on a distance. MORE_THAN and
+   LESS_THAN, and the SWITCH of the function actions of that name, act on a
+   value such as a coordination number. */
+const DISTANCE_SWITCH = /^(SWITCH|SWITCH\d+|SWITCHA|SWITCHB|R_0|D_0|D_MAX)$/;
+const VALUE_SWITCH_ACTIONS = new Set(['MORE_THAN', 'LESS_THAN', 'BETWEEN']);
+
+/* Actions whose label names a single virtual atom. */
+const ONE_ATOM = new Set(['CENTER', 'COM', 'FIXEDATOM', 'CENTER_FAST', 'ARGS2VATOM']);
+/* How many atoms an action takes in ATOMS, when fixed. */
+const ATOM_COUNT = {
+  DISTANCE: [2], TORSION: [4], ANGLE: [3, 4], DIHEDRAL_CORRELATION: [8], PLANE: [3, 4],
+  PUCKERING: [5, 6]
+};
+/* Keywords that SWITCH={...} replaces when it is given: the parameters of a
+   switching function (COORDINATION) or of a histogram bead (BETWEEN). */
+const SWITCH_PARTS = new Set(['R_0', 'D_0', 'NN', 'MM', 'D_MAX', 'LOWER', 'UPPER', 'SMEAR']);
+/* Compulsory keywords without a default that an action reads only in some
+   modes, or fills in itself: KDE takes BANDWIDTH instead of METRIC, and
+   REWEIGHT_BIAS reads every bias when ARG is left out. */
+const OPTIONAL_IN_PRACTICE = {
+  KDE: ['METRIC', 'CONCENTRATION'], SPHERICAL_KDE: ['METRIC'], SELECT_WITH_MASK: ['MASK'],
+  ANN: ['PERIODIC'], REFERENCE_GRID: ['FILE', 'VALUE', 'PERIODIC'], REWEIGHT_BIAS: ['ARG'],
+  REWEIGHT_METAD: ['ARG'], CREATE_MASK: ['NZEROS'], HISTOGRAM: ['BANDWIDTH', 'GRID_MIN', 'GRID_MAX']
+};
+/* Actions that ask for NL_CUTOFF and NL_STRIDE once NLIST is on
+   (colvar/CoordinationBase.cpp). */
+const NLIST_ACTIONS = new Set(['COORDINATION', 'DHENERGY', 'GHBFIX']);
 
 /**
  * @typedef {object} Issue
@@ -340,6 +521,187 @@ const SWITCH_NAMES = new Set([
  * @property {number} line
  * @property {string} text
  */
+
+/* Look a keyword up as PLUMED matches it: KEY=value in either case, a flag
+   exactly. Returns the table's entry, or null. */
+function lookupKeyword(syntax, action, k) {
+  const exact = syntax.keyword(action, k.key);
+  if (exact) return exact;
+  if (k.value === null) return null;
+  const upper = k.key.toUpperCase();
+  const names = (syntax.action(action) || { keywords: [] }).keywords.map(x => x.name);
+  const name = names.find(n => n.toUpperCase() === upper);
+  if (name) return syntax.keyword(action, name);
+  const m = /^(.*?)(\d+)$/.exec(k.key);
+  if (m) {
+    const base = names.find(n => n.toUpperCase() === m[1].toUpperCase());
+    if (base) return syntax.keyword(action, `${base}${m[2]}`);
+  }
+  return null;
+}
+
+/* Does an action set a keyword, numbered instances included? */
+function sets(a, name) {
+  const up = String(name).toUpperCase();
+  return a.keywords.some(k => k.key === name || (k.value !== null && k.key === up) ||
+    new RegExp(`^${up.replace(/[^A-Z0-9_]/g, '')}\\d+$`).test(k.key.toUpperCase()));
+}
+
+/* Is a component name one the action lists? Numbered ones (`eig-0`,
+   `morethan-2`) and those named after an argument (`d1_min`) count. */
+function findOutput(outputs, comp) {
+  const base = comp.replace(/-\d+$/, '');
+  return outputs.find(o => o.name === comp) ||
+    outputs.find(o => o.name === base) ||
+    outputs.find(o => o.name.startsWith('_') && (o.name.slice(1) === comp ||
+      (comp.length > o.name.length && comp.endsWith(o.name)))) || null;
+}
+
+/* Keywords that alone switch a component on. Others, such as
+   CALC_TRANSITION_BIAS, are one of several ways to get theirs. */
+const ENABLING = /^(COMPONENTS|SCALED_COMPONENTS|CALC_RCT|CALC_WORK|CALC_MAX_BIAS|ACCELERATION|MEAN|SUM|MIN|MAX|ALT_MIN|HIGHEST|LOWEST|MORE_THAN|LESS_THAN|BETWEEN|MOMENTS|VMEAN|VSUM)$/;
+
+const needsCache = new WeakMap();
+/* Does the table record what shortcuts expand into (2.10 on)? */
+function tableHasNeeds(syntax) {
+  if (!needsCache.has(syntax)) {
+    needsCache.set(syntax, typeof syntax.needs === 'function' &&
+      syntax.actionNames().some(n => syntax.needs(n).length > 0));
+  }
+  return needsCache.get(syntax);
+}
+
+/* May the actions of this action be named after its label with a suffix? */
+function makesPrefixed(syntax, action) {
+  if (!syntax || !syntax.has(action)) return true;
+  if (typeof syntax.needs !== 'function') return true;
+  if (syntax.needs(action).length) return true;
+  return !tableHasNeeds(syntax) && syntax.isShortcut(action);
+}
+
+/**
+ * What is wrong with a reference to `owner.comp`, or with the bare label
+ * when `comp` is null, as far as the keyword table can tell.
+ *
+ * @returns {string|null}
+ */
+function componentProblem(owner, comp, syntax) {
+  if (!syntax || !owner || !syntax.has(owner.action)) return null;
+  const info = syntax.action(owner.action);
+  const outs = info.outputs || [];
+  if (!outs.length || outs.some(o => o.name.includes('#'))) return null;
+  const shortcut = typeof syntax.needs === 'function' && syntax.needs(owner.action).length > 0;
+  const flagSet = (o) => o.keyword && o.keyword !== 'value' && sets(owner, o.keyword);
+  if (comp === null) {
+    if (shortcut) return null;
+    const hasValue = outs.some(o => o.name === 'value');
+    const replacing = outs.filter(o => /COMPONENTS$/.test(o.keyword || '') && flagSet(o));
+    if (replacing.length) {
+      return `\`${owner.label}\` (${owner.action}) sets \`${replacing[0].keyword}\`, so it has ` +
+        `components only: refer to \`${owner.label}.${replacing[0].name}\` and the like.`;
+    }
+    // Components named after an argument (PIECEWISE's `_pfunc`) replace the
+    // value only for several arguments, so they prove nothing.
+    const always = outs.filter(o => o.keyword === null && o.name !== 'value' && !o.name.startsWith('_'));
+    // Only the 2.11 table lists `value` wherever there is one (2.10 leaves it
+    // out for CONTACTMAP with SUM, for one).
+    if (!hasValue && always.length && versionAtLeast(syntax.version, '2.11')) {
+      return `\`${owner.label}\` (${owner.action}) has no value of its own, only components: ` +
+        `${always.slice(0, 3).map(o => `\`${owner.label}.${o.name.replace(/^_/, '')}\``).join(', ')}` +
+        `${always.length > 3 ? ', ...' : ''}.`;
+    }
+    return null;
+  }
+  if (/[*?]/.test(comp) || /^\d+$/.test(comp)) return null;
+  const o = findOutput(outs, comp);
+  if (!o) {
+    // The 2.9 table does not mark the components an action names at run
+    // time (READ, PROPERTYMAP, ECV_LINEAR), so a name it lacks proves nothing.
+    if (shortcut || !versionAtLeast(syntax.version, '2.10')) return null;
+    const names = outs.map(x => x.name).filter(n => n !== 'value' && !n.startsWith('_'));
+    return `\`${owner.label}\` (${owner.action}) has no component \`${comp}\`` +
+      (names.length ? `; it has ${names.slice(0, 6).map(n => `\`${n}\``).join(', ')}` +
+        `${names.length > 6 ? ', ...' : ''}.` : '.');
+  }
+  if (o.keyword && ENABLING.test(o.keyword) && !sets(owner, o.keyword)) {
+    return `\`${owner.label}.${comp}\` exists only when \`${owner.label}\` sets \`${o.keyword}\`.`;
+  }
+  return null;
+}
+
+/* The period of a value as PLUMED writes it, when the value is periodic. */
+function periodOf(owner, comp) {
+  if (!owner) return null;
+  if (!comp) {
+    if (owner.action === 'TORSION' && !hasFlag(owner, 'COSINE')) return ['-pi', 'pi'];
+    const p = keywordValue(owner, 'PERIODIC');
+    if (p && p.toUpperCase() !== 'NO') {
+      const parts = p.split(',').map(str);
+      if (parts.length === 2) return parts;
+    }
+    return null;
+  }
+  if (owner.action === 'PUCKERING') {
+    if (comp === 'phs') return ['-pi', 'pi'];
+    if (comp === 'phi') return ['0', '2pi'];
+  }
+  return null;
+}
+
+/* How many atoms an atom list names, or null when it holds something whose
+   size only PLUMED knows (a group, an @ selection). */
+function atomCount(value, defs) {
+  const parsed = parseAtomList(value);
+  if (parsed.errors.length) return null;
+  let n = parsed.count;
+  for (const l of parsed.labels) {
+    const d = defs.get(l);
+    if (!d || !ONE_ATOM.has(d.action)) return null;
+    n += 1;
+  }
+  return n;
+}
+
+/* Check the contents of a switching function. Returns problems as text. */
+function switchProblems(value, version) {
+  const out = [];
+  const words = splitWords(value).words;
+  if (!words.length) return ['is empty.'];
+  const type = words[0];
+  if (!Object.prototype.hasOwnProperty.call(SWITCH_TYPES, type)) {
+    const up = type.toUpperCase();
+    out.push(Object.prototype.hasOwnProperty.call(SWITCH_TYPES, up)
+      ? `names its type \`${type}\`; PLUMED reads the type exactly as written: \`${up}\`.`
+      : `names the type \`${type}\`, which PLUMED does not know; it knows ` +
+        `${Object.keys(SWITCH_TYPES).map(t => `\`${t}\``).join(', ')}.`);
+    return out;
+  }
+  const allowed = new Set([...SWITCH_COMMON, ...SWITCH_TYPES[type]]);
+  if (type === 'CUBIC') allowed.delete('R_0');
+  const given = new Set();
+  const rogue = [];
+  for (const w of words.slice(1)) {
+    const k = splitKeyword(w);
+    if (k.value === null) {
+      if (!SWITCH_FLAGS.includes(k.key)) rogue.push(w);
+      continue;
+    }
+    const key = k.key.toUpperCase();
+    if (!allowed.has(key)) rogue.push(w);
+    else given.add(key);
+  }
+  if (rogue.length) {
+    out.push(`holds ${rogue.map(w => `\`${w}\``).join(', ')}, which a ${type} switching ` +
+      `function does not take; PLUMED stops at a word it has not read` +
+      (type === 'CUBIC' && rogue.some(w => /^R_0=/i.test(w)) ? ' (CUBIC is set by D_0 and D_MAX alone).' : '.'));
+  }
+  if (type !== 'CUBIC' && !given.has('R_0')) out.push(`has no \`R_0\`, which ${type} needs.`);
+  if (type === 'Q' && !given.has('REF')) out.push('has no `REF`, which Q needs.');
+  if (type === 'SMAP' && version !== '2.9' && (!given.has('A') || !given.has('B'))) {
+    out.push('needs both `A` and `B`.');
+  }
+  return out;
+}
 
 /**
  * Check a PLUMED input.
@@ -363,24 +725,29 @@ export function lintPlumedInput(text, options = {}) {
   // With an INCLUDE the file is not the whole input, so a label it does not
   // define may well exist.
   const open = includes || !!options.includes;
+  const { setup, any } = orderRules(syntax ? syntax.version : '');
 
   const labels = new Set();
+  const defs = new Map();
   const seenAt = new Map();
   let units = { length: 'nm' };
   let sawAction = false;
   const modules = new Map();
+  const prefixed = (l) => makesPrefixed(syntax, (defs.get(l) || {}).action);
+  const resolve = (ref) => resolveReference(ref, labels, { prefixed });
 
   for (const a of actions) {
     const s = syntax && syntax.has(a.action) ? syntax : null;
 
     /* --- order of setup actions --- */
-    if (SETUP_ACTIONS.has(a.action)) {
-      if (sawAction && a.action !== 'INCLUDE' && a.action !== 'LOAD') {
+    if (setup.has(a.action)) {
+      if (sawAction) {
         add('error', a.line,
-          `\`${a.action}\` is a setup action and must come before every other action. ` +
+          `\`${a.action}\` is a setup action and must come before every other action ` +
+          `(only ${[...any].map(x => `\`${x}\``).join(', ')} may stand before it). ` +
           'Move it to the top of the file.');
       }
-    } else if (!ANY_ORDER.has(a.action)) {
+    } else if (!any.has(a.action)) {
       sawAction = true;
     }
     if (a.action === 'UNITS') {
@@ -390,12 +757,15 @@ export function lintPlumedInput(text, options = {}) {
 
     /* --- the action itself --- */
     if (syntax && !s) {
-      if (loads && !nearestAction(a.action, syntax)) {
+      const near = nearestAction(a.action, syntax);
+      if (loads) {
+        // An action a LOAD file adds is often named after the one it was
+        // copied from, DISTANCE2 after DISTANCE.
         add('note', a.line,
           `\`${a.action}\` is not part of PLUMED ${syntax.version}; it is taken to come from a ` +
-          '`LOAD` file, so its keywords are not checked.');
+          '`LOAD` file, so its keywords are not checked.' +
+          (near ? ` If it is not, did you mean \`${near}\`?` : ''));
       } else {
-        const near = nearestAction(a.action, syntax);
         add(near ? 'error' : 'warning', a.line, near
           ? `\`${a.action}\` is not an action of PLUMED ${syntax.version}. Did you mean \`${near}\`?`
           : `\`${a.action}\` is not in the keyword table of PLUMED ${syntax.version}. Check the ` +
@@ -404,28 +774,39 @@ export function lintPlumedInput(text, options = {}) {
       }
     }
     if (s) {
-      const m = s.moduleOf(a.action);
-      if (m && !m.defaultOn) {
+      const needed = typeof s.modulesFor === 'function' ? s.modulesFor(a.action) : [s.moduleOf(a.action)];
+      for (const m of needed) {
+        if (!m || m.defaultOn) continue;
         if (!modules.has(m.name)) modules.set(m.name, { line: a.line, actions: [] });
         const entry = modules.get(m.name);
         if (!entry.actions.includes(a.action)) entry.actions.push(a.action);
       }
+      const expansion = typeof s.expansion === 'function' ? s.expansion(a.action).slice(1) : [];
       const seen = new Set();
       for (const k of a.keywords) {
-        const kw = s.keyword(a.action, k.key);
+        const kw = lookupKeyword(s, a.action, k);
         if (!kw) {
-          if (EVERYWHERE.has(k.key)) continue;
-          const near = nearestKeyword(k.key, s.action(a.action).keywords.map(x => x.name));
-          add('warning', a.line,
-            `\`${k.key}\` is not a keyword the table of PLUMED ${syntax.version} lists for ` +
-            `\`${a.action}\`.` + (near ? ` Did you mean \`${near}\`?` : '') +
-            ' PLUMED stops at a word it cannot understand, so check the line with ' +
-            '`plumed driver --parse-only`.');
+          // A shortcut hands the rest of its line to the actions it creates.
+          if (expansion.some(b => lookupKeyword(s, b, k))) continue;
+          const names = s.action(a.action).keywords.map(x => x.name);
+          const exactly = names.find(n => n.toUpperCase() === k.key.toUpperCase());
+          if (exactly && k.value === null) {
+            add('error', a.line,
+              `\`${k.key}\` is written \`${exactly}\` for \`${a.action}\`: PLUMED matches a flag ` +
+              'exactly as it is registered, and stops at any other spelling.');
+            continue;
+          }
+          const near = nearestKeyword(k.key, names);
+          add('error', a.line,
+            `\`${k.key}\` is not a keyword of \`${a.action}\` in PLUMED ${syntax.version}.` +
+            (near ? ` Did you mean \`${near}\`?` : '') +
+            ' PLUMED stops at a word it cannot understand.');
           continue;
         }
         if (kw.style === 'flag' && k.value !== null) {
-          add('warning', a.line,
-            `\`${k.key}\` is a flag of \`${a.action}\`: write it alone, without \`=${k.value}\`.`);
+          add('error', a.line,
+            `\`${k.key}\` is a flag of \`${a.action}\`: write it alone, without \`=${k.value}\`. ` +
+            'PLUMED stops at the whole word.');
         }
         // A reduction such as MEAN is written alone; MORE_THAN takes a value.
         if (kw.style !== 'flag' && kw.style !== 'reduction' && k.value === null) {
@@ -434,10 +815,30 @@ export function lintPlumedInput(text, options = {}) {
         if (k.value !== null && k.value === '') {
           add('error', a.line, `\`${k.key}=\` of \`${a.action}\` has no value.`);
         }
-        if (seen.has(k.key)) {
+        const id = k.value === null ? k.key : k.key.toUpperCase();
+        if (seen.has(id)) {
           add('error', a.line, `\`${k.key}\` is given twice on \`${a.action}\`.`);
         }
-        seen.add(k.key);
+        seen.add(id);
+      }
+      /* --- compulsory keywords that have no default --- */
+      // A shortcut that builds several actions fills some of them in itself,
+      // so only the others are checked. R_0 (or LOWER and UPPER) is not
+      // needed once SWITCH describes the whole function, and a few actions read a
+      // keyword only in some modes (found on PLUMED's regression tests).
+      // What the action it hands its line to requires is required all the
+      // same: RESTRAINT stops without AT, since RESTRAINT_SCALAR does.
+      const builds = typeof s.needs === 'function' && s.needs(a.action).length > 0;
+      const handed = builds && typeof s.passesTo === 'function'
+        ? new Set(s.passesTo(a.action).flatMap(b => s.requiredKeywords(b))) : new Set();
+      const required = s.requiredKeywords(a.action).filter(n => !builds || handed.has(n));
+      for (const name of required) {
+        if (sets(a, name)) continue;
+        if (SWITCH_PARTS.has(name) && sets(a, 'SWITCH')) continue;
+        if ((OPTIONAL_IN_PRACTICE[a.action] || []).includes(name)) continue;
+        add('error', a.line,
+          `\`${a.action}\` needs \`${name}\`, a compulsory keyword without a default. ` +
+          'PLUMED stops when it is missing.');
       }
     }
 
@@ -448,32 +849,63 @@ export function lintPlumedInput(text, options = {}) {
           `The label \`${a.label}\` is used twice, first on line ${seenAt.get(a.label)}. ` +
           'PLUMED requires unique labels.');
       }
-      if (a.label.includes('.')) {
+      if (s && !s.keyword(a.action, 'LABEL')) {
         add('error', a.line,
-          `The label \`${a.label}\` contains a dot, which PLUMED reads as a component.`);
+          `\`${a.action}\` takes no label: PLUMED stops at \`LABEL=${a.label}\`. Remove ` +
+          `\`${a.label}:\`.`);
+      }
+      if (a.label.includes('.')) {
+        add('warning', a.line,
+          `The label \`${a.label}\` contains a dot. PLUMED accepts it with a warning, but reads ` +
+          `\`${a.label}\` in an argument as a component of \`${a.label.split('.')[0]}\`, so nothing ` +
+          'can refer to it.');
       }
       if (a.label.startsWith('@')) {
-        add('error', a.line, `The label \`${a.label}\` starts with @, which PLUMED reserves.`);
+        add('warning', a.line,
+          `The label \`${a.label}\` starts with @. PLUMED accepts it, but in an atom list a word ` +
+          'starting with @ is read as a selection of the MOLINFO structure.');
       }
     }
 
     /* --- what it refers to --- */
     for (const k of a.keywords) {
       if (k.value === null) continue;
-      const style = s ? (s.keyword(a.action, k.key) || {}).style : null;
+      const style = s ? (lookupKeyword(s, a.action, k) || {}).style : null;
       if (/^ARG\d*$/.test(k.key) && style !== 'atoms' && !k.braced) {
         for (const ref of listOf(k.value)) {
           if (isLiteralReference(ref) || open || k.value.includes('@replicas')) continue;
-          if (!resolveReference(ref, labels)) {
-            const later = actions.find(x => x.label && resolveReference(ref, new Set([x.label])));
+          const wild = wildcardLabel(ref);
+          if (wild === '') continue;
+          const target = wild === null ? ref : wild;
+          const owner = resolve(target);
+          if (!owner) {
+            const later = actions.find(x => x.line > a.line && x.label &&
+              resolveReference(target, new Set([x.label]), { prefixed: () => makesPrefixed(syntax, x.action) }));
             add('error', a.line, later
               ? `\`${a.action}\` uses \`${ref}\`, which is only defined on line ${later.line}. ` +
                 'PLUMED reads the file in order: move the definition above this line.'
               : `\`${a.action}\` uses \`${ref}\`, which nothing in the file defines.`);
+            continue;
           }
+          if (wild !== null || !syntax) continue;
+          const d = defs.get(owner);
+          const rest = target.slice(owner.length);
+          // From 2.10 `x.sum` of a shortcut is whatever action is labelled
+          // `x_sum`, even one the file defines itself.
+          if (rest.startsWith('.') && labels.has(`${owner}_${rest.slice(1)}`)) continue;
+          const problem = rest === '' ? componentProblem(d, null, syntax)
+            : rest.startsWith('.') ? componentProblem(d, rest.slice(1), syntax) : null;
+          if (problem) add('error', a.line, `\`${a.action}\` uses \`${ref}\`: ${problem}`);
         }
       }
-      if (style === 'atoms') {
+      if (LABEL_KEYS.test(k.key) && !open && s && style !== 'atoms') {
+        for (const l of parseAtomList(k.value).labels) {
+          if (l.startsWith('@') || resolve(l)) continue;
+          add('error', a.line,
+            `\`${k.key}\` of \`${a.action}\` names \`${l}\`, which is not defined above it.`);
+        }
+      }
+      if (style === 'atoms' || (!s && ATOM_KEYS.test(k.key))) {
         const parsedAtoms = parseAtomList(k.value);
         if (parsedAtoms.indices.includes(0)) {
           add('error', a.line, `\`${k.key}\` of \`${a.action}\` names atom 0. PLUMED counts atoms from 1.`);
@@ -487,27 +919,40 @@ export function lintPlumedInput(text, options = {}) {
         }
         if (!open && ATOM_KEYS.test(k.key)) {
           for (const l of parsedAtoms.labels) {
-            if (l.startsWith('@') || labels.has(l) || resolveReference(l, labels)) continue;
+            if (l.startsWith('@') || resolve(l)) continue;
             add('error', a.line,
               `\`${k.key}\` of \`${a.action}\` uses \`${l}\`, which is not a group or a centre ` +
               'defined above it.');
           }
         }
-        if (parsedAtoms.labels.some(l => /^@(phi|psi|omega|chi\d|back|sidechain|protein|nucleic|water|ions|hydrogens|nonhydrogens)/.test(l)) &&
-          !actions.some(x => x.action === 'MOLINFO' && x.line < a.line)) {
+        // Every @ word but these few is read from the MOLINFO structure.
+        if (parsedAtoms.labels.some(l => l.startsWith('@') && !NO_MOLINFO.test(l)) &&
+          !actions.some(x => x.action === 'MOLINFO' && x.line < a.line) && !open) {
           add('error', a.line,
             `\`${a.action}\` uses a \`@\` selection, which needs a \`MOLINFO\` line above it.`);
         }
       }
-      /* --- switching functions in reduced units --- */
+      /* --- switching functions --- */
+      // BETWEEN reads a histogram bead (GAUSSIAN LOWER= UPPER= SMEAR=), not a
+      // switching function, and UPDATE_IF takes numbers for MORE_THAN.
+      if (SWITCH_KEYS.test(k.key) && (!s || style !== 'atoms') && a.action !== 'BETWEEN' &&
+        /^[A-Za-z]/.test(k.value.trim())) {
+        for (const p of switchProblems(k.value, syntax ? syntax.version : '')) {
+          add('error', a.line, `The switching function in \`${k.key}\` of \`${a.action}\` ${p}`);
+        }
+      }
       if (k.braced || ['R_0', 'D_0', 'D_MAX'].includes(k.key)) {
         const nm = LENGTH_IN_NM[units.length] || (Number(units.length) > 0 ? Number(units.length) : 1);
         const pairs = k.braced
-          ? splitWords(k.value).words.map(splitKeyword)
+          ? splitWords(k.value).words.map(splitKeyword).map(x => ({ ...x, key: x.key.toUpperCase() }))
           : [{ key: k.key, value: k.value }];
-        const isSwitch = !k.braced || SWITCH_NAMES.has((splitWords(k.value).words[0] || '').toUpperCase());
-        const onDistance = /^(SWITCH|SWITCH\d+|SWITCHA|SWITCHB|R_0|D_0|D_MAX)$/.test(k.key);
-        if (isSwitch && onDistance) {
+        const isSwitch = !k.braced || Object.prototype.hasOwnProperty.call(SWITCH_TYPES,
+          splitWords(k.value).words[0] || '');
+        // The function actions MORE_THAN, LESS_THAN and BETWEEN switch a value,
+        // not a distance.
+        const onValue = VALUE_SWITCH_ACTIONS.has(a.action) ||
+          (s && (s.moduleOf(a.action) || {}).name === 'function');
+        if (isSwitch && DISTANCE_SWITCH.test(k.key) && !onValue) {
           const get = (n) => {
             const p = pairs.find(x => x.key === n);
             return p && p.value !== null && Number.isFinite(Number(p.value)) ? Number(p.value) : null;
@@ -532,23 +977,53 @@ export function lintPlumedInput(text, options = {}) {
       }
     }
 
+    /* --- atoms an action takes, and neighbour lists --- */
+    const fixed = ATOM_COUNT[a.action];
+    if (fixed && keywordValue(a, 'ATOMS') && !a.keywords.some(k => /^ATOMS\d+$/.test(k.key))) {
+      const n = atomCount(keywordValue(a, 'ATOMS'), defs);
+      if (n !== null && !fixed.includes(n) && !(a.action === 'TORSION' && sets(a, 'VECTORA'))) {
+        add('error', a.line,
+          `\`${a.action}\` takes ${fixed.join(' or ')} atoms in \`ATOMS\`, but ${n} ` +
+          `${n === 1 ? 'is' : 'are'} listed. PLUMED stops here.`);
+      }
+    }
+    if (NLIST_ACTIONS.has(a.action) && hasFlag(a, 'NLIST')) {
+      for (const key of ['NL_CUTOFF', 'NL_STRIDE']) {
+        const v = numberOf(keywordValue(a, key));
+        if (v === null || v <= 0) {
+          add('error', a.line,
+            `\`${a.action}\` sets \`NLIST\` without a positive \`${key}\`; PLUMED stops when the ` +
+            'neighbour list has no cutoff or stride.');
+        }
+      }
+    }
+
     /* --- one value per argument --- */
     const per = PER_ARG[a.action];
     const args = listOf(keywordValue(a, 'ARG'));
     // Adaptive hills take one width for all; partitioned families and vector
-    // arguments pair values with something other than the argument list.
-    const fixedCount = args.length > 1 && !args.some(isLiteralReference) &&
+    // arguments pair values with something other than the argument list. A
+    // single argument is checked only when it is surely one number.
+    const scalarArg = (ref) => {
+      const owner = defs.get(resolve(ref) || '');
+      return !!(owner && syntax && syntax.has(owner.action) &&
+        !(typeof syntax.needs === 'function' && syntax.needs(owner.action).length) &&
+        !owner.keywords.some(k => /\d+$/.test(k.key) && /^(ATOMS|ARG|GROUP)/.test(k.key)));
+    };
+    const fixedCount = args.length > 0 && !args.some(isLiteralReference) &&
+      !args.some(x => /[*?]/.test(x)) &&
+      (args.length > 1 || scalarArg(args[0])) &&
       !keywordValue(a, 'ADAPTIVE') && !a.keywords.some(k => /^PF\d+$/.test(k.key));
     if (per && fixedCount) {
       for (const key of per) {
         const v = keywordValue(a, key);
         if (!v || /^ADAPTIVE$/i.test(v) || v.includes('@replicas')) continue;
         const n = listOf(v).length;
-        const single = ['KAPPA', 'EXP', 'EPS', 'OFFSET', 'SLOPE'].includes(key) && n === 1 && args.length > 1;
         if (n !== args.length) {
-          add(single ? 'warning' : 'error', a.line,
+          add('error', a.line,
             `\`${a.action}\` has ${args.length} argument${args.length === 1 ? '' : 's'} but ` +
-            `\`${key}\` has ${n} value${n === 1 ? '' : 's'}. PLUMED needs one per argument.`);
+            `\`${key}\` has ${n} value${n === 1 ? '' : 's'}. PLUMED needs one per argument, ` +
+            'and a single value is not repeated.');
         }
       }
     }
@@ -571,6 +1046,18 @@ export function lintPlumedInput(text, options = {}) {
         const sg = listOf(keywordValue(a, 'SIGMA'));
         const nb = listOf(keywordValue(a, 'GRID_BIN'));
         lo.forEach((l, j) => {
+          const ref = args[j];
+          // PLUMED compares the grid of a periodic variable with its period
+          // as text (bias/MetaD.cpp), so -3.1416 for -pi stops the run.
+          const owner = ref && !open ? defs.get(resolve(ref) || '') : null;
+          const period = owner ? periodOf(owner, ref === owner.label ? '' : ref.slice(owner.label.length + 1)) : null;
+          if (period && (l !== period[0] || hi[j] !== period[1])) {
+            add('error', a.line,
+              `\`${a.action}\`: \`${ref}\` is periodic on \`${period[0]}..${period[1]}\`, so PLUMED ` +
+              `stops unless its GRID_MIN and GRID_MAX read exactly \`${period[0]}\` and ` +
+              `\`${period[1]}\`; they read \`${l}\` and \`${hi[j]}\`.`);
+            return;
+          }
           const x = numberOf(l);
           const y = numberOf(hi[j]);
           if (x === null || y === null) return;
@@ -602,10 +1089,16 @@ export function lintPlumedInput(text, options = {}) {
       if (hasFlag(a, 'CALC_RCT') && !gmin) {
         add('error', a.line, '`CALC_RCT` needs the bias on a grid: add `GRID_MIN` and `GRID_MAX`.');
       }
-      const wn = numberOf(keywordValue(a, 'WALKERS_N'));
+      // Without WALKERS_N there is one walker, so any WALKERS_ID but 0 stops
+      // PLUMED (bias/MetaD.cpp).
       const wid = numberOf(keywordValue(a, 'WALKERS_ID'));
-      if (wn !== null && wid !== null && wid >= wn) {
-        add('error', a.line, `\`WALKERS_ID=${wid}\` must be below \`WALKERS_N=${wn}\`: walkers count from 0.`);
+      const given = numberOf(keywordValue(a, 'WALKERS_N'));
+      const wn = given !== null ? given : 1;
+      if (wid !== null && wid >= wn) {
+        add('error', a.line, given !== null
+          ? `\`WALKERS_ID=${wid}\` must be below \`WALKERS_N=${wn}\`: walkers count from 0.`
+          : `\`WALKERS_ID=${wid}\` without \`WALKERS_N\`: PLUMED then counts one walker, whose ` +
+            'id is 0, and stops. Set `WALKERS_N` to the number of walkers.');
       }
       if (hasFlag(a, 'WALKERS_MPI') && keywordValue(a, 'WALKERS_N')) {
         add('error', a.line, '`WALKERS_MPI` and `WALKERS_N` are two ways of sharing a bias. Keep one.');
@@ -635,14 +1128,17 @@ export function lintPlumedInput(text, options = {}) {
     if (a.label) {
       if (!seenAt.has(a.label)) seenAt.set(a.label, a.line);
       labels.add(a.label);
+      defs.set(a.label, a);
     }
   }
 
   for (const [name, m] of modules) {
+    const all = [...modules.keys()];
     add('note', m.line,
       `${m.actions.map(x => `\`${x}\``).join(', ')} need${m.actions.length === 1 ? 's' : ''} the ` +
       `**${name}** module, which a default PLUMED ${syntax.version} build leaves out. Check with ` +
-      `\`plumed config has module ${name}\`.`);
+      `\`plumed config has module ${name}\`` +
+      (all.length > 1 ? `; the input needs \`--enable-modules=${all.join(':')}\`.` : '.'));
   }
 
   /* --- the file as a whole --- */
@@ -654,14 +1150,19 @@ export function lintPlumedInput(text, options = {}) {
   }
   const biases = actions.filter(a => METAD_FAMILY.has(a.action));
   const files = new Map();
+  const restarting = !!restart && !hasFlag(restart, 'NO');
   for (const a of actions) {
     if (!['PRINT', 'METAD', 'OPES_METAD', 'DUMPATOMS', 'DUMPGRID'].includes(a.action)) continue;
     const f = keywordValue(a, 'FILE') || (a.action === 'METAD' ? 'HILLS' : a.action === 'OPES_METAD' ? 'KERNELS' : '');
     if (!f) continue;
     if (files.has(f)) {
+      // PLUMED backs up a file it finds when it opens it, unless it restarts.
       add('warning', a.line,
         `\`${a.action}\` writes to \`${f}\`, which line ${files.get(f)} already writes to. ` +
-        'The two outputs end up interleaved in one file; give each its own.');
+        (restarting
+          ? 'With RESTART both append to it, so their lines interleave; give each its own file.'
+          : `When this line opens it, PLUMED moves the first output to \`bck.0.${f}\`, so it is ` +
+            'lost to the analysis; give each its own file.'));
     } else {
       files.set(f, a.line);
     }
@@ -721,7 +1222,9 @@ function nearest(word, candidates) {
   let best = '';
   let score = Infinity;
   for (const c of candidates) {
-    const d = editDistance(word, c);
+    // Case aside: a flag is matched exactly, so LOGACTIVITY is a letter-case
+    // away from logActivity, not eight letters.
+    const d = editDistance(String(word).toUpperCase(), String(c).toUpperCase());
     if (d < score) { score = d; best = c; }
   }
   return score <= Math.max(1, Math.floor(String(word).length / 4)) ? best : '';
@@ -776,35 +1279,54 @@ const PLAIN = {
 export function explainPlumedInput(text, options = {}) {
   const { syntax = null } = options;
   const { actions } = parsePlumedInput(text);
+  // Who uses what, read the way PLUMED resolves it: an argument, an atom or
+  // group, a label named by LOGWEIGHTS or SPECIES. An exact label wins, so
+  // `d_1` is a use of the action `d_1`, not of `d`.
   const used = new Map();
+  const labels = new Set();
+  const byLabel = new Map();
+  const prefixed = (l) => makesPrefixed(syntax, (byLabel.get(l) || {}).action);
+  const note = (owner, ref, who) => {
+    if (!used.has(owner)) used.set(owner, { refs: [], by: [] });
+    const u = used.get(owner);
+    if (!u.refs.includes(ref)) u.refs.push(ref);
+    if (!u.by.includes(who)) u.by.push(who);
+  };
   for (const a of actions) {
+    const who = a.label || a.action;
     for (const k of a.keywords) {
-      if (k.value === null || !/^ARG/.test(k.key)) continue;
+      if (k.value === null || k.braced) continue;
+      const argLike = /^ARG\d*$/.test(k.key) || /^LOGWEIGHTS$/.test(k.key);
+      const atomLike = ATOM_KEYS.test(k.key) || LABEL_KEYS.test(k.key);
       for (const ref of listOf(k.value)) {
-        const who = a.label || a.action;
-        if (!used.has(ref)) used.set(ref, []);
-        if (!used.get(ref).includes(who)) used.get(ref).push(who);
+        if (isLiteralReference(ref) || /[*?]/.test(ref)) continue;
+        let owner = null;
+        if (argLike || atomLike) owner = resolveReference(ref, labels, { prefixed });
+        else if (labels.has(ref)) owner = ref;
+        if (owner && owner !== a.label) note(owner, ref, who);
       }
     }
+    if (a.label) { labels.add(a.label); byLabel.set(a.label, a); }
   }
   return actions.filter(a => a.action).map((a) => {
     const info = syntax && syntax.has(a.action) ? syntax.action(a.action) : null;
     let summary = PLAIN[a.action] || (info ? sentence(info.description) : '');
+    if (a.action === 'RESTART' && hasFlag(a, 'NO')) {
+      summary = 'Switches restarting off for this run, whatever the MD engine asks: outputs are ' +
+        'backed up and written anew.';
+    }
     if (!summary) {
       summary = 'Not an action of this PLUMED version; it may come from a LOAD file.';
     }
     const keywords = a.keywords.map((k) => {
-      const kw = info ? syntax.keyword(a.action, k.key) : null;
+      const kw = info ? lookupKeyword(syntax, a.action, k) : null;
       return { key: k.key, value: k.value, meaning: kw ? sentence(kw.description) : '' };
     });
     let outputs = '';
     if (a.label) {
-      const refs = [...used.keys()].filter(r => r === a.label || r.startsWith(`${a.label}.`) ||
-        r.startsWith(`${a.label}_`));
-      if (refs.length) {
-        const by = new Set();
-        refs.forEach(r => used.get(r).forEach(x => by.add(x)));
-        outputs = `Used as ${refs.map(r => `\`${r}\``).join(', ')} by ${[...by].map(x => `\`${x}\``).join(', ')}.`;
+      const u = used.get(a.label);
+      if (u) {
+        outputs = `Used as ${u.refs.map(r => `\`${r}\``).join(', ')} by ${u.by.map(x => `\`${x}\``).join(', ')}.`;
       } else if (!['GROUP', 'CENTER', 'COM'].includes(a.action)) {
         outputs = `Called \`${a.label}\`; nothing later in the file uses it.`;
       }
@@ -874,24 +1396,27 @@ function fillEntry(type, a) {
   const fragments = {};
 
   for (const k of a.keywords) {
-    const f = byKey.get(k.key);
+    // A field written under another keyword (PLANE's ATOMS as ATOMS1).
+    const f = byKey.get(k.key) || fields.find(x => x.writeAs === k.key);
     const text = k.value === null ? null : (k.braced ? `{${k.value}}` : k.value);
-    if (f && !f.variant) {
+    if (f && !f.variant && !f.k.startsWith('__')) {
       if (f.type === 'flag') {
         if (k.value !== null) return null;
-        values[k.key] = true;
+        values[f.k] = true;
       } else {
         if (k.value === null) return null;
-        values[k.key] = text;
+        values[f.k] = text;
       }
       continue;
     }
     if (folds && k.key === 'SWITCH' && k.braced) {
       const parts = splitWords(k.value).words;
-      if ((parts[0] || '').toUpperCase() !== 'RATIONAL') return null;
+      // PLUMED reads the type exactly as written; anything else stays as it is.
+      if ((parts[0] || '') !== 'RATIONAL') return null;
       for (const p of parts.slice(1).map(splitKeyword)) {
-        if (!byKey.has(p.key) || p.value === null) return null;
-        values[p.key] = p.value;
+        const key = p.key.toUpperCase();
+        if (!byKey.has(key) || p.value === null) return null;
+        values[key] = p.value;
       }
       continue;
     }
@@ -902,35 +1427,85 @@ function fillEntry(type, a) {
       else values[k.key] = text;
       continue;
     }
-    // A field holding numbered keywords as one fragment: ATOMS1=.. ATOMS2=..
+    // A text field holding numbered keywords as one fragment, ATOMS1=.. ATOMS2=..;
+    // a field of atoms cannot, since it is written as ATOMS=<list>.
     const holder = fields.find(x => x.type === 'text' && /\w+\d+=/.test(String(x.def)) &&
       new RegExp(`\\b${base}\\d+=`).test(String(x.def)));
-    const home = holder || (byKey.has(base) && /\d+$/.test(k.key) ? byKey.get(base) : null);
+    const own = byKey.has(base) && /\d+$/.test(k.key) ? byKey.get(base) : null;
+    const home = holder || (own && own.type === 'text' ? own : null);
     if (home && text !== null) {
       (fragments[home.k] = fragments[home.k] || []).push(`${k.key}=${text}`);
       continue;
     }
     return null;
   }
-  for (const [key, list] of Object.entries(numbered)) values[key] = list.join('; ');
+  // The form writes one block as MORE_THAN= and several as MORE_THAN1=,
+  // MORE_THAN2=, ...; a lone MORE_THAN1, a gap, or both forms cannot be
+  // written back, so such a line stays as it is.
+  for (const [key, list] of Object.entries(numbered)) {
+    const nums = a.keywords.filter(x => x.key.replace(/\d+$/, '') === key && x.key !== key)
+      .map(x => Number(x.key.slice(key.length)));
+    if (list.length < 2 || !nums.every((n, i) => n === i + 1) || !blankOf(values[key])) return null;
+    values[key] = list.join('; ');
+  }
   for (const [key, list] of Object.entries(fragments)) values[key] = list.join(' ');
   return values;
 }
+
+const blankOf = (v) => v === undefined || v === null || v === false || String(v).trim() === '';
+
+/* Actions that define no value, so a PRINT of everything leaves them out. */
+const NO_VALUE = new Set([
+  'DUMPATOMS', 'DUMPDERIVATIVES', 'DUMPFORCES', 'DUMPMASSCHARGE', 'DUMPGRID', 'DUMPCUBE',
+  'DUMPVECTOR', 'DUMPPDB', 'DUMPPROJECTIONS', 'DUMPMULTICOLVAR', 'FLUSH', 'WHOLEMOLECULES',
+  'WRAPAROUND', 'FIT_TO_TEMPLATE', 'RESET_CELL', 'FIXEDATOM', 'GHOST', 'GROUP', 'CENTER', 'COM',
+  'CENTER_FAST', 'PRINT', 'DEBUG', 'UPDATE_IF', 'COMMITTOR', 'EFFECTIVE_ENERGY_DRIFT', 'MOLINFO',
+  'INCLUDE', 'LOAD', 'RESTART', 'UNITS', 'PRINT_NDX', 'DUMPPATH', 'OUTPUT_CLUSTER'
+]);
+/* The components the builder's bias line has, as generatePlumedInput writes it. */
+function builderComponents(method, a) {
+  const args = listOf(keywordValue(a, 'ARG'));
+  switch (method) {
+    case 'metad':
+    case 'wt_metad':
+      return hasFlag(a, 'CALC_RCT') ? ['bias', 'rbias', 'rct'] : ['bias'];
+    case 'opes': return ['bias', 'rct', 'zed', 'neff', 'nker'];
+    case 'moving': return ['bias', 'work'];
+    case 'abmd': return ['bias', ...args.map(x => `${x}_min`), ...args.map(x => `${x.replace('.', '_')}_min`)];
+    default: return ['bias'];
+  }
+}
+
+/* Actions that take no label: PLUMED stops at LABEL= on them. */
+const NO_LABEL = new Set(['VES_OUTPUT_FES', 'WHAM_WEIGHTS', 'FLUSH', 'UNITS', 'RESTART', 'MOLINFO']);
+/* Actions that read the biases without naming them (ARG defaults to *.bias). */
+const READS_BIASES = new Set(['REWEIGHT_BIAS', 'REWEIGHT_METAD']);
+const SETUP_KINDS = new Set(['UNITS', 'RESTART', 'LOAD', 'INCLUDE', 'FLUSH', 'MOLINFO', 'WHOLEMOLECULES']);
+/* Where the builder writes each kind of line; a line may only use lines
+   written before it. */
+const RANK = { setup: 0, cv: 1, custom: 1, function: 2, bias: 3, restraint: 4, print: 5 };
+const WALL_KEYS = { upper: ['ARG', 'AT', 'KAPPA', 'EXP', 'EPS', 'OFFSET'],
+  lower: ['ARG', 'AT', 'KAPPA', 'EXP', 'EPS', 'OFFSET'], restraint: ['ARG', 'AT', 'KAPPA'] };
 
 /**
  * Turn a PLUMED input into a description `generatePlumedInput` accepts, so
  * that an existing file can be edited in the builder.
  *
  * An action the catalogue covers becomes that entry; any other is kept word
- * for word as a custom line, with the components other lines use from it. What
- * cannot be carried over at all is listed in `notes`.
+ * for word as a custom line, with the components other lines use from it.
+ * The builder writes its lines in a fixed order (variables, functions, the
+ * bias, walls, output), so a line that the file uses before that order would
+ * reach it, a function a later variable reads for one, is kept as a custom
+ * line where it stands. Labels, files, formats and strides are carried over;
+ * whatever cannot be is listed in `notes`.
  *
  * @param {string} text
  * @returns {{config:object, notes:string[], fields:object}} `fields` holds the
  *          values of the page's fixed form fields.
  */
 export function importPlumedInput(text) {
-  const { actions, errors } = parsePlumedInput(text);
+  const { actions: parsedActions, errors } = parsePlumedInput(text);
+  const actions = parsedActions.filter(a => a.action);
   const notes = errors.map(e => `Line ${e.line}: ${e.text}`);
   const config = {
     units: { length: 'nm', energy: 'kj/mol', time: 'ps' },
@@ -946,7 +1521,6 @@ export function importPlumedInput(text) {
   let seq = 0;
   let fnSeq = 0;
   let resSeq = 0;
-  let biasAction = null;
 
   /* Components other actions refer to, by label. */
   const labels = new Set(actions.map(a => a.label).filter(Boolean));
@@ -964,160 +1538,341 @@ export function importPlumedInput(text) {
     }
   }
 
+  /* What each line uses: lines above it. A wildcard, or an action that reads
+     every bias, may use any of them, and must not see a line written after
+     it in the file. */
+  const refsOf = new Map();
+  const wild = new Set();
+  const before = new Set();
+  const byLabel = new Map();
+  actions.forEach((a, i) => {
+    const refs = new Set();
+    const earlier = () => actions.slice(0, i).forEach(x => refs.add(x));
+    for (const k of a.keywords) {
+      if (k.value === null || k.braced) continue;
+      const named = /^ARG\d*$/.test(k.key) || k.key === 'LOGWEIGHTS' || ATOM_KEYS.test(k.key) ||
+        LABEL_KEYS.test(k.key);
+      for (const ref of listOf(k.value)) {
+        if (/[*?]/.test(ref) && /^ARG\d*$/.test(k.key)) { earlier(); wild.add(a); continue; }
+        const owner = named ? resolveReference(ref, before) : (before.has(ref) ? ref : null);
+        if (owner) refs.add(byLabel.get(owner));
+      }
+    }
+    if (READS_BIASES.has(a.action) && !keywordValue(a, 'ARG')) { earlier(); wild.add(a); }
+    refsOf.set(a, refs);
+    if (a.label) { before.add(a.label); byLabel.set(a.label, a); }
+  });
+  const referenced = (label) => actions.some(x => [...refsOf.get(x)].some(b => b.label === label));
+  const componentsUsed = (label) => (usedComponents.get(label) || [])
+    .filter(c => c.startsWith('.') && !/[*?]/.test(c)).map(c => c.slice(1));
+  // PLUMED labels an unlabelled action @0, @1, ... by its place in the file,
+  // which rewriting the file changes.
+  const auto = new Set();
+  for (const a of actions) {
+    for (const k of a.keywords) {
+      if (k.value !== null && /^ARG\d*$/.test(k.key)) {
+        listOf(k.value).filter(r => /^@\d+/.test(r)).forEach(r => auto.add(`Line ${a.line}: \`${r}\``));
+      }
+    }
+  }
+  if (auto.size) {
+    notes.push(`${[...auto].join('; ')} refers to an action by the label PLUMED gives an unlabelled ` +
+      'line, @ and its place in the file, which the rewritten file changes. Label that action and ' +
+      'refer to it by name.');
+  }
+
+  /* --- what each line becomes --- */
+  const kind = new Map();
+  let biasAction = null;
+  const taken = new Set(labels);
+  const freshLabel = (base) => {
+    let l = base;
+    for (let i = 2; taken.has(l); i++) l = `${base}_${i}`;
+    taken.add(l);
+    return l;
+  };
+  for (const a of actions) {
+    // One MOLINFO is the builder's; a later one, which changes what the @
+    // selections after it mean, stays where it is.
+    if (a.action === 'MOLINFO' && actions.some(x => x.action === 'MOLINFO' && x.line < a.line)) {
+      kind.set(a, 'custom');
+      continue;
+    }
+    if (SETUP_KINDS.has(a.action)) { kind.set(a, 'setup'); continue; }
+    if (a.action === 'PRINT') { kind.set(a, 'print'); continue; }
+    if (['COMBINE', 'CUSTOM', 'MATHEVAL'].includes(a.action)) {
+      const type = a.action === 'COMBINE' ? 'COMBINE' : 'CUSTOM';
+      const known = new Set(FUNCTION_DEFS[type].fields.map(f => f.k));
+      const fits = a.label && a.keywords.every(k => k.key === 'ARG' || known.has(k.key));
+      kind.set(a, fits ? 'function' : 'custom');
+      continue;
+    }
+    const method = a.action === 'METAD' ? (keywordValue(a, 'BIASFACTOR') ? 'wt_metad' : 'metad')
+      : BIAS_METHOD[a.action];
+    if (method && !biasAction) {
+      // The builder biases one component of each variable; a bias on two of
+      // one (gpos.x and gpos.y) stays as written.
+      const owners = listOf(keywordValue(a, 'ARG')).map(x => resolveReference(x, labels));
+      if (owners.some((o, j) => o && owners.indexOf(o) !== j)) {
+        kind.set(a, 'custom');
+        notes.push(
+          `Line ${a.line}: \`${a.action}\` acts on two values of one variable, which the builder ` +
+          'cannot express, so it was kept as a custom line.');
+        continue;
+      }
+      // A component the builder's line would not have (md.acc, opes.work),
+      // because the keyword that makes it is one it does not write.
+      const lost = a.label ? componentsUsed(a.label).filter(c => !builderComponents(method, a).includes(c)) : [];
+      if (lost.length) {
+        kind.set(a, 'custom');
+        notes.push(
+          `Line ${a.line}: \`${a.label}\` is used as ${lost.map(c => `\`${a.label}.${c}\``).join(', ')}, ` +
+          'which comes from keywords the builder does not write, so it was kept as a custom line.');
+        continue;
+      }
+      biasAction = a;
+      kind.set(a, 'bias');
+      taken.add(biasLabelFor(method, {}, a.label));
+      continue;
+    }
+    if (method && ['upper', 'lower', 'restraint'].includes(method)) {
+      // A wall beside the bias becomes a restraint of the builder, one per
+      // value, when it says nothing more and nothing refers to it by a label
+      // that splitting would change.
+      const args = listOf(keywordValue(a, 'ARG'));
+      const plain = a.keywords.every(k => WALL_KEYS[method].includes(k.key) && k.value !== null);
+      const split = args.length > 1 && a.label && referenced(a.label);
+      kind.set(a, plain && args.length && !split ? 'restraint' : 'custom');
+      continue;
+    }
+    if (method) {
+      notes.push(
+        `Line ${a.line}: a second \`${a.action}\` was kept as a custom line. The builder edits ` +
+        'one sampling method at a time.');
+      kind.set(a, 'custom');
+      continue;
+    }
+    const type = a.label ? entryFor(a.action) : null;
+    kind.set(a, type && fillEntry(type, a) ? 'cv' : 'custom');
+  }
+
+  /* --- keep the order the file needs ---
+     A line the builder would write after one that uses it moves up to where
+     the variables are written, in the order of the file, which defined it
+     before its use. That may move what it uses in turn. */
+  const rank = (a) => RANK[kind.get(a)];
+  for (let changed = true; changed;) {
+    changed = false;
+    actions.forEach((a, i) => {
+      if (a.action === 'WHOLEMOLECULES' && refsOf.get(a).size && kind.get(a) === 'setup') {
+        kind.set(a, 'custom');
+        changed = true;
+      }
+      // A wildcard sees what is written above it: a line after it in the file
+      // must not be written before it, so it stays where it stands instead.
+      if (wild.has(a) && kind.get(a) !== 'print' && kind.get(a) !== 'custom' &&
+        actions.slice(i + 1).some(b => rank(b) < rank(a) && kind.get(b) !== 'setup')) {
+        kind.set(a, 'custom');
+        changed = true;
+        notes.push(
+          `Line ${a.line}: \`${a.label || a.action}\` takes its arguments by a wildcard, so it ` +
+          'was kept as a custom line in its place, where it sees the same values as in the file.');
+      }
+      for (const b of refsOf.get(a)) {
+        if (!b || rank(b) <= rank(a) || kind.get(a) === 'print') continue;
+        const was = kind.get(b);
+        kind.set(b, 'custom');
+        changed = true;
+        notes.push(
+          `Line ${b.line}: \`${b.label || b.action}\` (${b.action}) is used on line ${a.line}, above where the ` +
+          `builder writes ${was === 'bias' ? 'the bias' : was === 'function' ? 'functions' : 'walls'}, ` +
+          'so it was kept as a custom line in its place.');
+        if (was === 'bias') biasAction = null;
+      }
+    });
+  }
+
   const custom = (a) => {
     const comps = (usedComponents.get(a.label) || []).filter(c => !/[*?]/.test(c));
+    const bare = !a.label && NO_LABEL.has(a.action);
     return {
       id: `cv${++seq}`, type: 'CUSTOM', label: a.label || `a${seq}`, bias: false,
-      isGroup: false, noBias: false,
+      // An action with no value of its own is neither printed nor biased.
+      isGroup: NO_VALUE.has(a.action) || bare, noBias: false,
+      ...(bare ? { noLabel: true } : {}),
       values: { __raw: rawLine(a), __components: comps.map(c => c.replace(/^\./, '')).join(',') },
       biasValues: defaultBiasValues('CUSTOM'),
       unlabelled: !a.label
     };
   };
-
   for (const a of actions) {
-    if (!a.action) continue;
     const v = (k) => keywordValue(a, k);
-    switch (a.action) {
-      case 'UNITS':
-        if (v('LENGTH')) config.units.length = v('LENGTH');
-        if (v('ENERGY')) config.units.energy = v('ENERGY');
-        if (v('TIME')) config.units.time = v('TIME');
-        continue;
-      case 'RESTART':
-        config.preamble.restart = !hasFlag(a, 'NO');
-        continue;
-      case 'LOAD':
-        if (v('FILE')) config.preamble.load.push(v('FILE'));
-        continue;
-      case 'INCLUDE':
-        if (v('FILE')) config.preamble.include.push(v('FILE'));
-        continue;
-      case 'FLUSH':
-        config.preamble.flush = v('STRIDE');
-        continue;
-      case 'MOLINFO':
-        config.molinfo.structure = v('STRUCTURE');
-        if (v('MOLTYPE')) config.molinfo.moltype = v('MOLTYPE');
-        continue;
-      case 'WHOLEMOLECULES': {
-        config.whole.enabled = true;
-        const ents = a.keywords.filter(k => /^ENTITY\d+$/.test(k.key)).map(k => k.value);
-        if (ents.length) config.whole.entities = ents.join('\n');
-        else config.whole.residues = true;
-        continue;
-      }
-      case 'PRINT': {
-        const args = listOf(v('ARG'));
-        config.prints.push({
-          file: v('FILE') || 'COLVAR', stride: v('STRIDE'), extra: '', all: false, args, only: true
-        });
-        continue;
-      }
-      case 'COMBINE':
-      case 'CUSTOM':
-      case 'MATHEVAL': {
-        const type = a.action === 'COMBINE' ? 'COMBINE' : 'CUSTOM';
-        const values = {};
-        for (const f of FUNCTION_DEFS[type].fields) values[f.k] = f.type === 'flag' ? false : '';
-        let ok = true;
-        for (const k of a.keywords) {
-          if (k.key === 'ARG') continue;
-          if (!(k.key in values)) { ok = false; break; }
-          values[k.key] = k.value === null ? true : k.value;
+    const k = kind.get(a);
+    if (k === 'setup') {
+      switch (a.action) {
+        case 'UNITS':
+          if (v('LENGTH')) config.units.length = v('LENGTH');
+          if (v('ENERGY')) config.units.energy = v('ENERGY');
+          if (v('TIME')) config.units.time = v('TIME');
+          break;
+        case 'RESTART':
+          config.preamble.restart = !hasFlag(a, 'NO');
+          break;
+        case 'LOAD':
+          if (v('FILE')) config.preamble.load.push(v('FILE'));
+          break;
+        case 'INCLUDE':
+          if (v('FILE')) config.preamble.include.push(v('FILE'));
+          break;
+        case 'FLUSH':
+          config.preamble.flush = v('STRIDE');
+          break;
+        case 'MOLINFO':
+          config.molinfo.structure = v('STRUCTURE');
+          if (v('MOLTYPE')) config.molinfo.moltype = v('MOLTYPE');
+          break;
+        case 'WHOLEMOLECULES': {
+          config.whole.enabled = true;
+          const ents = a.keywords.filter(x => /^ENTITY\d+$/.test(x.key)).map(x => x.value);
+          if (ents.length) config.whole.entities = ents.join('\n');
+          else config.whole.residues = true;
+          break;
         }
-        if (!ok || !a.label) { config.cvs.push(custom(a)); continue; }
-        config.functions.push({
-          id: `fn${++fnSeq}`, type, label: a.label, args: listOf(v('ARG')), values, bias: false,
-          biasValues: { comp: '', min: '-5.0', max: '5.0', bin: '200', sigma: '0.1' }
-        });
-        continue;
+        default:
+          break;
       }
-      default:
-        break;
+      continue;
     }
-
-    const method = a.action === 'METAD'
-      ? (v('BIASFACTOR') ? 'wt_metad' : 'metad')
-      : BIAS_METHOD[a.action];
-    if (method) {
+    if (k === 'print') {
+      const print = {
+        file: v('FILE') || 'COLVAR',
+        // PLUMED prints at every step when STRIDE is left out.
+        stride: v('STRIDE') || '1',
+        extra: '', all: false, args: listOf(v('ARG')), only: true
+      };
+      if (v('FMT')) print.fmt = v('FMT');
+      config.prints.push(print);
+      const other = a.keywords.filter(x => !['ARG', 'FILE', 'STRIDE', 'FMT'].includes(x.key));
+      if (other.length) {
+        notes.push(
+          `Line ${a.line}: \`PRINT\` has keywords the builder does not write ` +
+          `(${other.map(x => `\`${x.value === null ? x.key : `${x.key}=${x.value}`}\``).join(', ')}). ` +
+          'Add them by hand to the file it writes.');
+      }
+      continue;
+    }
+    if (k === 'function') {
+      const type = a.action === 'COMBINE' ? 'COMBINE' : 'CUSTOM';
+      const values = {};
+      for (const f of FUNCTION_DEFS[type].fields) values[f.k] = f.type === 'flag' ? false : '';
+      for (const x of a.keywords) if (x.key !== 'ARG') values[x.key] = x.value === null ? true : x.value;
+      config.functions.push({
+        id: `fn${++fnSeq}`, type, label: a.label, args: listOf(v('ARG')), values, bias: false,
+        biasValues: { comp: '', min: '-5.0', max: '5.0', bin: '200', sigma: '0.1' }
+      });
+      continue;
+    }
+    if (k === 'restraint') {
+      const method = BIAS_METHOD[a.action];
       const args = listOf(v('ARG'));
-      const wall = ['upper', 'lower', 'restraint'].includes(method);
-      if (biasAction && wall) {
-        // A second bias: walls and restraints stand beside the first.
-        args.forEach((arg, j) => {
-          const at = (k) => { const l = listOf(v(k)); return l.length === 1 ? l[0] : (l[j] || ''); };
-          config.restraints.push({
-            id: `res${++resSeq}`, type: method, arg,
-            label: args.length === 1 && a.label ? a.label : `${a.label || method}${args.length > 1 ? `_${j + 1}` : ''}`,
-            at: at('AT'), kappa: at('KAPPA'), exp: at('EXP'), eps: at('EPS'), offset: at('OFFSET')
-          });
+      args.forEach((arg, j) => {
+        const at = (key) => { const l = listOf(v(key)); return l.length === 1 ? l[0] : (l[j] || ''); };
+        const label = args.length === 1 && a.label ? a.label
+          : freshLabel(`${a.label || method}${args.length > 1 ? `_${j + 1}` : ''}`);
+        config.restraints.push({
+          id: `res${++resSeq}`, type: method, arg, label,
+          at: at('AT'), kappa: at('KAPPA'), exp: at('EXP'), eps: at('EPS'), offset: at('OFFSET')
         });
-        if (args.length > 1 && a.label) {
-          notes.push(
-            `Line ${a.line}: \`${a.label}\` acts on ${args.length} values and was split into one ` +
-            'wall per value, so its label changed. Update anything that refers to it.');
-        }
-        continue;
-      }
-      if (biasAction) {
+      });
+      if (args.length > 1 && a.label) {
         notes.push(
-          `Line ${a.line}: a second \`${a.action}\` was kept as a custom line. The builder edits ` +
-          'one sampling method at a time.');
-        config.cvs.push(custom(a));
-        continue;
-      }
-      biasAction = a;
-      config.bias.method = method;
-      config.bias.label = a.label || '';
-      config.bias.args = args;
-      const known = new Set((BIAS_DEFS[method].params || []).map(p => p.k));
-      const handled = new Set(['ARG', 'SIGMA', 'GRID_MIN', 'GRID_MAX', 'GRID_BIN', 'FILE', 'CALC_RCT',
-        'RCT_USTRIDE', 'WALKERS_MPI', 'WALKERS_N', 'WALKERS_ID', 'WALKERS_DIR', 'WALKERS_RSTRIDE',
-        'STATE_WFILE', 'STATE_WSTRIDE', 'NLIST']);
-      const extra = [];
-      for (const k of a.keywords) {
-        if (known.has(k.key) && k.value !== null) config.bias.params[k.key] = k.value;
-        else if (!handled.has(k.key)) extra.push(k.value === null ? k.key : `${k.key}=${k.value}`);
-      }
-      if (v('SIGMA') && method === 'opes') config.bias.params.SIGMA = v('SIGMA');
-      if (v('TEMP')) config.bias.temp = v('TEMP');
-      if (v('PACE')) config.bias.stride = v('PACE');
-      config.bias.grid = !!v('GRID_MIN');
-      config.bias.rct = hasFlag(a, 'CALC_RCT');
-      if (hasFlag(a, 'WALKERS_MPI')) config.bias.walkers = { mode: 'mpi' };
-      else if (v('WALKERS_N')) {
-        config.bias.walkers = {
-          mode: 'disk', n: v('WALKERS_N'), id: v('WALKERS_ID'), dir: v('WALKERS_DIR'),
-          rstride: v('WALKERS_RSTRIDE')
-        };
-      }
-      config.bias.targets = args.map((arg, j) => ({
-        arg,
-        min: listOf(v('GRID_MIN'))[j] || '',
-        max: listOf(v('GRID_MAX'))[j] || '',
-        bin: listOf(v('GRID_BIN'))[j] || '',
-        sigma: listOf(v('SIGMA'))[j] || ''
-      }));
-      if (extra.length) {
-        notes.push(
-          `Line ${a.line}: \`${a.action}\` has keywords the builder does not edit ` +
-          `(${extra.map(x => `\`${x}\``).join(', ')}). Add them by hand to the file it writes.`);
+          `Line ${a.line}: \`${a.label}\` acts on ${args.length} values and was split into one ` +
+          'wall per value, so its label changed. Nothing in the file referred to it.');
       }
       continue;
     }
+    if (k === 'bias') {
+      importBias(a);
+      continue;
+    }
+    if (k === 'cv') {
+      const type = entryFor(a.action);
+      const def = CV_DEFS[type];
+      const values = fillEntry(type, a);
+      if (def.components === 'pcarmsd') {
+        // As many eigenvectors as the file refers to, at least one.
+        const used = (usedComponents.get(a.label) || []).map(c => /^\.eig-(\d+)$/.exec(c)).filter(Boolean);
+        values.__eigenvectors = String(Math.max(1, ...used.map(m => Number(m[1]) + 1)));
+      }
+      config.cvs.push({
+        id: `cv${++seq}`, type, label: a.label, bias: false, isGroup: !!def.isGroup,
+        noBias: !!def.noBias, values, biasValues: defaultBiasValues(type)
+      });
+      continue;
+    }
+    config.cvs.push(custom(a));
+  }
 
-    const type = a.label ? entryFor(a.action) : null;
-    const values = type ? fillEntry(type, a) : null;
-    if (!type || !values) {
-      config.cvs.push(custom(a));
-      continue;
+  function importBias(a) {
+    const v = (k) => keywordValue(a, k);
+    const method = a.action === 'METAD' ? (v('BIASFACTOR') ? 'wt_metad' : 'metad') : BIAS_METHOD[a.action];
+    const args = listOf(v('ARG'));
+    config.bias.method = method;
+    // The label is kept, as a parameter the page edits too, so that what
+    // refers to it (PRINT ARG=mtd.bias) still finds it.
+    config.bias.label = a.label || '';
+    if (a.label) config.bias.params.LABEL = a.label;
+    else {
+      notes.push(`Line ${a.line}: \`${a.action}\` had no label; the builder calls it by its usual name.`);
     }
-    const def = CV_DEFS[type];
-    config.cvs.push({
-      id: `cv${++seq}`, type, label: a.label, bias: false, isGroup: !!def.isGroup,
-      noBias: !!def.noBias, values, biasValues: defaultBiasValues(type)
-    });
+    config.bias.args = args;
+    const known = new Set((BIAS_DEFS[method].params || []).map(p => p.k));
+    const handled = new Set(['ARG', 'SIGMA', 'GRID_MIN', 'GRID_MAX', 'GRID_BIN', 'CALC_RCT',
+      'RCT_USTRIDE', 'WALKERS_MPI', 'WALKERS_N', 'WALKERS_ID', 'WALKERS_DIR', 'WALKERS_RSTRIDE',
+      'STATE_WFILE', 'STATE_RFILE', 'STATE_WSTRIDE', 'NLIST', 'FILE']);
+    const extra = [];
+    for (const x of a.keywords) {
+      if (known.has(x.key) && x.value !== null) config.bias.params[x.key] = x.value;
+      else if (!handled.has(x.key)) extra.push(x.value === null ? x.key : `${x.key}=${x.value}`);
+    }
+    if (v('SIGMA') && method === 'opes') config.bias.params.SIGMA = v('SIGMA');
+    if (v('TEMP')) config.bias.temp = v('TEMP');
+    if (v('PACE')) config.bias.stride = v('PACE');
+    if (v('STATE_WSTRIDE')) config.bias.stateStride = v('STATE_WSTRIDE');
+    config.bias.grid = !!v('GRID_MIN');
+    config.bias.rct = hasFlag(a, 'CALC_RCT');
+    if (hasFlag(a, 'WALKERS_MPI')) config.bias.walkers = { mode: 'mpi' };
+    else if (v('WALKERS_N')) {
+      config.bias.walkers = {
+        mode: 'disk', n: v('WALKERS_N'), id: v('WALKERS_ID'), dir: v('WALKERS_DIR'),
+        rstride: v('WALKERS_RSTRIDE')
+      };
+    }
+    config.bias.targets = args.map((arg, j) => ({
+      arg,
+      min: listOf(v('GRID_MIN'))[j] || '',
+      max: listOf(v('GRID_MAX'))[j] || '',
+      bin: listOf(v('GRID_BIN'))[j] || '',
+      sigma: listOf(v('SIGMA'))[j] || ''
+    }));
+    // What the builder writes its own way, said where it differs.
+    const changed = [];
+    if (v('FILE') && !known.has('FILE')) {
+      const own = args.map(x => `HILLS.${x.replace(/[^A-Za-z0-9_-]/g, '_')}`).join(',');
+      if (v('FILE') !== own) changed.push(`\`FILE=${v('FILE')}\` becomes \`FILE=${own}\``);
+    }
+    for (const key of ['STATE_WFILE', 'STATE_RFILE']) {
+      if (v(key) && v(key) !== 'State.data') changed.push(`\`${key}=${v(key)}\` becomes \`State.data\``);
+    }
+    if (v('RCT_USTRIDE') && v('RCT_USTRIDE') !== '10') {
+      changed.push(`\`RCT_USTRIDE=${v('RCT_USTRIDE')}\` becomes \`10\``);
+    }
+    if (changed.length) notes.push(`Line ${a.line}: in \`${a.action}\`, ${changed.join(', ')}.`);
+    if (extra.length) {
+      notes.push(
+        `Line ${a.line}: \`${a.action}\` has keywords the builder does not edit ` +
+        `(${extra.map(x => `\`${x}\``).join(', ')}). Add them by hand to the file it writes.`);
+    }
   }
 
   /* --- mark what the bias acts on, with its grid --- */
@@ -1135,20 +1890,38 @@ export function importPlumedInput(text) {
     target.biasValues = {
       ...target.biasValues, comp,
       ...(t.min ? { min: t.min } : {}), ...(t.max ? { max: t.max } : {}),
-      ...(t.bin ? { bin: t.bin } : {}), ...(t.sigma ? { sigma: t.sigma } : {})
+      // A grid without GRID_BIN takes its bins from SIGMA; so does the one
+      // written back.
+      ...(t.bin || config.bias.grid ? { bin: t.bin } : {}), ...(t.sigma ? { sigma: t.sigma } : {})
     };
   }
   delete config.bias.targets;
   delete config.bias.args;
 
-  const unlabelled = config.cvs.filter(c => c.unlabelled);
+  const unlabelled = config.cvs.filter(c => c.unlabelled && !c.noLabel);
+  config.cvs.forEach(c => { if (c.noLabel) delete c.unlabelled; });
   for (const c of unlabelled) {
     notes.push(
       `\`${c.values.__raw.split(' ')[0]}\` had no label and was given \`${c.label}\`, since the ` +
       'builder labels every line.');
     delete c.unlabelled;
   }
-  if (!config.prints.length) config.prints.push({ file: 'COLVAR', stride: '', extra: '', all: true, args: [] });
+  if (!config.prints.length) {
+    // A file that prints nothing is written back printing nothing: a PRINT of
+    // everything could name a line whose value only PLUMED knows.
+    config.prints.push(actions.length
+      ? { file: 'COLVAR', stride: '', extra: '', all: false, args: [], only: true }
+      : { file: 'COLVAR', stride: '', extra: '', all: true, args: [] });
+    if (actions.length) {
+      notes.push('The file has no PRINT, so the output list is left empty. Pick the values to print, if any.');
+    }
+  }
+  const printsAll = config.prints.filter(p => p.args.some(x => /[*?]/.test(x)));
+  if (printsAll.length && actions.some(a => a.action !== 'PRINT' && kind.get(a) !== 'setup' &&
+    actions.indexOf(a) > actions.findIndex(x => x.action === 'PRINT' && listOf(keywordValue(x, 'ARG')).some(y => /[*?]/.test(y))))) {
+    notes.push('A PRINT with a wildcard now comes after every line, so it also prints the values ' +
+      'the file defined after it.');
+  }
 
   /* An output that lists everything is kept as "everything", so that a
      variable added later is printed too. */

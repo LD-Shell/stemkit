@@ -14,7 +14,8 @@ import zlib from 'node:zlib';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
-  parseColvar, suggestBias, driftOf, sumHills, fesOverTime, hillHeights, reweight, thermalEnergy
+  KB_KJMOL, parseColvar, suggestBias, driftOf, sumHills, fesOverTime, hillHeights, reweight, thermalEnergy,
+  biasColumns, totalBias
 } from '../src/core/plumed-analysis.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -260,6 +261,143 @@ suite('analyse_plumed.py', () => {
       const w = readOut(dir, 'work.dat');
       expect(Array.from(w.columns.time)).toEqual(Array.from({ length: 13 }, (_, t) => t));
       expect(Array.from(w.columns['moving.work'])).toEqual(Array.from({ length: 13 }, (_, t) => t));
+    });
+  });
+
+  describe('against PLUMED 2.11: projections, restarts, walkers, kernels, grids, biases', () => {
+    // The kT the references were integrated at, and the temperature that gives it.
+    const KT_REF = 2.494339;
+    const TEMP_REF = String(KT_REF / KB_KJMOL);
+    const reference = (name) => {
+      const c = readFixture(name);
+      return shifted(c.columns['file.free'] || c.columns.projection);
+    };
+    const near = (got, want, tol = 1e-6) => {
+      expect(got.length).toBe(want.length);
+      got.forEach((v, i) => { if (!(Math.abs(v - want[i]) < tol)) throw new Error(`[${i}] ${v} against ${want[i]}`); });
+    };
+
+    test('one variable of two: the other integrated out at kT, as sum_hills --idw --kt', () => {
+      const dir = out();
+      const r = run(['fes', fixture('HILLS_dt'), '--cv', 'd', '--min', '0', '--max', '1.5', '--bins', '100',
+        '--integrate-bins', '40', '--temp', TEMP_REF, '--out', dir, '--no-plots']);
+      expect(r.stdout).toContain('with t integrated out');
+      expect(r.stdout).toContain('plumed sum_hills --idw d --kt');
+      const mine = readOut(dir, 'fes.dat');
+      expect(mine.sets).toMatchObject({ integrated: 't' });
+      near(Array.from(mine.columns['file.free']), reference('fes_dt_d.dat'));
+      const js = sumHills(readFixture('HILLS_dt'), {
+        variables: ['d'], bins: 100, ranges: { d: { min: 0, max: 1.5 } }, kT: KT_REF, integrateBins: 40
+      });
+      near(Array.from(mine.columns['file.free']), Array.from(js.f));
+      // The slices too, each integrated the same way.
+      const slices = readOut(dir, 'fes_slices.dat');
+      const jsSlices = fesOverTime(readFixture('HILLS_dt'), {
+        variable: 'd', slices: 5, bins: 100, kT: KT_REF, integrateBins: 40, ranges: { d: { min: 0, max: 1.5 } }
+      });
+      jsSlices.forEach((sl, k) => near(Array.from(slices.columns[`file.free.${k + 1}`]), Array.from(sl.f)));
+    });
+
+    test('multivariate hills from ADAPTIVE=DIFF, in two dimensions and along one', () => {
+      const dir = out();
+      run(['fes', fixture('HILLS_adaptive'), '--bins', '30,20', '--min', '0', '--max', '1.5', '--out', dir, '--no-plots', '--quiet']);
+      near(Array.from(readOut(dir, 'fes.dat').columns['file.free']), reference('fes_adaptive.dat'));
+      const one = out();
+      run(['fes', fixture('HILLS_adaptive'), '--cv', 'd', '--bins', '100', '--min', '0', '--max', '1.5', '--integrate-bins', '40',
+        '--temp', TEMP_REF, '--out', one, '--no-plots', '--quiet']);
+      near(Array.from(readOut(one, 'fes.dat').columns['file.free']), reference('fes_adaptive_d.dat'));
+    });
+
+    test('a run continued from an earlier checkpoint keeps every hill, as METAD read them back', () => {
+      fs.writeFileSync(path.join(tmp, 'HILLS_restart'), fs.readFileSync(fixture('HILLS_restart')));
+      const o = JSON.parse(run(['inspect', 'HILLS_restart', '--json']).stdout)[0];
+      expect(o).toMatchObject({ kind: 'hills', rows: 118, dropped: 0, overlap: 19, parts: 2 });
+      expect(o.errors[0]).toContain('19 hills lie at or after');
+      const dir = out();
+      run(['fes', fixture('HILLS_restart'), '--min', '0.3', '--max', '0.7', '--bins', '100', '--out', dir, '--no-plots', '--quiet']);
+      near(Array.from(readOut(dir, 'fes.dat').columns['file.free']), reference('fes_restart.dat'));
+    });
+
+    test('walkers\' files joined into one sum as sum_hills sums them', () => {
+      const lines = fs.readFileSync(fixture('HILLS_dt'), 'utf8').split('\n');
+      const head = lines.filter(l => l.startsWith('#'));
+      const rows = lines.filter(l => l.trim() && !l.startsWith('#'));
+      fs.writeFileSync(path.join(tmp, 'HILLS_joined'),
+        [0, 1].map(w => [...head, ...rows.filter((_, i) => i % 2 === w)].join('\n')).join('\n') + '\n');
+      const dir = out();
+      const r = run(['fes', 'HILLS_joined', '--bins', '30,20', '--min', '0', '--max', '1.5', '--out', dir, '--no-plots']);
+      expect(r.stdout).toContain('121 hills');
+      expect(r.stdout).not.toContain('checkpoints');
+      near(Array.from(readOut(dir, 'fes.dat').columns['file.free']), reference('fes_dt.dat'));
+    });
+
+    test('wide periodic hills, a file with no kerneltype, and a plain Gaussian', () => {
+      const wide = out();
+      run(['fes', fixture('HILLS_wide'), '--bins', '100', '--out', wide, '--no-plots', '--quiet']);
+      near(Array.from(readOut(wide, 'fes.dat').columns['file.free']), reference('fes_wide.dat'));
+      const text = fs.readFileSync(fixture('HILLS_d'), 'utf8');
+      fs.writeFileSync(path.join(tmp, 'HILLS_nokernel'), text.split('\n').filter(l => !l.includes('kerneltype')).join('\n'));
+      fs.writeFileSync(path.join(tmp, 'HILLS_gaussian'), text.replace('stretched-gaussian', 'gaussian'));
+      for (const [file, ref] of [['HILLS_nokernel', 'fes_d_nokernel.dat'], ['HILLS_gaussian', 'fes_d_gaussian.dat']]) {
+        const dir = out();
+        run(['fes', file, '--min', '0', '--max', '1.5', '--bins', '100', '--out', dir, '--no-plots', '--quiet']);
+        near(Array.from(readOut(dir, 'fes.dat').columns['file.free']), reference(ref));
+      }
+    });
+
+    test('hills with no variable to sum along are stopped with a message', () => {
+      fs.writeFileSync(path.join(tmp, 'HILLS_novar'), '#! FIELDS time sigma_q height biasf\n0 0.1 1 -1\n1 0.1 1 -1\n');
+      const r = run(['fes', 'HILLS_novar', '--no-plots'], { ok: false });
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain('cannot be summed');
+      expect(r.stderr).not.toContain('Traceback');
+    });
+
+    test('suggested grids: rounded outwards, the period in its own words, the page\'s to the digit', () => {
+      const n = 2000;
+      const rows = Array.from({ length: n }, (_, i) => {
+        const q = Math.sqrt(3) * (2 * ((i * 0.618034) % 1) - 1);
+        return [i, 101.5 + 0.3 * q, -0.52 + 0.17 * Math.sin(i * 1.7), Math.PI + Math.sin(i) - 1, 0.1 * Math.cos(i)]
+          .map(v => v.toFixed(6)).join(' ');
+      });
+      const text = '#! FIELDS time v dx f1 s.a\n#! SET min_f1 0\n#! SET max_f1 2*pi\n#! SET min_s.a -0.5\n#! SET max_s.a +0.5\n' +
+        rows.join('\n') + '\n';
+      fs.writeFileSync(path.join(tmp, 'COLVAR_grids'), text);
+      const dir = out();
+      run(['suggest', 'COLVAR_grids', '--nonnegative', 'v,dx', '--out', dir, '--quiet']);
+      const got = Object.fromEntries(fs.readFileSync(path.join(dir, 'suggest.dat'), 'utf8').split('\n')
+        .filter(l => l && !l.startsWith('#')).map(l => l.split(/\s+/)).map(r => [r[1], r.slice(7, 11)]));
+      const c = parseColvar(text);
+      for (const name of ['v', 'dx', 'f1', 's.a']) {
+        const js = suggestBias(c.columns[name], { period: c.periods[name], nonNegative: name === 'v' || name === 'dx' });
+        expect([name, got[name]]).toEqual([name, [js.sigma, js.min, js.max, js.bin]]);
+      }
+      const summary = (name) => suggestBias(c.columns[name]).summary;
+      expect(Number(got.v[1])).toBeLessThan(summary('v').min);
+      expect(Number(got.v[2])).toBeGreaterThan(summary('v').max);
+      expect(Number(got.dx[1])).toBeLessThan(summary('dx').min);
+      expect(got.f1.slice(1, 3)).toEqual(['0', '2*pi']);
+      expect(got['s.a'].slice(1, 3)).toEqual(['-0.5', '+0.5']);
+    });
+
+    test('reweighting adds up every bias the run printed: the METAD\'s rbias and the wall', () => {
+      const dir = out();
+      const r = run(['reweight', fixture('COLVAR_wall'), '--arg', 'd', '--out', dir, '--no-plots']);
+      expect(r.stdout).toContain('V from metad.rbias + uw.bias');
+      const mine = readOut(dir, 'fes_reweighted.dat');
+      expect(mine.sets.bias).toBe('metad.rbias + uw.bias');
+      const c = readFixture('COLVAR_wall');
+      const js = reweight(c.columns.d, totalBias(c, biasColumns(c)), { kT: thermalEnergy(300), bins: 60, skip: 0 });
+      const text = fs.readFileSync(path.join(dir, 'fes_reweighted.dat'), 'utf8').split('\n')
+        .filter(l => l && !l.startsWith('#')).map(l => l.split(/\s+/));
+      text.forEach(([, f], k) => {
+        if (Number.isNaN(js.f[k])) expect(f).toBe('nan');
+        else expect(Math.abs(Number(f) - js.f[k])).toBeLessThan(1e-7);
+      });
+      // Named columns are still taken as given, and added up.
+      const one = out();
+      run(['reweight', fixture('COLVAR_wall'), '--arg', 'd', '--bias', 'metad.bias,uw.bias', '--out', one, '--no-plots', '--quiet']);
+      expect(readOut(one, 'fes_reweighted.dat').sets).toMatchObject({ bias: 'metad.bias + uw.bias', skip: '120' });
     });
   });
 

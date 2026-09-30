@@ -36,6 +36,14 @@ describe('the catalogue is well formed', () => {
       if (!f.variant) expect(f.help || KEY_HELP[f.k]).toBeTruthy();
     }
     if (def.prereq) expect(PREREQS[def.prereq]).toBeTruthy();
+    // A field that another replaces, or needs, names one the entry has.
+    for (const f of def.fields || []) {
+      for (const k of [...(f.excludedBy || []), ...(f.pairedWith ? [f.pairedWith] : [])]) {
+        expect([type, f.k, keys.includes(k)]).toEqual([type, f.k, true]);
+      }
+    }
+    // A fallback is an action name; advice about older releases is olderHint.
+    if (def.fallback) expect(def.fallback).toMatch(/^[A-Z][A-Z0-9_]*$/);
     if (def.reductions) {
       for (const r of def.reductions) expect(REDUCTIONS.map(x => x.k)).toContain(r);
     }
@@ -86,6 +94,16 @@ describe.each([...PLUMED_VERSIONS])('the catalogue against PLUMED %s', (version)
     expect(unknown).toEqual([]);
   });
 
+  test('a field written under another keyword is written under a registered one', async () => {
+    const s = await load();
+    for (const [type, def] of Object.entries(CV_DEFS)) {
+      if (!cvAvailable(def, version)) continue;
+      for (const f of (def.fields || []).filter(x => x.writeAs)) {
+        expect([type, f.writeAs, !!s.keyword(def.act || type, f.writeAs)]).toEqual([type, f.writeAs, true]);
+      }
+    }
+  });
+
   test('every bias parameter is a keyword of its action', async () => {
     const s = await load();
     const unknown = [];
@@ -134,5 +152,23 @@ describe.each([...PLUMED_VERSIONS])('the catalogue against PLUMED %s', (version)
       }
     }
     expect(unknown).toEqual([]);
+  });
+});
+
+describe('what the help says a parameter does', () => {
+  // UWalls.cpp: acts where (x - AT + OFFSET)/EPS > 0; LWalls.cpp: where (x - AT - OFFSET)/EPS < 0.
+  const help = (method, k) => BIAS_DEFS[method].params.find(p => p.k === k).help;
+
+  test('a wall OFFSET moves where the wall starts, not AT', () => {
+    expect(help('upper', 'OFFSET')).toContain('Moves the start of the wall down to AT − OFFSET, without moving AT');
+    expect(help('lower', 'OFFSET')).toContain('Moves the start of the wall up to AT + OFFSET, without moving AT');
+    expect(help('upper', 'AT')).toContain('above AT − OFFSET when OFFSET is set');
+    expect(help('lower', 'AT')).toContain('below AT + OFFSET when OFFSET is set');
+  });
+
+  test('D_MAX of COORDINATION is not said to bring linked cells', () => {
+    const dmax = CV_DEFS.COORDINATION.fields.find(f => f.k === 'D_MAX').help;
+    expect(dmax).toContain('does not make it faster');
+    expect(dmax).not.toMatch(/enables linked/);
   });
 });

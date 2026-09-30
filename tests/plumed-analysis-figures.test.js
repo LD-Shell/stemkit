@@ -11,14 +11,18 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { parseColvar, poolRuns, sumHills, valueColumns, biasColumn } from '../src/core/plumed-analysis.js';
+import {
+  parseColvar, poolRuns, sumHills, fesOverTime, reweight, thermalEnergy, valueColumns, biasColumn, biasColumns, totalBias,
+  suggestBias
+} from '../src/core/plumed-analysis.js';
 import {
   PYTHON_FUNCTIONS, ANALYSIS_FIGURES, EMBED_POINTS, availableFigures, analysisFigure, analysisScript, analysisData,
   stripRefs, decimate, rampColours
 } from '../src/core/plumed-analysis-figures.js';
 import { normaliseFigure } from '../src/core/figure.js';
 import { buildFigure } from '../js/figure-plot.js';
-import { composeStyle, decomposeStyle } from '../js/script-generator-plumed-analyse.js';
+import { composeStyle, decomposeStyle, cannotBeNegative, analysisNote } from '../js/script-generator-plumed-analyse.js';
+import { findTarget } from '../js/script-generator-plumed-model.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const FIX = path.join(here, 'fixtures', 'plumed');
@@ -33,6 +37,19 @@ const PYTHON = (() => {
   }
 })();
 const withPython = PYTHON ? test : test.skip;
+
+/* PLUMED itself, when it is installed (PLUMED, PATH, then /opt/bin/plumed). */
+const PLUMED = (() => {
+  for (const exe of [process.env.PLUMED, 'plumed', '/opt/bin/plumed'].filter(Boolean)) {
+    try {
+      if (spawnSync(exe, ['info', '--version'], { encoding: 'utf8', timeout: 30000 }).status === 0) return exe;
+    } catch {
+      /* not this one */
+    }
+  }
+  return null;
+})();
+const withPlumed = PLUMED ? test : test.skip;
 
 /* ------------------------------------------------------------------ *
  * The functions are analyse_plumed.py's, word for word
@@ -140,6 +157,9 @@ const COLVAR = read('COLVAR');
 const HILLS_DT = read('HILLS_dt');
 const HILLS_D = read('HILLS_d');
 const HILLS_T = read('HILLS_t');
+const COLVAR_WALL = read('COLVAR_wall');
+const HILLS_ADAPTIVE = read('HILLS_adaptive');
+const HILLS_RESTART = read('HILLS_restart');
 const colvarRun = { colvar: COLVAR, colvarFile: 'COLVAR' };
 const hillsRun = (hills, files = ['HILLS']) => ({ hills, hillsFiles: files });
 
@@ -201,6 +221,62 @@ describe('the figures a run can show', () => {
     expect(a.result.change).toBeGreaterThan(0);
   });
 
+  test('along one variable of two, the other is integrated out at the run\'s kT', () => {
+    // The hills summed along d alone gave 50.5 kJ/mol where sum_hills --idw d
+    // gives 19.3: each hill counted in full whatever its t.
+    const kT = thermalEnergy(310, 'kcal/mol');
+    const a = analysisFigure('fes', hillsRun(HILLS_DT), { along: ['d'], temperature: 310, energy: 'kcal/mol' });
+    expect(a.title).toBe('Free energy along d, t integrated out');
+    expect(a.result).toMatchObject({ integrated: ['t'], kT });
+    expect(Array.from(a.result.f)).toEqual(Array.from(sumHills(HILLS_DT, { variables: ['d'], bins: 300, kT }).f));
+    expect(a.python.prelude).toContain("fes = sum_hills(hills, ['d'], 300, kT=kT)");
+    expect(a.python.prelude).toContain('TEMPERATURE = 310  # K');
+    const data = parseColvar(analysisData(a).text);
+    expect(data.sets).toMatchObject({ integrated: 't' });
+    expect(Number(data.sets.kT)).toBeCloseTo(kT, 12);
+    // Both variables: nothing to integrate, and no kT in the script.
+    const two = analysisFigure('fes', hillsRun(HILLS_DT));
+    expect(two.result.integrated).toEqual([]);
+    expect(two.python.prelude.join('\n')).not.toContain('kT=kT');
+  });
+
+  test('the surface through the run, along one variable of two, is integrated the same way', () => {
+    const a = analysisFigure('convergence', hillsRun(HILLS_DT), { variable: 'd' });
+    expect(a.title).toBe('The surface along d through the run, t integrated out');
+    const slices = fesOverTime(HILLS_DT, { variable: 'd', slices: 5, bins: 300, kT: thermalEnergy(300) });
+    a.result.slices.forEach((x, k) => expect(Array.from(x.f)).toEqual(Array.from(slices[k].f)));
+    // Summed along d alone it seemed to move by 10.1 kJ/mol over the last fifth.
+    expect(a.result.change).toBeLessThan(3);
+    expect(a.python.prelude).toContain("slices = fes_over_time(hills, 'd', 5, 300, kT=kT)");
+    expect(analysisData(a).text).toContain('#! SET integrated t');
+  });
+
+  test('reweighting weighs each frame with every bias: the METAD\'s rbias and the wall', () => {
+    const run = { colvar: COLVAR_WALL, colvarFile: 'COLVAR_wall' };
+    const a = analysisFigure('reweight', run, { column: 'd' });
+    expect(a.result).toMatchObject({ bias: 'metad.rbias + uw.bias', biases: ['metad.rbias', 'uw.bias'], skip: 0 });
+    const kT = thermalEnergy(300);
+    const both = reweight(COLVAR_WALL.columns.d, totalBias(COLVAR_WALL, biasColumns(COLVAR_WALL)), { kT, bins: 60 });
+    expect(Array.from(a.result.f)).toEqual(Array.from(both.f));
+    const alone = reweight(COLVAR_WALL.columns.d, COLVAR_WALL.columns['metad.rbias'], { kT, bins: 60 });
+    const apart = Array.from(both.f).map((f, k) => Math.abs(f - alone.f[k])).filter(Number.isFinite);
+    expect(Math.max(...apart)).toBeGreaterThan(1);
+    expect(a.python.prelude).toContain("bias_total = total_bias(colvar, ['metad.rbias', 'uw.bias'])");
+    expect(a.python.header[0]).toContain('reweighted with metad.rbias + uw.bias');
+  });
+
+  test('multivariate hills (ADAPTIVE) have their figures', () => {
+    expect(availableFigures(hillsRun(HILLS_ADAPTIVE))).toEqual(['fes', 'convergence', 'heights']);
+    const a = analysisFigure('fes', hillsRun(HILLS_ADAPTIVE));
+    expect(a.title).toBe('Free-energy surface over d and t');
+    expect(a.result.max).toBeGreaterThan(0);
+  });
+
+  test('a restarted HILLS file: every hill in the surface', () => {
+    expect(HILLS_RESTART).toMatchObject({ rows: 118, dropped: 0, overlap: 19 });
+    expect(analysisFigure('fes', hillsRun(HILLS_RESTART)).result.hills).toBe(118);
+  });
+
   test('the numbers behind a figure, to download', () => {
     const fes = analysisData(analysisFigure('fes', hillsRun(HILLS_D)));
     expect(fes.filename).toBe('fes.dat');
@@ -254,6 +330,106 @@ describe('the look follows the data', () => {
     decomposeStyle(styles, h, {});
     expect(composeStyle(styles, h)).toEqual({});
   });
+});
+
+/* ------------------------------------------------------------------ *
+ * What the page says and suggests (js/script-generator-plumed-analyse.js)
+ * ------------------------------------------------------------------ */
+
+describe('the grid the page suggests', () => {
+  test('a distance cannot be negative; the components of DISTANCE can', () => {
+    expect(cannotBeNegative({ arg: 'd', type: 'DISTANCE' })).toBe(true);
+    expect(cannotBeNegative({ arg: 'c', type: 'COORDINATION' })).toBe(true);
+    expect(cannotBeNegative({ arg: 'dd.mean', type: 'DISTANCES' })).toBe(true);
+    for (const arg of ['d.x', 'd.y', 'd.z', 'd.a', 'd.b', 'd.c']) {
+      expect([arg, cannotBeNegative({ arg, type: 'DISTANCE' })]).toEqual([arg, false]);
+    }
+    expect(cannotBeNegative({ arg: 't', type: 'TORSION' })).toBe(false);
+    // Global Steinhardt parameters are norms; the local ones run from -1 to 1.
+    expect(cannotBeNegative({ arg: 'q6.mean', type: 'Q6' })).toBe(true);
+    for (const type of ['LOCAL_Q3', 'LOCAL_Q4', 'LOCAL_Q6']) {
+      expect([type, cannotBeNegative({ arg: 'lq.mean', type })]).toEqual([type, false]);
+    }
+    expect(cannotBeNegative(undefined)).toBe(false);
+  });
+
+  test('a component seen only above zero is padded below as any variable is, not floored', () => {
+    // A trial run that happened to keep d.x between 0.01 and 0.09 nm: marked
+    // non-negative, its grid stopped five widths below zero.
+    const values = Array.from({ length: 400 }, (_, i) => 0.05 + 0.04 * Math.sin(i * 0.7));
+    const floored = suggestBias(values, { nonNegative: true });
+    expect(Number(floored.min)).toBeCloseTo(-5 * Number(floored.sigma), 12);
+    // The builder names the value d.x; PLUMED 2.10 heads its column d_x.
+    const targets = [{ arg: 'd.x', type: 'DISTANCE' }];
+    for (const column of ['d.x', 'd_x']) {
+      const s = suggestBias(values, { nonNegative: cannotBeNegative(findTarget(targets, column)) });
+      expect(s).toEqual(suggestBias(values, {}));
+      expect(Number(s.min)).toBeLessThan(Number(floored.min));
+      expect(s.notes.join(' ')).not.toContain('cannot be negative');
+    }
+    // The distance itself keeps its floor.
+    const d = suggestBias(values, { nonNegative: cannotBeNegative({ arg: 'd', type: 'DISTANCE' }) });
+    expect(d.min).toBe(floored.min);
+  });
+});
+
+describe('the note under a figure', () => {
+  const code = (s) => `<code>${s}</code>`;
+  const say = (unit = 'kJ/mol') => ({ unit, temperature: '300', code, count: (n) => String(n) });
+
+  test('the free energy along one variable of two names the sum_hills call that gives it', () => {
+    const a = analysisFigure('fes', hillsRun(HILLS_DT), { along: ['d'] });
+    const note = analysisNote(a, say());
+    const kT = thermalEnergy(300);
+    expect(note).toBe(`The ${HILLS_DT.rows} hills summed over <code>d</code> and <code>t</code>, with <code>t</code> ` +
+      'integrated out at kT = 2.49 kJ/mol, as <code>plumed sum_hills --idw d --kt 2.49434</code> gives it, with its ' +
+      `lowest point at zero; it reaches ${Number(a.result.max.toPrecision(3))} kJ/mol.`);
+    expect(Number(note.match(/--kt ([\d.]+)/)[1])).toBeCloseTo(kT, 5);
+    expect(note).not.toContain('negative sum');
+    // In kcal/mol at 310 K the command carries that kT.
+    const b = analysisFigure('fes', hillsRun(HILLS_DT), { along: ['t'], temperature: 310, energy: 'kcal/mol' });
+    expect(analysisNote(b, say('kcal/mol'))).toContain(
+      `with <code>d</code> integrated out at kT = 0.616 kcal/mol, as <code>plumed sum_hills --idw t --kt ${Number(thermalEnergy(310, 'kcal/mol').toPrecision(6))}</code> gives it`);
+  });
+
+  test('over every variable of the hills it is their negative sum, as plain sum_hills gives it', () => {
+    const two = analysisFigure('fes', hillsRun(HILLS_DT));
+    expect(analysisNote(two, say())).toMatch(new RegExp(`^The negative sum of all ${HILLS_DT.rows} hills, as ` +
+      '<code>plumed sum_hills</code> gives it, with its lowest point at zero; it reaches [\\d.]+ kJ/mol\\. ' +
+      'The colour bar gives the free energy; dark is low\\.$'));
+    const one = analysisFigure('fes', hillsRun(HILLS_D));
+    expect(analysisNote(one, say())).toMatch(/^The negative sum of all \d+ hills, as <code>plumed sum_hills<\/code> gives it, with its lowest point at zero; it reaches [\d.]+ kJ\/mol\.$/);
+  });
+
+  test('the surface through the run says what it integrated out', () => {
+    const a = analysisFigure('convergence', hillsRun(HILLS_DT), { variable: 'd' });
+    expect(analysisNote(a, say())).toMatch(/^Each line sums the hills up to a time, with <code>t<\/code> integrated out at kT = 2\.49 kJ\/mol; the darkest/);
+    const b = analysisFigure('convergence', hillsRun(HILLS_D));
+    expect(analysisNote(b, say())).toMatch(/^Each line sums the hills up to a time; the darkest/);
+  });
+
+  withPlumed('the command the note names gives the surface the page draws', () => {
+    const a = analysisFigure('fes', hillsRun(HILLS_DT), { along: ['d'] });
+    const command = analysisNote(a, say()).match(/<code>(plumed sum_hills [^<]+)<\/code>/)[1].split(' ');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stk-note-'));
+    try {
+      fs.writeFileSync(path.join(dir, 'HILLS'), text('HILLS_dt'));
+      // The page's own grid along d, and PLUMED's default across t.
+      const s = a.result;
+      const r = spawnSync(PLUMED, [...command.slice(1), '--hills', 'HILLS', '--min', `${s.x[0]},-pi`,
+        '--max', `${s.x[s.x.length - 1]},pi`, '--bin', `${s.x.length - 1},100`, '--outfile', 'idw.dat'],
+      { cwd: dir, encoding: 'utf8', timeout: 120000 });
+      expect(r.status).toBe(0);
+      const ref = parseColvar(fs.readFileSync(path.join(dir, 'idw.dat'), 'utf8')).columns.projection;
+      const min = Math.min(...ref);
+      let worst = 0;
+      ref.forEach((v, i) => { worst = Math.max(worst, Math.abs(v - min - s.f[i])); });
+      // kT is written to six figures in the note.
+      expect(worst).toBeLessThan(1e-4);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60000);
 });
 
 /* ------------------------------------------------------------------ *
@@ -353,6 +529,12 @@ const CASES = {
   fesPeriodic: () => ({ a: analysisFigure('fes', hillsRun(HILLS_T)), files: { HILLS: text('HILLS_t') }, names: { x: "fes['x']", f: "fes['f']" } }),
   convergence: () => ({ a: analysisFigure('convergence', hillsRun(HILLS_D)), files: { HILLS: text('HILLS_d') }, names: Object.fromEntries([0, 1, 2, 3, 4].map((k) => [`f${k}`, `slices[${k}]['f']`])) }),
   heights: () => ({ a: analysisFigure('heights', hillsRun(HILLS_D)), files: { HILLS: text('HILLS_d') }, names: { time: "heights['time']", height: "heights['height']" } }),
+  fesProjected: () => ({ a: analysisFigure('fes', hillsRun(HILLS_DT), { along: ['d'] }), files: { HILLS: text('HILLS_dt') }, names: { x: "fes['x']", f: "fes['f']" } }),
+  convergenceProjected: () => ({ a: analysisFigure('convergence', hillsRun(HILLS_DT), { variable: 't', slices: 3 }), files: { HILLS: text('HILLS_dt') }, names: { f0: "slices[0]['f']", f1: "slices[1]['f']", f2: "slices[2]['f']" } }),
+  reweightWall: () => ({ a: analysisFigure('reweight', { colvar: COLVAR_WALL, colvarFile: 'COLVAR_wall' }, { column: 'd' }), files: { COLVAR_wall: text('COLVAR_wall') }, names: { x: "rw['x']", f: "rw['f']" } }),
+  fesAdaptive: () => ({ a: analysisFigure('fes', hillsRun(HILLS_ADAPTIVE)), files: { HILLS: text('HILLS_adaptive') }, names: { x: "fes['x']", y: "fes['y']", z: 'fes_z' } }),
+  fesAdaptiveProjected: () => ({ a: analysisFigure('fes', hillsRun(HILLS_ADAPTIVE), { along: ['t'] }), files: { HILLS: text('HILLS_adaptive') }, names: { x: "fes['x']", f: "fes['f']" } }),
+  hillsRestart: () => ({ a: analysisFigure('fes', hillsRun(HILLS_RESTART)), files: { HILLS: text('HILLS_restart') }, names: { x: "fes['x']", f: "fes['f']" } }),
   heightsFlat: () => ({ a: analysisFigure('heights', hillsRun(HILLS_T)), files: { HILLS: text('HILLS_t') }, names: { height: "heights['height']" } })
 };
 
@@ -365,8 +547,10 @@ function pageNumbers(name, c) {
     case 'series': return { time: q('trace-d').x, d: q('trace-d').y, t: q('trace-t').y, bias: q('trace-m3_rbias').y };
     case 'restarted': return { time: s[0].x, d: s[0].y };
     case 'histogram': return { counts: s[0].counts, edges: s[0].edges };
-    case 'reweight': case 'reweightPeriodic': case 'fes1d': case 'fesPeriodic': return { x: s[0].x, f: s[0].y };
-    case 'fes2d': return { x: s[0].x, y: s[0].y, z: flat(s[0].z) };
+    case 'reweight': case 'reweightPeriodic': case 'fes1d': case 'fesPeriodic': case 'fesProjected':
+    case 'reweightWall': case 'fesAdaptiveProjected': case 'hillsRestart': return { x: s[0].x, f: s[0].y };
+    case 'fes2d': case 'fesAdaptive': return { x: s[0].x, y: s[0].y, z: flat(s[0].z) };
+    case 'convergenceProjected': return Object.fromEntries(s.map((x, k) => [`f${k}`, x.y]));
     case 'walkers': return { z: flat(analysisFigure('fes', hillsRun(HILLS_DT)).figure.panels[0].series[0].z.values) };
     case 'convergence': return Object.fromEntries(s.map((x, k) => [`f${k}`, x.y]));
     case 'heights': return { time: s[0].x, height: s[0].y };
@@ -410,6 +594,9 @@ describe('the scripts', () => {
     expect(runs.restarted.stdout).toContain('cut off mid-write');
     expect(runs.reweight.stdout).toContain('300 frames carry the weight of');
     expect(runs.convergence.stdout).toMatch(/Over the last fifth of the run the surface moved by at most [\d.]+ kJ\/mol\./);
+    // Restarted hills: every one kept, and said.
+    expect(runs.hillsRestart.stdout).toContain('19 hills lie at or after the time where a later part of the file starts');
+    expect(runs.hillsRestart.stdout).toContain('118 hills summed');
   });
 
   withPython('draw with the axis limits of the preview', () => {
@@ -434,4 +621,5 @@ test('valueColumns and biasColumn', () => {
   expect(valueColumns(COLVAR)).toEqual(['d', 't']);
   expect(biasColumn(COLVAR)).toBe('m3.rbias');
   expect(biasColumn({ fields: ['time', 'd'] })).toBe('');
+  expect(valueColumns(COLVAR_WALL)).toEqual(['d']);
 });

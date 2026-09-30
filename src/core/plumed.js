@@ -21,14 +21,18 @@
  *
  *   - **Version gating.** PLUMED renamed several actions at 2.10 (the
  *     multicolvar rewrite). A CV declares `minVersion` and, where one exists, a
- *     `fallback` action name for older releases.
+ *     `fallback` action name for older releases. A CV the target cannot write
+ *     is left out everywhere, its PRINT and bias arguments included, so the
+ *     file never names a value nothing defines.
  *   - **The keyword table decides.** Given a table from `plumed-syntax`, a
- *     field the target release does not register is left out and the module an
- *     action needs is read from the table, not from memory.
- *   - **Bias-dependent redundancy.** Some bias methods internally manage
- *     parameters that would then be redundant or contradictory on the CV.
- *     Which keys to suppress is expressed declaratively rather than buried in
- *     rendering code.
+ *     field the target release does not register is left out and the modules
+ *     an action needs, those of the actions a shortcut expands into included,
+ *     are read from the table, not from memory.
+ *   - **What a biased value is.** Periodicity and range follow the component
+ *     that is biased, not the CV type: `TORSIONS` gives a count of torsions in
+ *     a range, and only `phi` and `phs` of `PUCKERING` are periodic. PLUMED
+ *     compares a periodic grid with the period as text, so `-pi` is not
+ *     `-3.1416`.
  */
 
 import {
@@ -124,7 +128,9 @@ export function fieldAvailable(field, version) {
  *
  * When a CV requires a newer PLUMED than the target and declares a fallback,
  * the fallback name is emitted instead. Without a fallback the CV is
- * unavailable and the caller is told so.
+ * unavailable and the caller is told so. A fallback that is not an action
+ * name (advice such as "ANGLES with GROUP and SWITCH") is never emitted:
+ * written as an action it would stop PLUMED.
  *
  * @param {string} type - Catalogue key.
  * @param {object} def - Catalogue entry.
@@ -138,10 +144,19 @@ export function resolveAction(type, def, version) {
   if (cvAvailable(def, version)) {
     return { action: act, usedFallback: false, available: true };
   }
-  if (def.fallback) {
+  if (def.fallback && ACTION_NAME_RE.test(def.fallback)) {
     return { action: def.fallback, usedFallback: true, available: true };
   }
   return { action: null, usedFallback: false, available: false };
+}
+
+const ACTION_NAME_RE = /^[A-Z][A-Z0-9_]*$/;
+
+/* Does the target get a line for this CV? A hand-written line always does. */
+function cvWritten(cv, catalogue, version) {
+  const def = cv && catalogue[cv.type];
+  if (!def) return false;
+  return !!def.isCustom || resolveAction(cv.type, def, version || DEFAULT_PLUMED_VERSION).available;
 }
 
 /**
@@ -208,15 +223,14 @@ export function pushFieldToken(parts, field, value) {
 /**
  * Bias methods that render some CV parameters redundant.
  *
- * Keyed by bias method, then by action name (or `*` for every CV).
+ * Keyed by bias method, then by action name (or `*` for every CV). No method
+ * does at present. Metadynamics once hid `NL_CUTOFF` and `NL_STRIDE`, but a
+ * CV's neighbour list sets the cost of computing the CV, whatever biases it,
+ * and `NLIST` without `NL_CUTOFF` stops PLUMED. The map and
+ * {@link hiddenFieldsForBias} stay for a method that does manage a CV
+ * parameter.
  */
-export const BIAS_REDUNDANCY = Object.freeze({
-  // Metadynamics lays hills on a grid this tool defines, so a per-CV neighbour
-  // list does not control the cost of the bias; hiding the knobs avoids
-  // implying that it does.
-  wt_metad: { '*': ['NL_CUTOFF', 'NL_STRIDE'] },
-  metad: { '*': ['NL_CUTOFF', 'NL_STRIDE'] }
-});
+export const BIAS_REDUNDANCY = Object.freeze({});
 
 /**
  * Field keys to suppress for a CV under the active bias.
@@ -324,6 +338,45 @@ function reductionEnabled(instance, r) {
 }
 
 /**
+ * Is this an angle multicolvar weighted by a switching function on its bonds
+ * (COORD_ANGLES, or ANGLES with SWITCH, which PLUMED turns into COORD_ANGLES)
+ * on a release where a numbered MORE_THAN is broken?
+ *
+ * PLUMED 2.10 and 2.11 build `label_wmt1` from `label_lt1` instead of
+ * `label_mt1`, so MORE_THAN1 either stops the run or, next to a numbered
+ * LESS_THAN, silently repeats its values. It is an upstream typo:
+ * src/multicolvar/MultiColvarShortcuts.cpp:173 writes `labout + "_lt" + istr`
+ * where `"_mt"` is meant. An unnumbered MORE_THAN is computed correctly.
+ *
+ * @param {{type:string, values?:object}} instance
+ * @param {object} def
+ * @param {string} version
+ * @returns {boolean}
+ */
+export function weightedAngleShortcut(instance, def, version) {
+  if (!instance || !def || !versionAtLeast(version || DEFAULT_PLUMED_VERSION, '2.10')) return false;
+  const action = actionNameFor(instance, def);
+  if (action === 'COORD_ANGLES') return true;
+  return action === 'ANGLES' && !blank((instance.values || {}).SWITCH);
+}
+
+/* The blocks of a reduction as they are written: a weighted angle
+   multicolvar keeps only the first MORE_THAN, see weightedAngleShortcut. */
+function blocksWritten(instance, def, r, version) {
+  const blocks = reductionBlocks((instance.values || {})[r.k]);
+  if (r.k === 'MORE_THAN' && blocks.length > 1 && weightedAngleShortcut(instance, def, version)) {
+    return blocks.slice(0, 1);
+  }
+  return blocks;
+}
+
+/* How many eigenvectors a PCARMSD file holds, as the form says; at least one. */
+function eigenvectorCount(values) {
+  const n = Math.floor(Number(str(values && values.__eigenvectors)));
+  return Number.isFinite(n) && n >= 1 ? Math.min(n, 1000) : 1;
+}
+
+/**
  * Expand `MOMENTS=2-4,6` into the moments it names.
  *
  * @param {string} spec
@@ -382,11 +435,17 @@ export function componentsForCV(instance, catalogue = CV_DEFS, options = {}) {
     const names = str(values.PROPERTY).split(',').map(str).filter(Boolean);
     return [...names, 'zzz'].map(c => `.${c}`);
   }
+  if (def.components === 'pcarmsd') {
+    // One eig-N per frame of EIGENVECTORS, counted from zero.
+    return [...Array.from({ length: eigenvectorCount(values) }, (_, i) => `eig-${i}`), 'residual']
+      .map(c => `.${c}`);
+  }
   if (def.components === 'constant') {
     // From 2.10 a list of constants is one vector, named by the bare label.
     if (versionAtLeast(version, '2.10')) return [];
+    // In 2.9 one number is a plain value too; only a list makes v-0, v-1, ...
     const list = str(values.VALUES).split(',').map(str).filter(Boolean);
-    return list.map((_, i) => `.v-${i}`);
+    return list.length > 1 ? list.map((_, i) => `.v-${i}`) : [];
   }
   if (instance.type === 'PLANES') {
     const out = [];
@@ -414,7 +473,7 @@ export function componentsForCV(instance, catalogue = CV_DEFS, options = {}) {
       out.push(sep + r.comp);
       continue;
     }
-    const blocks = reductionBlocks(values[r.k]);
+    const blocks = blocksWritten(instance, def, r, version);
     if (blocks.length === 1) out.push(sep + r.comp);
     else blocks.forEach((_, i) => out.push(`${sep}${r.comp}-${i + 1}`));
   }
@@ -427,7 +486,8 @@ export function componentsForCV(instance, catalogue = CV_DEFS, options = {}) {
 
 /**
  * Every argument a configuration makes available to a bias, a function or
- * PRINT: CV labels and components, then function labels.
+ * PRINT: CV labels and components, then function labels. A CV the target
+ * release cannot write defines nothing, so it offers nothing.
  *
  * @param {object} config
  * @returns {Array<{arg:string, source:string, kind:'cv'|'function'}>}
@@ -440,6 +500,7 @@ export function availableArguments(config = {}) {
     if (!cv || !cv.label) continue;
     const def = catalogue[cv.type] || {};
     if (def.isGroup || cv.isGroup) continue;
+    if (catalogue[cv.type] && !cvWritten(cv, catalogue, config.version)) continue;
     const comps = componentsForCV(cv, catalogue, options);
     if (comps.length) comps.forEach(c => out.push({ arg: cv.label + c, source: cv.label, kind: 'cv' }));
     else out.push({ arg: cv.label, source: cv.label, kind: 'cv' });
@@ -454,38 +515,170 @@ export function availableArguments(config = {}) {
  * Creating instances
  * ------------------------------------------------------------------ */
 
-const PERIODIC_TYPES = Object.freeze([
-  'TORSION', 'TORSIONS', 'PUCKERING', 'XYTORSIONS'
-]);
-const ANGLE_TYPES = Object.freeze(['ANGLE', 'ANGLES', 'XANGLES']);
-const UNIT_RANGE_TYPES = Object.freeze([
-  'TETRAHEDRAL', 'LOCAL_Q6', 'LOCAL_Q4', 'LOCAL_Q3', 'FCCUBIC', 'SMAC', 'ATOMIC_SMAC',
-  'TETRA_RADIAL', 'TETRA_ANGULAR', 'Q6', 'Q4', 'Q3'
-]);
+/* The range of the per-item value of the order parameters and angles, which
+   their mean, lowest, highest and similar reductions share. TETRAHEDRAL is a
+   sum of four cubes that PLUMED does not normalise: an ideal tetrahedron
+   gives 8/sqrt(3) = 4.62. LOCAL_Q, FCCUBIC and TETRA_ANGULAR go negative. */
+const PER_ITEM_RANGE = Object.freeze({
+  Q6: [0, 1], Q4: [0, 1], Q3: [0, 1], SMAC: [0, 1], ATOMIC_SMAC: [0, 1], TETRA_RADIAL: [0, 1],
+  LOCAL_Q6: [-1, 1], LOCAL_Q4: [-1, 1], LOCAL_Q3: [-1, 1], FCCUBIC: [-1, 1],
+  TETRA_ANGULAR: [-3, 1], TETRAHEDRAL: [-4.62, 4.62],
+  ANGLES: [0, Math.PI], XANGLES: [0, Math.PI]
+});
+/* Starting grids for those ranges, wide enough for every value. */
+const PER_ITEM_GRID = Object.freeze({
+  '0,1': { min: '0.0', max: '1.0', bin: '200', sigma: '0.02' },
+  '-1,1': { min: '-1.0', max: '1.0', bin: '200', sigma: '0.02' },
+  '-3,1': { min: '-3.0', max: '1.0', bin: '400', sigma: '0.02' },
+  '-4.62,4.62': { min: '-5.0', max: '5.0', bin: '200', sigma: '0.1' }
+});
+/* Reductions that count or add up rather than summarise the per-item values. */
+const COUNT_REDUCTIONS = new Set(['sum', 'morethan', 'lessthan', 'between', 'vsum']);
 const LENGTH_TYPES = Object.freeze([
   'DISTANCE', 'RMSD', 'DRMSD', 'GYRATION', 'POSITION', 'INPLANEDISTANCES'
 ]);
+const COORDINATION_TYPES = Object.freeze([
+  'COORDINATION', 'COORDINATIONNUMBER', 'COORDINATIONNUMBER_ADV', 'COORDINATION_MOMENTS',
+  'CONTACTMAP'
+]);
+
+/**
+ * What values a biased argument takes, which decides its grid and what is
+ * checked about it. It follows the component, not only the CV type: the
+ * `between` of TORSIONS is a count of torsions, not an angle, and of
+ * PUCKERING only `phs` (five atoms) and `phi` (six) are periodic.
+ *
+ * @param {string} type - Catalogue key, or `FUNCTION_PERIODIC` for a function
+ *        declared periodic.
+ * @param {string} [comp] - The component, separator included (`.mean`,
+ *        `_between`), or '' for the bare label.
+ * @param {{values?:object, period?:string}} [options] - `values` of the CV;
+ *        `period` is a function's `PERIODIC` value.
+ * @returns {{periodic:string[]|null, range:number[]|null, angle:boolean,
+ *   count:boolean, items:number|null}} `periodic` is the period as PLUMED
+ *   writes it; `range` the values a bounded quantity takes; `items` the
+ *   largest a count can be, when it is known.
+ */
+export function valueDomain(type, comp = '', options = {}) {
+  const d = { periodic: null, range: null, angle: false, count: false, items: null };
+  const c = str(comp).replace(/^[._]/, '');
+  const base = c.replace(/-\d+$/, '');
+  const values = options.values || {};
+  if (type === 'FUNCTION_PERIODIC') {
+    const parts = str(options.period).split(',').map(str);
+    if (parts.length === 2 && parts[0] && parts[1]) d.periodic = parts;
+    return d;
+  }
+  if (type === 'TORSION') return { ...d, periodic: ['-pi', 'pi'] };
+  if (type === 'ANGLE') return { ...d, range: [0, Math.PI], angle: true };
+  if (type === 'PUCKERING') {
+    if (c === 'phs') d.periodic = ['-pi', 'pi'];
+    else if (c === 'phi') d.periodic = ['0', '2pi'];
+    else if (c === 'theta') Object.assign(d, { range: [0, Math.PI], angle: true });
+    return d;
+  }
+  if (COUNT_REDUCTIONS.has(base) && (type === 'TORSIONS' || type === 'XYTORSIONS' ||
+    PER_ITEM_RANGE[type])) {
+    d.count = true;
+    if (type === 'TORSIONS' || type === 'XYTORSIONS') {
+      const n = new Set(str(values.ATOMS).match(/\bATOMS\d+=/g) || []).size;
+      if (n) d.items = n;
+    }
+    return d;
+  }
+  if (PER_ITEM_RANGE[type]) {
+    d.range = PER_ITEM_RANGE[type].slice();
+    d.angle = type === 'ANGLES' || type === 'XANGLES';
+  }
+  return d;
+}
+
+/* A starting grid for a domain, or null when the domain says nothing. */
+function gridForDomain(d, type, comp) {
+  if (d.periodic) return { min: d.periodic[0], max: d.periodic[1] };
+  if (d.angle) return { min: '0.0', max: 'pi' };
+  if (d.count) return d.items ? { min: '0.0', max: String(d.items) } : null;
+  if (d.range) return { ...PER_ITEM_GRID[d.range.join(',')] };
+  if (type === 'PUCKERING') {
+    // Cremer-Pople coordinates and amplitudes are lengths of a few hundredths
+    // of a nanometre; the amplitude is never negative.
+    return /^(amp|amplitude)$/.test(str(comp).replace(/^[._]/, ''))
+      ? { min: '0.0', max: '1.0', bin: '200', sigma: '0.01' }
+      : { min: '-1.0', max: '1.0', bin: '400', sigma: '0.01' };
+  }
+  return null;
+}
 
 /**
  * Starting grid and hill width for a CV type. They are placeholders for the
  * range a CV usually spans, to be replaced by what a trial run shows.
  *
  * @param {string} type
+ * @param {string} [comp] - The biased component; without it the one the type
+ *        biases first.
+ * @param {{values?:object}} [options] - The CV's values, for a count whose
+ *        largest value follows from them.
  * @returns {{comp:string, min:string, max:string, bin:string, sigma:string}}
  */
-export function defaultBiasValues(type) {
+export function defaultBiasValues(type, comp, options = {}) {
   const base = { comp: '', min: '0.0', max: '10.0', bin: '200', sigma: '0.1' };
-  if (type === 'PATHMSD') return { ...base, min: '1.0', max: '10.0', sigma: '0.5', comp: '.sss' };
-  if (type === 'PROPERTYMAP') return { ...base, comp: '.zzz' };
-  if (type === 'PCARMSD') return { ...base, comp: '.residual' };
-  if (type === 'PROJECTION_ON_AXIS') return { ...base, min: '-5.0', max: '5.0', comp: '.proj' };
-  if (PERIODIC_TYPES.includes(type)) return { ...base, min: '-pi', max: 'pi' };
-  if (ANGLE_TYPES.includes(type)) return { ...base, min: '0.0', max: 'pi' };
-  if (UNIT_RANGE_TYPES.includes(type)) return { ...base, max: '1.0', sigma: '0.02' };
-  if (LENGTH_TYPES.includes(type)) return { ...base, max: '5.0', sigma: '0.05' };
-  if (['COORDINATION', 'COORDINATIONNUMBER', 'COORDINATIONNUMBER_ADV', 'COORDINATION_MOMENTS',
-    'CONTACTMAP'].includes(type)) return { ...base, max: '20.0', sigma: '0.2' };
-  return base;
+  const fixed = {
+    PATHMSD: { min: '1.0', max: '10.0', sigma: '0.5', comp: '.sss' },
+    PROPERTYMAP: { comp: '.zzz' },
+    PCARMSD: { comp: '.residual' },
+    PROJECTION_ON_AXIS: { min: '-5.0', max: '5.0', comp: '.proj' }
+  }[type];
+  const out = { ...base, ...(fixed || {}) };
+  if (comp !== undefined && comp !== null) out.comp = str(comp);
+  const grid = gridForDomain(valueDomain(type, out.comp, options), type, out.comp);
+  if (grid) return { ...out, ...grid };
+  if (fixed) return out;
+  if (LENGTH_TYPES.includes(type)) {
+    // A component of a distance has a sign; the distance itself does not.
+    const signed = type === 'DISTANCE' && /^[._]?[xyz]$/.test(out.comp);
+    return { ...out, min: signed ? '-5.0' : '0.0', max: '5.0', sigma: '0.05' };
+  }
+  if (COORDINATION_TYPES.includes(type)) return { ...out, max: '20.0', sigma: '0.2' };
+  // PLANE's components are those of a cross product of two bond vectors, in
+  // nm² and of either sign.
+  if (type === 'PLANE') return { ...out, min: '-1.0', max: '1.0', bin: '400', sigma: '0.01' };
+  return out;
+}
+
+/**
+ * The power of length in the unit of a biased value, which is how its grid
+ * bounds and SIGMA scale under `UNITS LENGTH`: 1 for a length (DISTANCE,
+ * RMSD, a radius of gyration), 2 for an area (PLANE, RMSD or DRMSD with SQUARED,
+ * GYRATION TYPE=TRACE), 0 for anything else (angles, counts, order
+ * parameters, and the values whose unit the builder does not know, which
+ * start from the generic 0..10 grid).
+ *
+ * @param {string} type - Catalogue key.
+ * @param {string} [comp] - The biased component, separator included, or ''.
+ * @param {{values?:object}} [options] - The CV's values: TYPE of GYRATION,
+ *        SQUARED of RMSD, and the atoms of a count.
+ * @returns {0|1|2}
+ */
+export function lengthPower(type, comp = '', options = {}) {
+  const values = options.values || {};
+  const c = str(comp).replace(/^[._]/, '');
+  const base = c.replace(/-\d+$/, '');
+  const d = valueDomain(type, str(comp), options);
+  if (d.periodic || d.angle || d.count || d.range) return 0;
+  if (type === 'PLANE') return 2;
+  if (type === 'PUCKERING' || type === 'PROJECTION_ON_AXIS') return 1;
+  if (!LENGTH_TYPES.includes(type)) return 0;
+  // Counts of the distances below, above or between thresholds.
+  if (['lessthan', 'morethan', 'between'].includes(base)) return 0;
+  // SCALED_COMPONENTS are fractions of the cell vectors.
+  if (type === 'DISTANCE' && /^[abc]$/.test(c)) return 0;
+  if (type === 'GYRATION') {
+    const kind = str(values.TYPE).toUpperCase();
+    if (kind === 'KAPPA2') return 0;
+    if (kind === 'TRACE') return 2;
+  }
+  if ((type === 'RMSD' || type === 'DRMSD') && values.SQUARED === true) return 2;
+  return 1;
 }
 
 /**
@@ -518,13 +711,17 @@ export function createCV(type, seq, options = {}) {
 
   if (isMulticolvar(def)) {
     // A multicolvar is only usable once it reduces to a scalar.
+    // An entry's own starting reduction comes first; MEAN otherwise.
     const any = allowedReductions(def).some(r => reductionEnabled(inst, r));
-    if (!any && allowedReductions(def).some(r => r.k === 'MEAN')) inst.values.MEAN = true;
-    else if (!any && def.seed) Object.assign(inst.values, def.seed);
+    if (!any && def.seed) Object.assign(inst.values, def.seed);
+    else if (!any && allowedReductions(def).some(r => r.k === 'MEAN')) inst.values.MEAN = true;
   }
   const comps = componentsForCV(inst, catalogue, options);
-  if (comps.length && !comps.includes(inst.biasValues.comp)) inst.biasValues.comp = comps[0];
-  if (!comps.length && def.compStyle) inst.biasValues.comp = '';
+  let comp = inst.biasValues.comp;
+  if (comps.length && !comps.includes(comp)) comp = comps[0];
+  if (!comps.length && def.compStyle) comp = '';
+  // The grid suits the component biased, which may not be the type's first.
+  inst.biasValues = defaultBiasValues(type, comp, { values: inst.values });
   return inst;
 }
 
@@ -565,18 +762,26 @@ function switchBlockFrom(values, keys) {
   return parts.length ? `SWITCH={RATIONAL ${parts.join(' ')}}` : '';
 }
 
-function pushReduction(parts, r, value) {
+function pushReduction(parts, r, blocks) {
   if (r.type === 'flag') {
-    if (value) parts.push(r.k);
+    if (blocks) parts.push(r.k);
     return;
   }
-  const blocks = reductionBlocks(value);
   if (blocks.length === 1) pushFieldToken(parts, { k: r.k, type: 'text' }, blocks[0]);
   else blocks.forEach((b, i) => pushFieldToken(parts, { k: `${r.k}${i + 1}`, type: 'text' }, b));
 }
 
+/* Is a field set: a flag on, or a value typed? */
+function isSet(field, value) {
+  return field && field.type === 'flag' ? !!value : !blank(value);
+}
+
 /**
  * Build the PLUMED line for one CV instance.
+ *
+ * A field is written under its own keyword, or the one its `writeAs` names;
+ * one whose `excludedBy` fields are set is left out, since PLUMED reads only
+ * one of the two ways of giving the same thing and stops at the other.
  *
  * @param {{type:string, label:string, values?:object, bias?:boolean}} instance
  * @param {Object<string, object>} [catalogue]
@@ -607,16 +812,22 @@ export function buildCVLine(instance, catalogue = CV_DEFS, options = {}) {
   if (def.isCustom) {
     const raw = str(values.__raw);
     if (!raw) warnings.push(`Custom CV (${label}) is empty, type a PLUMED action.`);
-    return { line: `${label}: ${raw}`, warnings, usedFallback: false, action: actionNameFor(instance, def) || null };
+    // A few actions take no label (VES_OUTPUT_FES, WHAM_WEIGHTS): PLUMED
+    // stops at LABEL= on them, so such a line is written without one.
+    const line = instance.noLabel ? raw : `${label}: ${raw}`;
+    return { line, warnings, usedFallback: false, action: actionNameFor(instance, def) || null };
   }
 
   const resolved = resolveAction(instance.type, def, version);
   if (!resolved.available) {
+    const hint = def.olderHint || (def.fallback && !ACTION_NAME_RE.test(def.fallback) ? def.fallback : '');
     return {
       line: null,
       warnings: [
-        `${instance.type} requires PLUMED ${def.minVersion} or newer; ` +
-        `target is ${version} and no fallback action exists.`
+        `${instance.type} (${label}) requires PLUMED ${def.minVersion} or newer; ` +
+        `target is ${version} and no fallback action exists, so it is left out of the file, ` +
+        'with everything that refers to it.' +
+        (hint ? ` In PLUMED ${version} write ${hint} instead.` : '')
       ],
       usedFallback: false,
       action: null
@@ -633,23 +844,41 @@ export function buildCVLine(instance, catalogue = CV_DEFS, options = {}) {
   const hidden = hiddenFieldsForBias(instance, biasMethod, catalogue);
   const fields = fieldsFor(def, { version, syntax, action });
   const valueOf = (f) => (Object.prototype.hasOwnProperty.call(values, f.k) ? values[f.k] : f.def);
+  const byKey = new Map(fields.map(f => [f.k, f]));
+  const excluded = (f) => (f.excludedBy || []).some(k => byKey.has(k) && isSet(byKey.get(k), valueOf(byKey.get(k))));
 
-  // Order parameters always fold the switching parameters into SWITCH={...};
-  // two-group COORDINATION does so only when D_MAX is given, since the block
-  // is what enables linked cells.
+  // Order parameters always fold the switching parameters into SWITCH={...}.
+  // Two-group COORDINATION does so only when D_MAX is given, since D_MAX is a
+  // parameter of the block and not a keyword of the action.
   let folded = [];
   if (def.switchSpeed) folded = SWITCH_KEYS.slice();
   else if (def.coordSwitch && !blank(values.D_MAX)) folded = SWITCH_KEYS.slice();
 
   const parts = [];
   for (const f of fields) {
-    if (hidden.has(f.k) || folded.includes(f.k)) continue;
+    if (hidden.has(f.k) || folded.includes(f.k) || f.k.startsWith('__') || excluded(f)) continue;
     const v = valueOf(f);
     if (f.required && blank(v)) {
       warnings.push(`${instance.type} (${label}) is missing required \`${f.k}\`.`);
     }
-    if (REDUCTION_BY_KEY[f.k] && isMulticolvar(def)) pushReduction(parts, REDUCTION_BY_KEY[f.k], v);
-    else pushFieldToken(parts, f, v);
+    if (f.pairedWith && isSet(f, v) && byKey.has(f.pairedWith) &&
+      !isSet(byKey.get(f.pairedWith), valueOf(byKey.get(f.pairedWith)))) {
+      warnings.push(
+        `${instance.type} (${label}) sets \`${f.k}\` without \`${f.pairedWith}\`; PLUMED needs both.`);
+    }
+    const r = REDUCTION_BY_KEY[f.k];
+    if (r && isMulticolvar(def)) {
+      const blocks = r.type === 'flag' ? v : blocksWritten(instance, def, r, version);
+      if (r.type !== 'flag' && blocks.length < reductionBlocks(v).length) {
+        warnings.push(
+          `${instance.type} (${label}): PLUMED ${version} computes a numbered \`MORE_THAN\` of ` +
+          'angles weighted by a SWITCH from the LESS_THAN values (an upstream bug), so only the ' +
+          `first threshold, \`${blocks[0]}\`, is written. Add a second ${instance.type} for another one.`);
+      }
+      pushReduction(parts, r, blocks);
+    } else {
+      pushFieldToken(parts, f.writeAs ? { ...f, k: f.writeAs } : f, v);
+    }
   }
   if (folded.length) {
     const present = Object.fromEntries(
@@ -674,10 +903,12 @@ export function buildCVLine(instance, catalogue = CV_DEFS, options = {}) {
  *
  *   s(r) = [1 - ((r - d0)/r0)^n] / [1 - ((r - d0)/r0)^m],   m = 2n when m = 0.
  *
- * `D_MAX` is worth setting: beyond it the function is exactly zero, which lets
- * PLUMED use linked cells for neighbour search and is often a large speedup.
- * It must sit comfortably above r0, or contacts are truncated while the switch
- * is still appreciable.
+ * `D_MAX` is worth setting: beyond it the function is exactly zero. The
+ * actions built on contact matrices (COORDINATIONNUMBER, Q6, ...) then search
+ * neighbours with linked cells, often a large speedup; COORDINATION has none
+ * and still visits every pair, so there only NLIST cuts the cost. D_MAX must
+ * sit comfortably above r0, or contacts are truncated while the switch is still
+ * appreciable.
  *
  * @param {{r0:number, d0?:number, nn?:number, mm?:number, dmax?:number}} params
  * @returns {{block:string, warnings:string[]}}
@@ -707,8 +938,10 @@ export function buildSwitchBlock(params = {}) {
     }
   } else {
     warnings.push(
-      'No D_MAX set. Setting it lets PLUMED use linked cells for neighbour ' +
-      'search, which is often a substantial speedup for large groups.'
+      'No D_MAX set. Beyond D_MAX the function is exactly zero, and the actions built ' +
+      'on contact matrices (COORDINATIONNUMBER, Q6, ...) then use linked cells, often a ' +
+      'substantial speedup for large groups. COORDINATION has no linked cells: there ' +
+      'only NLIST reduces the cost.'
     );
   }
 
@@ -862,6 +1095,29 @@ const BIAS_LABEL = Object.freeze({
 });
 
 /**
+ * The label a bias line gets: the one asked for, the method's `LABEL`
+ * parameter, or the method's usual name.
+ *
+ * @param {string} method
+ * @param {object} [params]
+ * @param {string} [label]
+ * @returns {string}
+ */
+export function biasLabelFor(method, params = {}, label = '') {
+  return str(label) || str(params && params.LABEL) || BIAS_LABEL[method] || '';
+}
+
+/* How often OPES rewrites its state when nothing else is asked: a hundred
+   kernels, as in PLUMED's own example (STATE_WSTRIDE=500*100). Waiting for
+   the MD engine's checkpoints writes nothing under LAMMPS, which signals
+   none, and under GROMACS 2025 nothing before the first periodic checkpoint
+   and then the whole state at every step. */
+function defaultStateStride(pace) {
+  const n = Number(str(pace));
+  return Number.isInteger(n) && n > 0 ? String(n * 100) : '50000';
+}
+
+/**
  * Build the bias block.
  *
  * Each target carries its own argument and, for the metadynamics family, its
@@ -876,9 +1132,10 @@ const BIAS_LABEL = Object.freeze({
  *   temp?:string|number, label?:string, stateStride?:string|number}} [options]
  *   `walkers.sharedDir` is the directory of walker 0 that MPI walkers read
  *   on a restart. `stateStride` is how often OPES writes its state; blank
- *   writes it at the MD engine's checkpoints, which GROMACS signals.
- *   PLUMED writes no state at all when it is blank and the engine signals
- *   none, and then the run cannot restart.
+ *   gives a hundred times PACE. The label is `options.label`, else
+ *   `params.LABEL`, else the method's usual name. A target may carry `value`,
+ *   the name of the value when it differs from `arg`, and `domain`, from
+ *   {@link valueDomain}.
  * @returns {{lines:string[], warnings:string[], components:string[], label:string,
  *   title:string}}
  */
@@ -908,6 +1165,10 @@ export function buildBiasLine(method, targets, params = {}, options = {}) {
     arg: c.arg || c.label,
     label: c.label || c.arg,
     type: c.type || '',
+    // The name PLUMED gives the value, when it differs from the argument as
+    // written: from 2.10 `cn.mean` of a shortcut is the value `cn_mean`.
+    value: c.value || c.arg || c.label,
+    domain: c.domain || null,
     min: c.min !== undefined ? str(c.min) : listAt(params.gridMin, i, n),
     max: c.max !== undefined ? str(c.max) : listAt(params.gridMax, i, n),
     bin: c.bin !== undefined ? str(c.bin) : listAt(params.gridBin, i, n),
@@ -917,7 +1178,7 @@ export function buildBiasLine(method, targets, params = {}, options = {}) {
   const useRct = !!options.rct;
   const walkers = options.walkers || { mode: 'none' };
   const stride = str(options.stride) || '500';
-  const label = options.label || BIAS_LABEL[method];
+  const label = biasLabelFor(method, p, options.label);
 
   const arg = t.map(c => c.arg).join(',');
   const join = (key) => t.map(c => c[key]).join(',');
@@ -1076,9 +1337,8 @@ export function buildBiasLine(method, targets, params = {}, options = {}) {
       const stateDir = walkers.mode === 'mpi' && str(walkers.sharedDir) ? `${str(walkers.sharedDir)}/` : '';
       lines.push(`    STATE_RFILE=${stateDir}State.data`);
       lines.push('    STATE_WFILE=State.data');
-      const every = options.stateStride === undefined ? '' : str(options.stateStride);
-      if (every) lines.push(`    STATE_WSTRIDE=${every}`);
-      else lines.push('    # State written at every checkpoint of the MD engine (GROMACS signals them)');
+      const every = str(options.stateStride) || defaultStateStride(param('PACE') || stride);
+      lines.push(`    STATE_WSTRIDE=${every}   # a restart continues from the state written last`);
       if (n >= 2) lines.push('    NLIST   # neighbour list over kernels speeds up multi-CV OPES');
       lines.push(...walkerLines(false));
       lines.push('...');
@@ -1136,7 +1396,8 @@ export function buildBiasLine(method, targets, params = {}, options = {}) {
       lines.push(line);
       // <arg>_min is the closest approach so far; a restart passes it back as
       // MIN, or the ratchet starts again from wherever the variable is.
-      components = [`${label}.bias`, ...t.map(c => `${label}.${c.arg}_min`)];
+      // PLUMED names it after the value, `cn_mean_min` for `cn.mean` from 2.10.
+      components = [`${label}.bias`, ...t.map(c => `${label}.${c.value}_min`)];
       break;
     }
 
@@ -1147,22 +1408,25 @@ export function buildBiasLine(method, targets, params = {}, options = {}) {
   return { lines, warnings, components, label, title };
 }
 
-/* A wrong GRID_MIN/GRID_MAX does not stop the run; it distorts the
-   free-energy surface, so these are reported before a long job. */
-function gridWarnings(targets, { useGrid }) {
+/* A grid wrong for its variable either stops PLUMED (a periodic variable
+   whose grid is not its period, written exactly as PLUMED writes it; a value
+   that leaves the grid) or distorts the free-energy surface, so both are
+   reported before a long job. Only METAD and PBMETAD write a grid. */
+function gridWarnings(targets, { method, useGrid }) {
   const warnings = [];
+  const writesGrid = useGrid && method !== 'opes';
   for (const c of targets) {
     const sg = parseNumber(c.sigma);
     if (c.sigma && (sg === null || sg <= 0) && c.sigma.toUpperCase() !== 'ADAPTIVE') {
       warnings.push(`SIGMA for \`${c.arg}\` must be a positive number.`);
     }
-    if (!useGrid) continue;
+    if (!writesGrid) continue;
     const lo = parseNumber(c.min);
     const hi = parseNumber(c.max);
     const nb = parseNumber(c.bin);
-    const periodic = PERIODIC_TYPES.includes(c.type);
-    const angle = ANGLE_TYPES.includes(c.type);
-    const unit = UNIT_RANGE_TYPES.includes(c.type);
+    const comp = c.label && c.arg.startsWith(c.label) ? c.arg.slice(c.label.length) : '';
+    const d = c.domain || valueDomain(c.type, comp);
+    const what = c.type && c.type !== 'FUNCTION_PERIODIC' ? ` (${c.type})` : '';
 
     if (lo === null || hi === null) {
       warnings.push(
@@ -1176,23 +1440,35 @@ function gridWarnings(targets, { useGrid }) {
         'The run will fail or produce nonsense.');
       continue;
     }
-    if (periodic && (Math.abs(lo + Math.PI) > 1e-3 || Math.abs(hi - Math.PI) > 1e-3)) {
+    if (d.periodic) {
+      // PLUMED compares the bounds with the period as text (MetaD.cpp), so
+      // -3.1416 for -pi stops the run as surely as 0 does.
+      const [pmin, pmax] = d.periodic;
+      if (str(c.min) !== pmin || str(c.max) !== pmax) {
+        warnings.push(
+          `**Check grid bounds:** \`${c.arg}\`${what} is periodic on \`${pmin}..${pmax}\`, but its ` +
+          `grid is written ${c.min}..${c.max}. PLUMED stops unless GRID_MIN and GRID_MAX of a ` +
+          `periodic variable read exactly as its period. Set GRID MIN/MAX to \`${pmin}\`/\`${pmax}\`.`);
+      }
+    } else if (d.angle && (lo < -1e-6 || hi > Math.PI + 1e-3)) {
       warnings.push(
-        `**Check grid bounds:** \`${c.arg}\` (${c.type}) is periodic on \`-pi..pi\`, but its ` +
-        `grid is ${c.min}..${c.max}. PLUMED stops when a periodic variable's grid is not ` +
-        'its period. Set GRID MIN/MAX to `-pi`/`pi`.');
-    }
-    if (angle && (lo < -1e-6 || hi > Math.PI + 1e-3)) {
-      warnings.push(
-        `**Check grid bounds:** \`${c.arg}\` (${c.type}) lies in \`0..pi\`, but its grid is ` +
+        `**Check grid bounds:** \`${c.arg}\`${what} lies in \`0..pi\`, but its grid is ` +
         `${c.min}..${c.max}.`);
+    } else if (d.range && !d.angle) {
+      const [a, b] = d.range;
+      const w = b - a;
+      if (hi > b + w || lo < a - w) {
+        warnings.push(
+          `**Check grid bounds:** \`${c.arg}\`${what} normally lies in \`${a}..${b}\`, but its ` +
+          `grid is ${c.min}..${c.max}. Most of the grid would never be visited.`);
+      }
     }
-    if (unit && hi > 2) {
+    if (d.count && d.items && hi < d.items) {
       warnings.push(
-        `**Check grid bounds:** \`${c.arg}\` (${c.type}) normally lies in \`0..1\`, but its ` +
-        `grid runs to ${c.max}. Most of the grid would never be visited.`);
+        `**Check grid bounds:** \`${c.arg}\` counts up to ${d.items}, but its grid stops at ` +
+        `${c.max}. PLUMED stops when the value leaves the grid; set GRID MAX to ${d.items}.`);
     }
-    if (!periodic && !angle && !unit && c.min === '0.0' && c.max === '10.0') {
+    if (!d.periodic && !d.angle && !d.range && c.min === '0.0' && c.max === '10.0') {
       warnings.push(
         `\`${c.arg}\` is still using the generic default grid \`0.0..10.0\`. Confirm this ` +
         'covers the range your CV explores, hills outside the grid are an error in PLUMED.');
@@ -1219,8 +1495,8 @@ function walkerWarnings(walkers, method) {
     warnings.push(
       '**`WALKERS_MPI` only does something in a multi-replica run.** Launch the replicas as ' +
       'one MPI job (e.g. `mpirun -np N gmx_mpi mdrun -multidir w0 w1 …`, or ' +
-      '`plumed --multi N`). On a single-rank job this silently reduces to one walker, and ' +
-      'the run looks fine but shares no bias.');
+      '`mpirun -np N plumed driver --multi N …`). On a single-rank job this silently ' +
+      'reduces to one walker, and the run looks fine but shares no bias.');
     return warnings;
   }
   if (walkers.mode !== 'disk') return warnings;
@@ -1233,9 +1509,10 @@ function walkerWarnings(walkers, method) {
       `for \`WALKERS_N=${wn}\`.`);
   }
   if (/^\d+$/.test(wid) && !walkers.perWalkerFiles) {
+    const last = Number.isFinite(wn) && wn > 0 ? wn - 1 : 'N−1';
     warnings.push(
       `Every walker needs a **different** \`WALKERS_ID\`, but this file hardcodes \`${wid}\`. ` +
-      'Use the run files below, which write one input per walker.');
+      `Save one copy of this input per walker, each with its own \`WALKERS_ID\` (0 to ${last}).`);
   }
   warnings.push(
     'All walkers must share the same `WALKERS_DIR` and it must exist before the run ' +
@@ -1350,9 +1627,10 @@ export function validateLabels(cvs) {
  * ------------------------------------------------------------------ */
 
 /**
- * Expand a PLUMED atom list into indices: `1,2`, `1-100`, `1-100:2`.
- * Labels and `@` selections are returned separately, since only PLUMED can
- * resolve them.
+ * Expand a PLUMED atom list into indices: `1,2`, `1-100`, `1-100:2`, and a
+ * range that runs down with a negative stride, `10-1:-3` (10, 7, 4, 1), as
+ * PLUMED's Tools::interpretRanges reads it. Labels and `@` selections are
+ * returned separately, since only PLUMED can resolve them.
  *
  * @param {string} spec
  * @param {{limit?:number}} [options] - Stop expanding past this many atoms.
@@ -1365,17 +1643,25 @@ export function parseAtomList(spec, options = {}) {
   const errors = [];
   let count = 0;
   for (const part of str(spec).split(',').map(str).filter(Boolean)) {
-    const m = /^(\d+)-(\d+)(?::(\d+))?$/.exec(part);
+    const m = /^(\d+)-(\d+)(?::([+-]?\d+))?$/.exec(part);
     if (m) {
       const a = Number(m[1]);
       const b = Number(m[2]);
       const step = m[3] === undefined ? 1 : Number(m[3]);
-      if (step < 1) { errors.push(`"${part}" has a stride of zero.`); continue; }
-      if (b < a) { errors.push(`"${part}" runs backwards.`); continue; }
-      const n = Math.floor((b - a) / step) + 1;
+      if (step === 0) { errors.push(`"${part}" has a stride of zero.`); continue; }
+      // PLUMED runs up with a positive stride and down with a negative one,
+      // and stops at anything else.
+      if (a <= b && step < 0) { errors.push(`"${part}" runs up but its stride is negative.`); continue; }
+      if (b < a && step > 0) {
+        errors.push(`"${part}" runs backwards; a range that runs down needs a negative stride, ` +
+          `e.g. "${a}-${b}:-1".`);
+        continue;
+      }
+      const n = Math.floor(Math.abs(b - a) / Math.abs(step)) + 1;
       count += n;
       if (indices.length + n <= limit) {
-        for (let i = a; i <= b; i += step) indices.push(i);
+        if (step > 0) for (let i = a; i <= b; i += step) indices.push(i);
+        else for (let i = a; i >= b; i += step) indices.push(i);
       }
     } else if (/^\d+$/.test(part)) {
       indices.push(Number(part));
@@ -1419,10 +1705,19 @@ export function checkCV(instance, catalogue = CV_DEFS, options = {}) {
     if (values.NLIST && (!has('NL_CUTOFF') || !has('NL_STRIDE'))) {
       warnings.push('COORDINATION with `NLIST` requires both `NL_CUTOFF` and `NL_STRIDE` to be set.');
     }
-    if (!has('D_MAX') && !values.NLIST) {
+    // COORDINATION has no linked cells in any release: it visits every pair
+    // at every step, and D_MAX only truncates the switch. Only a neighbour
+    // list cuts the cost, which matters once there are many pairs.
+    const a = parseAtomList(values.GROUPA);
+    const b = parseAtomList(values.GROUPB);
+    const known = !a.labels.length && !b.labels.length;
+    const pairs = has('GROUPB') ? a.count * b.count : (a.count * (a.count - 1)) / 2;
+    if (!values.NLIST && (!known || pairs > 10000)) {
       warnings.push(
-        `COORDINATION (${label}) has no speed cutoff. Set \`D_MAX\` (linked cells) or enable ` +
-        '`NLIST` with `NL_CUTOFF`/`NL_STRIDE`.');
+        `COORDINATION (${label}) visits every ${has('GROUPB') ? 'GROUPA–GROUPB' : 'GROUPA'} pair at ` +
+        `every step${known ? `, ${pairs.toLocaleString('en-GB')} of them` : ''}; \`D_MAX\` only ` +
+        'truncates the switching function and does not make it faster. For large groups enable ' +
+        '`NLIST` with `NL_CUTOFF`/`NL_STRIDE`, or use COORDINATIONNUMBER, which uses linked cells.');
     }
     const cut = parseNumber(values.NL_CUTOFF);
     const r0 = parseNumber(values.R_0);
@@ -1474,10 +1769,24 @@ export function checkCV(instance, catalogue = CV_DEFS, options = {}) {
     }
   }
 
+  // PLUMED 2.9's INPLANEDISTANCES is unreliable at run time: its MEAN aborts
+  // on the first step ("celn[j]>=0 && celn[j]<ncells[j]", a linked-cell
+  // assertion), and even LESS_THAN crashes on some geometries. It parses, so
+  // only a run shows it.
+  if (instance.type === 'INPLANEDISTANCES' && !versionAtLeast(options.version || DEFAULT_PLUMED_VERSION, '2.10')) {
+    warnings.push(
+      `INPLANEDISTANCES (${label}): PLUMED 2.9 can abort or crash on the first step of this ` +
+      'action (its MEAN always did in our tests, LESS_THAN on some geometries). Run ' +
+      '`plumed driver` on a frame of your system first, or target PLUMED 2.10 or newer.');
+  }
+
   const expect = { DISTANCE: [2], TORSION: [4], ANGLE: [3, 4], PUCKERING: [5, 6],
     DIHEDRAL_CORRELATION: [8], PLANE: [3, 4] }[instance.type];
   for (const f of def.fields || []) {
     if (f.type !== 'atoms' || blank(values[f.k])) continue;
+    // A field another one replaces is not written, so it is not checked.
+    const other = (k) => (def.fields || []).find(x => x.k === k);
+    if ((f.excludedBy || []).some(k => other(k) && isSet(other(k), values[k]))) continue;
     const parsed = parseAtomList(values[f.k]);
     for (const e of parsed.errors) warnings.push(`${instance.type} (${label}), \`${f.k}\`: ${e}`);
     if (parsed.indices.includes(0)) {
@@ -1587,7 +1896,8 @@ export function generatePlumedInput(config = {}) {
   lines.push('# ==================================================================');
   lines.push('# PLUMED input (plumed.dat)  -  generated by stemkit.net');
   lines.push(`# Target: PLUMED ${version}`);
-  lines.push('# Check it before the run:  plumed driver --natoms N --parse-only --plumed plumed.dat');
+  const natoms = Number.isInteger(Number(c.natoms)) && Number(c.natoms) > 0 ? Number(c.natoms) : 'N';
+  lines.push(`# Check it before the run:  plumed driver --natoms ${natoms} --parse-only --plumed plumed.dat`);
   lines.push('# ==================================================================');
   lines.push('');
 
@@ -1672,6 +1982,20 @@ export function generatePlumedInput(config = {}) {
 
   const everything = [...c.cvs, ...c.functions];
   warnings.push(...validateLabels(everything));
+  // The bias line has a label too, fixed by the method unless one is given,
+  // and PLUMED stops at a second line with the same label.
+  const biasLabel = BIAS_DEFS[c.bias.method] && c.bias.method !== 'none'
+    ? biasLabelFor(c.bias.method, c.bias.params, c.bias.label) : '';
+  if (biasLabel) {
+    if (everything.some(x => x && x.label === biasLabel)) {
+      warnings.push(
+        `Duplicate label "${biasLabel}"; PLUMED requires unique labels. The bias line is called ` +
+        `\`${biasLabel}\`: rename the variable, or give the bias another Label.`);
+    }
+    if (!LABEL_RE.test(biasLabel)) {
+      warnings.push(`The bias label "${biasLabel}" is not a valid PLUMED label; use letters, digits and underscores.`);
+    }
+  }
 
   if (!c.cvs.length && !c.functions.length) {
     if (!c.legacy) lines.push('# (No collective variables added yet.)');
@@ -1694,7 +2018,8 @@ export function generatePlumedInput(config = {}) {
         version, natoms: c.natoms, units: { ...DEFAULT_UNITS, ...(units || {}) },
         known: unknownIncludes ? null : definedAtoms
       }));
-      if (def.prereq && PREREQS[def.prereq] && !(def.prereqSkipIf && def.prereqSkipIf(cv))) {
+      if (def.prereq && PREREQS[def.prereq] && r.line &&
+        !(def.prereqSkipIf && def.prereqSkipIf(cv, version))) {
         prereqs.add(def.prereq);
       }
       if (def.needsMolinfo && !molinfo) {
@@ -1742,28 +2067,43 @@ export function generatePlumedInput(config = {}) {
   for (const cv of c.cvs) {
     const def = catalogue[cv.type] || {};
     if (!cv.bias || def.isGroup || cv.isGroup || def.noBias) continue;
+    // A CV the target cannot write has no value to bias.
+    if (catalogue[cv.type] && !cvWritten(cv, catalogue, version)) continue;
     const bv = cv.biasValues || {};
     const comps = componentsForCV(cv, catalogue, { version, syntax });
     let comp = str(bv.comp);
     if (comps.length && !comps.includes(comp)) comp = comps[0];
     if (!comps.length && def.compStyle === 'none') comp = '';
-    const t = { arg: cv.label + comp, label: cv.label, type: cv.type };
+    const t = {
+      arg: cv.label + comp, label: cv.label, type: cv.type,
+      domain: valueDomain(cv.type, comp, { values: cv.values })
+    };
+    // From 2.10 a shortcut multicolvar makes `cv.mean` a value of its own,
+    // `cv_mean`, and the actions that name components after their argument
+    // (ABMD's `_min`) use that name.
+    if (def.compStyle === 'dot' && comp.startsWith('.') && versionAtLeast(version, '2.10')) {
+      t.value = `${cv.label}_${comp.slice(1)}`;
+    }
     if (!c.legacy) Object.assign(t, { min: bv.min, max: bv.max, bin: bv.bin, sigma: bv.sigma });
     targets.push(t);
   }
   for (const fn of c.functions) {
     if (!fn.bias) continue;
     const bv = fn.biasValues || {};
-    const periodic = str(fn.values && fn.values.PERIODIC).toUpperCase();
+    const period = str(fn.values && fn.values.PERIODIC);
+    const periodic = period && period.toUpperCase() !== 'NO';
+    const type = periodic ? 'FUNCTION_PERIODIC' : fn.type;
     targets.push({
-      arg: fn.label, label: fn.label, type: periodic && periodic !== 'NO' ? 'FUNCTION_PERIODIC' : fn.type,
+      arg: fn.label, label: fn.label, type,
+      domain: valueDomain(type, '', { period }),
       min: bv.min, max: bv.max, bin: bv.bin, sigma: bv.sigma
     });
   }
 
   const biasOptions = c.legacy ? {} : {
     grid: c.bias.grid !== false, rct: !!c.bias.rct, walkers: c.bias.walkers,
-    stride: c.bias.stride, temp: c.bias.temp, stateStride: c.bias.stateStride
+    stride: c.bias.stride, temp: c.bias.temp, stateStride: c.bias.stateStride,
+    label: str(c.bias.label)
   };
   const bias = buildBiasLine(c.bias.method, targets, c.bias.params, biasOptions);
   warnings.push(...bias.warnings);
@@ -1834,8 +2174,14 @@ export function generatePlumedInput(config = {}) {
       warnings.push(`PRINT STRIDE must be a whole number of steps, not "${stride}".`);
     }
     const file = str(p.file) || (i === 0 ? 'COLVAR' : `COLVAR.${i}`);
-    const line = buildPrintLine(args.map(a => ({ label: a })), { stride, file });
-    if (line) { lines.push(c.legacy ? line : line.replace(/ STRIDE=(\S+) FILE=(\S+)$/, ' FILE=$2 STRIDE=$1')); note('PRINT'); }
+    let line = buildPrintLine(args.map(a => ({ label: a })), { stride, file });
+    if (line) {
+      if (!c.legacy) line = line.replace(/ STRIDE=(\S+) FILE=(\S+)$/, ' FILE=$2 STRIDE=$1');
+      // The number format, e.g. %10.5f; PLUMED splits the line on spaces.
+      if (!blank(p.fmt)) line += ` FMT=${str(p.fmt).replace(/\s+/g, '')}`;
+      lines.push(line);
+      note('PRINT');
+    }
   });
   const files = c.prints.map((p, i) => str(p.file) || (i === 0 ? 'COLVAR' : `COLVAR.${i}`));
   if (new Set(files).size !== files.length) {
@@ -1846,6 +2192,8 @@ export function generatePlumedInput(config = {}) {
 
   function finish(cvLinesOut = [], biased = [], printableOut = []) {
     const modules = [];
+    const modulesOf = (a) => (syntax && typeof syntax.modulesFor === 'function'
+      ? syntax.modulesFor(a) : [syntax && syntax.moduleOf(a)]);
     if (syntax) {
       const seen = new Set();
       for (const a of actions) {
@@ -1857,19 +2205,27 @@ export function generatePlumedInput(config = {}) {
           }
           continue;
         }
-        const m = syntax.moduleOf(a);
-        if (m && !m.defaultOn && !seen.has(m.name)) {
-          seen.add(m.name);
-          modules.push(m.name);
+        // A shortcut needs the modules of the actions it expands into as
+        // well: from 2.10 Q6 is symfunc, but its CONTACT_MATRIX is adjmat.
+        for (const m of modulesOf(a)) {
+          if (m && !m.defaultOn && !seen.has(m.name)) {
+            seen.add(m.name);
+            modules.push(m.name);
+          }
         }
       }
       for (const m of modules) {
-        const users = actions.filter(a => syntax.has(a) && syntax.moduleOf(a).name === m);
+        const own = actions.filter(a => syntax.has(a) && (syntax.moduleOf(a) || {}).name === m);
+        const via = actions.filter(a => syntax.has(a) && !own.includes(a) &&
+          modulesOf(a).some(x => x && x.name === m));
+        const who = [...own, ...via].map(a => `\`${a}\``).join(', ');
         warnings.push(
-          `${users.map(a => `\`${a}\``).join(', ')} need${users.length === 1 ? 's' : ''} the ` +
-          `**${m}** module, which a default PLUMED ${version} build leaves out. Check with ` +
+          `${who} need${own.length + via.length === 1 ? 's' : ''} the **${m}** module` +
+          (via.length && !own.length ? ` for the actions ${via.length === 1 ? 'it expands' : 'they expand'} into` : '') +
+          `, which a default PLUMED ${version} build leaves out. Check with ` +
           `\`plumed config has module ${m}\`, and rebuild with ` +
-          `\`./configure --enable-modules=${m}\` (or \`all\`) if it is missing.`);
+          `\`./configure --enable-modules=${modules.join(':')}\` (or \`all\`) if it is missing` +
+          (modules.length > 1 ? ': the input needs every module listed there.' : '.'));
       }
       if (modules.length) {
         const at = lines.indexOf('') + 1;

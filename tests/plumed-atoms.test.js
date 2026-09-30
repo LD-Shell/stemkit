@@ -1,4 +1,5 @@
 import { describe, test, expect } from '@jest/globals';
+import fs from 'node:fs';
 import {
   compressAtomList, numberAtoms, moleculesOf, speciesOf, safeLabel, isLabel,
   perMoleculeGroups, perMoleculeCenters, moleculeOrientations, wholeMoleculeEntities,
@@ -135,8 +136,8 @@ describe('perMoleculeGroups', () => {
   });
 
   test('reports a name or a molecule that is not there', () => {
-    expect(perMoleculeGroups(atoms, 'UREA', ['CX']).warnings[0]).toContain('No UREA molecule has an atom named "CX"');
-    expect(perMoleculeGroups(atoms, 'GLY', ['C']).warnings[0]).toContain('no molecule named "GLY"');
+    expect(perMoleculeGroups(atoms, 'UREA', ['CX']).warnings[0]).toContain('No UREA residue has an atom named "CX"');
+    expect(perMoleculeGroups(atoms, 'GLY', ['C']).warnings[0]).toContain('no residue named "GLY"');
   });
 });
 
@@ -214,11 +215,24 @@ describe('wholeMoleculeEntities', () => {
   test('warns when there are too many to rebuild', () => {
     const r = wholeMoleculeEntities(system(0, 600), ['SOL']);
     expect(r.entities).toHaveLength(500);
-    expect(r.warnings[0]).toContain('600 molecules');
+    expect(r.warnings[0]).toContain('600 residues');
   });
 });
 
 describe('selectForPlumed', () => {
+  test('elem: reads the element from the atom name when the file has none', () => {
+    // A .gro file, and a PDB GROMACS writes from one, leave the element blank.
+    const gro = ['w', '    3', '    1SOL     OW    1   0.126   1.624   1.679',
+      '    1SOL    HW1    2   0.190   1.661   1.747', '    1SOL    HW2    3   0.177   1.568   1.613',
+      '   3.00000   3.00000   3.00000', ''].join('\n');
+    const atoms = parseGRO(gro).atoms;
+    expect(selectForPlumed(atoms, '!elem:H').list).toBe('1');
+    expect(selectForPlumed(atoms, 'elem:H').count).toBe(2);
+    // An element the file gives is kept.
+    const given = atoms.map(a => ({ ...a, element: 'C' }));
+    expect(selectForPlumed(given, 'elem:H').count).toBe(0);
+  });
+
   const atoms = system(300, 3085);
 
   test('writes a selection as PLUMED reads it', () => {
@@ -248,5 +262,27 @@ describe('backboneTorsion', () => {
     expect(backboneTorsion(chain, 'psi', 3).error).toContain('needs the residue after');
     expect(backboneTorsion(chain, 'phi', 9).error).toContain('no residue 9');
     expect(backboneTorsion(chain, 'chi', 2).error).toContain('Unknown torsion');
+  });
+});
+
+describe('what the numbering holds for', () => {
+  test('the module says the lists are positions, as GROMACS passes them, and IDs under LAMMPS', () => {
+    const src = fs.readFileSync(new URL('../src/core/plumed-atoms.js', import.meta.url), 'utf8');
+    const header = src.slice(0, src.indexOf('*/'));
+    expect(header).toContain('That is how GROMACS\n * passes atoms to PLUMED.');
+    expect(header).toContain('`atom->tag - 1`');
+    expect(header).toContain('fix_plumed.cpp:350');
+  });
+
+  test('a copy of a residue is called a residue', () => {
+    const atoms = system(2, 1);
+    const all = [
+      ...perMoleculeGroups(atoms, 'NOPE', ['C']).warnings,
+      ...perMoleculeGroups(atoms, 'UREA', ['CX']).warnings,
+      ...perMoleculeCenters(atoms, 'NOPE', {}).warnings,
+      ...moleculeOrientations(atoms, 'NOPE', { start: 'C', end: 'O' }).warnings
+    ];
+    expect(all.length).toBeGreaterThan(0);
+    for (const w of all) expect(w).not.toMatch(/molecule/);
   });
 });

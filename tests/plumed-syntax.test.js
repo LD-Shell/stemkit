@@ -143,3 +143,34 @@ describe('the shipped tables', () => {
     expect(next.has('COORDINATION_MOMENTS')).toBe(true);
   });
 });
+
+describe('what a shortcut expands into', () => {
+  test('from 2.10 Q6 needs adjmat as well as symfunc', async () => {
+    // Q6 creates a CONTACT_MATRIX, and --enable-modules=symfunc does not
+    // bring adjmat in (symfunc's Makefile uses core, tools, multicolvar and
+    // function only).
+    for (const v of ['2.10', '2.11']) {
+      const s = await loadSyntax(v);
+      expect(s.needs('Q6')).toContain('CONTACT_MATRIX');
+      expect(s.moduleOf('CONTACT_MATRIX')).toEqual({ name: 'adjmat', defaultOn: false });
+      expect(s.modulesFor('Q6').filter(m => !m.defaultOn).map(m => m.name)).toEqual(['symfunc', 'adjmat']);
+      expect(s.modulesFor('DISTANCE').filter(m => !m.defaultOn)).toEqual([]);
+    }
+  });
+
+  test('2.9 records no expansions, and says so', async () => {
+    const s = await loadSyntax('2.9');
+    expect(s.needs('Q6')).toEqual([]);
+    expect(s.modulesFor('Q6')).toEqual([{ name: 'crystallization', defaultOn: false }]);
+  });
+
+  test('a shortcut hands the rest of its line to another action', async () => {
+    const s = await loadSyntax('2.11');
+    expect(s.passesTo('CENTER')).toEqual(['CENTER_FAST']);
+    expect(s.expansion('CENTER')).toContain('CENTER_FAST');
+    expect(s.keyword('CENTER_FAST', 'SET_MASS')).not.toBeNull();
+    expect(s.isShortcut('Q6')).toBe(true);
+    expect(s.isShortcut('DISTANCE')).toBe(false);
+    expect(s.expansion('NOT_AN_ACTION')).toEqual([]);
+  });
+});
