@@ -1,0 +1,37 @@
+[ System ]
+   1    2    3    4    5    6    7    8    9   10   11   12   13   14   15
+  16   17
+[ Water ]
+   1    2    3    4    5    6    7    8    9
+[ SOL ]
+   1    2    3    4    5    6    7    8    9
+[ non-Water ]
+  10   11   12   13   14   15   16   17
+[ Protein ]
+  10   11   12   13   14   17
+[ Protein-H ]
+  10   11   12   13   14   17
+[ C-alpha ]
+  11
+[ Backbone ]
+  10   11   12   14
+[ MainChain ]
+  10   11   12   13   14   17
+[ MainChain+Cb ]
+  10   11   12   13   14   17
+[ MainChain+H ]
+  10   11   12   13   14   17
+[ SideChain ]
+[ SideChain-H ]
+[ Prot-Masses ]
+  10   11   12   13   14   17
+[ non-Protein ]
+   1    2    3    4    5    6    7    8    9   15   16
+[ Ion ]
+  15
+[ RNA ]
+  16
+[ CA ]
+  15
+[ Water_and_ions ]
+   1    2    3    4    5    6    7    8    9   15

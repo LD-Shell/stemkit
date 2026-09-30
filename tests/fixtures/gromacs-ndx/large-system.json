@@ -1,0 +1,26 @@
+{
+  "sha256": "63dd5316ed300fc25b2514b42d1a25af748e32399b4bb731da77f55553798129",
+  "groups": [
+    ["System",314648],
+    ["Protein",11600],
+    ["Protein-H",6400],
+    ["C-alpha",1200],
+    ["Backbone",3600],
+    ["MainChain",5200],
+    ["MainChain+Cb",6000],
+    ["MainChain+H",6400],
+    ["SideChain",5200],
+    ["SideChain-H",1200],
+    ["Prot-Masses",11600],
+    ["non-Protein",303048],
+    ["Other",8],
+    ["LIG",8],
+    ["NA",20],
+    ["CL",20],
+    ["Water",303000],
+    ["SOL",303000],
+    ["non-Water",11648],
+    ["Ion",40],
+    ["Water_and_ions",303040]
+  ]
+}
