@@ -197,6 +197,10 @@
 .sg-pick { display: inline-flex; align-items: center; gap: .3rem; font-size: .6875rem; color: var(--stk-fg-2); cursor: pointer; }
 .sg-pick input { accent-color: var(--stk-accent); }
 .sg-pick code { font-family: var(--stk-font-mono); }
+/* Which of the atoms that share a name a box is (C (1st), C (2nd)), and the order the
+   boxes were ticked in: a direction runs from the one marked 1 to the one marked 2. */
+.sg-pick-nth { margin-left: -.15rem; color: var(--stk-fg-3); }
+.sg-pick[data-order]::after { content: attr(data-order); display: inline-flex; align-items: center; justify-content: center; min-width: .95rem; height: .95rem; padding: 0 .2rem; border-radius: 999px; background: var(--stk-accent); color: var(--stk-accent-fg); font-size: .5625rem; font-weight: 700; line-height: 1; }
 .sg-cv-flag > .stk-btn { margin-left: auto; }
 #plumedVersionNote:empty { display: none; }
 @media (max-width: 379.98px) {

@@ -368,8 +368,42 @@ const LEVELS = {
  */
 export function createGromacsCheck(ctx, gx) {
   const { $, escapeHtml: esc, showToast } = ctx;
-  const s = { tab: 'issues', timer: 0, result: null, guess: null };
+  // raw: a file as saved, {text, shown, name}, while the box still shows what
+  // was read from it; crLost: pasted text whose lone CRs the box turned into
+  // line breaks, with no way back to the original.
+  const s = { tab: 'issues', timer: 0, result: null, guess: null, raw: null, crLost: false };
   const text = () => ($('gxChkText') ? $('gxChkText').value : '');
+  // What grompp would read. A text box turns a lone CR (old Mac line ends)
+  // into a line break, which grompp does not (it splits lines on \n only),
+  // so a file is checked as saved until the box is edited.
+  const source = () => {
+    const shown = text();
+    return s.raw && s.raw.shown === shown ? s.raw.text : shown;
+  };
+  const loneCr = (t) => (String(t).match(/\r(?!\n)/g) || []).length;
+
+  /* What the verdict should add about characters the box does not show as
+     grompp reads them. */
+  function rawNote() {
+    const shown = text();
+    if (s.raw && s.raw.shown === shown) {
+      const cr = loneCr(s.raw.text);
+      const bom = s.raw.text.startsWith('\uFEFF') && !shown.startsWith('\uFEFF');
+      const bits = [];
+      if (cr) bits.push(`ends its lines with a lone carriage return (CR, old Mac line ends; ${cr} of them), which grompp does not read as a line break, so to grompp it is one long line`);
+      if (bom) bits.push('starts with a byte-order mark (U+FEFF), which grompp reads as part of the first option\'s name');
+      if (bits.length) {
+        const fix = [cr ? 'LF (or CRLF) line ends' : '', bom ? 'no byte-order mark' : ''].filter(Boolean).join(' and ');
+        return `Checked as ${s.raw.pasted ? 'pasted' : 'saved'}: ${s.raw.name || 'the file'} ${bits.join(', and ')}. ` +
+          `${cr ? 'The box shows it with ordinary line breaks. ' : ''}Save the file with ${fix}; edit the box and it is checked as shown.`;
+      }
+    }
+    if (s.crLost && shown.trim()) {
+      return 'The pasted text ended its lines with a lone carriage return (CR, old Mac line ends), which this box turns into line breaks. ' +
+        'grompp does not: it reads such a file as one long line. Open or drop the file itself for grompp\'s verdict on it as saved.';
+    }
+    return '';
+  }
 
   function context(parsed) {
     const ff = $('gxChkFf') ? $('gxChkFf').value : '';
@@ -398,7 +432,7 @@ export function createGromacsCheck(ctx, gx) {
   const lineBtn = (line) => (line ? `<button type="button" class="sg-issue-line" data-line="${line}" title="Show line ${line}">Line ${line}</button>` : '<span class="gx-chk-noline">Not set</span>');
 
   function run() {
-    const t = text();
+    const t = source();
     const verdict = $('gxChkVerdict');
     const issuesHost = $('gxChkIssues');
     const explainHost = $('gxChkExplain');
@@ -428,11 +462,13 @@ export function createGromacsCheck(ctx, gx) {
       return n ? `<span class="stk-badge ${l === 'error' ? 'stk-badge-danger' : l === 'warning' ? 'stk-badge-warn' : 'stk-badge-accent'}">${n} ${n === 1 ? LEVELS[l].label.toLowerCase() : LEVELS[l].plural}</span>` : '';
     }).join('');
     const advice = r.issues.filter(i => i.source === 'advice').length;
+    const note = rawNote();
     if (verdict) {
       verdict.className = `gx-verdict ${cls}`;
       verdict.innerHTML = `<i class="fa-solid ${cls === 'is-ok' ? 'fa-circle-check' : cls === 'is-warn' ? 'fa-triangle-exclamation' : 'fa-circle-xmark'}" aria-hidden="true"></i>` +
-        `<div><p class="gx-verdict-h">${esc(head)}</p><p class="gx-verdict-c">${parsed.entries.length} options${counts ? ' · ' : ''}${counts}` +
-        `${advice ? ` <span class="stk-badge">${advice} suggestion${advice === 1 ? '' : 's'}</span>` : ''} <span class="gx-verdict-vs">against GROMACS ${esc(MDP_RELEASE)}</span></p></div>`;
+        `<div><p class="gx-verdict-h">${esc(head)}</p><p class="gx-verdict-c">${parsed.entries.length} option${parsed.entries.length === 1 ? '' : 's'}${counts ? ' · ' : ''}${counts}` +
+        `${advice ? ` <span class="stk-badge">${advice} suggestion${advice === 1 ? '' : 's'}</span>` : ''} <span class="gx-verdict-vs">against GROMACS ${esc(MDP_RELEASE)}</span></p>` +
+        `${note ? `<p class="gx-verdict-raw">${esc(note)}</p>` : ''}</div>`;
     }
     if (issuesHost) {
       const groups = [
@@ -465,8 +501,8 @@ export function createGromacsCheck(ctx, gx) {
           `<p class="gx-xl-mean">${esc(x.meaning)}</p>${x.summary && !x.meaning.startsWith(x.summary) ? `<p class="gx-xl-sum">${esc(x.summary)}</p>` : ''}</li>`;
       }).join('')}</ol>`;
     }
-    // What the builder would open it as.
-    s.guess = builderFromMdp(t, gx.readState());
+    // What the builder would open it as: the text as the box shows it.
+    s.guess = builderFromMdp(text(), gx.readState());
     const sel = $('gxChkStage');
     if (sel) {
       const cur = sel.value;
@@ -478,8 +514,13 @@ export function createGromacsCheck(ctx, gx) {
 
   function schedule() { clearTimeout(s.timer); s.timer = setTimeout(run, 180); }
 
-  function setText(v) {
-    if ($('gxChkText')) $('gxChkText').value = v;
+  /* Put a text in the box. `name` is set for a file, whose text is then
+     checked as saved while the box shows it unchanged. */
+  function setText(v, name = '') {
+    const area = $('gxChkText');
+    if (area) area.value = v;
+    s.raw = area && name && area.value !== v ? { text: v, shown: area.value, name } : null;
+    s.crLost = false;
     if ($('gxChkStage')) $('gxChkStage').dataset.user = '';
     run();
   }
@@ -487,8 +528,33 @@ export function createGromacsCheck(ctx, gx) {
   function readFile(file) {
     if (!file) return;
     if (file.size > 1024 * 1024) { showToast(`${file.name} is larger than 1 MB; an .mdp file is a few kilobytes.`, 'danger'); return; }
-    file.text().then((t) => { setText(t); showToast(`${file.name}: ${t.split('\n').length} lines read.`, 'ok'); })
-      .catch(() => showToast(`Could not read ${file.name}.`, 'danger'));
+    // The bytes as saved: file.text() drops a byte-order mark, which grompp
+    // keeps as part of the first name, so decode without stripping it.
+    file.arrayBuffer().then((buf) => {
+      const t = new TextDecoder('utf-8', { ignoreBOM: true }).decode(buf);
+      setText(t, file.name);
+      const cr = loneCr(t);
+      showToast(cr ? `${file.name}: read as saved, with lone CR line ends that grompp does not read as line breaks; see the verdict.`
+        : `${file.name}: ${t.replace(/\r\n/g, '\n').split('\n').length} lines read.`, cr ? 'warn' : 'ok');
+    }).catch(() => showToast(`Could not read ${file.name}.`, 'danger'));
+  }
+
+  /* A paste loses lone CRs to the box. When the paste is the whole text, it
+     is kept as pasted and checked as grompp would read it; otherwise the
+     verdict says the line ends were changed. */
+  function pasted(e) {
+    const clip = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+    if (!loneCr(clip)) return;
+    setTimeout(() => {
+      const shown = text();
+      if (shown === clip.replace(/\r\n?/g, '\n')) {
+        s.raw = { text: clip, shown, name: 'the pasted text', pasted: true };
+        s.crLost = false;
+      } else {
+        s.crLost = true;
+      }
+      run();
+    }, 0);
   }
 
   function openInBuilder() {
@@ -512,6 +578,7 @@ export function createGromacsCheck(ctx, gx) {
 
   const bind = (id, ev, fn) => { if ($(id)) $(id).addEventListener(ev, fn); };
   bind('gxChkText', 'input', schedule);
+  bind('gxChkText', 'paste', pasted);
   bind('gxChkOpen', 'click', () => $('gxChkFile') && $('gxChkFile').click());
   bind('gxChkFile', 'change', (e) => { readFile(e.target.files && e.target.files[0]); e.target.value = ''; });
   bind('gxChkCurrent', 'click', () => {

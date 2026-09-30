@@ -34,7 +34,7 @@ import { getScheduler, envVars, launcher, submitCommand } from '../src/core/sche
 import { estimateCoreHours, arrayConcurrency } from '../src/core/slurm.js';
 import { createPlumedBuilder } from './script-generator-plumed.js';
 import { createGromacsTab } from './script-generator-gromacs.js';
-import { gromacsRunBlock } from './script-generator-gromacs-model.js';
+import { gromacsRunBlock, gromacsMdrunFlags, gpuFlagWarnings, gmxBuild, plumedStages } from './script-generator-gromacs-model.js';
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -182,53 +182,40 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // =====================================================================
-    // GROMACS: GPU flag string from advanced toggles.
-    // Encodes rules from the GROMACS "Getting good performance from mdrun"
-    // guide. Returns { flags, warnings }.
+    // GROMACS: GPU flags from the toggles. The rules (which build takes
+    // -ntmpi, when -npme is needed, what each stage can take) live in the
+    // model (gromacsMdrunFlags, stageGpuFlags), after GROMACS's own checks
+    // and the "Getting good performance from mdrun" guide.
+    // Returns { flags, ntmpi, ranks, autoNtmpi, warnings, topology }.
     // =====================================================================
-    function gmxGpuFlags() {
-        const gpus = getInt('jobGpus', 0);
-        if (gpus <= 0) return { flags: '', warnings: [] };
+    // Backquoted code in the model's plain-text messages, as the page shows it.
+    const codeHtml = (text) => escapeHtml(text).replace(/`([^`]+)`/g, '<code>$1</code>');
 
-        const warnings = [];
-        const nb     = isChecked('gpuNb');
-        const pme    = isChecked('gpuPme');
-        const bonded = isChecked('gpuBonded');
-        const update = isChecked('gpuUpdate');
-        const ntmpiStr = getStr('gpuNtmpi', '');
-        const ntmpi = parseInt(ntmpiStr, 10);
+    // The topology header's water decides whether the topology has virtual
+    // sites (TIP4P's massless charge site), which the GPU update refuses.
+    function gmxTopologyInfo() {
+        const preset = FF_PRESETS[getStr('topForcefield', 'amber99sb-ildn')];
+        const water = getStr('topSolvent', 'tip3p');
+        const martini = !!(preset && preset.martini);
+        return { virtualSites: !martini && /^tip[45]/i.test(water), water: water.toUpperCase() };
+    }
 
-        const flags = [];
-        if (nb)     flags.push('-nb gpu');
-        if (pme)    flags.push('-pme gpu');
-        if (bonded) flags.push('-bonded gpu');
-        if (update) flags.push('-update gpu');
-        if (ntmpiStr) flags.push(`-ntmpi ${ntmpiStr}`);
-
-        // Rule: bonded offload requires the short-range non-bonded task on GPU.
-        if (bonded && !nb) {
-            warnings.push('<code>-bonded gpu</code> requires the short-range non-bonded task on the GPU too. Enable <code>-nb gpu</code>.');
-        }
-
-        // Rule: PME on GPU supports only a single PME rank. If more than one
-        // rank is requested, pin -npme 1 automatically.
-        if (pme && Number.isFinite(ntmpi) && ntmpi > 1) {
-            if (!flags.some(f => f.startsWith('-npme'))) {
-                flags.push('-npme 1');
-            }
-            warnings.push('PME on GPU supports only one PME rank, so <code>-npme 1</code> was added automatically.');
-        }
-
-        // Note: GPU-resident mode (-update gpu) is incompatible with dynamic
-        // load balancing and needs constraints = h-bonds: the GPU constraint
-        // code takes only small coupled groups, and all-bonds on a protein
-        // couples far more than that. The .mdp files come from this page, so
-        // the warning is needed only when they constrain something else.
-        if (update && gromacs.plan().constraints === 'all-bonds') {
-            warnings.push('<code>-update gpu</code> (GPU-resident mode) needs <code>constraints = h-bonds</code>: with all bonds rigid, <code>mdrun</code> refuses the GPU update on a protein at startup. Choose bonds to hydrogen under System, or drop <code>-update gpu</code>.');
-        }
-
-        return { flags: flags.length ? ' ' + flags.join(' ') : '', warnings };
+    function gmxGpuFlags(gmxBin, wf) {
+        const r = gromacsMdrunFlags({
+            gpus: getInt('jobGpus', 0),
+            nb: isChecked('gpuNb'),
+            pme: isChecked('gpuPme'),
+            bonded: isChecked('gpuBonded'),
+            update: isChecked('gpuUpdate'),
+            ntmpi: getStr('gpuNtmpi', ''),
+            gmx: gmxBin,
+            nodes: getInt('jobNodes', 1),
+            constraints: wf.constraints,
+            system: wf.system
+        });
+        const topology = gmxTopologyInfo();
+        const warnings = r.warnings.concat(gpuFlagWarnings(wf.stages, r.flags, topology));
+        return { ...r, topology, warnings: warnings.map(codeHtml) };
     }
 
     // =====================================================================
@@ -250,26 +237,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
         s += `# --- Execution ---\n`;
 
+        const wf = gromacs.plan();
+        const run = gromacs.runOptions();
         if (isArray) {
             const baseDir = getStr('jobArrayDir', 'run_');
             s += `# One directory per array task. The .mdp files (and an index built on\n`;
             s += `# the page) stay in the submission directory; each task reads them there.\n`;
+            if (run.indexFromFiles) {
+                // An index group is a list of atom numbers: one index fits
+                // only systems numbered exactly like the structure it came from.
+                s += `# ${run.index} was built from one structure, so every run directory must\n`;
+                s += `# hold that same system, atom for atom.\n`;
+                warnings.push(`Every array task reads the same <code>${escapeHtml(run.index)}</code>, built from one structure: the system in every run directory must match it atom for atom. For systems that differ, remove the index under Index groups and name one of your own under Job, which each task then reads from its own directory.`);
+            }
             s += `SUBMIT_DIR="$PWD"\n`;
             s += `SYSTEM_DIR="${baseDir}\${${envVars(scheduler).arrayIndex}}"\n`;
             s += `cd "\$SYSTEM_DIR" || { echo "Missing directory \$SYSTEM_DIR" >&2; exit 1; }\n\n`;
         }
 
-        const wf = gromacs.plan();
-        const run = gromacs.runOptions();
         // GROMACS executable name. Many HPC modules ship the MPI build as
         // gmx_mpi, so this is user-settable rather than hardcoded.
         const gmxBin = (getStr('gmxBinary', 'gmx') || 'gmx').trim() || 'gmx';
         if (/\s/.test(gmxBin)) {
             warnings.push(`The GROMACS executable name "<code>${escapeHtml(gmxBin)}</code>" contains a space. Use just the command name (e.g. <code>gmx</code> or <code>gmx_mpi</code>).`);
         }
-        const gpuResult = gmxGpuFlags();
+        const build = gmxBuild(gmxBin);
+        const gpuResult = gmxGpuFlags(gmxBin, wf);
         gpuResult.warnings.forEach(w => { if (!warnings.includes(w)) warnings.push(w); });
 
+        // Several nodes need the MPI build, started once per node by the
+        // scheduler's launcher (the header asks for one task per node);
+        // thread-MPI cannot leave the node it starts on.
+        const nodes = getInt('jobNodes', 1);
+        let launch = '';
+        if (nodes > 1) {
+            if (build.mpi) {
+                launch = launcher(scheduler, { cpusPerTask: getInt('jobCpus', 1) });
+                s += `# ${nodes} nodes: ${gmxBin} is the MPI build, so each mdrun starts one MPI rank per\n`;
+                s += `# node through ${launch.split(' ')[0]}; grompp is serial and runs once, without it.\n`;
+                if (LAUNCH_NOTE[scheduler]) s += LAUNCH_NOTE[scheduler] + `\n`;
+                s += `\n`;
+            } else {
+                warnings.push(`Nodes is ${nodes}, but <code>${escapeHtml(gmxBin)}</code> is the thread-MPI build, which runs on one node: the other ${nodes - 1 === 1 ? 'node sits' : `${nodes - 1} nodes sit`} idle while the job is charged for ${nodes}. Use the MPI build, <code>gmx_mpi</code>, which the script then starts on every node, or ask for one node.`);
+            }
+        }
+
+        // Everything the plan says about the workflow as a whole (an index
+        // file grompp needs, the time step, a box too skewed to scale, no
+        // stage at all), then each file grompp or mdrun will stop on.
+        wf.warnings.forEach(w => warnings.push(escapeHtml(w)));
         if (!wf.stages.length) {
             s += `# (No workflow stages enabled: switch a stage on under Stages.)\n`;
             finishGromacs(out, s, warnings);
@@ -278,28 +294,44 @@ document.addEventListener('DOMContentLoaded', () => {
         wf.stages.filter(p => p.errors.length).forEach(p => {
             warnings.push(`grompp will stop on <code>${escapeHtml(p.file)}</code>: ${escapeHtml(p.errors[0].message)}`);
         });
+        wf.stages.forEach(p => {
+            for (const i of p.mdrunStops || []) warnings.push(`mdrun will stop in <code>${escapeHtml(p.file)}</code>: ${escapeHtml(i.message)}`);
+            if (p.pullWarning) warnings.push(`<code>${escapeHtml(p.file)}</code>: ${escapeHtml(p.pullWarning)}`);
+        });
+        // -plumed on production only, with production switched off: no
+        // mdrun reads the input.
+        if (run.plumed.on && !plumedStages(wf.stages, run.plumed).length) {
+            warnings.push(`Attach <code>-plumed</code> is on for ${run.plumed.scope === 'all' ? 'every MD stage' : 'the production stage'}, but ${run.plumed.scope === 'all' ? 'no MD stage is' : 'production is not'} switched on, so no mdrun reads <code>${escapeHtml(run.plumed.file)}</code>.`);
+        }
 
-        // If GPU-resident mode is on, put the .mdp requirement INTO the script,
-        // where it survives copying; the page's own files already meet it.
-        if (isChecked('gpuUpdate')) {
-            if (wf.constraints === 'h-bonds') {
-                s += `# '-update gpu' (GPU-resident mode) needs constraints = h-bonds, which\n`;
-                s += `# every .mdp file written with this script has.\n\n`;
-            } else {
+        // GPU-resident mode: what it needs, in the script, where it survives
+        // copying. Stages it cannot run in say so above their mdrun line.
+        if (/-update gpu/.test(gpuResult.flags)) {
+            if (wf.constraints === 'all-bonds') {
                 s += `# ==============================================================\n`;
                 s += `# IMPORTANT - '-update gpu' requires this in EVERY MD .mdp file:\n`;
                 s += `#     constraints = h-bonds      ; not all-bonds\n`;
                 s += `# With all-bonds on a protein, mdrun refuses the GPU update at\n`;
                 s += `# startup. That error comes from the .mdp, not from this script.\n`;
                 s += `# ==============================================================\n\n`;
+            } else {
+                s += `# '-update gpu' (GPU-resident mode) integrates and constrains on the GPU.\n`;
+                s += `# mdrun refuses it for minimisation, Nose-Hoover, virtual sites and a few\n`;
+                s += `# other cases, so a stage with one of them leaves it out (said above it).\n\n`;
             }
         }
 
         // mdrun gets -ntomp $OMP_NUM_THREADS. The two must agree (mdrun stops
         // when they differ), so with several thread-MPI ranks (-ntmpi, GPU
         // runs only) the variable itself is divided between the ranks.
-        const ntmpi = getInt('jobGpus', 0) > 0 ? getInt('gpuNtmpi', 0) : 0;
-        if (ntmpi > 1) {
+        const ntmpi = gpuResult.ntmpi;
+        if (gpuResult.autoNtmpi) {
+            s += `# -ntmpi 1: one thread-MPI rank, with the task's CPUs as its OpenMP threads.\n`;
+            s += `# With a GPU in use, a thread-MPI mdrun given -ntomp stops unless -ntmpi is\n`;
+            s += `# given too ("conflicting demands"). ${gmxBin} is taken to be the thread-MPI\n`;
+            s += `# build ("${gmxBin} --version" says "MPI library: thread_mpi"); an MPI build\n`;
+            s += `# rejects -ntmpi, so give its name (such as gmx_mpi) as the executable.\n\n`;
+        } else if (ntmpi > 1) {
             const cpus = getInt('jobCpus', 1);
             if (cpus < ntmpi) {
                 warnings.push(`CPUs per task (${cpus}) is below <code>-ntmpi ${ntmpi}</code>; each thread-MPI rank needs at least one CPU.`);
@@ -314,6 +346,9 @@ document.addEventListener('DOMContentLoaded', () => {
             s += `# Each stage runs only while its final .gro is missing, and mdrun\n`;
             s += `# continues from its checkpoint: if the job reaches its wall time,\n`;
             s += `# submit it again and it carries on where it stopped.\n\n`;
+        } else {
+            s += `# Every stage runs from its start each time this script runs (no\n`;
+            s += `# checkpoints read), overwriting what an earlier run wrote.\n\n`;
         }
         s += gromacsRunBlock(wf.stages, {
             gmx: gmxBin,
@@ -323,7 +358,9 @@ document.addEventListener('DOMContentLoaded', () => {
             indexFromFiles: run.indexFromFiles,
             filesDir: isArray ? '$SUBMIT_DIR/' : '',
             gpuFlags: gpuResult.flags,
-            plumed: { on: isChecked('gmxUsePlumed'), file: getStr('gmxPlumedFile', 'plumed.dat'), scope: getStr('gmxPlumedScope', 'prod') },
+            topology: gpuResult.topology,
+            launcher: launch,
+            plumed: run.plumed,
             resume: run.resume
         });
         s += `echo "Workflow complete."\n`;
@@ -823,7 +860,12 @@ document.addEventListener('DOMContentLoaded', () => {
         schedulerInfo: () => {
             const meta = getScheduler(currentScheduler());
             return { label: meta.label, submit: submitCommandLine() };
-        }
+        },
+        // The files the PLUMED tab wrote for its INCLUDE lines, by name.
+        plumedFiles: () => Object.keys(plumedTab.files() || {}),
+        // The PLUMED tab's input and INCLUDE files ([{name, text}], [] until
+        // it has built something), so the GROMACS zip can carry them.
+        plumedInput: (name) => plumedTab.plumedFiles(name)
     });
 
     // =====================================================================

@@ -6,6 +6,10 @@
  * lists by src/core/plumed-atoms.js. It is held in memory only: a structure
  * can be tens of megabytes and is of no use to anyone but the person who
  * loaded it, so it is neither saved nor sent anywhere.
+ *
+ * The file is split by residue (name, number and chain), so a protein is
+ * listed residue by residue and the page says "residues", not "molecules".
+ * Distances in a selection are in nm, PLUMED's unit, whatever the file's.
  */
 
 import { parseStructure } from '../src/core/structure.js';
@@ -13,6 +17,10 @@ import {
   speciesOf, perMoleculeGroups, perMoleculeCenters, moleculeOrientations, selectForPlumed,
   compressAtomList, safeLabel
 } from '../src/core/plumed-atoms.js';
+import {
+  distinctAtoms, withDistinctNames, atomKeyText, ordinal, nextTicks, pickOptions, queryHasLength, loadedText,
+  NUMBERING_NOTE
+} from './script-generator-plumed-model.js';
 
 const MAX_BYTES = 200 * 1024 * 1024;
 
@@ -46,7 +54,14 @@ function sampleGro() {
  */
 export function createPlumedAtoms(ctx, builder) {
   const { $, escapeHtml, showToast, downloadText } = ctx;
-  const state = { atoms: [], species: [], name: '', unit: 'nm', target: '' };
+  // `ticks` holds the ticked atoms of one copy by their place in it, in the
+  // order they were ticked: a direction runs from the first to the second.
+  // `box` and `boxVectors` are the file's cell, in nm, for periodic `within:`;
+  // `warnings` what the reader said about the file.
+  const state = {
+    atoms: [], species: [], name: '', unit: 'nm', box: null, boxVectors: null, warnings: [],
+    target: '', ticks: []
+  };
 
   const species = (name) => state.species.find(s => s.name === name);
   const fmt = (n) => Number(n).toLocaleString('en-GB');
@@ -69,9 +84,14 @@ export function createPlumedAtoms(ctx, builder) {
     state.species = speciesOf(parsed.atoms);
     state.name = name;
     state.unit = parsed.unit || 'nm';
+    state.box = parsed.box || null;
+    state.boxVectors = parsed.boxVectors || null;
+    state.warnings = Array.isArray(parsed.warnings) ? parsed.warnings.filter(Boolean) : [];
     builder.setNatoms(parsed.atoms.length);
     render();
-    showToast(`${name}: ${fmt(parsed.atoms.length)} atoms in ${fmt(state.species.reduce((n, s) => n + s.molecules, 0))} molecules.`, 'ok');
+    // speciesOf splits by residue, so a protein counts once per residue.
+    showToast(loadedText(name, parsed.atoms.length, state.species, state.warnings),
+      state.warnings.length ? 'warn' : 'ok');
   }
 
   function readFile(file) {
@@ -88,6 +108,9 @@ export function createPlumedAtoms(ctx, builder) {
     state.atoms = [];
     state.species = [];
     state.name = '';
+    state.box = null;
+    state.boxVectors = null;
+    state.warnings = [];
     render();
   }
 
@@ -112,8 +135,13 @@ export function createPlumedAtoms(ctx, builder) {
     if (!has) return;
 
     $('plumedStructSummary').innerHTML =
-      `<strong>${escapeHtml(state.name)}</strong>: ${fmt(state.atoms.length)} atoms. PLUMED numbers them ` +
-      'in the order of the file, from 1, which is how every list below is written.';
+      `<strong>${escapeHtml(state.name)}</strong>: ${fmt(state.atoms.length)} atom${state.atoms.length === 1 ? '' : 's'}. ` +
+      `${escapeHtml(NUMBERING_NOTE)}` +
+      (state.warnings.length
+        ? '<span class="sg-cv-note sg-cv-note-warn plumed-struct-warn" style="margin-top:.4rem">' +
+          '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>' +
+          `<span>${escapeHtml(state.warnings.join(' '))}</span></span>`
+        : '');
     $('plumedStructSpecies').innerHTML = state.species.map(s => `<tr>
         <td>${escapeHtml(s.name)}</td><td>${fmt(s.molecules)}</td>
         <td>${s.uniform ? s.atomsPerMolecule : `${s.atomsPerMolecule}, varies`}</td>
@@ -121,7 +149,7 @@ export function createPlumedAtoms(ctx, builder) {
       </tr>`).join('');
 
     const names = state.species.map(s => ({ value: s.name, text: `${s.name} (${fmt(s.molecules)})` }));
-    fillSelect('plumedPickSpecies', [{ value: '', text: 'Any molecule' }, ...names]);
+    fillSelect('plumedPickSpecies', [{ value: '', text: 'Any residue' }, ...names]);
     fillSelect('plumedMolSpecies', names);
     renderPickAtoms();
     renderMolAtoms();
@@ -136,14 +164,20 @@ export function createPlumedAtoms(ctx, builder) {
       ...[...new Set(names)].map(n => ({ value: n, text: n }))]);
   }
 
+  /* One box per atom of a copy. An atom whose name comes again (C, C, O)
+     is shown with its place among the atoms of that name, and its box
+     carries a key that picks that atom of every copy, not the first C. */
   function renderMolAtoms() {
     const host = $('plumedMolAtoms');
     const s = species(($('plumedMolSpecies') || {}).value);
+    state.ticks = [];
     if (!host) return;
     if (!s) { host.innerHTML = ''; return; }
-    host.innerHTML = s.atomNames.map((n, i) =>
-      `<label class="sg-pick"><input type="checkbox" data-mol-atom="${i}" value="${escapeHtml(n)}"> ` +
-      `<code>${escapeHtml(n)}</code></label>`).join('');
+    host.innerHTML = distinctAtoms(s.atomNames).map((a, i) =>
+      `<label class="sg-pick" title="${escapeHtml(a.text)}, atom ${i + 1} of ${escapeHtml(s.name)}">` +
+      `<input type="checkbox" data-mol-atom="${i}" value="${escapeHtml(a.key)}" aria-label="${escapeHtml(a.text)}"> ` +
+      `<code>${escapeHtml(a.name)}</code>` +
+      `${a.of > 1 ? `<span class="sg-pick-nth" aria-hidden="true">(${ordinal(a.nth)})</span>` : ''}</label>`).join('');
     const note = $('plumedMolNote');
     if (note) {
       note.textContent = s.uniform ? '' :
@@ -194,9 +228,15 @@ export function createPlumedAtoms(ctx, builder) {
       count.textContent = '';
       return { list: '', count: 0 };
     }
-    const r = selectForPlumed(state.atoms, query, { unit: state.unit, coordinateUnit: state.unit });
+    // A distance in the query (within:, x:, y:, z:) is in nm, the unit of a
+    // PLUMED input, whether the file is a .gro (nm) or a PDB (Å). With a box
+    // in the file, within: measures to the nearest periodic image.
+    const options = pickOptions(state);
+    const r = selectForPlumed(state.atoms, query, options);
+    const periodic = options.box && /(^|[\s!])within:/i.test(query) ? ', to the nearest periodic image' : '';
+    const lengths = queryHasLength(query) ? `, distances in nm${periodic}` : '';
     out.textContent = r.errors.length ? '' : r.list;
-    count.textContent = r.errors.length ? r.errors[0] : `${fmt(r.count)} atom${r.count === 1 ? '' : 's'}`;
+    count.textContent = r.errors.length ? r.errors[0] : `${fmt(r.count)} atom${r.count === 1 ? '' : 's'}${lengths}`;
     count.className = `stk-badge${r.errors.length ? ' stk-badge-warn' : r.count ? ' stk-badge-accent' : ''}`;
     return r;
   }
@@ -232,17 +272,46 @@ export function createPlumedAtoms(ctx, builder) {
    * The same atoms of every copy
    * ---------------------------------------------------------------- */
 
-  const ticked = () => Array.from(document.querySelectorAll('[data-mol-atom]:checked')).map(el => el.value);
+  /* The keys of the ticked boxes, in the order they were ticked. A box
+     ticked without a change event (none is expected) comes last, in list order. */
+  function ticked() {
+    const boxes = Array.from(document.querySelectorAll('[data-mol-atom]'));
+    const inOrder = state.ticks
+      .map(i => boxes.find(el => el.getAttribute('data-mol-atom') === String(i)))
+      .filter(el => el && el.checked);
+    const rest = boxes.filter(el => el.checked && !inOrder.includes(el));
+    return [...inOrder, ...rest].map(el => el.value);
+  }
+
+  /* Number the ticked boxes 1, 2... so the first and second of a direction show. */
+  function onTick(e) {
+    const el = e.target.closest('[data-mol-atom]');
+    if (!el) return;
+    state.ticks = nextTicks(state.ticks, Number(el.getAttribute('data-mol-atom')), el.checked);
+    document.querySelectorAll('[data-mol-atom]').forEach((box) => {
+      const at = state.ticks.indexOf(Number(box.getAttribute('data-mol-atom')));
+      const label = box.closest('.sg-pick');
+      if (label) {
+        if (at >= 0) label.setAttribute('data-order', String(at + 1));
+        else label.removeAttribute('data-order');
+      }
+    });
+  }
+
   const note = (text) => { if ($('plumedMolNote')) $('plumedMolNote').textContent = text; };
+  // The structure with repeated atom names told apart, as the ticked keys expect.
+  const keyed = (name) => withDistinctNames(state.atoms, name);
 
   function addGroups() {
     const name = ($('plumedMolSpecies') || {}).value;
     const names = ticked();
     if (!names.length) { note('Tick the atoms to make groups of.'); return; }
-    const r = perMoleculeGroups(state.atoms, name, names);
+    const r = perMoleculeGroups(keyed(name), name, names);
     for (const g of r.groups) builder.addCV('GROUP', { ATOMS: g.atoms }, g.label);
-    note(r.warnings.join(' ') ||
-      `${r.groups.length} group${r.groups.length === 1 ? '' : 's'} added, ${fmt(r.groups[0].count)} atoms each.`);
+    const done = r.groups.length
+      ? `${r.groups.length} group${r.groups.length === 1 ? '' : 's'} added, ${fmt(r.groups[0].count)} atoms each.`
+      : '';
+    note([done, ...r.warnings].filter(Boolean).join(' '));
     renderTargets();
   }
 
@@ -253,7 +322,7 @@ export function createPlumedAtoms(ctx, builder) {
     if (!s) return;
     const tag = safeLabel(name.toLowerCase(), 'm');
     const group = `${tag}_centres`;
-    const r = perMoleculeCenters(state.atoms, name, { atomNames: names, prefix: `${tag}c`, group });
+    const r = perMoleculeCenters(keyed(name), name, { atomNames: names, prefix: `${tag}c`, group });
     if (!r.lines.length) { note(r.warnings.join(' ')); return; }
     const file = `centres_${tag}.dat`;
     builder.addInclude(file, `${[...r.lines, r.groupLine].join('\n')}\n`,
@@ -267,20 +336,23 @@ export function createPlumedAtoms(ctx, builder) {
     const name = ($('plumedMolSpecies') || {}).value;
     const names = ticked();
     if (names.length !== 2) {
-      note('Tick two atoms: the direction of a copy runs from the first to the second.');
+      note('Tick two atoms: the direction of a copy runs from the atom ticked first (1) to the one ticked second (2).');
       return;
     }
     const tag = safeLabel(name.toLowerCase(), 'm');
     const label = `${tag}_dir`;
-    const r = moleculeOrientations(state.atoms, name,
+    const r = moleculeOrientations(keyed(name), name,
       { start: names[0], end: names[1], label, version: builder.version() });
     if (!r.lines.length) { note(r.warnings.join(' ')); return; }
+    const s = species(name);
+    const [from, to] = names.map(k => atomKeyText(k, s && s.atomNames));
     const file = `directions_${tag}.dat`;
     builder.addInclude(file, `${r.lines.join('\n')}\n`,
-      `${fmt(r.count)} directions, ${names[0]} to ${names[1]}, labelled ${label}`, [label],
+      `${fmt(r.count)} directions, ${from} to ${to}, labelled ${label}`, [label],
       builder.version());
-    note(`${fmt(r.count)} directions written to ${file} for PLUMED ${builder.version()}. Give SMAC ` +
-      `SPECIES=${label}.`);
+    // A warning (copies that lack an atom) is shown with the result, not dropped.
+    note(`${fmt(r.count)} directions, ${from} to ${to}, written to ${file} for PLUMED ${builder.version()}. ` +
+      `Give SMAC SPECIES=${label}.${r.warnings.length ? ` ${r.warnings.join(' ')}` : ''}`);
     renderFiles();
   }
 
@@ -310,6 +382,7 @@ export function createPlumedAtoms(ctx, builder) {
     }
   });
   on('plumedMolSpecies', 'change', renderMolAtoms);
+  on('plumedMolAtoms', 'change', onTick);
   on('plumedMolGroups', 'click', addGroups);
   on('plumedMolCenters', 'click', addCenters);
   on('plumedMolDirections', 'click', addDirections);

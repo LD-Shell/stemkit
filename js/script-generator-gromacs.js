@@ -15,14 +15,14 @@
  */
 
 import {
-  explainMdp, optionInfo, mdpDocUrl, FORCE_FIELDS, THERMOSTATS, BAROSTATS, SYSTEM_TYPES,
+  explainMdp, optionInfo, mdpDocUrl, FORCE_FIELDS, THERMOSTATS, SYSTEM_TYPES,
   formatDuration, MDP_RELEASE, MDP_MANUAL
 } from '../src/core/gromacs-mdp.js';
 import { buildZip } from '../src/core/zip.js';
 import { walltimeToSeconds } from '../src/core/scheduler.js';
 import {
   GX_STAGES, GX_STAGE, resolveWorkflow, estimateOutput, formatBytes, formatCount,
-  workflowReadme, parseSchedule
+  workflowReadme, parseSchedule, stageLength, barostatLabel, plumedStages
 } from './script-generator-gromacs-model.js';
 import { createGromacsIndex } from './script-generator-gromacs-index.js';
 import { createGromacsOptions, createGromacsCheck } from './script-generator-gromacs-options.js';
@@ -47,14 +47,20 @@ const SEVERITY = {
  *   `showToast`, `downloadText`, `scheduleSave`, `highlightLine`, `regenerate()`
  *   (rewrites submit.sh and the topology header), `onTopologyChange()`,
  *   `schedulerInfo()` → `{label, submit, hint}`, `getStr`, `getInt`, `isChecked`,
- *   `onViewChange()`.
+ *   `onViewChange()`, `plumedFiles()` → names of the files the PLUMED tab wrote
+ *   for its INCLUDE lines.
  */
 export function createGromacsTab(ctx) {
   const { $, escapeHtml: esc, showToast } = ctx;
   const ui = {
     step: 'system', view: 'files', file: 'submit', mode: 'code',
     overrides: {}, submit: '', submitHint: '', topology: '', planCache: null,
-    explainCache: new Map(), pinned: null, timer: 0, active: false
+    explainCache: new Map(), pinned: null, timer: 0, active: false,
+    // An index built on an earlier visit: {name, file, natoms}. The page
+    // keeps the settings that depend on it (the index name, tc-grps) but not
+    // the structure it came from, so until that is loaded again the index is
+    // missing from the zip, and the page says so.
+    lostIndex: null
   };
 
   /* ---------------------------------------------------------------- *
@@ -101,6 +107,15 @@ export function createGromacsTab(ctx) {
         k: numOr('stage_pull_k', 1000), rate: numOr('stage_pull_rate', 0.01), outputPs: numOr('stage_pull_pout', 1)
       }
     });
+    // With the structure loaded, an atom near the centre of each pull group
+    // (pull-groupN-pbcatom): the middle atom by number, which grompp takes
+    // otherwise, can sit at the edge of a large group, and a membrane always
+    // reaches further than grompp allows from it.
+    if (stages.pull.on && index.loaded()) {
+      const p = stages.pull.pull;
+      p.pbcatom1 = index.centralAtom(p.group1 || 'Protein');
+      p.pbcatom2 = index.centralAtom(p.group2 || 'LIG');
+    }
     const dtFs = numOr('gxDt', NaN);
     return {
       forceField: val('gxForceField', 'amber'),
@@ -117,8 +132,17 @@ export function createGromacsTab(ctx) {
       stages,
       overrides: ui.overrides,
       hasIndexFile: !!val('gmxIndex'),
-      index: index.loaded() ? { groups: index.names(), natoms: index.natoms() } : null
+      indexLost: lostIndex(),
+      index: index.loaded() ? { groups: index.names(), natoms: index.natoms() } : null,
+      box: index.box()
     };
+  }
+
+  /* The index built on an earlier visit, while the scripts still name it
+     and no structure has been loaded again; null otherwise. */
+  function lostIndex() {
+    const l = ui.lostIndex;
+    return l && !index.loaded() && val('gmxIndex') === l.name ? l : null;
   }
 
   /** The workflow for the current form, computed once per change. */
@@ -131,7 +155,13 @@ export function createGromacsTab(ctx) {
   function runOptions() {
     const built = index.loaded();
     const name = val('gmxIndex') || (built ? 'index.ndx' : '');
-    return { index: name, indexFromFiles: built, resume: on('gxResume') };
+    return { index: name, indexFromFiles: built, resume: on('gxResume'), plumed: plumedOptions() };
+  }
+
+  /* -plumed for mdrun, as chosen under Job. The input itself is built in
+     the PLUMED tab and is not one of the run files. */
+  function plumedOptions() {
+    return { on: on('gmxUsePlumed'), file: val('gmxPlumedFile', 'plumed.dat') || 'plumed.dat', scope: val('gmxPlumedScope', 'prod') };
   }
 
   /* ---------------------------------------------------------------- *
@@ -151,7 +181,9 @@ export function createGromacsTab(ctx) {
   function forceFieldChosen() {
     const id = val('gxForceField', 'amber');
     const ff = FORCE_FIELDS[id] || FORCE_FIELDS.amber;
-    setValue('gxConstraints', ff.constraints === 'none' ? 'none' : 'h-bonds');
+    // The bonds the force field was parametrised with: all of them for
+    // GROMOS, those to hydrogen for the others, none for Martini.
+    setValue('gxConstraints', ff.constraints);
     if (!ff.hmr) setValue('gxHmr', false);
     const top = FF_TO_TOP[id];
     if (top && $('topForcefield') && $('topForcefield').value !== top) {
@@ -167,7 +199,7 @@ export function createGromacsTab(ctx) {
     if (id && val('gxForceField') !== id) {
       setValue('gxForceField', id);
       const ff = FORCE_FIELDS[id];
-      setValue('gxConstraints', ff.constraints === 'none' ? 'none' : 'h-bonds');
+      setValue('gxConstraints', ff.constraints);
       if (!ff.hmr) setValue('gxHmr', false);
       if (FF_WATER[id] && val('topSolvent') !== FF_WATER[id]) {
         setValue('topSolvent', FF_WATER[id]);
@@ -189,6 +221,16 @@ export function createGromacsTab(ctx) {
     const hold = id !== 'solution';
     setValue('stage_nvt_posres', hold);
     setValue('stage_npt_posres', hold);
+    syncDerived();
+  }
+
+  /* Conjugate gradient runs after a steepest-descent stage that already
+     stops below 1000 kJ/mol/nm, so it needs a lower target to do anything. */
+  function emMethodChosen() {
+    const cgOn = val('stage_em_method', 'steep') === 'cg';
+    const tol = numOr('stage_em_emtol', NaN);
+    if (cgOn && tol === 1000) setValue('stage_em_emtol', '100');
+    else if (!cgOn && tol === 100) setValue('stage_em_emtol', '1000');
     syncDerived();
   }
 
@@ -271,15 +313,17 @@ export function createGromacsTab(ctx) {
     const ffHint = $('gxFfHint');
     if (ffHint) {
       const ref = ff.references[0];
+      const rigid = ff.constraints === 'all-bonds' ? 'all bonds rigid' : 'the bonds to hydrogen rigid';
       ffHint.innerHTML = `${esc(ff.why.cutoff)}. ${esc(ff.why.dispCorr)}. ` +
-        `${cg ? '20 fs time step, no constraints' : `${ff.dt * 1000} fs with the bonds to hydrogen rigid`}; water: ${esc(ff.water)}. ` +
+        `${cg ? '20 fs time step, no constraints' : `${ff.dt * 1000} fs with ${rigid}`}; water: ${esc(ff.water)}. ` +
         (ref ? link(ref.url, esc(ref.text)) : '');
     }
     const sysHint = $('gxSystemHint');
     if (sysHint) {
       const id = wf.system;
       sysHint.innerHTML = id === 'membrane'
-        ? 'The membrane plane (x/y) and its normal (z) scale separately. CHARMM-GUI names the temperature groups <code>SOLU MEMB SOLV</code> in its index file; load your structure under Index groups for groups of your own.'
+        ? 'The membrane plane (x/y) and its normal (z) scale separately. CHARMM-GUI\'s index file names the temperature groups <code>SOLU MEMB SOLV</code>, ' +
+          'with <code>SOLU</code> only when the system has a solute: for a bilayer of lipids alone, use <code>MEMB SOLV</code>. Load your structure under Index groups for groups of your own.'
         : id === 'solution'
           ? 'One temperature group for the whole system and no position restraints: a liquid has no solute to hold, and grompp warns about a <code>-DPOSRES</code> the topology never uses.'
           : 'The solute is held while the solvent relaxes, then released; solute and solvent get a temperature group each.';
@@ -309,7 +353,16 @@ export function createGromacsTab(ctx) {
     } else {
       parts.push('<p class="stk-hint">Every atom must be in exactly one group. <code>Protein</code> and <code>Non-Protein</code> are groups GROMACS makes itself; ' +
         'any other name needs an index file, which Index groups builds from your structure.</p>');
+      // CHARMM-GUI writes SOLU only when there is a solute (a protein, a
+      // peptide, a ligand); its index for a bilayer alone has MEMB and SOLV.
+      if (wf.tcGroups.some(g => g.toUpperCase() === 'SOLU')) {
+        parts.push('<p class="stk-hint">CHARMM-GUI\'s index file has a <code>SOLU</code> group only when the system has a solute: ' +
+          'for a bilayer of lipids alone, grompp stops on <code>SOLU</code>, so use <code>MEMB SOLV</code>.</p>');
+      }
     }
+    // A name no index defines, or an index lost with the structure it came
+    // from: grompp stops on it, so it is said where tc-grps is chosen.
+    if (wf.indexWarning) parts.push(`<p class="gx-bad"><i class="fa-solid fa-circle-xmark" aria-hidden="true"></i> ${esc(wf.indexWarning)}</p>`);
     host.innerHTML = parts.join('');
   }
 
@@ -328,20 +381,42 @@ export function createGromacsTab(ctx) {
       ? 'C-rescale cannot scale the box anisotropically in GROMACS 2025, so every stage with a barostat uses Parrinello-Rahman.'
       : 'C-rescale in every stage with a barostat: stable while equilibrating and correct in production.');
     if (ba === 'parrinello-rahman') notes.push('Parrinello-Rahman in production; NPT equilibration uses C-rescale, because Parrinello-Rahman oscillates when the box is far from equilibrium' +
-      `${type === 'anisotropic' ? ' (except with anisotropic scaling, which only Parrinello-Rahman supports)' : ''}.`);
-    if (ba === 'berendsen') notes.push('Berendsen gives the wrong volume fluctuations; grompp warns, so submit.sh adds <code>-maxwarn</code>.');
+      `${type === 'anisotropic' ? ' (except with anisotropic scaling, which C-rescale cannot do)' : ''}.`);
+    if (ba === 'berendsen') notes.push('Berendsen gives the wrong volume fluctuations; grompp warns, so submit.sh adds <code>-maxwarn</code>. It is kept in every stage with a barostat, NPT equilibration included.');
     if (type === 'semiisotropic') notes.push('Semi-isotropic: two values each for <code>ref-p</code> and <code>compressibility</code>, the membrane plane (x/y) first, then z.');
-    if (type === 'anisotropic') notes.push('Anisotropic: six values each (xx yy zz xy xz yz); the off-diagonal compressibilities are 0 so a rectangular box stays rectangular.');
+    if (type === 'anisotropic') {
+      notes.push('Anisotropic: six values each (xx yy zz xy xz yz). The off-diagonal compressibilities are 0, so the box angles cannot change: ' +
+        '<strong>the box must be rectangular</strong>. A rhombic dodecahedron or any other triclinic box (<code>editconf -bt dodecahedron</code>, ' +
+        'the usual protein box) becomes too skewed as it shrinks, and mdrun stops ("Triclinic box is too skewed").');
+    }
     if (wf.system === 'membrane' && type !== 'semiisotropic') notes.push('A membrane is normally coupled semi-isotropically, so the area per lipid can relax on its own.');
-    if (host) host.innerHTML = notes.map(n => `<p>${n}</p>`).join('');
+    // With a structure loaded its box is known: a triclinic one under
+    // anisotropic coupling is said here, where the coupling is chosen.
+    const skewed = wf.warnings.find(w => /too skewed/.test(w));
+    if (host) host.innerHTML = notes.map(n => `<p>${n}</p>`).join('') + (skewed ? `<p class="gx-bad">${esc(skewed)}</p>` : '');
     if (vals) {
-      const T = ff.tauT[th] ?? ff.tauT['v-rescale'];
+      // The values the files hold, read from them: the force field's
+      // conventions (Martini's are longer), after any option set by hand.
+      const first = (key) => wf.stages.find(p => p.key === key);
+      // The first value of an option as a plain number: "4.0 4.0" -> "4".
+      const first1 = (x) => {
+        const w = String(x ?? '').trim().split(/\s+/)[0];
+        return w && Number.isFinite(Number(w)) ? String(Number(w)) : w;
+      };
+      const tau = (p) => (p && p.checked ? first1(p.checked['tau-p']) : '');
+      const dyn = wf.stages.find(p => p.dynamics && p.checked && p.checked['tau-t'] !== undefined);
+      const T = dyn ? first1(dyn.checked['tau-t']) : (ff.tauT[th] ?? ff.tauT['v-rescale']);
+      const nptP = first('npt');
+      const prodP = first('prod');
+      const tauEq = nptP && nptP.barostat !== 'none' ? tau(nptP) : '';
+      const tauProd = prodP && prodP.barostat !== 'none' ? tau(prodP) : '';
       const pr = ba === 'parrinello-rahman' || type === 'anisotropic';
-      const tauEq = type === 'anisotropic' ? ff.tauP['parrinello-rahman'] : (ba === 'berendsen' ? ff.tauP.berendsen : ff.tauP['c-rescale']);
-      const tauProd = ff.tauP[pr ? 'parrinello-rahman' : ba] ?? ff.tauP['c-rescale'];
+      const fallback = ff.tauP[pr ? 'parrinello-rahman' : ba] ?? ff.tauP['c-rescale'];
+      const tauText = tauEq && tauProd && tauEq !== tauProd ? `${tauEq} ps (NPT, ${barostatLabel(nptP)}), ${tauProd} ps (production, ${barostatLabel(prodP)})`
+        : `${tauEq || tauProd || fallback} ps`;
       const items = [
         ['tau-t', `${T} ps`, mdpDocUrl('tau-t')],
-        ['tau-p', tauEq === tauProd ? `${tauProd} ps` : `${tauEq} ps (NPT), ${tauProd} ps (production)`, mdpDocUrl('tau-p')],
+        ['tau-p', tauText, mdpDocUrl('tau-p')],
         ['compressibility', `${ff.compressibility} bar⁻¹`, mdpDocUrl('compressibility')],
         ['refcoord-scaling', 'com, in restrained stages with a barostat', mdpDocUrl('refcoord-scaling', 'com')]
       ];
@@ -356,13 +431,20 @@ export function createGromacsTab(ctx) {
     const parts = [];
     const dyn = wf.stages.filter(p => p.dynamics);
     const dt = wf.dt;
-    if (dyn.length) {
-      const longest = dyn.reduce((a, b) => (b.lengthPs > a.lengthPs ? b : a));
+    const limited = dyn.filter(p => !p.unlimited);
+    if (limited.length) {
+      const longest = limited.reduce((a, b) => (b.lengthPs > a.lengthPs ? b : a));
       parts.push(`<p>dt = ${Number((dt * 1000).toPrecision(6))} fs: ${esc(longest.label.toLowerCase())} of ${esc(formatDuration(longest.lengthPs))} is ${formatCount(longest.nsteps)} steps.</p>`);
     }
     if (wf.hmr) {
       parts.push(`<p><code>mass-repartition-factor = 3</code> goes into every dynamics stage. ${link(mdpDocUrl('mass-repartition-factor'), 'Manual')}</p>`);
-      if (wf.constraints === 'h-bonds') parts.push('<p>grompp will note that bonds such as C=O oscillate in fewer than ten 4 fs steps: expected with repartitioned hydrogens and only the bonds to hydrogen rigid.</p>');
+      // The note needs bonds between heavy atoms that are not constrained:
+      // a protein has them, a box of water and ions does not.
+      if (wf.constraints === 'h-bonds') {
+        parts.push(wf.system === 'solution'
+          ? '<p>If the liquid\'s molecules have bonds between heavy atoms (C=O, C-C), grompp will note that they oscillate in fewer than ten 4 fs steps: expected with repartitioned hydrogens and only the bonds to hydrogen rigid. Water and ions have none, so it says nothing for them.</p>'
+          : '<p>grompp will note that bonds such as C=O oscillate in fewer than ten 4 fs steps: expected with repartitioned hydrogens and only the bonds to hydrogen rigid.</p>');
+      }
     }
     for (const w of wf.warnings.filter(x => /time step|repartition|flexible/i.test(x))) parts.push(`<p class="gx-bad">${esc(w)}</p>`);
     const ownDt = wf.stages.find(p => p.warnings.some(x => /dt = /.test(x)));
@@ -398,18 +480,20 @@ export function createGromacsTab(ctx) {
         continue;
       }
       const bits = [];
-      if (p.dynamics) bits.push(formatDuration(p.lengthPs), `${formatCount(p.nsteps)} steps`);
-      else bits.push(`at most ${formatCount(p.nsteps)} steps`);
-      if (p.posres) bits.push('restrained');
-      if (p.barostat && p.barostat !== 'none') bits.push(BAROSTATS[p.barostat].value);
+      const pre = def.key === 'em' ? byKey.get('em-steep') : null;
+      if (p.dynamics) bits.push(stageLength(p), p.unlimited ? 'nsteps = -1' : `${formatCount(p.nsteps)} steps`);
+      else bits.push(pre ? `steepest descent, then conjugate gradient, each at most ${formatCount(p.nsteps)} steps` : p.nsteps < 0 ? 'no step limit' : `at most ${formatCount(p.nsteps)} steps`);
+      if (p.restrained || p.posres) bits.push('restrained');
+      if (barostatLabel(p)) bits.push(barostatLabel(p));
       else if (p.dynamics) bits.push('NVT');
-      const bad = p.errors.length ? 'error' : p.maxwarn ? 'warning' : '';
+      const st = statusOf({ kind: 'mdp', plan: p });
+      const stPre = pre ? statusOf({ kind: 'mdp', plan: pre }) : null;
+      const worst = [stPre, st].find(x => x && x.level === 'error') || [stPre, st].find(x => x && x.level === 'warning');
       if (sum) {
         sum.innerHTML = esc(bits.join(' · ')) +
-          (bad === 'error' ? ' <span class="stk-badge stk-badge-danger">grompp stops</span>'
-            : bad === 'warning' ? ` <span class="stk-badge stk-badge-warn">-maxwarn ${p.maxwarn}</span>` : '');
+          (worst ? ` <span class="stk-badge ${worst.level === 'error' ? 'stk-badge-danger' : 'stk-badge-warn'}">${esc(worst.badge)}</span>` : '');
       }
-      if (steps) steps.textContent = p.dynamics ? `${formatCount(p.nsteps)} steps of ${Number((p.dt * 1000).toPrecision(6))} fs` : '';
+      if (steps) steps.textContent = p.dynamics ? (p.unlimited ? 'nsteps = -1: runs until stopped' : `${formatCount(p.nsteps)} steps of ${Number((p.dt * 1000).toPrecision(6))} fs`) : '';
       if (vel) {
         vel.textContent = !p.dynamics ? ''
           : p.genVel ? `New velocities at ${p.settings.temperature} K${p.velocitiesAuto ? ': the first dynamics stage' : ''}.`
@@ -417,17 +501,46 @@ export function createGromacsTab(ctx) {
               : 'Read from the start coordinates, which must hold velocities.';
       }
       const lines = [];
+      const note = (text) => `<p class="gx-issue gx-issue-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>${text}</span></p>`;
+      const warnLine = (text) => `<p class="gx-issue gx-issue-warning"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>${esc(text)}</span></p>`;
+      if (pre) {
+        lines.push(note(`Steepest descent runs first (<code>${esc(pre.file)}</code>, to <code>${esc(pre.deffnm)}.gro</code>) to relieve the clashes, ` +
+          'where conjugate gradient is slow; conjugate gradient then runs with flexible water (<code>define = -DFLEXIBLE</code>), ' +
+          'because GROMACS cannot use SETTLE in it: with rigid water mdrun stops with "The coordinates could not be constrained".'));
+        for (const i of pre.issues.filter(x => x.severity !== 'note' && x.source !== 'advice')) lines.push(issueLine(i));
+      }
       // A deprecated method is reported by the checker too, with grompp's words.
       const gromppSays = p.issues.filter(i => i.source === 'grompp').map(i => i.message).join(' ');
-      for (const w of p.warnings.filter(x => !(/\(deprecated\)/.test(x) && /Berendsen/.test(gromppSays)))) lines.push(`<p class="gx-issue gx-issue-warning"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>${esc(w)}</span></p>`);
+      for (const w of p.warnings.filter(x => !(/\(deprecated\)/.test(x) && /Berendsen/.test(gromppSays)))) lines.push(warnLine(w));
       for (const i of p.issues.filter(x => x.severity !== 'note' && x.source !== 'advice')) lines.push(issueLine(i));
-      if (p.barostatNote) lines.push(`<p class="gx-issue gx-issue-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>${esc(p.barostatNote)}</span></p>`);
+      if (!p.errors.length && p.needsIndexMessage) lines.push(warnLine(p.needsIndexMessage));
+      if (p.barostatNote) lines.push(note(esc(p.barostatNote)));
+      if (def.key === 'pull') {
+        // The reference atoms for periodic images: the page's, from the
+        // loaded structure, while the file still has them.
+        const v = p.checked || {};
+        const ours = [1, 2].filter(n => p.pbcAtoms && p.pbcAtoms[n - 1] > 0 && Number(v[`pull-group${n}-pbcatom`]) === p.pbcAtoms[n - 1]);
+        if (ours.length) {
+          const one = ours.length === 1;
+          lines.push(note(`${one ? 'An atom near the centre of the group' : 'Atoms near the centre of each group'} in ${esc(index.fileName())}: ` +
+            `${ours.map(n => `<code>pull-group${n}-pbcatom = ${p.pbcAtoms[n - 1]}</code> (${esc(v[`pull-group${n}-name`] || '')})`).join(', ')}. ` +
+            `grompp takes ${one ? 'the group\'s periodic images from it' : 'each group\'s periodic images from its atom'}, and ` +
+            `<code>pull-pbc-ref-prev-step-com = yes</code> then follows ${one ? 'its' : 'each group\'s'} centre of mass.`));
+        } else if (!index.loaded() && p.warnings.some(w => /quarter of the box/.test(w))) {
+          lines.push(note('Load the structure under Index groups and the page puts an atom near the centre of each group in the file.'));
+        }
+      }
       if (def.key === 'anneal') {
         const sched = parseSchedule(val('stage_anneal_sched'));
         const hint = card.querySelector('[data-gx="sched"]');
         if (hint) {
+          // annealing = periodic starts the schedule over once its last
+          // time is reached (mdp-options.rst); single holds the last value.
+          const after = val('stage_anneal_type', 'single') === 'periodic'
+            ? 'and the schedule starts over from the first point once the last time is reached'
+            : 'and holds after the last';
           hint.textContent = sched.errors.length ? sched.errors[0]
-            : `${sched.points.length} points, ${sched.points[0] ? sched.points[0][1] : '?'} K to ${sched.points.length ? sched.points[sched.points.length - 1][1] : '?'} K; the temperature changes linearly between them and holds after the last.`;
+            : `${sched.points.length} points, ${sched.points[0] ? sched.points[0][1] : '?'} K to ${sched.points.length ? sched.points[sched.points.length - 1][1] : '?'} K; the temperature changes linearly between them ${after}.`;
           hint.classList.toggle('sg-hint-bad', !!sched.errors.length);
         }
       }
@@ -444,34 +557,38 @@ export function createGromacsTab(ctx) {
     if (list) {
       list.innerHTML = wf.stages.map((p) => {
         const e = natoms > 0 ? estimateOutput(p, natoms) : null;
-        const status = p.errors.length ? 'error' : p.maxwarn ? 'warning' : 'ok';
-        const detail = [p.dynamics ? `${formatCount(p.nsteps)} steps` : `≤ ${formatCount(p.nsteps)} steps`];
+        const st = statusOf({ kind: 'mdp', plan: p });
+        const status = st.level;
+        const detail = [p.nsteps < 0 ? 'no step limit' : p.dynamics ? `${formatCount(p.nsteps)} steps` : `≤ ${formatCount(p.nsteps)} steps`];
         if (e && p.dynamics && e.frames.xtc) detail.push(`${formatCount(e.frames.xtc)} frames`);
-        if (e) detail.push(`≈ ${formatBytes(e.total)}`);
-        if (p.posres) detail.push('restrained');
-        const flag = status === 'error' ? ' <span class="stk-badge stk-badge-danger">grompp stops</span>'
-          : status === 'warning' ? ` <span class="stk-badge stk-badge-warn">-maxwarn ${p.maxwarn}</span>` : '';
+        if (e && !e.unknown) detail.push(`≈ ${formatBytes(e.total)}`);
+        if (p.restrained || p.posres) detail.push('restrained');
+        const flag = status === 'error' ? ` <span class="stk-badge stk-badge-danger">${esc(st.badge)}</span>`
+          : status === 'warning' ? ` <span class="stk-badge stk-badge-warn">${esc(st.badge)}</span>` : '';
         return `<li class="gx-glance-i gx-st-${status}">
           <button type="button" class="gx-glance-b" data-gx-file="${esc(p.key)}">
             <span class="gx-glance-dot" aria-hidden="true"></span>
             <span class="gx-glance-t"><span class="gx-glance-n">${esc(p.label)}${flag}</span><span class="gx-glance-s">${esc(detail.join(' · '))}</span></span>
-            <span class="gx-glance-l">${p.dynamics ? esc(formatDuration(p.lengthPs)) : 'minimise'}</span>
+            <span class="gx-glance-l">${esc(stageLength(p))}</span>
             <span class="sr-only">: show ${esc(p.file)}</span>
           </button>
         </li>`;
       }).join('') || '<li class="gx-glance-empty">No stage is switched on.</li>';
     }
     if (totals) {
+      // Totals of what the files will run; a stage with nsteps = -1 runs
+      // until stopped, so it has none.
       const dyn = wf.stages.filter(p => p.dynamics);
-      const ps = dyn.reduce((a, p) => a + p.lengthPs, 0);
-      const steps = wf.stages.reduce((a, p) => a + (p.dynamics ? p.nsteps : 0), 0);
-      const items = [['Simulated', formatDuration(ps)], ['MD steps', formatCount(steps)]];
-      if (natoms > 0) {
+      const open = dyn.some(p => p.unlimited);
+      const ps = dyn.filter(p => !p.unlimited).reduce((a, p) => a + p.lengthPs, 0);
+      const steps = dyn.filter(p => !p.unlimited).reduce((a, p) => a + p.nsteps, 0);
+      const items = [['Simulated', open ? 'no limit' : formatDuration(ps)], ['MD steps', open ? 'no limit' : formatCount(steps)]];
+      if (natoms > 0 && !open) {
         const bytes = wf.stages.reduce((a, p) => a + estimateOutput(p, natoms).total, 0);
         items.push(['Output', `≈ ${formatBytes(bytes)}`]);
       }
       const speed = numOr('gxSpeed', 0);
-      if (speed > 0 && ps > 0) {
+      if (speed > 0 && ps > 0 && !open) {
         const days = ps / 1000 / speed;
         const hours = days * 24;
         items.push(['Run time', hours < 48 ? `≈ ${Number(hours.toPrecision(3))} h` : `≈ ${Number(days.toPrecision(3))} days`]);
@@ -496,11 +613,32 @@ export function createGromacsTab(ctx) {
     readme: () => 'What each file is for, the stages, what grompp will say and how to restart: goes into the zip.'
   };
 
+  /* The PLUMED tab's input and the files its INCLUDE lines read, as it last
+     built them. It is read when this tab is entered and again before a zip
+     is made: the PLUMED tab cannot change while this one is showing. */
+  let plumedCache = [];
+  async function refreshPlumed() {
+    if (!ctx.plumedInput) return;
+    let got = [];
+    try { got = await ctx.plumedInput(plumedOptions().file); } catch (_) { got = []; }
+    const next = Array.isArray(got) ? got.filter(f => f && f.name && typeof f.text === 'string') : [];
+    const changed = JSON.stringify(next) !== JSON.stringify(plumedCache);
+    plumedCache = next;
+    if (changed && ui.active) render();
+  }
+
   function files() {
     const wf = plan();
     const out = [{ id: 'submit', name: 'submit.sh', kind: 'sh', text: ui.submit, executable: true }];
     for (const p of wf.stages) out.push({ id: p.key, name: p.file, kind: 'mdp', text: p.text, plan: p });
     if (index.loaded()) out.push({ id: 'index', name: runOptions().index || 'index.ndx', kind: 'ndx', text: index.ndxText() });
+    // Carried only when a stage runs with -plumed; a name the zip already
+    // holds is not overwritten.
+    const plumedIn = plumedStages(wf.stages, plumedOptions()).length ? plumedCache : [];
+    const taken = new Set(out.map(f => f.name));
+    plumedIn.forEach((f, i) => {
+      if (!taken.has(f.name)) out.push({ id: `plumed-${i}`, name: f.name, kind: 'plumed', text: f.text, main: i === 0 });
+    });
     out.push({ id: 'top', name: val('gmxTopol', 'topol.top') || 'topol.top', kind: 'top', text: ui.topology, zip: false });
     out.push({ id: 'readme', name: 'README.md', kind: 'md', text: '' });
     const readme = out[out.length - 1];
@@ -512,6 +650,15 @@ export function createGromacsTab(ctx) {
       topol: val('gmxTopol', 'topol.top'),
       index: runOptions().index,
       indexBuilt: index.loaded(),
+      indexLost: lostIndex(),
+      resume: on('gxResume'),
+      array: on('jobArrayToggle'),
+      plumed: {
+        ...plumedOptions(),
+        includes: ctx.plumedFiles ? ctx.plumedFiles() : [],
+        inZip: out.filter(f => f.kind === 'plumed').map(f => f.name),
+        text: (out.find(f => f.kind === 'plumed' && f.main) || {}).text || ''
+      },
       natoms: Math.round(numOr('gxAtoms', 0)),
       files: out.filter(f => f.zip !== false).map(f => ({ name: f.name, note: fileNote(f) }))
     });
@@ -522,9 +669,13 @@ export function createGromacsTab(ctx) {
     if (f.kind === 'sh') return `The ${ctx.schedulerInfo().label} job script: grompp and mdrun for every stage, in order. Submit with \`${ctx.schedulerInfo().submit}\`.`;
     if (f.kind === 'mdp') {
       const p = f.plan;
-      return `${p.label}${p.dynamics ? `, ${formatDuration(p.lengthPs)}` : ''}${p.posres ? ', solute restrained' : ''}.`;
+      return `${p.label}${p.dynamics ? `, ${stageLength(p)}` : ''}${p.restrained || p.posres ? ', solute restrained' : ''}.`;
     }
     if (f.kind === 'ndx') return 'Index groups built from your structure; read by grompp with -n.';
+    if (f.kind === 'plumed') {
+      return f.main ? 'The PLUMED input built in the PLUMED tab; mdrun reads it with -plumed.'
+        : `Read by an INCLUDE line of ${plumedOptions().file}; written by the PLUMED tab.`;
+    }
     if (f.kind === 'md') return 'This file.';
     return '';
   }
@@ -555,6 +706,7 @@ export function createGromacsTab(ctx) {
     if (f.kind === 'top') return ctx.highlightLine(line, { topology: true });
     if (f.kind === 'ndx') return /^\s*\[/.test(line) ? `<span class="tok-d">${esc(line)}</span>` : esc(line);
     if (f.kind === 'md') return /^#/.test(line) ? `<span class="tok-d">${esc(line)}</span>` : esc(line);
+    if (f.kind === 'plumed') return /^\s*#/.test(line) ? `<span class="tok-c">${esc(line)}</span>` : esc(line);
     return esc(line);
   }
 
@@ -569,12 +721,18 @@ export function createGromacsTab(ctx) {
     return ui.explainCache.get(f.text);
   }
 
+  /* A file's verdict: level, the text for its tab and a short badge. */
   function statusOf(f) {
     if (f.kind !== 'mdp') return null;
     const p = f.plan;
-    if (p.errors.length) return { level: 'error', text: `grompp stops: ${p.errors.length} error${p.errors.length === 1 ? '' : 's'}` };
-    if (p.mdrunStops.length) return { level: 'error', text: 'mdrun stops' };
-    if (p.maxwarn) return { level: 'warning', text: `${p.maxwarn} warning${p.maxwarn === 1 ? '' : 's'}: -maxwarn ${p.maxwarn}` };
+    if (p.errors.length) return { level: 'error', badge: 'grompp stops', text: `grompp stops: ${p.errors.length} error${p.errors.length === 1 ? '' : 's'}` };
+    if (p.mdrunStops.length) return { level: 'error', badge: 'mdrun stops', text: 'mdrun stops' };
+    // grompp stops on a group no index defines, unless the system happens
+    // to have a residue of that name: not certain, so a warning.
+    if (p.needsIndex && p.needsIndex.length) {
+      return { level: 'warning', badge: 'needs an index', text: `grompp needs an index file for ${p.needsIndex.join(', ')}` };
+    }
+    if (p.maxwarn) return { level: 'warning', badge: `-maxwarn ${p.maxwarn}`, text: `${p.maxwarn} warning${p.maxwarn === 1 ? '' : 's'}: -maxwarn ${p.maxwarn}` };
     return { level: 'ok', text: p.grompp.notes ? `grompp passes, ${p.grompp.notes} note${p.grompp.notes === 1 ? '' : 's'}` : 'grompp passes' };
   }
 
@@ -584,8 +742,9 @@ export function createGromacsTab(ctx) {
     const cur = currentFile(list);
     host.innerHTML = list.map((f) => {
       const st = statusOf(f);
-      const sub = f.kind === 'mdp' ? (f.plan.dynamics ? formatDuration(f.plan.lengthPs) : 'minimise')
-        : f.kind === 'sh' ? ctx.schedulerInfo().label : f.kind === 'ndx' ? `${index.groups().length} groups` : f.kind === 'top' ? 'header' : 'notes';
+      const sub = f.kind === 'mdp' ? stageLength(f.plan)
+        : f.kind === 'sh' ? ctx.schedulerInfo().label : f.kind === 'ndx' ? `${index.groups().length} groups` : f.kind === 'top' ? 'header'
+          : f.kind === 'plumed' ? (f.main ? 'PLUMED' : 'included') : 'notes';
       const icon = st ? `<i class="fa-solid ${st.level === 'ok' ? 'fa-circle-check' : SEVERITY[st.level].icon} gx-ft-st gx-ft-${st.level}" aria-hidden="true"></i>` : '';
       const sel = f.id === cur.id;
       return `<button type="button" role="tab" class="gx-ftab${f.kind === 'mdp' ? ' is-stage' : ''}" data-gx-tab="${esc(f.id)}" aria-selected="${sel}" tabindex="${sel ? 0 : -1}" aria-controls="gxCodeWrap"` +
@@ -602,7 +761,7 @@ export function createGromacsTab(ctx) {
     if (what) {
       if (f.kind === 'mdp') {
         const p = f.plan;
-        what.innerHTML = `${esc(p.label)}${p.dynamics ? `: ${esc(formatDuration(p.lengthPs))}, ${formatCount(p.nsteps)} steps` : ''}. ` +
+        what.innerHTML = `${esc(p.label)}${p.dynamics ? `: ${esc(stageLength(p))}${p.unlimited ? '' : `, ${formatCount(p.nsteps)} steps`}` : ''}. ` +
           'Point at a line for what it does, or choose Explained.';
       } else {
         what.innerHTML = WHAT[f.id] ? WHAT[f.id]() : '';
@@ -796,13 +955,15 @@ export function createGromacsTab(ctx) {
       b.classList.toggle('gx-step-alert', !!alert);
     };
     const T = numOr('gxTemp', 300);
-    info('system', `${FF_SHORT[wf.forceField.id] || ''}`, wf.warnings.some(w => /time step|repartition|flexible/i.test(w)));
-    const dynPs = wf.stages.filter(p => p.dynamics).reduce((a, p) => a + p.lengthPs, 0);
-    info('stages', dynPs ? formatDuration(dynPs) : `${wf.stages.length} on`, wf.stages.some(p => p.errors.length || p.mdrunStops.length));
+    info('system', `${FF_SHORT[wf.forceField.id] || ''}`, wf.warnings.some(w => /time step|repartition|flexible/i.test(w)) || !!wf.indexWarning);
+    const dynPs = wf.stages.filter(p => p.dynamics && !p.unlimited).reduce((a, p) => a + p.lengthPs, 0);
+    const open = wf.stages.some(p => p.unlimited);
+    info('stages', open ? 'no limit' : dynPs ? formatDuration(dynPs) : `${wf.stages.length} on`,
+      wf.stages.some(p => p.errors.length || p.mdrunStops.length || (p.needsIndex && p.needsIndex.length)));
     const sys = document.querySelector('[data-gx-step="system"]');
     if (sys) sys.title = `${FF_SHORT[wf.forceField.id] || ''}, ${T} K`;
     const cov = index.loaded() ? index.coverage(wf.tcGroups) : null;
-    info('index', index.loaded() ? `${index.groups().length} groups` : 'optional', cov && !cov.ok);
+    info('index', index.loaded() ? `${index.groups().length} groups` : lostIndex() ? 'load again' : 'optional', (cov && !cov.ok) || !!lostIndex());
     info('job', ctx.schedulerInfo().label, false);
   }
 
@@ -853,9 +1014,11 @@ export function createGromacsTab(ctx) {
     return `${job || 'gromacs-run'}.zip`;
   }
 
-  function downloadZip() {
+  async function downloadZip() {
+    await refreshPlumed();
     const list = files().filter(f => f.zip !== false);
-    const stops = plan().stages.filter(p => p.errors.length);
+    // Files grompp or mdrun will stop on, or that need an index nobody gave.
+    const stops = plan().stages.filter(p => p.errors.length || p.mdrunStops.length || (p.needsIndex && p.needsIndex.length));
     const zip = buildZip(list.map(f => ({ path: f.name, text: f.text, executable: !!f.executable })));
     const url = URL.createObjectURL(new Blob([zip], { type: 'application/zip' }));
     const a = document.createElement('a');
@@ -865,9 +1028,13 @@ export function createGromacsTab(ctx) {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    // mdrun -plumed reads an input the zip holds only once the PLUMED tab has built it.
+    const plumed = plumedOptions();
+    const addPlumed = plumedStages(plan().stages, plumed).length && !list.some(f => f.kind === 'plumed' && f.main)
+      ? ` Add ${plumed.file}, built in the PLUMED tab: it is not in the zip, and submit.sh stops without it.` : '';
     showToast(stops.length
-      ? `${zipName()}: ${list.length} files. grompp will stop on ${stops.map(p => p.file).join(', ')}; see the Stages view.`
-      : `${zipName()}: ${list.map(f => f.name).join(', ')}.`, stops.length ? 'warn' : 'ok');
+      ? `${zipName()}: ${list.length} files. The run will stop at ${stops.map(p => p.file).join(', ')}; see the Stages view.${addPlumed}`
+      : `${zipName()}: ${list.map(f => f.name).join(', ')}.${addPlumed}`, stops.length || addPlumed ? 'warn' : 'ok');
   }
 
   /* ---------------------------------------------------------------- *
@@ -879,6 +1046,7 @@ export function createGromacsTab(ctx) {
     gxForceField: forceFieldChosen,
     gxSystem: systemChosen,
     gxHmr: hmrChosen,
+    stage_em_method: emMethodChosen,
     topForcefield: topologyChosen
   };
   if (panel) {
@@ -986,6 +1154,7 @@ export function createGromacsTab(ctx) {
   const index = createGromacsIndex(ctx, {
     changed: () => update(),
     loadedStructure: (natoms, rec) => {
+      ui.lostIndex = null;
       setValue('gxAtoms', String(natoms));
       if (rec && rec.names.length) {
         setValue('gxTcGrps', rec.names.join(' '));
@@ -995,6 +1164,7 @@ export function createGromacsTab(ctx) {
       ctx.scheduleSave();
     },
     removed: () => {
+      ui.lostIndex = null;
       if (val('gmxIndex') === 'index.ndx') setValue('gmxIndex', '');
       const sys = SYSTEM_TYPES[val('gxSystem', 'protein')] || SYSTEM_TYPES.protein;
       setValue('gxTcGrps', sys.tcGroups.join(' '));
@@ -1028,7 +1198,14 @@ export function createGromacsTab(ctx) {
         thermostat: 'gxThermostat', barostat: 'gxBarostat', couplingType: 'gxPcouplType', tcGroups: 'gxTcGrps',
         constraints: 'gxConstraints', hmr: 'gxHmr'
       };
+      const before = val('gxForceField', 'amber');
       for (const [k, id] of Object.entries(map)) if (shared[k] !== undefined) setValue(id, shared[k]);
+      // A file that changes the force field but does not say which bonds are
+      // rigid (a minimisation file, say) gets the force field's, as picking
+      // the force field does.
+      if (shared.forceField && shared.forceField !== before && shared.constraints === undefined && FORCE_FIELDS[shared.forceField]) {
+        setValue('gxConstraints', FORCE_FIELDS[shared.forceField].constraints);
+      }
       if ('dtFs' in shared) setValue('gxDt', shared.dtFs ? String(shared.dtFs) : '');
       const top = FF_TO_TOP[shared.forceField];
       if (top) { setValue('topForcefield', top); if (FF_WATER[shared.forceField]) setValue('topSolvent', FF_WATER[shared.forceField]); }
@@ -1097,6 +1274,7 @@ export function createGromacsTab(ctx) {
       showStep(ui.step);
       showView(ui.view);
       syncDerived();
+      refreshPlumed();
     },
     leave() {
       ui.active = false;
@@ -1116,7 +1294,12 @@ export function createGromacsTab(ctx) {
     },
     invalidate,
     serialise() {
-      return { overrides: ui.overrides, step: ui.step, view: ui.view, file: ui.file, mode: ui.mode };
+      // The structure is not saved (it can be tens of MB), but what was
+      // built from it is named, so a later visit can say the index is gone.
+      const built = index.loaded()
+        ? { name: runOptions().index || 'index.ndx', file: index.fileName(), natoms: index.natoms() }
+        : lostIndex();
+      return { overrides: ui.overrides, step: ui.step, view: ui.view, file: ui.file, mode: ui.mode, index: built || null };
     },
     restore(data, fields = {}) {
       const d = data && typeof data === 'object' ? data : {};
@@ -1130,6 +1313,10 @@ export function createGromacsTab(ctx) {
       ui.view = VIEWS.includes(d.view) ? d.view : 'files';
       ui.file = typeof d.file === 'string' ? d.file : 'submit';
       ui.mode = d.mode === 'explain' ? 'explain' : 'code';
+      const lost = d.index && typeof d.index === 'object' && typeof d.index.name === 'string' && d.index.name ? d.index : null;
+      ui.lostIndex = lost && !index.loaded()
+        ? { name: lost.name, file: typeof lost.file === 'string' ? lost.file : '', natoms: Number(lost.natoms) || 0 }
+        : null;
       invalidate();
       syncDerived();
     }

@@ -8,6 +8,7 @@
 
 import { lintPlumedInput, explainPlumedInput, importPlumedInput } from '../src/core/plumed-parse.js';
 import { messageToHtml } from '../src/core/plumed.js';
+import { parseOnlyCommand } from './script-generator-plumed-model.js';
 
 const LEVELS = {
   error: { label: 'Error', badge: 'stk-badge-danger', icon: 'fa-circle-xmark', plural: 'errors' },
@@ -52,7 +53,7 @@ export function createPlumedCheck(ctx, builder) {
     host.innerHTML =
       `<span class="stk-badge">${s.actions} action${s.actions === 1 ? '' : 's'}</span>` +
       chip(s.errors, 'error') + chip(s.warnings, 'warning') + chip(s.notes, 'note') +
-      (clean ? '<span class="stk-badge stk-badge-ok"><i class="fa-solid fa-check" aria-hidden="true"></i> Nothing that stops PLUMED</span>' : '') +
+      (clean ? '<span class="stk-badge stk-badge-ok"><i class="fa-solid fa-check" aria-hidden="true"></i> No problems found by these checks</span>' : '') +
       `<span class="sg-check-against">against PLUMED ${escapeHtml(builder.version())}` +
       `${builder.syntax() ? '' : ', structure only'}</span>`;
   }
@@ -67,8 +68,11 @@ export function createPlumedCheck(ctx, builder) {
       return;
     }
     if (!result.issues.length) {
+      // PLUMED refuses --parse-only without --natoms, so the count is given.
+      const n = builder.natoms();
       host.innerHTML = '<p class="sg-cv-empty">No problems found. The checks cover what can be seen in the file; ' +
-        'run <code>plumed driver --parse-only</code> on the machine that runs the job for the final word.</p>';
+        `run <code>${escapeHtml(parseOnlyCommand(n))}</code> on the machine that runs the job for the final word` +
+        `${n ? '' : ', with N the number of atoms of the system'}.</p>`;
       return;
     }
     host.innerHTML = `<ul class="sg-issues">${result.issues.map((i) => {

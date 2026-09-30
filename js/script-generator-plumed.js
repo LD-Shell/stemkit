@@ -13,7 +13,7 @@ import {
   CV_DEFS, CV_EXAMPLES, BIAS_DEFS, FUNCTION_DEFS, FUNCTION_EXAMPLES, KEY_HELP, PREREQS,
   PLUMED_VERSIONS, DEFAULT_PLUMED_VERSION,
   cvAvailable, fieldsFor, reductionFieldsFor, componentsForCV, hiddenFieldsForBias,
-  actionNameFor, availableArguments, createCV, createFunction, defaultBiasValues,
+  actionNameFor, availableArguments, createCV, createFunction, defaultBiasValues, lengthPower,
   generatePlumedInput, messageToHtml
 } from '../src/core/plumed.js';
 import { loadSyntax, plumedDocUrl } from '../src/core/plumed-syntax.js';
@@ -21,6 +21,10 @@ import { createPlumedCheck } from './script-generator-plumed-check.js';
 import { createPlumedAtoms } from './script-generator-plumed-atoms.js';
 import { createPlumedAnalyse } from './script-generator-plumed-analyse.js';
 import { thermalEnergy, wellTempered, depositionRate } from '../src/core/plumed-analysis.js';
+import {
+  methodTemperature, restraintHelp, speedOptions, withLengthUnit, convertLengthDefaults, LENGTH_NAMES,
+  modulesToEnable, convertBiasDefaults, startingParam, ENERGY_PARAMS
+} from './script-generator-plumed-model.js';
 
 const BIAS_GROUPS = {
   none: 'None',
@@ -31,10 +35,31 @@ const BIAS_GROUPS = {
 /* Fields whose value changes which components a CV has, or its label, so the
    card is drawn again when one changes. */
 const REDRAW_FIELDS = new Set([
-  '__label', '__variant', '__components', 'COMPONENTS', 'VMEAN', 'VSUM', 'VALUE', 'VALUES',
-  'MEAN', 'SUM', 'MIN', 'ALT_MIN', 'MAX', 'HIGHEST', 'LOWEST', 'MORE_THAN', 'LESS_THAN',
-  'BETWEEN', 'MOMENTS', 'PROPERTY', 'ATOMS'
+  '__label', '__variant', '__components', '__eigenvectors', 'COMPONENTS', 'VMEAN', 'VSUM', 'VALUE',
+  'VALUES', 'MEAN', 'SUM', 'MIN', 'ALT_MIN', 'MAX', 'HIGHEST', 'LOWEST', 'MORE_THAN', 'LESS_THAN',
+  'BETWEEN', 'MOMENTS', 'PROPERTY', 'ATOMS', 'SWITCH', 'SPECIESA', 'SPECIESB', 'ALLATOMS'
 ]);
+
+/* The builder the page made, which currentPlumedFiles reads. */
+let latest = null;
+
+/**
+ * The PLUMED input the PLUMED tab builds, and the files it INCLUDEs, for a
+ * zip made elsewhere on the page: the GROMACS run files, when mdrun is given
+ * -plumed. The file is written as the tab writes it, checked against the
+ * keyword table of the target release (loaded here if the tab has not been
+ * opened), and nothing is drawn, so the output pane on show is left alone.
+ *
+ * @param {string} [name='plumed.dat'] - The name mdrun -plumed reads.
+ * @returns {Promise<Array<{name:string, text:string}>>} The input first, then
+ *   each file an INCLUDE line names that the tab holds the text of (the
+ *   per-molecule groups, centres and directions it wrote). An INCLUDE of a
+ *   file the tab does not hold is not listed. Empty when the tab has no
+ *   variable or function yet, since such a file computes nothing.
+ */
+export async function currentPlumedFiles(name = 'plumed.dat') {
+  return latest ? latest.plumedFiles(name) : [];
+}
 
 /**
  * @param {object} ctx - Helpers shared with the rest of the page: `$`,
@@ -60,7 +85,9 @@ export function createPlumedBuilder(ctx) {
     open: new Set(),
     view: 'input',
     syntax: null,
-    lastResult: null
+    lastResult: null,
+    // The length unit the cards' starting values are written in; see syncLengthUnit.
+    lengthUnit: 'nm'
   };
 
   /* ---------------------------------------------------------------- *
@@ -103,15 +130,16 @@ export function createPlumedBuilder(ctx) {
   }
 
   function moduleNote(action) {
-    const s = syntax();
-    if (!s || !action || !s.has(action)) return '';
-    const m = s.moduleOf(action);
-    if (!m || m.defaultOn) return '';
-    const tip = `A default PLUMED ${version()} build leaves this module out. Check with ` +
-      `"plumed config has module ${m.name}"; rebuild with ./configure --enable-modules=${m.name} ` +
-      '(or all) if it is missing.';
+    const names = modulesToEnable(syntax(), action);
+    if (!names.length) return '';
+    const one = names.length === 1;
+    const tip = `A default PLUMED ${version()} build leaves ${one ? 'this module' : 'these modules'} out. ` +
+      `Check with "plumed config module ${names.join(' ')}"; rebuild with ` +
+      `./configure --enable-modules=${names.join('+')} (or all) if ${one ? 'it is' : 'one is'} missing.`;
+    const strong = names.map(n => `<strong>${attr(n)}</strong>`);
+    const list = one ? strong[0] : `${strong.slice(0, -1).join(', ')} and ${strong[strong.length - 1]}`;
     return `<p class="sg-cv-note sg-cv-note-warn"><i class="fa-solid fa-cube" aria-hidden="true"></i>` +
-      `<span>Needs the <strong>${attr(m.name)}</strong> module, which a default build leaves out.</span>` +
+      `<span>Needs the ${list} module${one ? '' : 's'}, which a default build leaves out.</span>` +
       `<span class="plumed-help" tabindex="0" data-tip="${attr(tip)}">?</span></p>`;
   }
 
@@ -119,12 +147,15 @@ export function createPlumedBuilder(ctx) {
    * The file
    * ---------------------------------------------------------------- */
 
+  /* A parameter's value: as typed, or its starting value, with HEIGHT and
+     BARRIER in the energy unit the UNITS line sets. */
   function biasParams(method) {
     const out = {};
     const def = BIAS_DEFS[method];
     const own = state.biasVals[method] || {};
+    const energy = getStr('plumedUnitEnergy', 'kj/mol');
     for (const p of (def && def.params) || []) {
-      out[p.k] = own[p.k] !== undefined ? own[p.k] : p.def;
+      out[p.k] = own[p.k] !== undefined ? own[p.k] : startingParam(p, energy);
     }
     return out;
   }
@@ -178,6 +209,8 @@ export function createPlumedBuilder(ctx) {
         file: p.file,
         stride: String(p.stride || '').trim() || stride,
         extra: p.extra,
+        // FMT has no box of its own; an imported file's is kept as it was.
+        fmt: p.fmt,
         args: p.all ? [] : p.args,
         only: !p.all
       }))
@@ -216,8 +249,10 @@ export function createPlumedBuilder(ctx) {
     renderCalc();
     const out = $('slurmOutput');
     if (!out) return;
-    const result = generatePlumedInput(readConfig());
+    const config = readConfig();
+    const result = generatePlumedInput(config);
     state.lastResult = result;
+    state.lengthUnit = config.units.length;
     renderOutput(out, result.input.replace(/\n$/, ''));
     setWarnings($('plumedWarnings'), result.warnings.map(messageToHtml));
   }
@@ -282,6 +317,27 @@ export function createPlumedBuilder(ctx) {
     host.innerHTML = html;
   }
 
+  /* The catalogue's starting lengths are in nm. A card added after UNITS
+     LENGTH=A starts in Å, so R_0=0.3 nm is written R_0=3, not 0.3 Å. */
+  function startInUnit(inst) {
+    const unit = getStr('plumedUnitLength', 'nm');
+    const def = CV_DEFS[inst.type];
+    if (unit !== 'nm' && def) {
+      inst.values = convertLengthDefaults(inst.values, def.fields, 'nm', unit).values;
+      inst.biasValues = moveBiasValues(inst, 'nm', unit).values;
+    }
+    return inst;
+  }
+
+  /* The grid bounds and SIGMA of a length still at their starting values,
+     moved from one length unit to another. */
+  function moveBiasValues(inst, from, to) {
+    const bv = inst.biasValues || {};
+    const opts = { values: inst.values };
+    const start = defaultBiasValues(inst.type, bv.comp || '', opts);
+    return convertBiasDefaults(bv, start, lengthPower(inst.type, bv.comp || '', opts), from, to);
+  }
+
   function addCV() {
     const cvSel = $('plumedCVSelect');
     if (!cvSel || !cvSel.value) return;
@@ -289,9 +345,37 @@ export function createPlumedBuilder(ctx) {
     if (!def || !cvAvailable(def, version())) return;
     const inst = createCV(cvSel.value, ++state.seq, options());
     if (!inst) return;
-    state.cvs.push(inst);
+    state.cvs.push(startInUnit(inst));
     renderAll();
     generate();
+  }
+
+  /* A new length unit: the cards' labels follow it, and starting values the
+     person has not changed move with it. A value they typed stays as typed,
+     since the page cannot tell which unit it was typed for. */
+  function syncLengthUnit() {
+    const to = getStr('plumedUnitLength', 'nm');
+    const from = state.lengthUnit;
+    if (from === to) return;
+    let moved = 0;
+    for (const cv of state.cvs) {
+      const def = CV_DEFS[cv.type];
+      if (!def) continue;
+      const r = convertLengthDefaults(cv.values, def.fields, from, to);
+      cv.values = r.values;
+      moved += r.changed.length;
+      const b = moveBiasValues(cv, from, to);
+      cv.biasValues = b.values;
+      moved += b.changed.length;
+    }
+    state.lengthUnit = to;
+    renderAll();
+    generate();
+    if (moved && ctx.showToast) {
+      const name = LENGTH_NAMES[to] || to;
+      ctx.showToast(`${moved} starting length${moved === 1 ? '' : 's'} rewritten in ${name}. ` +
+        `Check that any length you typed is in ${name} too.`, 'ok');
+    }
   }
 
   function removeCV(id) {
@@ -335,9 +419,10 @@ export function createPlumedBuilder(ctx) {
     if (params.length) {
       if (!state.biasVals[method]) state.biasVals[method] = {};
       html += '<div class="sg-cv-grid">';
+      const energy = getStr('plumedUnitEnergy', 'kj/mol');
       for (const p of params) {
         const own = state.biasVals[method][p.k];
-        const cur = own !== undefined ? own : p.def;
+        const cur = own !== undefined ? own : startingParam(p, energy);
         const placeholder = p.fallback
           ? `global: ${getStr(p.fallback, 'unset')}`
           : (p.def === '' ? '(optional)' : '');
@@ -359,8 +444,11 @@ export function createPlumedBuilder(ctx) {
     host.innerHTML = html;
     host.querySelectorAll('[data-bias-key]').forEach((el) => {
       el.addEventListener('input', () => {
-        state.biasVals[method][el.getAttribute('data-bias-key')] = el.value;
+        const key = el.getAttribute('data-bias-key');
+        state.biasVals[method][key] = el.value;
         generate();
+        // The method's TEMP is the temperature the Analyse view reweights at.
+        if (key === 'TEMP') analyse.refresh();
       });
     });
   }
@@ -375,21 +463,24 @@ export function createPlumedBuilder(ctx) {
 
   function fieldHtml(inst, f, off, offTip) {
     const value = inst.values[f.k];
-    const help = off ? helpBadge(offTip) : helpBadge(f.help || KEY_HELP[f.k] || '');
+    // The catalogue writes lengths in nm; after UNITS LENGTH=A they are in Å.
+    const unit = getStr('plumedUnitLength', 'nm');
+    const help = off ? helpBadge(offTip) : helpBadge(withLengthUnit(f.help || KEY_HELP[f.k] || '', unit));
+    const text = withLengthUnit(f.label || f.k, unit);
     const dis = off ? ' disabled' : '';
     const cls = `sg-cv-field${off ? ' plumed-field-off' : ''}`;
     const id = `${inst.id}-${f.k}`;
     if (f.type === 'flag') {
       return `<div class="sg-cv-flag${off ? ' plumed-field-off' : ''}">
         <input type="checkbox" id="${attr(id)}" data-cv="${attr(inst.id)}" data-field="${attr(f.k)}"${value ? ' checked' : ''}${dis}>
-        <label for="${attr(id)}">${escapeHtml(f.label || f.k)}</label>${help}
+        <label for="${attr(id)}">${escapeHtml(text)}</label>${help}
       </div>`;
     }
     if (f.type === 'select') {
       const opts = f.options.map(o =>
         `<option value="${attr(o)}"${o === value ? ' selected' : ''}>${escapeHtml(o)}</option>`).join('');
       return `<div class="${cls}">
-        <label for="${attr(id)}">${escapeHtml(f.label || f.k)}${help}</label>
+        <label for="${attr(id)}">${escapeHtml(text)}${help}</label>
         <select id="${attr(id)}" class="stk-select stk-select-sm" data-cv="${attr(inst.id)}" data-field="${attr(f.k)}"${dis}>${opts}</select>
       </div>`;
     }
@@ -402,7 +493,7 @@ export function createPlumedBuilder(ctx) {
            title="Pick from the structure"><i class="fa-solid fa-crosshairs" aria-hidden="true"></i></button></div>`
       : input;
     return `<div class="${cls}${wide ? ' sg-cv-wide' : ''}">
-      <label for="${attr(id)}">${escapeHtml(f.label || f.k)}${help}</label>
+      <label for="${attr(id)}">${escapeHtml(text)}${help}</label>
       ${pick}
     </div>`;
   }
@@ -803,6 +894,8 @@ export function createPlumedBuilder(ctx) {
                  data-k="${attr(r.id)}-${k}" value="${attr(r[k] ?? '')}" placeholder="${attr(ph)}" autocomplete="off" spellcheck="false">
         </div>`;
       const wall = r.type !== 'restraint';
+      // A wall and a restraint do not share a formula: RESTRAINT has the ½.
+      const help = restraintHelp(r.type);
       const card = document.createElement('div');
       card.className = 'sg-cv';
       card.innerHTML = `<div class="sg-cv-h">
@@ -818,12 +911,10 @@ export function createPlumedBuilder(ctx) {
             <label>Acts on</label>
             <select class="stk-select stk-select-sm stk-mono" data-res="${attr(r.id)}" data-field="arg">${opts.join('')}</select>
           </div>
-          ${input('at', 'AT', r.type === 'upper'
-            ? 'The wall is felt when the value rises above this.'
-            : r.type === 'lower' ? 'The wall is felt when the value falls below this.' : 'The value the restraint pulls toward.')}
-          ${input('kappa', 'KAPPA', 'Force constant, in energy per unit of the value squared. The energy is KAPPA times the distance past the wall, to the power EXP.')}
-          ${wall ? input('exp', 'EXP', 'Power of the wall. 2 is harmonic; 4 is flatter near the wall and steeper beyond.', '2') : ''}
-          ${wall ? input('offset', 'OFFSET', 'Shifts where the wall starts, without moving AT.', '0') : ''}
+          ${input('at', 'AT', help.at)}
+          ${input('kappa', 'KAPPA', help.kappa)}
+          ${wall ? input('exp', 'EXP', help.exp, '2') : ''}
+          ${wall ? input('offset', 'OFFSET', help.offset, '0') : ''}
         </div>`;
       host.appendChild(card);
     }
@@ -953,7 +1044,9 @@ export function createPlumedBuilder(ctx) {
       seq: state.seq,
       cvs: state.cvs.map(c => ({
         id: c.id, type: c.type, label: c.label, bias: c.bias, isGroup: c.isGroup,
-        noBias: c.noBias, values: { ...c.values }, biasValues: { ...c.biasValues }
+        noBias: c.noBias, values: { ...c.values }, biasValues: { ...c.biasValues },
+        // A custom line PLUMED takes without a label (VES_OUTPUT_FES, ...).
+        ...(c.noLabel ? { noLabel: true } : {})
       })),
       fnSeq: state.fnSeq,
       functions: JSON.parse(JSON.stringify(state.functions)),
@@ -985,7 +1078,8 @@ export function createPlumedBuilder(ctx) {
           biasValues: {
             ...defaultBiasValues(c.type),
             ...(c.biasValues && typeof c.biasValues === 'object' ? c.biasValues : {})
-          }
+          },
+          ...(def.isCustom && c.noLabel === true ? { noLabel: true } : {})
         };
       }) : [];
     state.seq = Math.max(
@@ -1018,7 +1112,8 @@ export function createPlumedBuilder(ctx) {
       ...state.restraints.map(r => parseInt(r.id.replace(/^res/, ''), 10) || 0));
     state.prints = Array.isArray(p.prints) && p.prints.length ? p.prints.filter(Boolean).map(x => ({
       file: text(x.file, 'COLVAR'), stride: text(x.stride), extra: text(x.extra),
-      all: x.all !== false, args: Array.isArray(x.args) ? x.args.map(a => text(a)) : []
+      all: x.all !== false, args: Array.isArray(x.args) ? x.args.map(a => text(a)) : [],
+      ...(text(x.fmt).trim() ? { fmt: text(x.fmt).trim() } : {})
     })) : [{
       // Settings saved before the output list: one PRINT, kept in three fields.
       ...newPrint(text(fields.plumedPrintFile, 'COLVAR') || 'COLVAR', text(fields.plumedPrintStride)),
@@ -1034,6 +1129,8 @@ export function createPlumedBuilder(ctx) {
         };
       }
     }
+    // The values just restored are in the unit the Length field now shows.
+    state.lengthUnit = getStr('plumedUnitLength', 'nm');
     state.biasVals = {};
     if (p.bias && typeof p.bias === 'object') {
       for (const method of Object.keys(p.bias)) {
@@ -1049,11 +1146,24 @@ export function createPlumedBuilder(ctx) {
    * ---------------------------------------------------------------- */
 
   /* The grid, the reweighting factor and walkers belong to the metadynamics
-     family; the other methods have no use for them. */
+     family; the other methods have no use for them. Within the family, a box
+     the method would ignore is hidden, and the note says why. */
   function syncMethod() {
     const method = getStr('plumedBias', 'none');
+    const use = speedOptions(method);
     const wrap = $('plumedSpeedWrap');
-    if (wrap) wrap.hidden = !['metad', 'wt_metad', 'pbmetad', 'opes'].includes(method);
+    if (wrap) wrap.hidden = !use.panel;
+    const box = (id, shown) => {
+      const label = $(id) && $(id).closest('label');
+      if (label) label.hidden = !shown;
+    };
+    box('plumedGrid', use.grid);
+    box('plumedRct', use.rct);
+    const note = $('plumedSpeedNote');
+    if (note) {
+      note.textContent = use.note;
+      note.hidden = !use.note;
+    }
   }
 
   const on = (id, events, fn) => {
@@ -1097,10 +1207,27 @@ export function createPlumedBuilder(ctx) {
     syncMethod();
     generate();
     renderPrintList();
+    // Another method may carry its own TEMP, and bias other values.
+    analyse.refresh();
   });
   on('plumedTemp', 'input', renderBiasParams);
+  on('plumedUnitLength', 'input change', syncLengthUnit);
+  // HEIGHT and BARRIER not typed follow the energy unit; the boxes show it.
+  on('plumedUnitEnergy', 'change', () => {
+    renderBiasParams();
+    const method = getStr('plumedBias', 'none');
+    const own = state.biasVals[method] || {};
+    const moved = ((BIAS_DEFS[method] || {}).params || [])
+      .filter(p => ENERGY_PARAMS.includes(p.k) && own[p.k] === undefined && String(p.def || '').trim());
+    if (moved.length && ctx.showToast) {
+      const unit = getStr('plumedUnitEnergy', 'kj/mol');
+      const name = { 'kj/mol': 'kJ/mol', Ha: 'Hartree' }[unit] || unit;
+      ctx.showToast(`Starting ${moved.map(p => p.k).join(' and ')} rewritten in ${name}. ` +
+        `Check that any energy you typed is in ${name} too.`, 'ok');
+    }
+  });
   for (const id of ['plumedTemp', 'plumedStride', 'plumedMolinfo', 'plumedNatoms', 'plumedLoad',
-    'plumedFlush', 'plumedUnitLength', 'plumedUnitEnergy', 'plumedUnitTime', 'plumedWalkersN',
+    'plumedFlush', 'plumedUnitEnergy', 'plumedUnitTime', 'plumedWalkersN',
     'plumedWalkersId', 'plumedWalkersDir', 'plumedWalkersRstride', 'plumedWholeEntities']) {
     on(id, 'input change', generate);
   }
@@ -1148,7 +1275,7 @@ export function createPlumedBuilder(ctx) {
     const e = ENERGY_NAME[energy] || energy;
     const p = biasParams(method);
     const num = (v) => { const n = parseFloat(String(v).replace(',', '.')); return Number.isFinite(n) ? n : NaN; };
-    const temp = num(p.TEMP) || num(getStr('plumedTemp', ''));
+    const temp = methodTemperature(p, getStr('plumedTemp', ''));
     const kT = thermalEnergy(temp, energy);
     const barrier = num(getStr('plumedCalcBarrier', ''));
     const dt = num(getStr('plumedCalcDt', '')) / 1000;
@@ -1230,6 +1357,7 @@ export function createPlumedBuilder(ctx) {
     addCV(type, values, label) {
       const inst = createCV(type, ++state.seq, { ...options(), values });
       if (!inst) return;
+      startInUnit(inst);
       const taken = new Set([...state.cvs, ...state.functions].map(c => c.label));
       let name = label || inst.label;
       for (let i = 2; taken.has(name); i++) name = `${label}${i}`;
@@ -1274,7 +1402,9 @@ export function createPlumedBuilder(ctx) {
   });
 
   const analyse = createPlumedAnalyse(ctx, {
-    temperature: () => parseFloat(getStr('plumedTemp', '300')) || 300,
+    /* The temperature of the file: a TEMP typed in the method parameters
+       overrides the global one there, so the reweighting must follow it. */
+    temperature: () => methodTemperature(biasParams(getStr('plumedBias', 'none')), getStr('plumedTemp', '')) || 300,
     energyUnit: () => getStr('plumedUnitEnergy', 'kj/mol'),
     /** What the bias acts on, with the kind of variable behind each value. */
     targets() {
@@ -1318,11 +1448,32 @@ export function createPlumedBuilder(ctx) {
     b.addEventListener('click', () => showView(b.getAttribute('data-plumed-view')));
   });
 
-  return {
+  /* The input and the files it INCLUDEs, as currentPlumedFiles gives them. */
+  async function plumedFiles(name = 'plumed.dat') {
+    // Without a variable there is nothing to compute, bias or print.
+    if (!state.cvs.length && !state.functions.length) return [];
+    const config = readConfig();
+    let table = syntax();
+    if (!table) {
+      try { table = await loadSyntax(config.version); } catch (_) { table = null; }
+    }
+    const out = [{
+      name: String(name || '').trim() || 'plumed.dat',
+      text: generatePlumedInput({ ...config, syntax: table }).input
+    }];
+    for (const file of includeList()) {
+      const f = state.files[file];
+      if (f && typeof f.text === 'string' && !out.some(o => o.name === file)) out.push({ name: file, text: f.text });
+    }
+    return out;
+  }
+
+  const api = {
     version,
     generate,
     serialise,
     restore,
+    plumedFiles,
     /** Called when another engine takes the page. */
     leave() {
       if ($('plumedViews')) $('plumedViews').hidden = true;
@@ -1345,4 +1496,6 @@ export function createPlumedBuilder(ctx) {
     /** The side files of the input, by name. */
     files: () => state.files
   };
+  latest = api;
+  return api;
 }

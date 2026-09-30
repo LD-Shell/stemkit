@@ -15,6 +15,7 @@ import {
   checkGroupCoverage, checkMdpGroups, findIndexGroup, sanitiseGroupName, isValidGroupName
 } from '../src/core/gromacs-ndx.js';
 import { parseMdp } from '../src/core/gromacs-mdp.js';
+import { centralAtom } from './script-generator-gromacs-model.js';
 
 const KIND_LABEL = {
   ligand: 'ligands', complex: 'complex', pocket: 'pocket', membrane: 'membrane',
@@ -60,6 +61,20 @@ export function createGromacsIndex(ctx, hooks) {
   function coverage(names) {
     if (!loaded()) return null;
     return checkGroupCoverage(groups(), names, natoms(), { coverage: 'all', option: 'tc-grps' });
+  }
+
+  /* An atom near the centre of a group of the index (from 1), for
+     pull-groupN-pbcatom; 0 for a group of one atom or a name not in it.
+     Worked out once per group: the plan asks on every change. */
+  const centres = new WeakMap();
+  function centralAtomOf(name) {
+    if (!loaded()) return 0;
+    const all = groups();
+    const i = findIndexGroup(all, name);
+    if (i < 0 || all[i].atoms.length < 2) return 0;
+    const atoms = all[i].atoms;
+    if (!centres.has(atoms)) centres.set(atoms, centralAtom(s.top.atoms, atoms, s.top.box));
+    return centres.get(atoms);
   }
 
   /* ---------------------------------------------------------------- *
@@ -404,8 +419,11 @@ export function createGromacsIndex(ctx, hooks) {
 
   return {
     loaded, natoms, groups, recommendation, coverage, renderChecks,
+    centralAtom: centralAtomOf,
     names: () => groups().map(g => g.name),
     ndxText: () => writeNdx(groups()),
-    fileName: () => s.fileName
+    fileName: () => s.fileName,
+    /** The structure's box vectors as rows (nm), or null. */
+    box: () => (loaded() && Array.isArray(s.top.box) ? s.top.box : null)
   };
 }

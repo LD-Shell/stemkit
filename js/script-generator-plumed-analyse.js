@@ -22,12 +22,30 @@ import {
 import {
   ANALYSIS_FIGURES, ENERGY_LABELS, availableFigures, analysisFigure, analysisScript, analysisData, fmt
 } from '../src/core/plumed-analysis-figures.js';
+import { findTarget } from './script-generator-plumed-model.js';
 
 const PLOTLY_SRC = 'js/dependencies/plotly.min.js';
 const MAX_BYTES = 300 * 1024 * 1024;
-const NON_NEGATIVE = /^(DISTANCE|COORDINATION|COORDINATIONNUMBER|GYRATION|RMSD|DRMSD|CONTACTMAP|Q[346]|LOCAL_Q[346]|ALPHARMSD|ANTIBETARMSD|PARABETARMSD|VOLUME)/;
+// Variables that cannot go below zero, so a suggested grid need not reach far
+// under the values seen. The global Steinhardt Q3/Q4/Q6 are norms and qualify;
+// LOCAL_Q3/Q4/Q6 are normalised dot products that run from -1 to 1 and do not.
+const NON_NEGATIVE = /^(DISTANCE|COORDINATION|COORDINATIONNUMBER|GYRATION|RMSD|DRMSD|CONTACTMAP|Q[346]|ALPHARMSD|ANTIBETARMSD|PARABETARMSD|VOLUME)/;
 const STYLE_KEY = 'stemkit.plumed-analyse.styles';
 const FIGURE_KEY = 'stemkit.plumed-analyse.figure';
+
+/**
+ * Whether a biased value cannot be negative, so that its grid may start just
+ * below zero. A distance cannot, but the components of DISTANCE
+ * (`COMPONENTS` gives d.x, d.y, d.z; `SCALED_COMPONENTS` d.a, d.b, d.c) are
+ * signed, even when a trial run happened to see them positive only.
+ *
+ * @param {{arg:string, type:string}} [target] - What the bias acts on.
+ * @returns {boolean}
+ */
+export function cannotBeNegative(target) {
+  return !!(target && NON_NEGATIVE.test(target.type) &&
+    !(/^DISTANCE/.test(target.type) && /\.[xyzabc]$/.test(target.arg)));
+}
 
 let plotlyLoading = null;
 function loadPlotly() {
@@ -113,6 +131,75 @@ export function decomposeStyle(styles, a, style) {
   return styles;
 }
 
+/* "d", "d and t", "d, t and u". */
+const listed = (names) => (names.length > 2
+  ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+  : names.join(' and '));
+
+/**
+ * What the figure shows, in a sentence or two, with the numbers that matter.
+ *
+ * @param {object} a - The figure, from analysisFigure.
+ * @param {{unit:string, temperature:string, code:function(string):string,
+ *   count:function(number):string}} say - The energy unit and temperature,
+ *   as HTML; how a name is set as code (escaped); how a count is written.
+ * @returns {string} HTML.
+ */
+export function analysisNote(a, { unit: u, temperature, code, count }) {
+  const r = a.result;
+  switch (a.id) {
+    case 'series':
+      return `One panel for each value ticked above, sharing the time axis. ` +
+        (r.thinned
+          ? `The page draws the lowest and highest point of each stretch of the ${count(r.rows)} rows, which is ` +
+            'the same line; the script reads and draws every row.'
+          : `All ${count(r.rows)} rows are drawn.`);
+    case 'histogram':
+      return `${count(r.n)} values of ${code(r.column)} in ${r.bins} bins ` +
+        `${fmt(r.width)} wide, from ${fmt(r.min)} to ${fmt(r.max)}.`;
+    case 'reweight': {
+      const skip = r.skip;
+      return `Each frame is weighted by exp(V/kT) with V from ${code(r.bias)}, at ` +
+        `${temperature} K (kT = ${fmt(r.kT)} ${u}). ` +
+        `${count(r.frames)} frames carry the weight of ` +
+        `<strong>${count(Math.round(r.effective))}</strong> equally weighted ones.` +
+        (skip ? ` The first fifth of the run is left out, since ${code(r.bias)} still grows there; ` +
+          `print ${code('metad.rbias')} with ${code('CALC_RCT')} to use the whole run.` : '') +
+        (r.effective < 50 ? ' <strong>That is too few to trust the surface.</strong>' : '') +
+        ' Gaps are bins no frame reached.';
+    }
+    case 'fes': {
+      // A surface along fewer variables than the hills have is not their
+      // plain sum: the others are integrated out at kT, as --idw and --kt do.
+      const out = r.integrated || [];
+      const opening = out.length
+        ? `The ${count(r.hills)} hills summed over ${listed([...r.variables, ...out].map(code))}, with ` +
+          `${listed(out.map(code))} integrated out at kT = ${fmt(r.kT)} ${u}, as ` +
+          `${code(`plumed sum_hills --idw ${r.variables.join(',')} --kt ${fmt(r.kT, 6)}`)} gives it`
+        : `The negative sum of all ${count(r.hills)} hills, as ${code('plumed sum_hills')} gives it`;
+      return `${opening}, with its lowest point at zero; it reaches ${fmt(r.max)} ${u}.` +
+        (r.y ? ' The colour bar gives the free energy; dark is low.' : '');
+    }
+    case 'convergence': {
+      const out = r.integrated || [];
+      const aside = out.length ? `, with ${listed(out.map(code))} integrated out at kT = ${fmt(r.kT)} ${u}` : '';
+      return `Each line sums the hills up to a time${aside}; the darkest is the whole run. Lines that lie on ` +
+        'top of one another say the surface has stopped changing.' +
+        (r.change !== null
+          ? ` Over the last ${r.part} of the run it moved by at most <strong>${fmt(r.change)} ${u}</strong> ` +
+            'where it is below 16 kT.'
+          : '');
+    }
+    case 'heights': {
+      const tempered = r.tempered ? ' (the γ/(γ−1) a well-tempered file carries is taken off)' : '';
+      return `The mean height of each block of hills, as deposited${tempered}. The first hill was ` +
+        `${fmt(r.first)} ${u}; the last tenth of the run averages ${fmt(r.last)} ${u}.`;
+    }
+    default:
+      return '';
+  }
+}
+
 /**
  * @param {object} ctx - Page helpers.
  * @param {object} builder - `targets()`, `applySuggestions(list)`,
@@ -156,13 +243,13 @@ export function createPlumedAnalyse(ctx, builder) {
     state.suggestions = [];
     const rows = cols.map((name) => {
       const period = c.periods[name] || null;
-      const target = targets.find(t => t.arg === name);
-      const s = suggestBias(c.columns[name], {
-        period, nonNegative: !!(target && NON_NEGATIVE.test(target.type))
-      });
+      // PLUMED 2.10 and later head the column of cv1.mean as cv1_mean.
+      const target = findTarget(targets, name);
+      const s = suggestBias(c.columns[name], { period, nonNegative: cannotBeNegative(target) });
       const drift = driftOf(c.columns[name], period);
       const sum = s ? s.summary : columnSummary(c.columns[name], period);
-      if (s && s.sigma && target) state.suggestions.push({ arg: name, ...s });
+      // `arg` is the builder's name for the value, `column` the file's.
+      if (s && s.sigma && target) state.suggestions.push({ ...s, arg: target.arg, column: name });
       return `<tr>
         <th scope="row"><code>${escapeHtml(name)}</code>${target ? ' <span class="stk-badge stk-badge-accent">biased</span>' : ''}</th>
         <td>${fmt(sum.mean)}</td><td>${fmt(sum.sd)}</td><td>${fmt(sum.min)} to ${fmt(sum.max)}</td>
@@ -189,7 +276,7 @@ export function createPlumedAnalyse(ctx, builder) {
       apply.textContent = biased
         ? 'A biased run gives no hill widths'
         : state.suggestions.length
-          ? `Use for ${state.suggestions.map(s => s.arg).join(', ')}`
+          ? `Use for ${state.suggestions.map(s => s.column).join(', ')}`
           : 'No column matches a biased variable';
     }
   }
@@ -392,50 +479,9 @@ export function createPlumedAnalyse(ctx, builder) {
   }
 
   /* What the figure says, in a sentence or two, with the numbers that matter. */
-  function noteFor(a) {
-    const r = a.result;
-    const u = escapeHtml(unit());
-    switch (a.id) {
-      case 'series':
-        return `One panel for each value ticked above, sharing the time axis. ` +
-          (r.thinned
-            ? `The page draws the lowest and highest point of each stretch of the ${count(r.rows)} rows, which is ` +
-              'the same line; the script reads and draws every row.'
-            : `All ${count(r.rows)} rows are drawn.`);
-      case 'histogram':
-        return `${count(r.n)} values of ${code(r.column)} in ${r.bins} bins ` +
-          `${fmt(r.width)} wide, from ${fmt(r.min)} to ${fmt(r.max)}.`;
-      case 'reweight': {
-        const skip = r.skip;
-        return `Each frame is weighted by exp(V/kT) with V from ${code(r.bias)}, at ` +
-          `${escapeHtml(String(builder.temperature()))} K (kT = ${fmt(r.kT)} ${u}). ` +
-          `${count(r.frames)} frames carry the weight of ` +
-          `<strong>${count(Math.round(r.effective))}</strong> equally weighted ones.` +
-          (skip ? ` The first fifth of the run is left out, since ${code(r.bias)} still grows there; ` +
-            `print ${code('metad.rbias')} with ${code('CALC_RCT')} to use the whole run.` : '') +
-          (r.effective < 50 ? ' <strong>That is too few to trust the surface.</strong>' : '') +
-          ' Gaps are bins no frame reached.';
-      }
-      case 'fes':
-        return `The negative sum of all ${count(r.hills)} hills, as ${code('plumed sum_hills')} gives it, with its ` +
-          `lowest point at zero; it reaches ${fmt(r.max)} ${u}.` +
-          (r.y ? ' The colour bar gives the free energy; dark is low.' : '');
-      case 'convergence':
-        return 'Each line sums the hills up to a time; the darkest is the whole run. Lines that lie on top of one ' +
-          'another say the surface has stopped changing.' +
-          (r.change !== null
-            ? ` Over the last ${r.part} of the run it moved by at most <strong>${fmt(r.change)} ${u}</strong> ` +
-              'where it is below 16 kT.'
-            : '');
-      case 'heights': {
-        const tempered = r.tempered ? ' (the γ/(γ−1) a well-tempered file carries is taken off)' : '';
-        return `The mean height of each block of hills, as deposited${tempered}. The first hill was ` +
-          `${fmt(r.first)} ${u}; the last tenth of the run averages ${fmt(r.last)} ${u}.`;
-      }
-      default:
-        return '';
-    }
-  }
+  const noteFor = (a) => analysisNote(a, {
+    unit: escapeHtml(unit()), temperature: escapeHtml(String(builder.temperature())), code, count
+  });
 
   function renderPicker(ids) {
     const buttons = Array.from(document.querySelectorAll('#plumedAnPick [data-an-fig]'));
@@ -507,7 +553,9 @@ export function createPlumedAnalyse(ctx, builder) {
    * One or more files read together. A COLVAR is read one at a time; several
    * HILLS files of the same variables are the walkers of one run, and their
    * hills are summed together. A run continued from a checkpoint is read as
-   * one: rows a later part wrote again are counted once.
+   * one: COLVAR rows a later part wrote again are counted once, while every
+   * hill in a HILLS file is kept, as a restarted METAD reads them all back
+   * into its bias and plumed sum_hills sums them all.
    */
   function take(list) {
     const colvars = [];
