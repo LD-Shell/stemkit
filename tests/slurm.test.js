@@ -248,12 +248,17 @@ describe('buildGromacsBlock', () => {
   test('binds thread count to the SLURM allocation', () => {
     const b = buildGromacsBlock({});
     expect(b).toContain('export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}');
-    expect(b).toContain('-ntomp ${OMP_NUM_THREADS}');
+    // One thread-MPI rank: -ntomp alone would start a rank for every core the
+    // thread-MPI gmx can see, oversubscribing a shared node.
+    expect(b).toContain('-ntmpi 1 -ntomp ${OMP_NUM_THREADS}');
   });
 
   test('adds GPU offload flags when GPUs are requested', () => {
     expect(buildGromacsBlock({ gpus: 1 })).toContain('-nb gpu');
     expect(buildGromacsBlock({ gpus: 0 })).not.toContain('-nb gpu');
+    // Without GPUs mdrun is kept off any GPU the node shows.
+    expect(buildGromacsBlock({ gpus: 0 })).toContain(' -nb cpu');
+    expect(buildGromacsBlock({ gpus: 1 })).not.toContain('-nb cpu');
   });
 
   test('emits checkpoint resume logic by default', () => {

@@ -413,7 +413,11 @@ export function createGromacsCheck(ctx, gx) {
       c.system = ff === 'martini3' ? 'coarse-grained' : 'all-atom';
     }
     const idx = gx.index();
-    if (idx.loaded() && $('gxChkNdx') && $('gxChkNdx').checked) c.indexGroups = idx.names();
+    if (idx.loaded() && $('gxChkNdx') && $('gxChkNdx').checked) {
+      c.indexGroups = idx.names();
+      // The coordinates too, for the pull checks grompp makes on them.
+      c.structure = idx.pullStructure();
+    }
     return c;
   }
 

@@ -2,7 +2,7 @@ import { describe, test, expect } from '@jest/globals';
 import {
   boxVectorsFromAngles, anglesFromBoxVectors, isTriclinic,
   ATOMIC_WEIGHTS, DEFAULT_MASS, MIN_BOX_NM,
-  safeFloat, elementSymbol, atomicMass, massBreakdown, isVirtualSite,
+  safeFloat, elementSymbol, atomicMass, massBreakdown, isVirtualSite, isPlaceholderCell,
   parsePDB, parseGRO, parseXYZ, parseStructure,
   geometricCentre, centreOfMass, boundingBox, radiusOfGyration,
   rotationMatrix, rotateAtoms, translateAtoms, centreAtoms, scaleAtoms,
@@ -188,6 +188,23 @@ describe('parsePDB', () => {
   test('converts CRYST1 cell lengths from angstrom to nanometre', () => {
     const r = parsePDB(MINI_PDB);
     expect(r.box).toEqual([2, 3, 4]);
+  });
+
+  test('a CRYST1 of 1 Å is the format\'s "no cell": no box, and a warning', () => {
+    const atom = 'ATOM      1  CA  ALA A   1       1.000   2.000   3.000  1.00  0.00           C';
+    for (const cryst of ['CRYST1    1.000    1.000    1.000  90.00  90.00  90.00 P 1           1',
+      'CRYST1    1.000    1.000    1.000  60.00  60.00  90.00']) {
+      const r = parsePDB(`${cryst}\n${atom}\nEND\n`);
+      expect(r).toMatchObject({ box: null, boxVectors: null });
+      expect(r.warnings).toHaveLength(1);
+      expect(r.warnings[0]).toMatch(/CRYST1 gives a cell of 1 Å.*read as no box.*GROMACS takes it as a real box 0\.1 nm wide/);
+      expect(r.atoms).toHaveLength(1);
+    }
+    expect(isPlaceholderCell(1, 1, 1)).toBe(true);
+    expect(isPlaceholderCell(1, 1, 10)).toBe(false);
+    // Any other cell stands, however small.
+    expect(parsePDB(`CRYST1    2.000    2.000    2.000  90.00  90.00  90.00 P 1           1\n${atom}\n`)).toMatchObject({ box: [0.2, 0.2, 0.2], warnings: [] });
+    expect(parseStructure(`CRYST1    1.000    1.000    1.000  90.00  90.00  90.00 P 1           1\n${atom}\n`, 'x.pdb').box).toBeNull();
   });
 
   test('distinguishes ATOM from HETATM', () => {

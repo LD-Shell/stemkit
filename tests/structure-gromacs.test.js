@@ -84,6 +84,30 @@ describe('structures are read as gmx editconf reads them', () => {
     const theirs = groRecords(fs.readFileSync(path.join(dir, 'out.gro'), 'utf8'));
     expect(ours(r.atoms, 0.1)).toEqual(theirs);
   });
+
+  // The PDB's placeholder cell, which GROMACS takes as it stands: the
+  // reason parsePDB drops it, and says what GROMACS will do with it.
+  withGromacs('a CRYST1 of 1 Å: GROMACS keeps a 0.1 nm box and measures through it; we read no box', () => {
+    const dir = tmp();
+    const text = ['CRYST1    1.000    1.000    1.000  90.00  90.00  90.00 P 1           1',
+      'HETATM    1  OW  SOL A   1       0.500   0.500   0.500  1.00  0.00           O',
+      'HETATM    2  OW  SOL A   2      19.500  19.500   0.500  1.00  0.00           O',
+      'HETATM    3  OW  SOL A   3      10.000  10.000  10.000  1.00  0.00           O',
+      'HETATM    4  C1  LIG A   4       0.200   0.200   0.200  1.00  0.00           C', 'END', ''].join('\n');
+    fs.writeFileSync(path.join(dir, 'in.pdb'), text);
+    gmx(dir, ['editconf', '-f', 'in.pdb', '-o', 'out.gro']);
+    expect(fs.readFileSync(path.join(dir, 'out.gro'), 'utf8').trim().split('\n').pop().trim().split(/\s+/).map(Number)).toEqual([0.1, 0.1, 0.1]);
+    gmx(dir, ['select', '-s', 'in.pdb', '-select', 'within 0.3 of resname LIG', '-on', 'sel.ndx']);
+    expect(ndxAtoms(fs.readFileSync(path.join(dir, 'sel.ndx'), 'utf8'))).toEqual([1, 2, 3, 4]);
+    const r = parsePDB(text);
+    expect(r.box).toBeNull();
+    expect(r.warnings.join(' ')).toMatch(/0\.1 nm wide/);
+    const mine = selectAtoms(r.atoms, 'within:0.3,resn:LIG', { unit: 'nm', coordinateUnit: 'A', box: r.box }).atoms.map(a => a.serial);
+    expect(mine).toEqual([1, 4]);
+    // What gmx select gives with the periodic boundary off.
+    gmx(dir, ['select', '-s', 'in.pdb', '-pbc', 'no', '-select', 'within 0.3 of resname LIG', '-on', 'nopbc.ndx']);
+    expect(ndxAtoms(fs.readFileSync(path.join(dir, 'nopbc.ndx'), 'utf8'))).toEqual(mine);
+  });
 });
 
 describe('within: agrees with gmx select through the periodic boundary', () => {

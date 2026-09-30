@@ -327,9 +327,13 @@ export function buildGromacsBlock(config = {}) {
   lines.push('export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}');
   lines.push('');
 
+  // One thread-MPI rank with the task's CPUs as OpenMP threads: given -ntomp
+  // alone, the thread-MPI gmx starts a rank for every core it can see, which
+  // oversubscribes a node the job shares. Without GPUs, -nb cpu keeps mdrun
+  // off a GPU the node shows but the job did not ask for.
   let cmd = `gmx mdrun -s ${tpr} -deffnm ${deffnm}`;
-  cmd += ` -ntomp \${OMP_NUM_THREADS}`;
-  if (gpus > 0) cmd += ' -nb gpu -pme gpu -bonded gpu';
+  cmd += ` -ntmpi 1 -ntomp \${OMP_NUM_THREADS}`;
+  cmd += gpus > 0 ? ' -nb gpu -pme gpu -bonded gpu' : ' -nb cpu';
   if (Number.isFinite(maxh) && maxh > 0) cmd += ` -maxh ${maxh}`;
   if (plumed) cmd += ` -plumed ${plumed}`;
 

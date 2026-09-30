@@ -60,7 +60,9 @@
  * `readGromacsStructure` returns, or a `core/structure.js` parse result.
  */
 
-import { elementSymbol } from './structure.js';
+import {
+  elementSymbol, isVirtualSite, isPlaceholderCell, ATOMIC_WEIGHTS, PLACEHOLDER_CELL_WARNING
+} from './structure.js';
 import {
   compileSelection, SpatialGrid, SOLVENT_RESIDUES, ION_RESIDUES, NUCLEIC_RESIDUES
 } from './selection.js';
@@ -443,6 +445,14 @@ function readPdb(text) {
     }
     if (rec === 'CRYST1') {
       const n = (s, e) => Number(raw.slice(s, e).trim());
+      // GROMACS takes a 1 Å cell as a 0.1 nm box; it is the format's way of
+      // saying there is none, and measured through it every atom is within
+      // reach of every other, so here it is no box, with a warning.
+      if (isPlaceholderCell(n(6, 15), n(15, 24), n(24, 33))) {
+        top.box = null;
+        if (!top.warnings.includes(PLACEHOLDER_CELL_WARNING)) top.warnings.push(PLACEHOLDER_CELL_WARNING);
+        continue;
+      }
       const box = boxFromCryst1(n(6, 15) / 10, n(15, 24) / 10, n(24, 33) / 10,
         n(33, 40) || 90, n(40, 47) || 90, n(47, 54) || 90);
       if (box) top.box = box;
@@ -1656,6 +1666,30 @@ function atomElement(top, a) {
 
 function elements(top) {
   return cached(top, 'elements', () => top.atoms.map(a => atomElement(top, a)));
+}
+
+/**
+ * Atom masses from the elements, for sums such as a pull group's centre of
+ * mass when the topology, which holds the real masses, is not at hand. A
+ * virtual site or dummy mass (TIP4P's MW, MNZ1) weighs nothing, as it does
+ * in the topology; so does an atom of no known element, rather than a
+ * guessed weight (`unknown` counts them).
+ *
+ * @param {GromacsStructure|object} structure - As {@link toGromacsStructure} takes it.
+ * @returns {{masses:number[], unknown:number}} One mass per atom, in u.
+ */
+export function atomMasses(structure) {
+  const top = toGromacsStructure(structure);
+  return cached(top, 'masses', () => {
+    let unknown = 0;
+    const masses = elements(top).map((el, i) => {
+      if (el === 'X' || isVirtualSite({ atomName: top.atoms[i].name })) return 0;
+      const m = ATOMIC_WEIGHTS[el];
+      if (m === undefined) unknown++;
+      return m || 0;
+    });
+    return { masses, unknown };
+  });
 }
 
 function maskToAtoms(mask) {

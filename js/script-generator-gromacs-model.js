@@ -25,7 +25,7 @@
  */
 
 import {
-  generateMdp, checkMdp, parseMdp, normaliseName, canonicalName, optionInfo, mdpDocUrl,
+  generateMdp, checkMdp, parseMdp, normaliseName, canonicalName, optionInfo, mdpDocUrl, pullStart,
   FORCE_FIELDS, THERMOSTATS, BAROSTATS, SYSTEM_TYPES, formatDuration, psToSteps,
   MDP_RELEASE, MDP_MANUAL
 } from '../src/core/gromacs-mdp.js';
@@ -524,10 +524,12 @@ export function centralAtom(coords, members, box = null) {
  * The steered-pulling check: with a rate, the reference moves rate x length,
  * and mdrun stops once the distance passes 0.49 of the box along the pulled
  * dimensions (pull.cpp, "is larger than 0.49 times the box size"). With the
- * box of a loaded structure that is certain; without it the page warns once
+ * structure loaded, the groups' distance at the start is known (`start`,
+ * from pullStart), and the reference goes from there; with only its box,
+ * the travel is compared with the limit; without either the page warns once
  * the travel exceeds what a 5 nm box allows.
  */
-function pullTravel(plan, v, box) {
+function pullTravel(plan, v, box, start) {
   const rate = Number(v['pull-coord1-rate']) || 0;
   if (!yes(v.pull) || !rate || plan.unlimited) return;
   const geometry = String(v['pull-coord1-geometry'] || 'distance').toLowerCase();
@@ -539,6 +541,32 @@ function pullTravel(plan, v, box) {
   const fmt = (x) => Number(x.toPrecision(3));
   const moves = `The reference moves ${fmt(travel)} nm (${rate} nm/ps for ${formatDuration(plan.lengthPs)})`;
   const periodic = geometry === 'direction' ? ', or use pull-coord1-geometry = direction-periodic under All options' : '';
+  const c = start && start.coords[0];
+  if (c && c.checked && c.value !== null && Number.isFinite(c.limit)) {
+    // Already too far at the start: checkMdp reports grompp stopping.
+    if (c.tooFar) return;
+    const end = c.value + rate * plan.lengthPs;
+    const at = `from the ${fmt(Math.abs(c.value))} nm the groups start at in ${start.name || 'the structure'}`;
+    const stop = (message) => {
+      const issue = { severity: 'error', id: 'pull-box', option: 'pull-coord1-rate', line: null, message, url: mdpDocUrl('pull-coord1-rate'), source: 'mdrun',
+        assumes: `the coordinates of ${start.name || 'the structure loaded under Index groups'}; the stage starts from what the stages before it leave` };
+      plan.issues.push(issue);
+      plan.mdrunStops.push(issue);
+    };
+    // A distance cannot be negative: mdrun stops once the reference passes 0
+    // ("Pull reference distance ... needs to be non-negative", pull.cpp).
+    if (geometry === 'distance' && end < 0) {
+      stop(`${moves} ${at}, so it would pass 0 after ${formatDuration(c.value / Math.abs(rate))}, and mdrun stops there ` +
+        '("Pull reference distance ... needs to be non-negative"). Shorten the stage or lower the rate, or pull along a vector ' +
+        '(geometry direction), whose value may be negative.');
+      return;
+    }
+    if (Math.abs(end) + 1e-9 < c.limit) return;
+    stop(`${moves} ${at} to ${fmt(Math.abs(end))} nm, but mdrun stops once the distance between the groups passes ${fmt(c.limit)} nm, ` +
+      `0.49 of this box along the pulled dimensions ("Distance between pull groups ... is larger than 0.49 times the box size"). ` +
+      `Shorten the stage or lower the rate${periodic}.`);
+    return;
+  }
   if (limit !== null) {
     if (travel + 1e-9 < limit) return;
     const message = `${moves}, but mdrun stops once the distance between the groups passes ${fmt(limit)} nm, 0.49 of this box ` +
@@ -606,7 +634,10 @@ function needsIndexMessage(names, lost) {
  * @param {object} state - As {@link defaultGxState} returns it, edited. It may
  *   also say `hasIndexFile` (an index is named under Job), `indexLost`
  *   (`{name, file}`: an index built on an earlier visit, no longer on the
- *   page) and `box` (box vectors as rows, nm, from a loaded structure).
+ *   page), `box` (box vectors as rows, nm, from a loaded structure) and
+ *   `structure` (the loaded structure with its index groups, as checkMdp's
+ *   context.structure takes it: each plan then has `pullStart`, where the
+ *   pull groups start, and the pull checks grompp makes on it).
  * @returns {{stages:object[], warnings:string[], dt:number, forceField:object, hmr:boolean,
  *   constraints:string, tcGroups:string[], system:string, needsIndex:string[], indexWarning:string|null}}
  *   `needsIndex`: group names the files use that no index defines; `indexWarning`
@@ -628,6 +659,10 @@ export function resolveWorkflow(state) {
   const lost = !indexNames && s.indexLost && s.indexLost.name ? s.indexLost : null;
   const idx = { names: indexNames, given: !!s.hasIndexFile && !lost };
   const box = Array.isArray(s.box) ? s.box : null;
+  // The loaded structure with the index built from it, for the pull checks
+  // grompp makes on the coordinates it reads (checkMdp's context.structure).
+  const structure = s.structure && Array.isArray(s.structure.atoms) && s.structure.atoms.length && Array.isArray(s.structure.groups)
+    ? s.structure : null;
 
   if (s.hmr && !ff.hmr) warnings.push(`Hydrogen mass repartitioning is off: ${ff.label} has no hydrogens to repartition.`);
   if (hmr && constraints === 'none') {
@@ -809,8 +844,23 @@ export function resolveWorkflow(state) {
       system: cg ? 'coarse-grained' : 'all-atom'
     };
     if (indexNames) context.indexGroups = indexNames;
+    if (structure) context.structure = structure;
     const check = checkMdp(plan.text, { context });
     plan.issues = check.issues;
+    // Where the pull groups start, from the loaded structure. grompp reads
+    // the coordinates the stage before leaves, which equilibration has
+    // moved a little from these: the checks say so.
+    plan.pullStart = null;
+    if (structure && yes(check.settings.pull)) {
+      const start = pullStart(check.settings, structure, { equalMasses: cg });
+      if (start) plan.pullStart = { ...start, name: structure.name || '' };
+      const prev = stages[stages.length - 1];
+      if (prev) {
+        for (const i of plan.issues) {
+          if (i.assumes && /^pull-(distance|pbcatom)$/.test(i.id)) i.assumes += `; this stage starts from ${prev.deffnm}.gro, which the stages before it move a little from these`;
+        }
+      }
+    }
     plan.grompp = check.grompp;
     plan.checked = check.settings;
     const gw = check.issues.filter(i => i.source === 'grompp' && i.severity === 'warning');
@@ -853,7 +903,7 @@ export function resolveWorkflow(state) {
     plan.needsRef = plan.posres || words(define).some(w => /^-D\S/.test(w) && !/^-DFLEXIBLE(=|$)/.test(w));
 
     groupChecks(plan, v, idx);
-    if (def.key === 'pull') pullTravel(plan, v, box);
+    if (def.key === 'pull') pullTravel(plan, v, box, plan.pullStart);
     // grompp's note about C=O bonds at 4 fs needs such bonds, which a liquid
     // of water and ions does not have: for that system type it depends on
     // the topology, so it is not counted.
@@ -1032,18 +1082,27 @@ export function stageGpuFlags(plan, flags, topology = {}) {
 }
 
 /**
- * The mdrun flags for a job with GPUs, and what the page should say about
- * them (plain text; code between backquotes).
+ * The mdrun flags for a job's ranks and GPUs, and what the page should say
+ * about them (plain text; code between backquotes).
  *
- * - No flags at all without GPUs, or with a double-precision build.
- * - A thread-MPI build (plain `gmx`) always gets -ntmpi: with a GPU in use,
- *   mdrun given -ntomp but not -ntmpi stops with "setting the number of
- *   OpenMP threads without specifying the number of ranks can lead to
- *   conflicting demands" whenever PME is not on the GPU (minimisation, a
- *   reaction-field system, -pme gpu unticked); resourcedivision.cpp.
- *   One rank, as mdrun itself picks with PME on the GPU, unless one is typed.
+ * - A thread-MPI build (plain `gmx`, `gmx_d`) always gets -ntmpi, one rank
+ *   unless a number is typed, with or without GPUs. Given -ntomp alone,
+ *   thread-MPI mdrun starts as many ranks of that many threads as the node
+ *   has cores it can see (get_tmpi_omp_thread_division, resourcedivision.cpp):
+ *   where the job has no cpuset of its own that is every core of the node,
+ *   beyond the CPUs the job was given, and a small box then has no domain
+ *   decomposition for them and mdrun stops. With a GPU in use (one the node
+ *   shows, even with none asked for) it stops instead with "setting the
+ *   number of OpenMP threads without specifying the number of ranks can
+ *   lead to conflicting demands" whenever PME is not on the GPU. -nt, which
+ *   the manual gives for running on part of a node, does not help: mdrun
+ *   takes OMP_NUM_THREADS, which the job sets, as -ntomp, so -nt alone
+ *   stops the same way, and left to split -nt itself mdrun stops on counts
+ *   with a large prime factor ("contains a large prime factor").
  * - An MPI build (`gmx_mpi`) rejects -ntmpi; its ranks come from the
  *   launcher, one per node as the job header asks.
+ * - GPU flags only with GPUs, and not with a double-precision build, which
+ *   has no GPU support.
  * - PME on the GPU with more than one rank needs -npme (decidegpuusage.cpp):
  *   one PME rank.
  *
@@ -1064,19 +1123,7 @@ export function gromacsMdrunFlags(o = {}) {
   const build = gmxBuild(o.gmx);
   const nodes = Math.max(1, parseInt(o.nodes, 10) || 1);
   const gpus = Math.max(0, parseInt(o.gpus, 10) || 0);
-  const none = { flags: '', ntmpi: 0, ranks: build.mpi ? nodes : 1, autoNtmpi: false, warnings: [] };
-  if (!gpus) return none;
   const warnings = [];
-  if (build.double) {
-    warnings.push(`\`${build.name}\` is a double-precision build, and GROMACS has no GPU support in double precision: ` +
-      'the GPU flags are left out. Use the mixed-precision `gmx` (or `gmx_mpi`) on a GPU node, or set GPUs per node to 0.');
-    return { ...none, warnings };
-  }
-  const flags = [];
-  if (o.nb) flags.push('-nb gpu');
-  if (o.pme) flags.push('-pme gpu');
-  if (o.bonded) flags.push('-bonded gpu');
-  if (o.update) flags.push('-update gpu');
 
   const typed = String(o.ntmpi == null ? '' : o.ntmpi).trim();
   let ntmpi = 0;
@@ -1097,8 +1144,25 @@ export function gromacsMdrunFlags(o = {}) {
     ntmpi = 1;
     autoNtmpi = true;
   }
-  if (ntmpi) flags.push(`-ntmpi ${ntmpi}`);
   const ranks = build.mpi ? nodes : ntmpi;
+  const rankFlags = ntmpi ? ` -ntmpi ${ntmpi}` : '';
+
+  // Without GPUs, the ranks and -nb cpu: the thread-MPI build's -ntmpi keeps
+  // mdrun to the CPUs the job was given, and -nb cpu keeps it off a GPU the
+  // node shows but the job did not ask for (mdrun would otherwise take it).
+  if (!gpus || build.double) {
+    if (gpus) {
+      warnings.push(`\`${build.name}\` is a double-precision build, and GROMACS has no GPU support in double precision: ` +
+        'the GPU flags are left out. Use the mixed-precision `gmx` (or `gmx_mpi`) on a GPU node, or set GPUs per node to 0.');
+    }
+    return { flags: ` -nb cpu${rankFlags}`, ntmpi, ranks, autoNtmpi, warnings };
+  }
+  const flags = [];
+  if (o.nb) flags.push('-nb gpu');
+  if (o.pme) flags.push('-pme gpu');
+  if (o.bonded) flags.push('-bonded gpu');
+  if (o.update) flags.push('-update gpu');
+  if (ntmpi) flags.push(`-ntmpi ${ntmpi}`);
 
   if (o.bonded && !o.nb) {
     warnings.push('`-bonded gpu` requires the short-range non-bonded task on the GPU too. Enable `-nb gpu`.');
@@ -1241,7 +1305,13 @@ export function gromacsRunBlock(plans, opts = {}) {
       const reasons = [...new Set(gpu.dropped.map(d => d.reason))];
       out.push(`# ${gpu.dropped.map(d => d.flag).join(' ')} left out: ${reasons.join('; ')}.`);
     }
-    let mdrun = `${launch}${gmx} mdrun -deffnm ${q(p.deffnm)}${gpu.flags} -ntomp $OMP_NUM_THREADS -pin on`;
+    // -pin auto (mdrun's default, written out): threads are pinned when mdrun
+    // uses every CPU it can see and nothing else has set the binding, which on
+    // a cluster that binds jobs to their CPUs means the job's own allocation.
+    // -pin on would pin from core 0 whatever the scheduler gave, so two jobs
+    // sharing an unbound node would land on the same cores
+    // (mdrun-performance.rst, -pin).
+    let mdrun = `${launch}${gmx} mdrun -deffnm ${q(p.deffnm)}${gpu.flags} -ntomp $OMP_NUM_THREADS -pin auto`;
     // -cpi continues from a checkpoint a previous run left; without the
     // resume logic a re-run must start afresh, not continue an old stage.
     if (p.dynamics && resume) mdrun += ` -cpi ${q(`${p.deffnm}.cpt`)}`;

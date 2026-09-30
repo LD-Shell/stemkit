@@ -10,7 +10,7 @@ import {
   centralAtom, plumedStages
 } from '../js/script-generator-gromacs-model.js';
 import { parseMdp, checkMdp, FORCE_FIELDS } from '../src/core/gromacs-mdp.js';
-import { readGromacsStructure, writeNdx } from '../src/core/gromacs-ndx.js';
+import { readGromacsStructure, writeNdx, atomMasses } from '../src/core/gromacs-ndx.js';
 import { periodicSystemGro } from './fixtures/gromacs-ndx/periodic-system.mjs';
 
 // The form's defaults, with the rigid bonds of the force field chosen, as
@@ -285,8 +285,8 @@ describe('gromacsRunBlock', () => {
     });
     expect(out).toContain('if [ ! -f md.gro ]; then');
     expect(out).toContain('gmx_mpi grompp -f "$SUBMIT_DIR/em.mdp" -p topol.top -n "$SUBMIT_DIR/index.ndx" -c system.gro -o em.tpr');
-    expect(out).toContain('gmx_mpi mdrun -deffnm em -nb gpu -ntomp $OMP_NUM_THREADS -pin on\n');
-    expect(out).toContain('gmx_mpi mdrun -deffnm md -nb gpu -update gpu -ntomp $OMP_NUM_THREADS -pin on -cpi md.cpt -plumed plumed.dat');
+    expect(out).toContain('gmx_mpi mdrun -deffnm em -nb gpu -ntomp $OMP_NUM_THREADS -pin auto\n');
+    expect(out).toContain('gmx_mpi mdrun -deffnm md -nb gpu -update gpu -ntomp $OMP_NUM_THREADS -pin auto -cpi md.cpt -plumed plumed.dat');
     expect(out).not.toMatch(/-deffnm nvt[^\n]*-plumed/);
     expect(out).not.toContain('-maxwarn');
   });
@@ -352,7 +352,7 @@ describe('GPU flags: each stage gets only what mdrun accepts', () => {
   test('page defaults: minimisation keeps -nb gpu only, dynamics keep -pme gpu', () => {
     // pme.cpp: "PME GPU does not support: Non-dynamical integrator".
     const block = gromacsRunBlock(resolveWorkflow(defaultGxState()).stages, { gpuFlags: defaults.flags });
-    expect(lineOf(block, /mdrun -deffnm em\b/)).toBe('gmx mdrun -deffnm em -nb gpu -ntmpi 1 -ntomp $OMP_NUM_THREADS -pin on');
+    expect(lineOf(block, /mdrun -deffnm em\b/)).toBe('gmx mdrun -deffnm em -nb gpu -ntmpi 1 -ntomp $OMP_NUM_THREADS -pin auto');
     expect(lineOf(block, /mdrun -deffnm nvt\b/)).toContain(' -nb gpu -pme gpu -ntmpi 1 ');
     expect(block).toMatch(/# -pme gpu left out: mdrun computes PME, bonded forces and the update on the GPU only in dynamics/);
   });
@@ -396,7 +396,7 @@ describe('GPU flags: each stage gets only what mdrun accepts', () => {
     expect(ab.warnings.join(' ')).toMatch(/constraints = h-bonds/);
   });
 
-  test('thread-MPI always gets -ntmpi (1 unless set); an MPI build never does; double precision gets nothing', () => {
+  test('thread-MPI always gets -ntmpi (1 unless set); an MPI build never does; double precision gets no GPU flags', () => {
     // resourcedivision.cpp: -ntomp without -ntmpi and a GPU in use is fatal
     // unless PME is on the GPU; the MPI build rejects -ntmpi.
     expect(gromacsMdrunFlags({ gpus: 1, nb: true, gmx: 'gmx' }).flags).toBe(' -nb gpu -ntmpi 1');
@@ -406,11 +406,29 @@ describe('GPU flags: each stage gets only what mdrun accepts', () => {
     expect(mpi.flags).toBe(' -nb gpu -pme gpu');
     expect(mpi.warnings.join(' ')).toMatch(/`gmx_mpi` is an MPI build.*left out/);
     const dbl = gromacsMdrunFlags({ gpus: 1, nb: true, gmx: '/opt/gromacs/bin/gmx_mpi_d' });
-    expect(dbl.flags).toBe('');
+    // No GPU in double precision, so the run is kept on the CPUs.
+    expect(dbl.flags).toBe(' -nb cpu');
     expect(dbl.warnings.join(' ')).toMatch(/double-precision/);
-    expect(gromacsMdrunFlags({ gpus: 0, nb: true, pme: true }).flags).toBe('');
+    // A thread-MPI double-precision build runs on the CPUs, with its ranks.
+    expect(gromacsMdrunFlags({ gpus: 1, nb: true, gmx: 'gmx_d' })).toMatchObject({ flags: ' -nb cpu -ntmpi 1', ntmpi: 1, autoNtmpi: true });
     expect(gmxBuild('gmx_mpi_d')).toMatchObject({ mpi: true, double: true });
     expect(gmxBuild('gmx')).toMatchObject({ mpi: false, double: false });
+  });
+
+  test('without GPUs the thread-MPI build still gets -ntmpi, so mdrun keeps to the CPUs it was given', () => {
+    // get_tmpi_omp_thread_division: -ntomp alone makes thread-MPI start
+    // ranks of that many threads until every core it can see is busy.
+    // And -nb cpu, so a GPU the node shows but the job did not ask for is left alone.
+    expect(gromacsMdrunFlags({ gpus: 0, nb: true, pme: true })).toMatchObject({ flags: ' -nb cpu -ntmpi 1', ntmpi: 1, ranks: 1, autoNtmpi: true });
+    expect(gromacsMdrunFlags({ gpus: 0, gmx: 'gmx', ntmpi: '4' })).toMatchObject({ flags: ' -nb cpu -ntmpi 4', ntmpi: 4, ranks: 4, autoNtmpi: false });
+    // The MPI build takes its ranks from the launcher, GPUs or none.
+    const mpi = gromacsMdrunFlags({ gpus: 0, gmx: 'gmx_mpi', nodes: 3 });
+    expect(mpi).toMatchObject({ flags: ' -nb cpu', ntmpi: 0, ranks: 3, autoNtmpi: false });
+    expect(gromacsMdrunFlags({ gpus: 0, gmx: 'gmx_mpi', ntmpi: '2' }).warnings.join(' ')).toMatch(/MPI build.*left out/);
+    const plans = resolveWorkflow(defaultGxState()).stages;
+    const block = gromacsRunBlock(plans, { gpuFlags: gromacsMdrunFlags({ gpus: 0 }).flags });
+    for (const p of plans) expect(lineOf(block, new RegExp(`mdrun -deffnm ${p.deffnm}\\b`))).toContain(' -ntmpi 1 -ntomp $OMP_NUM_THREADS ');
+    expect(gromacsRunBlock(plans, { gmx: 'gmx_mpi', gpuFlags: mpi.flags })).toContain('gmx_mpi mdrun -deffnm em -nb cpu -ntomp $OMP_NUM_THREADS -pin auto\n');
   });
 
   test('several nodes with the MPI build: a rank per node through the launcher, grompp without it', () => {
@@ -533,6 +551,51 @@ describe('stages', () => {
     expect(steer(10000, 0).pullWarning).toBeUndefined();
   });
 
+  // A structure with Protein and LIG `d` nm apart along x and 3 nm apart
+  // along z, in a box 4 nm across and 10 nm tall.
+  const pullSystem = (d) => {
+    const atoms = [{ x: 0.5, y: 0.5, z: 1 }, { x: 0.6, y: 0.5, z: 1 }, { x: 0.5 + d, y: 0.5, z: 4 }, { x: 0.6 + d, y: 0.5, z: 4 }];
+    return {
+      name: 'sys.gro', atoms, box: [[4, 0, 0], [0, 4, 0], [0, 0, 10]], masses: [12, 12, 12, 12],
+      groups: [{ name: 'System', atoms: [1, 2, 3, 4] }, { name: 'Protein', atoms: [1, 2] }, { name: 'Non-Protein', atoms: [3, 4] },
+        { name: 'LIG', atoms: [3, 4] }]
+    };
+  };
+  const pullPlan = (structure, pull = {}, stages = {}) => resolveWorkflow(state({
+    structure, index: { groups: structure.groups.map(g => g.name), natoms: structure.atoms.length },
+    stages: { pull: { on: true, ...stages, pull: { group1: 'Protein', group2: 'LIG', ...pull } } }
+  }));
+
+  test('with the structure loaded, groups starting too far apart stop grompp, in the stage and its verdict', () => {
+    const wf = pullPlan(pullSystem(1.5));
+    const p = byKey(wf).pull;
+    const issue = p.errors.find(i => i.id === 'pull-distance');
+    expect(issue.message).toMatch(/^Distance between pull groups 1 and 2 \(3\.35 nm\) is larger than 0\.49 times the box size \(1\.96 nm\), and grompp stops\./);
+    expect(issue.message).toMatch(/pull-coord1-dim = N N Y puts them 3 nm apart, within the 4\.9 nm that allows/);
+    // grompp reads the coordinates production leaves, not the structure's.
+    expect(issue.assumes).toMatch(/coordinates and box of sys\.gro.*masses.*this stage starts from md\.gro/);
+    expect(p.pullStart.coords[0].value).toBeCloseTo(Math.hypot(1.5, 3), 5);
+    expect(gromacsRunBlock(wf.stages)).toMatch(/# ---- Pulling[^\n]*\n# CHECK: grompp will stop on this file \(1 error\); see the page\./);
+    // Counting z only, the file passes, and the other stages never had pulling.
+    const nny = pullPlan(pullSystem(1.5), { dim: 'N N Y' });
+    expect(byKey(nny).pull.errors).toEqual([]);
+    expect(byKey(nny).pull.pullStart.coords[0].value).toBeCloseTo(3, 5);
+    expect(nny.stages.filter(s => s.key !== 'pull').every(s => s.pullStart === null)).toBe(true);
+    // Without the structure there is nothing to measure.
+    expect(byKey(resolveWorkflow(state({ stages: { pull: { on: true, pull: { group1: 'Protein', group2: 'LIG' } } } }))).pull.pullStart).toBeNull();
+  });
+
+  test('steered pulling from where the groups start: the end is checked against the box', () => {
+    const steer = (lengthPs, rate) => byKey(pullPlan(pullSystem(0), { mode: 'steered', rate, dim: 'N N Y' }, { lengthPs })).pull;
+    // Starting 3 nm apart in a 10 nm box, 4.9 nm is the limit: 1 nm more is fine, 2 nm is not.
+    expect(steer(100, 0.01).mdrunStops).toEqual([]);
+    const far = steer(200, 0.01).mdrunStops;
+    expect(far.map(i => i.message).join(' ')).toMatch(/moves 2 nm \(0\.01 nm\/ps for 200 ps\) from the 3 nm the groups start at in sys\.gro to 5 nm, but mdrun stops once the distance between the groups passes 4\.9 nm/);
+    // Pulling together, a distance cannot go below 0.
+    expect(steer(400, -0.01).mdrunStops.map(i => i.message).join(' ')).toMatch(/would pass 0 after 300 ps.*needs to be non-negative/);
+    expect(steer(200, -0.01).mdrunStops).toEqual([]);
+  });
+
   test('anisotropic coupling with a triclinic box warns; a rectangular one does not', () => {
     const dodecahedron = [[5, 0, 0], [0, 5, 0], [2.5, 2.5, 3.54]];
     expect(resolveWorkflow(state({ couplingType: 'anisotropic', box: dodecahedron })).warnings.join(' ')).toMatch(/too skewed/);
@@ -568,7 +631,7 @@ describe('the job script', () => {
     const block = gromacsRunBlock(wf.stages, { topol: 'my topol.top' });
     expect(block).toContain('if [ ! -f "my nvt.gro" ]; then');
     expect(block).toContain('gmx grompp -f "my nvt.mdp" -p "my topol.top" -c em.gro -r em.gro -o "my nvt.tpr"');
-    expect(block).toContain('gmx mdrun -deffnm "my nvt" -ntomp $OMP_NUM_THREADS -pin on -cpi "my nvt.cpt"');
+    expect(block).toContain('gmx mdrun -deffnm "my nvt" -ntomp $OMP_NUM_THREADS -pin auto -cpi "my nvt.cpt"');
     expect(block).toContain('-c "my nvt.gro" -r "my nvt.gro" -t "my nvt.cpt" -o npt.tpr');
     const arr = gromacsRunBlock(wf.stages, { filesDir: '$SUBMIT_DIR/' });
     expect(arr).toContain('-f "$SUBMIT_DIR/my nvt.mdp"');
@@ -758,7 +821,7 @@ withGromacs('the script\'s lines, run by GROMACS', () => {
   let dir = '';
   const tmpDirs = [];
   const threads = () => (gmxBuild(GMX).mpi ? '' : ' -ntmpi 1');
-  const sh = (cwd, line, env = {}) => spawnSync('bash', ['-c', line.replace('-pin on', '-pin off')], {
+  const sh = (cwd, line, env = {}) => spawnSync('bash', ['-c', line.replace('-pin auto', '-pin off')], {
     cwd, encoding: 'utf8', env: { ...process.env, OMP_NUM_THREADS: '1', ...env }
   });
   const fresh = () => {
@@ -883,6 +946,118 @@ withGromacs('the script\'s lines, run by GROMACS', () => {
     fs.writeFileSync(path.join(d, 'pull.mdp'), pullStage(centralAtom(top.atoms, slab, null), 0).text);
     expect(sh(d, grompp).status).not.toBe(0);
   }, 120000);
+
+  // A thread-MPI build to try the CPU-only line with, besides GMX: GMX_TMPI_BIN,
+  // or GMX itself when it is one.
+  const TMPI = [process.env.GMX_TMPI_BIN, GMX].find(g => g && !gmxBuild(g).mpi &&
+    /MPI library:\s+thread_mpi/.test(spawnSync(g, ['-quiet', '--version'], { encoding: 'utf8' }).stdout || '')) || '';
+
+  test('CPU-only runs: mdrun uses the CPUs the job was given, one rank of OMP_NUM_THREADS threads', () => {
+    const wf = resolveWorkflow(liquid({ stages: { em: { on: false }, npt: { on: false }, prod: { on: false }, nvt: { posres: false } },
+      overrides: { nvt: { nsteps: '10' } } }));
+    const env = { OMP_NUM_THREADS: '2', GMX_DISABLE_GPU_DETECTION: '1' };
+    for (const build of [GMX, TMPI].filter(Boolean)) {
+      const d = fresh();
+      write(d, wf.stages);
+      fs.copyFileSync(path.join(d, 'system.gro'), path.join(d, 'em.gro'));
+      const block = gromacsRunBlock(wf.stages, { gmx: build, resume: false, gpuFlags: gromacsMdrunFlags({ gpus: 0, gmx: build }).flags });
+      const lines = block.split('\n').filter(l => /grompp|mdrun/.test(l) && !l.startsWith('#'));
+      const mdrun = lines.find(l => / mdrun /.test(l));
+      expect(mdrun).toContain(gmxBuild(build).mpi ? ' -ntomp $OMP_NUM_THREADS ' : ' -ntmpi 1 -ntomp $OMP_NUM_THREADS ');
+      for (const l of lines) {
+        const r = sh(d, l, env);
+        expect([l, r.status, r.status ? (r.stderr || '').slice(-400) : '']).toEqual([l, 0, '']);
+      }
+      const log = fs.readFileSync(path.join(d, 'nvt.log'), 'utf8');
+      expect(log).toMatch(gmxBuild(build).mpi ? /Using 1 MPI process/ : /Using 1 MPI thread\b/);
+      expect(log).toMatch(/Using 2 OpenMP threads/);
+      // Before: -ntomp alone, where thread-MPI fills every core it sees with
+      // ranks of two threads, which a box this small cannot even decompose.
+      if (!gmxBuild(build).mpi && os.cpus().length >= 4) {
+        fs.rmSync(path.join(d, 'nvt.log'));
+        const old = sh(d, mdrun.replace(' -ntmpi 1', ''), env);
+        const oldLog = fs.existsSync(path.join(d, 'nvt.log')) ? fs.readFileSync(path.join(d, 'nvt.log'), 'utf8') : '';
+        const ranks = Number((/Using (\d+) MPI threads/.exec(oldLog) || [])[1] || 1);
+        expect(old.status !== 0 || ranks > 1).toBe(true);
+      }
+    }
+  }, 180000);
+
+  test('pull groups too far apart for the box: the page flags what grompp stops on, and no more', () => {
+    const d = fresh();
+    const top = readGromacsStructure(fs.readFileSync(path.join(d, 'system.gro'), 'utf8'), 'system.gro');
+    const L = top.box[0][0];
+    const mols = [];
+    top.atoms.forEach((a, i) => { if (a.name === 'OW') mols.push({ x: a.x, y: a.y, z: a.z, atoms: [i + 1, i + 2, i + 3] }); });
+    const near = (x, y, z) => mols.slice().sort((a, b) => Math.hypot(a.x - x, a.y - y, a.z - z) - Math.hypot(b.x - x, b.y - y, b.z - z))[0];
+    // A bilayer-like slab spanning x and y, a molecule at the centre, and
+    // molecules along a diagonal around 0.49 of the box from it (0.49 L is
+    // 1.225 nm here); the slab's centre across x and y is wherever its
+    // reference atom puts it, as a membrane's is.
+    const groups = [
+      { name: 'System', atoms: top.atoms.map((_, i) => i + 1) },
+      { name: 'Slab', atoms: mols.filter(m => m.z >= 0.1 * L && m.z < 0.28 * L).flatMap(m => m.atoms) },
+      { name: 'M0', atoms: near(0.5 * L, 0.5 * L, 0.5 * L).atoms }
+    ];
+    [0.36, 0.4, 0.44, 0.47, 0.5, 0.53].forEach((f, k) => {
+      groups.push({ name: `M${k + 1}`, atoms: near((0.5 + f / Math.SQRT2) * L, (0.5 + f / Math.SQRT2) * L, 0.5 * L).atoms });
+    });
+    fs.writeFileSync(path.join(d, 'index.ndx'), writeNdx(groups));
+    const structure = { name: 'system.gro', atoms: top.atoms, box: top.box, groups, masses: atomMasses(top).masses };
+    const central = (name) => centralAtom(top.atoms, groups.find(g => g.name === name).atoms, top.box);
+    const stage = (c) => byKey(resolveWorkflow(liquid({
+      index: { groups: groups.map(g => g.name), natoms: top.atoms.length },
+      structure,
+      stages: { em: { on: false }, nvt: { on: false }, npt: { on: false }, prod: { on: false },
+        pull: { on: true, ensemble: 'NVT', pull: { group1: c.g1, group2: c.g2, dim: c.dim || 'Y Y Y', geometry: c.geometry || 'distance', vec: c.vec || '0 0 1',
+          pbcatom1: c.pbcatom1 ?? central(c.g1), pbcatom2: central(c.g2) } } },
+      overrides: { pull: { nsteps: '10', ...(c.over || {}) } }
+    }))).pull;
+    const cases = [
+      ...groups.slice(3).map(g => ({ g1: 'M0', g2: g.name })),
+      { g1: 'M0', g2: 'M4', dim: 'Y N Y' },
+      { g1: 'Slab', g2: 'M0' },
+      { g1: 'Slab', g2: 'M0', dim: 'N N Y' },
+      { g1: 'Slab', g2: 'M0', dim: 'Y Y N' },
+      { g1: 'Slab', g2: 'M5', dim: 'Y Y Y', geometry: 'direction', vec: '1 1 0' },
+      { g1: 'Slab', g2: 'M0', geometry: 'direction', vec: '0 0 1' },
+      { g1: 'M0', g2: 'M6', geometry: 'direction', vec: '1 1 0', over: { 'pull-coord1-geometry': 'direction-periodic' } },
+      // The slab's reach from its reference atom, as grompp checks it.
+      { g1: 'Slab', g2: 'M0', pbcatom1: 0 },
+      { g1: 'Slab', g2: 'M0', dim: 'N N Y', pbcatom1: 0 },
+      { g1: 'Slab', g2: 'M0', over: { 'pull-pbc-ref-prev-step-com': 'no' } }
+    ];
+    const seen = { stops: 0, passes: 0, reach: 0 };
+    for (const [i, c] of cases.entries()) {
+      const p = stage(c);
+      fs.writeFileSync(path.join(d, 'pull.mdp'), p.text);
+      const r = sh(d, `${GMX} grompp -f pull.mdp -c system.gro -p topol.top -n index.ndx -o pull.tpr -maxwarn ${p.maxwarn}`);
+      const out = `${r.stdout}${r.stderr}`;
+      const label = `${i}: ${JSON.stringify(c)}`;
+      const gromppFar = /Distance between pull groups/.test(out);
+      const gromppReach = /centrally\s+placed\s+atom|pull-pbc-ref-prev-step-com\s+option\s+to\s+yes/.test(out);
+      const ids = p.errors.map(e => e.id);
+      expect([label, ids.includes('pull-distance'), ids.includes('pull-pbcatom')]).toEqual([label, gromppFar, gromppReach]);
+      // Nothing else in the way: grompp passes exactly when the page says so.
+      expect([label, r.status === 0]).toEqual([label, p.errors.length === 0]);
+      if (r.status === 0) {
+        // grompp prints where the coordinate starts; the page works it out alike.
+        const start = /^\s*\d+\s+\d+\s+-?\d+\s+(-?[\d.]+) nm/m.exec(out);
+        expect([label, Math.abs(Number(start[1]) - p.pullStart.coords[0].value) < 0.0015]).toEqual([label, true]);
+        seen.passes += 1;
+      } else if (gromppFar) {
+        const printed = Number(/Distance between pull groups \d+ and \d+ \(([\d.]+) nm\)/.exec(out)[1]);
+        expect([label, Math.abs(printed - p.pullStart.coords[0].pairs[0].distance) < 0.0015]).toEqual([label, true]);
+        expect(p.issues.find(x => x.id === 'pull-distance').assumes).toMatch(/system\.gro/);
+        seen.stops += 1;
+      }
+      if (gromppReach) seen.reach += 1;
+    }
+    // The sweep reaches both sides of the limit, and the reach check.
+    expect(seen.stops).toBeGreaterThanOrEqual(3);
+    expect(seen.passes).toBeGreaterThanOrEqual(3);
+    expect(seen.reach).toBeGreaterThanOrEqual(2);
+  }, 180000);
 
   test('GROMOS with all bonds rigid, as the page now writes it: grompp passes and mdrun runs', () => {
     const d = fs.mkdtempSync(path.join(os.tmpdir(), 'stemkit-gx-'));

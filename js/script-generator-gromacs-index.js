@@ -12,7 +12,7 @@
 
 import {
   readGromacsStructure, defaultGroups, suggestGroups, customGroup, writeNdx, describeGroups,
-  checkGroupCoverage, checkMdpGroups, findIndexGroup, sanitiseGroupName, isValidGroupName
+  checkGroupCoverage, checkMdpGroups, findIndexGroup, sanitiseGroupName, isValidGroupName, atomMasses
 } from '../src/core/gromacs-ndx.js';
 import { parseMdp } from '../src/core/gromacs-mdp.js';
 import { centralAtom } from './script-generator-gromacs-model.js';
@@ -75,6 +75,18 @@ export function createGromacsIndex(ctx, hooks) {
     const atoms = all[i].atoms;
     if (!centres.has(atoms)) centres.set(atoms, centralAtom(s.top.atoms, atoms, s.top.box));
     return centres.get(atoms);
+  }
+
+  /* The structure as grompp's set_pull_init sees it (checkMdp's
+     context.structure): coordinates, box, the index's groups and masses
+     from the elements, the topology being out of reach. */
+  function pullStructure() {
+    if (!loaded()) return null;
+    const m = atomMasses(s.top);
+    return {
+      name: s.fileName, atoms: s.top.atoms, box: s.top.box, groups: groups(), masses: m.masses,
+      massNote: 'atom masses from the elements (the topology\'s may differ a little)'
+    };
   }
 
   /* ---------------------------------------------------------------- *
@@ -420,6 +432,7 @@ export function createGromacsIndex(ctx, hooks) {
   return {
     loaded, natoms, groups, recommendation, coverage, renderChecks,
     centralAtom: centralAtomOf,
+    pullStructure,
     names: () => groups().map(g => g.name),
     ndxText: () => writeNdx(groups()),
     fileName: () => s.fileName,

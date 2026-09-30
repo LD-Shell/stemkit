@@ -335,6 +335,33 @@ function residueNumberOf(atom) {
 }
 
 /**
+ * Whether CRYST1 cell lengths (Å) are the PDB's placeholder for "no unit
+ * cell": the wwPDB format gives a structure not determined by crystallography
+ * a = b = c = 1 Å, and PyMOL, Open Babel and many modelling programs write
+ * that line for any structure. Taken as a real cell it is 0.1 nm wide, so
+ * measuring through it puts every atom within reach of every other.
+ *
+ * @param {number} a - Cell length a, Å.
+ * @param {number} b
+ * @param {number} c
+ * @returns {boolean}
+ */
+export function isPlaceholderCell(a, b, c) {
+  return [a, b, c].every(x => Math.abs(Number(x) - 1) < 5e-4);
+}
+
+/**
+ * What a reader says when it drops a placeholder cell. GROMACS does not drop
+ * it (read_cryst1 in pdbio.cpp takes the numbers as they stand): gmx editconf
+ * writes the 0.1 nm box back out, gmx select measures through it, and grompp
+ * stops because the cut-off is longer than half the box.
+ */
+export const PLACEHOLDER_CELL_WARNING = 'CRYST1 gives a cell of 1 Å (1.000 1.000 1.000), the PDB\'s way of saying ' +
+  'there is no unit cell, as PyMOL and many other programs write it: it is read as no box. GROMACS takes it as a ' +
+  'real box 0.1 nm wide, so gmx select finds every atom within reach of every other and grompp stops (the cut-off ' +
+  'is longer than half the box): set the real box first, with gmx editconf -box or -d.';
+
+/**
  * Parse a PDB file.
  *
  * Fields are read by column position per the PDB v3.3 specification, with two
@@ -353,7 +380,8 @@ function residueNumberOf(atom) {
  *
  * CRYST1 unit-cell lengths, when present, are converted from ångström to
  * nanometre so that box data is stored in a single consistent unit regardless
- * of source.
+ * of source. A cell of 1 Å ({@link isPlaceholderCell}) is the format's
+ * placeholder for none, and gives no box and a warning.
  *
  * @param {string} text
  * @param {{models?:'first'|'all'}} [options] - `models` chooses between the
@@ -413,7 +441,13 @@ export function parsePDB(text, options = {}) {
       const alpha = safeFloat(line.substring(33, 40));
       const beta = safeFloat(line.substring(40, 47));
       const gamma = safeFloat(line.substring(47, 54));
-      if (![a, b, c].some(Number.isNaN)) {
+      if (![a, b, c].some(Number.isNaN) && isPlaceholderCell(a, b, c)) {
+        // The cell of a structure that has none: no box, rather than one
+        // 1 Å wide that every periodic measure would wrap through.
+        box = null;
+        boxVectors = null;
+        if (!warnings.includes(PLACEHOLDER_CELL_WARNING)) warnings.push(PLACEHOLDER_CELL_WARNING);
+      } else if (![a, b, c].some(Number.isNaN)) {
         box = [a / 10, b / 10, c / 10];
         const ang = [alpha, beta, gamma].map(v => (Number.isNaN(v) ? 90 : v));
         if (ang.some(v => Math.abs(v - 90) > 1e-3)) {

@@ -134,7 +134,10 @@ export function createGromacsTab(ctx) {
       hasIndexFile: !!val('gmxIndex'),
       indexLost: lostIndex(),
       index: index.loaded() ? { groups: index.names(), natoms: index.natoms() } : null,
-      box: index.box()
+      box: index.box(),
+      // The coordinates and groups grompp's pull code works from, for the
+      // check of how far apart the pull groups start.
+      structure: index.pullStructure()
     };
   }
 
@@ -459,8 +462,11 @@ export function createGromacsTab(ctx) {
   function issueLine(i) {
     const s = SEVERITY[i.severity] || SEVERITY.note;
     const where = i.source === 'mdrun' ? ' (mdrun)' : i.source === 'advice' ? ' (advice)' : '';
+    // The pull checks measure the structure loaded under Index groups, which
+    // is not what grompp reads for a later stage: say what they went by.
+    const assumed = i.assumes && /^pull-/.test(i.id) ? ` <span class="gx-opt-note">Assumed: ${esc(i.assumes)}.</span>` : '';
     return `<p class="gx-issue gx-issue-${i.severity}"><i class="fa-solid ${s.icon}" aria-hidden="true"></i><span><span class="sr-only">${s.label}${where}: </span>${esc(i.message)}` +
-      `${i.url ? ` ${link(i.url, `<code>${esc(i.option || 'Manual')}</code>`)}` : ''}</span></p>`;
+      `${i.url ? ` ${link(i.url, `<code>${esc(i.option || 'Manual')}</code>`)}` : ''}${assumed}</span></p>`;
   }
 
   function renderStages(wf) {
@@ -715,7 +721,10 @@ export function createGromacsTab(ctx) {
     if (!ui.explainCache.has(f.text)) {
       const p = f.plan;
       const context = { posres: p.posres, forceField: plan().forceField.id, system: plan().forceField.resolution === 'coarse-grained' ? 'coarse-grained' : 'all-atom' };
-      if (index.loaded()) context.indexGroups = index.names();
+      if (index.loaded()) {
+        context.indexGroups = index.names();
+        context.structure = index.pullStructure();
+      }
       ui.explainCache.set(f.text, explainMdp(f.text, { context }));
     }
     return ui.explainCache.get(f.text);

@@ -10,9 +10,9 @@ import {
   findGroupMakeNdx, writeNdx, parseNdx, isValidGroupName, sanitiseGroupName, findIndexGroup,
   mergeIndexGroups, renameIndexGroup, checkGroupCoverage, checkMdpGroups, customGroup, orGroups,
   andGroups, notGroup, systemComposition, recommendTcGrps, suggestGroups, describeGroups,
-  NUCLEIC_NAMES, GLYCAN_NAMES
+  NUCLEIC_NAMES, GLYCAN_NAMES, atomMasses
 } from '../src/core/gromacs-ndx.js';
-import { parseGRO } from '../src/core/structure.js';
+import { parseGRO, parsePDB } from '../src/core/structure.js';
 import { largeSystemGro } from './fixtures/gromacs-ndx/large-system.mjs';
 import { periodicSystemGro } from './fixtures/gromacs-ndx/periodic-system.mjs';
 
@@ -184,6 +184,34 @@ describe('reading structures as GROMACS does', () => {
     const top = toGromacsStructure([{ resName: 'SOL', resSeq: 1, atomName: 'OW', x: 10, y: 0, z: 0 }], { unit: 'A' });
     expect(top.atoms[0].x).toBe(1);
     expect(toGromacsStructure(top)).toBe(top);
+  });
+
+  // PyMOL and many other programs write the PDB's "no unit cell"; GROMACS
+  // reads it as a box 0.1 nm wide, which every periodic distance wraps in.
+  const cell = (line) => `${line ? `${line}\n` : ''}` + [
+    'HETATM    1  OW  SOL A   1       0.500   0.500   0.500  1.00  0.00           O',
+    'HETATM    2  OW  SOL A   2      19.500  19.500   0.500  1.00  0.00           O',
+    'HETATM    3  OW  SOL A   3      10.000  10.000  10.000  1.00  0.00           O',
+    'HETATM    4  C1  LIG A   4       0.200   0.200   0.200  1.00  0.00           C', 'END'].join('\n');
+  test('take a CRYST1 of 1 Å as no box, and say so', () => {
+    const top = readGromacsStructure(cell('CRYST1    1.000    1.000    1.000  90.00  90.00  90.00 P 1           1'), 'x.pdb');
+    expect(top.box).toBeNull();
+    expect(top.warnings.join(' ')).toMatch(/CRYST1 gives a cell of 1 Å.*read as no box.*0\.1 nm wide.*gmx editconf -box or -d/);
+    // Measured through a 0.1 nm box every atom would be within reach.
+    expect(customGroup(top, { resname: 'SOL', within: { distance: 0.3, of: 'LIG' } }).atoms).toEqual([1]);
+    // A real cell is kept, and read the same by way of core/structure.js.
+    const real = readGromacsStructure(cell('CRYST1   20.000   20.000   20.000  90.00  90.00  90.00 P 1           1'), 'x.pdb');
+    expect(real.box).toEqual([[2, 0, 0], [0, 2, 0], [0, 0, 2]]);
+    expect(real.warnings).toEqual([]);
+    expect(customGroup(real, { resname: 'SOL', within: { distance: 0.3, of: 'LIG' } }).atoms).toEqual([1, 2]);
+    expect(toGromacsStructure(parsePDB(cell('CRYST1    1.000    1.000    1.000  90.00  90.00  90.00 P 1           1'))).box).toBeNull();
+  });
+
+  test('atom masses from the elements, nothing for virtual sites', () => {
+    const tip4p = gro([['SOL', [['OW'], ['HW1'], ['HW2'], ['MW']]], ['NA', [['NA']]], ['XYZ', [['Q1']]]]);
+    const { masses, unknown } = atomMasses(readGromacsStructure(tip4p, 'gro'));
+    expect(masses).toEqual([15.999, 1.008, 1.008, 0, 22.98976928, 0]);
+    expect(unknown).toBe(1);
   });
 });
 

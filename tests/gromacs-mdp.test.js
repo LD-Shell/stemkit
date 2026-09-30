@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import {
   MDP_RELEASE, MDP_MANUAL, normaliseName, canonicalName, mdpDocUrl, optionInfo, sectionsInOrder, listOptions,
   obsoleteOptions, searchOptions, loadMdpDocs, parseMdp, mdpValue, checkMdp, explainMdp,
-  psToSteps, nsToSteps, stepsToPs, formatDuration,
+  psToSteps, nsToSteps, stepsToPs, formatDuration, pullStart,
   FORCE_FIELDS, THERMOSTATS, BAROSTATS, STAGES, SYSTEM_TYPES, defaultSettings, generateMdp, generateWorkflow
 } from '../src/core/gromacs-mdp.js';
 
@@ -949,6 +949,137 @@ describe('agreement with grompp on corner cases', () => {
       .toContain('error:group-unknown');
     expect(ids(`${B}density-guided-simulation-group = Ligand\n`, { context: { indexGroups: ['System'] } })).not.toContain('error:group-unknown');
     expect(ids(pull.replace('pull-group2-name = LIG\n', ''))).toContain('error:group-unset');
+  });
+});
+
+/*
+ * set_pull_init (readpull.cpp) on the coordinates grompp reads: the groups'
+ * centres through the periodic boundary, their reach from the reference
+ * atom, and the stop when a coordinate's groups start further apart than
+ * 0.49 of the box along the dimensions it counts (pull.cpp). Real grompp
+ * decides the same cases in tests/gromacs-ui.test.js (GMX_BIN).
+ */
+describe('pull groups in a structure (set_pull_init)', () => {
+  const B = 'integrator = md\ndt = 0.002\nnsteps = 1000\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nconstraints = h-bonds\n' +
+    'tcoupl = V-rescale\ntc-grps = System\ntau-t = 0.1\nref-t = 300\n';
+  const pull = (over = {}) => {
+    const o = { geometry: 'distance', dim: 'Y Y Y', vec: '0 0 0', g1: 'A', g2: 'B', extra: '', ...over };
+    return `${B}pull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = ${o.g1}\npull-group2-name = ${o.g2}\n` +
+      `pull-coord1-type = umbrella\npull-coord1-geometry = ${o.geometry}\npull-coord1-groups = 1 2\npull-coord1-dim = ${o.dim}\n` +
+      `pull-coord1-vec = ${o.vec}\npull-coord1-start = yes\npull-coord1-k = 1000\n${o.extra}`;
+  };
+  // Two pairs of atoms: A centred at (0.55, 0.5, 1), B d further along x
+  // (and dz along z), in a box of 4 x 4 x 10 nm unless one is given.
+  const structure = (d, { dz = 0, box = [[4, 0, 0], [0, 4, 0], [0, 0, 10]], masses, extra = [] } = {}) => {
+    const atoms = [{ x: 0.5, y: 0.5, z: 1 }, { x: 0.6, y: 0.5, z: 1 }, { x: 0.5 + d, y: 0.5, z: 1 + dz }, { x: 0.6 + d, y: 0.5, z: 1 + dz }, ...extra];
+    const groups = [{ name: 'A', atoms: [1, 2] }, { name: 'B', atoms: [3, 4] }];
+    if (extra.length) groups.push({ name: 'Wide', atoms: extra.map((_, i) => 5 + i) });
+    return { name: 'test.gro', atoms, box, groups, ...(masses ? { masses } : {}) };
+  };
+  const check = (text, s, ctx = {}) => checkMdp(text, { context: { posres: false, structure: s, ...ctx } });
+  const issue = (r, id) => r.issues.find(i => i.id === id);
+
+  test('groups closer than 0.49 of the box pass, and their distance is where the coordinate starts', () => {
+    const r = check(pull(), structure(1.9));
+    expect(issue(r, 'pull-distance')).toBeUndefined();
+    const start = pullStart(r.settings, structure(1.9));
+    expect(start.coords[0]).toMatchObject({ checked: true, tooFar: false });
+    expect(start.coords[0].value).toBeCloseTo(1.9, 5);
+    expect(start.coords[0].limit).toBeCloseTo(0.49 * 4, 5);
+    expect(start.groups.map(g => g.com[0])).toEqual([expect.closeTo(0.55, 5), expect.closeTo(2.45, 5)]);
+  });
+
+  test('further apart, grompp stops, with its words, the reason and the ways out', () => {
+    const r = check(pull(), structure(1.98, { dz: 1.5 }));
+    const i = issue(r, 'pull-distance');
+    expect(i).toMatchObject({ severity: 'error', source: 'grompp', option: 'pull-coord1-dim' });
+    expect(r.grompp.passes).toBe(false);
+    expect(i.message).toMatch(/^Distance between pull groups 1 and 2 \(2\.48 nm\) is larger than 0\.49 times the box size \(1\.96 nm\), and grompp stops\./);
+    expect(i.message).toMatch(/pull-coord1-dim = Y Y Y counts x, y and z, and the box is 4 x 4 x 10 nm: the centres of mass are apart by 1\.98 nm along x, 0 nm along y and 1\.5 nm along z\./);
+    // Keeping z leaves 1.5 nm of 4.9 allowed; keeping x alone does not pass.
+    expect(i.message).toMatch(/Count only the dimensions you pull along \(pull-coord1-dim = N N Y puts them 1\.5 nm apart, within the 4\.9 nm that allows\)/);
+    expect(i.message).toMatch(/make the box at least 5\.07 nm along x and y/);
+    expect(i.message).toMatch(/pull along a vector \(pull-coord1-geometry = direction/);
+    expect(i.assumes).toMatch(/coordinates and box of test\.gro, as grompp reads them with -c, and equal atom masses/);
+    // grompp stops there: nothing after set_pull_init is reported.
+    expect(i).toHaveProperty('fatal', true);
+  });
+
+  test('only the counted dimensions, through the periodic boundary', () => {
+    // Along x only the pair is too far; counting y and z only, it is not.
+    expect(issue(check(pull({ dim: 'N Y Y' }), structure(1.98)), 'pull-distance')).toBeUndefined();
+    // 2.1 nm apart along x is 1.9 nm through the boundary.
+    expect(issue(check(pull(), structure(2.1)), 'pull-distance')).toBeUndefined();
+    // A distance along x alone suggests no other dimension: nothing would be left.
+    expect(issue(check(pull(), structure(1.98)), 'pull-distance').message).not.toMatch(/Count only/);
+  });
+
+  test('direction counts the dimensions of its vector; direction-periodic has no limit', () => {
+    const far = structure(1.98, { dz: 4 });
+    expect(issue(check(pull({ geometry: 'direction', vec: '0 0 1' }), far), 'pull-distance')).toBeUndefined();
+    const i = issue(check(pull({ geometry: 'direction', vec: '1 0 0' }), far), 'pull-distance');
+    expect(i.message).toMatch(/with pull-coord1-vec = 1 0 0 counts x,/);
+    expect(i.message).toMatch(/pull-coord1-geometry = direction-periodic, as grompp suggests/);
+    const periodic = check(pull({ geometry: 'direction-periodic', vec: '1 0 0' }), far);
+    expect(issue(periodic, 'pull-distance')).toBeUndefined();
+    expect(pullStart(periodic.settings, far).coords[0]).toMatchObject({ checked: true, limit: Infinity });
+    // A signed value along the vector.
+    expect(pullStart(check(pull({ geometry: 'direction', vec: '0 0 -2' }), far).settings, far).coords[0].value).toBeCloseTo(-4, 5);
+  });
+
+  test('a triclinic box limits by the box vectors the counted dimensions reach', () => {
+    const box = [[5, 0, 0], [0, 5, 0], [1.5, 1.5, 3]];
+    const limit = (dim) => pullStart(checkMdp(pull({ dim })).settings, structure(0.5, { box })).coords[0].limit;
+    expect(limit('N N Y')).toBeCloseTo(0.49 * 3, 5);
+    expect(limit('Y Y Y')).toBeCloseTo(0.49 * Math.sqrt(9 + 2.25 + 2.25), 5);
+    expect(limit('Y Y N')).toBeCloseTo(0.49 * 5, 5);
+  });
+
+  test('without periodic boundaries nothing is too far', () => {
+    const r = check(pull({ extra: 'pbc = no\n' }), structure(1.98, { dz: 4 }));
+    expect(issue(r, 'pull-distance')).toBeUndefined();
+  });
+
+  test('centres are weighted by the masses given, or alike', () => {
+    const s = structure(1, { masses: [1, 1, 1, 3] });
+    const com = (ctx) => pullStart(checkMdp(pull()).settings, s, ctx).groups[1].com[0];
+    expect(com()).toBeCloseTo(1.575, 5);
+    expect(com({ equalMasses: true })).toBeCloseTo(1.55, 5);
+    const r = check(pull(), { ...s, massNote: 'masses from the elements' }, { system: 'all-atom' });
+    expect(pullStart(r.settings, s).coords[0].value).toBeCloseTo(1.025, 5);
+  });
+
+  test('a group reaching further than a quarter of the box from its reference atom', () => {
+    // Four atoms spread along x: the middle one by number is 1.2, and the
+    // last, 2.0 nm from it, is further than a quarter of the 4 nm box.
+    const extra = [0.2, 1.2, 2.2, 3.2].map(x => ({ x, y: 2, z: 5 }));
+    const s = structure(1, { extra });
+    const wide = (more) => check(pull({ g1: 'Wide', dim: 'Y N N', extra: more }), s);
+    const first = issue(wide(''), 'pull-pbcatom');
+    expect(first).toMatchObject({ severity: 'error', option: 'pull-group1-name' });
+    expect(first.message).toMatch(/Pull group 1 \(Wide\) reaches further than a quarter of the box from its reference atom, the middle one by number \(atom 6\)/);
+    expect(first.message).toMatch(/a centrally placed atom should be chosen as pbcatom/);
+    // A chosen atom still needs the previous step's centre to follow.
+    const chosen = issue(wide('pull-group1-pbcatom = 5\n'), 'pull-pbcatom');
+    expect(chosen).toMatchObject({ option: 'pull-pbc-ref-prev-step-com' });
+    expect(issue(wide('pull-group1-pbcatom = 5\npull-pbc-ref-prev-step-com = yes\n'), 'pull-pbcatom')).toBeUndefined();
+    // Along a dimension it does not reach, no reference is needed.
+    expect(issue(check(pull({ g1: 'Wide', dim: 'N N Y' }), s), 'pull-pbcatom')).toBeUndefined();
+    // With the previous step's centre, the second sum starts from the first
+    // (0.7 nm, from atom 5 at 0.2); grompp still finds the group wide, but
+    // lets it pass.
+    const r = pullStart(checkMdp(pull({ g1: 'Wide', dim: 'Y N N', extra: 'pull-group1-pbcatom = 5\npull-pbc-ref-prev-step-com = yes\n' })).settings, s);
+    expect(r.groups[0]).toMatchObject({ mode: 'prev-step-com', pbcAtom: 5, obeysPbc: false });
+    expect(r.groups[0].com[0]).toBeCloseTo(0.7, 5);
+  });
+
+  test('nothing is checked without the structure, a group of it, or a box', () => {
+    expect(issue(checkMdp(pull()), 'pull-distance')).toBeUndefined();
+    expect(pullStart(checkMdp(pull()).settings, null)).toBeNull();
+    expect(pullStart(checkMdp(pull()).settings, { ...structure(1.98), box: null })).toBeNull();
+    const missing = pullStart(checkMdp(pull({ g2: 'LIG' })).settings, structure(1.98));
+    expect(missing.coords[0].checked).toBe(false);
+    expect(pullStart(checkMdp(B).settings, structure(1.98))).toBeNull();
   });
 });
 

@@ -719,7 +719,10 @@ export function mdpValue(parsed, name) {
  *   warns about any other -D in define), `forceField` (a key of {@link FORCE_FIELDS}: GROMOS topologies
  *   always draw a grompp warning, and AMBER, CHARMM and OPLS a note with
  *   constraints = all-bonds), `indexGroups` (names; when given, group names
- *   are checked).
+ *   are checked), `structure` (the coordinates grompp reads with -c and the
+ *   index groups built from them, as {@link pullStart} takes them: with pull
+ *   = yes, the checks set_pull_init makes of the pull groups and of how far
+ *   apart they start).
  * @param {number} [options.maxwarn=0] - grompp -maxwarn.
  * @returns {{issues:MdpIssue[], parsed:ReturnType<typeof parseMdp>,
  *   grompp:{passes:boolean, errors:number, warnings:number, notes:number},
@@ -3045,8 +3048,73 @@ class Checker {
     }
   }
 
+  /*
+   * set_pull_init on the structure given: a group reaching further than a
+   * quarter of the box from its reference atom is an error, and groups
+   * further apart than 0.49 of the box along the counted dimensions stop
+   * grompp at once (gmx_fatal in low_get_pull_coord_dr, pull.cpp). Returns
+   * true when grompp stops there.
+   */
+  pullReach() {
+    const s = this.ctx.structure;
+    // Martini beads are 72, 54 or 36 u whatever their names say.
+    const r = pullStart(this.v, s, { equalMasses: this.ctx.system === 'coarse-grained' });
+    if (!r) return false;
+    const masses = this.ctx.system === 'coarse-grained' || !Array.isArray(s.masses) ? 'equal atom masses'
+      : (s.massNote || 'the atom masses given');
+    const assumes = `the coordinates and box of ${s.name || 'the structure given'}, as grompp reads them with -c, and ${masses}`;
+    for (const g of r.groups) {
+      if (g.obeysPbc !== false) continue;
+      const atom = `pull-group${g.group}-pbcatom`;
+      // Only a reference the user did not choose, or one without the
+      // previous step's centre to follow, is refused (readpull.cpp).
+      if (g.pbcatomInput === 0) {
+        this.add('error', 'pull-pbcatom', `pull-group${g.group}-name`, `Pull group ${g.group} (${g.name}) reaches further than a quarter ` +
+          `of the box from its reference atom, the middle one by number (atom ${g.pbcAtom}), and grompp stops ("a centrally placed atom ` +
+          `should be chosen as pbcatom"). Set ${atom} to an atom near the group's centre, with pull-pbc-ref-prev-step-com = yes.`, { assumes });
+      } else if (!r.prevStepCom) {
+        this.add('error', 'pull-pbcatom', 'pull-pbc-ref-prev-step-com', `Pull group ${g.group} (${g.name}) reaches further than a quarter ` +
+          `of the box from its reference atom (${atom} = ${g.pbcAtom}), and grompp stops. Set pull-pbc-ref-prev-step-com = yes: the ` +
+          'periodic images are then taken from the centre of mass of the step before.', { assumes });
+      }
+    }
+    const f = (x) => String(Number(x.toFixed(2)));
+    for (const c of r.coords) {
+      const pair = c.pairs.find(x => x.tooFar);
+      if (!pair) continue;
+      const p = (o) => `pull-coord${c.coord}-${o}`;
+      const directional = c.geometry === 'DIRECTION';
+      const counted = [0, 1, 2].filter(d => c.dim[d] && !(directional && !c.vec[d]));
+      const apart = counted.map(d => `${f(Math.abs(pair.dr[d]))} nm along ${'xyz'[d]}`);
+      const box = r.box.map((row, d) => f(row[d]));
+      const fixes = [];
+      if (pair.fewerDims) {
+        fixes.push(`count only the dimensions you pull along (${p('dim')} = ${pair.fewerDims.dim} puts them ` +
+          `${f(pair.fewerDims.distance)} nm apart, within the ${f(pair.fewerDims.limit)} nm that allows)`);
+      }
+      const need = pair.distance / 0.49;
+      const short = counted.filter(d => d < r.npbcdim && r.box[d][d] < need);
+      if (short.length) fixes.push(`make the box at least ${f(need + 0.005)} nm along ${andList(short.map(d => 'xyz'[d]))}`);
+      if (c.geometry === 'DISTANCE') fixes.push(`pull along a vector (${p('geometry')} = direction, with ${p('vec')}), which counts only its own dimensions`);
+      if (directional) fixes.push(`use ${p('geometry')} = direction-periodic, as grompp suggests`);
+      const fix = fixes.length ? ` ${fixes[0][0].toUpperCase()}${andList(fixes, 'or').slice(1)}.` : '';
+      this.add('error', 'pull-distance', p('dim'), `Distance between pull groups ${pair.groups[0]} and ${pair.groups[1]} ` +
+        `(${f(pair.distance)} nm) is larger than 0.49 times the box size (${f(c.limit)} nm), and grompp stops. ` +
+        `${p('dim')} = ${c.dim.map(x => (x ? 'Y' : 'N')).join(' ')}${directional ? ` with ${p('vec')} = ${ctrim(this.v[p('vec')])}` : ''} ` +
+        `counts ${andList(counted.map(d => 'xyz'[d]))}, and the box is ${box.join(' x ')} nm: the centres of mass are ` +
+        `apart by ${andList(apart)}.${fix}`, { assumes, fatal: true });
+      return true;
+    }
+    return false;
+  }
+
   finalChecks() {
     const v = this.v;
+    // The values grompp settled on, set before any check below can stop it.
+    v.nsttcouple = this.nsttcouple;
+    v.nstpcouple = this.nstpcouple;
+    v.rlist = this.rlist;
+    v['nh-chain-length'] = this.nhchain;
     const nk = [v['fourier-nx'], v['fourier-ny'], v['fourier-nz']];
     if (COULOMB.FULL(this.ct) || this.vt === 'PME') {
       if (!nk.every(x => x > 0) && nk.every(x => x !== 0)) {
@@ -3059,6 +3127,10 @@ class Checker {
         return;
       }
     }
+    // set_pull_init (readpull.cpp) works the pull groups out from the
+    // coordinates grompp reads, after the PME grid and before AWH: with the
+    // structure at hand, its checks can be made too.
+    if (this.gate.pull && this.ctx.structure && this.pullReach()) return;
     // AWH registers its dimensions with the pull code (set_pull_init and
     // setStateDependentAwhParams): each must be an external potential of AWH.
     if (this.gate.awh && this.gate.pull) {
@@ -3105,11 +3177,346 @@ class Checker {
       this.add('error', 'sc-r-power', 'sc-r-power', `sc-r-power = ${v['sc-r-power']}: only 6 is supported (48 was removed), whether or not ` +
         'free-energy or soft-core is on. grompp stops as it writes the .tpr file. Remove the line or set it to 6.', { fatal: true });
     }
-    v.nsttcouple = this.nsttcouple;
-    v.nstpcouple = this.nstpcouple;
-    v.rlist = this.rlist;
-    v['nh-chain-length'] = this.nhchain;
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * Pull groups in a structure
+ * ------------------------------------------------------------------ */
+
+/* c_pullGroupSmallGroupThreshold (pull.h): how far from its reference atom,
+   in halves of the box, grompp lets a pull group reach. */
+const PULL_GROUP_REACH = 0.5;
+
+/* "a, b and c" */
+function andList(items, last = 'and') {
+  return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} ${last} ${items[items.length - 1]}`;
+}
+
+const norm2 = (d) => d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+
+/*
+ * pbc_dx (src/gromacs/pbcutil/pbc.cpp): the vector from b to a through the
+ * periodic box, shifted one box vector at a time from the last periodic
+ * dimension down. A triclinic box can leave a shorter image next door,
+ * which GROMACS then looks for among its neighbours; so does this.
+ *
+ * `box` holds the box as grompp stores it, in single precision. With
+ * `single`, the arithmetic is single precision too, as pbc_dx's is in the
+ * usual mixed-precision build (pbc_dx_d, between two centres, is double):
+ * an atom half a box from the reference goes to one side or the other by
+ * the last bit, and in a lattice-built bilayer whole rows of atoms sit
+ * there, which moves the centre by hundredths of a nanometre.
+ */
+function pbcDx(box, npbcdim, single = false) {
+  const r = single ? Math.fround : (x) => x;
+  const tric = [[1, 0], [2, 0], [2, 1]].some(([i, j]) => i < npbcdim && box[i][j] !== 0);
+  const shifts = [];
+  if (tric) {
+    const range = (d) => (d < npbcdim ? [-1, 0, 1] : [0]);
+    for (const i of range(0)) for (const j of range(1)) for (const k of range(2)) {
+      if (i || j || k) shifts.push([0, 1, 2].map(m => r(i * box[0][m] + j * box[1][m] + k * box[2][m])));
+    }
+  }
+  return (a, b) => {
+    const dx = [r(a[0] - b[0]), r(a[1] - b[1]), r(a[2] - b[2])];
+    for (let i = npbcdim - 1; i >= 0; i--) {
+      const L = box[i][i];
+      const half = Math.fround(0.5 * L);
+      // Far outside the box, the whole boxes in one go rather than a loop.
+      if (Math.abs(dx[i]) > 4 * L) {
+        const k = Math.round(dx[i] / L);
+        for (let j = i; j >= 0; j--) dx[j] = r(dx[j] - k * box[i][j]);
+      }
+      while (dx[i] > half) for (let j = i; j >= 0; j--) dx[j] = r(dx[j] - box[i][j]);
+      while (dx[i] <= -half) for (let j = i; j >= 0; j--) dx[j] = r(dx[j] + box[i][j]);
+    }
+    if (!tric) return dx;
+    let best = dx;
+    let d2 = norm2(dx);
+    for (const s of shifts) {
+      const t = [r(dx[0] + s[0]), r(dx[1] + s[1]), r(dx[2] + s[2])];
+      const t2 = norm2(t);
+      if (t2 < d2) { best = t; d2 = t2; }
+    }
+    return best;
+  };
+}
+
+/*
+ * max_pull_distance2 (pull.cpp): a quarter of the squared length of the
+ * shortest box vector among the dimensions a coordinate counts, those of
+ * pull-coord-dim or, pulling along a vector, those the vector has.
+ */
+function pullLimit2(box, npbcdim, directional, dim, vec) {
+  const r = Math.fround;
+  let max = Infinity;
+  for (let m = 0; m < npbcdim; m++) {
+    let d2 = r(box[m][m] * box[m][m]);
+    if (directional) {
+      if (!vec[m]) continue;
+      for (let d = m + 1; d < 3; d++) d2 = r(d2 - r(box[d][m] * box[d][m]));
+    } else {
+      if (!dim[m]) continue;
+      for (let d = 0; d < m; d++) if (dim[d]) d2 = r(d2 + r(box[m][d] * box[m][d]));
+    }
+    max = Math.min(max, d2);
+  }
+  return Number.isFinite(max) ? r(0.25 * max) : Infinity;
+}
+
+/**
+ * @typedef {object} PullStructure
+ * What grompp reads besides the .mdp for set_pull_init: the coordinates
+ * (-c) and the index groups the pull group names are looked up in (-n).
+ * @property {Array<{x:number, y:number, z:number}>} atoms - In file order, nm.
+ * @property {number[][]|null} box - Box vectors as rows, nm.
+ * @property {Array<{name:string, atoms:number[]}>} groups - Index groups, atoms from 1.
+ * @property {number[]} [masses] - One per atom; equal masses when left out.
+ * @property {string} [name] - The file, for messages.
+ * @property {string} [massNote] - Where the masses come from, for messages.
+ */
+
+/**
+ * The pull groups' centres of mass and the pull coordinates at the start,
+ * as grompp works them out in set_pull_init
+ * (src/gromacs/gmxpreprocess/readpull.cpp) from the coordinates it reads:
+ *
+ * - A group of one atom is that atom. A larger one is summed through the
+ *   periodic boundary from its reference atom (pull-groupN-pbcatom; 0 takes
+ *   the middle atom of the group, -1 cosine weighting) and, with
+ *   pull-pbc-ref-prev-step-com = yes, summed again from the centre that
+ *   gives (pull_calc_coms and initPullComFromPrevStep, pullutil.cpp).
+ *   grompp refuses a group reaching further than a quarter of the box from
+ *   its reference, unless the reference was chosen and the previous step's
+ *   centre is followed (`obeysPbc`).
+ * - A coordinate's groups are measured through the periodic boundary along
+ *   the dimensions it counts, and grompp stops when they are further apart
+ *   than 0.49 of the box along them (low_get_pull_coord_dr, pull.cpp);
+ *   direction-periodic, and direction with an external potential, are not
+ *   limited. The cylinder and direction-relative geometries, whose reference
+ *   or vector depends on more than the groups, are not worked out.
+ *
+ * grompp uses the topology's masses; without them, `masses` (or equal
+ * masses) stand in, which moves a centre by little in a group of many atoms.
+ *
+ * @param {Object<string,*>} settings - The file's options as grompp resolved
+ *   them: `checkMdp(...).settings`.
+ * @param {PullStructure} structure
+ * @param {{equalMasses?:boolean}} [options] - Weigh every atom alike (a
+ *   coarse-grained system, whose bead masses no name gives).
+ * @returns {null|{npbcdim:number, box:number[][], prevStepCom:boolean,
+ *   groups:Array<{group:number, name:string, natoms:number, com:number[]|null,
+ *     mode:'none'|'atom'|'prev-step-com'|'cosine', pbcAtom:number, pbcatomInput:number, obeysPbc:boolean|null}>,
+ *   coords:Array<{coord:number, geometry:string, dim:number[], vec:number[], checked:boolean,
+ *     limit:number|null, value:number|null, tooFar:boolean,
+ *     pairs:Array<{groups:number[], dr:number[], distance:number, tooFar:boolean,
+ *       fewerDims:{dim:string, distance:number, limit:number}|null}>}>}}
+ *   null when pull is off, or the structure has no atoms or no box to go by.
+ *   Distances in nm; `limit` is 0.49 of the box along the counted dimensions
+ *   (Infinity when none is periodic); `value` the coordinate's value
+ *   (distance, or the projection on the vector for direction) for distance
+ *   and direction; `pbcAtom` from 1 (0 for none); `fewerDims` the counted
+ *   dimensions to keep for grompp to accept the pair, when some do.
+ */
+export function pullStart(settings, structure, options = {}) {
+  const v = settings || {};
+  const s = structure || {};
+  const atoms = Array.isArray(s.atoms) ? s.atoms : [];
+  if (v.pull !== 'yes' || !atoms.length) return null;
+  const pbcType = key(v.pbc || 'xyz');
+  if (pbcType === 'SCREW') return null;
+  const npbcdim = pbcType === 'NO' ? 0 : pbcType === 'XY' ? 2 : 3;
+  // Coordinates and box in single precision, as grompp reads them.
+  const F = Math.fround;
+  const box = [0, 1, 2].map(i => [0, 1, 2].map(j => F(Number(((s.box || [])[i] || [])[j]) || 0)));
+  // grompp clears the third box vector for pbc = xy without two walls.
+  if (pbcType === 'XY' && Number(v.nwall) !== 2) box[2] = [0, 0, 0];
+  for (let d = 0; d < npbcdim; d++) if (!(box[d][d] > 0)) return null;
+  const dx = pbcDx(box, npbcdim);
+  const dx32 = pbcDx(box, npbcdim, true);
+  const xyz = (i) => { const a = atoms[i]; return [F(Number(a.x) || 0), F(Number(a.y) || 0), F(Number(a.z) || 0)]; };
+  const equal = !!options.equalMasses || !Array.isArray(s.masses);
+  const prevStepCom = v['pull-pbc-ref-prev-step-com'] === 'yes';
+  const ngroups = Math.max(0, Math.trunc(Number(v['pull-ngroups'])) || 0);
+  const ncoords = Math.max(0, Math.trunc(Number(v['pull-ncoords'])) || 0);
+
+  // Each coordinate as grompp reads it.
+  const coords = [];
+  for (let c = 1; c <= ncoords; c++) {
+    const p = (o) => v[`pull-coord${c}-${o}`];
+    const geometry = key(p('geometry') || 'distance');
+    const need = geometry === 'DIHEDRAL' ? 6 : (geometry === 'DIRECTIONRELATIVE' || geometry === 'ANGLE') ? 4 : geometry === 'TRANSFORMATION' ? 0 : 2;
+    const dim = words(p('dim') || 'Y Y Y').slice(0, 3).map(w => (/^y/i.test(w) ? 1 : 0));
+    while (dim.length < 3) dim.push(0);
+    const raw = scanReals(p('vec'), 3);
+    const len = Math.hypot(...raw);
+    const vec = raw.length === 3 && len > 0 ? raw.map(x => x / len) : [0, 0, 0];
+    coords.push({ c, geometry, type: key(p('type') || 'umbrella'), groups: scanInts(p('groups'), need).slice(0, need), need, dim, vec,
+      origin: scanReals(p('origin'), 3) });
+  }
+
+  // The dimensions each group is pulled along (for cosine weighting) and
+  // those grompp checks its reach in (the reference group of a cylinder
+  // coordinate excepted).
+  const pulled = Array.from({ length: ngroups + 1 }, () => [0, 0, 0]);
+  const reach = Array.from({ length: ngroups + 1 }, () => [0, 0, 0]);
+  for (const co of coords) {
+    co.groups.forEach((g, gi) => {
+      if (g < 0 || g > ngroups) return;
+      for (let d = 0; d < 3; d++) {
+        if (!co.dim[d]) continue;
+        pulled[g][d] = 1;
+        if (!(co.geometry === 'CYLINDER' && gi === 0)) reach[g][d] = 1;
+      }
+    });
+  }
+
+  const lookup = (name) => {
+    const want = String(name || '').trim().toLowerCase();
+    return (Array.isArray(s.groups) ? s.groups : []).find(g => g && String(g.name).toLowerCase() === want) || null;
+  };
+  const groups = [{ group: 0, name: '', natoms: 0, com: [0, 0, 0], mode: 'none', pbcAtom: 0, pbcatomInput: -1, obeysPbc: null }];
+  for (let g = 1; g <= ngroups; g++) {
+    const name = String(v[`pull-group${g}-name`] || '').trim();
+    const pbcatomInput = Math.trunc(Number(v[`pull-group${g}-pbcatom`] ?? 0)) || 0;
+    const out = { group: g, name, natoms: 0, com: null, mode: 'none', pbcAtom: 0, pbcatomInput, obeysPbc: null };
+    groups.push(out);
+    const found = lookup(name);
+    const ind = found && Array.isArray(found.atoms) ? found.atoms.map(n => Number(n) - 1) : [];
+    out.natoms = ind.length;
+    if (!ind.length || ind.some(i => !Number.isInteger(i) || i < 0 || i >= atoms.length)) continue;
+    const weights = words(v[`pull-group${g}-weights`]).map(Number);
+    if (weights.length && (weights.length !== ind.length || weights.some(w => !Number.isFinite(w)))) continue;
+    let wm = ind.map((i, k) => F((weights.length ? weights[k] : 1) * (equal ? 1 : Math.max(0, Number(s.masses[i]) || 0))));
+    // Atoms of no known mass: weigh them alike rather than divide by zero.
+    if (!wm.some(x => x > 0)) wm = ind.map((_, k) => F(weights.length ? weights[k] : 1));
+    const total = wm.reduce((a, b) => a + b, 0);
+    if (!(total > 0)) continue;
+    // Reference atoms: a number from 1, or the middle atom of the group.
+    let pbcatom = -1;
+    if (ind.length > 1) {
+      if (pbcatomInput > 0) pbcatom = pbcatomInput - 1;
+      else if (pbcatomInput === 0) pbcatom = ind[Math.floor((ind.length - 1) / 2)];
+    }
+    if (pbcatom >= atoms.length) continue;
+    // sum_com_part: single-precision offsets from the reference, summed in
+    // double; the reference itself is single precision.
+    const sumFrom = (ref) => {
+      const sum = [0, 0, 0];
+      ind.forEach((i, k) => {
+        const d = ref ? dx32(xyz(i), ref) : xyz(i);
+        for (let m = 0; m < 3; m++) sum[m] += F(wm[k] * d[m]);
+      });
+      return [0, 1, 2].map(m => sum[m] * (1 / total) + (ref ? ref[m] : 0));
+    };
+    let ref = null;
+    if (ind.length === 1 || npbcdim === 0) {
+      // One atom, or no periodic boundary: the plain centre.
+      out.com = sumFrom(null);
+      if (ind.length > 1 && pbcatom >= 0) { out.mode = prevStepCom ? 'prev-step-com' : 'atom'; out.pbcAtom = pbcatom + 1; }
+    } else if (pbcatom >= 0) {
+      out.mode = prevStepCom ? 'prev-step-com' : 'atom';
+      out.pbcAtom = pbcatom + 1;
+      ref = xyz(pbcatom);
+      out.com = sumFrom(ref);
+      if (prevStepCom) {
+        ref = out.com.map(F);
+        out.com = sumFrom(ref);
+      }
+    } else {
+      // Cosine weighting: the centre along the one periodic dimension the
+      // group is pulled in, from the phases of its atoms (atan2_0_2pi);
+      // grompp stops for more than one, and fills in no other component.
+      out.mode = 'cosine';
+      const dims = [0, 1, 2].filter(d => d < npbcdim && pulled[g][d]);
+      if (dims.length !== 1) continue;
+      const d = dims[0];
+      const k = 2 * Math.PI / box[d][d];
+      let cs = 0;
+      let sn = 0;
+      ind.forEach((i, j) => { cs += wm[j] * Math.cos(k * xyz(i)[d]); sn += wm[j] * Math.sin(k * xyz(i)[d]); });
+      let phase = Math.atan2(sn, cs);
+      if (phase < 0) phase += 2 * Math.PI;
+      out.com = [0, 0, 0];
+      out.com[d] = phase / k;
+    }
+
+    // pullGroupObeysPbcRestrictions, from the reference the sum started
+    // from: per dimension in a rectangular box, as one distance in a
+    // triclinic one.
+    if (ref && ind.length > 1) {
+      const uses = [0, 0, 0];
+      let rect = true;
+      for (let d = 0; d < npbcdim; d++) {
+        if (!reach[g][d]) continue;
+        uses[d] = 1;
+        for (let d2 = d + 1; d2 < npbcdim; d2++) if (box[d2][d] !== 0) { uses[d2] = 1; rect = false; }
+      }
+      let margin2 = 0;
+      for (let d = 0; d < npbcdim; d++) if (uses[d]) margin2 = F(margin2 + F(PULL_GROUP_REACH * 0.25 * norm2(box[d])));
+      const margin = box.map((row, d) => F(PULL_GROUP_REACH * F(0.5 * row[d])));
+      out.obeysPbc = ind.every((i) => {
+        const d = dx32(xyz(i), ref);
+        if (rect) return [0, 1, 2].every(m => !uses[m] || (d[m] >= -margin[m] && d[m] <= margin[m]));
+        let r2 = 0;
+        for (let m = 0; m < npbcdim; m++) if (uses[m]) r2 = F(r2 + F(d[m] * d[m]));
+        return r2 <= margin2;
+      });
+    }
+  }
+
+  const out = { npbcdim, box, prevStepCom, groups: groups.slice(1), coords: [] };
+  for (const co of coords) {
+    const res = { coord: co.c, geometry: co.geometry, dim: co.dim, vec: co.vec, checked: false, limit: null, value: null, tooFar: false, pairs: [] };
+    out.coords.push(res);
+    if (co.groups.length !== co.need || !co.need || co.groups.some(g => g < 0 || g > ngroups)) continue;
+    if (co.geometry === 'CYLINDER' || co.geometry === 'DIRECTIONRELATIVE') continue;
+    const directional = co.geometry === 'DIRECTION' || co.geometry === 'DIRECTIONPERIODIC';
+    const unlimited = co.geometry === 'DIRECTIONPERIODIC' || (co.geometry === 'DIRECTION' && co.type === 'EXTERNALPOTENTIAL');
+    const md2 = unlimited ? Infinity : pullLimit2(box, npbcdim, directional, co.dim, co.vec);
+    const coms = co.groups.map(g => groups[g].com);
+    if (coms.some(x => !x)) continue;
+    res.checked = true;
+    res.limit = Number.isFinite(md2) ? 0.98 * Math.sqrt(md2) : Infinity;
+    // Only the first group can be an absolute reference: then every pair
+    // is measured from the origin (low_get_pull_coord_dr).
+    const absolute = co.groups[0] === 0;
+    const origin = co.origin.length === 3 ? co.origin : [0, 0, 0];
+    for (let k = 0; k + 1 < co.need; k += 2) {
+      const from = absolute ? origin : coms[k];
+      const dr = dx(coms[k + 1], from).map((x, m) => x * co.dim[m]);
+      const counted = [0, 1, 2].filter(m => co.dim[m] && !(directional && co.vec[m] === 0));
+      const d2 = counted.reduce((a, m) => a + dr[m] * dr[m], 0);
+      const tooFar = d2 > 0.98 * 0.98 * md2;
+      // The counted dimensions to keep for grompp to accept the pair, when
+      // they keep most of the distance (pulling across a membrane: z, not
+      // the plane where the box is short and the membrane's centre is
+      // wherever its reference atom is). Of those keeping nearly the most,
+      // the one with the most room.
+      let fewerDims = null;
+      if (tooFar && !directional) {
+        const ok = [];
+        for (let mask = 1; mask < 8; mask++) {
+          const keep = [0, 1, 2].map(m => ((mask >> m) & 1) && co.dim[m] ? 1 : 0);
+          if (!keep.some(Boolean) || keep.every((x, m) => x === co.dim[m])) continue;
+          const kd2 = keep.reduce((a, x, m) => a + (x ? dr[m] * dr[m] : 0), 0);
+          const km2 = pullLimit2(box, npbcdim, false, keep, co.vec);
+          if (kd2 > 0.98 * 0.98 * km2) continue;
+          ok.push({ dim: keep.map(x => (x ? 'Y' : 'N')).join(' '), distance: Math.sqrt(kd2), limit: 0.98 * Math.sqrt(km2) });
+        }
+        const most = Math.max(0, ...ok.map(x => x.distance));
+        const near = ok.filter(x => x.distance >= 0.9 * most).sort((a, b) => b.limit - a.limit);
+        if (near.length && most >= 0.5 * Math.sqrt(d2)) fewerDims = near[0];
+      }
+      res.pairs.push({ groups: [co.groups[k], co.groups[k + 1]], dr, distance: Math.sqrt(d2), tooFar, fewerDims });
+      res.tooFar = res.tooFar || tooFar;
+    }
+    const first = res.pairs[0];
+    if (co.geometry === 'DISTANCE') res.value = first.distance;
+    else if (directional) res.value = first.dr[0] * co.vec[0] + first.dr[1] * co.vec[1] + first.dr[2] * co.vec[2];
+  }
+  return out;
 }
 
 /* sscanf("%lf %lf ...") as grompp reads compressibility, ref-p and deform:

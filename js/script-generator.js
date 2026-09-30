@@ -322,15 +322,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // mdrun gets -ntomp $OMP_NUM_THREADS. The two must agree (mdrun stops
-        // when they differ), so with several thread-MPI ranks (-ntmpi, GPU
-        // runs only) the variable itself is divided between the ranks.
+        // when they differ), so with several thread-MPI ranks (-ntmpi) the
+        // variable itself is divided between the ranks.
         const ntmpi = gpuResult.ntmpi;
         if (gpuResult.autoNtmpi) {
             s += `# -ntmpi 1: one thread-MPI rank, with the task's CPUs as its OpenMP threads.\n`;
-            s += `# With a GPU in use, a thread-MPI mdrun given -ntomp stops unless -ntmpi is\n`;
-            s += `# given too ("conflicting demands"). ${gmxBin} is taken to be the thread-MPI\n`;
-            s += `# build ("${gmxBin} --version" says "MPI library: thread_mpi"); an MPI build\n`;
-            s += `# rejects -ntmpi, so give its name (such as gmx_mpi) as the executable.\n\n`;
+            s += `# Given -ntomp alone, a thread-MPI mdrun starts ranks of that many threads\n`;
+            s += `# until they fill the cores it can see: on a node without a cpuset for the\n`;
+            s += `# job, the whole node, beyond the CPUs this job was given. With a GPU in use\n`;
+            s += `# (one the node shows, even unasked) it stops instead ("conflicting demands").\n`;
+            s += `# ${gmxBin} is taken to be the thread-MPI build ("${gmxBin} --version" says\n`;
+            s += `# "MPI library: thread_mpi"); an MPI build rejects -ntmpi, so give its name\n`;
+            s += `# (such as gmx_mpi) as the executable.\n\n`;
+            // One rank of many OpenMP threads is slower than several ranks
+            // without a GPU: the manual finds OpenMP scales to 12-24 threads
+            // on Intel and 6-8 on AMD, and mdrun switches to ranks above 16.
+            const cpus = getInt('jobCpus', 1);
+            if (getInt('jobGpus', 0) === 0 && cpus > 16) {
+                const split = [8, 6, 4].find(t => cpus % t === 0);
+                warnings.push(`<code>${escapeHtml(gmxBin)}</code> runs as one thread-MPI rank of ${cpus} OpenMP threads, and without a GPU ` +
+                    'the GROMACS manual finds OpenMP scales well only to about 12-24 threads on Intel and 6-8 on AMD CPUs: set <code>-ntmpi</code> ' +
+                    `under GPU offload to share the CPUs between ranks${split ? ` (<code>-ntmpi ${cpus / split}</code> gives ${split} threads each)` : ''}.`);
+            }
         } else if (ntmpi > 1) {
             const cpus = getInt('jobCpus', 1);
             if (cpus < ntmpi) {
