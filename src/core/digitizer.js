@@ -12,7 +12,14 @@
  * most common way to digitise a figure incorrectly.
  *
  * The module is pure: no canvas, no DOM, no image handling.
+ *
+ * The plot of the digitised series is described here too (digitizerFigure,
+ * in the shared figure description of figure.js), with the matplotlib
+ * script that draws it from the page's CSV (digitizerFigureScript).
  */
+
+import { normaliseFigure } from './figure.js';
+import { figureScript, identifier, pyArray, pyStr, comment } from './figure-python.js';
 
 /**
  * Map one pixel coordinate onto its data value.
@@ -334,4 +341,141 @@ export function digitisePoints(points, calibration) {
     if (d) out.push({ ...pt, logicalX: d.x, logicalY: d.y });
   }
   return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * The plot of the digitised series, and its script
+ * ------------------------------------------------------------------ */
+
+/**
+ * The names the series are exported under: each its own, so that the CSV,
+ * the plot's legend and the script can tell them apart. A blank name becomes
+ * "Series n" (its place in the list), and a name used before gets " (2)",
+ * " (3)" and so on.
+ *
+ * @param {Array<{name?: string}>} datasets
+ * @returns {string[]}
+ */
+export function exportNames(datasets) {
+  const used = new Set();
+  return (Array.isArray(datasets) ? datasets : []).map((ds, i) => {
+    const base = String(ds && ds.name != null ? ds.name : '').trim() || `Series ${i + 1}`;
+    let name = base;
+    for (let k = 2; used.has(name); k++) name = `${base} (${k})`;
+    used.add(name);
+    return name;
+  });
+}
+
+/**
+ * The figure of the digitised series, as a description for the shared
+ * figure (src/core/figure.js): each series a line through its points with a
+ * marker at each, in the order and at the precision the CSV holds them
+ * (generateCSV), so the plot, the CSV and the script agree.
+ *
+ * Each data field names its series in the CSV (`source: 'csv'`, `column`:
+ * the series' name), for digitizerFigureScript.
+ *
+ * @param {Array<{id: string, name: string, color?: string, points: Array<{pxX: number,
+ *   logicalX: number, logicalY: number}>}>} datasets - digitised (digitisePoints)
+ * @param {object} [options]
+ * @param {boolean} [options.logX=false]
+ * @param {boolean} [options.logY=false]
+ * @param {boolean} [options.panels=false] - one panel per series, sharing x
+ * @param {string} [options.xLabel='x']
+ * @param {string} [options.yLabel='y']
+ * @param {string} [options.filename='digitised_plot'] - the saved figure's name
+ * @returns {object|null} null when no series has a point
+ */
+export function digitizerFigure(datasets, options = {}) {
+  const list = Array.isArray(datasets) ? datasets : [];
+  const names = exportNames(list);
+  const series = [];
+  list.forEach((ds, i) => {
+    const pts = sortPoints((ds && ds.points) || []).filter((p) => Number.isFinite(p.logicalX) && Number.isFinite(p.logicalY));
+    if (!pts.length) return;
+    // The values as the CSV writes them.
+    const x = pts.map((p) => Number(formatValue(p.logicalX)));
+    const y = pts.map((p) => Number(formatValue(p.logicalY)));
+    series.push({
+      id: String(ds.id || `series${i + 1}`), kind: 'line', label: names[i],
+      ...(typeof ds.color === 'string' && ds.color ? { color: ds.color } : {}),
+      x: { values: x, source: 'csv', column: names[i] }, y: { values: y, source: 'csv', column: names[i] },
+      lineWidth: 1.5, marker: 'o', size: 4
+    });
+  });
+  if (!series.length) return null;
+  const yLabel = options.yLabel === undefined ? 'y' : String(options.yLabel);
+  const yScale = options.logY ? 'log' : 'linear';
+  const panels = options.panels && series.length > 1
+    ? series.map((s, i) => ({ id: `panel${i + 1}`, name: s.label, yLabel, yScale, series: [s] }))
+    : [{ id: 'main', yLabel, yScale, series }];
+  return {
+    xLabel: options.xLabel === undefined ? 'x' : String(options.xLabel),
+    xScale: options.logX ? 'log' : 'linear',
+    export: { filename: options.filename || 'digitised_plot' },
+    panels
+  };
+}
+
+const READ_DIGITISED = [
+  'def read_digitised(path):',
+  '    """The points of each series in the CSV the Plot Digitizer saves (Dataset, X, Y)."""',
+  '    series = {}',
+  "    with open(path, newline='', encoding='utf-8-sig') as fh:",
+  '        for row in csv.DictReader(fh):',
+  "            x, y = series.setdefault(row['Dataset'], ([], []))",
+  "            x.append(float(row['X']))",
+  "            y.append(float(row['Y']))",
+  '    return {name: (np.array(x), np.array(y)) for name, (x, y) in series.items()}'
+];
+
+/**
+ * The matplotlib script for the plot of the digitised series: it reads the
+ * CSV the page saves, a series at a time by name (or holds the points), and
+ * draws the figure with the shared pieces (figureScript).
+ *
+ * @param {object} figure - the figure as drawn: digitizerFigure's, with the person's style
+ * @param {object} [options]
+ * @param {'files'|'embed'} [options.source='files'] - read the CSV, or hold the points
+ * @param {string} [options.csvName='extracted_data.csv'] - the CSV the script reads
+ * @returns {string}
+ */
+export function digitizerFigureScript(figure, options = {}) {
+  const f = normaliseFigure(figure);
+  const embed = options.source === 'embed';
+  const csvName = options.csvName || 'extracted_data.csv';
+  const taken = new Set(['points', 'read_digitised']);
+  f.panels.forEach((panel) => {
+    taken.add(`ax_${panel.id}`);
+    panel.series.forEach((q) => { taken.add(q.id); taken.add(`${q.id}_points`); });
+  });
+  const L = [];
+  if (!embed) {
+    L.push(...READ_DIGITISED, '', '');
+    L.push('# Point this at the CSV the page saved (Download CSV).');
+    L.push(`points = read_digitised(${pyStr(csvName)})`);
+  }
+  const panels = f.panels.map((panel) => ({
+    ...panel,
+    series: panel.series.map((q) => {
+      const ref = q.refs && q.refs.x;
+      if (!q.show || !ref || ref.source !== 'csv' || ref.column === undefined) return q;
+      const name = String(ref.column);
+      const base = identifier(name, new Set());
+      const nx = identifier(`${base}_x`, taken);
+      const ny = identifier(`${base}_y`, taken);
+      if (embed) {
+        L.push(`# ${comment(name)}`, ...pyArray(nx, q.x), ...pyArray(ny, q.y));
+      } else {
+        L.push(`${nx}, ${ny} = points[${pyStr(name)}]`);
+      }
+      return { ...q, refs: { ...q.refs, x: { py: nx }, y: { py: ny } } };
+    })
+  }));
+  const header = ["The digitised series, from STEMKit's Plot Digitizer (https://stemkit.net/plot-digitizer.html)."];
+  if (!embed) header.push(`It reads ${csvName}: keep the CSV beside the script, or change the path under Data.`);
+  const code = figureScript({ ...f, panels }, { prelude: L, header });
+  // The reader uses the csv module: imported first, as the standard library is.
+  return embed ? code : code.replace('import numpy as np\n', 'import csv\n\nimport numpy as np\n');
 }

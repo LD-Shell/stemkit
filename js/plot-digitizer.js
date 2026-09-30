@@ -2,8 +2,10 @@
  * Plot Digitizer | UI layer.
  *
  * Pixel-to-data mapping, calibration validation, point management, CSV
- * generation, and Python escaping live in stemkit-core. This file handles
- * canvas rendering, pointer input, and the zoom/loupe interaction.
+ * generation, the plot's description and its matplotlib script live in
+ * stemkit-core. This file handles canvas rendering, pointer input, the
+ * zoom/loupe interaction, and the plot of the points under the workspace,
+ * which is the site's shared plot area (mountFigure in js/figure-plot.js).
  */
 import {
   toDataCoordinates,
@@ -13,9 +15,12 @@ import {
   sortPoints,
   formatValue,
   generateCSV,
-  pythonString,
-  pythonIdentifier
+  exportNames,
+  digitizerFigure,
+  digitizerFigureScript
 } from '../src/core/digitizer.js';
+import { mountFigure } from './figure-plot.js';
+import { createPythonPanel } from './python-panel.js';
 
 /**
  * A figure to practise on, drawn here rather than shipped as an image: a
@@ -131,11 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const cursorReadout = document.getElementById('cursorReadout');
 
   const btnGeneratePython = document.getElementById('btnGeneratePython');
-  const pythonModal = document.getElementById('pythonModal');
-  const pythonCodeBlock = document.getElementById('pythonCodeBlock');
-  const closePythonModal = document.getElementById('closePythonModal');
-  const copyPythonBtn = document.getElementById('copyPythonBtn');
-  const previewDialog = document.getElementById('previewDialog');
+  const btnPreviewPlot = document.getElementById('btnPreviewPlot');
+  const result = document.getElementById('pdResult');
 
   const getActiveDataset = () =>
     state.datasets.find(ds => ds.id === state.activeDatasetId);
@@ -232,6 +234,8 @@ document.addEventListener('DOMContentLoaded', () => {
       exportNote.textContent = '';
       document.getElementById('fileName').textContent = name;
       document.getElementById('imageMeta').textContent = `${img.width} × ${img.height} px`;
+      // Labels the person typed for the last figure's plot belong to it.
+      resetPlotText();
       openWorkspace();
       // Measured once the workspace is showing; a hidden panel has no width.
       state.zoomLevel = fitZoom(img);
@@ -262,6 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadZone.classList.add('hidden');
     workspace.classList.remove('hidden');
     workspace.classList.add('flex');
+    result.hidden = false;
     const nav = document.querySelector('nav');
     const top = workspace.getBoundingClientRect().top + window.scrollY - (nav ? nav.offsetHeight : 0) - 12;
     window.scrollTo(0, Math.max(0, top));
@@ -294,7 +299,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (pythonModal.classList.contains('open')) { closePython(); return; }
     if (state.mode !== 'idle') setMode('idle');
   });
 
@@ -402,10 +406,12 @@ document.addEventListener('DOMContentLoaded', () => {
       calibStatus.textContent = '';
       resolutionNote.classList.add('hidden');
       updateModeStatus();
+      scheduleResult();
       return;
     }
     calibStatus.textContent = 'Axes calibrated.';
     updateModeStatus();
+    scheduleResult();
     const notes = [...(r.warnings || [])];
     const res = pixelResolution(r.calibration);
     if (res) {
@@ -451,7 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
       colour.className = 'pd-series-colour';
       colour.setAttribute('aria-label', `Colour of ${ds.name}`);
       colour.addEventListener('click', e => e.stopPropagation());
-      colour.addEventListener('input', e => { ds.color = e.target.value; renderViewport(); });
+      colour.addEventListener('input', e => { ds.color = e.target.value; renderViewport(); scheduleResult(); });
 
       const name = document.createElement('input');
       name.type = 'text';
@@ -459,7 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
       name.className = 'pd-series-name';
       name.setAttribute('aria-label', 'Series name');
       name.addEventListener('click', e => e.stopPropagation());
-      name.addEventListener('input', e => { ds.name = e.target.value; updateModeStatus(); });
+      name.addEventListener('input', e => { ds.name = e.target.value; updateModeStatus(); scheduleResult(); });
 
       const count = document.createElement('span');
       count.className = 'pd-series-count';
@@ -486,6 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ? `${total} point${total === 1 ? '' : 's'} in ${withPoints} series.`
       : '';
     if (state.mode === 'idle') updateModeStatus();
+    scheduleResult();
   }
 
   btnUndo.addEventListener('click', () => {
@@ -742,8 +749,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const csv = generateCSV(datasets);
-    const name = (csvFilename.value.trim() || 'extracted_data') + '.csv';
+    // Each series under a name of its own, as the plot and the script have them.
+    const names = exportNames(datasets);
+    const csv = generateCSV(datasets.map((ds, i) => ({ ...ds, name: names[i] })));
+    const name = csvName();
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -756,10 +765,11 @@ document.addEventListener('DOMContentLoaded', () => {
     exportNote.textContent = `Saved ${name}: ${total} point${total === 1 ? '' : 's'}.`;
   });
 
-  // --- 10. Preview and Python export ---
-  // The preview draws in a dialog on this page with the site's own copy of
-  // Plotly, loaded the first time it is needed; nothing is fetched from
-  // another host and no popup is opened.
+  // --- 10. The plot of the points and its Python script ---
+  // The shared plot area draws the digitised series as the CSV holds them,
+  // follows every point, and writes the matplotlib script that draws the
+  // same figure from that CSV. Plotly, which draws the preview, is loaded the
+  // first time there is something to draw; nothing is fetched from another host.
   let plotlyLoading = null;
   function loadPlotly() {
     if (window.Plotly) return Promise.resolve();
@@ -775,174 +785,97 @@ document.addEventListener('DOMContentLoaded', () => {
     return plotlyLoading;
   }
 
-  const btnPreviewPlot = document.getElementById('btnPreviewPlot');
-  btnPreviewPlot.addEventListener('click', async () => {
-    if (!requireCalibration()) return;
+  const STYLE_KEY = 'stemkit.plot-digitizer.figure';
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const csvBase = () => (csvFilename.value.trim() || 'extracted_data').replace(/\.csv$/i, '');
+  function csvName() { return `${csvBase()}.csv`; }
+  let storedStyle = {};
+  try { storedStyle = JSON.parse(localStorage.getItem(STYLE_KEY) || '{}') || {}; } catch (e) { storedStyle = {}; }
+  const saveStyle = (style) => { try { localStorage.setItem(STYLE_KEY, JSON.stringify(style)); } catch (e) { /* storage blocked */ } };
 
-    const sets = (digitisedDatasets() || []).filter(ds => ds.points.length > 0);
-    if (sets.length === 0) {
-      showToast('Add some points in step 3 before previewing.', 'error');
+  const panelsToggle = document.getElementById('pdPanels');
+  const panelsWrap = document.getElementById('pdPanelsWrap');
+  const emptyTitle = document.getElementById('pdEmptyTitle');
+  const emptyText = document.getElementById('pdEmptyText');
+
+  const plot = mountFigure(document.getElementById('pdPlot'), {
+    style: storedStyle,
+    onStyleChange: saveStyle,
+    label: 'The digitised series, as the saved figure will look',
+    onExport: (r, err, format) => {
+      if (err) showToast(`The ${format.toUpperCase()} could not be made: ${err && err.message ? err.message : err}`, 'error');
+      else showToast(`Saved ${r.filename}.`, 'success');
+    },
+    python: {
+      host: document.getElementById('pdPython'),
+      sources: [{ id: 'files', label: 'Read the CSV' }, { id: 'embed', label: 'Data in the script' }],
+      // Named after the CSV from the start, as it will be once there is a figure.
+      create: (host, opts) => createPythonPanel(host, { ...opts, filename: `${csvBase()}_plot.py` }),
+      script: (fig, source) => digitizerFigureScript(fig, { source, csvName: csvName() }),
+      note: (fig, source) => {
+        const out = `${fig.export.filename}.${fig.export.format}`;
+        const needs = `Runs with Python 3, numpy and matplotlib 3.6 or later: <code>python ${esc(fig.export.filename)}.py</code>. `;
+        return source === 'embed'
+          ? `${needs}It holds the points and saves <code>${esc(out)}</code>.`
+          : `${needs}It reads <code>${esc(csvName())}</code> (<strong>Download CSV</strong>, step 4) from the same folder and saves <code>${esc(out)}</code>.`;
+      }
+    }
+  });
+
+  /* The style without the text the person typed for the last figure. */
+  function resetPlotText() {
+    const s = plot.getStyle();
+    delete s.title;
+    delete s.xLabel;
+    if (s.legend) delete s.legend.title;
+    if (Array.isArray(s.panels)) s.panels.forEach(p => { if (p) delete p.yLabel; });
+    if (s.series) Object.values(s.series).forEach(q => { if (q) delete q.label; });
+    plot.setStyle(s);
+    saveStyle(plot.getStyle());
+  }
+
+  let resultTimer = null;
+  function scheduleResult() {
+    clearTimeout(resultTimer);
+    resultTimer = setTimeout(updateResult, 250);
+  }
+
+  async function updateResult() {
+    if (!state.image) return;
+    const valid = validateCalibrationForm(currentCalibration()).valid;
+    const sets = valid ? digitisedDatasets() : null;
+    const withPoints = sets ? sets.filter(ds => ds.points.length).length : 0;
+    panelsWrap.hidden = withPoints < 2;
+    const fig = sets ? digitizerFigure(sets, {
+      logX: isLogX.checked,
+      logY: isLogY.checked,
+      panels: panelsToggle.checked,
+      filename: `${csvBase()}_plot`
+    }) : null;
+    if (!fig) {
+      emptyTitle.textContent = 'Your digitised series will appear here';
+      emptyText.textContent = valid
+        ? 'Press Add points (step 3), then click or drag along a curve.'
+        : 'Calibrate the axes (step 2), then add points along a curve (step 3).';
+      plot.update(null);
       return;
     }
-
-    const get = (id, fb) => {
-      const el = document.getElementById(id);
-      return el ? (el.value || fb) : fb;
-    };
-    const checked = (id) => {
-      const el = document.getElementById(id);
-      return el ? el.checked : false;
-    };
-
     try {
       await loadPlotly();
     } catch {
-      showToast('The plotting library did not load, so the preview cannot be drawn.', 'error');
-      return;
+      showToast('The plotting library did not load, so the plot cannot be drawn. The CSV and the script still work.', 'error');
     }
+    plot.update(fig);
+  }
 
-    const isDark = document.documentElement.classList.contains('dark');
-    const showGrid = checked('pyShowGrid');
-    const grid = isDark ? '#334155' : '#e2e8f0';
+  panelsToggle.addEventListener('change', scheduleResult);
+  csvFilename.addEventListener('input', scheduleResult);
 
-    const traces = sets.map(ds => ({
-      name: ds.name,
-      x: sortPoints(ds.points).map(p => p.logicalX),
-      y: sortPoints(ds.points).map(p => p.logicalY),
-      mode: 'lines+markers',
-      line: { color: ds.color },
-      marker: { color: ds.color, size: 5 }
-    }));
-
-    const layout = {
-      plot_bgcolor: 'transparent',
-      paper_bgcolor: 'transparent',
-      font: { family: 'Inter, system-ui, sans-serif', color: isDark ? '#cbd5e1' : '#334155' },
-      xaxis: {
-        title: get('pyXLabel', 'X'),
-        type: isLogX.checked ? 'log' : 'linear',
-        showgrid: showGrid, gridcolor: grid, zerolinecolor: grid
-      },
-      yaxis: {
-        title: get('pyYLabel', 'Y'),
-        type: isLogY.checked ? 'log' : 'linear',
-        showgrid: showGrid, gridcolor: grid, zerolinecolor: grid
-      },
-      margin: { t: 40, r: 20, b: 60, l: 70 },
-      showlegend: true,
-      legend: { orientation: 'h', yanchor: 'bottom', y: 1.02, xanchor: 'left', x: 0 }
-    };
-
-    previewDialog.showModal();
-    Plotly.react('previewPlot', traces, layout, {
-      responsive: true, displaylogo: false,
-      modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-      toImageButtonOptions: { format: 'png', filename: 'digitized_preview', scale: 2 }
-    });
+  btnPreviewPlot.addEventListener('click', () => {
+    result.scrollIntoView({ block: 'start', behavior: 'smooth' });
   });
-
-  document.getElementById('closePreview').addEventListener('click', () => previewDialog.close());
-  previewDialog.addEventListener('click', (e) => { if (e.target === previewDialog) previewDialog.close(); });
-
   btnGeneratePython.addEventListener('click', () => {
-    if (!requireCalibration()) return;
-    pythonCodeBlock.textContent = buildPythonScript();
-    pythonModal.classList.add('open');
-    copyPythonBtn.focus();
-  });
-
-  function buildPythonScript() {
-    const get = (id, fallback) => {
-      const el = document.getElementById(id);
-      return el ? (el.value || fallback) : fallback;
-    };
-    const checked = (id) => {
-      const el = document.getElementById(id);
-      return el ? el.checked : false;
-    };
-
-    const xLab = get('pyXLabel', 'X');
-    const yLab = get('pyYLabel', 'Y');
-    const fW = get('pyFigWidth', 8);
-    const fH = get('pyFigHeight', 6);
-    const layout = get('pyPlotLayout', 'single');
-    const showGrid = checked('pyShowGrid');
-    const filename = (csvFilename.value.trim() || 'extracted_data') + '.csv';
-
-    const active = state.datasets.filter(ds => ds.points.length > 0);
-
-    let c = 'import pandas as pd\nimport matplotlib.pyplot as plt\n\n';
-    c += "# --- 1. Environment configuration ---\n";
-    c += "plt.rcParams['axes.labelsize'] = 14\n";
-    c += "plt.rcParams['xtick.labelsize'] = 12\n";
-    c += "plt.rcParams['ytick.labelsize'] = 12\n";
-    c += "plt.rcParams['legend.fontsize'] = 12\n";
-    c += "plt.rcParams['legend.frameon'] = False\n\n";
-    c += '# --- 2. Data ingestion ---\n';
-    c += 'try:\n';
-    c += `    df = pd.read_csv('${pythonString(filename)}', skipinitialspace=True)\n`;
-    c += 'except FileNotFoundError:\n';
-    c += `    print("Error: ${pythonString(filename)} not found in the working directory.")\n`;
-    c += '    exit()\n\n';
-    c += '# --- 3. Rendering ---\n';
-
-    if (layout === 'subplots' && active.length > 0) {
-      c += `fig, axes = plt.subplots(nrows=${active.length}, ncols=1, ` +
-           `figsize=(${fW}, ${fH}), sharex=True)\n`;
-      c += `if ${active.length} == 1: axes = [axes]\n\n`;
-
-      active.forEach((ds, i) => {
-        const v = pythonIdentifier(ds.id);
-        c += `subset_${v} = df[df['Dataset'] == '${pythonString(ds.name)}']\n`;
-        c += `axes[${i}].plot(subset_${v}['X'], subset_${v}['Y'], ` +
-             `label='${pythonString(ds.name)}', color='${pythonString(ds.color)}', linewidth=2)\n`;
-        if (isLogX.checked) c += `axes[${i}].set_xscale('log')\n`;
-        if (isLogY.checked) c += `axes[${i}].set_yscale('log')\n`;
-        if (showGrid) c += `axes[${i}].grid(True, linestyle='--', alpha=0.6)\n`;
-        c += `axes[${i}].legend(loc='best')\n\n`;
-      });
-      c += `axes[-1].set_xlabel('${pythonString(xLab)}')\n`;
-      c += `fig.text(0.04, 0.5, '${pythonString(yLab)}', va='center', rotation='vertical')\n`;
-    } else {
-      c += `fig, ax = plt.subplots(figsize=(${fW}, ${fH}))\n\n`;
-      for (const ds of active) {
-        const v = pythonIdentifier(ds.id);
-        c += `subset_${v} = df[df['Dataset'] == '${pythonString(ds.name)}']\n`;
-        c += `ax.plot(subset_${v}['X'], subset_${v}['Y'], ` +
-             `label='${pythonString(ds.name)}', color='${pythonString(ds.color)}', linewidth=2)\n`;
-      }
-      c += '\n';
-      if (isLogX.checked) c += "ax.set_xscale('log')\n";
-      if (isLogY.checked) c += "ax.set_yscale('log')\n";
-      if (showGrid) c += "ax.grid(True, linestyle='--', alpha=0.6)\n";
-      c += `ax.set_xlabel('${pythonString(xLab)}')\n`;
-      c += `ax.set_ylabel('${pythonString(yLab)}')\n`;
-      c += "ax.legend(loc='best')\n";
-      c += "ax.spines['top'].set_visible(False)\nax.spines['right'].set_visible(False)\n";
-    }
-
-    c += '\nfig.tight_layout()\n';
-    // The transparent-background checkbox only matters at save time, so it is
-    // applied here rather than to the figure itself.
-    const bgTrans = checked('pyBgTrans');
-    c += `fig.savefig('digitized_plot.png', dpi=300, bbox_inches='tight'` +
-         `${bgTrans ? ', transparent=True' : ''})\nplt.show()\n`;
-    return c;
-  }
-
-
-  function closePython() {
-    pythonModal.classList.remove('open');
-    btnGeneratePython.focus();
-  }
-  closePythonModal.addEventListener('click', closePython);
-  pythonModal.addEventListener('click', (e) => {
-    if (e.target === pythonModal) closePython();
-  });
-  copyPythonBtn.addEventListener('click', () => {
-    navigator.clipboard.writeText(pythonCodeBlock.textContent)
-      .then(() => showToast('Copied the matplotlib script.', 'success'))
-      .catch(() => showToast('Could not reach the clipboard. Select the code and copy it.', 'error'));
+    document.getElementById('pdPython').scrollIntoView({ block: 'start', behavior: 'smooth' });
   });
 
   // --- 11. Initial render ---

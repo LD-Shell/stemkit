@@ -34,7 +34,7 @@
     </script>
 
     <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"HowTo","name":"How to extract data from a published plot","totalTime":"PT5M","step":[{"@type":"HowToStep","position":1,"name":"Upload the figure","text":"Load a raster image of the plot. Use the highest resolution available, because pixel size sets the floor on achievable precision."},{"@type":"HowToStep","position":2,"name":"Calibrate both axes","text":"Click each calibration button, click that position on the image, and type the value it represents. Place the two marks on each axis as far apart as possible, and tick Log for logarithmic axes."},{"@type":"HowToStep","position":3,"name":"Trace the curve","text":"Press Add points, then click individual points or hold and drag along the curve. Use the magnifier to land on the centre of the line. Add one dataset per series."},{"@type":"HowToStep","position":4,"name":"Clean up and export","text":"Erase stray points or undo the last one, then export a CSV, generate a Matplotlib script, or open the interactive preview to verify the extraction."}]}
+    {"@context":"https://schema.org","@type":"HowTo","name":"How to extract data from a published plot","totalTime":"PT5M","step":[{"@type":"HowToStep","position":1,"name":"Upload the figure","text":"Load a raster image of the plot. Use the highest resolution available, because pixel size sets the floor on achievable precision."},{"@type":"HowToStep","position":2,"name":"Calibrate both axes","text":"Click each calibration button, click that position on the image, and type the value it represents. Place the two marks on each axis as far apart as possible, and tick Log for logarithmic axes."},{"@type":"HowToStep","position":3,"name":"Trace the curve","text":"Press Add points, then click individual points or hold and drag along the curve. Use the magnifier to land on the centre of the line. Add one dataset per series."},{"@type":"HowToStep","position":4,"name":"Clean up and export","text":"Erase stray points or undo the last one, then download the CSV. The plot of the points under the figure follows every click; style it and save it as PDF, PNG or SVG, or take the matplotlib script that draws it from the CSV."}]}
     </script>
 
     <script type="application/ld+json">
@@ -82,6 +82,8 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tools/figure.css">
+    <link rel="stylesheet" href="src/tools/python-panel.css">
     <link rel="stylesheet" href="src/tools/plot-digitizer.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300 overflow-x-hidden">
@@ -246,66 +248,43 @@
                             <i class="fa-solid fa-file-csv" aria-hidden="true"></i> Download CSV
                         </button>
                         <p id="exportNote" class="pd-export-note" aria-live="polite"></p>
-                        <div class="grid grid-cols-2 gap-2 mt-3">
-                            <button type="button" id="btnPreviewPlot" class="stk-btn stk-btn-sm"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Preview plot</button>
+                        <p class="pd-hint pd-result-hint">The plot of these points and its Python script are under the figure, and follow every point you add.</p>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" id="btnPreviewPlot" class="stk-btn stk-btn-sm"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Plot</button>
                             <button type="button" id="btnGeneratePython" class="stk-btn stk-btn-sm"><i class="fa-brands fa-python" aria-hidden="true"></i> Python script</button>
                         </div>
-                        <details class="mt-3">
-                            <summary class="cursor-pointer text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-brand-700 dark:hover:text-brand-300">Script and preview options</summary>
-                            <div class="grid grid-cols-2 gap-2 mt-3">
-                                <div>
-                                    <label for="pyXLabel" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">X-axis label</label>
-                                    <input type="text" id="pyXLabel" placeholder="x" class="stk-input stk-input-sm">
-                                </div>
-                                <div>
-                                    <label for="pyYLabel" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Y-axis label</label>
-                                    <input type="text" id="pyYLabel" placeholder="y" class="stk-input stk-input-sm">
-                                </div>
-                                <div>
-                                    <span class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Size (inches)</span>
-                                    <div class="flex items-center gap-1">
-                                        <input type="number" id="pyFigWidth" value="8" aria-label="Width in inches" class="stk-input stk-input-sm text-center">
-                                        <span class="text-xs text-slate-500 dark:text-slate-400" aria-hidden="true">×</span>
-                                        <input type="number" id="pyFigHeight" value="6" aria-label="Height in inches" class="stk-input stk-input-sm text-center">
-                                    </div>
-                                </div>
-                                <div>
-                                    <label for="pyPlotLayout" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Layout</label>
-                                    <select id="pyPlotLayout" class="stk-select stk-select-sm">
-                                        <option value="single">One plot</option>
-                                        <option value="subplots">One plot per series</option>
-                                    </select>
-                                </div>
-                                <label class="stk-check col-span-2"><input type="checkbox" id="pyShowGrid"> Grid lines</label>
-                                <label class="stk-check col-span-2"><input type="checkbox" id="pyBgTrans"> Transparent background</label>
-                            </div>
-                        </details>
                     </section>
 
                 </div>
             </section>
 
-            <div id="pythonModal" class="fixed inset-0 bg-slate-900/80 z-[60] hidden flex-col items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="pd-py-title">
-                <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 rounded-2xl max-w-4xl w-full flex flex-col shadow-2xl">
-                    <div class="flex justify-between items-center gap-3 mb-4">
-                        <h3 id="pd-py-title" class="text-lg font-bold text-slate-900 dark:text-white"><i class="fa-brands fa-python text-brand-600 dark:text-brand-400 mr-2" aria-hidden="true"></i>matplotlib script</h3>
-                        <div class="flex items-center gap-2">
-                            <button type="button" id="copyPythonBtn" class="stk-btn stk-btn-sm stk-btn-primary"><i class="fa-solid fa-copy" aria-hidden="true"></i> Copy code</button>
-                            <button type="button" id="closePythonModal" class="stk-btn stk-btn-sm stk-btn-icon stk-btn-ghost" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            <section id="pdResult" class="pd-result" aria-label="The digitised series" hidden>
+                <section id="pdPlot" class="fg fg-card pd-plot" aria-labelledby="pdPlotTitle">
+                    <div class="fg-h">
+                        <h2 id="pdPlotTitle" class="fg-t">Plot of the points</h2>
+                        <span class="fg-size stk-tnum" title="The size of the saved figure"></span>
+                        <div class="fg-actions">
+                            <label class="fg-toggle" id="pdPanelsWrap" hidden><input type="checkbox" id="pdPanels"> <span>A panel per series</span></label>
+                            <button type="button" id="pdEditStyle" class="stk-btn stk-btn-sm stk-btn-ghost" data-fg-style aria-haspopup="dialog"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Style</button>
+                            <div class="fg-export" role="group" aria-label="Export the figure">
+                                <button type="button" class="stk-btn stk-btn-sm" data-export="pdf" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> PDF</button>
+                                <button type="button" class="stk-btn stk-btn-sm" data-export="png" disabled>PNG</button>
+                                <button type="button" class="stk-btn stk-btn-sm" data-export="svg" disabled>SVG</button>
+                            </div>
                         </div>
                     </div>
-                    <pre><code id="pythonCodeBlock" class="block bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 p-4 rounded-xl text-xs font-mono overflow-auto max-h-[60vh] border border-slate-200 dark:border-slate-800 custom-scroll"></code></pre>
-                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">Save it next to the CSV you downloaded; it reads that file by name.</p>
-                </div>
-            </div>
-
-            <dialog id="previewDialog" class="pd-dialog" aria-labelledby="pd-preview-title">
-                <div class="flex justify-between items-center gap-3 px-5 py-3 border-b border-slate-200 dark:border-slate-700">
-                    <h3 id="pd-preview-title" class="font-bold text-slate-900 dark:text-white">Preview of the extracted points</h3>
-                    <button type="button" id="closePreview" class="stk-btn stk-btn-sm stk-btn-icon stk-btn-ghost" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-                </div>
-                <div id="previewPlot" class="pd-preview-plot"></div>
-            </dialog>
+                    <div class="fg-stage">
+                        <div class="fg-empty">
+                            <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                            <p id="pdEmptyTitle" class="fg-empty-title">Your digitised series will appear here</p>
+                            <p id="pdEmptyText" class="fg-empty-text">Calibrate the axes (step 2), then add points along a curve (step 3).</p>
+                        </div>
+                        <div class="fg-figure" hidden></div>
+                    </div>
+                    <div class="fg-notes" hidden></div>
+                </section>
+                <div id="pdPython" class="pd-py"></div>
+            </section>
 
         </main>
 
@@ -319,7 +298,7 @@
                     <div class="stk-step"><span class="stk-num">1</span><div><h3>Upload the figure</h3><p>Drop in a PNG, JPG or WebP image of the plot, or press <strong>Load a sample</strong> to practise on a drawn one. Use the highest resolution you can find: a screenshot of a PDF at full zoom beats a thumbnail, because every pixel of the original is a pixel of precision you keep.</p></div></div>
                     <div class="stk-step"><span class="stk-num">2</span><div><h3>Calibrate both axes</h3><p>Press <strong>Set X1</strong>, click that position on the image, and type the value it represents. Repeat for <strong>X2</strong>, <strong>Y1</strong> and <strong>Y2</strong>. Pick two points that are <em>far apart</em> on each axis, usually the first and last labelled gridline. Tick <strong>Log X axis</strong> or <strong>Log Y axis</strong> if an axis is logarithmic. Each button shows a tick once its point is set.</p></div></div>
                     <div class="stk-step"><span class="stk-num">3</span><div><h3>Trace the curve</h3><p>Press <strong>Add points</strong>, then either click individual points or hold and drag along the curve to lay down a trail. The magnifier follows your cursor so you can land on the line rather than near it. Add a series for each curve and give it a name and colour. The line above the figure always says what a click will do; Esc stops.</p></div></div>
-                    <div class="stk-step"><span class="stk-num">4</span><div><h3>Clean up and export</h3><p>Use <strong>Erase</strong> to brush away stray points, or <strong>Undo point</strong> to drop the last one. Then download the CSV, open the <strong>Python script</strong>, or <strong>Preview plot</strong> to check the extracted series before you use it.</p></div></div>
+                    <div class="stk-step"><span class="stk-num">4</span><div><h3>Clean up and export</h3><p>Use <strong>Erase</strong> to brush away stray points, or <strong>Undo point</strong> to drop the last one, and download the CSV. Under the figure, the <strong>plot of the points</strong> follows every click: check the extracted series there, style it, and save it as PDF, PNG or SVG. The <strong>Python script</strong> beside it draws the same figure from your CSV.</p></div></div>
                 </div>
                 <div class="stk-note" style="margin-top:1.4rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>Toggle the background image off at any point to see only your extracted points. It is the quickest way to spot a stray click or a gap in a trace.</div></div>
             </div>
@@ -332,7 +311,7 @@
                 <div class="stk-grid stk-grid-2">
                     <div class="stk-card"><h3>Two-point affine calibration</h3><p>Each axis is mapped from pixels to data by a straight line through your two calibration marks. On a log axis the same interpolation is done in log<sub>10</sub> space and then exponentiated, which is why both log values must be strictly positive.</p></div>
                     <div class="stk-card"><h3>You place every point</h3><p>Coordinates come from where you click, so every point in your dataset is one you saw on the curve. Where a series doubles back on itself or crosses another, you decide which branch to follow rather than leaving it to a threshold.</p></div>
-                    <div class="stk-card"><h3>Exports stay consistent</h3><p>The CSV, the Matplotlib script and the interactive preview all sort points by <em>x</em> and use the same values, so the curve you see on screen is the curve you get in the file, even if you traced right-to-left or patched a gap in the middle.</p></div>
+                    <div class="stk-card"><h3>Exports stay consistent</h3><p>The CSV, the plot and the matplotlib script all sort points by <em>x</em> and use the same values, the ones the CSV holds, so the curve you see on screen is the curve you get in the file, even if you traced right-to-left or patched a gap in the middle.</p></div>
                     <div class="stk-card"><h3>Everything stays local</h3><p>The image never leaves your machine. It is read with the browser's <code>FileReader</code> and drawn to a canvas, nothing is uploaded, so unpublished figures and confidential data are safe to work with.</p></div>
                 </div>
                 <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-triangle-exclamation" style="margin-top:.15rem;"></i><div>Digitized data is an <em>estimate</em> of the original, never a substitute for it. Where the authors have published their numbers, or you can request them, use those instead. If you do digitize, say so in your methods and cite the source figure.</div></div>
@@ -377,7 +356,7 @@
                     <details class="stk-faq"><summary>Can I trace several curves from one figure?</summary><div>Yes. Add a series for each curve with <strong>Add series</strong>, give each a name and colour, and make sure the right one is selected before you trace, points always go to the active series. Names are carried through to the CSV's <code>Dataset</code> column and become the legend entries in the generated Matplotlib script.</div></details>
                     <details class="stk-faq"><summary>Does the order I click in matter?</summary><div>Not for the output. Points are sorted by <em>x</em> when exported and when drawn, so tracing right-to-left or going back to fill a gap still yields a properly ordered series. It does matter for <strong>Undo</strong>, which removes the most recently added point rather than the right-most one.</div></details>
                     <details class="stk-faq"><summary>Why does my CSV show values like 2.3e-5?</summary><div>Because the value is genuinely that small. Values are written with significant digits rather than a fixed number of decimals, so small magnitudes survive the round trip, a fixed four-decimal format would have written that number as <code>0.0000</code> and destroyed it. Very large and very small magnitudes use exponential notation, which <code>pandas.read_csv</code> and every spreadsheet read without special handling.</div></details>
-                    <details class="stk-faq"><summary>What do the generated Python script and preview give me?</summary><div>The script loads your exported CSV with pandas and rebuilds the figure in Matplotlib (one axes with all series, or stacked subplots) carrying over your labels, colours, log scales, grid and figure size. The preview does the same thing instantly with Plotly in a window on this page, so you can check the extraction before writing any files. Save the CSV first: the script reads it by the filename you chose.</div></details>
+                    <details class="stk-faq"><summary>What do the plot and the Python script give me?</summary><div>The plot under the figure draws the extracted series as you trace, at the size it will be saved, so you can check the extraction before you use it. Its <strong>Style</strong> button sets the axis labels, size, fonts, ticks, colours, legend and grid, and it saves as PDF, PNG or SVG. The Python script draws the same figure with matplotlib: it reads the CSV you downloaded, by the file name you chose, or holds the points itself if you pick <strong>Data in the script</strong>.</div></details>
                     <details class="stk-faq"><summary>Is my figure uploaded anywhere?</summary><div>No. The image is read locally by your browser and drawn to a canvas. Nothing is transmitted, stored or logged, so it is safe to digitize unpublished figures, confidential results or anything under embargo.</div></details>
                 </div>
             </div>

@@ -29,7 +29,7 @@
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "GROMACS XVG Titles, Axis Labels and Legends", "CSV and Whitespace-Delimited Tables", "Second Y-Axis", "Matplotlib Code Export", "Local Execution" ]
+            "featureList": [ "GROMACS XVG Titles, Axis Labels and Legends", "CSV and Whitespace-Delimited Tables", "Running Mean", "Stacked Panels Sharing the X Axis", "PDF, PNG and SVG Export", "Matplotlib Script That Reads the File", "Local Execution" ]
         }
     </script>
     
@@ -70,6 +70,8 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tools/figure.css">
+    <link rel="stylesheet" href="src/tools/python-panel.css">
     <link rel="stylesheet" href="src/tools/xvg-visualizer.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300 overflow-x-hidden">
@@ -157,75 +159,89 @@
                 </section>
             </div>
 
-            <section id="workspace" class="hidden w-full lg:h-full flex flex-col lg:flex-row p-4 gap-4 lg:overflow-hidden overflow-y-auto" aria-label="Plot">
+            <section id="workspace" class="xv-ws" aria-label="Plot" hidden>
 
-                <div class="w-full lg:w-[360px] bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col lg:overflow-hidden shadow-sm shrink-0">
-
-                    <div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-start gap-3">
-                        <div class="min-w-0">
-                            <h2 class="stk-ptitle">Plot settings</h2>
-                            <p id="fileStats" class="text-xs text-slate-600 dark:text-slate-400 mt-1 break-words">No file loaded</p>
+                <aside id="xvRail" class="xv-rail" aria-label="Data and plot style">
+                    <div class="xv-file">
+                        <span class="xv-file-icon" aria-hidden="true"><i class="fa-solid fa-file-lines"></i></span>
+                        <div class="xv-file-text">
+                            <h2 id="xvFileName" class="xv-file-name">No file</h2>
+                            <p id="fileStats" class="xv-file-meta stk-tnum">No file loaded</p>
                         </div>
-                        <button type="button" id="btnCloseWorkspace" class="stk-btn stk-btn-sm shrink-0" title="Close this file and load another"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Close file</button>
+                        <div class="xv-file-actions">
+                            <button type="button" id="btnOpenAnother" class="stk-btn stk-btn-sm" title="Open another file"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> <span>Open another</span></button>
+                            <button type="button" id="btnCloseWorkspace" class="stk-btn stk-btn-sm stk-btn-ghost stk-btn-icon" aria-label="Close the file" title="Close the file"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                        </div>
                     </div>
 
-                    <div class="flex-grow overflow-y-auto p-4 custom-scroll flex flex-col gap-4">
+                    <div class="stk-tabs xv-tabs" role="tablist" aria-label="Plot settings">
+                        <button type="button" role="tab" id="xvTabData" class="stk-tab xv-tab" data-tab="data" aria-controls="xvData" aria-selected="true"><i class="fa-solid fa-table-columns xv-tab-icon" aria-hidden="true"></i><span>Data</span><span id="xvTabDataInfo" class="xv-tab-info stk-tnum"></span></button>
+                        <button type="button" role="tab" id="xvTabStyle" class="stk-tab xv-tab" data-tab="style" aria-controls="xvStyle" aria-selected="false" tabindex="-1"><i class="fa-solid fa-sliders xv-tab-icon" aria-hidden="true"></i><span>Style</span></button>
+                    </div>
 
-                        <div class="xvg-group">
-                            <label for="xColSelect" class="xvg-group-t">X axis</label>
-                            <select id="xColSelect" class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none"></select>
-                        </div>
-
-                        <div class="xvg-group">
-                            <div class="flex justify-between items-center gap-2">
-                                <h3 id="xvg-series-t" class="xvg-group-t">Series to plot</h3>
-                                <button type="button" id="btnToggleAll" class="text-xs font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">Clear all</button>
+                    <section id="xvData" class="xv-pane" role="tabpanel" aria-labelledby="xvTabData" tabindex="-1">
+                        <div class="stk-group">
+                            <div class="stk-field">
+                                <label for="xColSelect">X axis</label>
+                                <select id="xColSelect" class="stk-select stk-select-sm"></select>
                             </div>
-                            <div id="yColContainer" class="flex flex-col gap-1.5 max-h-[40vh] overflow-y-auto custom-scroll" role="group" aria-labelledby="xvg-series-t"></div>
-                            <p class="text-xs text-slate-600 dark:text-slate-400">Series on very different scales? Put one on the right-hand axis.</p>
                         </div>
 
-                        <div class="xvg-group">
-                            <button type="button" class="accordion-btn w-full flex justify-between items-center text-left" aria-expanded="false" aria-controls="settingsContent" data-target="settingsContent">
-                                <span class="xvg-group-t">Appearance</span>
-                                <i class="fa-solid fa-chevron-down accordion-icon text-slate-500 dark:text-slate-400 text-xs" aria-hidden="true"></i>
-                            </button>
-                            <div id="settingsContent" class="accordion-content">
-                                <div class="pt-2 flex flex-col gap-3">
-                                    <label class="stk-check justify-between">
-                                        Log scale on the y-axis
-                                        <input type="checkbox" id="plotLogY">
-                                    </label>
-                                    <label class="stk-check justify-between">
-                                        Show markers
-                                        <input type="checkbox" id="plotMarkers">
-                                    </label>
-                                    <div>
-                                        <label for="plotSmoothing" class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Line smoothing</label>
-                                        <input type="range" id="plotSmoothing" min="0" max="1.3" step="0.1" value="0" class="w-full">
-                                    </div>
+                        <div class="stk-group">
+                            <div class="xv-group-h">
+                                <h3 id="xvg-series-t" class="stk-group-t">Series</h3>
+                                <button type="button" id="btnToggleAll" class="stk-btn stk-btn-sm stk-btn-ghost xv-mini">Clear all</button>
+                            </div>
+                            <div id="yColContainer" class="xv-series-list stk-scroll" role="group" aria-labelledby="xvg-series-t"></div>
+                            <p class="stk-hint">A series on another scale? Press <strong>Lower panel</strong> to draw it under the others, sharing the x axis.</p>
+                        </div>
+
+                        <div class="stk-group">
+                            <h3 class="stk-group-t">Running mean</h3>
+                            <label class="stk-check"><input type="checkbox" id="xvAverage"> <span>Draw the running mean of each series</span></label>
+                            <div id="xvAverageOpts" class="xv-avg" hidden>
+                                <div class="stk-field xv-avg-n">
+                                    <label for="xvWindow">Points in each mean</label>
+                                    <input type="number" id="xvWindow" class="stk-input stk-input-sm stk-tnum" min="2" step="1" value="10" inputmode="numeric">
+                                </div>
+                                <label class="stk-check"><input type="checkbox" id="xvRaw" checked> <span>Show the data under it, faded</span></label>
+                            </div>
+                            <p class="stk-hint">Each point of the line is the mean of that many points in a row. The script works it out with <code>numpy.convolve</code>, so it draws the same line.</p>
+                        </div>
+                    </section>
+
+                    <section id="xvStyle" class="xv-pane xv-pane-style" role="tabpanel" aria-labelledby="xvTabStyle" tabindex="-1" hidden>
+                        <div id="xvStyleHost" class="xv-style-host"></div>
+                    </section>
+                </aside>
+
+                <div class="xv-canvas">
+                    <section id="xvPlot" class="xv-sec fg" aria-labelledby="xvPlotTitle">
+                        <div class="fg-h">
+                            <h2 id="xvPlotTitle" class="fg-t">Plot</h2>
+                            <span class="fg-size stk-tnum" title="The size of the saved figure"></span>
+                            <div class="fg-actions">
+                                <label class="fg-toggle"><input type="checkbox" id="plotMarkers"> <span>Markers</span></label>
+                                <label class="fg-toggle"><input type="checkbox" id="plotLogY"> <span>Log y</span></label>
+                                <button type="button" id="xvEditStyle" class="stk-btn stk-btn-sm stk-btn-ghost" data-fg-style><i class="fa-solid fa-sliders" aria-hidden="true"></i> Style</button>
+                                <div class="fg-export" role="group" aria-label="Export the figure">
+                                    <button type="button" class="stk-btn stk-btn-sm" data-export="pdf" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> PDF</button>
+                                    <button type="button" class="stk-btn stk-btn-sm" data-export="png" disabled>PNG</button>
+                                    <button type="button" class="stk-btn stk-btn-sm" data-export="svg" disabled>SVG</button>
                                 </div>
                             </div>
                         </div>
-
-                        <div class="xvg-group">
-                            <h3 class="xvg-group-t">Export</h3>
-                            <div class="flex flex-wrap gap-2">
-                                <button type="button" id="xvgPngBtn" class="stk-btn stk-btn-sm"><i class="fa-solid fa-image" aria-hidden="true"></i> Download PNG</button>
-                                <button type="button" id="xvgPyBtn" class="stk-btn stk-btn-sm" title="matplotlib code that redraws this plot from your file"><i class="fa-brands fa-python" aria-hidden="true"></i> Python code</button>
+                        <div class="fg-stage">
+                            <div id="xvPlotEmpty" class="fg-empty">
+                                <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                                <p id="xvEmptyTitle" class="fg-empty-title">Tick a series to plot it</p>
+                                <p id="xvEmptyText" class="fg-empty-text">Choose the columns under Data, on the left.</p>
                             </div>
+                            <div class="fg-figure" hidden></div>
                         </div>
-
-                    </div>
-                </div>
-
-                <div class="flex-grow bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-center overflow-hidden relative h-[65vh] lg:h-full min-w-0">
-                    <div id="plotContainer" class="w-full h-full p-2"></div>
-                    <p id="plotEmptyNote" class="xvg-plot-empty hidden">Tick at least one series to plot.</p>
-                    <div id="plotLoader" class="absolute inset-0 bg-white/80 dark:bg-slate-900/80 z-10 hidden flex-col items-center justify-center">
-                        <i class="fa-solid fa-circle-notch fa-spin text-4xl text-brand-600 dark:text-brand-400 mb-4" aria-hidden="true"></i>
-                        <p class="text-sm font-bold text-slate-600 dark:text-slate-300">Reading the file&hellip;</p>
-                    </div>
+                        <div class="fg-notes" hidden></div>
+                    </section>
+                    <div id="xvPython" class="xv-py"></div>
                 </div>
 
             </section>
@@ -236,12 +252,12 @@
     <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
         <span class="stk-chip"><i class="fa-solid fa-circle-play"></i> Guide</span>
         <h2 class="stk-h2">How to visualize your data</h2>
-        <p class="stk-lead">Drop a GROMACS <code>.xvg</code> (or any whitespace/CSV numeric table) and explore every column interactively, the parser reads the embedded metadata so your axes and legends come out labelled.</p>
+        <p class="stk-lead">Drop a GROMACS <code>.xvg</code> (or any whitespace or CSV table of numbers) and plot any of its columns. The page reads the file's own labels, so the axes and legends come out labelled.</p>
         <div class="stk-grid stk-grid-2" style="margin-top:1.5rem;">
             <div class="stk-step"><span class="stk-num">1</span><div><h3>Load a file</h3><p>Drag &amp; drop or select a <code>.xvg</code>, <code>.csv</code>, <code>.txt</code> or <code>.dat</code> file, or press <strong>Load a sample</strong> to try a synthetic RMSD and radius-of-gyration trace. Everything is parsed in your browser.</p></div></div>
-            <div class="stk-step"><span class="stk-num">2</span><div><h3>Pick columns</h3><p>Choose which column is the X axis, then tick any number of series to overlay; a series on a very different scale can go on a second y-axis on the right. Legends and axis titles are pulled from the file's <code>@</code> metadata, or a CSV's header row, when present.</p></div></div>
-            <div class="stk-step"><span class="stk-num">3</span><div><h3>Adjust the view</h3><p>Under <strong>Appearance</strong>, switch to a log y-axis, show markers, or apply spline smoothing. The plot zooms and pans from the toolbar that appears over its top-right corner.</p></div></div>
-            <div class="stk-step"><span class="stk-num">4</span><div><h3>Export or reproduce</h3><p>Press <strong>Download PNG</strong> to save the plot, or <strong>Python code</strong> to copy matplotlib code that redraws the current selection from your file with <code>numpy.loadtxt</code>. The code draws the data as recorded; smoothing is only applied on screen.</p></div></div>
+            <div class="stk-step"><span class="stk-num">2</span><div><h3>Pick columns</h3><p>Choose which column is the x axis, then tick any number of series to overlay. A series on a very different scale goes in a <strong>Lower panel</strong> under the others, sharing the x axis. Legends and axis titles come from the file's <code>@</code> lines, or a CSV's header row, when present; GROMACS's sub- and superscripts and Greek letters are set as they print.</p></div></div>
+            <div class="stk-step"><span class="stk-num">3</span><div><h3>Smooth and style it</h3><p>Draw a <strong>running mean</strong> over a noisy trace, with the data faded under it, and switch markers or a log y axis from the plot's header. The <strong>Style</strong> tab sets the size, fonts, labels, limits, ticks, colours, legend and grid of the saved figure; the preview is drawn at that size, as it will be saved.</p></div></div>
+            <div class="stk-step"><span class="stk-num">4</span><div><h3>Save it, or take the script</h3><p>Save the figure as PDF, PNG or SVG. The <strong>Python script</strong> under the plot draws the same figure with matplotlib: it reads your file with <code>numpy.loadtxt</code>, or holds the numbers itself, works out any running mean with numpy, and saves the figure at the same size.</p></div></div>
         </div>
     </section>
 
@@ -252,7 +268,7 @@
         <div style="margin-top:1.25rem; display:flex; flex-direction:column; gap:1rem; max-width:52rem;">
             <div><h3 class="stk-label">Comment &amp; metadata lines</h3><p class="stk-body">Lines starting with <code>#</code> are comments; lines starting with <code>@</code> are Grace formatting commands. This tool reads <code>@ title</code>, <code>@ xaxis label</code>, <code>@ yaxis label</code> and <code>@ sN legend</code> to label the plot, and skips everything else, so the raw numeric matrix is all that gets plotted. A line holding only <code>&amp;</code> ends one data set; the rows of every set are read into one table, in file order. A row with text in it, an empty cell in a CSV, or a different number of values from most rows is skipped whole and counted in the file summary at the top of the settings, so no value moves into the wrong column. A comma at the end of every row is ignored.</p></div>
             <div><h3 class="stk-label">The data block</h3><p class="stk-body">Below the metadata is a whitespace-separated numeric table: the first column is usually the independent variable (time, distance, reaction coordinate) and each remaining column a data series. Common outputs include RMSD (<code>gmx rms</code>), radius of gyration (<code>gmx gyrate</code>), and PMF/free-energy profiles.</p></div>
-            <div><h3 class="stk-label">Reproducing in Python</h3><p class="stk-body">The <strong>Python code</strong> export uses <code>numpy.loadtxt(..., comments=['@', '#', '&amp;'])</code>, which is the idiomatic way to read an .xvg: the <code>comments</code> argument makes NumPy skip exactly the metadata lines and set breaks described above, leaving the numeric matrix. For a comma-separated file it also passes <code>delimiter=','</code> and skips the header row. If the file has skipped rows among the numbers, the script passes <code>loadtxt</code> only the lines that are all numbers, so it reads the same rows as the plot. The generated script plots only the columns you selected, with a second y-axis (<code>ax.twinx()</code>) for any series you put on the right.</p></div>
+            <div><h3 class="stk-label">Reproducing in Python</h3><p class="stk-body">The <strong>Python script</strong> reads the file with <code>numpy.loadtxt(..., comments=['@', '#', '&amp;'])</code>, which is the idiomatic way to read an .xvg: the <code>comments</code> argument makes NumPy skip exactly the metadata lines and set breaks described above, leaving the numeric matrix. For a comma-separated file it also passes <code>delimiter=','</code> and skips the header row. If the file has skipped rows among the numbers, the script passes <code>loadtxt</code> only the lines that are all numbers, so it reads the same rows as the plot. A running mean is <code>numpy.convolve</code> with a window of equal weights, and a lower panel is a second axes from <code>plt.subplots(2, 1, sharex=True)</code>. The script sets the same fonts, sizes, colours, ticks and legend as the preview, which is drawn to match matplotlib 3.6 and later.</p></div>
         </div>
     </section>
 
@@ -263,7 +279,7 @@
             <li>Abraham, M.&nbsp;J., Murtola, T., Schulz, R., et&nbsp;al. (2015). GROMACS: High performance molecular simulations through multi-level parallelism. <em>SoftwareX</em>, 1&ndash;2, 19&ndash;25. <a href="https://manual.gromacs.org/current/reference-manual/file-formats.html" target="_blank" rel="noopener">GROMACS file formats</a>.</li>
             <li>Turner, P.&nbsp;J. (2005). <em>XMGRACE</em> (Grace 5.1). Center for Coastal and Land-Margin Research, OGI. <span style="opacity:.8">(origin of the .xvg/@-command format)</span></li>
             <li>Harris, C.&nbsp;R., Millman, K.&nbsp;J., van der Walt, S.&nbsp;J., et&nbsp;al. (2020). Array programming with NumPy. <em>Nature</em>, 585, 357&ndash;362. <a href="https://numpy.org/doc/stable/reference/generated/numpy.loadtxt.html" target="_blank" rel="noopener">numpy.loadtxt</a>.</li>
-            <li>Software: <a href="https://plotly.com/javascript/" target="_blank" rel="noopener">Plotly.js</a> (interactive plotting). Exported code targets <a href="https://matplotlib.org/stable/" target="_blank" rel="noopener">matplotlib</a> + NumPy.</li>
+            <li>Software: <a href="https://plotly.com/javascript/" target="_blank" rel="noopener">Plotly.js</a> draws the preview; the script uses <a href="https://matplotlib.org/stable/" target="_blank" rel="noopener">matplotlib</a> and NumPy.</li>
         </ol>
     </section>
     </div>
@@ -330,20 +346,6 @@
     </footer>
 
     <script src="js/site.js"></script>
-    <script type="module" src="js/xvg-visualizer.js"></script>    <!-- Python code modal -->
-    <div id="xvgCodeModal" class="fixed inset-0 z-[60] hidden items-center justify-center p-4" style="background:rgba(15,23,42,.6);">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
-            <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
-                <h3 class="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><i class="fa-brands fa-python text-brand-500"></i> matplotlib code</h3>
-                <div class="flex items-center gap-2">
-                    <button type="button" id="xvgCopyCode" class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-md text-xs font-bold transition-colors"><i class="fa-solid fa-copy mr-1"></i> Copy</button>
-                    <button type="button" id="xvgCloseCode" aria-label="Close" class="w-8 h-8 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-            </div>
-            <div class="p-1 overflow-auto"><pre id="xvgCodeBlock" class="text-xs leading-relaxed p-4 font-mono text-slate-800 dark:text-slate-200 whitespace-pre overflow-x-auto"></pre></div>
-            <div class="px-4 py-2.5 border-t border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 dark:text-slate-400">Redraws the selected columns from your file with <code>numpy.loadtxt</code> + <code>matplotlib</code>, including the right-hand axis, log scale and markers. Line smoothing is not carried over. Point the path at your file.</div>
-        </div>
-    </div>
-
+    <script type="module" src="js/xvg-visualizer.js"></script>
 </body>
 </html>

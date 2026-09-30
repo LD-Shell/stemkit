@@ -84,19 +84,20 @@
 .dark .pd-export-note { color: var(--stk-ok); }
 .pd-export-note:empty { display: none; }
 
-/* Preview of the extracted points, drawn in a dialog on this page. */
-.pd-dialog { width: min(56rem, calc(100vw - 2rem)); max-width: none; padding: 0; border: 1px solid var(--stk-border); border-radius: 1rem; background: var(--stk-surface); color: var(--stk-fg); box-shadow: var(--stk-shadow-lg); }
-.pd-dialog::backdrop { background: var(--stk-overlay); }
-.pd-preview-plot { height: min(60vh, 520px); padding: .5rem; }
+/* The plot of the digitised points and its Python script, under the
+   workspace: the site's shared plot area (src/tools/figure.css) and Python
+   panel (src/tools/python-panel.css), side by side on a wide screen. */
+.pd-result { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; margin-top: 1rem; align-items: start; }
+.pd-result[hidden] { display: none; }
+.pd-result, .pd-py { scroll-margin-top: 6rem; }
+@media (min-width: 1280px) {
+  .pd-result { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+}
+.pd-result-hint { margin: .75rem 0 .6rem; }
 
 .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
 .custom-scroll::-webkit-scrollbar-track { background: transparent; }
 .custom-scroll::-webkit-scrollbar-thumb { background-color: var(--stk-border-strong); border-radius: 20px; }
-
-/* The Python-script modal ships with Tailwind's `hidden` and is revealed by
-   toggling `.open`. An id+class selector is needed so the rule outranks
-   `.hidden`; without it the script is generated but never becomes visible. */
-#pythonModal.open { display: flex; }
 
 /* Toast notifications, matching the other tools. */
 @keyframes slideIn {
@@ -105,5 +106,4 @@
 }
 @media (prefers-reduced-motion: no-preference) {
   .toast-enter { animation: slideIn 0.3s forwards; }
-  .pd-dialog[open] { animation: stk-pop .18s cubic-bezier(.2, .8, .2, 1); }
 }
