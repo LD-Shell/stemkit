@@ -74,6 +74,7 @@ export * as PlumedSyntax from './plumed-syntax.js';
 export * as PlumedParse from './plumed-parse.js';
 export * as PlumedAtoms from './plumed-atoms.js';
 export * as PlumedAnalysis from './plumed-analysis.js';
+export * as PlumedRun from './plumed-run.js';
 export * as Selection from './selection.js';
 
 /* ------------------------------------------------------------------ *

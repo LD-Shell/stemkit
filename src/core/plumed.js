@@ -873,7 +873,12 @@ const BIAS_LABEL = Object.freeze({
  * @param {Array<object>} targets
  * @param {object} [params] - Method parameters keyed by PLUMED keyword.
  * @param {{grid?:boolean, rct?:boolean, walkers?:object, stride?:string|number,
- *   temp?:string|number, label?:string}} [options]
+ *   temp?:string|number, label?:string, stateStride?:string|number}} [options]
+ *   `walkers.sharedDir` is the directory of walker 0 that MPI walkers read
+ *   on a restart. `stateStride` is how often OPES writes its state; blank
+ *   writes it at the MD engine's checkpoints, which GROMACS signals.
+ *   PLUMED writes no state at all when it is blank and the engine signals
+ *   none, and then the run cannot restart.
  * @returns {{lines:string[], warnings:string[], components:string[], label:string,
  *   title:string}}
  */
@@ -946,7 +951,13 @@ export function buildBiasLine(method, targets, params = {}, options = {}) {
     return '';
   };
   const walkerLines = (allowDisk) => {
-    if (walkers.mode === 'mpi') return ['    WALKERS_MPI'];
+    if (walkers.mode === 'mpi') {
+      // Only walker 0 writes the hills. With WALKERS_DIR every walker reads
+      // them from walker 0's directory on a restart; without it PBMETAD's
+      // other walkers find no file, warn and go on with no bias.
+      const dir = str(walkers.sharedDir);
+      return allowDisk && dir ? ['    WALKERS_MPI', `    WALKERS_DIR=${dir}`] : ['    WALKERS_MPI'];
+    }
     if (walkers.mode === 'disk') {
       if (!allowDisk) return ['    WALKERS_MPI'];
       return [
@@ -1060,8 +1071,14 @@ export function buildBiasLine(method, targets, params = {}, options = {}) {
         lines.push('    # SIGMA is ADAPTIVE by default (estimated from the fluctuations)');
       }
       lines.push(`    FILE=${param('FILE') || 'Kernels.data'}`);
+      // A restart from the kernels file is approximate; the state file makes
+      // it exact. STATE_RFILE is read only when the run restarts.
+      const stateDir = walkers.mode === 'mpi' && str(walkers.sharedDir) ? `${str(walkers.sharedDir)}/` : '';
+      lines.push(`    STATE_RFILE=${stateDir}State.data`);
       lines.push('    STATE_WFILE=State.data');
-      lines.push(`    STATE_WSTRIDE=${Math.max(parseInt(stride, 10) * 20 || 10000, 10000)}`);
+      const every = options.stateStride === undefined ? '' : str(options.stateStride);
+      if (every) lines.push(`    STATE_WSTRIDE=${every}`);
+      else lines.push('    # State written at every checkpoint of the MD engine (GROMACS signals them)');
       if (n >= 2) lines.push('    NLIST   # neighbour list over kernels speeds up multi-CV OPES');
       lines.push(...walkerLines(false));
       lines.push('...');
@@ -1117,7 +1134,9 @@ export function buildBiasLine(method, targets, params = {}, options = {}) {
       if (noise) line += ` NOISE=${noise}`;
       title = 'ABMD (ratchet-and-pawl)';
       lines.push(line);
-      components = [`${label}.bias`];
+      // <arg>_min is the closest approach so far; a restart passes it back as
+      // MIN, or the ratchet starts again from wherever the variable is.
+      components = [`${label}.bias`, ...t.map(c => `${label}.${c.arg}_min`)];
       break;
     }
 
@@ -1548,7 +1567,7 @@ function splitList(value) {
  *   cvs?: Array<object>,
  *   functions?: Array<object>,
  *   bias?: {method?:string, params?:object, temp?:string, stride?:string,
- *     grid?:boolean, rct?:boolean, walkers?:object},
+ *     grid?:boolean, rct?:boolean, walkers?:object, stateStride?:string|number},
  *   restraints?: Array<object>,
  *   prints?: Array<{file?:string, stride?:string|number, extra?:string|string[],
  *     args?:string[], only?:boolean}>
@@ -1744,7 +1763,7 @@ export function generatePlumedInput(config = {}) {
 
   const biasOptions = c.legacy ? {} : {
     grid: c.bias.grid !== false, rct: !!c.bias.rct, walkers: c.bias.walkers,
-    stride: c.bias.stride, temp: c.bias.temp
+    stride: c.bias.stride, temp: c.bias.temp, stateStride: c.bias.stateStride
   };
   const bias = buildBiasLine(c.bias.method, targets, c.bias.params, biasOptions);
   warnings.push(...bias.warnings);
