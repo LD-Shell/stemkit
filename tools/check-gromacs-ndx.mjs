@@ -9,12 +9,17 @@
  * Checked: every .gro and .pdb in tests/fixtures/gromacs-ndx, the large
  * generated system, the test structures of a GROMACS source tree at the
  * repository root (gromacs-*), any structure named on the command line, and
- * every command sequence in tests/fixtures/gromacs-ndx/commands.json.
+ * every command sequence in tests/fixtures/gromacs-ndx/commands.json. Then
+ * two checks beyond make_ndx: grompp's verdict on each .mdp in
+ * mdp-groups.json against checkMdpGroups, and `gmx select` on the periodic
+ * system (periodic-system.mjs) against customGroup for each selection in
+ * periodic-select.json.
  *
  * With --write, the expected results the tests read (the fixture .ndx files,
- * the digests in commands.json and large-system.json) are rewritten from
- * make_ndx's output instead of compared. GMX_BIN may name gmx or gmx_mpi; the
- * MPI build runs without mpirun.
+ * the digests in commands.json and large-system.json, grompp's verdicts and
+ * gmx select's atoms) are rewritten from GROMACS's output instead of
+ * compared. GMX_BIN may name gmx or gmx_mpi; the MPI build runs without
+ * mpirun.
  *
  * Exits 0 when nothing differs, or when GMX_BIN is unset (nothing to check).
  */
@@ -23,12 +28,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
-  readGromacsStructure, defaultGroups, makeNdx, writeNdx, parseNdx
+  readGromacsStructure, defaultGroups, makeNdx, writeNdx, parseNdx, checkMdpGroups, customGroup
 } from '../src/core/gromacs-ndx.js';
 import { largeSystemGro } from '../tests/fixtures/gromacs-ndx/large-system.mjs';
+import { periodicSystemGro } from '../tests/fixtures/gromacs-ndx/periodic-system.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FIX = path.join(root, 'tests', 'fixtures', 'gromacs-ndx');
@@ -148,6 +154,76 @@ if (fs.existsSync(casesFile)) {
   }
   if (write) {
     fs.writeFileSync(casesFile, `[\n${cases.map(c => `  ${JSON.stringify(c)}`).join(',\n')}\n]\n`);
+  }
+}
+
+/* ---- grompp's verdict on the groups an .mdp names ---- */
+
+/*
+ * The argon system, index and .mdp cases in mdp-groups.json: grompp either
+ * accepts each .mdp or stops, and checkMdpGroups must say the same. Warnings
+ * are allowed (-maxwarn), since only the groups are in question.
+ */
+const mdpFile = path.join(FIX, 'mdp-groups.json');
+if (fs.existsSync(mdpFile)) {
+  const spec = JSON.parse(fs.readFileSync(mdpFile, 'utf8'));
+  const dir = path.join(tmp, 'grompp');
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, 'ar.gro'), spec.gro);
+  fs.writeFileSync(path.join(dir, 'ar.top'), spec.top);
+  fs.writeFileSync(path.join(dir, 'index.ndx'), spec.index);
+  const n = readGromacsStructure(spec.gro, 'ar.gro').atoms.length;
+  const groups = parseNdx(spec.index).groups;
+  for (const c of spec.cases) {
+    const mdp = { ...spec.base, ...c.mdp };
+    fs.writeFileSync(path.join(dir, 'run.mdp'),
+      Object.entries(mdp).map(([k, v]) => `${k} = ${v}`).join('\n') + '\n');
+    const r = spawnSync(GMX, ['-quiet', 'grompp', '-f', 'run.mdp', '-c', 'ar.gro', '-p', 'ar.top',
+      '-n', 'index.ndx', '-o', 'run.tpr', '-po', 'out.mdp', '-maxwarn', '20'],
+    { cwd: dir, encoding: 'utf8' });
+    const accepted = r.status === 0;
+    const log = `${r.stdout}\n${r.stderr}`;
+    const fatal = /Fatal error:\n([^\n]+)/.exec(log) || /ERROR 1 \[[^\]]*\]:\n\s*([^\n]+)/.exec(log);
+    const message = accepted ? '' : (fatal ? fatal[1].trim() : 'grompp failed');
+    const ours = checkMdpGroups(groups, mdp, n).ok;
+    report(ours === accepted, `grompp: ${c.label}`,
+      ours === accepted ? '' : `grompp ${accepted ? 'accepts' : `stops (${message})`}, we say ${ours}`);
+    if (write) Object.assign(c, { grompp: accepted, message });
+    else report(c.grompp === accepted, `grompp: ${c.label} is recorded`);
+  }
+  if (write) {
+    const cases = spec.cases.map(c => `    ${JSON.stringify(c)}`).join(',\n');
+    fs.writeFileSync(mdpFile, `{\n  "gro": ${JSON.stringify(spec.gro)},\n` +
+      `  "top": ${JSON.stringify(spec.top)},\n  "index": ${JSON.stringify(spec.index)},\n` +
+      `  "base": ${JSON.stringify(spec.base)},\n  "cases": [\n${cases}\n  ]\n}\n`);
+  }
+}
+
+/* ---- gmx select through the periodic boundary ---- */
+
+const selectFile = path.join(FIX, 'periodic-select.json');
+if (fs.existsSync(selectFile)) {
+  const cases = JSON.parse(fs.readFileSync(selectFile, 'utf8'));
+  const file = path.join(tmp, 'periodic.gro');
+  const text = periodicSystemGro();
+  fs.writeFileSync(file, text);
+  const top = readGromacsStructure(text, 'periodic.gro');
+  const out = path.join(tmp, 'select.ndx');
+  for (const c of cases) {
+    fs.rmSync(out, { force: true });
+    execFileSync(GMX, ['-quiet', 'select', '-s', file, '-select', c.select, '-on', out],
+      { stdio: ['pipe', 'pipe', 'pipe'] });
+    const ref = parseNdx(fs.readFileSync(out, 'utf8')).groups[0].atoms;
+    const ours = customGroup(top, c.spec, c.options || {}).atoms;
+    const same = ours.join(' ') === ref.join(' ');
+    const label = `gmx select "${c.select}" as ${JSON.stringify(c.spec)}`;
+    report(same, label, same ? '' : `gmx select ${ref.length} atoms, we ${ours.length}`);
+    const expect = { atoms: ref.length, sha256: sha(ref.join(' ')) };
+    if (write) Object.assign(c, expect);
+    else report(c.sha256 === expect.sha256 && c.atoms === expect.atoms, `${label} is recorded`);
+  }
+  if (write) {
+    fs.writeFileSync(selectFile, `[\n${cases.map(c => `  ${JSON.stringify(c)}`).join(',\n')}\n]\n`);
   }
 }
 

@@ -1,0 +1,10 @@
+[
+  {"select":"resname SOL and within 0.5 of resname LIG","spec":{"query":"resn:SOL within:0.5,resn:LIG"},"atoms":119,"sha256":"199aeb57f11d111e9145ff8d0f333e2ad47e93ec68b17471e77ff58da0b8a87c"},
+  {"select":"resname SOL and within 0.5 of resname LIG","spec":{"resname":"SOL","within":{"distance":0.5,"of":"LIG"}},"atoms":119,"sha256":"199aeb57f11d111e9145ff8d0f333e2ad47e93ec68b17471e77ff58da0b8a87c"},
+  {"select":"resname SOL and within 0.5 of resname LIG","spec":{"query":"resn:SOL within:5,resn:LIG"},"options":{"unit":"A"},"atoms":119,"sha256":"199aeb57f11d111e9145ff8d0f333e2ad47e93ec68b17471e77ff58da0b8a87c"},
+  {"select":"resname SOL and not within 0.5 of resname LIG","spec":{"query":"resn:SOL !within:0.5,resn:LIG"},"atoms":1801,"sha256":"5c64822689af51d32d6f58d2a1b34fb1053f8aecd3494db346753a8256bbbe77"},
+  {"select":"same residue as (resname SOL and within 0.5 of resname LIG)","spec":{"resname":"SOL","within":{"distance":0.5,"of":"LIG","byResidue":true}},"atoms":129,"sha256":"8dfefa1d89f5f2339117be8add5608e6267ab49b5f1d646855781740e87caf30"},
+  {"select":"resname ALA and within 0.4 of resname LIG","spec":{"query":"resn:ALA within:0.4,resn:LIG"},"atoms":5,"sha256":"2deb4db564eb7bf637bbcd3cf2d964639e63825caaa233dd8d759708b272dd55"},
+  {"select":"within 0.3 of resname NA","spec":{"query":"within:0.3,resn:NA"},"atoms":15,"sha256":"adc20931e436a82d9c6dc3549d597179a23f5cd4e60c98b52166120df3ec0b8a"},
+  {"select":"name OW and within 0.45 of resname CL","spec":{"query":"atom:OW within:0.45,resn:CL"},"atoms":11,"sha256":"0a95554cc89a475be966e88832c8ae47f3b016ffb254524030126d6dd7ab4d96"}
+]

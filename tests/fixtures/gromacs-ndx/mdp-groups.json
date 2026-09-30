@@ -1,0 +1,25 @@
+{
+  "gro": "argon\n   12\n    1AR      AR    1   0.500   0.750   0.750\n    2AR      AR    2   0.500   0.750   2.250\n    3AR      AR    3   0.500   2.250   0.750\n    4AR      AR    4   0.500   2.250   2.250\n    5AR      AR    5   1.500   0.750   0.750\n    6AR      AR    6   1.500   0.750   2.250\n    7AR      AR    7   1.500   2.250   0.750\n    8AR      AR    8   1.500   2.250   2.250\n    9AR      AR    9   2.500   0.750   0.750\n   10AR      AR   10   2.500   0.750   2.250\n   11AR      AR   11   2.500   2.250   0.750\n   12AR      AR   12   2.500   2.250   2.250\n   3.00000   3.00000   3.00000\n",
+  "top": "[ defaults ]\n1 3\n[ atomtypes ]\nAR AR 39.948 0.0 A 0.3345 1.045128\n[ moleculetype ]\nArgon 1\n[ atoms ]\n1 AR 1 AR AR 1 0\n[ system ]\nArgon\n[ molecules ]\nArgon 12\n",
+  "index": "[ System ]\n1 2 3 4 5 6 7 8 9 10 11 12\n[ Half ]\n1 2 3 4 5 6\n[ Rest ]\n7 8 9 10 11 12\n[ A ]\n1\n[ B ]\n5\n[ Empty ]\n",
+  "base": {"nsteps":"0","cutoff-scheme":"Verlet","rvdw":"0.5","rcoulomb":"0.5"},
+  "cases": [
+    {"label":"thermostat, tc-grps covers all","mdp":{"tcoupl":"v-rescale","tc-grps":"System","tau-t":"0.1","ref-t":"100"},"grompp":true,"message":""},
+    {"label":"thermostat, tc-grps covers half","mdp":{"tcoupl":"v-rescale","tc-grps":"Half","tau-t":"0.1","ref-t":"100"},"grompp":false,"message":"6 atoms are not part of any of the T-Coupling groups"},
+    {"label":"thermostat, tc-grps empty","mdp":{"tcoupl":"v-rescale","tc-grps":"","tau-t":"","ref-t":""},"grompp":false,"message":"12 atoms are not part of any of the T-Coupling groups"},
+    {"label":"thermostat spelt as grompp also reads it","mdp":{"tcoupl":"V_RESCALE","tc_grps":"Half","tau_t":"0.1","ref_t":"100"},"grompp":false,"message":"6 atoms are not part of any of the T-Coupling groups"},
+    {"label":"no thermostat, tc-grps covers half","mdp":{"tcoupl":"no","tc-grps":"Half","tau-t":"0.1","ref-t":"100"},"grompp":true,"message":""},
+    {"label":"tcoupl left at its default","mdp":{"tc-grps":"Half","tau-t":"0.1","ref-t":"100"},"grompp":true,"message":""},
+    {"label":"no thermostat, groups overlap","mdp":{"tcoupl":"no","tc-grps":"Half System","tau-t":"0.1 0.1","ref-t":"100 100"},"grompp":false,"message":"Atom 1 in multiple T-Coupling groups (1 and 2)"},
+    {"label":"md-vv without a thermostat","mdp":{"integrator":"md-vv","tcoupl":"no","tc-grps":"Half","tau-t":"0.1","ref-t":"100"},"grompp":true,"message":""},
+    {"label":"sd has a reference temperature","mdp":{"integrator":"sd","tc-grps":"Half","tau-t":"0.1","ref-t":"100"},"grompp":false,"message":"6 atoms are not part of any of the T-Coupling groups"},
+    {"label":"bd has a reference temperature","mdp":{"integrator":"bd","tc-grps":"Half","tau-t":"0.1","ref-t":"100"},"grompp":false,"message":"6 atoms are not part of any of the T-Coupling groups"},
+    {"label":"steep drops the thermostat","mdp":{"integrator":"steep","tcoupl":"v-rescale","tc-grps":"Half","tau-t":"0.1","ref-t":"100"},"grompp":true,"message":""},
+    {"label":"steep with no tc-grps","mdp":{"integrator":"steep","tcoupl":"v-rescale","tc-grps":""},"grompp":true,"message":""},
+    {"label":"pull groups with atoms","mdp":{"tcoupl":"v-rescale","tc-grps":"System","tau-t":"0.1","ref-t":"100","pull":"yes","pull-ngroups":"2","pull-ncoords":"1","pull-group1-name":"A","pull-group2-name":"B","pull-coord1-groups":"1 2","pull-coord1-type":"umbrella","pull-coord1-geometry":"distance","pull-coord1-k":"1000"},"grompp":true,"message":""},
+    {"label":"an empty pull group","mdp":{"tcoupl":"v-rescale","tc-grps":"System","tau-t":"0.1","ref-t":"100","pull":"yes","pull-ngroups":"2","pull-ncoords":"1","pull-group1-name":"Empty","pull-group2-name":"B","pull-coord1-groups":"1 2","pull-coord1-type":"umbrella","pull-coord1-geometry":"distance","pull-coord1-k":"1000"},"grompp":false,"message":"Pull group 1 'Empty' is empty"},
+    {"label":"a rotation group with atoms","mdp":{"tcoupl":"v-rescale","tc-grps":"System","tau-t":"0.1","ref-t":"100","rotation":"yes","rot-ngroups":"1","rot-group0":"Half","rot-type0":"iso","rot-rate0":"0","rot-k0":"100"},"grompp":true,"message":""},
+    {"label":"an empty rotation group","mdp":{"tcoupl":"v-rescale","tc-grps":"System","tau-t":"0.1","ref-t":"100","rotation":"yes","rot-ngroups":"1","rot-group0":"Empty","rot-type0":"iso","rot-rate0":"0","rot-k0":"100"},"grompp":false,"message":"Rotation group 0 'Empty' is empty"},
+    {"label":"an empty IMD group","mdp":{"tcoupl":"v-rescale","tc-grps":"System","tau-t":"0.1","ref-t":"100","IMD-group":"Empty"},"grompp":true,"message":""}
+  ]
+}

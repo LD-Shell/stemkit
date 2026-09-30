@@ -16,7 +16,10 @@
  * `defaultGroups` ports `analyse()`, `analyse_prot()` and `analyse_other()`
  * from `src/gromacs/topology/index.cpp` (GROMACS 2025.1) with their quirks
  * intact, and has been checked against `gmx make_ndx` byte for byte (see
- * `tools/check-gromacs-ndx.mjs`). Among the quirks worth knowing:
+ * `tools/check-gromacs-ndx.mjs`), except that a nameless group is written
+ * `[ Group ]`: make_ndx writes `[  ]` for a blank residue name, which
+ * GROMACS's own init_index reads back as atom numbers of the group before
+ * it. Among the quirks worth knowing:
  *
  *   - Residue types come from `residuetypes.dat`, looked up case-sensitively
  *     (`Cal` is an ion, `CAL` is Other), and anything absent is "Other". So
@@ -59,7 +62,7 @@
 
 import { elementSymbol } from './structure.js';
 import {
-  compileSelection, SpatialGrid, SOLVENT_RESIDUES, ION_RESIDUES
+  compileSelection, SpatialGrid, SOLVENT_RESIDUES, ION_RESIDUES, NUCLEIC_RESIDUES
 } from './selection.js';
 
 /* ------------------------------------------------------------------ *
@@ -183,6 +186,51 @@ export const AMBER_LIPID_HEADS = Object.freeze(new Set([
 export const AMBER_LIPID_TAILS = Object.freeze(new Set([
   'LA', 'MY', 'PA', 'ST', 'OL', 'LEO', 'LEN', 'AR', 'DHA', 'LAL'
 ]));
+
+/**
+ * Nucleotide residue names GROMACS files under Other: CHARMM's ADE, GUA, CYT,
+ * THY and URA (for DNA and RNA alike), with the one-letter and deoxy names
+ * `core/selection.js` knows.
+ */
+export const NUCLEIC_NAMES = Object.freeze(new Set([
+  ...NUCLEIC_RESIDUES, 'ADE', 'GUA', 'CYT', 'THY', 'URA'
+]));
+
+/**
+ * Sugar residue names: the PDB chemical-component codes of the common
+ * glycan monosaccharides, and CHARMM-GUI's names, whole and cut to the five
+ * characters of a .gro file and the four of a PDB file (BGLCNA, BGLCN,
+ * BGLC). GLYCAM's three-character codes (4YB, 0MA, VMB) are recognised by
+ * their pattern. A sugar joined to the protein is part of the solute (role
+ * 'glycan'); a free one is a ligand or a cosolvent like any other molecule.
+ */
+export const GLYCAN_NAMES = Object.freeze(new Set([
+  // PDB: GlcNAc, GalNAc, mannose, galactose, glucose, fucose, xylose,
+  // sialic acids, glucuronic and iduronic acids, glucosamines.
+  'NAG', 'NDG', 'NGA', 'A2G', 'BMA', 'MAN', 'GAL', 'GLA', 'GLC', 'BGC', 'FUC', 'FUL',
+  'XYS', 'XYP', 'SIA', 'SLB', 'NGC', 'NGE', 'GCU', 'BDP', 'IDR', 'SGN', 'GCS', 'PA1',
+  // CHARMM-GUI Glycan Reader (alpha/beta prefix).
+  'AGLC', 'BGLC', 'AGLCNA', 'BGLCNA', 'AGLCN', 'BGLCN', 'AGAL', 'BGAL', 'AGALNA', 'BGALNA',
+  'AGALN', 'BGALN', 'AMAN', 'BMAN', 'AFUC', 'BFUC', 'AXYL', 'BXYL', 'ANE5AC', 'BNE5AC',
+  'ANE5A', 'BNE5A', 'ANE5', 'BNE5', 'AGLCA', 'BGLCA', 'AIDOA', 'BIDOA', 'AIDO', 'BIDO',
+  'ARHM', 'BRHM', 'AARB', 'BARB', 'AFRU', 'BFRU'
+]));
+
+/*
+ * GLYCAM06 names are a linkage code (0-9 for none or one linkage, P-Z for
+ * several), the sugar (upper case for D, lower case for L) and the ring form
+ * (A/B for an alpha/beta pyranose, D/U for a furanose): 4YB is a 4-linked
+ * beta-GlcNAc, 0MA a terminal alpha-mannose, VMB a 3,6-linked beta-mannose,
+ * 0fA an alpha-L-fucose. The pattern is broad, so it only ever labels a
+ * residue already found joined to the polymer (see `residueRoles`).
+ */
+const GLYCAM_NAME = /^[0-9P-Z][A-Za-z][ABDU]$/;
+
+/* Whether a residue name may be a sugar: listed, or shaped like a GLYCAM name. */
+function isGlycanName(name) {
+  const n = String(name || '');
+  return GLYCAN_NAMES.has(up(n)) || GLYCAM_NAME.test(n);
+}
 
 /* ------------------------------------------------------------------ *
  * Small string helpers with C semantics
@@ -446,9 +494,10 @@ export function readGromacsStructure(text, formatOrFilename = '') {
  * result or a plain atom array, and return the structure as GROMACS holds it.
  *
  * Residues are split where the residue number or name changes, the rule
- * GROMACS applies to `.gro` files. A structure.js PDB result carries only the
- * first three characters of each residue name, so read PDB text with
- * `readGromacsStructure` when four-character names (POPC, TIP3) matter.
+ * GROMACS applies to `.gro` files. A structure.js PDB result skips any atom
+ * line whose coordinates it cannot read, which would shift the numbers of the
+ * atoms after it, so read PDB text with `readGromacsStructure` when the
+ * numbering must be exactly GROMACS's.
  *
  * @param {GromacsStructure|{atoms:object[], unit?:string, box?:number[]}|object[]} input
  * @param {{unit?:'A'|'nm'}} [options] - Coordinate unit of a plain array
@@ -464,9 +513,9 @@ export function toGromacsStructure(input, options = {}) {
   const top = emptyStructure('structure');
   top.title = (input && input.title) || '';
   if (input && input.format === 'pdb') {
-    top.warnings.push('This PDB was read by core/structure.js, which keeps three characters of ' +
-      'each residue name and every model; read the text with readGromacsStructure to number ' +
-      'atoms as GROMACS does.');
+    top.warnings.push('This PDB was read by core/structure.js, which skips an atom line whose ' +
+      'coordinates it cannot read, so the atoms after one would be numbered differently from ' +
+      'GROMACS; read the text with readGromacsStructure to number atoms as GROMACS does.');
   }
   for (const a of atoms) {
     const resName = String(a.resName ?? a.resn ?? '').trim();
@@ -1431,7 +1480,10 @@ export function checkGroupCoverage(groups, names, natoms, options = {}) {
       `${firstOverlap.second})${more}; grompp stops on this.`);
   }
   const uncovered = missing.length ? 0 : natoms - total;
-  if (!missing.length && uncovered > 0 && list.length) {
+  // No names at all is the default for the options that allow a rest group,
+  // but for tc-grps with a thermostat it leaves every atom uncoupled, which
+  // grompp's do_numbering() stops on like any other gap.
+  if (!missing.length && uncovered > 0 && (list.length || coverage === 'all')) {
     const msg = `${uncovered} atoms are not part of any of the ${option} groups`;
     if (coverage === 'all') errors.push(`${msg}; grompp stops on this.`);
     else if (coverage === 'partial') notes.push(`${msg}.`);
@@ -1456,27 +1508,65 @@ const MDP_GROUP_OPTIONS = {
 const MDP_SINGLE_GROUPS = new RegExp('^(pull-group\\d+-name|rot-group\\d+|swap-group|' +
   'split-group[01]|solvent-group|imd-group|density-guided-simulation-group|qmmm-cp2k-qmgroup)$');
 
+/*
+ * The single groups grompp refuses when empty: readpull.cpp ("Pull group %d
+ * '%s' is empty"), readrot.cpp ("Rotation group %d '%s' is empty"),
+ * make_swap_groups() in readir.cpp ("Swap group %s does not contain any
+ * atoms") and qmmmoptions.cpp ("Group %s defining QM atoms should not be
+ * empty"). An empty IMD or density-guided group passes grompp.
+ */
+const MDP_EMPTY_IS_FATAL = new RegExp('^(pull-group\\d+-name|rot-group\\d+|swap-group|' +
+  'split-group[01]|solvent-group|qmmm-cp2k-qmgroup)$');
+
+/* An .mdp enum value as grompp compares it: case, dashes and underscores ignored. */
+const mdpEnum = v => String(v ?? '').toLowerCase().replace(/[-_]/g, '');
+
+/*
+ * integratorHasReferenceTemperature() in inputrec.cpp: sd, bd and the test
+ * particle insertion integrators always have one; the md integrators have
+ * one when a thermostat is on. grompp sets tcoupl to no for every other
+ * integrator (energy minimisation, normal modes) before it gets here.
+ */
+function hasReferenceTemperature(integrator, tcoupl) {
+  const ei = mdpEnum(integrator || 'md');
+  if (['sd', 'bd', 'tpi', 'tpic'].includes(ei)) return true;
+  if (['steep', 'cg', 'lbfgs', 'nm'].includes(ei)) return false;
+  return mdpEnum(tcoupl || 'no') !== 'no';
+}
+
 /**
  * Check every group an `.mdp` names against an index, with the coverage
  * rule grompp applies to each option.
  *
+ * tc-grps must cover every atom only when the run has a reference
+ * temperature (a thermostat on an md integrator, or sd, bd, tpi); otherwise
+ * grompp puts the atoms left out in a rest group, as it does for energygrps.
+ * `integrator` and `tcoupl` are read from the same object, with grompp's
+ * defaults (md, no) when absent. An empty tc-grps is checked too, since a
+ * thermostat with no groups couples nothing and grompp stops on it.
+ *
  * @param {Array<{name:string, atoms:number[]}>} groups
  * @param {Object<string,string>} mdp - Option to value, e.g.
- *        `{ 'tc-grps': 'Protein non-Protein', pull_group1_name: 'LIG' }`;
- *        underscores and dashes are equivalent, as in grompp.
+ *        `{ tcoupl: 'v-rescale', 'tc-grps': 'Protein non-Protein',
+ *        pull_group1_name: 'LIG' }`; underscores and dashes are equivalent,
+ *        as in grompp.
  * @param {number} natoms
  * @returns {{ok:boolean, options:Array<{option:string, ok:boolean,
  *   errors:string[], notes:string[]}>}}
  */
 export function checkMdpGroups(groups, mdp, natoms) {
   const results = [];
-  for (const [rawKey, rawValue] of Object.entries(mdp || {})) {
-    const key = String(rawKey).trim().toLowerCase().replace(/_/g, '-');
-    const value = String(rawValue ?? '').split(';')[0].trim();
+  const entries = Object.entries(mdp || {}).map(([rawKey, rawValue]) => [
+    String(rawKey).trim().toLowerCase().replace(/_/g, '-'),
+    String(rawValue ?? '').split(';')[0].trim()
+  ]);
+  const setting = new Map(entries);
+  const reference = hasReferenceTemperature(setting.get('integrator'), setting.get('tcoupl'));
+  for (const [key, value] of entries) {
     if (key in MDP_GROUP_OPTIONS) {
-      if (!value) continue;
-      const r = checkGroupCoverage(groups, value, natoms,
-        { coverage: MDP_GROUP_OPTIONS[key], option: key });
+      const coverage = key === 'tc-grps' && !reference ? 'rest' : MDP_GROUP_OPTIONS[key];
+      if (!value && coverage !== 'all') continue;
+      const r = checkGroupCoverage(groups, value, natoms, { coverage, option: key });
       results.push({ option: key, ok: r.ok, errors: r.errors, notes: r.notes });
     } else if (key === 'energygrp-excl' || key === 'energygrp-table') {
       const errors = value.split(/\s+/).filter(Boolean)
@@ -1486,7 +1576,12 @@ export function checkMdpGroups(groups, mdp, natoms) {
     } else if (MDP_SINGLE_GROUPS.test(key) && value) {
       const at = findIndexGroup(groups, value);
       const errors = at < 0 ? [`Group ${value} in ${key} is not in the index.`] : [];
-      const notes = at >= 0 && !groups[at].atoms.length ? [`Group ${value} is empty.`] : [];
+      const notes = [];
+      if (at >= 0 && !groups[at].atoms.length) {
+        if (MDP_EMPTY_IS_FATAL.test(key)) {
+          errors.push(`Group ${value} in ${key} is empty; grompp stops on this.`);
+        } else notes.push(`Group ${value} is empty.`);
+      }
       results.push({ option: key, ok: !errors.length, errors, notes });
     }
   }
@@ -1505,10 +1600,62 @@ function cached(top, key, make) {
   return entry[key];
 }
 
+/*
+ * Ion names, as residue or atom names, to the element. A .gro file has no
+ * element column, and a guess from the atom name alone reads CHARMM's SOD as
+ * sulphur, CLA as carbon and POT as phosphorus, and AMBER's NA+ as nitrogen.
+ * In a residue that is an ion the name is the ion's, so it is looked up here
+ * first.
+ */
+const ION_ELEMENTS = (() => {
+  const source = {
+    Li: 'LI LI+ LIT', Na: 'NA NA+ SOD', K: 'K K+ POT', Rb: 'RB RB+ RUB', Cs: 'CS CS+ CES',
+    Mg: 'MG MG2 MG2+', Ca: 'CA CA2 CA2+ CAL', Sr: 'SR SR2+', Ba: 'BA BA2+ BAR',
+    Zn: 'ZN ZN2 ZN2+', Cd: 'CD CD2 CD2+', Cu: 'CU CU1 CU+ CU2 CU2+', Fe: 'FE FE2 FE3 FE2+ FE3+',
+    Mn: 'MN MN2 MN2+', Co: 'CO CO2+', Ni: 'NI NI2+', Hg: 'HG HG2+',
+    F: 'F F-', Cl: 'CL CL- CLA', Br: 'BR BR-', I: 'I I- IOD'
+  };
+  const table = new Map();
+  for (const [el, names] of Object.entries(source)) for (const n of names.split(' ')) table.set(n, el);
+  return table;
+})();
+
+/* The first letters of the elements a protein, nucleic-acid or water residue holds. */
+const ORGANIC_ELEMENTS = new Set(['C', 'H', 'N', 'O', 'S', 'P']);
+
+/*
+ * The element of one atom. The PDB element column wins when there is one;
+ * otherwise the residue decides how the atom name is read:
+ *
+ *   - In an ion residue (SOD, CLA, NA+, Cal, Martini's ION) the atom or
+ *     residue name is the ion.
+ *   - In a residue GROMACS types as Protein, DNA, RNA or Water, every real
+ *     atom is C, H, N, O, S or P, so the first letter is the element; a name
+ *     starting with M is a dummy mass or virtual site (MNZ1 and MCB1 of the
+ *     virtual-site topologies, MW of TIP4P) and has none, where a guess from
+ *     the name would read MNZ1 as manganese.
+ *   - Anything else is guessed from the name as `core/structure.js` does.
+ */
+function atomElement(top, a) {
+  const res = top.residues[a.resIndex];
+  if (!String(a.element || '').trim()) {
+    const resName = up(res.name);
+    const type = residueTypeOf(res.name);
+    if (type === 'Ion' || ION_NAMES.has(resName)) {
+      const el = ION_ELEMENTS.get(up(a.name)) ||
+        (res.count === 1 ? ION_ELEMENTS.get(resName) : undefined);
+      if (el) return el;
+    } else if (type !== 'Other' || WATER_NAMES.has(resName)) {
+      const first = up(String(a.name).trim().replace(/^\d+/, '')).charAt(0);
+      if (ORGANIC_ELEMENTS.has(first)) return first;
+      if (first === 'M') return 'X';
+    }
+  }
+  return elementSymbol({ element: a.element, atomName: a.name, resName: res.name });
+}
+
 function elements(top) {
-  return cached(top, 'elements', () => top.atoms.map(a => elementSymbol({
-    element: a.element, atomName: a.name, resName: top.residues[a.resIndex].name
-  })));
+  return cached(top, 'elements', () => top.atoms.map(a => atomElement(top, a)));
 }
 
 function maskToAtoms(mask) {
@@ -1526,15 +1673,14 @@ function expandToResidues(top, mask) {
 }
 
 /*
- * Atoms within `cutoff` nm of any target atom. With a box, the targets are
- * copied into the 26 neighbouring images so that distances across the
- * periodic boundary count, which a structure straight out of a simulation
- * (molecules made whole, sticking out of the box) needs.
+ * The shifts to the periodic images a distance search must look through:
+ * the box itself and, with a usable box, its 26 neighbours. With them,
+ * distances across the periodic boundary count, which a structure straight
+ * out of a simulation (molecules made whole, sticking out of the box) needs.
+ * `lo` and `hi` bound every atom, so an image farther than the cutoff from
+ * that box can be skipped.
  */
-function withinMask(top, targets, cutoff, pbc, candidates = null) {
-  const n = top.atoms.length;
-  const mask = new Uint8Array(n);
-  if (!targets.length || !(cutoff >= 0) || !n) return mask;
+function periodicImages(top, pbc) {
   const lo = [Infinity, Infinity, Infinity];
   const hi = [-Infinity, -Infinity, -Infinity];
   for (const a of top.atoms) {
@@ -1553,6 +1699,20 @@ function withinMask(top, targets, cutoff, pbc, candidates = null) {
       ? [0, 1, 2].map(d => i * box[0][d] + j * box[1][d] + k * box[2][d])
       : [0, 0, 0]);
   }
+  const reachable = (x, y, z, cutoff) => !(x < lo[0] - cutoff || x > hi[0] + cutoff ||
+    y < lo[1] - cutoff || y > hi[1] + cutoff || z < lo[2] - cutoff || z > hi[2] + cutoff);
+  return { shifts, reachable, periodic: !!box };
+}
+
+/*
+ * Atoms within `cutoff` nm of any target atom, through the periodic images
+ * when `pbc` is set and the structure has a box.
+ */
+function withinMask(top, targets, cutoff, pbc, candidates = null) {
+  const n = top.atoms.length;
+  const mask = new Uint8Array(n);
+  if (!targets.length || !(cutoff >= 0) || !n) return mask;
+  const { shifts, reachable } = periodicImages(top, pbc);
   const points = [];
   for (const s of shifts) {
     for (const t of targets) {
@@ -1560,9 +1720,7 @@ function withinMask(top, targets, cutoff, pbc, candidates = null) {
       const x = a.x + s[0];
       const y = a.y + s[1];
       const z = a.z + s[2];
-      if (x < lo[0] - cutoff || x > hi[0] + cutoff || y < lo[1] - cutoff || y > hi[1] + cutoff ||
-          z < lo[2] - cutoff || z > hi[2] + cutoff) continue;
-      points.push({ x, y, z });
+      if (reachable(x, y, z, cutoff)) points.push({ x, y, z });
     }
   }
   const grid = new SpatialGrid(points, Math.max(cutoff, 1e-3));
@@ -1573,6 +1731,51 @@ function withinMask(top, targets, cutoff, pbc, candidates = null) {
     if (grid.hasNeighbourWithin(a.x, a.y, a.z, cutoff)) mask[i] = 1;
   }
   return mask;
+}
+
+/*
+ * The pool the selection language's `within:` searches, made periodic.
+ * compileSelection finds the atoms a `within:` term measures from with
+ * `pool.filter(test)`; this pool answers with those atoms and their copies in
+ * the neighbouring periodic images, so a query measures across the boundary
+ * as the builder's `within` and gmx select do. The test is applied to the
+ * atoms themselves, so a coordinate test (`within:0.5,x:<1`) picks the same
+ * atoms with images as without. Everything else sees the plain atom list.
+ */
+class PeriodicPool extends Array {
+  // Array methods, the filter below included, return plain arrays.
+  static get [Symbol.species]() { return Array; }
+
+  filter(test, thisArg) {
+    const hits = super.filter(test, thisArg);
+    const { shifts, reachable, reach } = this.images;
+    const n = hits.length;
+    for (const s of shifts) {
+      if (!s[0] && !s[1] && !s[2]) continue;
+      for (let i = 0; i < n; i++) {
+        const a = hits[i];
+        const x = a.x + s[0];
+        const y = a.y + s[1];
+        const z = a.z + s[2];
+        if (reachable(x, y, z, reach)) hits.push({ ...a, x, y, z });
+      }
+    }
+    return hits;
+  }
+}
+
+/*
+ * The largest `within:` radius in a query, in nm, as compileSelection reads
+ * it, or -1 when there is none: images farther than that from every atom
+ * cannot be reached.
+ */
+function withinReach(query, unit) {
+  let reach = -1;
+  for (const m of String(query ?? '').matchAll(/within:([^,\s|]*),/gi)) {
+    const r = Number(m[1]) * (unit === 'A' ? 0.1 : 1);
+    if (Number.isFinite(r) && r > reach) reach = r;
+  }
+  return reach;
 }
 
 function listOf(v) {
@@ -1710,8 +1913,17 @@ function evalSpec(ctx, spec) {
         element: elements(top)[i], serial: i + 1, x: a.x, y: a.y, z: a.z
       };
     }));
-    const c = compileSelection(spec.query, records,
-      { unit: ctx.options.unit || 'nm', coordinateUnit: 'nm' });
+    const unit = ctx.options.unit || 'nm';
+    // `within:` measures through the periodic images, as the builder's
+    // `within` does, unless the caller turns periodic boundaries off.
+    const reach = withinReach(spec.query, unit);
+    const images = reach >= 0 ? periodicImages(top, ctx.options.pbc !== false) : null;
+    let pool = records;
+    if (images && images.periodic) {
+      pool = PeriodicPool.from(records);
+      pool.images = { ...images, reach };
+    }
+    const c = compileSelection(spec.query, pool, { unit, coordinateUnit: 'nm' });
     ctx.errors.push(...c.errors);
     and(byAtom(i => c.predicate(records[i])));
   }
@@ -1769,14 +1981,17 @@ function evalSpec(ctx, spec) {
  *   make_ndx, case-insensitive), `resnr` (residue numbers as in the file:
  *   5, [1, 50], '1-50,60'), `resindex` (residues counted from 1), `atoms`
  *   (atom numbers, same forms), `chain`, `element`, `role` ('protein',
- *   'nucleic', 'polymer', 'ligand', 'lipid', 'water', 'ion', 'cosolvent',
- *   'solvent'), `query` (the `core/selection.js` language, distances in nm
- *   unless `unit` says 'A'), `within: {distance, of, byResidue?, pbc?}`
+ *   'nucleic', 'polymer', 'glycan', 'ligand', 'lipid', 'water', 'ion',
+ *   'cosolvent', 'solvent'), `query` (the `core/selection.js` language,
+ *   distances in nm unless `unit` says 'A', `within:` through the periodic
+ *   boundary unless `pbc` is false), `within: {distance, of, byResidue?, pbc?}`
  *   (distance in nm; `of` is a spec or group name), `byResidue` (whole
  *   residues), `or`, `and`, `not`.
  * @param {{groups?:Array<{name:string, atoms:number[]}>, unit?:'nm'|'A',
- *   caseSensitive?:boolean}} [options] - `groups` resolves `group:` names;
- *   the default groups are used when not given.
+ *   caseSensitive?:boolean, pbc?:boolean}} [options] - `groups` resolves
+ *   `group:` names; the default groups are used when not given. `pbc`
+ *   (default true) lets a `query`'s `within:` measure across the periodic
+ *   boundary of the structure's box, as `within` does.
  * @returns {{name:string, atoms:number[], errors:string[]}}
  */
 export function customGroup(structure, spec, options = {}) {
@@ -1844,8 +2059,56 @@ export function notGroup(g, natomsOrStructure, name) {
  * ------------------------------------------------------------------ */
 
 /*
+ * Covalent bonds between heavy atoms are 0.14-0.15 nm in a glycosidic or
+ * N-glycosidic link (C1-O, C1-ND2). Nothing that is not bonded comes as close:
+ * hydrogen-bonded heavy atoms stay 0.25 nm or more apart, and even
+ * `gmx insert-molecules`, which packs cosolvent tighter than an equilibrated
+ * liquid, keeps heavy atoms 0.17 nm apart at its default scale (0.57 of the
+ * van der Waals sum).
+ */
+const BOND_CUTOFF = 0.165;
+
+/*
+ * Residues joined to the polymer, directly or through one another: a glycan
+ * on an asparagine, the next sugar on that glycan. A .gro file has no bonds,
+ * so two heavy atoms within BOND_CUTOFF stand for one, measured through the
+ * periodic boundary since a molecule may be split across it. `candidate`
+ * marks the residues to test, `polymer` the ones the search starts from.
+ */
+function joinedResidues(top, polymer, candidate) {
+  const el = elements(top);
+  const heavy = i => el[i] !== 'H' && el[i] !== 'X';
+  const joined = new Uint8Array(top.residues.length);
+  const open = new Uint8Array(top.atoms.length);
+  let targets = [];
+  top.atoms.forEach((a, i) => {
+    if (!heavy(i)) return;
+    if (polymer[a.resIndex]) targets.push(i);
+    else if (candidate[a.resIndex]) open[i] = 1;
+  });
+  while (targets.length && open.some(Boolean)) {
+    const hit = withinMask(top, targets, BOND_CUTOFF, true, open);
+    const found = new Set();
+    hit.forEach((v, i) => { if (v) found.add(top.atoms[i].resIndex); });
+    if (!found.size) break;
+    targets = [];
+    for (const ri of found) {
+      joined[ri] = 1;
+      const r = top.residues[ri];
+      for (let i = r.first; i < r.first + r.count; i++) {
+        if (!open[i]) continue;
+        open[i] = 0;
+        targets.push(i);
+      }
+    }
+  }
+  return joined;
+}
+
+/*
  * One role per residue: what the residue is for the purposes of a set-up,
- * which is not always what GROMACS calls it (TIP3 is water, POPC a lipid).
+ * which is not always what GROMACS calls it (TIP3 is water, POPC a lipid,
+ * CHARMM's ADE a nucleotide).
  */
 function residueRoles(top, options = {}) {
   const maxCopies = options.maxLigandCopies ?? 5;
@@ -1864,7 +2127,7 @@ function residueRoles(top, options = {}) {
       const atomNames = new Set(top.atoms.slice(r.first, r.first + r.count).map(a => a.name));
       return atomNames.has('N') && atomNames.has('CA') && atomNames.has('C');
     };
-    return top.residues.map((r, i) => {
+    const roles = top.residues.map((r, i) => {
       const type = types[i];
       if (type === 'Protein') return 'protein';
       if (type === 'DNA' || type === 'RNA') return 'nucleic';
@@ -1873,13 +2136,32 @@ function residueRoles(top, options = {}) {
       const n = names[i];
       if (WATER_NAMES.has(n)) return 'water';
       if (ION_NAMES.has(n)) return 'ion';
+      if (NUCLEIC_NAMES.has(n)) return 'nucleic';
       if (LIPID_NAMES.has(n)) return 'lipid';
       if (amberLipids && (AMBER_LIPID_HEADS.has(n) || AMBER_LIPID_TAILS.has(n))) return 'lipid';
       if (aminoAcidLike(r, i)) return 'protein';
       return copies.get(n) > maxCopies ? 'cosolvent' : 'ligand';
     });
+    // A residue joined to the protein or nucleic acid is part of the solute
+    // however many copies there are: eight NAG on a glycoprotein are not a
+    // cosolvent to couple with the water. Only the residues whose role this
+    // can change are searched: many copies, or a sugar's name.
+    const polymer = roles.map(r => (r === 'protein' || r === 'nucleic' ? 1 : 0));
+    const candidate = roles.map((role, i) => (role === 'cosolvent' ||
+      (role === 'ligand' && isGlycanName(top.residues[i].name)) ? 1 : 0));
+    if (polymer.includes(1) && candidate.includes(1)) {
+      const joined = joinedResidues(top, polymer, candidate);
+      joined.forEach((v, i) => {
+        if (v) roles[i] = isGlycanName(top.residues[i].name) ? 'glycan' : 'ligand';
+      });
+    }
+    return roles;
   });
 }
+
+/* What a solute bath holds, and what a solvent bath holds. */
+const SOLUTE_ROLES = ['protein', 'nucleic', 'glycan', 'ligand'];
+const SOLVENT_ROLES = ['water', 'ion', 'cosolvent'];
 
 function idxOfRoles(top, roles, wanted) {
   const out = [];
@@ -1889,7 +2171,10 @@ function idxOfRoles(top, roles, wanted) {
 
 /**
  * What a structure is made of, one entry per residue name in order of first
- * appearance: GROMACS's residue type and the role used for suggestions.
+ * appearance: GROMACS's residue type and the role used for suggestions
+ * ('protein', 'nucleic', 'glycan', 'ligand', 'lipid', 'water', 'ion' or
+ * 'cosolvent'). A residue joined to the protein or nucleic acid (a sugar of a
+ * glycan, say) is never a cosolvent, however many copies there are.
  *
  * @param {GromacsStructure|object} structure
  * @param {{maxLigandCopies?:number}} [options] - A non-standard residue with
@@ -1929,10 +2214,10 @@ function sameSet(a, b) {
  *
  * @param {GromacsStructure|object} structure
  * @param {{minAtoms?:number, maxLigandCopies?:number,
- *   groups?:Array<{name:string, atoms:number[]}>}} [options] - A solute with
- *   fewer atoms than `minAtoms` (default 100) is coupled with everything
- *   else; `groups` are the index groups to reuse (the default groups when
- *   not given).
+ *   groups?:Array<{name:string, atoms:number[]}>}} [options] - A solute,
+ *   membrane or solvent with fewer atoms than `minAtoms` (default 100) gets
+ *   no bath of its own: one bath then covers the system. `groups` are the
+ *   index groups to reuse (the default groups when not given).
  * @returns {{names:string[], groups:Array<{name:string, atoms:number[]}>,
  *   reason:string, line:string}} `groups` holds any group the index needs
  *   beyond those given.
@@ -1943,9 +2228,9 @@ export function recommendTcGrps(structure, options = {}) {
   const n = top.atoms.length;
   const known = options.groups ? options.groups.map(toIdxGroup) : defaultGroupsIdx(top);
   const roles = residueRoles(top, options);
-  const solute = idxOfRoles(top, roles, ['protein', 'nucleic', 'ligand']);
+  const solute = idxOfRoles(top, roles, SOLUTE_ROLES);
   const membrane = idxOfRoles(top, roles, ['lipid']);
-  const solvent = idxOfRoles(top, roles, ['water', 'ion', 'cosolvent']);
+  const solvent = idxOfRoles(top, roles, SOLVENT_ROLES);
   const extra = [];
 
   // An existing group with one of the preferred names and the same atoms,
@@ -1978,30 +2263,61 @@ export function recommendTcGrps(structure, options = {}) {
   const soluteName = soluteLabel(top, roles);
   const solventPreferred = ['Water_and_ions', 'Water', 'SOL', 'Solvent'];
 
+  // Every bath, not only the solute's, needs enough atoms for its
+  // temperature to mean anything. A handful of counter-ions or crystal
+  // waters in a bath of their own is the case the GROMACS FAQ answers
+  // "Should I couple a handful of ions to their own temperature-coupling
+  // bath? No.", and grompp accepts it silently. Below `minAtoms`, the small
+  // part shares the one bath with everything else.
+  const contents = (wanted) => {
+    const counts = new Map();
+    top.residues.forEach((r, i) => {
+      if (wanted.includes(roles[i])) counts.set(r.name, (counts.get(r.name) || 0) + 1);
+    });
+    const list = [...counts].map(([name, k]) => `${k} ${name}`);
+    return list.length > 4 ? `${list.slice(0, 4).join(', ')}, ...` : list.join(', ');
+  };
+  const tooSmall = (what, idx, wanted) => (idx.length >= minAtoms ? null
+    : result(['System'], `The ${what} has only ${idx.length} atom${plural(idx.length)} ` +
+      `(${contents(wanted)}), too few for a meaningful temperature of a bath of its own, ` +
+      'so one bath covers the system.'));
+  const split = (sizes) => `each bath has at least ${minAtoms} atoms (${sizes}), enough for a ` +
+    'meaningful temperature';
+
   if (membrane.length) {
     if (!solute.length) {
+      const small = tooSmall('membrane', membrane, ['lipid']) ||
+        tooSmall('solvent', solvent, SOLVENT_ROLES);
+      if (small) return small;
       const names = [pick(membrane, ['Membrane'], 'Membrane'),
         pick(solvent, solventPreferred, 'Solvent')];
       return result(names, 'A bilayer in solvent: couple the membrane and the solvent ' +
-        'separately, since heat crosses the interface slowly.');
+        `separately, since heat crosses the interface slowly; ${split(
+          `${membrane.length} and ${solvent.length}`)}.`);
     }
     const joined = [...solute, ...membrane].sort((a, b) => a - b);
+    const small = tooSmall('solute with the membrane', joined, [...SOLUTE_ROLES, 'lipid']) ||
+      tooSmall('solvent', solvent, SOLVENT_ROLES);
+    if (small) return small;
     const name = `${soluteName}_Membrane`;
     const names = [pick(joined, [name], name), pick(solvent, solventPreferred, 'Solvent')];
     return result(names, 'The solute sits in the bilayer and exchanges heat with it directly, ' +
-      'so the two share a bath; the solvent gets its own (the CHARMM-GUI convention).');
+      'so the two share a bath; the solvent gets its own (the CHARMM-GUI convention), and ' +
+      `${split(`${joined.length} and ${solvent.length}`)}.`);
   }
   if (solute.length < minAtoms) {
     return result(['System'], `The solute has only ${solute.length} atoms, too few for a ` +
       'meaningful temperature of its own, so one bath covers the system.');
   }
+  const small = tooSmall('solvent', solvent, SOLVENT_ROLES);
+  if (small) return small;
   const soluteGroup = pick(solute, [soluteName], soluteName);
   // Protein against non-Protein is the pairing most tutorials use.
   const solventGroup = soluteGroup === 'Protein'
     ? pick(solvent, ['non-Protein', ...solventPreferred], 'Solvent')
     : pick(solvent, solventPreferred, 'Solvent');
   return result([soluteGroup, solventGroup], 'Couple the solute and the solvent separately: they ' +
-    'exchange heat slowly, and each is large enough for a well-defined temperature.');
+    `exchange heat slowly, and ${split(`${solute.length} and ${solvent.length}`)}.`);
 }
 
 function soluteLabel(top, roles) {
@@ -2009,9 +2325,16 @@ function soluteLabel(top, roles) {
   const seen = new Set();
   top.residues.forEach((r, i) => {
     let label = null;
-    if (['protein', 'nucleic', 'ligand'].includes(roles[i])) {
+    if (SOLUTE_ROLES.includes(roles[i])) {
       const type = residueTypeOf(r.name);
-      label = type === 'Other' ? r.name : type;
+      if (type !== 'Other') label = type;
+      else if (roles[i] === 'glycan') label = 'Glycan';
+      else if (roles[i] === 'nucleic') {
+        // CHARMM names DNA and RNA nucleotides alike (ADE, CYT, ...); the
+        // 2'-hydroxyl tells them apart.
+        const atoms = top.atoms.slice(r.first, r.first + r.count);
+        label = atoms.some(a => a.name === "O2'" || a.name === 'O2*') ? 'RNA' : 'DNA';
+      } else label = r.name;
     }
     if (label && !seen.has(label)) { seen.add(label); parts.push(label); }
   });
@@ -2074,7 +2397,8 @@ export function suggestGroups(structure, options = {}) {
   }
   if (ligands.length && polymer.length) {
     const label = soluteLabel(top, roles);
-    const complex = [...polymer, ...ligandIdx].sort((a, b) => a - b);
+    // The whole solute: glycans joined to the protein go with it.
+    const complex = idxOfRoles(top, roles, SOLUTE_ROLES);
     add(label, complex, 'complex', 'The complex as one group, for tc-grps with the solvent ' +
       'and for centring or fitting; for pulling, use the ligand and the protein groups ' +
       'separately.');
@@ -2101,7 +2425,7 @@ export function suggestGroups(structure, options = {}) {
     add('Membrane', lipidIdx, 'membrane', `Every lipid (${lipids.join(', ')}), for tc-grps, ` +
       'comm-grps and membrane analysis.');
   }
-  const solvent = idxOfRoles(top, roles, ['water', 'ion', 'cosolvent']);
+  const solvent = idxOfRoles(top, roles, SOLVENT_ROLES);
   const unknownSolvent = comp.filter(c => ['water', 'ion'].includes(c.role) && c.type === 'Other');
   if (solvent.length && solvent.length < top.atoms.length &&
       (unknownSolvent.length || comp.some(c => c.role === 'cosolvent') || lipidIdx.length)) {

@@ -1,16 +1,20 @@
 import { describe, test, expect } from '@jest/globals';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   RESIDUE_TYPES, residueTypeOf, readGromacsStructure, toGromacsStructure, defaultGroups, makeNdx,
   findGroupMakeNdx, writeNdx, parseNdx, isValidGroupName, sanitiseGroupName, findIndexGroup,
   mergeIndexGroups, renameIndexGroup, checkGroupCoverage, checkMdpGroups, customGroup, orGroups,
-  andGroups, notGroup, systemComposition, recommendTcGrps, suggestGroups, describeGroups
+  andGroups, notGroup, systemComposition, recommendTcGrps, suggestGroups, describeGroups,
+  NUCLEIC_NAMES, GLYCAN_NAMES
 } from '../src/core/gromacs-ndx.js';
 import { parseGRO } from '../src/core/structure.js';
 import { largeSystemGro } from './fixtures/gromacs-ndx/large-system.mjs';
+import { periodicSystemGro } from './fixtures/gromacs-ndx/periodic-system.mjs';
 
 /*
  * Every expected .ndx and digest under fixtures/gromacs-ndx was written by
@@ -43,6 +47,21 @@ function gro(residues, box = '   3.00000   3.00000   3.00000') {
   return `test\n${String(n).padStart(5)}\n${rows.join('\n')}\n${box}\n`;
 }
 const WATER = [['OW'], ['HW1'], ['HW2']];
+
+/*
+ * Residues laid out atom after atom along x, 0.15 nm apart as bonded heavy
+ * atoms are, so each residue is joined to the one before it; `gap` (nm)
+ * moves a residue further off. The box is long enough that nothing meets
+ * its own periodic image.
+ */
+function chainOf(rows) {
+  let x = 0.5;
+  const residues = rows.map(([name, atoms, gap = 0]) => {
+    x += gap;
+    return [name, atoms.map(a => { const at = [a, x, 1, 1]; x += 0.15; return at; })];
+  });
+  return readGromacsStructure(gro(residues, ' 400.00000  10.00000  10.00000'), 'gro');
+}
 
 describe('residue types', () => {
   test('embed residuetypes.dat', () => {
@@ -152,10 +171,13 @@ describe('reading structures as GROMACS does', () => {
     expect(defaultGroups(parseGRO(read('membrane.gro')))).toEqual(defaultGroups(structureOf('membrane.gro')));
   });
 
-  test('warn that a structure.js PDB loses four-letter residue names', () => {
-    const atoms = [{ resName: 'POP', resSeq: 1, atomName: 'P' }];
+  test('warn that a structure.js PDB may number atoms differently from GROMACS', () => {
+    const atoms = [{ resName: 'POPC', resSeq: 1, atomName: 'P' }];
     const top = toGromacsStructure({ format: 'pdb', unit: 'A', atoms });
-    expect(top.warnings[0]).toMatch(/three characters/);
+    expect(top.warnings[0]).toMatch(/skips an atom line/);
+    expect(top.warnings[0]).toMatch(/readGromacsStructure/);
+    // Four-letter names now come through structure.js whole.
+    expect(top.residues[0].name).toBe('POPC');
   });
 
   test('accept a plain atom array, converting ångström', () => {
@@ -390,6 +412,46 @@ describe('custom groups', () => {
     expect(oxygens.atoms).toHaveLength(30);
   });
 
+  test('by element, reading ion residues as the ion they are', () => {
+    // A .gro has no element column; CHARMM's SOD is sodium, not sulphur, and
+    // CLA chloride, not carbon.
+    const m = structureOf('membrane.gro');
+    const resnames = g => [...new Set(g.atoms.map(a => m.residues[m.atoms[a - 1].resIndex].name))];
+    const na = customGroup(m, { element: 'Na' });
+    expect(na.atoms).toHaveLength(2);
+    expect(resnames(na)).toEqual(['SOD']);
+    expect(resnames(customGroup(m, { element: 'Cl' }))).toEqual(['CLA']);
+    const s = customGroup(m, { element: 'S' });
+    expect(s.atoms.map(a => m.atoms[a - 1].name)).toEqual(['SD', 'SD']);
+    expect(resnames(customGroup(m, { element: 'C' }))).not.toContain('CLA');
+    // Every atom has exactly one element.
+    const counts = ['C', 'H', 'N', 'O', 'S', 'P', 'Na', 'Cl']
+      .map(e => customGroup(m, { element: e }).atoms.length);
+    expect(counts.reduce((a, b) => a + b, 0)).toBe(m.atoms.length);
+    // The selection language sees the same elements.
+    expect(customGroup(m, { query: 'elem:Na' }).atoms).toEqual(na.atoms);
+
+    const ions = readGromacsStructure(gro([['POT', [['POT']]], ['CAL', [['CAL']]], ['NA+', [['NA+']]],
+      ['Cl-', [['Cl-']]], ['ION', [['NA+'], ['CL-']]], ['ZN2', [['ZN']]], ['CD2', [['CD']]],
+      ['MG', [['MG']]]]), 'gro');
+    const el = e => customGroup(ions, { element: e }).atoms;
+    expect([el('K'), el('Ca'), el('Na'), el('Cl'), el('Zn'), el('Cd'), el('Mg')])
+      .toEqual([[1], [2], [3, 5], [4, 6], [7], [8], [9]]);
+    expect([el('P'), el('C'), el('N')]).toEqual([[], [], []]);
+  });
+
+  test('by element, with dummy masses in a protein belonging to none', () => {
+    // pdb2gmx -vsite hydrogens puts MNZ1/MNZ2 on lysine and MCB1/MCB2 on
+    // alanine: masses, not manganese or anything else.
+    const top = readGromacsStructure(gro([['LYS', [['N'], ['CA'], ['NZ'], ['MNZ1'], ['MNZ2'], ['HZ1']]],
+      ['ALA', [['N'], ['CA'], ['MCB1'], ['CB'], ['1HB']]], ['SOL', [['OW'], ['HW1'], ['HW2'], ['MW']]],
+      ['MN', [['MN']]]]), 'gro');
+    expect(customGroup(top, { element: 'Mn' }).atoms).toEqual([16]);
+    expect(customGroup(top, { element: 'N' }).atoms).toEqual([1, 3, 7]);
+    expect(customGroup(top, { element: 'H' }).atoms).toEqual([6, 11, 13, 14]);
+    expect(customGroup(top, { element: 'X' }).atoms).toEqual([4, 5, 9, 15]);
+  });
+
   test('by the selection language, distances in nm', () => {
     const r = customGroup(complex, { query: 'resn:LIG elem:O' });
     expect(r.errors).toEqual([]);
@@ -415,6 +477,44 @@ describe('custom groups', () => {
     const top = readGromacsStructure(gro([['AR', [['AR', 0.05, 1, 1]]], ['KR', [['KR', 2.95, 1, 1]]]]), 'gro');
     expect(customGroup(top, { resname: 'KR', within: { distance: 0.2, of: 'AR' } }).atoms).toEqual([2]);
     expect(customGroup(top, { resname: 'KR', within: { distance: 0.2, of: 'AR', pbc: false } }).atoms).toEqual([]);
+  });
+
+  test('by the selection language, within: across the periodic boundary', () => {
+    // CB sits 0.2 nm from the ligand through the box face; gmx select
+    // (resname ALA and within 0.5 of resname LIG) gives it alone.
+    const top = readGromacsStructure(gro([
+      ['ALA', [['N', 1.5, 1.5, 1.5], ['CA', 1.6, 1.5, 1.5], ['CB', 2.9, 1.5, 1.5], ['C', 1.7, 1.5, 1.5]]],
+      ['LIG', [['C1', 0.1, 1.5, 1.5], ['C2', 0.2, 1.5, 1.5]]]]), 'gro');
+    const builder = customGroup(top, { resname: 'ALA', within: { distance: 0.5, of: 'LIG' } });
+    expect(builder.atoms).toEqual([3]);
+    expect(customGroup(top, { query: 'resn:ALA within:0.5,resn:LIG' }).atoms).toEqual([3]);
+    expect(customGroup(top, { query: 'resn:ALA within:5,resn:LIG' }, { unit: 'A' }).atoms).toEqual([3]);
+    expect(customGroup(top, { query: 'resn:ALA !within:0.5,resn:LIG' }).atoms).toEqual([1, 2, 4]);
+    expect(customGroup(top, { query: 'resn:ALA within:0.5,resn:LIG' }, { pbc: false }).atoms).toEqual([]);
+    // A coordinate test inside within: picks atoms by their own position,
+    // not by where an image of them lies: C1's image at x = 3.1 is not x > 3.
+    expect(customGroup(top, { query: 'resn:ALA within:0.5,x:<0.15' }).atoms).toEqual([3]);
+    expect(customGroup(top, { query: 'resn:ALA within:0.5,x:>3' }).atoms).toEqual([]);
+  });
+
+  /*
+   * A rhombic dodecahedron with the ligand wrapped to four faces; the atoms
+   * each selection should give are what gmx select wrote (recorded, and
+   * rechecked by tools/check-gromacs-ndx.mjs).
+   */
+  describe('match gmx select in a triclinic box', () => {
+    const top = readGromacsStructure(periodicSystemGro(), 'periodic.gro');
+    const cases = JSON.parse(read('periodic-select.json'));
+    test.each(cases.map(c => [c.select, JSON.stringify(c.spec), c]))('%s as %s', (_, __, c) => {
+      const r = customGroup(top, c.spec, c.options || {});
+      expect(r.errors).toEqual([]);
+      expect(r.atoms).toHaveLength(c.atoms);
+      expect(sha(r.atoms.join(' '))).toBe(c.sha256);
+    });
+    test('where ignoring the boundary would not', () => {
+      const off = customGroup(top, cases[0].spec, { pbc: false });
+      expect(off.atoms.length).toBeLessThan(cases[0].atoms);
+    });
   });
 
   test('by role', () => {
@@ -455,9 +555,14 @@ describe('suggestions', () => {
     const pocket = group(s.groups, 'Pocket_LIG');
     expect(pocket.atoms.length).toBeGreaterThan(0);
     expect(pocket.atoms.every(a => group(defaults, 'Protein').atoms.includes(a))).toBe(true);
-    expect(s.tcGrps.names).toEqual(['Protein_LIG', 'Water_and_ions']);
-    expect(s.tcGrps.line).toBe('tc-grps = Protein_LIG Water_and_ions');
-    expect(s.tcGrps.groups).toEqual([]);
+    // 94 atoms of water and ions are too few for a bath of their own.
+    expect(s.tcGrps.line).toBe('tc-grps = System');
+    expect(s.tcGrps.reason).toMatch(/solvent has only 94 atoms \(30 SOL, 2 NA, 2 CL\)/);
+    const split = suggestGroups(top, { minAtoms: 50 });
+    expect(split.tcGrps.names).toEqual(['Protein_LIG', 'Water_and_ions']);
+    expect(split.tcGrps.line).toBe('tc-grps = Protein_LIG Water_and_ions');
+    expect(split.tcGrps.reason).toMatch(/at least 50 atoms \(214 and 94\)/);
+    expect(split.tcGrps.groups).toEqual([]);
   });
 
   test('a protein in water with ions: Protein and non-Protein', () => {
@@ -467,7 +572,7 @@ describe('suggestions', () => {
       return { ...a, atomName: a.name, resName: r.name, resSeq: r.nr };
     });
     const noLigand = toGromacsStructure(records.filter(a => a.resName !== 'LIG'));
-    const s = suggestGroups(noLigand);
+    const s = suggestGroups(noLigand, { minAtoms: 50 });
     expect(s.groups).toEqual([]);
     expect(s.tcGrps.names).toEqual(['Protein', 'non-Protein']);
   });
@@ -481,17 +586,26 @@ describe('suggestions', () => {
     const solvent = group(s.groups, 'Solvent');
     expect(solvent.atoms).toHaveLength(39);
     expect(solvent.reason).toMatch(/under Other/);
-    expect(s.tcGrps.names).toEqual(['Protein_Membrane', 'Solvent']);
-    expect(group(s.groups, 'Protein_Membrane').kind).toBe('tc-grps');
+    // 12 TIP3 and 3 ions are too few for a bath of their own.
+    expect(s.tcGrps.names).toEqual(['System']);
+    expect(s.tcGrps.reason).toMatch(/solvent has only 39 atoms \(12 TIP3, 2 SOD, 1 CLA\)/);
+    const split = suggestGroups(top, { minAtoms: 30 });
+    expect(split.tcGrps.names).toEqual(['Protein_Membrane', 'Solvent']);
+    expect(group(split.groups, 'Protein_Membrane').kind).toBe('tc-grps');
   });
 
   test('a bare bilayer: Membrane and Solvent', () => {
     const rows = [];
     for (let i = 0; i < 4; i++) rows.push(['DPPC', [['N'], ['P'], ['C21'], ['C31']]]);
     for (let i = 0; i < 20; i++) rows.push(['SOL', WATER]);
-    const tc = recommendTcGrps(readGromacsStructure(gro(rows), 'gro'));
+    const top = readGromacsStructure(gro(rows), 'gro');
+    const tc = recommendTcGrps(top, { minAtoms: 10 });
     expect(tc.names).toEqual(['Membrane', 'Water']);
     expect(tc.groups.map(g => g.name)).toEqual(['Membrane']);
+    // 16 lipid atoms are too few for a bath of their own.
+    const one = recommendTcGrps(top);
+    expect(one.names).toEqual(['System']);
+    expect(one.reason).toMatch(/membrane has only 16 atoms \(4 DPPC\)/);
   });
 
   test('AMBER split lipids count only with heads and tails together', () => {
@@ -536,6 +650,99 @@ describe('suggestions', () => {
     expect(r.reason).toMatch(/only 4 atoms/);
     expect(recommendTcGrps(small, { minAtoms: 1 }).names).toEqual(['Protein', 'non-Protein']);
     expect(recommendTcGrps(readGromacsStructure(gro([['SOL', WATER]]), 'gro')).names).toEqual(['System']);
+  });
+
+  test('a handful of ions or crystal waters get no bath of their own', () => {
+    // The GROMACS FAQ: "Should I couple a handful of ions to their own
+    // temperature-coupling bath? No." grompp would accept it silently.
+    const protein = Array.from({ length: 20 }, () => ['ALA', [['N'], ['H'], ['CA'], ['CB'], ['C'], ['O']]]);
+    const ion = ['NA', [['NA']]];
+    const vacuum = readGromacsStructure(gro([...protein, ion, ion, ion]), 'gro');
+    const r = recommendTcGrps(vacuum);
+    expect(r.line).toBe('tc-grps = System');
+    expect(r.reason).toMatch(/solvent has only 3 atoms \(3 NA\)/);
+    expect(r.reason).not.toMatch(/large enough/);
+    expect(suggestGroups(vacuum).tcGrps.groups).toEqual([]);
+    expect(recommendTcGrps(vacuum, { minAtoms: 3 }).names).toEqual(['Protein', 'non-Protein']);
+
+    const waters = n => Array.from({ length: n }, () => ['SOL', WATER]);
+    const crystal = recommendTcGrps(readGromacsStructure(gro([...protein, ...waters(10)]), 'gro'));
+    expect(crystal.names).toEqual(['System']);
+    expect(crystal.reason).toMatch(/only 30 atoms \(10 SOL\)/);
+
+    // With enough of both, the split and a reason that holds.
+    const solvated = recommendTcGrps(readGromacsStructure(gro([...protein, ...waters(100)]), 'gro'));
+    expect(solvated.names).toEqual(['Protein', 'non-Protein']);
+    expect(solvated.reason).toMatch(/at least 100 atoms \(120 and 300\)/);
+  });
+
+  test('CHARMM nucleotides are a nucleic-acid solute, not a cosolvent', () => {
+    const bases = ['ADE', 'GUA', 'CYT', 'THY'];
+    const nt = ['P', 'O1P', 'O2P', "O5'", "C5'", "C4'", "C1'", 'N1', 'C2', 'N3'];
+    const rows = [];
+    for (let i = 0; i < 12; i++) rows.push([bases[i % 4], nt]);
+    for (let i = 0; i < 40; i++) rows.push(['TIP3', ['OH2', 'H1', 'H2'], 1]);
+    for (let i = 0; i < 4; i++) rows.push(['SOD', ['SOD'], 1]);
+    const s = suggestGroups(chainOf(rows));
+    expect(s.composition.map(c => `${c.name}:${c.role}`))
+      .toEqual(['ADE:nucleic', 'GUA:nucleic', 'CYT:nucleic', 'THY:nucleic', 'TIP3:water', 'SOD:ion']);
+    expect(s.tcGrps.line).toBe('tc-grps = DNA Solvent');
+    expect(group(s.groups, 'DNA').atoms).toEqual(range(1, 120));
+    // The same DNA with AMBER names, which GROMACS knows.
+    const amber = rows.map(([name, atoms, gap]) => [
+      { ADE: 'DA', GUA: 'DG', CYT: 'DC', THY: 'DT', TIP3: 'SOL', SOD: 'NA' }[name],
+      name === 'TIP3' ? ['OW', 'HW1', 'HW2'] : (name === 'SOD' ? ['NA'] : atoms), gap]);
+    expect(recommendTcGrps(chainOf(amber)).line).toBe('tc-grps = DNA Water_and_ions');
+    // CHARMM names DNA and RNA alike; the 2'-hydroxyl marks RNA.
+    const rna = rows.map(([name, atoms, gap]) => [name, bases.includes(name) ? [...atoms, "O2'"] : atoms, gap]);
+    expect(recommendTcGrps(chainOf(rna)).names).toEqual(['RNA', 'Solvent']);
+    expect([...NUCLEIC_NAMES]).toEqual(expect.arrayContaining(['ADE', 'GUA', 'CYT', 'THY', 'URA']));
+  });
+
+  test('glycans joined to the protein are solute, however many copies there are', () => {
+    const aa = name => [name, ['N', 'CA', 'CB', 'C', 'O']];
+    const sugar = (name, gap) => [name, ['C1', 'C2', 'C3', 'C4', 'C5', 'O5', 'C6', 'O6', 'N2',
+      'C7', 'O7', 'C8'], gap];
+    const protein = Array.from({ length: 20 }, (_, i) => aa(i % 2 ? 'ASN' : 'ALA'));
+    const water = Array.from({ length: 100 }, () => ['SOL', ['OW', 'HW1', 'HW2'], 1]);
+    const glycoprotein = (name, copies, gap = 0) => chainOf([...protein,
+      ...Array.from({ length: copies }, () => sugar(name, gap)), ...water]);
+
+    const top = glycoprotein('NAG', 8);
+    expect(systemComposition(top).map(c => `${c.name}:${c.role}`))
+      .toEqual(['ALA:protein', 'ASN:protein', 'NAG:glycan', 'SOL:water']);
+    const s = suggestGroups(top);
+    expect(s.ligands).toEqual([]);
+    expect(s.tcGrps.names).toEqual(['Protein_Glycan', 'Water']);
+    expect(group(s.groups, 'Protein_Glycan').atoms).toEqual(range(1, 196));
+    expect(customGroup(top, { role: 'glycan' }).atoms).toEqual(range(101, 196));
+    // Four copies are not a cosolvent either way, but still a glycan, with no
+    // pocket or ligand group as for a bound drug.
+    const four = suggestGroups(glycoprotein('NAG', 4));
+    expect(four.composition.find(c => c.name === 'NAG').role).toBe('glycan');
+    expect(four.groups.map(g => g.name)).toEqual(['Protein_Glycan']);
+    // CHARMM-GUI and GLYCAM names.
+    for (const name of ['BGLCN', 'AMAN', '4YB', '0MA', 'VMB']) {
+      expect([name, systemComposition(glycoprotein(name, 8)).find(c => c.name === name).role])
+        .toEqual([name, 'glycan']);
+    }
+    expect(GLYCAN_NAMES.has('NAG') && GLYCAN_NAMES.has('BGLCNA')).toBe(true);
+    // Free sugar in the solvent, many copies: a cosolvent (an osmolyte).
+    expect(systemComposition(glycoprotein('NAG', 8, 1)).find(c => c.name === 'NAG').role)
+      .toBe('cosolvent');
+  });
+
+  test('a cosolvent packed against the protein is not taken for a bonded residue', () => {
+    const protein = Array.from({ length: 20 }, () => ['ALA', ['N', 'CA', 'CB', 'C', 'O']]);
+    const water = Array.from({ length: 100 }, () => ['SOL', ['OW', 'HW1', 'HW2'], 1]);
+    const ethanol = gap => Array.from({ length: 8 }, () => ['EOH', ['C1', 'C2', 'O1'], gap]);
+    // 0.18 nm: closer than any contact after minimisation, yet more than the
+    // 0.17 nm gmx insert-molecules leaves between heavy atoms.
+    const packed = systemComposition(chainOf([...protein, ...ethanol(0.03), ...water]));
+    expect(packed.find(c => c.name === 'EOH').role).toBe('cosolvent');
+    // Bonded (0.15 nm), eight copies of a modification are a ligand.
+    const bonded = systemComposition(chainOf([...protein, ...ethanol(0), ...water]));
+    expect(bonded.find(c => c.name === 'EOH').role).toBe('ligand');
   });
 
   test('every suggestion is a valid, grompp-ready index', () => {
@@ -602,6 +809,107 @@ describe('tc-grps and other .mdp groups', () => {
     const withComplex = [...groups, orGroups(group(groups, 'Protein'), group(groups, 'LIG'))];
     expect(checkMdpGroups(withComplex, { 'tc-grps': 'Protein_LIG Water_and_ions' }, n).ok).toBe(true);
   });
+
+  test('an empty tc-grps covers nothing', () => {
+    const r = checkGroupCoverage(groups, '', n, { coverage: 'all' });
+    expect(r.ok).toBe(false);
+    expect(r.errors).toEqual([`${n} atoms are not part of any of the tc-grps groups; grompp stops on this.`]);
+    // For the options with a rest group, no names is simply the default.
+    expect(checkGroupCoverage(groups, '', n, { coverage: 'rest', option: 'energygrps' }))
+      .toMatchObject({ ok: true, errors: [], notes: [] });
+    expect(checkMdpGroups(groups, { tcoupl: 'v-rescale', 'tc-grps': '' }, n).ok).toBe(false);
+    expect(checkMdpGroups(groups, { tcoupl: 'no', 'tc-grps': '' }, n).options).toEqual([]);
+    expect(describeGroups(groups, top, { tcGrps: '' }).tcGrps.ok).toBe(false);
+  });
+
+  test('tc-grps must cover every atom only with a reference temperature', () => {
+    const half = 'Protein';
+    const verdict = mdp => checkMdpGroups(groups, { 'tc-grps': half, ...mdp }, n);
+    const nve = verdict({ tcoupl: 'no' });
+    expect(nve.ok).toBe(true);
+    expect(nve.options[0].notes[0]).toMatch(/grompp puts them in a rest group/);
+    expect(verdict({}).ok).toBe(true);
+    expect(verdict({ integrator: 'steep', tcoupl: 'v-rescale' }).ok).toBe(true);
+    expect(verdict({ tcoupl: 'V_RESCALE' }).ok).toBe(false);
+    expect(verdict({ tcoupl: 'yes' }).ok).toBe(false);
+    expect(verdict({ integrator: 'sd' }).ok).toBe(false);
+    expect(verdict({ integrator: 'bd', tcoupl: 'no' }).ok).toBe(false);
+    // Overlaps are fatal either way.
+    expect(verdict({ tcoupl: 'no', 'tc-grps': 'Protein System' }).ok).toBe(false);
+  });
+
+  test('an empty pull or rotation group is an error, as in grompp', () => {
+    const idx = [...groups, { name: 'Empty', atoms: [] }];
+    const pull = checkMdpGroups(idx, { 'pull-group1-name': 'Empty', 'pull-group2-name': 'LIG' }, n);
+    expect(pull.ok).toBe(false);
+    expect(pull.options[0].errors).toEqual(['Group Empty in pull-group1-name is empty; grompp stops on this.']);
+    expect(pull.options[1].ok).toBe(true);
+    expect(checkMdpGroups(idx, { 'rot-group0': 'Empty' }, n).ok).toBe(false);
+    expect(checkMdpGroups(idx, { 'split-group0': 'Empty' }, n).ok).toBe(false);
+    // An empty IMD group passes grompp: a note only.
+    const imd = checkMdpGroups(idx, { 'IMD-group': 'Empty' }, n);
+    expect(imd.ok).toBe(true);
+    expect(imd.options[0].notes).toEqual(['Group Empty is empty.']);
+  });
+
+  describe('agree with grompp on each recorded .mdp', () => {
+    const spec = JSON.parse(read('mdp-groups.json'));
+    const idx = parseNdx(spec.index).groups;
+    const natoms = readGromacsStructure(spec.gro, 'ar.gro').atoms.length;
+    test.each(spec.cases.map(c => [c.label, c]))('%s', (_, c) => {
+      expect(checkMdpGroups(idx, { ...spec.base, ...c.mdp }, natoms).ok).toBe(c.grompp);
+    });
+  });
+});
+
+/*
+ * With GROMACS installed (GMX_BIN), ask grompp and gmx select themselves.
+ * tools/check-gromacs-ndx.mjs does this too, and records what the tests
+ * above compare against.
+ */
+const GMX = process.env.GMX_BIN || '';
+const withGromacs = GMX && fs.existsSync(GMX) ? describe : describe.skip;
+
+withGromacs('real GROMACS (GMX_BIN)', () => {
+  const run = (dir, args) => spawnSync(GMX, ['-quiet', ...args], { cwd: dir, encoding: 'utf8' });
+
+  test('grompp stops exactly where checkMdpGroups says it will', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stemkit-ndx-'));
+    try {
+      const spec = JSON.parse(read('mdp-groups.json'));
+      fs.writeFileSync(path.join(dir, 'ar.gro'), spec.gro);
+      fs.writeFileSync(path.join(dir, 'ar.top'), spec.top);
+      fs.writeFileSync(path.join(dir, 'index.ndx'), spec.index);
+      const idx = parseNdx(spec.index).groups;
+      for (const c of spec.cases) {
+        const mdp = { ...spec.base, ...c.mdp };
+        fs.writeFileSync(path.join(dir, 'run.mdp'),
+          Object.entries(mdp).map(([k, v]) => `${k} = ${v}`).join('\n') + '\n');
+        const r = run(dir, ['grompp', '-f', 'run.mdp', '-c', 'ar.gro', '-p', 'ar.top', '-n', 'index.ndx',
+          '-o', 'run.tpr', '-po', 'out.mdp', '-maxwarn', '20']);
+        expect([c.label, r.status === 0]).toEqual([c.label, checkMdpGroups(idx, mdp, 12).ok]);
+      }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }, 120000);
+
+  test('gmx select gives the atoms a query or within gives, through the boundary', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stemkit-ndx-'));
+    try {
+      const text = periodicSystemGro();
+      fs.writeFileSync(path.join(dir, 'periodic.gro'), text);
+      const top = readGromacsStructure(text, 'periodic.gro');
+      for (const c of JSON.parse(read('periodic-select.json'))) {
+        const r = run(dir, ['select', '-s', 'periodic.gro', '-select', c.select, '-on', 'sel.ndx']);
+        expect(r.status).toBe(0);
+        const ref = parseNdx(fs.readFileSync(path.join(dir, 'sel.ndx'), 'utf8')).groups[0].atoms;
+        expect([c.select, customGroup(top, c.spec, c.options || {}).atoms]).toEqual([c.select, ref]);
+      }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }, 120000);
 });
 
 describe('describeGroups', () => {
