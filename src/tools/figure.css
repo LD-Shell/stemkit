@@ -1,0 +1,342 @@
+/*
+ * Figures: the plot area every plotting page shares (mountFigure in
+ * js/figure-plot.js), the preview it draws, and the panel that styles it.
+ *
+ * The panel is built from the shared components in src/tailwind/input.css
+ * (stk-disclosure, stk-field, stk-input, stk-select, stk-seg, stk-check,
+ * stk-range, stk-btn, stk-hint), so it takes the site's accent and both
+ * themes from the tokens. What is here is its layout: a two-column grid
+ * that fits a side column of about 400 px and a 390 px phone, inputs with a
+ * unit beside them, and the colour fields; the plot area's header, stage and
+ * notes, as the Curve Fitter first had them; and the style drawer for pages
+ * with no place of their own for the panel. The preview is the figure drawn
+ * at its true size and scaled to fit, so the stage only frames it.
+ */
+
+/* ---------------------------------------------------------------------------
+   Plot area
+   ---------------------------------------------------------------------------
+   A header (title, the size of the saved figure, the page's switches, Style,
+   PDF, PNG, SVG), the stage, and the notes on what the preview cannot show.
+   .fg-card gives it a card of its own; inside a page's panel it has none.
+--------------------------------------------------------------------------- */
+.fg { display: block; min-width: 0; }
+.fg-card {
+  background: var(--stk-surface);
+  border: 1px solid var(--stk-border);
+  border-radius: var(--stk-radius-xl);
+  box-shadow: var(--stk-shadow-sm);
+}
+.fg-h { display: flex; align-items: center; gap: .5rem .75rem; flex-wrap: wrap; padding: .8rem 1rem; }
+.fg-t { display: flex; align-items: center; gap: .5rem; margin: 0; font-size: .9375rem; font-weight: 650; letter-spacing: -.005em; color: var(--stk-fg); }
+.fg-size { font-size: .75rem; font-weight: 500; color: var(--stk-fg-muted); }
+.fg-size:empty { display: none; }
+.fg-actions { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin-left: auto; }
+.fg-export { display: inline-flex; gap: .3rem; }
+
+/* A quick switch: a checkbox that reads as a small toggle button. */
+.fg-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  height: 1.875rem;
+  padding: 0 .55rem;
+  border-radius: var(--stk-radius);
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--stk-fg-2);
+  cursor: pointer;
+  user-select: none;
+  box-shadow: inset 0 0 0 1px var(--stk-border);
+}
+.fg-toggle[hidden] { display: none; }
+.fg-toggle input { width: .9rem; height: .9rem; margin: 0; accent-color: var(--stk-accent); cursor: pointer; }
+.fg-toggle:has(input:checked) { color: var(--stk-accent-text); background: var(--stk-accent-soft); box-shadow: inset 0 0 0 1px var(--stk-accent-soft-border); }
+.fg-toggle:has(input:focus-visible) { outline: 2px solid var(--stk-accent); outline-offset: 2px; }
+
+/* Before there is anything to draw, the stage says what will appear; once a
+   figure is drawn, the stage is as tall as the figure. */
+.fg-stage { position: relative; margin: 0 1rem 1rem; min-height: 18rem; }
+.fg-stage.is-drawn { min-height: 0; }
+.fg-figure { position: relative; width: 100%; min-width: 0; overflow: hidden; }
+.fg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  min-height: 18rem;
+  padding: 1.5rem;
+  text-align: center;
+  border: 1.5px dashed var(--stk-border-strong);
+  border-radius: var(--stk-radius-lg);
+  background: var(--stk-surface-2);
+}
+.fg-empty[hidden] { display: none; }
+.fg-empty > i { font-size: 1.6rem; color: var(--stk-fg-faint); margin-bottom: .35rem; }
+.fg-empty-title { font-size: .95rem; font-weight: 600; color: var(--stk-fg-2); margin: 0; }
+.fg-empty-text { font-size: .8125rem; color: var(--stk-fg-3); margin: 0 0 .5rem; max-width: 26rem; }
+.fg-notes {
+  margin: 0 1rem 1rem;
+  padding: .5rem .7rem;
+  border-radius: var(--stk-radius);
+  background: var(--stk-surface-2);
+  border: 1px solid var(--stk-border);
+  font-size: .75rem;
+  line-height: 1.45;
+  color: var(--stk-fg-3);
+}
+.fg-notes[hidden] { display: none; }
+.fg-notes p { margin: 0; }
+.fg-notes p + p { margin-top: .25rem; }
+.fg-py-missing { margin: 0; padding: .75rem 1rem; font-size: .8125rem; color: var(--stk-fg-muted); }
+@media (min-width: 1024px) {
+  .fg-stage { min-height: 22rem; }
+  .fg-empty { min-height: 22rem; }
+}
+
+/* The style drawer: beside the page, so the figure stays in view while it
+   changes; a sheet from the bottom on a phone. It moves only when opened. */
+.fg-drawer {
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: 80;
+  width: min(25rem, 100vw);
+  height: 100vh;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  display: none;
+  flex-direction: column;
+  border: 0;
+  border-left: 1px solid var(--stk-border);
+  background: var(--stk-surface);
+  color: var(--stk-fg);
+  box-shadow: var(--stk-shadow-lg);
+}
+.fg-drawer[open] { display: flex; }
+/* On the left, for a page whose figure is on the right. */
+.fg-drawer.fg-drawer-left { inset: 0 auto 0 0; border-left: 0; border-right: 1px solid var(--stk-border); }
+.fg-drawer-h {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: .7rem .75rem .7rem 1rem;
+  border-bottom: 1px solid var(--stk-border);
+}
+.fg-drawer-t { margin: 0; font-size: .9375rem; font-weight: 650; color: var(--stk-fg); }
+.fg-drawer-b { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: .75rem; }
+@media (max-width: 639.98px) {
+  .fg-drawer, .fg-drawer.fg-drawer-left {
+    inset: auto 0 0 0;
+    width: 100vw;
+    height: min(75vh, 40rem);
+    height: min(75dvh, 40rem);
+    border-left: 0;
+    border-right: 0;
+    border-top: 1px solid var(--stk-border);
+    border-radius: var(--stk-radius-xl) var(--stk-radius-xl) 0 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fg-drawer[open] { animation: fg-drawer-in 160ms ease-out; }
+  .fg-drawer.fg-drawer-left[open] { animation-name: fg-drawer-in-left; }
+  @keyframes fg-drawer-in { from { transform: translateX(1.25rem); opacity: 0; } }
+  @keyframes fg-drawer-in-left { from { transform: translateX(-1.25rem); opacity: 0; } }
+}
+@media (prefers-reduced-motion: no-preference) and (max-width: 639.98px) {
+  .fg-drawer[open], .fg-drawer.fg-drawer-left[open] { animation-name: fg-sheet-in; }
+  @keyframes fg-sheet-in { from { transform: translateY(1.25rem); opacity: 0; } }
+}
+
+/* ---------------------------------------------------------------------------
+   Preview
+   ---------------------------------------------------------------------------
+   The figure keeps its own background (it is the page that will be saved),
+   so in both themes it sits on the panel as a sheet with a hairline edge,
+   drawn inside it (the stage clips anything outside) and in the figure's
+   scaled space, hence the division.
+--------------------------------------------------------------------------- */
+.fp-stage {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+.fp-figure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+.fp-figure::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 0 calc(1px / var(--fp-scale, 1)) var(--stk-border-strong);
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Panel
+--------------------------------------------------------------------------- */
+.fp-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.fp-top {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+.fp-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.fp-reset { margin-right: -0.5rem; }
+.fp-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.fp-presets > .stk-btn { min-width: 0; padding: 0 0.4rem; }
+/* Four presets (the figure panel's) sit two by two. */
+.fp-presets-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fp-presets-t {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--stk-fg-3);
+}
+
+/* Group heading: title on the left, a one-line state before the chevron. */
+.fp-group > summary { gap: 0.75rem; }
+.fp-group-t { flex: 0 0 auto; }
+.fp-sum {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: right;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--stk-fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+.fp-span { grid-column: 1 / -1; }
+.fp-field { min-width: 0; }
+.fp-hint, .fp-note { margin: 0; }
+
+.fp-sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--stk-fg-3);
+}
+
+.fp-axis, .fp-errorbars, .fp-band, .fp-series {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.fp-series[hidden] { display: none; }
+.fp-axis-switch { width: 100%; }
+.fp-axis-switch > button { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fp-seg > button { padding: 0 0.5rem; }
+
+.fp-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1.1rem;
+}
+.fp-check {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+/* A number with its unit (pt, in, %) joined to it. */
+.fp-unit {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+.fp-unit > input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.fp-unit > span {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.5rem;
+  font-size: 0.72rem;
+  color: var(--stk-fg-3);
+  background: var(--stk-surface-2);
+  border: 1px solid var(--stk-border-strong);
+  border-left: 0;
+  border-radius: 0 var(--stk-radius) var(--stk-radius) 0;
+  white-space: nowrap;
+}
+
+.fp-inline {
+  display: flex;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.fp-inline > * { flex: 1 1 0; min-width: 0; }
+
+/* Colour: the browser's picker as a swatch, and the hex code to type. */
+.fp-colour {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.fp-colour > .stk-input { flex: 1 1 auto; min-width: 0; }
+.fp-swatch {
+  flex: 0 0 auto;
+  width: var(--stk-control-h-sm);
+  height: var(--stk-control-h-sm);
+  padding: 0;
+  border: 1px solid var(--stk-border-strong);
+  border-radius: var(--stk-radius);
+  background: var(--stk-surface);
+  cursor: pointer;
+}
+.fp-swatch::-webkit-color-swatch-wrapper { padding: 3px; }
+.fp-swatch::-webkit-color-swatch { border: 0; border-radius: calc(var(--stk-radius) - 3px); }
+.fp-swatch::-moz-color-swatch { border: 0; border-radius: 4px; }
+.fp-swatch:focus-visible { outline: 2px solid var(--stk-accent); outline-offset: 2px; }
+
+.fp-range {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  height: var(--stk-control-h-sm);
+  min-width: 0;
+}
+.fp-range > input { flex: 1 1 auto; min-width: 0; }
+.fp-range-value {
+  flex: 0 0 2.5rem;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--stk-fg-2);
+  font-variant-numeric: tabular-nums;
+}

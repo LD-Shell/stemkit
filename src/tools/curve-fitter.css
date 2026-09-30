@@ -181,14 +181,6 @@
 .cf-sec-t { display: flex; align-items: center; gap: .5rem; margin: 0; font-size: .9375rem; font-weight: 650; letter-spacing: -.005em; color: var(--stk-fg); }
 .cf-sec-h > .cf-h-actions { margin-left: auto; }
 .cf-sec-b { display: flex; flex-direction: column; gap: .9rem; padding: 0 1rem 1.1rem; min-width: 0; }
-.cf-size { font-size: .75rem; font-weight: 500; color: var(--stk-fg-muted); }
-.cf-size:empty { display: none; }
-.cf-plot-actions { gap: .35rem .5rem; }
-.cf-toggle { display: inline-flex; align-items: center; gap: .35rem; height: 1.875rem; padding: 0 .55rem; border-radius: var(--stk-radius); font-size: .75rem; font-weight: 600; color: var(--stk-fg-2); cursor: pointer; user-select: none; box-shadow: inset 0 0 0 1px var(--stk-border); }
-.cf-toggle[hidden] { display: none; }
-.cf-toggle input { width: .9rem; height: .9rem; margin: 0; accent-color: var(--stk-accent); cursor: pointer; }
-.cf-toggle:has(input:checked) { color: var(--stk-accent-text); background: var(--stk-accent-soft); box-shadow: inset 0 0 0 1px var(--stk-accent-soft-border); }
-.cf-toggle:has(input:focus-visible) { outline: 2px solid var(--stk-accent); outline-offset: 2px; }
 
 /* Results: the table beside the fit statistics once there is room. */
 @container (min-width: 46rem) {
@@ -372,27 +364,7 @@
 .cf-copyrow { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding-top: .75rem; border-top: 1px solid var(--stk-border); }
 .cf-copyrow .cf-label { margin-right: .2rem; }
 
-/* ---------------------------------------------------------------------------
-   The plot
-   ---------------------------------------------------------------------------
-   Before there is anything to draw, the stage says what will appear; the
-   figure host is only filled once there is data.
---------------------------------------------------------------------------- */
-.cf-export { display: inline-flex; gap: .3rem; }
-.cf-stage { position: relative; margin: 0 1rem 1rem; min-height: 18rem; }
-.cf-figure { position: relative; width: 100%; min-width: 0; overflow: hidden; }
-.cf-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .4rem; min-height: 18rem; padding: 1.5rem; text-align: center; border: 1.5px dashed var(--stk-border-strong); border-radius: var(--stk-radius-lg); background: var(--stk-surface-2); }
-.cf-empty > i { font-size: 1.6rem; color: var(--stk-fg-faint); margin-bottom: .35rem; }
-.cf-empty-title { font-size: .95rem; font-weight: 600; color: var(--stk-fg-2); margin: 0; }
-.cf-empty-text { font-size: .8125rem; color: var(--stk-fg-3); margin: 0 0 .5rem; max-width: 26rem; }
-.cf-plot-notes { margin: 0 1rem 1rem; padding: .5rem .7rem; border-radius: var(--stk-radius); background: var(--stk-surface-2); border: 1px solid var(--stk-border); font-size: .75rem; line-height: 1.45; color: var(--stk-fg-3); }
-.cf-plot-notes p { margin: 0; }
-.cf-plot-notes p + p { margin-top: .25rem; }
-@media (min-width: 1024px) {
-  .cf-stage { min-height: 22rem; }
-  .cf-empty { min-height: 22rem; }
-}
-
+/* The plot area (header, stage, notes) is the shared one in src/tools/figure.css. */
 .cf-style-host { min-width: 0; }
 .cf-style-wait { margin: 0; font-size: .8125rem; color: var(--stk-fg-muted); }
 

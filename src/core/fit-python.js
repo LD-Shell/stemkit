@@ -28,6 +28,10 @@
 
 import { FUNCTIONS, CONSTANTS } from './expression.js';
 import { normalisePlotStyle } from './plot-style.js';
+import {
+  pyNum, short, pyStr, comment, wrapItems, pyArray, pyCall, wrapComment, rcLines, subplotsLines, seriesLines,
+  tickLines, frameBody, legendCall, saveLines, gridOn
+} from './figure-python.js';
 
 /* ------------------------------------------------------------------ *
  * Names
@@ -89,99 +93,6 @@ export function pythonName(name, taken = new Set()) {
   while (RESERVED.has(id) || taken.has(id)) id += '_';
   taken.add(id);
   return id;
-}
-
-/* ------------------------------------------------------------------ *
- * Python text
- * ------------------------------------------------------------------ */
-
-/** A number as Python reads it back to the same double. */
-function pyNum(v) {
-  const n = Number(v);
-  if (n === Infinity) return 'np.inf';
-  if (n === -Infinity) return '-np.inf';
-  if (Number.isNaN(n)) return 'np.nan';
-  return String(n);
-}
-
-/** A value rounded for a comment or a message. */
-function short(v, digits = 6) {
-  const n = Number(v);
-  return Number.isFinite(n) ? String(Number(n.toPrecision(digits))) : String(n);
-}
-
-/**
- * A Python string literal. Text with backslashes (LaTeX such as `$\tau$`)
- * is written raw so it reads as typed; anything a raw string cannot hold is
- * escaped instead.
- */
-function pyStr(s) {
-  const text = String(s ?? '');
-  if (text.includes('\\') && !/['\x00-\x1f\x7f]/.test(text) && !/\\$/.test(text)) return `r'${text}'`;
-  return "'" + text
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\'")
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r')
-    .replace(/\t/g, '\\t')
-    .replace(/[\x00-\x1f\x7f]/g, (c) => '\\x' + c.charCodeAt(0).toString(16).padStart(2, '0')) + "'";
-}
-
-/** Text safe inside a `#` comment: one line, no control characters. */
-function comment(s) {
-  return String(s ?? '').replace(/[\x00-\x1f\x7f\x85\u2028\u2029]+/g, ' ').trim();
-}
-
-/** Items joined with `, ` and wrapped at `width` characters, each line indented. */
-function wrapItems(items, indent, width = 88) {
-  const lines = [];
-  let line = '';
-  for (const item of items) {
-    const next = line ? `${line}, ${item}` : item;
-    if (line && indent.length + next.length + 1 > width) {
-      lines.push(indent + line + ',');
-      line = item;
-    } else {
-      line = next;
-    }
-  }
-  if (line) lines.push(indent + line + ',');
-  return lines;
-}
-
-/** `name = np.array([...], dtype=float)`, on one line if it fits. */
-function pyArray(name, values) {
-  const items = values.map(pyNum);
-  const one = `${name} = np.array([${items.join(', ')}], dtype=float)`;
-  if (one.length <= 88) return [one];
-  return [`${name} = np.array([`, ...wrapItems(items, '    '), '], dtype=float)'];
-}
-
-/** `head[items]tail`, with the items wrapped onto indented lines when long. */
-function pyWrappedList(head, items, tail) {
-  const one = `${head}[${items.join(', ')}]${tail}`;
-  if (one.length <= 88) return [one];
-  return [`${head}[`, ...wrapItems(items, '    '), `]${tail}`];
-}
-
-/** A call whose keyword arguments wrap onto continuation lines past 88 characters. */
-function pyCall(head, args, indent = '') {
-  const one = `${indent}${head}(${args.join(', ')})`;
-  if (one.length <= 88) return [one];
-  const lines = [];
-  let line = `${indent}${head}(`;
-  const pad = ' '.repeat(line.length);
-  args.forEach((arg, i) => {
-    const piece = arg + (i < args.length - 1 ? ',' : ')');
-    if (line.trim().endsWith('(') || line.length + 1 + piece.length <= 88) {
-      line += (line.endsWith('(') ? '' : ' ') + piece;
-    } else {
-      lines.push(line);
-      line = pad + piece;
-    }
-  });
-  lines.push(line);
-  return lines;
 }
 
 /* ------------------------------------------------------------------ *
@@ -300,34 +211,6 @@ function walk(node, visit) {
   if (node.type === 'unary') walk(node.arg, visit);
   else if (node.type === 'binary') { walk(node.left, visit); walk(node.right, visit); }
   else if (node.type === 'call') (node.args || []).forEach((a) => walk(a, visit));
-}
-
-/* ------------------------------------------------------------------ *
- * Plot style in matplotlib terms
- * ------------------------------------------------------------------ */
-
-/** Fonts tried in order for each family, the browser's usual choices first. */
-const FONT_LISTS = {
-  'sans-serif': ['Arial', 'Helvetica', 'Liberation Sans', 'DejaVu Sans'],
-  serif: ['Times New Roman', 'Times', 'Nimbus Roman', 'Liberation Serif', 'DejaVu Serif'],
-  monospace: ['Courier New', 'Courier', 'Nimbus Mono PS', 'Liberation Mono', 'DejaVu Sans Mono']
-};
-
-const printfConversion = /%[-+ 0#]*\d*(?:\.\d+)?[diouxXeEfFgG]/g;
-
-/** A printf format with exactly one conversion, as FormatStrFormatter wants, or null. */
-function printfFormat(format) {
-  if (!format || format === 'sci') return null;
-  const rest = format.replace(/%%/g, '');
-  const conversions = rest.match(printfConversion) || [];
-  if (conversions.length !== 1) return null;
-  if (rest.replace(printfConversion, '').includes('%')) return null;
-  return format;
-}
-
-/** The default text of a tick at `v` when the user gave fewer labels than values. */
-function tickText(v) {
-  return String(Number(Number(v).toPrecision(12)));
 }
 
 /* ------------------------------------------------------------------ *
@@ -504,7 +387,8 @@ export function generateFitScript(spec) {
     L.push(`# ${rows.length} points${left.length ? `; ${left.join(' and ')} left out, as on the page` : ''}.`);
     if (hasSigma) L.push(`# ${errName} is the standard uncertainty of each ${dep} value.`);
     if (described.length) L.push(`# Columns: ${described.join('; ')}.`);
-    dataNames.forEach((name, j) => L.push(...pyArray(name, rows.map((r) => r[j]))));
+    // Pushed line by line: a spread of a long array would run out of stack.
+    dataNames.forEach((name, j) => { for (const line of pyArray(name, rows.map((r) => r[j]))) L.push(line); });
   }
   if (multi) {
     L.push(`# curve_fit takes the independent variables as one array, one row each.`);
@@ -654,23 +538,7 @@ export function generateFitScript(spec) {
   figureLines(L, { s, multi, F, dep, x0, xs, errName, hasSigma, band, section });
 
   /* Save */
-  blank();
-  section('Save');
-  const saveArgs = [pyStr(fileName), `dpi=${s.dpi}`, `transparent=${s.export.transparent ? 'True' : 'False'}`];
-  if (s.export.tight) {
-    L.push("# bbox_inches='tight' fits the page to what is drawn, with a 0.1 in margin;");
-    L.push(`# leave it out to keep the page exactly ${short(s.width)} x ${short(s.height)} in.`);
-    saveArgs.push("bbox_inches='tight'");
-  } else {
-    L.push(`# The page is exactly ${short(s.width)} x ${short(s.height)} in; add bbox_inches='tight' to fit it to`);
-    L.push('# what is drawn instead.');
-  }
-  L.push(...pyCall('fig.savefig', saveArgs));
-  L.push(`print(${pyStr('Saved ' + fileName)})`);
-  blank();
-  L.push('# Show the figure when there is a screen for it; a headless run just saves it.');
-  L.push("if matplotlib.get_backend().lower() not in ('agg', 'cairo', 'pdf', 'pgf', 'ps', 'svg', 'template'):");
-  L.push('    plt.show()');
+  saveLines(L, s, section);
   return L.join('\n') + '\n';
 }
 
@@ -694,21 +562,6 @@ function clampTo(p, v) {
   return Math.min(finiteOr(p.max, Infinity), Math.max(finiteOr(p.min, -Infinity), v));
 }
 
-/** A long comment wrapped at 88 characters. */
-function wrapComment(text) {
-  const out = [];
-  let line = '#';
-  for (const word of comment(text).split(' ')) {
-    if (line.length > 1 && line.length + 1 + word.length > 88) {
-      out.push(line);
-      line = '#';
-    }
-    line += ' ' + word;
-  }
-  out.push(line);
-  return out;
-}
-
 /* ------------------------------------------------------------------ *
  * The figure
  * ------------------------------------------------------------------ */
@@ -718,89 +571,43 @@ function figureLines(L, ctx) {
   const blank = () => L.push('');
   const residualsPanel = s.residuals.show;
   const bottom = residualsPanel ? 'ax_res' : 'ax';
-  // mathtext reads fontconfig patterns, where '-' separates a size: 'sans' it is.
-  const mathFamily = { 'sans-serif': 'sans', serif: 'serif', monospace: 'monospace' }[s.fontFamily];
 
   section('Figure');
-  L.push('# Fonts: the axis labels at the size you set, tick labels 1 pt smaller, the title');
-  L.push('# 1 pt larger. Text between $ signs is set as mathematics in the same font.');
-  L.push('plt.rcParams.update({');
-  L.push(`    'font.family': ${pyStr(s.fontFamily)},`);
-  L.push(`    'font.${s.fontFamily}': [${FONT_LISTS[s.fontFamily].map(pyStr).join(', ')}],`);
-  L.push(`    'mathtext.fontset': 'custom', 'mathtext.rm': ${pyStr(mathFamily)},`);
-  L.push(`    'mathtext.it': ${pyStr(mathFamily + ':italic')}, 'mathtext.bf': ${pyStr(mathFamily + ':bold')},`);
-  L.push(`    'mathtext.sf': ${pyStr(mathFamily)}, 'mathtext.tt': 'monospace', 'mathtext.cal': ${pyStr(mathFamily)},`);
-  L.push(`    'font.size': ${pyNum(s.fontSize)}, 'axes.labelsize': ${pyNum(s.fontSize)}, 'axes.titlesize': ${pyNum(s.fontSize + 1)},`);
-  L.push(`    'xtick.labelsize': ${pyNum(Math.max(1, s.fontSize - 1))}, 'ytick.labelsize': ${pyNum(Math.max(1, s.fontSize - 1))},`);
-  L.push(`    'legend.fontsize': ${pyNum(s.legend.fontSize)},`);
-  // The legend's face otherwise comes from axes.facecolor, which stays white
-  // however the axes are painted: light text on a white box on a dark figure.
-  L.push(`    'legend.facecolor': ${pyStr(s.background)},`);
-  L.push('    # The foreground colour: all text, tick marks and tick labels, and the frame.');
-  const fg = pyStr(s.foreground);
-  L.push(`    'text.color': ${fg}, 'axes.labelcolor': ${fg}, 'axes.edgecolor': ${fg},`);
-  L.push(`    'xtick.color': ${fg}, 'ytick.color': ${fg},`);
-  L.push("    'pdf.fonttype': 42,        # TrueType in PDF and PostScript: text stays text");
-  L.push("    'ps.fonttype': 42,");
-  L.push("    'svg.fonttype': 'none',    # SVG text stays editable");
-  L.push('})');
+  rcLines(L, s);
   blank();
 
-  const figArgs = [];
-  if (residualsPanel) figArgs.push('2', '1', 'sharex=True');
-  figArgs.push(`figsize=(${pyNum(s.width)}, ${pyNum(s.height)})`, "layout='constrained'");
-  if (residualsPanel) figArgs.push(`gridspec_kw={'height_ratios': [1, ${pyNum(s.residuals.heightRatio)}]}`);
-  figArgs.push(`facecolor=${pyStr(s.background)}`);
   if (residualsPanel) {
     L.push(`# The fit above, the residuals below: the lower panel is ${short(s.residuals.heightRatio)} times as tall.`);
   }
-  L.push(...pyCall(residualsPanel ? 'fig, (ax, ax_res) = plt.subplots' : 'fig, ax = plt.subplots', figArgs));
+  subplotsLines(L, s, residualsPanel ? ['ax', 'ax_res'] : ['ax'], [1, s.residuals.heightRatio]);
   // Scales first: setting a scale resets the axis's tick locators.
   if (s.xScale === 'log') L.push("ax.set_xscale('log')");
   if (s.yScale === 'log') L.push("ax.set_yscale('log')");
   blank();
 
   const handles = [];
+  const markerOn = s.data.marker !== 'none';
+  const errorBars = s.data.errorBars && hasSigma;
+  const points = {
+    kind: errorBars ? 'errorbar' : 'scatter', marker: s.data.marker, size: s.data.size, color: s.data.color,
+    edgeColor: s.data.edgeColor, edgeWidth: s.data.edgeWidth, alpha: s.data.alpha, errorWidth: s.data.errorWidth,
+    capSize: s.data.capSize, label: s.data.label, lineStyle: 'none'
+  };
   // The residual panel shows its points even when the data above are hidden:
   // it exists to show them.
   const dataArtist = (target, xv, yv, withLabel, handle) => {
     const shown = s.data.show || target === 'ax_res';
     if (!shown) return;
-    const markerOn = s.data.marker !== 'none';
-    const errorBars = s.data.errorBars && hasSigma;
-    const common = [];
-    if (errorBars) {
-      const args = [xv, yv, `yerr=${errName}`, `fmt=${pyStr(markerOn ? s.data.marker : 'none')}`];
-      if (markerOn) {
-        args.push(`markersize=${pyNum(s.data.size)}`, `color=${pyStr(s.data.color)}`,
-          `markeredgecolor=${pyStr(s.data.edgeColor)}`);
-      }
-      args.push(`ecolor=${pyStr(s.data.color)}`, `elinewidth=${pyNum(s.data.errorWidth)}`, `capsize=${pyNum(s.data.capSize)}`);
-      if (s.data.capSize > 0) args.push(`capthick=${pyNum(s.data.errorWidth)}`);
-      args.push(`alpha=${pyNum(s.data.alpha)}`);
-      if (withLabel && s.data.label) args.push(`label=${pyStr(s.data.label)}`);
-      args.push('zorder=3');
-      const name = handle || (markerOn ? 'residual_points' : null);
-      L.push(...pyCall(`${name ? `${name} = ` : ''}${target}.errorbar`, args));
-      if (markerOn) {
-        L.push("# The markers' edge width, set here: given to errorbar() it would set the caps' too.");
-        L.push(`${name}[0].set_markeredgewidth(${pyNum(s.data.edgeWidth)})`);
-      }
-    } else if (markerOn) {
-      common.push(xv, yv, "linestyle='none'", `marker=${pyStr(s.data.marker)}`, `markersize=${pyNum(s.data.size)}`,
-        `color=${pyStr(s.data.color)}`, `markeredgecolor=${pyStr(s.data.edgeColor)}`, `markeredgewidth=${pyNum(s.data.edgeWidth)}`,
-        `alpha=${pyNum(s.data.alpha)}`);
-      if (withLabel && s.data.label) common.push(`label=${pyStr(s.data.label)}`);
-      common.push('zorder=3');
-      L.push(...pyCall(`${handle ? `${handle}, = ` : ''}${target}.plot`, common));
-    } else {
+    if (!errorBars && !markerOn) {
       L.push('# Markers are off and there are no error bars, so the points are not drawn.');
       return;
     }
+    seriesLines(L, points, target, { x: xv, y: yv, yerr: errorBars ? errName : null, handle, markerName: 'residual_points', labelled: withLabel, zorder: 3 });
     if (withLabel && s.data.label && handle) handles.push(handle);
   };
 
-  const fitStyle = [`color=${pyStr(s.fit.color)}`, `linewidth=${pyNum(s.fit.width)}`, `linestyle=${pyStr(s.fit.style)}`];
+  const fitLine = { kind: 'line', color: s.fit.color, lineWidth: s.fit.width, lineStyle: s.fit.style, marker: 'none', alpha: 1, label: s.fit.label };
+  const zeroLine = { ...fitLine, kind: 'hline', y: 0, label: '' };
 
   if (!multi) {
     // Where to draw the curve: across the data, or across the x limits if set.
@@ -818,14 +625,11 @@ function figureLines(L, ctx) {
     if (band) {
       const pct = short(s.band.level * 100, 4);
       L.push(`half = confidence_band(x_fit, ${pyNum(s.band.level)})  # the ${pct}% confidence band`);
-      L.push(...pyCall('band = ax.fill_between', ['x_fit', 'y_fit - half', 'y_fit + half', `color=${pyStr(s.band.color)}`,
-        `alpha=${pyNum(s.band.alpha)}`, 'linewidth=0', `label=${pyStr(s.band.label || `${pct}% confidence band`)}`, 'zorder=1']));
+      seriesLines(L, { kind: 'band', color: s.band.color, alpha: s.band.alpha, edgeWidth: 0, label: s.band.label || `${pct}% confidence band` }, 'ax',
+        { x: 'x_fit', lower: 'y_fit - half', upper: 'y_fit + half', handle: 'band', labelled: true, zorder: 1 });
     }
     if (s.fit.show) {
-      const args = ['x_fit', 'y_fit', ...fitStyle];
-      if (s.fit.label) args.push(`label=${pyStr(s.fit.label)}`);
-      args.push('zorder=2');
-      L.push(...pyCall('fit_line, = ax.plot', args));
+      seriesLines(L, fitLine, 'ax', { x: 'x_fit', y: 'y_fit', handle: 'fit_line', labelled: !!s.fit.label, zorder: 2 });
       if (s.fit.label) handles.push('fit_line');
     }
     if (band) handles.push('band');
@@ -833,7 +637,7 @@ function figureLines(L, ctx) {
     if (residualsPanel) {
       blank();
       L.push('# Residuals, observed minus fitted, about the zero line.');
-      L.push(...pyCall('ax_res.axhline', ['0', ...fitStyle, 'zorder=2']));
+      seriesLines(L, zeroLine, 'ax_res', { zorder: 2 });
       dataArtist('ax_res', x0, 'residuals', false, null);
       L.push("ax_res.set_ylabel('Residual')");
     }
@@ -849,10 +653,7 @@ function figureLines(L, ctx) {
     const hi = s.xLim[1] !== null ? pyNum(s.xLim[1]) : 'both.max()';
     if (s.fit.show) {
       L.push(`line = np.${logX ? 'geomspace' : 'linspace'}(${lo}, ${hi}, ${s.fit.samples})`);
-      const args = ['line', 'line', ...fitStyle];
-      if (s.fit.label) args.push(`label=${pyStr(s.fit.label)}`);
-      args.push('zorder=2');
-      L.push(...pyCall('fit_line, = ax.plot', args));
+      seriesLines(L, fitLine, 'ax', { x: 'line', y: 'line', handle: 'fit_line', labelled: !!s.fit.label, zorder: 2 });
       if (s.fit.label) handles.push('fit_line');
     }
     if (s.band.show) L.push('# (No confidence band: it belongs to a curve over one variable.)');
@@ -860,7 +661,7 @@ function figureLines(L, ctx) {
     if (residualsPanel) {
       blank();
       L.push('# Residuals, observed minus predicted, against the prediction.');
-      L.push(...pyCall('ax_res.axhline', ['0', ...fitStyle, 'zorder=2']));
+      seriesLines(L, zeroLine, 'ax_res', { zorder: 2 });
       dataArtist('ax_res', 'predicted', 'residuals', false, null);
       L.push("ax_res.set_ylabel('Residual')");
     }
@@ -884,133 +685,26 @@ function figureLines(L, ctx) {
   limLine('y', s.yLim, s.yScale === 'log');
   blank();
 
-  ['x', 'y'].forEach((k) => tickLines(L, k, s, residualsPanel));
+  ['x', 'y'].forEach((k) => tickLines(L, {
+    k, axis: `ax.${k}axis`, T: s[`${k}Ticks`], log: s[`${k}Scale`] === 'log',
+    note: k === 'x' && residualsPanel ? ' (shared by both panels)' : '',
+    minorAlso: k === 'y' && residualsPanel ? ['ax_res.yaxis'] : [],
+    gridMinor: s.grid.show && s.grid.minor && gridOn(s, k)
+  }));
 
   /* Frame, ticks, grid, for each panel */
   L.push('# Background, frame, tick marks and grid, for each panel.');
   L.push('for axes in fig.axes:');
-  L.push(`    axes.set_facecolor(${pyStr(s.background)})`);
-  L.push(`    axes.spines['top'].set_visible(${s.spines.top ? 'True' : 'False'})`);
-  L.push(`    axes.spines['right'].set_visible(${s.spines.right ? 'True' : 'False'})`);
-  L.push('    for spine in axes.spines.values():');
-  L.push(`        spine.set_linewidth(${pyNum(s.spines.width)})`);
-  ['x', 'y'].forEach((k) => {
-    const T = s[`${k}Ticks`];
-    L.push(`    axes.tick_params(axis='${k}', which='major', direction=${pyStr(T.direction)}, length=${pyNum(T.length)}, width=${pyNum(T.width)})`);
-    const far = k === 'x' ? 'top' : 'right';
-    if (T.mirror) L.push(`    axes.tick_params(axis='${k}', which='both', ${far}=True)  # tick marks on the ${far} too`);
-    const minorLocated = T.minor || (s.grid.show && s.grid.minor) || s[`${k}Scale`] === 'log';
-    if (!minorLocated) return;
-    if (T.minor) {
-      // matplotlib's own proportions: minor ticks 4/7 as long and 3/4 as thick.
-      L.push(`    axes.tick_params(axis='${k}', which='minor', direction=${pyStr(T.direction)}, length=${pyNum(round3(T.length * 4 / 7))}, width=${pyNum(round3(T.width * 0.75))})`);
-    } else {
-      L.push(`    axes.tick_params(axis='${k}', which='minor', length=0)  # no minor tick marks`);
-    }
-  });
-  if (s.grid.show) {
-    const g = [`color=${pyStr(s.grid.color)}`, `alpha=${pyNum(s.grid.alpha)}`, `linestyle=${pyStr(s.grid.style)}`];
-    L.push(...pyCall('axes.grid', ['True', "which='major'", ...g, `linewidth=${pyNum(s.grid.width)}`], '    '));
-    if (s.grid.minor) {
-      L.push(...pyCall('axes.grid', ['True', "which='minor'", ...g, `linewidth=${pyNum(round3(s.grid.width / 2))}`], '    '));
-    }
-    L.push('    axes.set_axisbelow(True)');
-  }
+  frameBody(L, s, { x: s.xTicks, y: s.yTicks, xLog: s.xScale === 'log', yLog: s.yScale === 'log' });
   blank();
 
   /* Legend */
   if (s.legend.show && handles.length) {
     L.push('# Legend');
-    const args = [`handles=[${handles.join(', ')}]`];
-    if (s.legend.position === 'outside right') {
-      args.push("loc='upper left'", 'bbox_to_anchor=(1.02, 1)', 'borderaxespad=0');
-    } else {
-      args.push(`loc=${pyStr(s.legend.position)}`);
-    }
-    args.push(`frameon=${s.legend.frame ? 'True' : 'False'}`, `fontsize=${pyNum(s.legend.fontSize)}`);
-    L.push(...pyCall('ax.legend', args));
+    legendCall(L, s, 'ax', handles);
   } else if (s.legend.show) {
     L.push('# (No legend: nothing drawn has a label.)');
   } else {
     L.pop(); // the blank line kept for the legend
   }
-}
-
-function round3(v) {
-  return Math.round(v * 1000) / 1000;
-}
-
-/** Locator and formatter lines for one axis. */
-function tickLines(L, k, s, residualsPanel) {
-  const T = s[`${k}Ticks`];
-  const log = s[`${k}Scale`] === 'log';
-  const axis = `ax.${k}axis`;
-  const shared = k === 'x' && residualsPanel ? ' (shared by both panels)' : '';
-  const out = [];
-  let describe = '';
-
-  if (T.mode === 'step' && T.step) {
-    if (log) {
-      describe = T.step === 1 ? 'a tick every decade' : `a tick every ${short(T.step)} decades`;
-      out.push(`${axis}.set_major_locator(ticker.LogLocator(base=${T.step === 1 ? '10' : `10**${pyNum(T.step)}`}, numticks=1000))`);
-    } else {
-      describe = `a tick every ${short(T.step)}`;
-      out.push(`${axis}.set_major_locator(ticker.MultipleLocator(${pyNum(T.step)}))`);
-    }
-  } else if (T.mode === 'count' && T.count) {
-    describe = `about ${T.count} ticks`;
-    out.push(log
-      ? `${axis}.set_major_locator(ticker.LogLocator(numticks=${T.count}))`
-      : `${axis}.set_major_locator(ticker.MaxNLocator(nbins=${T.count}))`);
-  } else if (T.mode === 'list' && T.values.length) {
-    describe = 'ticks at the values you listed';
-    out.push(...pyWrappedList(`${axis}.set_major_locator(ticker.FixedLocator(`, T.values.map(pyNum), '))'));
-    if (T.labels.length && T.labels.some((t) => t !== '')) {
-      const labels = T.values.map((v, i) => (i < T.labels.length ? T.labels[i] : tickText(v)));
-      out.push(...pyWrappedList(`${axis}.set_major_formatter(ticker.FixedFormatter(`, labels.map(pyStr), '))'));
-    }
-  }
-
-  const labelled = T.mode === 'list' && T.values.length && T.labels.some((t) => t !== '');
-  if (!labelled && T.format) {
-    const printf = printfFormat(T.format);
-    if (T.format === 'sci') {
-      describe += (describe ? ', ' : '') + 'labels in scientific notation';
-      if (log) {
-        out.push(`${axis}.set_major_formatter(ticker.LogFormatterSciNotation())`);
-      } else {
-        out.push('formatter = ticker.ScalarFormatter(useMathText=True)');
-        out.push('formatter.set_scientific(True)');
-        out.push('formatter.set_powerlimits((0, 0))  # always a power of ten at the end of the axis');
-        out.push(`${axis}.set_major_formatter(formatter)`);
-      }
-    } else if (printf) {
-      describe += (describe ? ', ' : '') + `labels as ${printf}`;
-      out.push(`${axis}.set_major_formatter(ticker.FormatStrFormatter(${pyStr(printf)}))`);
-    } else {
-      out.push(`# (The tick format ${comment(JSON.stringify(T.format))} is not a printf format such as '%.2f', so matplotlib chooses.)`);
-    }
-  }
-
-  if (log && out.some((line) => !line.startsWith('#'))) {
-    // On a short log axis matplotlib labels the minor ticks as well; once the
-    // major ticks or their format are chosen, only the major ticks are labelled.
-    out.push(`${axis}.set_minor_formatter(ticker.NullFormatter())`);
-  }
-
-  const minorLocated = T.minor || (s.grid.show && s.grid.minor);
-  if (minorLocated) {
-    describe += (describe ? ', ' : '') + (T.minor ? 'minor ticks between' : 'minor grid lines between');
-    if (log) {
-      out.push(`${axis}.set_minor_locator(ticker.LogLocator(subs='auto'))`);
-    } else {
-      out.push(`${axis}.set_minor_locator(ticker.AutoMinorLocator())`);
-    }
-    if (k === 'y' && residualsPanel) out.push('ax_res.yaxis.set_minor_locator(ticker.AutoMinorLocator())');
-  }
-
-  if (!out.length) return;
-  L.push(`# ${k} axis${shared}: ${describe || 'ticks as matplotlib chooses'}.`);
-  L.push(...out);
-  L.push('');
 }

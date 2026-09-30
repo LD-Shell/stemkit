@@ -13,10 +13,11 @@
  *   nonlinear-fit.js  fits it (Levenberg–Marquardt, matching curve_fit);
  *   fit-python.js     writes the script;
  *   plot-style.js     the one style object the preview and the script share.
- * js/fit-plot.js draws the preview, holds the style panel and exports the
- * figure. Every call into it is in the "Plot" section near the end of this
- * file, and it is loaded with a dynamic import, so the rest of the page works
- * even if the plot cannot load.
+ * js/fit-plot.js turns the fit and its style into a figure and holds the
+ * style panel; the shared plot area (mountFigure in js/figure-plot.js) draws,
+ * sizes and exports it. Every call into them is in the "Plot" section near
+ * the end of this file, and they are loaded with a dynamic import, so the
+ * rest of the page works even if the plot cannot load.
  *
  * This file is the DOM wiring plus the pieces that belong to the page rather
  * than the core: reading pasted tables (delimiters, header rows, decimal
@@ -870,7 +871,7 @@ function startPage() {
     failure: $('cfFailure'), resultBody: $('cfResultBody'), fittedTex: $('cfFittedTex'), paramRows: $('cfParamRows'),
     stats: $('cfStats'), warnings: $('cfWarnings'), corr: $('cfCorr'), corrBadge: $('cfCorrBadge'), corrTable: $('cfCorrTable'),
     theory: $('cfTheory'), theoryBody: $('cfTheoryBody'),
-    size: $('cfSize'), plotEmpty: $('cfPlotEmpty'), figure: $('cfFigure'), plotNotes: $('cfPlotNotes'),
+    plotSection: $('cfPlot'), size: $('cfSize'), plotEmpty: $('cfPlotEmpty'), figure: $('cfFigure'), plotNotes: $('cfPlotNotes'),
     plotDrawn: $('cfPlotDrawn'), tryExample: $('cfTryExample'),
     styleHost: $('cfStyleHost'),
     workspace: $('cfWorkspace'), bar: $('cfBar'), barFit: $('cfBarFit'), rail: $('cfRail'),
@@ -2259,13 +2260,15 @@ function startPage() {
     syncLabels();
     const model = plotModel();
     const has = !!model;
-    ui.plotEmpty.hidden = has;
-    ui.figure.hidden = !has;
     if (!(has && state.fit && state.fit.ok)) ui.plotDrawn.hidden = true;
-    document.querySelectorAll('[data-export]').forEach(b => { b.disabled = !has || !plotLoaded(); });
-    if (!has) {
-      ui.plotNotes.hidden = true;
-      ui.size.textContent = '';
+    if (!plotLoaded()) {
+      // Until the plot area has loaded, the stage says what will appear.
+      ui.plotEmpty.hidden = has;
+      ui.figure.hidden = !has;
+      if (!has) {
+        ui.plotNotes.hidden = true;
+        ui.size.textContent = '';
+      }
     }
     requestDraw();
   }
@@ -2304,7 +2307,6 @@ function startPage() {
   quickToggle('band', ui.quickBand);
   ui.editStyle.addEventListener('click', () => selectTab('style', { focus: true, reveal: true }));
 
-  document.querySelectorAll('[data-export]').forEach(b => b.addEventListener('click', () => exportAs(b.dataset.export, b)));
 
   /* ---------------- step 5: Python ---------------- */
 
@@ -2540,18 +2542,21 @@ function startPage() {
   ui.tryExample.addEventListener('click', () => loadSample('decay'));
 
   /* ------------------------------------------------------------------ *
-   * Plot: every call into js/fit-plot.js is in this section. The module
-   * is loaded on its own, so the page still fits and writes the script if
-   * the plot cannot load.
+   * Plot: every call into js/fit-plot.js and the shared plot area
+   * (mountFigure in js/figure-plot.js) is in this section. The modules are
+   * loaded on their own, so the page still fits and writes the script if the
+   * plot cannot load. The plot area draws, sizes, notes and exports the
+   * figure; the page keeps its own switches, Style tab and style panel.
    * ------------------------------------------------------------------ */
 
   let fitPlot = null;
+  let plotArea = null;
   let stylePanel = null;
   let panelContext = null;
   let drawing = false;
   let drawAgain = false;
 
-  function plotLoaded() { return !!fitPlot; }
+  function plotLoaded() { return !!plotArea; }
 
   function curveGrid(x) {
     if (fitPlot) return Array.from(fitPlot.fitCurveGrid(x, state.style));
@@ -2587,7 +2592,7 @@ function startPage() {
 
 
   async function requestDraw() {
-    if (!fitPlot) return;
+    if (!plotArea) return;
     if (drawing) { drawAgain = true; return; }
     drawing = true;
     try {
@@ -2602,44 +2607,26 @@ function startPage() {
 
   async function drawOnce() {
     const model = plotModel();
-    if (!model) return;
-    let info;
-    try {
-      info = await fitPlot.renderFitPlot(ui.figure, model, state.style, { maxScale: previewMaxScale() });
-    } catch (err) {
-      ui.plotDrawn.hidden = true;
-      ui.plotNotes.innerHTML = `<p>The plot could not be drawn: ${esc(err && err.message ? err.message : String(err))}</p>`;
-      ui.plotNotes.hidden = false;
-      return;
-    }
-    if (info && Number.isFinite(info.widthIn) && Number.isFinite(info.heightIn)) {
-      ui.size.textContent = `${fmt(info.widthIn, 3)} \u00d7 ${fmt(info.heightIn, 3)} in`;
-    }
-    ui.plotDrawn.hidden = !(state.fit && state.fit.ok);
-    const notes = info && Array.isArray(info.notes) ? info.notes : [];
-    ui.plotNotes.innerHTML = notes.map(n => `<p>${esc(n)}</p>`).join('');
-    ui.plotNotes.hidden = !notes.length;
-    document.querySelectorAll('[data-export]').forEach(b => { b.disabled = false; });
+    const info = await plotArea.update(model ? fitPlot.fitFigure(model, state.style) : null);
+    ui.plotDrawn.hidden = !(info && state.fit && state.fit.ok);
   }
 
-  async function exportAs(format, btn) {
-    if (!fitPlot || !plotModel()) return;
-    const style = { ...state.style, export: { ...state.style.export, format } };
-    if (btn) btn.disabled = true;
-    try {
-      const r = await fitPlot.exportFitPlot(ui.figure, style);
-      const size = r && Number.isFinite(r.widthIn) ? ` (${fmt(r.widthIn, 3)} \u00d7 ${fmt(r.heightIn, 3)} in)` : '';
-      toast(`Saved ${r && r.filename ? r.filename : `${style.export.filename}.${format}`}${size}.`, 'ok');
-    } catch (err) {
+  function exported(r, err, format) {
+    if (err) {
       toast(`The ${format.toUpperCase()} could not be made: ${err && err.message ? err.message : err}`, 'danger');
-    } finally {
-      if (btn) btn.disabled = false;
+      return;
     }
+    const size = r && Number.isFinite(r.widthIn) ? ` (${fmt(r.widthIn, 3)} \u00d7 ${fmt(r.heightIn, 3)} in)` : '';
+    toast(`Saved ${r && r.filename ? r.filename : `${state.style.export.filename}.${format}`}${size}.`, 'ok');
   }
 
   ui.styleHost.innerHTML = '<p class="cf-style-wait">Loading the style options\u2026</p>';
-  import('./fit-plot.js').then(mod => {
+  Promise.all([import('./fit-plot.js'), import('./figure-plot.js')]).then(([mod, figures]) => {
     fitPlot = mod;
+    plotArea = figures.mountFigure(ui.plotSection, {
+      stylePanel: false, maxScale: previewMaxScale, onExport: exported,
+      label: 'The data and the fitted curve, as the saved figure will look'
+    });
     ui.styleHost.innerHTML = '';
     // Labels restored from an earlier visit are kept: the panel only fills in
     // labels that are still its automatic ones.

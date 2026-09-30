@@ -1214,3 +1214,27 @@ describe('the figure matches the style', () => {
     expect(savedSize(saved('exact'), 'png')).toEqual([540, 420]);
   });
 });
+
+describe('grid lines along one axis and fonts of their own', () => {
+  withPython('the fit\'s figure takes grid.axis, titleSize and tickSize', async () => {
+    const style = normalisePlotStyle({ title: 'Decay', titleSize: 15, tickSize: 6, grid: { show: true, axis: 'x', minor: true }, xTicks: { minor: false } });
+    const code = generateFitScript(decaySpec(style));
+    expect(code).toMatch(/axes\.grid\(True, which='major', axis='x'/);
+    expect(generateFitScript(decaySpec())).not.toMatch(/grid\(True, which='major', axis=/);
+    const dir = mkdtempSync(join(tmpdir(), 'stemkit-fit-looks-'));
+    try {
+      const r = await runPython(code + INSPECT, dir);
+      expect([r.code, r.stderr]).toEqual([0, '']);
+      const [p] = figureOf(r).panels;
+      expect(p.x.grid).toBe(true);
+      expect(p.y.grid).toBe(false);
+      expect(p.x.minorGrid).toBe(true);
+      expect(p.y.minorTicks).toBe(0);
+      expect(p.x.tickSize).toBeCloseTo(6, 6);
+      expect(p.y.tickSize).toBeCloseTo(6, 6);
+      expect(p.titleSize).toBeCloseTo(15, 6);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 60000);
+});

@@ -81,7 +81,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
-    <link rel="stylesheet" href="src/tools/fit-plot.css">
+    <link rel="stylesheet" href="src/tools/figure.css">
     <link rel="stylesheet" href="src/tools/curve-fitter.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300 overflow-x-hidden">
@@ -278,31 +278,31 @@
 
             <!-- Outputs: the figure, the numbers, the script -->
             <div class="cf-canvas">
-                <section id="cfPlot" class="cf-sec cf-sec-plot" aria-labelledby="cfPlotTitle">
-                    <div class="cf-sec-h">
-                        <h2 id="cfPlotTitle" class="cf-sec-t">Plot</h2>
-                        <span id="cfSize" class="cf-size stk-tnum" title="The size of the saved figure"></span>
-                        <div class="cf-h-actions cf-plot-actions">
-                            <label class="cf-toggle"><input type="checkbox" id="cfQuickResid"> <span>Residuals</span></label>
-                            <label class="cf-toggle" id="cfQuickBandWrap"><input type="checkbox" id="cfQuickBand"> <span>Confidence band</span></label>
-                            <button type="button" id="cfEditStyle" class="stk-btn stk-btn-sm stk-btn-ghost"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Style</button>
-                            <div class="cf-export" role="group" aria-label="Export the figure">
+                <section id="cfPlot" class="cf-sec cf-sec-plot fg" aria-labelledby="cfPlotTitle">
+                    <div class="fg-h">
+                        <h2 id="cfPlotTitle" class="fg-t">Plot</h2>
+                        <span id="cfSize" class="fg-size stk-tnum" title="The size of the saved figure"></span>
+                        <div class="fg-actions">
+                            <label class="fg-toggle"><input type="checkbox" id="cfQuickResid"> <span>Residuals</span></label>
+                            <label class="fg-toggle" id="cfQuickBandWrap"><input type="checkbox" id="cfQuickBand"> <span>Confidence band</span></label>
+                            <button type="button" id="cfEditStyle" class="stk-btn stk-btn-sm stk-btn-ghost" data-fg-style><i class="fa-solid fa-sliders" aria-hidden="true"></i> Style</button>
+                            <div class="fg-export" role="group" aria-label="Export the figure">
                                 <button type="button" class="stk-btn stk-btn-sm" data-export="pdf" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> PDF</button>
                                 <button type="button" class="stk-btn stk-btn-sm" data-export="png" disabled>PNG</button>
                                 <button type="button" class="stk-btn stk-btn-sm" data-export="svg" disabled>SVG</button>
                             </div>
                         </div>
                     </div>
-                    <div class="cf-stage">
-                        <div id="cfPlotEmpty" class="cf-empty">
+                    <div class="fg-stage">
+                        <div id="cfPlotEmpty" class="fg-empty">
                             <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
-                            <p class="cf-empty-title">Your data and the fitted curve will appear here</p>
-                            <p class="cf-empty-text">Add data on the left and type the equation above, or load an example.</p>
+                            <p class="fg-empty-title">Your data and the fitted curve will appear here</p>
+                            <p class="fg-empty-text">Add data on the left and type the equation above, or load an example.</p>
                             <button type="button" id="cfTryExample" class="stk-btn stk-btn-sm"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load an example</button>
                         </div>
-                        <div id="cfFigure" class="cf-figure" hidden></div>
+                        <div id="cfFigure" class="fg-figure" hidden></div>
                     </div>
-                    <div id="cfPlotNotes" class="cf-plot-notes" hidden></div>
+                    <div id="cfPlotNotes" class="fg-notes" hidden></div>
                     <span id="cfPlotDrawn" class="cf-marker" hidden></span>
                 </section>
 

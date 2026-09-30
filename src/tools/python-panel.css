@@ -1,0 +1,56 @@
+/*
+ * The Python script panel (js/python-panel.js), shared by the tools that
+ * write a script. It matches the Curve Fitter's Python section: header with
+ * the file name and the Copy and Download buttons, a row of choices, the code
+ * on a pane that stays dark in both themes, and a note underneath.
+ */
+
+.pyp {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--stk-surface);
+  border: 1px solid var(--stk-border);
+  border-radius: var(--stk-radius-xl);
+  box-shadow: var(--stk-shadow-sm);
+  overflow: hidden;
+}
+
+.pyp-h { display: flex; align-items: center; gap: .5rem .75rem; flex-wrap: wrap; padding: .8rem 1rem; }
+.pyp-t { display: flex; align-items: center; gap: .5rem; min-width: 0; margin: 0; font-size: .9375rem; font-weight: 650; letter-spacing: -.005em; color: var(--stk-fg); }
+.pyp-name { min-width: 0; max-width: 16rem; overflow: hidden; text-overflow: ellipsis; }
+.pyp-actions { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin-left: auto; }
+
+.pyp-opts { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; padding: .65rem 1rem; border-top: 1px solid var(--stk-border); }
+
+/* The code: dark in both themes, so the colours below hold in either. */
+.pyp-body { position: relative; max-height: 34rem; overflow: auto; background: #0b1120; color: #e2e8f0; }
+.pyp-body:focus-visible { outline-offset: -2px; }
+.pyp-inner { position: relative; width: max-content; min-width: 100%; }
+.pyp-code { position: relative; margin: 0; padding: .85rem 1rem; font-family: var(--stk-font-mono); font-size: .75rem; line-height: 1.55; white-space: pre; tab-size: 4; }
+.pyp-code .tok-c { color: #8b9bb4; }
+.pyp-code .tok-k { color: #92b8dd; }
+.pyp-code .tok-s { color: #fde68a; }
+.pyp-code .tok-n { color: #7dd3fc; }
+.pyp-empty { color: #94a3b8; font-family: inherit; }
+/* Where a very long script stops being shown: Copy and Download give it all. */
+.pyp-cut { display: block; position: sticky; left: 1rem; box-sizing: border-box; width: min(42rem, calc(100vw - 4.5rem)); margin-top: .5rem; padding: .45rem .6rem; border-radius: var(--stk-radius); background: rgba(148, 163, 184, .14); color: #e2e8f0; font-family: inherit; white-space: normal; }
+
+/* Lines the page points at, e.g. the step just added. */
+.pyp-mark { position: absolute; left: 0; right: 0; background: rgba(146, 184, 221, .12); box-shadow: inset 2px 0 0 #92b8dd; pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .pyp-mark.is-new { animation: pyp-mark-in .9s ease-out; }
+}
+@keyframes pyp-mark-in {
+  from { background: rgba(146, 184, 221, .34); }
+  to { background: rgba(146, 184, 221, .12); }
+}
+
+.pyp-f { margin: 0; padding: .6rem 1rem; border-top: 1px solid var(--stk-border); font-size: .75rem; line-height: 1.45; color: var(--stk-fg-muted); }
+.pyp-f code { font-family: var(--stk-font-mono); color: var(--stk-fg); overflow-wrap: anywhere; }
+
+@media (max-width: 479.98px) {
+  .pyp-opts .stk-seg { width: 100%; }
+  .pyp-opts .stk-seg > button { flex: 1 1 0; padding: 0 .4rem; }
+  .pyp-name { max-width: 11rem; }
+}

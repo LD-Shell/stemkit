@@ -20,6 +20,9 @@ export const LEGEND_POSITIONS = Object.freeze([
 export const TICK_MODES = Object.freeze(['auto', 'step', 'count', 'list']);
 export const TICK_DIRECTIONS = Object.freeze(['out', 'in', 'inout']);
 export const EXPORT_FORMATS = Object.freeze(['pdf', 'png', 'svg']);
+export const GRID_AXES = Object.freeze(['both', 'x', 'y']);
+/** The units a figure's size can be typed in; it is kept in inches. px are at the figure's dpi. */
+export const SIZE_UNITS = Object.freeze(['in', 'cm', 'mm', 'px']);
 
 function axisTicks() {
   return {
@@ -45,6 +48,8 @@ export function defaultPlotStyle() {
     dpi: 300,            // for PNG export
     fontFamily: 'sans-serif',
     fontSize: 11,        // points: axis labels; ticks are 1 pt smaller, the title 1 pt larger
+    titleSize: null,     // points; null: fontSize + 1
+    tickSize: null,      // points, the tick labels; null: fontSize - 1 (at least 1)
     title: '',
     xLabel: 'x',
     yLabel: 'y',
@@ -54,7 +59,7 @@ export function defaultPlotStyle() {
     yLim: [null, null],
     xTicks: axisTicks(),
     yTicks: axisTicks(),
-    grid: { show: false, minor: false, color: '#b0b0b0', alpha: 0.5, style: 'solid', width: 0.6 },
+    grid: { show: false, minor: false, color: '#b0b0b0', alpha: 0.5, style: 'solid', width: 0.6, axis: 'both' },   // axis: both | x (vertical lines) | y
     data: { show: true, marker: 'o', size: 6, color: '#1f5c96', edgeColor: '#1f5c96', edgeWidth: 1, alpha: 1, label: 'Data', errorBars: true, errorWidth: 1, capSize: 0 },
     fit: { show: true, color: '#d9480f', width: 2, style: 'solid', label: 'Fit', samples: 400 },
     band: { show: false, color: '#d9480f', alpha: 0.18, level: 0.95, label: '' },   // '' labels it "<level>% confidence band"
@@ -74,6 +79,17 @@ const num = (v, lo, hi, fallback) => {
   return Math.min(hi, Math.max(lo, n));
 };
 const pick = (v, allowed, fallback) => (allowed.includes(v) ? v : fallback);
+/* A font size of its own, or null to follow fontSize. */
+const optionalSize = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Math.min(60, Math.max(4, Number(v))));
+
+/** The size in points of the title and of the tick labels, as a style or a figure sets them. */
+export function textSizes(s) {
+  const base = Number(s.fontSize) || 11;
+  return {
+    title: s.titleSize === null || s.titleSize === undefined ? base + 1 : s.titleSize,
+    tick: s.tickSize === null || s.tickSize === undefined ? Math.max(1, base - 1) : s.tickSize
+  };
+}
 const limit = (pair) => {
   const a = Array.isArray(pair) ? pair : [null, null];
   const f = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
@@ -117,6 +133,8 @@ export function normalisePlotStyle(style = {}) {
     dpi: Math.round(num(s.dpi, 50, 1200, d.dpi)),
     fontFamily: pick(s.fontFamily, FONT_FAMILIES, d.fontFamily),
     fontSize: num(s.fontSize, 4, 40, d.fontSize),
+    titleSize: optionalSize(s.titleSize),
+    tickSize: optionalSize(s.tickSize),
     title: text(s.title, d.title),
     xLabel: text(s.xLabel, d.xLabel),
     yLabel: text(s.yLabel, d.yLabel),
@@ -132,7 +150,8 @@ export function normalisePlotStyle(style = {}) {
       color: colour(sub('grid').color, d.grid.color),
       alpha: num(sub('grid').alpha, 0, 1, d.grid.alpha),
       style: pick(sub('grid').style, LINE_STYLES, d.grid.style),
-      width: num(sub('grid').width, 0.1, 5, d.grid.width)
+      width: num(sub('grid').width, 0.1, 5, d.grid.width),
+      axis: pick(sub('grid').axis, GRID_AXES, d.grid.axis)
     },
     data: {
       show: sub('data').show === undefined ? d.data.show : !!sub('data').show,
