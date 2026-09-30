@@ -1140,7 +1140,7 @@ function startPage() {
   window.addEventListener('resize', debounce(measureBar, 100));
   measureBar();
 
-  // Once pinned, the bar drops the typeset line and the notes to stay short.
+  // Once pinned, the bar keeps the equation and its typeset form but drops the notes.
   const barMark = document.createElement('div');
   barMark.className = 'cf-bar-mark';
   barMark.setAttribute('aria-hidden', 'true');
@@ -2580,7 +2580,7 @@ function startPage() {
    */
   function previewMaxScale() {
     if (narrow.matches) return 2;
-    const room = window.innerHeight - 80 - 76 - 120;
+    const room = window.innerHeight - headHeight() - ui.bar.getBoundingClientRect().height - 120;
     const tall = state.style.height * 96;
     return Math.max(0.2, Math.min(2, room / tall));
   }

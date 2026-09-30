@@ -93,9 +93,11 @@
 .cf-bar .cf-eq-tex .katex-display { margin: .05rem 0; text-align: left; }
 .cf-bar .cf-eq-tex .katex-display > .katex { text-align: left; }
 .cf-bar .cf-eq-tex .katex { font-size: 1.2em; }
-/* Pinned: the typeset line and the notes give way, errors stay. */
-.cf-bar.is-stuck { border-radius: 0; box-shadow: 0 10px 18px -14px rgba(15, 23, 42, .45); }
-.cf-bar.is-stuck .cf-eq-tex, .cf-bar.is-stuck .cf-notes, .cf-bar.is-stuck .cf-bar-help { display: none; }
+/* Pinned: the typeset equation stays in view, a little smaller, beside the
+   results it produced; the notes and the help give way, errors stay. */
+.cf-bar.is-stuck { padding-top: .6rem; padding-bottom: .5rem; border-radius: 0; box-shadow: 0 10px 18px -14px rgba(15, 23, 42, .45); }
+.cf-bar.is-stuck .cf-eq-tex .katex { font-size: 1.05em; }
+.cf-bar.is-stuck .cf-notes, .cf-bar.is-stuck .cf-bar-help { display: none; }
 @media (max-width: 639.98px) {
   .cf-bar { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "field field" "tools status" "sub sub"; row-gap: .5rem; padding: .75rem; }
   .cf-bar-tools { position: relative; padding-top: 0; }
