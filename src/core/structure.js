@@ -9,10 +9,18 @@
  *   - **PDB**, fixed-column ASCII, coordinates in ångström. Columns are
  *     positional, not whitespace-delimited: a residue name may legitimately be
  *     blank and a splitting parser would silently shift every subsequent field.
+ *     Only the first model of a multi-model file is read, as GROMACS reads it.
  *   - **GRO**, GROMACS native, coordinates in nanometre, also fixed-column,
- *     with optional velocities in columns 45-68 and box vectors on the final
- *     line.
+ *     with optional velocities after the coordinates and box vectors on the
+ *     final line. The width of the coordinate fields is read from the file,
+ *     as GROMACS does, so a file written at higher precision is read whole.
  *   - **XYZ**, whitespace-delimited, coordinates in ångström, no box.
+ *
+ * Where the formats leave room for interpretation, residue names of four
+ * characters, residue number 0, several models in one PDB, the fields are
+ * read the way GROMACS 2025 reads them (`src/gromacs/fileio/pdbio.cpp` and
+ * `groio.cpp`), so that atoms are numbered and grouped as the simulation
+ * numbers and groups them.
  *
  * Unit handling is explicit throughout. PDB and XYZ are ångström; GRO is
  * nanometre. Mixing them silently is the single easiest way to produce a
@@ -299,27 +307,102 @@ export function massBreakdown(atoms) {
 }
 
 /**
+ * Residue number from a fixed-width field.
+ *
+ * Zero is a residue number like any other. GROMACS keeps four digits of it in
+ * a PDB and five in a .gro file, so residue 10000 of a large system is written
+ * as 0; reading 0 as "missing" folded it into residue 1, and two neighbouring
+ * waters became one molecule. Only a field with no number in it falls back
+ * to 1.
+ *
+ * @param {string} field
+ * @returns {number}
+ */
+function readResidueNumber(field) {
+  const n = parseInt(field, 10);
+  return Number.isFinite(n) ? n : 1;
+}
+
+/**
+ * Residue number of an atom record for writing, 1 when it has none.
+ *
+ * @param {object} atom
+ * @returns {number}
+ */
+function residueNumberOf(atom) {
+  const n = typeof atom.resSeq === 'number' ? atom.resSeq : parseInt(atom.resSeq, 10);
+  return Number.isFinite(n) ? Math.trunc(n) : 1;
+}
+
+/**
  * Parse a PDB file.
  *
- * Fields are read by column position per the PDB v3.3 specification. CRYST1
- * unit-cell lengths, when present, are converted from ångström to nanometre so
- * that box data is stored in a single consistent unit regardless of source.
+ * Fields are read by column position per the PDB v3.3 specification, with two
+ * readings taken from GROMACS (`pdbio.cpp`) rather than the letter of the
+ * specification, because a structure for a simulation is written by and for
+ * GROMACS:
+ *
+ *   - The residue name is columns 18-21, not 18-20. CHARMM and GROMACS write
+ *     four-character names (POPC, TIP3) into column 21, and cutting them to
+ *     three merges POPC with POPE and TIP3 with TIP4.
+ *   - A multi-model file (an NMR ensemble, frames saved as PDB) is read up to
+ *     the first ENDMDL, as GROMACS and PLUMED read it. Concatenating the
+ *     models gives every atom several times over, so masses, atom numbers and
+ *     anything written back out are wrong by that factor. `{ models: 'all' }`
+ *     keeps every model for a caller that wants the ensemble.
+ *
+ * CRYST1 unit-cell lengths, when present, are converted from ångström to
+ * nanometre so that box data is stored in a single consistent unit regardless
+ * of source.
  *
  * @param {string} text
- * @returns {{atoms:object[], box:number[]|null, unit:'A', format:'pdb',
- *            unknownElements:string[]}}
+ * @param {{models?:'first'|'all'}} [options] - `models` chooses between the
+ *        first model (the default, as GROMACS) and every model in turn.
+ * @returns {{atoms:object[], box:number[]|null, boxVectors:number[]|null,
+ *            unit:'A', format:'pdb', unknownElements:string[],
+ *            modelCount:number, warnings:string[]}} `modelCount` is the number
+ *            of models holding atoms in the file, whichever were read.
  */
-export function parsePDB(text) {
+export function parsePDB(text, options = {}) {
+  const allModels = !!options && options.models === 'all';
   const atoms = [];
   const unknown = new Set();
+  const warnings = [];
   let box = null;
   let boxVectors = null;
 
   if (typeof text !== 'string') {
-    return { atoms, box, boxVectors, unit: 'A', format: 'pdb', unknownElements: [] };
+    return {
+      atoms, box, boxVectors, unit: 'A', format: 'pdb', unknownElements: [],
+      modelCount: 0, warnings
+    };
   }
 
+  // Models are counted as blocks closed by ENDMDL that hold atoms, so a file
+  // that writes ENDMDL without MODEL, or MODEL without ENDMDL, is counted as
+  // GROMACS would split it.
+  let modelCount = 0;
+  let modelHasAtoms = false;
+  let reading = true;
+
   for (const line of text.split(/\r\n|\r|\n/)) {
+    if (line.startsWith('ENDMDL')) {
+      if (modelHasAtoms) {
+        modelCount++;
+        // GROMACS stops at the first ENDMDL. One closing an empty model is
+        // passed over, so a file GROMACS reads as no atoms at all still
+        // gives its first structure here; every file GROMACS can read is
+        // read the same.
+        if (!allModels) reading = false;
+      }
+      modelHasAtoms = false;
+      continue;
+    }
+    const isAtom = line.startsWith('ATOM') || line.startsWith('HETATM');
+    if (isAtom) modelHasAtoms = true;
+    // Past the first model only the model count is still wanted.
+    if (!reading) continue;
+
     if (line.startsWith('CRYST1')) {
       const a = safeFloat(line.substring(6, 15));
       const b = safeFloat(line.substring(15, 24));
@@ -339,7 +422,7 @@ export function parsePDB(text) {
       }
       continue;
     }
-    if (!(line.startsWith('ATOM') || line.startsWith('HETATM'))) continue;
+    if (!isAtom) continue;
 
     const x = safeFloat(line.substring(30, 38));
     const y = safeFloat(line.substring(38, 46));
@@ -351,9 +434,9 @@ export function parsePDB(text) {
       serial: parseInt(line.substring(6, 11), 10) || atoms.length + 1,
       atomName: line.substring(12, 16).trim(),
       altLoc: line.substring(16, 17).trim(),
-      resName: line.substring(17, 20).trim(),
+      resName: line.substring(17, 21).trim(),
       chain: line.substring(21, 22).trim(),
-      resSeq: parseInt(line.substring(22, 26), 10) || 1,
+      resSeq: readResidueNumber(line.substring(22, 26)),
       x, y, z,
       vx: null, vy: null, vz: null,
       occupancy: line.substring(54, 60).trim() || '1.00',
@@ -361,9 +444,54 @@ export function parsePDB(text) {
       element: line.substring(76, 78).trim() || ''
     });
   }
+  if (modelHasAtoms) modelCount++;
+
+  if (!allModels && modelCount > 1) {
+    warnings.push(`This PDB holds ${modelCount} models; only the first was read, ` +
+      'as GROMACS and PLUMED read it.');
+  }
 
   for (const a of atoms) atomicMass(a, unknown);
-  return { atoms, box, boxVectors, unit: 'A', format: 'pdb', unknownElements: [...unknown] };
+  return {
+    atoms, box, boxVectors, unit: 'A', format: 'pdb', unknownElements: [...unknown],
+    modelCount, warnings
+  };
+}
+
+/** Width of a .gro coordinate field as GROMACS writes it (`%8.3f`). */
+const GRO_FIELD_WIDTH = 8;
+
+/**
+ * Width of the coordinate fields of a .gro file, from its first atom line.
+ *
+ * GROMACS writes `%8.3f`, but its reader (`groio.cpp`) accepts any precision:
+ * it takes the width from the distance between the first two decimal points
+ * and reads every coordinate and velocity of the file at that width. A file
+ * written at `%10.5f` for more precision, which older GROMACS versions and
+ * other programs produce, would otherwise be sliced through the middle of
+ * each number.
+ *
+ * GROMACS looks for the points from the start of the line; here the search
+ * starts at column 21, past the residue and atom names, so that a name with a
+ * point in it cannot throw the width off. Every file GROMACS accepts has its
+ * first point after column 20, so the two agree on each of them.
+ *
+ * @param {string} line - The first atom line.
+ * @returns {{width:number, consistent:boolean}} `consistent` is false when x,
+ *          y and z are not evenly spaced, which GROMACS refuses; the standard
+ *          width is used then.
+ */
+function groFieldWidth(line) {
+  const s = String(line || '');
+  const p1 = s.indexOf('.', 20);
+  const p2 = p1 < 0 ? -1 : s.indexOf('.', p1 + 1);
+  const p3 = p2 < 0 ? -1 : s.indexOf('.', p2 + 1);
+  if (p3 < 0) return { width: GRO_FIELD_WIDTH, consistent: true };
+  const width = p2 - p1;
+  // GROMACS writes the width less five decimals, so a field narrower than six
+  // has no point in it and spacing that close is not a field width.
+  if (width !== p3 - p2 || width < 6) return { width: GRO_FIELD_WIDTH, consistent: false };
+  return { width, consistent: true };
 }
 
 /**
@@ -375,19 +503,25 @@ export function parsePDB(text) {
  * Velocities are preserved when present so that a round-trip does not silently
  * discard them.
  *
+ * Coordinates and velocities are read at the field width of the first atom
+ * line, as GROMACS reads them (see `groFieldWidth`), rather than at the fixed
+ * columns 21-44 of the usual `%8.3f`.
+ *
  * @param {string} text
- * @returns {{atoms:object[], box:number[]|null, unit:'nm', format:'gro',
- *            title:string, unknownElements:string[]}}
+ * @returns {{atoms:object[], box:number[]|null, boxVectors:number[]|null,
+ *            unit:'nm', format:'gro', title:string, unknownElements:string[],
+ *            warnings:string[]}}
  */
 export function parseGRO(text) {
   const atoms = [];
   const unknown = new Set();
+  const warnings = [];
   let box = null;
   let boxVectors = null;
   let title = '';
 
   if (typeof text !== 'string') {
-    return { atoms, box, boxVectors, unit: 'nm', format: 'gro', title, unknownElements: [] };
+    return { atoms, box, boxVectors, unit: 'nm', format: 'gro', title, unknownElements: [], warnings };
   }
 
   const lines = text.split(/\r\n|\r|\n/);
@@ -395,34 +529,42 @@ export function parseGRO(text) {
   while (end > 0 && lines[end - 1].trim() === '') end--;
   const src = lines.slice(0, end);
   if (src.length < 3) {
-    return { atoms, box, boxVectors, unit: 'nm', format: 'gro', title, unknownElements: [] };
+    return { atoms, box, boxVectors, unit: 'nm', format: 'gro', title, unknownElements: [], warnings };
   }
 
   title = src[0].trim();
   const declared = parseInt(src[1].trim(), 10);
   const atomCount = Number.isFinite(declared) ? declared : src.length - 3;
 
+  // One width for the whole file, taken from its first atom, as GROMACS does.
+  const { width: w, consistent } = groFieldWidth(src[2]);
+  if (!consistent) {
+    warnings.push('The decimal points of the first atom line are not evenly spaced, which ' +
+      'GROMACS refuses; the standard .gro columns were used.');
+  }
+  const field = (line, k) => safeFloat(line.substring(20 + k * w, 20 + (k + 1) * w));
+
   for (let i = 2; i < 2 + atomCount && i < src.length; i++) {
     const line = src[i];
-    if (!line || line.length < 44) continue;
+    if (!line || line.length < 20 + 3 * w) continue;
 
-    const x = safeFloat(line.substring(20, 28));
-    const y = safeFloat(line.substring(28, 36));
-    const z = safeFloat(line.substring(36, 44));
+    const x = field(line, 0);
+    const y = field(line, 1);
+    const z = field(line, 2);
     if ([x, y, z].some(Number.isNaN)) continue;
 
     let vx = null;
     let vy = null;
     let vz = null;
-    if (line.length >= 68) {
-      vx = safeFloat(line.substring(44, 52));
-      vy = safeFloat(line.substring(52, 60));
-      vz = safeFloat(line.substring(60, 68));
+    if (line.length >= 20 + 6 * w) {
+      vx = field(line, 3);
+      vy = field(line, 4);
+      vz = field(line, 5);
       if ([vx, vy, vz].some(Number.isNaN)) { vx = null; vy = null; vz = null; }
     }
 
     atoms.push({
-      resSeq: parseInt(line.substring(0, 5), 10) || 1,
+      resSeq: readResidueNumber(line.substring(0, 5)),
       resName: line.substring(5, 10).trim(),
       atomName: line.substring(10, 15).trim(),
       serial: parseInt(line.substring(15, 20), 10) || (i - 1),
@@ -447,7 +589,10 @@ export function parseGRO(text) {
   }
 
   for (const a of atoms) atomicMass(a, unknown);
-  return { atoms, box, boxVectors, unit: 'nm', format: 'gro', title, unknownElements: [...unknown] };
+  return {
+    atoms, box, boxVectors, unit: 'nm', format: 'gro', title, unknownElements: [...unknown],
+    warnings
+  };
 }
 
 /**
@@ -455,7 +600,7 @@ export function parseGRO(text) {
  *
  * @param {string} text
  * @returns {{atoms:object[], box:null, unit:'A', format:'xyz',
- *            comment:string, unknownElements:string[]}}
+ *            comment:string, unknownElements:string[], warnings:string[]}}
  */
 export function parseXYZ(text) {
   const atoms = [];
@@ -463,12 +608,12 @@ export function parseXYZ(text) {
   let comment = '';
 
   if (typeof text !== 'string') {
-    return { atoms, box: null, unit: 'A', format: 'xyz', comment, unknownElements: [] };
+    return { atoms, box: null, unit: 'A', format: 'xyz', comment, unknownElements: [], warnings: [] };
   }
 
   const clean = text.split(/\r\n|\r|\n/).filter(l => l.trim().length > 0);
   if (clean.length < 2) {
-    return { atoms, box: null, unit: 'A', format: 'xyz', comment, unknownElements: [] };
+    return { atoms, box: null, unit: 'A', format: 'xyz', comment, unknownElements: [], warnings: [] };
   }
 
   const declared = parseInt(clean[0].trim(), 10);
@@ -497,7 +642,10 @@ export function parseXYZ(text) {
   }
 
   for (const a of atoms) atomicMass(a, unknown);
-  return { atoms, box: null, unit: 'A', format: 'xyz', comment, unknownElements: [...unknown] };
+  return {
+    atoms, box: null, unit: 'A', format: 'xyz', comment, unknownElements: [...unknown],
+    warnings: []
+  };
 }
 
 /**
@@ -506,16 +654,17 @@ export function parseXYZ(text) {
  * @param {string} text
  * @param {string} formatOrFilename - 'pdb' | 'gro' | 'xyz', or a filename whose
  *        extension selects the parser.
+ * @param {{models?:'first'|'all'}} [options] - Passed to the PDB parser.
  * @returns {object|null} Parse result, or null for an unsupported format.
  */
-export function parseStructure(text, formatOrFilename = '') {
+export function parseStructure(text, formatOrFilename = '', options = {}) {
   const token = String(formatOrFilename).toLowerCase();
   const ext = token.includes('.') ? token.split('.').pop() : token;
 
   switch (ext) {
     case 'pdb':
     case 'ent':
-      return parsePDB(text);
+      return parsePDB(text, options);
     case 'gro':
       return parseGRO(text);
     case 'xyz':
@@ -897,12 +1046,16 @@ export function formatPDB(atoms, options = {}) {
     const serial = a.serial || i + 1;
     rows.push(
       padStr(a.type === 'HETATM' ? 'HETATM' : 'ATOM', 6, true) +
-      padStr(serial, 5) + ' ' +
+      // Numbers that outgrow their columns wrap, as GROMACS writes them
+      // (pdbio.cpp), rather than losing their last digit.
+      padStr(typeof serial === 'number' ? serial % 100000 : serial, 5) + ' ' +
       padStr(a.atomName || 'X', 4, true) +
       padStr(a.altLoc || '', 1, true) +
-      padStr(a.resName || 'UNK', 3) + ' ' +
+      // Columns 18-21, laid out as GROMACS lays them: up to three characters
+      // right-aligned before a blank column 21, four filling it.
+      padStr(`${String(a.resName || 'UNK').slice(0, 4)} `, 4) +
       padStr(a.chain || 'A', 1) +
-      padStr(a.resSeq || 1, 4) + '    ' +
+      padStr(residueNumberOf(a) % 10000, 4) + '    ' +
       padStr((a.x * factor).toFixed(3), 8) +
       padStr((a.y * factor).toFixed(3), 8) +
       padStr((a.z * factor).toFixed(3), 8) +
@@ -935,7 +1088,7 @@ export function formatGRO(atoms, options = {}) {
 
   atoms.forEach((a, i) => {
     let line =
-      padStr(a.resSeq || 1, 5) +
+      padStr(residueNumberOf(a) % 100000, 5) +
       padStr(a.resName || 'UNK', 5, true) +
       padStr(a.atomName || 'X', 5) +
       padStr((a.serial || i + 1) % 100000, 5) +

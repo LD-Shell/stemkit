@@ -6,6 +6,8 @@ import {
   compileSelection, selectAtoms, expandToResidues,
   findContacts, selectionSummary
 } from '../src/core/selection.js';
+import { parseGRO } from '../src/core/structure.js';
+import { dodecahedronGro } from './fixtures/structure/systems.mjs';
 
 /* A small structure: two protein chains, two waters, one ion. */
 function buildStructure() {
@@ -337,6 +339,151 @@ describe('selectAtoms | within', () => {
   test('reports a malformed within term', () => {
     expect(selectAtoms(ATOMS, 'within:5').errors.length).toBeGreaterThan(0);
     expect(selectAtoms(ATOMS, 'within:abc,chain:A').errors.length).toBeGreaterThan(0);
+  });
+});
+
+/*
+ * Periodic boundaries. A structure from a simulation is periodic: an atom at
+ * one face is next to one at the opposite face. With a box, `within:` takes
+ * the distance to the nearest periodic image, as gmx select does.
+ */
+
+/* Reproducible pseudo-random numbers, so a failure can be replayed. */
+function seeded(seed) {
+  let s = seed;
+  return () => ((s = (s * 1103515245 + 12345) % 2147483648) / 2147483648);
+}
+
+/* Box rows and the same box in GROMACS order (v1x v2y v3z v1y v1z v2x v2z v3x v3y). */
+const CELLS = {
+  rectangular: [[3, 0, 0], [0, 3.5, 0], [0, 0, 4]],
+  dodecahedron: [[3, 0, 0], [0, 3, 0], [1.5, 1.5, 3 * Math.SQRT1_2]],
+  octahedron: [[3, 0, 0], [1, 2 * Math.SQRT2, 0], [-1, Math.SQRT2, Math.sqrt(6)]]
+};
+const gromacsOrder = (B) => [B[0][0], B[1][1], B[2][2], B[0][1], B[0][2], B[1][0], B[1][2], B[2][0], B[2][1]];
+
+/* Atoms by fractional coordinates, a fifth of them a whole box vector out of the cell. */
+function periodicAtoms(B, n, seed) {
+  const rnd = seeded(seed);
+  const atoms = [];
+  for (let i = 0; i < n; i++) {
+    const f = [rnd(), rnd(), rnd()].map(u => u + (rnd() < 0.2 ? (rnd() < 0.5 ? -1 : 1) : 0));
+    const [x, y, z] = [0, 1, 2].map(d => f[0] * B[0][d] + f[1] * B[1][d] + f[2] * B[2][d]);
+    atoms.push({ serial: i + 1, resn: i < 3 ? 'LIG' : 'SOL', x, y, z });
+  }
+  return atoms;
+}
+
+/* The minimum-image distance by trying every image within four box vectors. */
+function bruteMinimumImage(a, b, B) {
+  let best = Infinity;
+  for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) for (let k = -4; k <= 4; k++) {
+    const d = [0, 1, 2].map(c => a[['x', 'y', 'z'][c]] - b[['x', 'y', 'z'][c]] +
+      i * B[0][c] + j * B[1][c] + k * B[2][c]);
+    best = Math.min(best, Math.hypot(...d));
+  }
+  return best;
+}
+
+describe('selectAtoms | within through periodic boundaries', () => {
+  // Two waters and an ion in a 3 nm cube: the ion sits at x = 0.1, one water
+  // just across the x face at 2.9 (0.2 nm away through it), one in the middle.
+  const cube = [
+    { serial: 1, resn: 'NA', x: 0.1, y: 1.5, z: 1.5 },
+    { serial: 2, resn: 'SOL', x: 2.9, y: 1.5, z: 1.5 },
+    { serial: 3, resn: 'SOL', x: 1.5, y: 1.5, z: 1.5 }
+  ];
+  const nm = { unit: 'nm', coordinateUnit: 'nm' };
+  const ids = (r) => r.atoms.map(a => a.serial);
+
+  test('an atom across a face is a neighbour', () => {
+    expect(ids(selectAtoms(cube, 'resn:SOL within:0.5,resn:NA', { ...nm, box: [3, 3, 3] }))).toEqual([2]);
+  });
+
+  test('without a box, distances are straight lines, as before', () => {
+    expect(ids(selectAtoms(cube, 'resn:SOL within:0.5,resn:NA', nm))).toEqual([]);
+  });
+
+  test('a box of zeros is no box, as GROMACS reads it', () => {
+    expect(ids(selectAtoms(cube, 'resn:SOL within:0.5,resn:NA', { ...nm, box: [0, 0, 0] }))).toEqual([]);
+  });
+
+  test('negation and unions measure through the boundary too', () => {
+    const box = { ...nm, box: [3, 3, 3] };
+    expect(ids(selectAtoms(cube, 'resn:SOL !within:0.5,resn:NA', box))).toEqual([3]);
+    expect(ids(selectAtoms(cube, 'or:resn:NA|within:0.5,resn:NA', box))).toEqual([1, 2]);
+  });
+
+  test('the box is in nm by default, the unit core/structure.js keeps it in', () => {
+    const angstrom = cube.map(a => ({ ...a, x: a.x * 10, y: a.y * 10, z: a.z * 10 }));
+    const q = 'resn:SOL within:0.5,resn:NA';
+    expect(ids(selectAtoms(angstrom, q, { unit: 'nm', coordinateUnit: 'A', box: [3, 3, 3] }))).toEqual([2]);
+    expect(ids(selectAtoms(angstrom, q, { unit: 'nm', coordinateUnit: 'A', box: [30, 30, 30], boxUnit: 'A' })))
+      .toEqual([2]);
+  });
+
+  test('a box given three ways is the same box', () => {
+    const q = 'within:1.2,resn:LIG';
+    const B = CELLS.dodecahedron;
+    const atoms = periodicAtoms(B, 120, 11);
+    const nine = selectAtoms(atoms, q, { ...nm, box: gromacsOrder(B) }).count;
+    expect(selectAtoms(atoms, q, { ...nm, box: B }).count).toBe(nine);
+    expect(selectAtoms(atoms, q, { ...nm, box: [3, 3, B[2][2]], boxVectors: gromacsOrder(B) }).count).toBe(nine);
+  });
+
+  test('a slab, a box with no third vector, is periodic in x and y only', () => {
+    const slab = [
+      { serial: 1, resn: 'NA', x: 0.1, y: 0.1, z: 0.1 },
+      { serial: 2, resn: 'SOL', x: 2.9, y: 2.9, z: 0.1 },
+      { serial: 3, resn: 'SOL', x: 0.1, y: 0.1, z: 2.9 }
+    ];
+    const q = 'resn:SOL within:0.5,resn:NA';
+    expect(ids(selectAtoms(slab, q, { ...nm, box: [3, 3, 0] }))).toEqual([2]);
+    expect(ids(selectAtoms(slab, q, { ...nm, box: [[3, 0, 0], [0, 3, 0], [0, 0, 0]] }))).toEqual([2]);
+    // Periodic in z as well, the water across the z face is a neighbour too.
+    expect(ids(selectAtoms(slab, q, { ...nm, box: [3, 3, 3] }))).toEqual([2, 3]);
+  });
+
+  describe.each(Object.keys(CELLS))('in a %s cell', (name) => {
+    const B = CELLS[name];
+    const atoms = periodicAtoms(B, 150, name.length);
+    const targets = atoms.filter(a => a.resn === 'LIG');
+
+    // Radii below and above half the box, where the one nearest image is not
+    // enough, and past the farthest any point can be from an image.
+    test.each([0.3, 0.8, 1.4, 1.7, 2.2, 3.2])('within:%s agrees with a brute-force minimum image', (r) => {
+      const got = ids(selectAtoms(atoms, `within:${r},resn:LIG`, { ...nm, box: gromacsOrder(B) }));
+      const want = atoms.filter(a => targets.some(t => bruteMinimumImage(a, t, B) <= r)).map(a => a.serial);
+      expect(got).toEqual(want);
+    });
+  });
+
+  test('matches what gmx select 2025 selected in a rhombic dodecahedron', () => {
+    // tests/structure-gromacs.test.js rebuilds this system and reruns gmx
+    // select when GROMACS is installed.
+    const r = parseGRO(dodecahedronGro());
+    const pick = (q) => ids(selectAtoms(r.atoms, q, { ...nm, box: r.box, boxVectors: r.boxVectors }));
+    expect(pick('within:0.5,resn:LIG')).toEqual([1, 2, 7, 22, 32]);
+    expect(pick('within:1.2,resn:LIG')).toEqual(
+      [1, 2, 6, 7, 9, 14, 17, 18, 20, 22, 25, 27, 29, 30, 32, 35, 37, 39]);
+    expect(pick('within:1.7,resn:LIG')).toEqual(
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 25, 26, 27, 29,
+        30, 31, 32, 33, 34, 35, 36, 37, 39, 40, 42]);
+  });
+
+  test("the pool's own filter finds the targets", () => {
+    // core/gromacs-ndx hands in a pool whose filter adds periodic images of
+    // what it finds; the search has to go through it.
+    class Shifted extends Array {
+      static get [Symbol.species]() { return Array; }
+      filter(test) {
+        const hits = super.filter(test);
+        return [...hits, ...hits.map(a => ({ ...a, x: a.x + 3 }))];
+      }
+    }
+    const pool = Shifted.from(cube);
+    const { predicate } = compileSelection('within:0.5,resn:NA', pool, nm);
+    expect(cube.filter(predicate).map(a => a.serial)).toEqual([1, 2]);
   });
 });
 

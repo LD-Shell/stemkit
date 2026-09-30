@@ -10,6 +10,7 @@ import {
   padStr, formatXYZ, formatPDB, formatGRO, formatStructure,
   structureStats
 } from '../src/core/structure.js';
+import { MODELS_PDB, PRECISE_GRO } from './fixtures/structure/systems.mjs';
 
 /* Fixtures use real PDB/GRO column layouts, not approximations. */
 
@@ -259,6 +260,146 @@ describe('parseGRO', () => {
   test('returns an empty result for truncated input', () => {
     expect(parseGRO('title\n5').atoms).toEqual([]);
     expect(parseGRO(null).atoms).toEqual([]);
+  });
+});
+
+/*
+ * The readings GROMACS 2025 takes (src/gromacs/fileio/pdbio.cpp, groio.cpp),
+ * where a looser reading numbered or grouped atoms differently from the
+ * simulation. tests/structure-gromacs.test.js runs gmx editconf on the same
+ * text when GROMACS is installed.
+ */
+
+describe('parsePDB | read as GROMACS reads it', () => {
+  test('a four-letter residue name is read whole, from columns 18-21', () => {
+    const a = parsePDB(MODELS_PDB).atoms;
+    expect(a.map(x => x.resName)).toEqual(['POPC', 'POPC', 'TIP3', 'TIP3']);
+    // Column 22 is still the chain, and a three-letter name is unchanged.
+    expect(a[0].chain).toBe('');
+    expect(parsePDB(MINI_PDB).atoms[1]).toMatchObject({ resName: 'ALA', chain: 'A' });
+  });
+
+  test('residue number 0 is 0, not 1', () => {
+    const a = parsePDB(MODELS_PDB).atoms;
+    expect(a.map(x => x.resSeq)).toEqual([0, 0, 1, 9999]);
+    // Only a field with no number in it falls back to 1.
+    const blank = 'ATOM      1  N   ALA A           1.000   2.000   3.000  1.00  0.00           N';
+    expect(parsePDB(blank).atoms[0].resSeq).toBe(1);
+  });
+
+  test('a multi-model file is read to the first ENDMDL, and says so', () => {
+    const r = parsePDB(MODELS_PDB);
+    expect(r.atoms).toHaveLength(4);
+    expect(r.atoms[0].x).toBe(1);
+    expect(r.modelCount).toBe(2);
+    expect(r.warnings).toEqual([expect.stringMatching(/2 models; only the first was read/)]);
+    expect(r.box).toEqual([3, 3, 3]);
+  });
+
+  test('every model can still be asked for', () => {
+    const r = parsePDB(MODELS_PDB, { models: 'all' });
+    expect(r.atoms).toHaveLength(8);
+    expect(r.atoms[4].x).toBeCloseTo(1.1, 10);
+    expect(r.modelCount).toBe(2);
+    expect(r.warnings).toEqual([]);
+    expect(parseStructure(MODELS_PDB, 'ensemble.pdb', { models: 'all' }).atoms).toHaveLength(8);
+    expect(parseStructure(MODELS_PDB, 'ensemble.pdb').atoms).toHaveLength(4);
+  });
+
+  test('a single structure counts one model and warns of nothing', () => {
+    const r = parsePDB(MINI_PDB);
+    expect(r.modelCount).toBe(1);
+    expect(r.warnings).toEqual([]);
+    expect(parsePDB('').modelCount).toBe(0);
+  });
+
+  test('an empty model before the first is passed over', () => {
+    const text = MODELS_PDB.replace('MODEL        1', 'MODEL        0\nENDMDL\nMODEL        1');
+    const r = parsePDB(text);
+    expect(r.atoms).toHaveLength(4);
+    expect(r.modelCount).toBe(2);
+  });
+});
+
+describe('parseGRO | read as GROMACS reads it', () => {
+  test('residue number 0, which GROMACS writes for residue 100000, is 0', () => {
+    const r = parseGRO(PRECISE_GRO);
+    expect(r.atoms.map(a => a.resSeq)).toEqual([0, 0, 1]);
+  });
+
+  test('residue 100000 and 100001 stay two residues', () => {
+    const gro = ['wrap', '    2',
+      '    0SOL     OW    1   1.000   2.000   3.000',
+      '    1SOL     OW    2   1.300   2.000   3.000',
+      '   5.00000   5.00000   5.00000'].join('\n');
+    const [a, b] = parseGRO(gro).atoms;
+    expect(a.resSeq).not.toBe(b.resSeq);
+  });
+
+  test('coordinates written at higher precision are read whole', () => {
+    const r = parseGRO(PRECISE_GRO);
+    expect(r.atoms).toHaveLength(3);
+    expect(r.atoms[0]).toMatchObject({ x: 1.12345, y: 2.23456, z: 3.34567 });
+    expect(r.atoms[1]).toMatchObject({ x: 11.00001, y: -2.00002, z: 13.00003 });
+    expect(r.warnings).toEqual([]);
+  });
+
+  test('velocities are read at the same width', () => {
+    const [a, b] = parseGRO(PRECISE_GRO).atoms;
+    expect([a.vx, a.vy, a.vz]).toEqual([0.12345, -0.23456, 0.34567]);
+    expect([b.vx, b.vy, b.vz]).toEqual([1, 2, 3]);
+  });
+
+  test('a lower precision is read too', () => {
+    const gro = ['low', '    1', '    1SOL     OW    1  1.00  2.00  3.00', '   5.0   5.0   5.0'].join('\n');
+    expect(parseGRO(gro).atoms[0]).toMatchObject({ x: 1, y: 2, z: 3 });
+  });
+
+  test('the standard %8.3f file reads as before', () => {
+    const r = parseGRO(MINI_GRO);
+    expect(r.atoms[1]).toMatchObject({ x: 1.1, y: 2, z: 3, vx: -0.1 });
+    expect(r.warnings).toEqual([]);
+  });
+
+  test('unevenly spaced points fall back to the standard columns, with a warning', () => {
+    const gro = ['uneven', '    1', '    1SOL     OW    1   1.000   2.000    3.000', '   5.0   5.0   5.0'].join('\n');
+    const r = parseGRO(gro);
+    expect(r.warnings[0]).toMatch(/not evenly spaced/);
+  });
+});
+
+describe('writers keep what the parsers now read', () => {
+  test('a four-letter residue name is written into column 21, as GROMACS writes it', () => {
+    const atoms = parsePDB(MODELS_PDB).atoms;
+    const lines = formatPDB(atoms).split('\n');
+    expect(lines[0].substring(17, 21)).toBe('POPC');
+    const back = parsePDB(formatPDB(atoms)).atoms;
+    expect(back.map(a => a.resName)).toEqual(['POPC', 'POPC', 'TIP3', 'TIP3']);
+  });
+
+  test('shorter residue names are laid out as before', () => {
+    const line = (resName) => formatPDB([{ atomName: 'X', resName, chain: 'B', resSeq: 1, x: 0, y: 0, z: 0 }])
+      .split('\n')[0].substring(17, 22);
+    expect(line('ALA')).toBe('ALA B');
+    expect(line('NA')).toBe(' NA B');
+    expect(line('K')).toBe('  K B');
+  });
+
+  test('residue number 0 survives a round trip through PDB and .gro', () => {
+    const pdb = parsePDB(MODELS_PDB);
+    expect(parsePDB(formatPDB(pdb.atoms)).atoms.map(a => a.resSeq)).toEqual([0, 0, 1, 9999]);
+    const gro = parseGRO(PRECISE_GRO);
+    expect(parseGRO(formatGRO(gro.atoms, { box: gro.box })).atoms.map(a => a.resSeq)).toEqual([0, 0, 1]);
+  });
+
+  test('numbers too long for their columns wrap as GROMACS wraps them', () => {
+    const atom = { atomName: 'OW', resName: 'SOL', serial: 123456, resSeq: 123456, x: 0, y: 0, z: 0 };
+    const pdbLine = formatPDB([atom]).split('\n')[0];
+    expect(pdbLine.substring(6, 11)).toBe('23456');
+    expect(pdbLine.substring(22, 26)).toBe('3456');
+    const groLine = formatGRO([atom]).split('\n')[2];
+    expect(groLine.substring(0, 5)).toBe('23456');
+    expect(groLine.substring(15, 20)).toBe('23456');
   });
 });
 

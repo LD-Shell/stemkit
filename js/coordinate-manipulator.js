@@ -334,6 +334,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'warn'
       );
     }
+    // What the reader passed over, such as the models after the first of a
+    // multi-model PDB (GROMACS reads only the first, and so does this page).
+    for (const w of result.warnings || []) showToast(w, 'warn');
   }
 
   // --- 4. Statistics ---
