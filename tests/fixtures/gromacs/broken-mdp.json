@@ -1,0 +1,1482 @@
+{
+ "about": "Verdicts of real grompp (GROMACS 2025.0, mixed precision) on the broken-file cases of tools/check-gromacs-grompp.mjs, run with -maxwarn 0 on a solvated AMBER99SB-ILDN peptide with position restraints available. Regenerate with GMX_BIN=... node tools/check-gromacs-grompp.mjs --record.",
+ "cases": [
+  {
+   "name": "valid-nvt",
+   "description": "The base file: must pass.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "valid-npt",
+   "description": "The base file with C-rescale: must pass.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = C-rescale\ntau-p = 2.0\ncompressibility = 4.5e-5\nref-p = 1.0\ncontinuation = yes\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "no-equals",
+   "description": "A line without \"=\".",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnstxout 100\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: No '=' to separate .mdp parameter key and value was found on line: 'nstxout 100'"
+    ]
+   }
+  },
+  {
+   "name": "no-name",
+   "description": "Nothing before \"=\".",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n= 5\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: No .mdp parameter name was found on the left-hand side of '=' on line: '= 5'"
+    ]
+   }
+  },
+  {
+   "name": "duplicate-dash-underscore",
+   "description": "tau-t and tau_t are one option.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ntau_t = 0.2 0.2\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Parameter \"tau_t\" doubly defined"
+    ]
+   }
+  },
+  {
+   "name": "empty-value",
+   "description": "An empty value is ignored: passes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnstxout =\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "comment-only-value",
+   "description": "A value that is only a comment: passes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ntcoupl2 = ; not an option\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "unknown-option",
+   "description": "A misspelt option.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnstxtcouts = 100\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: Unknown left-hand 'nstxtcouts' in parameter file"
+    ]
+   }
+  },
+  {
+   "name": "inactive-pull-option",
+   "description": "A pull option with pull = no.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull-ncoords = 1\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: Unknown left-hand 'pull-ncoords' in parameter file"
+    ]
+   }
+  },
+  {
+   "name": "obsolete-renamed",
+   "description": "nstxtcout is renamed: passes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnstxtcout = 500\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "obsolete-ignored",
+   "description": "title is ignored: passes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ntitle = my run\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "obsolete-both",
+   "description": "Old and new name together.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnstxtcout = 500\nnstxout-compressed = 500\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "A parameter is present with both the old name 'nstxtcout' and the new name 'nstxout-compressed'.",
+    "messages": []
+   }
+  },
+  {
+   "name": "bad-enum",
+   "description": "An enum value that does not exist.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = v-rescal\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Invalid enum 'v-rescal' for variable tcoupl, using 'No' Next time, use one of: 'No' 'Berendsen' 'Nose-Hoover' 'yes' 'Andersen' 'Andersen-massive' 'V-rescale'"
+    ]
+   }
+  },
+  {
+   "name": "enum-case-dashes",
+   "description": "Enum values ignore case and dashes: passes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = HBONDS\ntcoupl = V_RESCALE\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "not-integer",
+   "description": "nsteps with a decimal point.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000.0\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Right hand side '1000.0' for parameter 'nsteps' in parameter file is not an integer value"
+    ]
+   }
+  },
+  {
+   "name": "not-integer-exponent",
+   "description": "nsteps written as 1e5.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1e5\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Right hand side '1e5' for parameter 'nsteps' in parameter file is not an integer value"
+    ]
+   }
+  },
+  {
+   "name": "not-real",
+   "description": "dt with a decimal comma.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0,002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Right hand side '0,002' for parameter 'dt' in parameter file is not a real value"
+    ]
+   }
+  },
+  {
+   "name": "ensemble-not-available",
+   "description": "The manual's spelling not-available.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nensemble-temperature-setting = not-available\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Invalid enum 'not-available' for variable ensemble-temperature-setting, using 'auto' Next time, use one of: 'not available' 'constant' 'variable' 'auto'"
+    ]
+   }
+  },
+  {
+   "name": "lmc-mc-move",
+   "description": "The manual's name for lmc-move (with expanded ensemble off).",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nlmc-mc-move = no\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: Unknown left-hand 'lmc-mc-move' in parameter file"
+    ]
+   }
+  },
+  {
+   "name": "tc-count",
+   "description": "Two groups but one tau-t.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Invalid T coupling input: 2 groups, 2 ref-t values and 1 tau-t values",
+    "messages": []
+   }
+  },
+  {
+   "name": "tc-grps-missing",
+   "description": "A thermostat without groups.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "6020 atoms are not part of any of the T-Coupling groups",
+    "messages": []
+   }
+  },
+  {
+   "name": "ref-t-negative",
+   "description": "A negative temperature.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 -10\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "ref-t for group 1 negative",
+    "messages": []
+   }
+  },
+  {
+   "name": "berendsen-thermostat",
+   "description": "Berendsen: grompp warns.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = Berendsen\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: The Berendsen thermostat does not generate the correct kinetic energy distribution, and should not be used for new production simulations (in our opinion). We would recommend the V-rescale thermostat."
+    ]
+   }
+  },
+  {
+   "name": "tcoupl-yes",
+   "description": "The old tcoupl = yes: a note, then the Berendsen warning.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = yes\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 1,
+    "fatal": null,
+    "messages": [
+     "warning: The Berendsen thermostat does not generate the correct kinetic energy distribution, and should not be used for new production simulations (in our opinion). We would recommend the V-rescale thermostat."
+    ]
+   }
+  },
+  {
+   "name": "nose-hoover-default-chain",
+   "description": "Nose-Hoover with the default chain: a note only.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = Nose-Hoover\ntc-grps = Protein Non-Protein\ntau-t = 0.5 0.5\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "nose-hoover-tau-short",
+   "description": "Nose-Hoover with tau-t too short for nsttcouple.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = Nose-Hoover\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnsttcouple = 10\nnh-chain-length = 1\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: For proper integration of the Nose-Hoover thermostat, tau-t (0.1) should be at least 20 times larger than nsttcouple*dt (0.02)"
+    ]
+   }
+  },
+  {
+   "name": "berendsen-barostat",
+   "description": "Berendsen barostat: grompp warns.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = Berendsen\ntau-p = 2.0\ncompressibility = 4.5e-5\nref-p = 1.0\ncontinuation = yes\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: The Berendsen barostat does not generate any strictly correct ensemble, and should not be used for new production simulations (in our opinion). We recommend using the C-rescale barostat instead."
+    ]
+   }
+  },
+  {
+   "name": "pcoupl-isotropic",
+   "description": "The old pcoupl = isotropic: a note only.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = isotropic\ntau-p = 2.0\ncompressibility = 4.5e-5\nref-p = 1.0\ncontinuation = yes\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "crescale-anisotropic",
+   "description": "C-rescale cannot couple anisotropically.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = C-rescale\ntau-p = 2.0\ncompressibility = 4.5e-5 4.5e-5 4.5e-5 0 0 0\nref-p = 1 1 1 0 0 0\ncontinuation = yes\npcoupltype = anisotropic\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: C-rescale does not support pressure coupling type Anisotropic yet"
+    ]
+   }
+  },
+  {
+   "name": "crescale-no-thermostat",
+   "description": "C-rescale needs an ensemble temperature.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = no\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = C-rescale\ntau-p = 2.0\ncompressibility = 4.5e-5\nref-p = 1.0\ncontinuation = yes\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 2,
+    "fatal": null,
+    "messages": [
+     "error: Can not use the C-rescale barostat without an ensemble temperature for the system"
+    ]
+   }
+  },
+  {
+   "name": "crescale-different-ref-t",
+   "description": "Two ref-t values leave no ensemble temperature.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 310\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = C-rescale\ntau-p = 2.0\ncompressibility = 4.5e-5\nref-p = 1.0\ncontinuation = yes\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Can not use the C-rescale barostat without an ensemble temperature for the system"
+    ]
+   }
+  },
+  {
+   "name": "semiiso-one-value",
+   "description": "Semi-isotropic coupling with one compressibility.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = C-rescale\ntau-p = 2.0\ncompressibility = 4.5e-5\nref-p = 1 1\ncontinuation = yes\npcoupltype = semiisotropic\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Pressure coupling incorrect number of values (I need exactly 2)"
+    ]
+   }
+  },
+  {
+   "name": "pcoupl-no-compressibility",
+   "description": "Pressure coupling without compressibility.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = C-rescale\ntau-p = 2.0\nref-p = 1.0\ncontinuation = yes\n",
+   "grompp": {
+    "passes": false,
+    "errors": 2,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Pressure coupling incorrect number of values (I need exactly 1)",
+     "error: compressibility must be > 0 when using pressure coupling C-rescale"
+    ]
+   }
+  },
+  {
+   "name": "em-pcoupl-no-compressibility",
+   "description": "Minimisation with pcoupl but no values: still an error.",
+   "mdp": "; STEMKit broken-file case\nintegrator = steep\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = C-rescale\ntau-p = 2.0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 2,
+    "warnings": 0,
+    "notes": 2,
+    "fatal": null,
+    "messages": [
+     "error: Pressure coupling incorrect number of values (I need exactly 1)",
+     "error: Pressure coupling incorrect number of values (I need exactly 1)"
+    ]
+   }
+  },
+  {
+   "name": "tau-p-short",
+   "description": "tau-p shorter than 5 x nstpcouple x dt.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = C-rescale\ntau-p = 0.5\ncompressibility = 4.5e-5\nref-p = 1.0\ncontinuation = yes\nnstpcouple = 100\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: For proper integration of the C-rescale barostat, tau-p (0.5) should be at least 5 times larger than nstpcouple*dt (0.2)"
+    ]
+   }
+  },
+  {
+   "name": "pr-gen-vel",
+   "description": "Parrinello-Rahman with new velocities.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = Parrinello-Rahman\ntau-p = 5.0\ncompressibility = 4.5e-5\nref-p = 1.0\ncontinuation = no\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: You are generating velocities so I am assuming you are equilibrating a system. You are using Parrinello-Rahman pressure coupling, but this can be unstable for equilibration. If your system crashes, try equilibrating first with Berendsen pre"
+    ]
+   }
+  },
+  {
+   "name": "posres-refcoord-scaling",
+   "description": "Position restraints with pressure coupling and refcoord-scaling = no.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = C-rescale\ntau-p = 2.0\ncompressibility = 4.5e-5\nref-p = 1.0\ncontinuation = yes\ndefine = -DPOSRES\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 1,
+    "fatal": null,
+    "messages": [
+     "warning: You are using pressure coupling with absolute position restraints, this will give artifacts. Use the refcoord_scaling option."
+    ]
+   }
+  },
+  {
+   "name": "posres-refcoord-com",
+   "description": "The same with refcoord-scaling = com: passes with a note.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = C-rescale\ntau-p = 2.0\ncompressibility = 4.5e-5\nref-p = 1.0\ncontinuation = yes\ndefine = -DPOSRES\nrefcoord-scaling = com\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "posres-pr",
+   "description": "Position restraints with Parrinello-Rahman: notes only.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = Parrinello-Rahman\ntau-p = 5.0\ncompressibility = 4.5e-5\nref-p = 1.0\ncontinuation = yes\ndefine = -DPOSRES\nrefcoord-scaling = com\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 2,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "pr-nh-resonance",
+   "description": "Nose-Hoover and Parrinello-Rahman with tau-p < 2 tau-t.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = Nose-Hoover\ntc-grps = Protein Non-Protein\ntau-t = 1.0 1.0\nref-t = 300 300\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = Parrinello-Rahman\ntau-p = 1.0\ncompressibility = 4.5e-5\nref-p = 1.0\ncontinuation = yes\nnh-chain-length = 1\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: With Nose-Hoover T-coupling and Parrinello-Rahman p-coupling, tau-p (1) should be at least twice as large as tau-t (1) to avoid resonances"
+    ]
+   }
+  },
+  {
+   "name": "nstenergy-multiple",
+   "description": "nstenergy not a multiple of nstcalcenergy.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 150\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: nstenergy should be a multiple of nstcalcenergy, changing nstenergy to 200"
+    ]
+   }
+  },
+  {
+   "name": "nstcalcenergy-large",
+   "description": "nstcalcenergy above nstenergy: a note only.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 50\nnstlog = 1000\nnstcalcenergy = 100\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "nstcomm-small",
+   "description": "nstcomm below nstcalcenergy: a note only.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnstcomm = 10\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "rc-mismatch",
+   "description": "rvdw larger than rcoulomb.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.2\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: With Verlet lists rcoulomb!=rvdw is not supported (except for rcoulomb>rvdw with PME electrostatics)"
+    ]
+   }
+  },
+  {
+   "name": "rc-pme-longer",
+   "description": "rcoulomb above rvdw with PME: allowed.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.2\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "force-switch-range",
+   "description": "rvdw-switch not below rvdw.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = no\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nvdw-modifier = Force-switch\nrvdw-switch = 1.0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: With switched vdw forces or potentials, rvdw-switch must be < rvdw"
+    ]
+   }
+  },
+  {
+   "name": "potential-switch-zero",
+   "description": "Potential-switch with rvdw-switch = 0.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = no\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nvdw-modifier = Potential-switch\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 1,
+    "fatal": null,
+    "messages": [
+     "warning: rvdw-switch is equal 0 even though you are using a switched Lennard-Jones potential. This suggests it was not set in the mdp, which can lead to large energy errors. In GROMACS, 0.05 to 0.1 nm is often a reasonable vdw switching range."
+    ]
+   }
+  },
+  {
+   "name": "vdwtype-shift",
+   "description": "The old vdwtype = shift: replaced, a note.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nvdwtype = shift\nrvdw-switch = 0.9\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "verlet-buffer-zero",
+   "description": "verlet-buffer-tolerance = 0.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nverlet-buffer-tolerance = 0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 2,
+    "fatal": null,
+    "messages": [
+     "error: Can not have Verlet buffer tolerance of exactly 0"
+    ]
+   }
+  },
+  {
+   "name": "group-scheme",
+   "description": "The removed group scheme.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = group\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "The group cutoff scheme has been removed since GROMACS 2020. Please use the Verlet cutoff scheme.",
+    "messages": []
+   }
+  },
+  {
+   "name": "coulomb-user",
+   "description": "User tables, unsupported.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = User\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 2,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: With Verlet lists only cut-off, reaction-field, PME and Ewald electrostatics are supported",
+     "error: Coulomb type User is not supported with the verlet scheme"
+    ]
+   }
+  },
+  {
+   "name": "rf-epsilon",
+   "description": "Reaction field with epsilon-rf below epsilon-r.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = Reaction-Field\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = no\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nepsilon-r = 15\nepsilon-rf = 5\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: epsilon-rf must be >= epsilon-r"
+    ]
+   }
+  },
+  {
+   "name": "rf-epsilon-old",
+   "description": "The old epsilon-rf = 1 convention: grompp swaps and warns.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = Reaction-Field\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = no\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nepsilon-r = 15\nepsilon-rf = 1\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: epsilon-r = 15 and epsilon-rf = 1 with reaction field, proceeding assuming old format and exchanging epsilon-r and epsilon-rf"
+    ]
+   }
+  },
+  {
+   "name": "pbc-no-pme",
+   "description": "PME without periodic boundaries.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npbc = no\n",
+   "grompp": {
+    "passes": false,
+    "errors": 4,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": [
+     "error: With Verlet lists only full pbc or pbc=xy with walls is supported",
+     "error: The box volume is required for calculating rlist from the energy drift with verlet-buffer-tolerance > 0. You are using at least one unbounded dimension, so no volume can be computed. Either use a finite box, or set rlist yourself together w",
+     "error: Can not have Ewald with pbc=no",
+     "error: Can not have dispersion correction with pbc=no"
+    ]
+   }
+  },
+  {
+   "name": "walls-pbc",
+   "description": "Walls with pbc = xyz.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnwall = 2\nwall-atomtype = OW OW\nwall-density = 10 10\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: walls only work with pbc=xy",
+     "warning: With pbc=xyz you should use ewald-geometry=3dc"
+    ]
+   }
+  },
+  {
+   "name": "gen-vel-continuation",
+   "description": "New velocities and continuation together.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ncontinuation = yes\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Generating velocities is inconsistent with attempting to continue a previous run. Choose only one of gen-vel = yes and continuation = yes."
+    ]
+   }
+  },
+  {
+   "name": "dt-no-constraints",
+   "description": "dt = 2 fs with no constraints.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = none\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: The bond in molecule-type Protein_chain_A between atoms 84 OG and 85 HG has an estimated oscillational period of 9.0e-03 ps, which is less than 5 times the time step of 2.0e-03 ps. Maybe you forgot to change the constraints mdp option."
+    ]
+   }
+  },
+  {
+   "name": "dt-4fs-hmr",
+   "description": "4 fs with HMR: passes with a note.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.004\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nmass-repartition-factor = 3\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "hmr-below-one",
+   "description": "mass-repartition-factor below 1.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nmass-repartition-factor = 0.5\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: The mass repartitioning factor should be >= 1"
+    ]
+   }
+  },
+  {
+   "name": "mts-sd",
+   "description": "Multiple time stepping with integrator sd.",
+   "mdp": "; STEMKit broken-file case\nintegrator = sd\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nmts = yes\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": [
+     "error: Multiple time stepping is only supported with integrator md"
+    ]
+   }
+  },
+  {
+   "name": "mts-nstenergy",
+   "description": "MTS with nstenergy not a multiple of the factor.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 999\nmts = yes\nmts-level2-factor = 3\nnstcalcenergy = 99\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: With MTS, nstenergy = 1000 should be a multiple of mts-factor = 3",
+     "warning: nstenergy should be a multiple of nstcalcenergy, changing nstenergy to 1089"
+    ]
+   }
+  },
+  {
+   "name": "comm-none",
+   "description": "No centre-of-mass removal.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ncomm-mode = None\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: You are not using center of mass motion removal (mdp option comm-mode), numerical rounding errors can lead to build up of kinetic energy of the center of mass"
+    ]
+   }
+  },
+  {
+   "name": "comm-angular-pbc",
+   "description": "Angular COM removal in a periodic box.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ncomm-mode = Angular\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: Removing the rotation around the center of mass in a periodic system, this can lead to artifacts. Only use this on a single (cluster of) molecules. This cluster should not cross periodic boundaries."
+    ]
+   }
+  },
+  {
+   "name": "nstlist-zero",
+   "description": "nstlist = 0 with the Verlet scheme.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnstlist = 0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 1,
+    "notes": 1,
+    "fatal": null,
+    "messages": [
+     "error: With Verlet lists nstlist should be larger than 0",
+     "warning: With nstlist=0 atoms are only put into the box at step 0, therefore drifting atoms might cause the simulation to crash."
+    ]
+   }
+  },
+  {
+   "name": "nstlist-five",
+   "description": "nstlist = 5: a note only.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnstlist = 5\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "ensemble-constant-unset",
+   "description": "A constant ensemble temperature that is not given.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nensemble-temperature-setting = constant\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: ensemble-temperature can not be negative"
+    ]
+   }
+  },
+  {
+   "name": "annealing-count",
+   "description": "annealing for one group of two.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nannealing = single\nannealing-npoints = 2\nannealing-time = 0 1\nannealing-temp = 300 310\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Wrong number of annealing values: 1 (for 2 groups)",
+    "messages": []
+   }
+  },
+  {
+   "name": "annealing-points",
+   "description": "annealing-time with too few entries.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nannealing = single single\nannealing-npoints = 2 2\nannealing-time = 0 1 0\nannealing-temp = 300 310 300 310\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Found 3 annealing-time values, wanted 4",
+    "messages": []
+   }
+  },
+  {
+   "name": "annealing-crescale",
+   "description": "Annealing two groups with C-rescale.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = C-rescale\ntau-p = 2.0\ncompressibility = 4.5e-5\nref-p = 1.0\ncontinuation = yes\nannealing = single single\nannealing-npoints = 2 2\nannealing-time = 0 1 0 1\nannealing-temp = 300 310 300 310\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Can not use the C-rescale barostat without an ensemble temperature for the system"
+    ]
+   }
+  },
+  {
+   "name": "annealing-crescale-one-group",
+   "description": "Annealing one group with C-rescale: passes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = System\ntau-t = 0.1\nref-t = 300\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = C-rescale\ntau-p = 2.0\ncompressibility = 4.5e-5\nref-p = 1.0\ncontinuation = yes\nannealing = single\nannealing-npoints = 2\nannealing-time = 0 1\nannealing-temp = 300 310\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "annealing-late-start",
+   "description": "The first annealing point after tinit.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nannealing = single single\nannealing-npoints = 2 2\nannealing-time = 5 10 0 1\nannealing-temp = 300 310 300 310\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "First time point for annealing > init_t.",
+    "messages": []
+   }
+  },
+  {
+   "name": "freezedim-count",
+   "description": "freezedim with the wrong number of entries.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nfreezegrps = Protein\nfreezedim = Y Y\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Invalid Freezing input: 1 groups and 2 freeze values",
+    "messages": []
+   }
+  },
+  {
+   "name": "accelerate-count",
+   "description": "accelerate with the wrong number of values.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nacc-grps = Protein\naccelerate = 0.1 0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Invalid Acceleration input: 1 groups and 2 acc. values",
+    "messages": []
+   }
+  },
+  {
+   "name": "deform-gen-vel",
+   "description": "Box deformation with new velocities.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = System\ntau-t = 0.1\nref-t = 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ndeform = 0 0 0 0.01 0 0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: When the box is deformed and velocities are generated, the flow profile should be initialized by setting deform-init-flow=yes"
+    ]
+   }
+  },
+  {
+   "name": "lambda-lengths",
+   "description": "Lambda arrays of different lengths.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nfree-energy = yes\ninit-lambda-state = 0\ncoul-lambdas = 0 0.5 1\nvdw-lambdas = 0 1\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Number of lambdas (2) for FEP type vdw-lambdas not equal to number of other types (3)",
+    "messages": []
+   }
+  },
+  {
+   "name": "lambda-state-range",
+   "description": "init-lambda-state beyond the arrays.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nfree-energy = yes\ninit-lambda-state = 5\nfep-lambdas = 0 0.5 1\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": [
+     "error: initial thermodynamic state 5 does not exist, only goes to 2"
+    ]
+   }
+  },
+  {
+   "name": "lambda-unset",
+   "description": "Free energy without a lambda state.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nfree-energy = yes\nfep-lambdas = 0 0.5 1\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": [
+     "error: Lambda state must be set, either with init-lambda-state or with init-lambda"
+    ]
+   }
+  },
+  {
+   "name": "sc-r-power",
+   "description": "sc-r-power 48, removed.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nfree-energy = yes\ninit-lambda-state = 0\nfep-lambdas = 0 1\nsc-alpha = 0.5\nsc-r-power = 48\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 2,
+    "fatal": null,
+    "messages": [
+     "error: The soft-core sc-r-power is 48 and can only be 6. (sc-r-power 48 is no longer supported.)"
+    ]
+   }
+  },
+  {
+   "name": "pull-groups-count",
+   "description": "A distance pull coordinate with one group.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-group2-name = Chain_B\npull-coord1-groups = 1\npull-coord1-k = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: pull-coord1-groups should contain 2 pull group indices with geometry distance. Found 1 groups."
+    ]
+   }
+  },
+  {
+   "name": "pull-direction-no-vec",
+   "description": "Direction pulling without a vector.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-group2-name = Chain_B\npull-coord1-groups = 1 2\npull-coord1-geometry = direction\npull-coord1-k = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "With pull geometry direction the pull vector can not be 0,0,0",
+    "messages": []
+   }
+  },
+  {
+   "name": "pull-coord-beyond",
+   "description": "pull-coord2 options with pull-ncoords = 1.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-group2-name = Chain_B\npull-coord1-groups = 1 2\npull-coord1-k = 1000\npull-coord2-k = 500\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: Unknown left-hand 'pull-coord2-k' in parameter file"
+    ]
+   }
+  },
+  {
+   "name": "pull-valid",
+   "description": "A valid umbrella window: passes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-group2-name = Chain_B\npull-coord1-groups = 1 2\npull-coord1-start = yes\npull-coord1-k = 1000\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "awh-no-ndim",
+   "description": "AWH without awh1-ndim (grompp's default is 0).",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-group2-name = Chain_B\npull-coord1-groups = 1 2\npull-coord1-type = external-potential\npull-coord1-potential-provider = awh\nawh = yes\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "awh1-ndim (0) needs to be > 0 and at most 4",
+    "messages": []
+   }
+  },
+  {
+   "name": "shake-cg",
+   "description": "Conjugate gradients with SHAKE.",
+   "mdp": "; STEMKit broken-file case\nintegrator = cg\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nconstraint-algorithm = SHAKE\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": [
+     "error: Can not do cg with Shake, use Lincs"
+    ]
+   }
+  },
+  {
+   "name": "lincs-warnangle",
+   "description": "lincs-warnangle above 90.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nlincs-warnangle = 100\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: lincs-warnangle can not be larger than 90 degrees, setting it to 90."
+    ]
+   }
+  },
+  {
+   "name": "electric-field-three",
+   "description": "An electric field with three numbers.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nelectric-field-x = 1 0 0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Error in mdp option \"electric-field-x\": Please specify E0 omega t0 sigma for electric fields"
+    ]
+   }
+  },
+  {
+   "name": "density-guided-maybe",
+   "description": "A module switch that is not yes/no.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ndensity-guided-simulation-active = maybe\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Error in mdp option \"density-guided-simulation-active\": Invalid value: 'maybe'; supported values are: 1, 0, yes, no, true, false"
+    ]
+   }
+  },
+  {
+   "name": "qmmm-yes",
+   "description": "The removed QM/MM switch.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nQMMM = yes\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: The QMMM integration you are trying to use is no longer supported"
+    ]
+   }
+  },
+  {
+   "name": "implicit-solvent-yes",
+   "description": "Removed implicit solvent.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nimplicit-solvent = yes\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Invalid enum 'yes' for variable implicit-solvent, using 'no' Next time use one of: 'no'"
+    ]
+   }
+  },
+  {
+   "name": "tau-t-uncoupled",
+   "description": "One group left uncoupled (tau-t = -1).",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 -1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: Some temperature coupling groups do not use temperature coupling. We will assume their temperature is not more than 300.000 K. If their temperature is higher, the energy error and the Verlet buffer might be underestimated."
+    ]
+   }
+  },
+  {
+   "name": "nsteps-zero",
+   "description": "nsteps = 0 without continuation: a note only.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 0\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "sd-tcoupl",
+   "description": "sd with tcoupl set: a note only.",
+   "mdp": "; STEMKit broken-file case\nintegrator = sd\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 1.0 1.0\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "em-tcoupl",
+   "description": "Minimisation with a thermostat: a note only.",
+   "mdp": "; STEMKit broken-file case\nintegrator = steep\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "md-vv-avek",
+   "description": "md-vv-avek without nsttcouple = 1.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md-vv-avek\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": [
+     "error: md-vv-avek implemented primarily for validation, and requires nsttcouple = 1 and nstpcouple = 1."
+    ]
+   }
+  },
+  {
+   "name": "andersen-leapfrog",
+   "description": "Andersen with leap-frog.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = andersen-massive\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Andersen-massive temperature control not supported for integrator md."
+    ]
+   }
+  },
+  {
+   "name": "cos-acceleration-sd",
+   "description": "cos-acceleration with sd.",
+   "mdp": "; STEMKit broken-file case\nintegrator = sd\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ncos-acceleration = 0.1\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": [
+     "error: cos-acceleration is only supported by integrator = md"
+    ]
+   }
+  },
+  {
+   "name": "epsilon-surface-note",
+   "description": "epsilon-surface with PME: notes only.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nepsilon-surface = 80\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 2,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "couple-same",
+   "description": "couple-lambda0 equal to couple-lambda1.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nfree-energy = yes\ninit-lambda-state = 0\nfep-lambdas = 0 1\ncouple-moltype = Protein_chain_A\ncouple-lambda0 = vdw\ncouple-lambda1 = vdw\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 2,
+    "notes": 2,
+    "fatal": null,
+    "messages": [
+     "error: The largest distance between non-perturbed excluded atoms is 1.829 nm between atom 2 and 127, which is larger than the cut-off distance. This will lead to missing long-range corrections in the forces and energies.",
+     "warning: The lambda=0 and lambda=1 states for coupling are identical",
+     "warning: You are using Ewald electrostatics in a system with net charge. This can lead to severe artifacts, such as ions moving into regions with low dielectric, due to the uniform background charge. We suggest to neutralize your system with counter"
+    ]
+   }
+  },
+  {
+   "name": "plain-cutoff",
+   "description": "A plain Coulomb cut-off: a note only.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = Cut-off\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "nve",
+   "description": "No thermostat: an NVE buffer note.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = no\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 2,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "define-unused",
+   "description": "A misspelt -DPOSRE, which the topology never uses.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ndefine = -DPOSRE\n",
+   "context": {
+    "usedMacros": [
+     "POSRES",
+     "FLEXIBLE",
+     "POSRES_WATER"
+    ]
+   },
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: The following macros were defined in the 'define' mdp field with the -D prefix, but were not used in the topology: POSRE If you haven't made a spelling error, either use the macro you defined, or don't define the macro"
+    ]
+   }
+  },
+  {
+   "name": "define-used",
+   "description": "-DPOSRES and -DFLEXIBLE, both used: passes (with the position-restraint note).",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ndefine = -DPOSRES -DFLEXIBLE\n",
+   "context": {
+    "usedMacros": [
+     "POSRES",
+     "FLEXIBLE",
+     "POSRES_WATER"
+    ]
+   },
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  }
+ ]
+}
