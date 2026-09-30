@@ -857,6 +857,134 @@ export function lookOnly(figure) {
   return f;
 }
 
+/* ------------------------------------------------------------------ *
+ * Backgrounds: white, transparent, dark or a colour of one's own
+ * ------------------------------------------------------------------ */
+
+/** The two looks the background picker switches between, and their inks. */
+export const BACKGROUNDS = Object.freeze({
+  white: Object.freeze({ background: '#ffffff', foreground: '#1a1a1a', grid: '#b0b0b0' }),
+  dark: Object.freeze({ background: '#0f172a', foreground: '#e2e8f0', grid: '#64748b' })
+});
+
+/* WCAG contrast of two '#rrggbb' colours. */
+function contrast(a, b) {
+  const la = luminance(a); const lb = luminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/** The ink (text and lines) that reads best on a background: dark or light. */
+export function readableInk(background) {
+  return contrast(background, BACKGROUNDS.white.foreground) >= contrast(background, BACKGROUNDS.dark.foreground)
+    ? BACKGROUNDS.white.foreground : BACKGROUNDS.dark.foreground;
+}
+
+/**
+ * Which of the picker's four a figure's look is: 'transparent' (export
+ * transparent, whatever the colours), 'white', 'dark', or 'custom'; with the
+ * ink ('dark' or 'light') a transparent figure is drawn in.
+ */
+export function backgroundChoice(look) {
+  const l = obj(look);
+  const bg = colour(l.background, BACKGROUNDS.white.background);
+  const fg = colour(l.foreground, BACKGROUNDS.white.foreground);
+  const ink = luminance(fg) > 0.5 ? 'light' : 'dark';
+  if (l.export && l.export.transparent) return { choice: 'transparent', ink };
+  if (bg === BACKGROUNDS.white.background && fg === BACKGROUNDS.white.foreground) return { choice: 'white', ink };
+  if (bg === BACKGROUNDS.dark.background && fg === BACKGROUNDS.dark.foreground) return { choice: 'dark', ink };
+  return { choice: 'custom', ink };
+}
+
+/**
+ * The person's style with one of the picker's backgrounds chosen, from any
+ * other: white and dark set the background, the text and lines, the grid's
+ * colour and whether the page is transparent; transparent keeps the page
+ * clear in the preview and every export, drawn in dark ink (for light slides
+ * and pages) or light ink (for dark slides); custom sets a background (and,
+ * unless given, the ink that reads on it). Series whose colour is one of the
+ * default cycle's move to the same hue for the ground they now stand on, and
+ * back, so White after Dark is White again.
+ *
+ * @param {object} style - the person's style (partial)
+ * @param {object} figure - the page's description (for its series' own colours)
+ * @param {'white'|'dark'|'transparent'|'custom'} choice
+ * @param {{ink?: 'dark'|'light', background?: string, foreground?: string}} [opts]
+ * @returns {object} the new style
+ */
+export function withBackground(style, figure, choice, opts = {}) {
+  const s = clone(obj(style)) || {};
+  const set = (bg, fg, grid, transparent) => {
+    s.background = bg;
+    s.foreground = fg;
+    s.grid = { ...obj(s.grid), color: grid };
+    s.export = { ...obj(s.export), transparent };
+  };
+  let ground;
+  if (choice === 'white' || choice === 'dark') {
+    const b = BACKGROUNDS[choice];
+    set(b.background, b.foreground, b.grid, false);
+    ground = choice;
+  } else if (choice === 'transparent') {
+    const b = BACKGROUNDS[opts.ink === 'light' ? 'dark' : 'white'];
+    // The background stays behind a transparent page for what shows it (the
+    // legend's box): the ground the ink is meant for.
+    set(b.background, b.foreground, b.grid, true);
+    ground = opts.ink === 'light' ? 'dark' : 'white';
+  } else {
+    const bg = colour(opts.background, colour(s.background, BACKGROUNDS.white.background));
+    const fg = colour(opts.foreground, readableInk(bg));
+    s.background = bg;
+    s.foreground = fg;
+    s.export = { ...obj(s.export), transparent: false };
+    ground = luminance(bg) < 0.2 ? 'dark' : 'white';
+  }
+  return ownValuesDropped(recolourSeries(s, figure, ground === 'dark'), figure);
+}
+
+/* What a background choice set that the page's description already has is
+   left out of the style, so that White on a white page is no style at all. */
+function ownValuesDropped(style, figure) {
+  const own = normaliseFigure(lookOnly(obj(figure)));
+  const out = { ...style };
+  if (out.background === own.background) delete out.background;
+  if (out.foreground === own.foreground) delete out.foreground;
+  for (const [key, field] of [['grid', 'color'], ['export', 'transparent']]) {
+    if (!out[key] || typeof out[key] !== 'object') continue;
+    const o = { ...out[key] };
+    if (o[field] === own[key][field]) delete o[field];
+    if (Object.keys(o).length) out[key] = o; else delete out[key];
+  }
+  return out;
+}
+
+/* Series of the default cycle on the ground they stand on: a person's
+   colour of the other cycle moves to the same hue; one that returns to the
+   page's own colour is dropped from the style. */
+function recolourSeries(style, figure, dark) {
+  const from = dark ? COLOR_CYCLE : COLOR_CYCLE_DARK;
+  const to = dark ? COLOR_CYCLE_DARK : COLOR_CYCLE;
+  const own = new Map();
+  (Array.isArray(obj(figure).panels) ? figure.panels : []).forEach((p) => (Array.isArray(p && p.series) ? p.series : []).forEach((q, i) => {
+    if (q && typeof q === 'object') own.set(q.id !== undefined ? String(q.id) : `${q.kind || 'line'}${i + 1}`, q);
+  }));
+  const series = { ...obj(style.series) };
+  for (const [id, q] of own) {
+    const o = { ...obj(series[id]) };
+    for (const key of ['color', 'edgeColor']) {
+      const current = colour(o[key], colour(q[key], null));
+      if (!current) continue;   // left to the cycle: it follows the ground by itself
+      const k = from.indexOf(current);
+      if (k < 0) continue;
+      const next = to[k];
+      if (colour(q[key], null) === next) delete o[key]; else o[key] = next;
+    }
+    if (Object.keys(o).length) series[id] = o; else delete series[id];
+  }
+  const out = { ...style, series };
+  if (!Object.keys(series).length) delete out.series;
+  return out;
+}
+
 /** Keys of the look, for the style panel and for checking a stored style. */
 export const LOOK_KEYS = Object.freeze({ figure: FIGURE_LOOK, panel: PANEL_LOOK, series: SERIES_LOOK });
 

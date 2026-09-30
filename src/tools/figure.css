@@ -31,6 +31,15 @@
 .fg-t { display: flex; align-items: center; gap: .5rem; margin: 0; font-size: .9375rem; font-weight: 650; letter-spacing: -.005em; color: var(--stk-fg); }
 .fg-size { font-size: .75rem; font-weight: 500; color: var(--stk-fg-muted); }
 .fg-size:empty { display: none; }
+/* Beside the size when the figure is saved with no background. */
+.fg-clear[hidden] { display: none; }
+.fg-clear-sw {
+  width: .7rem;
+  height: .7rem;
+  border-radius: 2px;
+  background: #fff conic-gradient(#aeb6c2 25%, transparent 0 50%, #aeb6c2 0 75%, transparent 0) 0 0 / .35rem .35rem;
+  box-shadow: inset 0 0 0 1px var(--stk-border-strong);
+}
 .fg-actions { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin-left: auto; }
 .fg-export { display: inline-flex; gap: .3rem; }
 
@@ -178,6 +187,13 @@
   box-shadow: inset 0 0 0 calc(1px / var(--fp-scale, 1)) var(--stk-border-strong);
   pointer-events: none;
 }
+/* A transparent figure over checks, never saved: light ones under dark ink,
+   dark ones under light ink, each 8 screen pixels whatever the scale. */
+.fp-stage.fp-clear .fp-figure {
+  --fp-check: #e4e8ee;
+  background: #ffffff conic-gradient(var(--fp-check) 25%, transparent 0 50%, var(--fp-check) 0 75%, transparent 0) 0 0 / calc(16px / var(--fp-scale, 1)) calc(16px / var(--fp-scale, 1));
+}
+.fp-stage.fp-clear-dark .fp-figure { --fp-check: #1c2740; background-color: #0f172a; }
 
 /* ---------------------------------------------------------------------------
    Panel
@@ -208,13 +224,160 @@
   gap: 0.4rem;
 }
 .fp-presets > .stk-btn { min-width: 0; padding: 0 0.4rem; }
-/* Four presets (the figure panel's) sit two by two. */
-.fp-presets-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .fp-presets-t {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--stk-fg-3);
 }
+
+/* Background: four swatches in a row, each a little plot on its ground,
+   with what the choice asks next below them. */
+.fp-bg {
+  min-width: 0;
+  margin: 0 0 .15rem;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+.fp-bg-t {
+  float: left;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--stk-fg-3);
+}
+.fp-bg-row {
+  clear: both;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .5rem;
+}
+.fp-bg-opt {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .3rem;
+  min-width: 0;
+  cursor: pointer;
+  user-select: none;
+}
+/* The radio stays in the page for the keyboard and screen readers; the swatch shows it. */
+.fp-bg-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.fp-bg-sw {
+  --fp-bg-dot: #1f5c96;
+  --fp-bg-line: #e8590c;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  border: 1px solid var(--stk-border-strong);
+  border-radius: var(--stk-radius);
+  background: #ffffff;
+  color: #1a1a1a;
+}
+.fp-bg-sw svg { width: 74%; height: auto; overflow: visible; fill: none; }
+.fp-bg-axes { stroke: currentColor; stroke-width: 1.4; }
+.fp-bg-line { stroke: var(--fp-bg-line); stroke-width: 1.8; stroke-linecap: round; }
+.fp-bg-dot { fill: var(--fp-bg-dot); }
+.fp-bg-dark .fp-bg-sw,
+.fp-bg[data-ink="light"] .fp-bg-transparent .fp-bg-sw {
+  --fp-bg-dot: #4a8fd4;
+  --fp-bg-line: #e0622a;
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+.fp-bg-transparent .fp-bg-sw {
+  --fp-check: #d5dbe3;
+  background-image: conic-gradient(var(--fp-check) 25%, transparent 0 50%, var(--fp-check) 0 75%, transparent 0);
+  background-size: 10px 10px;
+}
+.fp-bg[data-ink="light"] .fp-bg-transparent .fp-bg-sw { --fp-check: #26324a; }
+/* Custom: every colour until chosen, then the colours chosen. */
+.fp-bg-custom .fp-bg-sw { background: conic-gradient(from 210deg, #fde0d3, #fbefc4, #d6efd9, #cfe2f6, #e4d9f6, #fde0d3); }
+.fp-bg-custom:has(.fp-bg-input:checked) .fp-bg-sw { background: var(--fp-bg-own, #ffffff); color: var(--fp-bg-own-ink, #1a1a1a); }
+.fp-bg-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .72rem;
+  font-weight: 500;
+  color: var(--stk-fg-2);
+}
+.fp-bg-opt:hover .fp-bg-sw { border-color: var(--stk-fg-3); }
+.fp-bg-opt:has(.fp-bg-input:checked) .fp-bg-sw { border-color: var(--stk-accent); box-shadow: 0 0 0 1px var(--stk-accent); }
+.fp-bg-opt:has(.fp-bg-input:checked) .fp-bg-name { color: var(--stk-accent-text); font-weight: 650; }
+/* A tick on the chosen one, so it does not rest on colour alone. */
+.fp-bg-opt:has(.fp-bg-input:checked)::after {
+  content: "";
+  position: absolute;
+  top: -.3rem;
+  right: -.3rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--stk-accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.4l2.3 2.3 4.7-5' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / .75rem no-repeat;
+  box-shadow: 0 0 0 2px var(--stk-surface);
+}
+.fp-bg-input:focus-visible + .fp-bg-sw { outline: 2px solid var(--stk-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .fp-bg-sw { transition: border-color 120ms, box-shadow 120ms, transform 120ms; }
+  .fp-bg-opt:hover .fp-bg-sw { transform: translateY(-1px); }
+}
+.fp-bg-more {
+  min-width: 0;
+  margin: 0;
+  padding: .6rem .7rem .65rem;
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  border: 1px solid var(--stk-border);
+  border-radius: var(--stk-radius);
+  background: var(--stk-surface-2);
+}
+.fp-bg-more[hidden] { display: none; }
+.fp-bg-more .stk-hint { color: var(--stk-fg-3); }
+.fp-bg-more-t {
+  float: left;
+  width: 100%;
+  margin: 0 0 .1rem;
+  padding: 0;
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--stk-fg-3);
+}
+.fp-bg-more-t + * { clear: both; }
+.fp-ink { align-items: flex-start; font-size: .8125rem; line-height: 1.35; }
+.fp-ink input { margin-top: .1rem; flex: 0 0 auto; }
+.fp-ink-use { color: var(--stk-fg-3); }
+.fp-bg-note { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 .25rem; }
+.fp-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--stk-accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.fp-link:focus-visible { outline: 2px solid var(--stk-accent); outline-offset: 2px; border-radius: 2px; }
 
 /* Group heading: title on the left, a one-line state before the chevron. */
 .fp-group > summary { gap: 0.75rem; }

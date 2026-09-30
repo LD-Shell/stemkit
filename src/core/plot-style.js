@@ -46,6 +46,7 @@ export function defaultPlotStyle() {
     width: 6.4,          // inches
     height: 4.8,         // inches
     dpi: 300,            // for PNG export
+    sizeUnit: 'in',      // how the style panel shows width and height: in | cm | mm | px
     fontFamily: 'sans-serif',
     fontSize: 11,        // points: axis labels; ticks are 1 pt smaller, the title 1 pt larger
     titleSize: null,     // points; null: fontSize + 1
@@ -131,6 +132,7 @@ export function normalisePlotStyle(style = {}) {
     width: num(s.width, 1, 30, d.width),
     height: num(s.height, 1, 30, d.height),
     dpi: Math.round(num(s.dpi, 50, 1200, d.dpi)),
+    sizeUnit: pick(s.sizeUnit, SIZE_UNITS, d.sizeUnit),
     fontFamily: pick(s.fontFamily, FONT_FAMILIES, d.fontFamily),
     fontSize: num(s.fontSize, 4, 40, d.fontSize),
     titleSize: optionalSize(s.titleSize),

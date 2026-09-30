@@ -91,7 +91,8 @@ is pressed; `maxScale` (a number, or a function), the largest enlargement of
 a small figure; `label`, what the figure shows, for screen readers;
 `onExport(result, error, format)`, for a toast; `onDraw(info)`;
 `stylePanel: false`, when the page styles the figure itself and passes
-complete descriptions (the Curve Fitter does this).
+complete descriptions (the Curve Fitter does this, with the shared panel in
+its Style tab and `onStyle` opening it).
 
 The page may also write the header and the empty stage in its HTML, so they
 show before any script has run: when the host already holds a `.fg-h`, the
@@ -228,19 +229,57 @@ give each its own marker too. Colormaps: `viridis`, `cividis`, `plasma`,
 
 ### The style panel
 
-The figure panel has the Curve Fitter's groups, in its order: Figure, Title
-and labels, Axes and ticks, then Series (one series at a time) and Panels
-(heights, with two or more), then Legend, Grid, Frame and Export. Presets:
-Publication, Presentation, Minimal and Dark (background `#0f172a`, text
-`#e2e8f0`; series with a colour of the light cycle move to the same hue
-stepped for a dark ground). Sizes: single column, double column, slide,
-square (4 × 4 in) and the default; width and height typed in in, cm, mm or px
-(px at the PNG resolution), kept in inches. Title and tick-label sizes of
-their own; grid lines at both axes' ticks or one; the PNG resolution always in
-view (the header's PNG button uses it whatever the format). Error-bar series
-the page joins with a line get its style and width. The Curve Fitter's own
-panel keeps its fields as they were; its style object takes `grid.axis`,
-`titleSize` and `tickSize` too, which its preview and script honour.
+The figure panel opens on the background, then three look presets and a
+reset, then the Curve Fitter's groups, in its order: Figure, Title and labels,
+Axes and ticks, then Series (one series at a time) and Panels (heights, with
+two or more), then Legend, Grid, Frame and Export.
+
+**Background.** Four swatches in one row, a radio group (arrow keys move and
+choose): White, Transparent, Dark and Custom, each a little plot on its
+ground. One click switches in any direction:
+
+- White: background `#ffffff`, text and lines `#1a1a1a`, grid `#b0b0b0`.
+- Dark: background `#0f172a`, text and lines `#e2e8f0`, grid `#64748b`.
+- Transparent: no background in the preview or in any export (a PNG with
+  alpha, an SVG and a PDF with no page or axes fill, and the script's
+  `savefig(..., transparent=True)` whatever the format). It asks for the ink:
+  dark text and lines (for light slides and pages), or light text and lines
+  (for dark slides). The preview then shows the figure over checks in the
+  colours of that ground, which are never saved, and the header shows a
+  Transparent badge by the size.
+- Custom: a background and a text-and-lines colour; the ink follows the
+  background (dark or light, whichever has more contrast) until it is set by
+  hand.
+
+Series with a colour of the default cycle move to the same hue of the other
+cycle when the ground turns dark or light, and back; so White after Dark (or
+after a transparent page in light ink) is exactly White again, and a style
+that only went there and back is empty. Stored styles need nothing new: the
+choice is read from `background`, `foreground` and `export.transparent`
+(`backgroundChoice(look)`), so a style saved with the old Dark preset shows as
+Dark. The same functions are in `src/core/figure.js` for a page or a test:
+`withBackground(style, figure, choice, { ink, background, foreground })`,
+`backgroundChoice(look)`, `readableInk(background)` and `BACKGROUNDS`.
+
+Presets change the look only (never the background): Publication,
+Presentation and Minimal. Sizes: single column, double column, slide, square
+(4 × 4 in) and the default; width and height typed in in, cm, mm or px (px at
+the PNG resolution), kept in inches. Title and tick-label sizes of their own;
+grid lines at both axes' ticks or one; the PNG resolution always in view (the
+header's PNG button uses it whatever the format). Error-bar series the page
+joins with a line get its style and width. `showSeries(id)` opens the Series
+group on one series and `open(group)` any group.
+
+A page whose description is its own style (the Curve Fitter's plot style)
+passes `absorb(change)`: every change is handed to it as a partial style,
+which it folds into its own and answers with the new description. Such a page
+may also pass `page: { read, put }` for fields of its own (paths `page.…`,
+made with the kit in `seriesOptions(q).extra(kit)` or `groups(kit)`),
+`seriesOptions(q)` (false to leave a series out, or the fields it offers, its
+name, placeholders), `fixedPanels` (panels whose y label, axis and height it
+sets), `omit` (fields not to offer), `seriesTitle`, `summaries(sums)` and
+`onReset()`. The panel is rebuilt only when the panels or series change,
+keeping the open groups and the focus.
 
 ### The person's style
 
@@ -317,7 +356,7 @@ draws, where its description is built, and what its Python reads:
 
 | Page | Figures | Built in | Python |
 |---|---|---|---|
-| Curve Fitter | The data with error bars, the fitted curve, its confidence band, and the residuals in a panel below; the page's own switches (Residuals, Confidence band) in the header, its own style panel (the fit's groups) in the Style tab | `js/fit-plot.js` (`fitFigure`), `src/core/fit-python.js` | Fits the model again with `curve_fit` and draws with the shared pieces; embeds the data or reads the page's CSV |
+| Curve Fitter | The data with error bars, the fitted curve, its confidence band, and the residuals in a panel below; the page's own switches (Residuals, Confidence band) in the header; the shared figure panel in the Style tab, editing the fit's plot style (`createStylePanel` in `js/fit-plot.js`): data points, fit line and confidence band are its series, with error bars, the curve's points and the band's level beside them, and a Residuals group; `openStyle({ series: 'data' \| 'fit' \| 'band' \| 'residuals' })` opens the tab there | `js/fit-plot.js` (`fitFigure`), `src/core/fit-python.js` | Fits the model again with `curve_fit` and draws with the shared pieces; embeds the data or reads the page's CSV |
 | PLUMED "Analyse a run" | Six figures: the COLVAR time series, a histogram, the reweighted FES, the 1D or 2D FES with contours and a colour bar, convergence over time, hill heights | `src/core/plumed-analysis-figures.js` | Reads COLVAR and HILLS itself, with `analyse_plumed.py`'s functions in the prelude |
 | XVG Visualizer | Lines and markers from an .xvg; the series once on a right-hand axis now in a lower panel sharing x; a running mean (`numpy.convolve` in the script); Grace escapes as text | `xvgFigure` in `src/core/xvg-parser.js` | Reads the .xvg with `np.loadtxt` |
 | Plot Builder | A rail with Data, Series and Style tabs beside the shared plot area; several CSV files; series as line, points or both, with error bars, bands and panels; Log x and Log y switches in the header; drag to zoom, double-click to fit and hover values on top of the shared preview (the builder's own) | `src/core/plot-builder.js` | Reads each CSV by its header (Python's csv and float rules) or embeds it; PDF, PNG and SVG from the header |

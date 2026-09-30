@@ -17,7 +17,9 @@
  *   renderFitPlot(el, model, style, options) -> Promise<info>
  *   destroyFitPlot(el)
  *   exportFitPlot(el, style, options) -> Promise<{ filename, format, bytes, widthIn, heightIn, … }>
- *   createStylePanel(host, style, onChange, options) -> { get, set, setContext, destroy, element }
+ *   createStylePanel(host, style, onChange, options) -> { get, set, setContext, showSeries, destroy, element }
+ *     (the figure panel every plotting page has, editing the plot style)
+ *   foldFigureStyle(style, change) -> the plot style with a figure panel's change in it
  *   fitCurveGrid(x, style) -> the x values the fitted curve is drawn at
  *   STYLE_PRESETS, and the ports (axisTicks, the locators and formatters,
  *   pyPercent, textToHtml) for tests
@@ -31,10 +33,7 @@
 
 import { defaultPlotStyle, normalisePlotStyle } from '../src/core/plot-style.js';
 import { symbolToLatex } from '../src/core/expression.js';
-import {
-  buildFigure, renderFigure, destroyFigure, exportFigure, stylePanelKit, deepMerge, fmtNum,
-  MARKER_NAMES, LINE_NAMES, LEGEND_NAMES
-} from './figure-plot.js';
+import { buildFigure, renderFigure, destroyFigure, exportFigure, createFigureStylePanel, deepMerge } from './figure-plot.js';
 
 export {
   PX_PER_IN, FONT_STACKS, plotlyDash, rgba, textToHtml, textBox, measureHtml, printfFormat, pyPercent,
@@ -182,7 +181,7 @@ export function fitFigure(model, style) {
     });
   }
   return {
-    width: s.width, height: s.height, dpi: s.dpi, fontFamily: s.fontFamily, fontSize: s.fontSize, title: s.title,
+    width: s.width, height: s.height, dpi: s.dpi, sizeUnit: s.sizeUnit, fontFamily: s.fontFamily, fontSize: s.fontSize, title: s.title,
     titleSize: s.titleSize, tickSize: s.tickSize,
     background: s.background, foreground: s.foreground, legend: s.legend, grid: s.grid, spines: s.spines, export: s.export,
     xLabel: s.xLabel, xScale: s.xScale, xLim: s.xLim, xTicks: s.xTicks,
@@ -288,16 +287,70 @@ function setPath(o, path, v) {
   const last = keys.pop();
   keys.reduce((a, k) => a[k], o)[last] = v;
 }
+const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/* The figure's keys a plot style keeps under the same name. */
+const FIGURE_KEYS = ['width', 'height', 'dpi', 'sizeUnit', 'fontFamily', 'fontSize', 'titleSize', 'tickSize', 'title',
+  'background', 'foreground', 'legend', 'grid', 'spines', 'export', 'xLabel', 'xScale', 'xLim', 'xTicks'];
+/* A series' look in the figure, and where the plot style keeps it. */
+const SERIES_KEYS = {
+  data: { show: 'data.show', label: 'data.label', marker: 'data.marker', size: 'data.size', color: 'data.color', edgeColor: 'data.edgeColor',
+    edgeWidth: 'data.edgeWidth', alpha: 'data.alpha', errorWidth: 'data.errorWidth', capSize: 'data.capSize' },
+  fit: { show: 'fit.show', label: 'fit.label', color: 'fit.color', lineWidth: 'fit.width', lineStyle: 'fit.style' },
+  band: { show: 'band.show', label: 'band.label', color: 'band.color', alpha: 'band.alpha' }
+};
 
 /**
- * The panel that edits the Curve Fitter's plot style: the shared groups for
- * the figure, text, axes and ticks, legend, grid, frame and export, with the
- * fit's own for the data, fit line, band and residuals between them, size
- * presets, three look presets and a reset.
+ * Fold a change the figure panel makes (a partial figure style, see
+ * applyStyle in src/core/figure.js) into a plot style: the figure's keys as
+ * they are, the main panel's y axis, and the data, fit and band series.
  *
- * Every change calls `onChange` with the whole normalised style: at once for
- * colours, lists and checkboxes, after 150 ms of quiet for typed text and
- * numbers.
+ * @param {object} style - a plot style
+ * @param {object} change - a partial figure style
+ * @returns {object} the normalised plot style
+ */
+export function foldFigureStyle(style, change) {
+  const s = normalisePlotStyle(style);
+  const c = isObject(change) ? change : {};
+  const merge = (a, b) => (isObject(b) ? deepMerge(isObject(a) ? a : {}, b) : b);
+  for (const k of FIGURE_KEYS) if (c[k] !== undefined) s[k] = merge(s[k], c[k]);
+  const main = Array.isArray(c.panels) && isObject(c.panels[0]) ? c.panels[0] : null;
+  if (main) for (const k of ['yLabel', 'yScale', 'yLim', 'yTicks']) if (main[k] !== undefined) s[k] = merge(s[k], main[k]);
+  for (const [id, map] of Object.entries(SERIES_KEYS)) {
+    const o = isObject(c.series) ? c.series[id] : null;
+    if (!isObject(o)) continue;
+    for (const [k, path] of Object.entries(map)) if (o[k] !== undefined) setPath(s, path, o[k]);
+  }
+  return normalisePlotStyle(s);
+}
+
+/*
+ * The description the panel edits: the fit figure's look with no data, the
+ * data, fit and band always there (with their Show switches), and the
+ * residual panel while it is on.
+ */
+function panelFigure(s, ctx) {
+  const main = [
+    { id: 'data', kind: 'errorbar', show: s.data.show, label: s.data.label, marker: s.data.marker, size: s.data.size, color: s.data.color,
+      edgeColor: s.data.edgeColor, edgeWidth: s.data.edgeWidth, alpha: s.data.alpha, errorWidth: s.data.errorWidth, capSize: s.data.capSize },
+    { id: 'fit', kind: 'line', show: s.fit.show, label: s.fit.label, color: s.fit.color, lineWidth: s.fit.width, lineStyle: s.fit.style }
+  ];
+  if (!ctx.multivariate) main.push({ id: 'band', kind: 'band', show: s.band.show, label: s.band.label, color: s.band.color, alpha: s.band.alpha });
+  const panels = [{ id: 'main', yLabel: s.yLabel, yScale: s.yScale, yLim: s.yLim, yTicks: s.yTicks, series: main }];
+  if (s.residuals.show) panels.push({ id: 'residuals', ratio: s.residuals.heightRatio, yLabel: 'Residual', series: [] });
+  const f = { panels };
+  for (const k of FIGURE_KEYS) f[k] = clone(s[k]);
+  return f;
+}
+
+/**
+ * The Curve Fitter's style panel: the figure panel every plotting page has
+ * (createFigureStylePanel in js/figure-plot.js), editing the plot style. The
+ * data points, the fit line and the confidence band are its series, with
+ * the fit's own settings beside them (error bars, the points the curve is
+ * drawn at, the band's level); the residual panel has a group of its own.
+ *
+ * Every change calls `onChange` with the whole normalised style.
  *
  * @param {HTMLElement} host
  * @param {object} style
@@ -307,7 +360,7 @@ function setPath(o, path, v) {
  * @param {string[]} [options.open]    - groups open at the start (default ['figure'])
  * @returns {{get: () => object, set: (style: object) => void,
  *   setContext: (ctx: {multivariate?: boolean, hasSigma?: boolean, independent?: string|string[], dependent?: string}) => void,
- *   destroy: () => void, element: HTMLElement}}
+ *   showSeries: (id: string) => boolean, destroy: () => void, element: HTMLElement}}
  */
 export function createStylePanel(host, style, onChange, options = {}) {
   let draft = normalisePlotStyle(style);
@@ -318,96 +371,78 @@ export function createStylePanel(host, style, onChange, options = {}) {
   const styleDefaults = defaultPlotStyle();
   let defaultLabels = { x: styleDefaults.xLabel, y: styleDefaults.yLabel };
   let touched = {};
-  let batching = false;
-  const emit = () => {
-    draft = normalisePlotStyle(draft);
-    kit.refresh();
-    if (typeof onChange === 'function') onChange(clone(draft));
+  const changed = () => { if (typeof onChange === 'function') onChange(clone(draft)); };
+
+  const bandText = () => `${String(Number((draft.band.level * 100).toPrecision(4)))}% confidence band`;
+  const DATA = ['show', 'label', 'marker', 'size', 'color', 'edgeColor', 'edgeWidth', 'alpha'];
+  const seriesOptions = (q) => {
+    if (q.id === 'data') {
+      return {
+        name: 'Data points', fields: DATA, key: ctx.hasSigma === false ? 'no-sigma' : 'sigma',
+        extra: (kit) => (ctx.hasSigma === false
+          ? [kit.el('p', { class: 'stk-hint fp-note', text: 'Error bars need a column of uncertainties.' })]
+          : [kit.el('div', { class: 'fp-errorbars' },
+            kit.sub('Error bars'),
+            kit.checks(kit.check('page.data.errorBars', 'Show error bars')),
+            kit.grid(
+              kit.number('page.data.errorWidth', 'Line width', { min: 0.1, max: 5, step: 0.1, unit: 'pt' }),
+              kit.number('page.data.capSize', 'Cap size', { min: 0, max: 20, step: 0.5, unit: 'pt' })
+            ))])
+      };
+    }
+    if (q.id === 'fit') {
+      return {
+        name: 'Fit line', fields: ['show', 'label', 'color', 'lineWidth', 'lineStyle'], key: ctx.multivariate ? 'diagonal' : 'curve',
+        extra: (kit) => [
+          kit.number('page.fit.samples', 'Points', { min: 20, max: 5000, step: 10, hint: 'Where the curve is evaluated.' }),
+          ctx.multivariate ? kit.el('p', { class: 'stk-hint fp-note', text: 'With several independent variables the line is observed = predicted, and there is no single curve, so no band.' }) : null
+        ]
+      };
+    }
+    if (q.id === 'band') {
+      return {
+        name: 'Confidence band', fields: ['show', 'label', 'color', 'alpha'], placeholders: { label: bandText() },
+        extra: (kit) => [kit.number('page.band.level', 'Level', { min: 50, max: 99.9, step: 0.5, unit: '%', scale: 100 })]
+      };
+    }
+    return false;
   };
-  const kit = stylePanelKit({
+
+  const panel = createFigureStylePanel(host, panelFigure(draft, ctx), {}, null, {
     open: options.open,
-    read: (path) => getPath(draft, path),
-    put: (path, value) => setPath(draft, path, value),
-    commit: (path, value) => { setPath(draft, path, value); if (!batching) emit(); },
-    batch: (fn) => { batching = true; try { fn(); } finally { batching = false; } emit(); }
-  });
-  const { el, group, grid, checks, check, number, text, select, colour, range, sub, common } = kit;
-
-  const axisTabs = kit.axisTabs(['x', 'y'].map((k) => ({ key: k, label: `${k} axis`, panel: kit.axisFields(k, k) })));
-  const bandNote = el('p', { class: 'stk-hint fp-note', text: 'With several independent variables there is no single curve, so no band.' });
-  const sigmaNote = el('p', { class: 'stk-hint fp-note', text: 'Error bars need a column of uncertainties.' });
-  const top = kit.top(Object.keys(STYLE_PRESETS));
-  const labelText = (path, label) => text(path, label, { onInput: () => { touched[path] = true; } });
-
-  const root = el('div', { class: 'fp-panel' },
-    top.node,
-    common.figure(),
-    group('text', 'Title and labels',
-      grid(
-        text('title', 'Title', { placeholder: 'None' }),
-        labelText('xLabel', 'x-axis label'),
-        labelText('yLabel', 'y-axis label'),
-        el('p', { class: 'stk-hint fp-hint fp-span', text: 'Put maths between $ signs, as matplotlib does: $\\tau$ / ms, $x^2$, $E_a$.' })
-      )),
-    group('axes', 'Axes and ticks', ...axisTabs),
-    group('data', 'Data points',
-      checks(check('data.show', 'Show the data')),
-      grid(
-        select('data.marker', 'Marker', MARKER_NAMES),
-        number('data.size', 'Size', { min: 0, max: 30, step: 0.5, unit: 'pt' }),
-        colour('data.color', 'Fill'),
-        colour('data.edgeColor', 'Edge'),
-        number('data.edgeWidth', 'Edge width', { min: 0, max: 5, step: 0.1, unit: 'pt' }),
-        range('data.alpha', 'Opacity', { min: 0, max: 1, step: 0.05 }),
-        text('data.label', 'Legend label', { placeholder: 'None: not in the legend' })
-      ),
-      el('div', { class: 'fp-errorbars' },
-        sub('Error bars'),
-        checks(check('data.errorBars', 'Show error bars')),
-        grid(
-          number('data.errorWidth', 'Line width', { min: 0.1, max: 5, step: 0.1, unit: 'pt' }),
-          number('data.capSize', 'Cap size', { min: 0, max: 20, step: 0.5, unit: 'pt' })
-        )),
-      sigmaNote),
-    group('fit', 'Fit line',
-      checks(check('fit.show', 'Show the fitted curve')),
-      grid(
-        colour('fit.color', 'Colour'),
-        number('fit.width', 'Width', { min: 0.1, max: 10, step: 0.1, unit: 'pt' }),
-        select('fit.style', 'Style', LINE_NAMES),
-        number('fit.samples', 'Points', { min: 20, max: 5000, step: 10, hint: 'Where the curve is evaluated.' }),
-        text('fit.label', 'Legend label', { placeholder: 'None: not in the legend' })
-      )),
-    group('band', 'Confidence band',
-      el('div', { class: 'fp-band' },
-        checks(check('band.show', 'Show the confidence band')),
-        grid(
-          number('band.level', 'Level', { min: 50, max: 99.9, step: 0.5, unit: '%', scale: 100 }),
-          colour('band.color', 'Colour'),
-          range('band.alpha', 'Opacity', { min: 0, max: 1, step: 0.02 }),
-          text('band.label', 'Legend label', { placeholder: '95% confidence band' })
-        )),
-      bandNote),
-    group('residuals', 'Residuals',
-      checks(check('residuals.show', 'Residual panel below the plot')),
-      grid(range('residuals.heightRatio', 'Panel height', { min: 0.15, max: 0.6, step: 0.05, format: (v) => `${Math.round(v * 100)}%`, span: true })),
-      el('p', { class: 'stk-hint fp-hint', text: 'Its height as a share of the main panel\'s. The points are drawn even when the data above are hidden.' })),
-    common.legend(),
-    common.grid(),
-    common.frame(),
-    common.export()
-  );
-  kit.setRoot(root);
-
-  top.presetButtons.forEach((b) => kit.listen(b, 'click', () => {
-    draft = normalisePlotStyle(deepMerge(draft, STYLE_PRESETS[b.dataset.preset]));
-    emit();
-  }));
-  kit.listen(top.resetButton, 'click', () => {
-    draft = defaultPlotStyle();
-    touched = {};
-    applyContextLabels(true);
-    emit();
+    // A change of the figure panel's: into the plot style.
+    absorb(change) {
+      const before = draft;
+      draft = foldFigureStyle(draft, change);
+      if (draft.xLabel !== before.xLabel) touched.xLabel = true;
+      if (draft.yLabel !== before.yLabel) touched.yLabel = true;
+      changed();
+      return panelFigure(draft, ctx);
+    },
+    onReset() {
+      draft = defaultPlotStyle();
+      touched = {};
+      applyContextLabels(true);
+      return panelFigure(draft, ctx);
+    },
+    page: {
+      read: (path) => getPath(draft, path),
+      put: (path, value) => { setPath(draft, path, value); draft = normalisePlotStyle(draft); }
+    },
+    seriesOptions,
+    seriesTitle: 'Data, fit and band',
+    fixedPanels: ['residuals'],
+    omit: ['legend.title', 'legend.columns'],
+    groups: (kit) => [kit.group('residuals', 'Residuals',
+      kit.checks(kit.check('page.residuals.show', 'Residual panel below the plot')),
+      kit.grid(kit.range('page.residuals.heightRatio', 'Panel height', { min: 0.15, max: 0.6, step: 0.05, format: (v) => `${Math.round(v * 100)}%`, span: true })),
+      kit.el('p', { class: 'stk-hint fp-hint', text: 'Its height as a share of the main panel\'s. The points are drawn even when the data above are hidden.' }))],
+    summaries(sums) {
+      const on = (b) => (b ? 'On' : 'Off');
+      const shown = [draft.data.show && 'data', draft.fit.show && 'fit', !ctx.multivariate && draft.band.show && 'band'].filter(Boolean);
+      sums.series = shown.length ? shown.join(', ').replace(/^./, (c) => c.toUpperCase()) : 'All hidden';
+      sums.residuals = on(draft.residuals.show);
+    }
   });
 
   function contextLabels() {
@@ -421,62 +456,45 @@ export function createStylePanel(host, style, onChange, options = {}) {
      it is still automatic: the last context's label, or the style's default. */
   function applyContextLabels(force) {
     const next = contextLabels();
-    let changed = false;
+    let moved = false;
     for (const k of ['x', 'y']) {
       const path = `${k}Label`;
       const cur = draft[path];
       const automatic = cur === defaultLabels[k] || cur === styleDefaults[path];
       const untouched = force || (!touched[path] && automatic);
-      if (untouched && cur !== next[k]) { draft[path] = next[k]; changed = true; }
+      if (untouched && cur !== next[k]) { draft[path] = next[k]; moved = true; }
     }
     defaultLabels = next;
-    return changed;
+    return moved;
   }
 
-  const visible = (sel, on) => root.querySelectorAll(sel).forEach((n) => { n.hidden = !on; });
-  kit.onRefresh(() => {
-    visible('.fp-errorbars', ctx.hasSigma !== false);
-    sigmaNote.hidden = ctx.hasSigma !== false;
-    visible('.fp-band', !ctx.multivariate);
-    bandNote.hidden = !ctx.multivariate;
-    const s = draft;
-    const on = (b) => (b ? 'On' : 'Off');
-    const marker = (MARKER_NAMES.find(([v]) => v === s.data.marker) || [])[1] || '';
-    const sums = {
-      ...kit.commonSummaries(),
-      axes: `${s.xScale === 'log' ? 'Log' : 'Linear'} × ${s.yScale === 'log' ? 'log' : 'linear'}`,
-      data: s.data.show ? `${marker}, ${fmtNum(s.data.size)} pt` : 'Hidden',
-      fit: s.fit.show ? (LINE_NAMES.find(([v]) => v === s.fit.style) || [])[1] : 'Hidden',
-      band: ctx.multivariate ? 'None' : on(s.band.show),
-      residuals: on(s.residuals.show),
-      legend: s.legend.show ? (LEGEND_NAMES.find(([v]) => v === s.legend.position) || [])[1] : 'Hidden'
-    };
-    for (const [k, node] of Object.entries(kit.summaries)) node.textContent = sums[k] || '';
-  });
-
-  host.appendChild(root);
   if (options.context) {
     ctx = { ...ctx, ...options.context };
     applyContextLabels(false);
+    panel.setFigure(panelFigure(draft, ctx));
   }
-  kit.refresh();
 
   return {
-    element: root,
-    get: () => clone(normalisePlotStyle(draft)),
+    element: panel.element,
+    get: () => clone(draft),
     set(next) {
       draft = normalisePlotStyle(next);
-      kit.refresh();
+      panel.set({});
+      panel.setFigure(panelFigure(draft, ctx));
     },
     setContext(next = {}) {
       ctx = { ...ctx, ...next };
-      const changed = applyContextLabels(false);
-      kit.refresh();
-      if (changed) emit();
+      const moved = applyContextLabels(false);
+      panel.setFigure(panelFigure(draft, ctx));
+      if (moved) changed();
+    },
+    /** Show one series' settings (data, fit, band), or the residual group for the residuals. */
+    showSeries(id) {
+      if (id === 'residuals' || id === 'zero') return panel.open('residuals');
+      return panel.showSeries(id);
     },
     destroy() {
-      kit.destroy();
-      root.remove();
+      panel.destroy();
     }
   };
 }

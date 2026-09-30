@@ -211,12 +211,14 @@ describe('robustness', () => {
     expect(() => buildFigure(normaliseFigure({ width: 1, height: 1, fontSize: 40, title: 'x', panels: [{ series: [{ kind: 'line', x: [1, 2], y: [1, 2] }] }] }))).not.toThrow();
   });
 
-  test('presets hold figure looks and series sizes only', () => {
+  test('presets hold figure looks and series sizes only; the background has a picker of its own', () => {
     for (const p of Object.values(FIGURE_PRESETS)) {
-      expect(Object.keys(p).slice(0, 2)).toEqual(['figure', 'series']);
+      expect(Object.keys(p)).toEqual(['figure', 'series']);
       expect(p.figure.panels).toBeUndefined();
+      expect(p.figure.background).toBeUndefined();
+      expect(p.figure.foreground).toBeUndefined();
     }
-    expect(Object.keys(FIGURE_PRESETS)).toEqual(['publication', 'presentation', 'minimal', 'dark']);
+    expect(Object.keys(FIGURE_PRESETS)).toEqual(['publication', 'presentation', 'minimal']);
   });
 });
 

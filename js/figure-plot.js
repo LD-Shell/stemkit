@@ -48,10 +48,11 @@
  *   renderFigure(el, figure, options) -> Promise<info>
  *   destroyFigure(el)
  *   exportFigure(figure, options) -> Promise<{ filename, format, bytes, widthIn, heightIn, … }>
- *   createFigureStylePanel(host, figure, style, onChange, options) -> { get, set, setFigure, destroy, element }
+ *   createFigureStylePanel(host, figure, style, onChange, options) -> { get, set, setFigure, showSeries, open,
+ *                                   destroy, element }   (the Curve Fitter's panel too, through options.absorb)
  *   mountFigure(host, options) -> { update, setStyle, getStyle, export, openStyle({ series }), closeStyle,
- *                                   setToggle, info, figure, script, destroy, element }
- *   stylePanelKit(bind), for panels of a page's own (the Curve Fitter's)
+ *                                   setToggle, setTitle, info, figure, script, destroy, element }
+ *   stylePanelKit(bind), the fields every panel is made of
  *   and the ports (axisTicks, the locators and formatters, pyPercent,
  *   textToHtml) for tests and for js/fit-plot.js
  */
@@ -60,7 +61,7 @@ import { pdfFromSvg, pdfFromJpeg } from '../src/core/pdf.js';
 import { EXPORT_FORMATS, textSizes } from '../src/core/plot-style.js';
 import {
   normaliseFigure, applyStyle, cleanStyle, lookOnly, colormapColors, colormapIndex, jitterOffsets, COLORMAPS, LOOK_KEYS,
-  COLOR_CYCLE, COLOR_CYCLE_DARK, unitsPerInch, formatSize
+  unitsPerInch, formatSize, luminance, withBackground, backgroundChoice
 } from '../src/core/figure.js';
 import { figureScript, pyStr } from '../src/core/figure-python.js';
 
@@ -2863,7 +2864,12 @@ function previewResolution(st, figure) {
 async function drawPreview(st, job) {
   // The preview draws at most about 20 000 markers a series: past that
   // Plotly's SVG takes seconds a redraw.
-  const fig = buildFigure(job.figure, { markerScale: previewResolution(st, job.figure), markerBudget: 20000, ...job.options, normalised: true });
+  // A transparent figure is drawn clear, over checks (the stage's, never saved)
+  // in the colours of the ground its ink is meant for.
+  const clear = job.options.transparent ?? !!job.figure.export.transparent;
+  const fig = buildFigure(job.figure, { markerScale: previewResolution(st, job.figure), markerBudget: 20000, ...job.options, transparent: clear, normalised: true });
+  st.stage.classList.toggle('fp-clear', clear);
+  st.stage.classList.toggle('fp-clear-dark', clear && luminance(job.figure.background) < 0.2);
   st.figureDesc = job.figure; st.options = job.options;
   await plotly().react(st.figure, fig.data, fig.layout, PLOTLY_CONFIG);
   st.info = fig.info;
@@ -2882,6 +2888,8 @@ async function drawPreview(st, job) {
  * @param {boolean} [options.responsive=true]        - refit the scale when el is resized
  * @param {number|() => number} [options.maxScale=2] - largest enlargement of a small figure
  * @param {boolean} [options.tight]                   - as buildFigure (default: figure.export.tight)
+ * @param {boolean} [options.transparent]             - no background (default: figure.export.transparent;
+ *   the stage then shows checks behind it, which are not part of the figure)
  * @param {string} [options.label]                    - what the figure shows, for screen readers
  * @returns {Promise<object>} buildFigure's info, plus `scale`, the CSS scale now applied
  */
@@ -2961,6 +2969,14 @@ function dataUrlBytes(url) {
 }
 
 const svgText = (url) => (url.startsWith('data:') ? new TextDecoder().decode(dataUrlBytes(url)) : url);
+
+/* Plotly writes a clear fill as black at no opacity, which some programs
+   read as black: no fill instead, and no page rectangle at all when the
+   page is clear. */
+function clearFills(svg) {
+  return svg.replace(/fill: rgb\(0, 0, 0\); fill-opacity: 0;/g, 'fill: none;')
+    .replace(/^(<svg\b[^>]*>)<rect x="0" y="0" width="[^"]*" height="[^"]*" style="fill: none;"\/>/, '$1');
+}
 
 let crcTable = null;
 function crc32(bytes) {
@@ -3072,7 +3088,7 @@ export async function exportFigure(figure, options = {}) {
     result.bytes = pngWithDpi(dataUrlBytes(url), s.dpi);
     result.pixelWidth = pw; result.pixelHeight = ph;
   } else {
-    const svg = svgText(await P.toImage(plot, { format: 'svg', width: widthPx, height: heightPx }));
+    const svg = clearFills(svgText(await P.toImage(plot, { format: 'svg', width: widthPx, height: heightPx })));
     if (format === 'svg') {
       result.bytes = new TextEncoder().encode(svgWithSize(svg, widthIn, heightIn, widthPx, heightPx));
     } else {
@@ -3116,10 +3132,9 @@ export const FIGURE_SIZE_PRESETS = [
 ];
 
 /* Presets change the look only: text, limits, tick positions, colours of
-   the data and the export settings stay as they are. `series` is what each
-   series takes (for the kinds it applies to). Dark also moves the series
-   that have a colour of the light cycle to the same hue stepped for a dark
-   background. */
+   the data, the background and the export settings stay as they are.
+   `series` is what each series takes (for the kinds it applies to). The
+   background has a picker of its own, at the top of the panel. */
 const both = (t) => ({ xTicks: t, yTicks: t });
 export const FIGURE_PRESETS = Object.freeze({
   publication: {
@@ -3150,11 +3165,6 @@ export const FIGURE_PRESETS = Object.freeze({
       legend: { frame: false }
     },
     series: {}
-  },
-  dark: {
-    figure: { background: '#0f172a', foreground: '#e2e8f0', grid: { color: '#64748b' } },
-    series: {},
-    darkCycle: true
   }
 });
 
@@ -3169,6 +3179,13 @@ const DIRECTION_NAMES = [['out', 'Outward'], ['in', 'Inward'], ['inout', 'Across
 const MODE_NAMES = [['auto', 'Automatic'], ['step', 'Every …'], ['count', 'About … ticks'], ['list', 'At listed values']];
 const FORMAT_NAMES = [['', 'Automatic'], ['sci', 'Scientific, ×10ⁿ'], ['%.0f', 'Whole numbers'], ['%.1f', '1 decimal place'],
   ['%.2f', '2 decimal places'], ['%.3f', '3 decimal places'], ['%g', 'Shortest (%g)'], ['custom', 'Custom (printf)']];
+/* The background picker: its four choices, the two inks of a transparent
+   page, and the little plot each swatch shows. */
+const BG_CHOICES = [['white', 'White'], ['transparent', 'Transparent'], ['dark', 'Dark'], ['custom', 'Custom']];
+const INK_CHOICES = [['dark', 'Dark text and lines', 'for light slides and pages'], ['light', 'Light text and lines', 'for dark slides']];
+const BG_GLYPH = '<svg viewBox="0 0 40 26" focusable="false"><path class="fp-bg-axes" d="M6.5 3.5v16h29"/>'
+  + '<path class="fp-bg-line" d="M8.5 16.5c4 0 6-9.5 11-9.5s6 7 14 7"/><circle class="fp-bg-dot" cx="13.5" cy="11.5" r="1.7"/>'
+  + '<circle class="fp-bg-dot" cx="22" cy="7.6" r="1.7"/><circle class="fp-bg-dot" cx="29.5" cy="13" r="1.7"/></svg>';
 const HISTTYPE_NAMES = [['stepfilled', 'Filled'], ['step', 'Outline'], ['bar', 'Bars']];
 const KIND_NAMES = { line: 'Line', scatter: 'Points', errorbar: 'Points with error bars', band: 'Band', bar: 'Bars', histogram: 'Histogram',
   box: 'Box plot', heatmap: 'Heatmap', contour: 'Contours', hline: 'Horizontal line', vline: 'Vertical line', axline: 'Line', text: 'Text', bracket: 'Bracket' };
@@ -3230,8 +3247,10 @@ function el(tag, attrs = {}, ...children) {
  * else at once.
  *
  * @param {{read: (path: string) => any, commit: (path: string, value: any) => void,
- *   batch: (fn: () => void) => void, open?: string[]}} bind - batch runs several
- *   writes and commits once (for the tick lists)
+ *   batch: (fn: () => void) => void, open?: string[],
+ *   background?: (choice: string, opts: object) => void}} bind - batch runs several
+ *   writes and commits once (for the tick lists); background makes the background
+ *   picker's change (see withBackground in src/core/figure.js)
  */
 export function stylePanelKit(bind) {
   const prefix = `fp${++panelCount}`;
@@ -3306,16 +3325,19 @@ export function stylePanelKit(bind) {
     return el('div', { class: 'fp-check', 'data-path': path },
       el('label', { class: 'stk-check', for: input.id }, input, el('span', { text: label })), hintEl(hid, hint));
   }
-  function colour(path, label) {
+  /* A colour: `pick(value)` in place of committing it to `path` (for a
+     colour whose change changes others too). */
+  function colour(path, label, { pick } = {}) {
     const id = idOf(path);
     const picker = el('input', { type: 'color', class: 'fp-swatch', id: `${id}-picker`, 'aria-label': `${label}, colour picker` });
     const code = el('input', { type: 'text', class: 'stk-input stk-input-sm stk-mono', id, maxlength: '7', spellcheck: 'false', autocomplete: 'off', 'aria-label': `${label}, hex code` });
-    listen(picker, 'input', () => { code.value = picker.value; commit(path, picker.value); });
+    const put = (v) => (pick ? pick(v) : commit(path, v));
+    listen(picker, 'input', () => { code.value = picker.value; put(picker.value); });
     listen(code, 'input', () => {
       const v = code.value.trim();
       const ok = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v);
       code.classList.toggle('is-invalid', !ok && v !== '');
-      if (ok) commit(path, hex6(v.startsWith('#') ? v : `#${v}`));
+      if (ok) put(hex6(v.startsWith('#') ? v : `#${v}`));
     });
     listen(code, 'change', () => { code.classList.remove('is-invalid'); show(); });
     const show = () => {
@@ -3357,6 +3379,92 @@ export function stylePanelKit(bind) {
     });
     controls.push({ show: () => { const q = list.find((p) => Math.abs(p.width - read('width')) < 1e-9 && Math.abs(p.height - read('height')) < 1e-9); input.value = q ? q.id : ''; } });
     return field('size', 'Size', input, { span: true });
+  }
+
+  /*
+   * The background, the panel's first control: White, Transparent, Dark or a
+   * colour of one's own, as four swatches in a radio group (the arrow keys
+   * move between them, and choosing one changes the figure at once).
+   * Transparent then asks which ink the figure is drawn in; Custom shows the
+   * two colours, the ink following the background (dark or light, whichever
+   * reads better) until it is set by hand. `bind.background(choice, opts)`
+   * makes the change (withBackground in src/core/figure.js).
+   */
+  let bgCustom = false;   // Custom chosen, while the colours may still be one of the others'
+  let inkSet = false;     // the ink of a custom background set by hand
+  const bgNow = () => backgroundChoice({ background: read('background'), foreground: read('foreground'), export: { transparent: !!read('export.transparent') } });
+  const bgShown = () => (bgCustom ? 'custom' : bgNow().choice);
+  function background() {
+    const name = `${prefix}-bg`;
+    const choose = (v) => {
+      bgCustom = v === 'custom';
+      inkSet = false;
+      if (v === 'custom') bind.background('custom', { background: read('background'), foreground: read('foreground') });
+      else bind.background(v, { ink: bgNow().ink });
+    };
+    const swatches = BG_CHOICES.map(([v, t]) => {
+      const input = el('input', { type: 'radio', class: 'fp-bg-input', name, value: v, id: `${name}-${v}` });
+      const sw = el('span', { class: 'fp-bg-sw', 'aria-hidden': 'true' });
+      sw.innerHTML = BG_GLYPH;
+      listen(input, 'change', () => { if (input.checked) choose(v); });
+      return { v, input, node: el('label', { class: `fp-bg-opt fp-bg-${v}`, for: input.id }, input, sw, el('span', { class: 'fp-bg-name', text: t })) };
+    });
+    const inks = INK_CHOICES.map(([v, t, use]) => {
+      const input = el('input', { type: 'radio', name: `${prefix}-ink`, value: v, id: `${prefix}-ink-${v}` });
+      listen(input, 'change', () => { if (input.checked) bind.background('transparent', { ink: v }); });
+      return { v, input, node: el('label', { class: 'stk-check fp-ink', for: input.id }, input, el('span', {}, `${t} `, el('span', { class: 'fp-ink-use', text: `(${use})` }))) };
+    });
+    const inkBox = el('fieldset', { class: 'fp-bg-more' },
+      el('legend', { class: 'fp-bg-more-t', text: 'Draw it in' }),
+      ...inks.map((i) => i.node),
+      el('p', { class: 'stk-hint fp-hint', text: 'Clear behind the figure in the PNG, SVG and PDF, and in the script. The checks in the preview are not saved.' }));
+    const customBox = el('div', { class: 'fp-bg-more' },
+      grid(
+        colour('background', 'Background', { pick: (c) => bind.background('custom', { background: c, foreground: inkSet ? read('foreground') : undefined }) }),
+        colour('foreground', 'Text and lines', { pick: (c) => { inkSet = true; commit('foreground', c); } })
+      ),
+      el('p', { class: 'stk-hint fp-hint', text: 'The text and lines turn dark or light with the background, to stay readable, until you choose them.' }));
+    const node = el('fieldset', { class: 'fp-bg' },
+      el('legend', { class: 'fp-bg-t', text: 'Background' }),
+      el('div', { class: 'fp-bg-row' }, swatches.map((q) => q.node)),
+      inkBox, customBox);
+    controls.push({
+      show: () => {
+        const now = bgNow();
+        if (bgCustom && now.choice === 'transparent') bgCustom = false;
+        const shown = bgShown();
+        swatches.forEach((q) => { q.input.checked = q.v === shown; });
+        inks.forEach((q) => { q.input.checked = q.v === now.ink; });
+        inkBox.hidden = shown !== 'transparent';
+        customBox.hidden = shown !== 'custom';
+        node.dataset.ink = now.ink;
+        node.style.setProperty('--fp-bg-own', hex6(read('background')));
+        node.style.setProperty('--fp-bg-own-ink', hex6(read('foreground')));
+      }
+    });
+    return node;
+  }
+  /* What the background is, in words, for the Export group: the choice lives at the top. */
+  function backgroundNote() {
+    const words = el('span', {});
+    const go = el('button', { type: 'button', class: 'fp-link', text: 'Change' });
+    listen(go, 'click', () => {
+      const r = root && root.querySelector('.fp-bg-input:checked');
+      if (!r) return;
+      const box = r.closest('.fp-bg');
+      if (box && box.scrollIntoView) box.scrollIntoView({ block: 'nearest' });
+      r.focus({ preventScroll: true });
+    });
+    controls.push({
+      show: () => {
+        const now = bgNow();
+        const shown = bgShown();
+        words.textContent = shown === 'transparent'
+          ? `Background: transparent, with ${now.ink} text and lines. `
+          : shown === 'custom' ? `Background: ${hex6(read('background'))}. ` : `Background: ${shown}. `;
+      }
+    });
+    return el('p', { class: 'stk-hint fp-hint fp-bg-note fp-span' }, words, go);
   }
 
   /*
@@ -3535,9 +3643,7 @@ export function stylePanelKit(bind) {
         select('fontFamily', 'Font', FONT_NAMES),
         number('fontSize', 'Font size', { min: 4, max: 40, step: 0.5, unit: 'pt', hint: opts.textSizes ? 'Axis labels; ticks, title and legend follow unless set.' : 'Axis labels; ticks are 1 pt smaller, the title 1 pt larger.', span: false }),
         opts.textSizes ? number('titleSize', 'Title size', { min: 4, max: 60, step: 0.5, unit: 'pt', nullable: true, placeholder: 'Auto' }) : null,
-        opts.textSizes ? number('tickSize', 'Tick labels', { min: 4, max: 60, step: 0.5, unit: 'pt', nullable: true, placeholder: 'Auto' }) : null,
-        colour('background', 'Background'),
-        colour('foreground', 'Text and lines')
+        opts.textSizes ? number('tickSize', 'Tick labels', { min: 4, max: 60, step: 0.5, unit: 'pt', nullable: true, placeholder: 'Auto' }) : null
       )),
     legend: (extra = []) => group('legend', 'Legend',
       checks(check('legend.show', 'Show the legend'), check('legend.frame', 'Frame')),
@@ -3567,10 +3673,10 @@ export function stylePanelKit(bind) {
         // a page may keep it in view (dpiAlways).
         opts.dpiAlways
           ? number('dpi', 'PNG resolution', { min: 50, max: 1200, step: 1, unit: 'dpi', span: true })
-          : number('dpi', 'Resolution', { min: 50, max: 1200, step: 1, unit: 'dpi', span: true })
+          : number('dpi', 'Resolution', { min: 50, max: 1200, step: 1, unit: 'dpi', span: true }),
+        backgroundNote()
       ),
       checks(
-        check('export.transparent', 'Transparent background'),
         check('export.tight', 'Fit the page to the drawing', { hint: 'Trims the page to what is drawn plus 0.1 in, as bbox_inches=\'tight\' does, so the saved size is a little larger or smaller than the width and height set above.' })
       ))
   };
@@ -3603,7 +3709,9 @@ export function stylePanelKit(bind) {
   return {
     prefix, el, idOf, listen, later, timers, cleanups, controls, summaries, groups,
     field, number, text, select, check, colour, range, segmented, grid, checks, sub, hintEl,
-    sizePreset, axisFields, axisTabs, group, top, common, commonSummaries, refresh,
+    sizePreset, axisFields, axisTabs, group, top, common, commonSummaries, refresh, background,
+    /** Forget that Custom was chosen (for a style set from outside). */
+    resetBackground: () => { bgCustom = false; inkSet = false; },
     onRefresh: (f) => extraRefresh.push(f),
     setRoot: (r) => { root = r; },
     destroy() {
@@ -3704,27 +3812,56 @@ function lookOfFigure(f, keyOf = (id) => id) {
 }
 
 /**
- * The panel that styles any figure: the Curve Fitter's groups, in its order
- * (figure, title and labels, axes and ticks, then a section for each series
- * in place of its data, fit and band, then legend, grid, frame and export),
- * with the size presets, three look presets and a reset.
+ * The panel that styles any figure: the background first (white,
+ * transparent, dark or a colour of one's own), then three look presets and a
+ * reset, and the groups in the Curve Fitter's order (figure, title and
+ * labels, axes and ticks, then a section for each series, then legend, grid,
+ * frame and export).
  *
  * The panel edits the person's style, a partial object laid over the page's
  * description (see applyStyle in src/core/figure.js): every change calls
  * `onChange` with the whole of it.
  *
+ * A page whose description is its own style (the Curve Fitter's plot style)
+ * passes `absorb`: each change is handed to it as a partial style, which it
+ * folds into its own and answers with the new description; the panel's
+ * style is then empty again. Such a page may add fields of its own (paths
+ * 'page.…', read and written through `page`), limit what a series offers,
+ * and keep some panels to itself.
+ *
  * @param {HTMLElement} host
  * @param {object} figure - the page's description, for the panels and series to offer
  * @param {object} style  - the person's style so far
  * @param {(style: object) => void} onChange
- * @param {{open?: string[]}} [options] - groups open at the start (default ['figure'])
+ * @param {object} [options]
+ * @param {string[]} [options.open] - groups open at the start (default ['figure'])
+ * @param {(style: object) => object|null} [options.absorb] - fold a change into the page's
+ *   own style; returns the new description
+ * @param {() => object|null} [options.onReset] - what Reset does besides clearing the
+ *   style; returns the new description
+ * @param {{read: (path: string) => any, put: (path: string, value: any) => void}} [options.page] -
+ *   the page's own fields, at paths 'page.<path>'
+ * @param {(series: object) => false|{fields?: string[], name?: string, key?: string,
+ *   placeholders?: object, extra?: (kit: object) => Node[]}} [options.seriesOptions] - per series:
+ *   false to leave it out, or the fields it offers (by key), its name in the list, a key for
+ *   what its section depends on, placeholders for its fields, and fields of the page's own
+ * @param {string[]} [options.fixedPanels] - ids of panels whose y label, y axis and height
+ *   the page sets itself
+ * @param {string[]} [options.omit] - paths of the figure's fields not to offer
+ * @param {string} [options.seriesTitle] - the Series group's title
+ * @param {(kit: object) => Node[]} [options.groups] - groups of the page's own, after the series
+ * @param {(summaries: object) => void} [options.summaries] - adjust the groups' one-line states
  * @returns {{get: () => object, set: (style: object) => void, setFigure: (figure: object) => void,
- *   showSeries: (id: string) => boolean, destroy: () => void, element: HTMLElement}}
+ *   showSeries: (id: string) => boolean, open: (group: string) => boolean, destroy: () => void,
+ *   element: HTMLElement}}
  */
 export function createFigureStylePanel(host, figure, style, onChange, options = {}) {
   let desc = figure || {};
   let overrides = cleanStyle(style);
   let look = null;
+  const page = options.page || null;
+  const isPage = (path) => !!page && path.startsWith('page.');
+  const seriesOpt = (q) => (typeof options.seriesOptions === 'function' ? options.seriesOptions(q) : null);
   // Series are addressed in the panel's paths by a key of their own (s0, s1 …):
   // a page's id may hold dots or spaces, which a dotted path cannot.
   let keys = new Map(); let ids = new Map();
@@ -3734,19 +3871,37 @@ export function createFigureStylePanel(host, figure, style, onChange, options = 
     keys = new Map(); ids = new Map();
     f.panels.flatMap((p) => p.series).forEach((q, i) => { keys.set(q.id, `s${i}`); ids.set(`s${i}`, q.id); });
     look = lookOfFigure(f, keyOf);
+    return f;
   };
   resolve();
+  /* What the fields depend on: rebuilt when it changes. */
+  const shapeOf = () => {
+    const f = normaliseFigure(lookOnly(desc));
+    const opts = f.panels.flatMap((p) => p.series).map((q) => {
+      const o = seriesOpt(q);
+      return o === false ? false : o ? { fields: o.fields, key: o.key } : null;
+    });
+    return JSON.stringify([lookShape(desc), opts]);
+  };
+  let builtShape = '';
   let batching = false;
   const emit = () => {
+    if (typeof options.absorb === 'function') {
+      const next = options.absorb(clone(overrides));
+      overrides = {};
+      if (next) desc = next;
+    }
     resolve();
+    if (shapeOf() !== builtShape) rebuild();
     kit.refresh();
     if (typeof onChange === 'function') onChange(clone(overrides));
   };
   const bind = {
     open: options.open,
     dpiAlways: true,
-    read: (path) => getPath(look, path),
+    read: (path) => (isPage(path) ? page.read(path.slice(5)) : getPath(look, path)),
     put: (path, value) => {
+      if (isPage(path)) { page.put(path.slice(5), value); return; }
       const parts = path.split('.');
       if (parts[0] === 'series' && ids.has(parts[1])) {
         const id = ids.get(parts[1]);
@@ -3759,7 +3914,9 @@ export function createFigureStylePanel(host, figure, style, onChange, options = 
       putPath(look, path, value, look);
     },
     commit: (path, value) => { bind.put(path, value); if (!batching) emit(); },
-    batch: (fn) => { batching = true; try { fn(); } finally { batching = false; } emit(); }
+    batch: (fn) => { batching = true; try { fn(); } finally { batching = false; } emit(); },
+    // The background picker: the look it names, series recoloured to match.
+    background: (choice, opts) => { overrides = withBackground(overrides, desc, choice, opts); emit(); }
   };
   const kit = stylePanelKit(bind);
   const { el: h, group, grid, text, number, select, checks, check, common } = kit;
@@ -3768,65 +3925,108 @@ export function createFigureStylePanel(host, figure, style, onChange, options = 
 
   let seriesShown = null;
   let pickSeries = () => false;
+  let seriesNames = () => {};
   function build() {
     root.textContent = '';
+    for (const k of Object.keys(kit.groups)) delete kit.groups[k];
+    for (const k of Object.keys(kit.summaries)) delete kit.summaries[k];
+    builtShape = shapeOf();
     const f = normaliseFigure(applyStyle(lookOnly(desc), overrides));
+    const fixed = new Set(options.fixedPanels || []);
+    const free = f.panels.filter((p) => !fixed.has(p.id));
+    const panelName = (p) => p.name || `panel ${f.panels.findIndex((x) => x.id === p.id) + 1}`;
     const top = kit.top(Object.keys(FIGURE_PRESETS));
-    top.node.querySelector('.fp-presets').classList.add('fp-presets-4');
+    // Series: those the page offers, one at a time.
+    const all = f.panels.flatMap((p) => p.series.map((q) => ({ q, p, o: seriesOpt(q) }))).filter((a) => a.o !== false);
+    const offered = new Set(all.map((a) => a.q.id));
     // Title and labels: the figure's, each panel's y label, each colour bar's.
     const labelFields = [text('title', 'Title', { placeholder: 'None' }), text('xLabel', 'x-axis label')];
-    f.panels.forEach((p, i) => {
-      const name = f.panels.length > 1 ? `y-axis label, ${p.name || `panel ${i + 1}`}` : 'y-axis label';
-      labelFields.push(text(`panels.${i}.yLabel`, name));
-      p.series.filter((q) => q.colorbar && q.colorbar.show !== undefined && (q.kind === 'heatmap' || q.filled)).forEach((q) => {
-        labelFields.push(text(`series.${keyOf(q.id)}.colorbar.label`, f.panels.length > 1 ? `Colour bar label, ${p.name || `panel ${i + 1}`}` : 'Colour bar label'));
+    f.panels.forEach((p) => {
+      const i = f.panels.indexOf(p);
+      if (!fixed.has(p.id)) labelFields.push(text(`panels.${i}.yLabel`, free.length > 1 ? `y-axis label, ${panelName(p)}` : 'y-axis label'));
+      p.series.filter((q) => offered.has(q.id) && q.colorbar && q.colorbar.show !== undefined && (q.kind === 'heatmap' || q.filled)).forEach((q) => {
+        labelFields.push(text(`series.${keyOf(q.id)}.colorbar.label`, f.panels.length > 1 ? `Colour bar label, ${panelName(p)}` : 'Colour bar label'));
       });
     });
     labelFields.push(h('p', { class: 'stk-hint fp-hint fp-span', text: 'Put maths between $ signs, as matplotlib does: $\\tau$ / ms, $x^2$, $E_a$.' }));
-    // Axes: x, then a y for each panel.
+    // Axes: x, then a y for each panel the person sets.
     const tabs = [{ key: 'x', label: 'x axis', panel: kit.axisFields('x', 'x', { categorical: !!f.xCategories }) }];
-    f.panels.forEach((p, i) => {
-      tabs.push({ key: `y${i}`, label: f.panels.length > 1 ? `y, ${p.name || i + 1}` : 'y axis', panel: kit.axisFields(`y${i}`, `panels.${i}.y`, { far: 'right' }) });
+    free.forEach((p) => {
+      const i = f.panels.indexOf(p);
+      tabs.push({ key: `y${i}`, label: free.length > 1 ? `y, ${p.name || i + 1}` : 'y axis', panel: kit.axisFields(`y${i}`, `panels.${i}.y`, { far: 'right' }) });
     });
-    // Series: one at a time.
-    const all = f.panels.flatMap((p) => p.series.map((q) => ({ q, p })));
-    const named = (q) => q.label || (q.kind === 'text' || q.kind === 'bracket' ? `${KIND_NAMES[q.kind]}: ${q.text}` : KIND_NAMES[q.kind]);
+    const named = (q, o) => (o && o.name) || q.label || (q.kind === 'text' || q.kind === 'bracket' ? `${KIND_NAMES[q.kind]}: ${q.text}` : KIND_NAMES[q.kind]);
+    const listName = (q, o, p) => (f.panels.length > 1 && !(o && o.name) ? `${named(q, o)} (${panelName(p)})` : named(q, o));
     if (!all.some((a) => a.q.id === seriesShown)) seriesShown = all.length ? all[0].q.id : null;
     const seriesBody = [];
+    let pick = null;
     if (all.length > 1) {
-      const pick = h('select', { class: 'stk-select stk-select-sm', id: `${kit.prefix}-series` },
-        all.map(({ q, p }) => h('option', { value: q.id, text: f.panels.length > 1 ? `${named(q)} (${p.name || `panel ${f.panels.indexOf(p) + 1}`})` : named(q) })));
+      pick = h('select', { class: 'stk-select stk-select-sm', id: `${kit.prefix}-series` },
+        all.map(({ q, o, p }) => h('option', { value: q.id, text: listName(q, o, p) })));
       pick.value = seriesShown;
       kit.listen(pick, 'change', () => { seriesShown = pick.value; showSeries(); });
       seriesBody.push(kit.field('series', 'Series', pick, { span: true }));
     }
-    const sections = all.map(({ q }) => {
-      const node = h('div', { class: 'fp-series', 'data-series': q.id }, seriesFields(kit, q, `series.${keyOf(q.id)}`));
+    const sections = all.map(({ q, o }) => {
+      const path = `series.${keyOf(q.id)}`;
+      const node = h('div', { class: 'fp-series', 'data-series': q.id }, seriesFields(kit, q, path));
+      if (o && Array.isArray(o.fields)) {
+        const keep = new Set(o.fields);
+        node.querySelectorAll('[data-path]').forEach((n) => { if (!keep.has(n.dataset.path.slice(path.length + 1))) n.remove(); });
+        node.querySelectorAll('.fp-grid, .fp-checks').forEach((n) => { if (!n.children.length) n.remove(); });
+      }
+      // The page's own fields: a lone field joins the section's last grid, anything else follows it.
+      if (o && typeof o.extra === 'function') {
+        for (const x of (o.extra(kit) || []).filter(Boolean)) {
+          const grids = node.querySelectorAll(':scope > .fp-grid');
+          if (x.classList && x.classList.contains('fp-field') && grids.length) grids[grids.length - 1].append(x); else node.append(x);
+        }
+      }
       return node;
     });
     const showSeries = () => sections.forEach((n) => { n.hidden = n.dataset.series !== seriesShown; });
     pickSeries = (id) => {
       if (!all.some((a) => a.q.id === id)) return false;
       seriesShown = id;
-      const select = root.querySelector(`#${kit.prefix}-series`);
-      if (select) select.value = id;
+      if (pick) pick.value = id;
       showSeries();
       return true;
     };
+    // Names and placeholders that follow the page (a band's level, say) without a rebuild.
+    seriesNames = () => {
+      const now = normaliseFigure(lookOnly(desc));
+      const byId = new Map(now.panels.flatMap((p) => p.series.map((q) => [q.id, { q, p }])));
+      all.forEach(({ q }, i) => {
+        const cur = byId.get(q.id);
+        if (!cur) return;
+        const o = seriesOpt(cur.q);
+        if (pick && pick.options[i]) pick.options[i].text = listName(applied(cur.q), o, cur.p);
+        const path = `series.${keyOf(q.id)}`;
+        for (const [k, v] of Object.entries((o && o.placeholders) || {})) {
+          const input = sections[i].querySelector(`[data-path="${path}.${k}"] input`);
+          if (input) input.placeholder = v;
+        }
+      });
+    };
     seriesBody.push(...sections);
     const legendExtra = [text('legend.title', 'Title', { placeholder: 'None' }), number('legend.columns', 'Columns', { min: 1, max: 10, step: 1 })];
+    const own = typeof options.groups === 'function' ? (options.groups(kit) || []) : [];
+    const seriesTitle = options.seriesTitle || (all.length > 1 ? 'Series' : all.length ? named(all[0].q, all[0].o) : '');
     root.append(...[
+      kit.background(),
       top.node,
       common.figure({ units: true, textSizes: true, sizes: FIGURE_SIZE_PRESETS }),
       group('text', 'Title and labels', grid(...labelFields)),
       group('axes', 'Axes and ticks', ...kit.axisTabs(tabs)),
-      all.length ? group('series', all.length > 1 ? 'Series' : named(all[0].q), ...seriesBody) : null,
-      f.panels.length > 1 ? group('panels', 'Panels', grid(...f.panels.map((p, i) => kit.range(`panels.${i}.ratio`, `Height, ${p.name || `panel ${i + 1}`}`, { min: 0.2, max: 3, step: 0.05, format: (v) => `${Math.round(v * 100)}%` })))) : null,
+      all.length ? group('series', seriesTitle, ...seriesBody) : null,
+      ...own,
+      free.length > 1 ? group('panels', 'Panels', grid(...free.map((p) => kit.range(`panels.${f.panels.indexOf(p)}.ratio`, `Height, ${panelName(p)}`, { min: 0.2, max: 3, step: 0.05, format: (v) => `${Math.round(v * 100)}%` })))) : null,
       common.legend(legendExtra),
       common.grid({ axis: true }),
       common.frame(),
       common.export({ dpiAlways: true })
     ].filter(Boolean));
+    for (const path of options.omit || []) root.querySelectorAll(`[data-path="${path}"]`).forEach((n) => n.remove());
     showSeries();
     top.presetButtons.forEach((b) => kit.listen(b, 'click', () => {
       const preset = FIGURE_PRESETS[b.dataset.preset];
@@ -3841,26 +4041,45 @@ export function createFigureStylePanel(host, figure, style, onChange, options = 
           const applies = k === 'size' ? ['scatter', 'errorbar', 'line'].includes(q.kind) : q[k] !== undefined;
           if (applies) o[k] = v;
         }
-        // A colour of the light cycle becomes the same hue for a dark ground.
-        if (preset.darkCycle) {
-          for (const key of ['color', 'edgeColor']) {
-            const k = COLOR_CYCLE.indexOf(q[key]);
-            if (k >= 0) o[key] = COLOR_CYCLE_DARK[k];
-          }
-        }
         if (Object.keys(o).length) ser[q.id] = { ...(ser[q.id] || {}), ...o };
       }
       overrides.series = ser;
       emit();
     }));
-    kit.listen(top.resetButton, 'click', () => { overrides = {}; emit(); });
+    kit.listen(top.resetButton, 'click', () => {
+      overrides = {};
+      kit.resetBackground();
+      if (typeof options.onReset === 'function') { const next = options.onReset(); if (next) desc = next; }
+      emit();
+    });
+  }
+  /* A series of the page's description with the person's style on it (for its label). */
+  function applied(q) {
+    const o = overrides.series && overrides.series[q.id];
+    return o && o.label !== undefined ? { ...q, label: o.label } : q;
+  }
+  /* Build again, keeping the open groups and the focus. */
+  function rebuild() {
+    const active = typeof document !== 'undefined' ? document.activeElement : null;
+    const activeId = active && root.contains(active) ? active.id : '';
+    bind.open = Object.keys(kit.groups).filter((k) => kit.groups[k].open);
+    kit.controls.length = 0;
+    build();
+    if (activeId) {
+      const again = root.querySelector(`[id="${activeId}"]`);
+      if (again) again.focus({ preventScroll: true });
+    }
   }
   kit.onRefresh(() => {
+    seriesNames();
     const sums = kit.commonSummaries();
-    sums.axes = `${look.xScale === 'log' ? 'Log' : 'Linear'} × ${look.panels.map((p) => (p.yScale === 'log' ? 'log' : 'linear')).join(', ')}`;
+    const fixed = new Set(options.fixedPanels || []);
+    const shown = normaliseFigure(lookOnly(desc)).panels.map((p, i) => ({ p, i })).filter(({ p }) => !fixed.has(p.id));
+    sums.axes = `${look.xScale === 'log' ? 'Log' : 'Linear'} × ${shown.map(({ i }) => (look.panels[i].yScale === 'log' ? 'log' : 'linear')).join(', ')}`;
     const n = Object.keys(look.series).length;
     sums.series = n > 1 ? `${n} series` : '';
     sums.panels = `${look.panels.length} panels`;
+    if (typeof options.summaries === 'function') options.summaries(sums);
     for (const [k, node] of Object.entries(kit.summaries)) node.textContent = sums[k] || '';
   });
   build();
@@ -3872,6 +4091,7 @@ export function createFigureStylePanel(host, figure, style, onChange, options = 
     get: () => clone(overrides),
     set(next) {
       overrides = cleanStyle(next);
+      kit.resetBackground();
       resolve();
       kit.refresh();
     },
@@ -3887,15 +4107,21 @@ export function createFigureStylePanel(host, figure, style, onChange, options = 
       }
       return true;
     },
+    /** Open one group and bring it into view; false if there is no such group. */
+    open(key) {
+      const g = kit.groups[key];
+      if (!g) return false;
+      g.open = true;
+      if (g.scrollIntoView) g.scrollIntoView({ block: 'nearest' });
+      const first = g.querySelector('.fp-group-b input, .fp-group-b select');
+      if (first) first.focus({ preventScroll: true });
+      return true;
+    },
     setFigure(next) {
-      const before = JSON.stringify(lookShape(desc));
       desc = next || {};
       resolve();
       // Rebuild when the panels or series changed; otherwise only show.
-      if (JSON.stringify(lookShape(desc)) !== before) {
-        kit.controls.length = 0;
-        build();
-      }
+      if (shapeOf() !== builtShape) rebuild();
       kit.refresh();
     },
     destroy() {
@@ -3905,10 +4131,11 @@ export function createFigureStylePanel(host, figure, style, onChange, options = 
   };
 }
 
-/* What the panel's fields depend on: the panels, and each series' id and kind. */
+/* What the panel's fields depend on: the panels, and each series' id and kind
+   (a label, which the person may be typing, only renames it in the list). */
 function lookShape(desc) {
   const f = normaliseFigure(lookOnly(desc));
-  return { cat: !!f.xCategories, panels: f.panels.map((p) => ({ name: p.name, series: p.series.map((q) => [q.id, q.kind, q.filled, q.label, q.text]) })) };
+  return { cat: !!f.xCategories, panels: f.panels.map((p) => ({ id: p.id, name: p.name, series: p.series.map((q) => [q.id, q.kind, q.filled, q.text, !!(q.colorbar && q.colorbar.show !== undefined)]) })) };
 }
 
 /* ------------------------------------------------------------------ *
@@ -4047,6 +4274,15 @@ export function mountFigure(host, options = {}) {
     host.append(header, stage, notes);
   }
   exportBtns.forEach((b) => listen(b, 'click', () => exportAs(b.dataset.export, b)));
+  // Beside the size: that the saved figure has no background.
+  let badge = host.querySelector('.fg-clear');
+  const ownBadge = !badge && !!size;
+  if (ownBadge) {
+    badge = h('span', { class: 'stk-badge fg-clear', title: 'Saved with a transparent background' },
+      h('span', { class: 'fg-clear-sw', 'aria-hidden': 'true' }), 'Transparent');
+    size.after(badge);
+  }
+  if (badge) badge.hidden = true;
   const status = h('p', { class: 'sr-only', role: 'status', 'aria-live': 'polite' });
   host.append(status);
   if (options.label) figureEl.setAttribute('aria-label', options.label);
@@ -4127,6 +4363,7 @@ export function mountFigure(host, options = {}) {
     empty.hidden = has;
     figureEl.hidden = !has;
     exportBtns.forEach((b) => { b.disabled = !has; });
+    if (badge) badge.hidden = !(has && resolved.export.transparent);
     if (!has) {
       stage.classList.remove('is-drawn');
       notes.hidden = true;
@@ -4280,6 +4517,7 @@ export function mountFigure(host, options = {}) {
       if (drawer) drawer.remove();
       if (python && python.destroy) python.destroy();
       status.remove();
+      if (ownBadge) badge.remove();
       if (!adopted) { host.classList.remove('fg', 'fg-card'); header.remove(); stage.remove(); notes.remove(); }
     }
   };

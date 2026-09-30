@@ -13,7 +13,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync, existsSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { figureScript, identifier, pyStr, pyNum } from '../src/core/figure-python.js';
-import { normaliseFigure } from '../src/core/figure.js';
+import { normaliseFigure, applyStyle, withBackground } from '../src/core/figure.js';
 import { buildFigure } from '../js/figure-plot.js';
 
 const PYTHON = (() => {
@@ -293,6 +293,43 @@ describe('size units, grid along one axis, text sizes and lines after the series
       expect(p.ylim[0]).toBe(0);
     } finally {
       rmSync(r.dir, { recursive: true, force: true });
+    }
+  }, 60000);
+});
+
+describe('the background picker in the script', () => {
+  const page = { width: 3, height: 2, legend: { show: true }, panels: [{ series: [{ id: 'a', kind: 'line', x: [0, 1, 2], y: [0, 1, 0], label: 'a' }] }] };
+  const CHOICES = [['white', {}, false], ['dark', {}, false], ['transparent', { ink: 'dark' }, true], ['transparent', { ink: 'light' }, true], ['custom', { background: '#fdf6e3' }, false]];
+  const figureOf = (choice, opts, format) => normaliseFigure(applyStyle({ ...page, export: { filename: 'bg', format } }, withBackground({}, page, choice, opts)));
+
+  test('savefig is transparent for the transparent choice, whatever the format', () => {
+    for (const format of ['pdf', 'png', 'svg']) {
+      for (const [choice, opts, clear] of CHOICES) {
+        const code = figureScript(figureOf(choice, opts, format));
+        expect(code).toMatch(new RegExp(`fig\\.savefig\\('bg\\.${format}', dpi=\\d+, transparent=${clear ? 'True' : 'False'}`));
+      }
+    }
+    expect(figureScript(figureOf('transparent', { ink: 'light' }, 'png'))).toContain("'text.color': '#e2e8f0'");
+  });
+
+  withPython('the PNG is clear at its corners and the SVG has no page fill; White is opaque', async () => {
+    const runs = [];
+    try {
+      for (const [format, choice, opts] of [['png', 'transparent', { ink: 'light' }], ['svg', 'transparent', { ink: 'dark' }], ['png', 'white', {}]]) {
+        const r = await run(figureScript(figureOf(choice, opts, format)));
+        runs.push(r);
+        expect([r.code, r.stderr]).toEqual([0, '']);
+        if (format === 'png') {
+          const alpha = spawnSync('python3', ['-c', "import matplotlib.image as m; a = m.imread('bg.png'); print(a[0, 0, 3], a[-1, -1, 3], a[0, -1, 3])"], { cwd: r.dir, encoding: 'utf8' }).stdout.trim().split(/\s+/).map(Number);
+          expect(alpha).toEqual(choice === 'transparent' ? [0, 0, 0] : [1, 1, 1]);
+        } else {
+          const svg = readFileSync(join(r.dir, 'bg.svg'), 'utf8');
+          const patch = svg.match(/<g id="patch_1">\s*<path [^>]*style="([^"]*)"/);
+          expect(patch && patch[1]).toMatch(/fill: none/);
+        }
+      }
+    } finally {
+      runs.forEach((r) => rmSync(r.dir, { recursive: true, force: true }));
     }
   }, 60000);
 });

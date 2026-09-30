@@ -7,7 +7,8 @@
 import { describe, test, expect } from '@jest/globals';
 import {
   normaliseFigure, applyStyle, cleanStyle, defaultFigure, boxStats, histogram, linspace, colormapColors, colormapIndex,
-  colormapColor, colorCycle, COLOR_CYCLE, COLOR_CYCLE_DARK, COLORMAPS, SERIES_KINDS, jitterOffsets, unitsPerInch, formatSize
+  colormapColor, colorCycle, COLOR_CYCLE, COLOR_CYCLE_DARK, COLORMAPS, SERIES_KINDS, jitterOffsets, unitsPerInch, formatSize,
+  BACKGROUNDS, withBackground, backgroundChoice, readableInk
 } from '../src/core/figure.js';
 import { defaultPlotStyle, normalisePlotStyle, textSizes } from '../src/core/plot-style.js';
 
@@ -211,5 +212,72 @@ describe('series ids of any spelling', () => {
     const code = figureScript(f);
     expect(code).toContain('trace_m3_rbias_x = np.array');
     expect(code).toMatch(/^my_series_2, = ax\.plot\(/m);
+  });
+});
+
+describe('the background picker: white, transparent, dark, custom', () => {
+  const page = { panels: [{ series: [
+    { id: 'cycled', kind: 'line', x: [0, 1], y: [0, 1] },
+    { id: 'blue', kind: 'scatter', x: [0], y: [0], color: COLOR_CYCLE[0], edgeColor: COLOR_CYCLE[0] },
+    { id: 'own', kind: 'line', x: [0], y: [0], color: '#123456' }
+  ] }] };
+  const look = (style) => {
+    const f = normaliseFigure(applyStyle(page, style));
+    return { background: f.background, foreground: f.foreground, grid: f.grid.color, transparent: f.export.transparent,
+      colours: f.panels[0].series.map((q) => [q.color, q.edgeColor]) };
+  };
+
+  test('each choice gives its look, whatever came before', () => {
+    const white = look({});
+    for (const before of [{}, withBackground({}, page, 'dark'), withBackground({}, page, 'transparent', { ink: 'light' }), withBackground({}, page, 'custom', { background: '#334455' })]) {
+      const dark = look(withBackground(before, page, 'dark'));
+      expect(dark).toMatchObject({ background: BACKGROUNDS.dark.background, foreground: BACKGROUNDS.dark.foreground, grid: BACKGROUNDS.dark.grid, transparent: false });
+      // A series left to the cycle follows the ground; one of the cycle's colours moves to the same hue; one's own stays.
+      expect(dark.colours[0][0]).toBe(COLOR_CYCLE_DARK[0]);
+      expect(dark.colours[1]).toEqual([COLOR_CYCLE_DARK[0], COLOR_CYCLE_DARK[0]]);
+      expect(dark.colours[2][0]).toBe('#123456');
+      expect(look(withBackground(before, page, 'white'))).toEqual(white);
+      const clear = look(withBackground(before, page, 'transparent', { ink: 'dark' }));
+      expect(clear).toMatchObject({ background: '#ffffff', foreground: '#1a1a1a', transparent: true });
+      expect(clear.colours[1]).toEqual([COLOR_CYCLE[0], COLOR_CYCLE[0]]);
+      const clearLight = look(withBackground(before, page, 'transparent', { ink: 'light' }));
+      expect(clearLight).toMatchObject({ foreground: BACKGROUNDS.dark.foreground, grid: BACKGROUNDS.dark.grid, transparent: true });
+      expect(clearLight.colours[1]).toEqual([COLOR_CYCLE_DARK[0], COLOR_CYCLE_DARK[0]]);
+    }
+  });
+
+  test('White after Dark and a transparent page in light ink is the White look again, and no style at all', () => {
+    let s = {};
+    s = withBackground(s, page, 'dark');
+    s = withBackground(s, page, 'transparent', { ink: 'light' });
+    s = withBackground(s, page, 'white');
+    expect(s).toEqual({});
+    expect(look(s)).toEqual(look({}));
+    // The person's other settings stay.
+    const kept = withBackground(withBackground({ grid: { show: true }, fontSize: 14 }, page, 'dark'), page, 'white');
+    expect(kept).toEqual({ grid: { show: true }, fontSize: 14 });
+  });
+
+  test('which choice a look is: old styles of the Dark preset are Dark', () => {
+    expect(backgroundChoice(normaliseFigure({}))).toEqual({ choice: 'white', ink: 'dark' });
+    expect(backgroundChoice({ background: '#0f172a', foreground: '#e2e8f0', grid: { color: '#64748b' } })).toEqual({ choice: 'dark', ink: 'light' });
+    expect(backgroundChoice({ background: '#0f172a', foreground: '#e2e8f0', export: { transparent: true } })).toEqual({ choice: 'transparent', ink: 'light' });
+    expect(backgroundChoice({ export: { transparent: true } })).toEqual({ choice: 'transparent', ink: 'dark' });
+    expect(backgroundChoice({ background: '#fdf6e3' }).choice).toBe('custom');
+    // An old stored style with the Dark preset and the transparent box ticked.
+    const old = cleanStyle({ background: '#0f172a', foreground: '#e2e8f0', grid: { color: '#64748b' }, series: { a: { color: COLOR_CYCLE_DARK[1] } } });
+    expect(backgroundChoice(normaliseFigure(applyStyle(page, old))).choice).toBe('dark');
+  });
+
+  test('custom: the ink follows the background unless given', () => {
+    expect(readableInk('#fdf6e3')).toBe('#1a1a1a');
+    expect(readableInk('#1b2a4a')).toBe('#e2e8f0');
+    expect(look(withBackground({}, page, 'custom', { background: '#1b2a4a' }))).toMatchObject({ background: '#1b2a4a', foreground: '#e2e8f0', transparent: false });
+    expect(look(withBackground({}, page, 'custom', { background: '#1b2a4a', foreground: '#ffcc00' })).foreground).toBe('#ffcc00');
+    // A dark custom ground moves the cycle's colours as Dark does.
+    expect(look(withBackground({}, page, 'custom', { background: '#1b2a4a' })).colours[1][0]).toBe(COLOR_CYCLE_DARK[0]);
+    // From transparent: opaque again, the colours kept.
+    const fromClear = withBackground(withBackground({}, page, 'transparent', { ink: 'light' }), page, 'custom', { background: '#0f172a', foreground: '#e2e8f0' });
+    expect(look(fromClear)).toMatchObject({ background: '#0f172a', transparent: false });
   });
 });

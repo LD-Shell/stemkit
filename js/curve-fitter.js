@@ -2305,7 +2305,8 @@ function startPage() {
   });
   quickToggle('residuals', ui.quickResid);
   quickToggle('band', ui.quickBand);
-  ui.editStyle.addEventListener('click', () => selectTab('style', { focus: true, reveal: true }));
+  // Once the plot area has loaded, its Style button (openStyle) does this.
+  ui.editStyle.addEventListener('click', () => { if (!plotArea) selectTab('style', { focus: true, reveal: true }); });
 
 
   /* ---------------- step 5: Python ---------------- */
@@ -2625,7 +2626,14 @@ function startPage() {
     fitPlot = mod;
     plotArea = figures.mountFigure(ui.plotSection, {
       stylePanel: false, maxScale: previewMaxScale, onExport: exported,
-      label: 'The data and the fitted curve, as the saved figure will look'
+      label: 'The data and the fitted curve, as the saved figure will look',
+      // The Style button and openStyle({ series }): the Style tab, on one
+      // series ('data', 'fit', 'band' or 'residuals') when named.
+      onStyle: (what) => {
+        const series = what && what.series;
+        selectTab('style', { focus: series === undefined, reveal: true });
+        if (series !== undefined && stylePanel) stylePanel.showSeries(series);
+      }
     });
     ui.styleHost.innerHTML = '';
     // Labels restored from an earlier visit are kept: the panel only fills in
