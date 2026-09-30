@@ -1,48 +1,163 @@
 /*
  * data-cleaner -- tool-specific styles.
  *
- * Extracted from the inline <style> block in data-cleaner.html. Shared
- * documentation styles live in src/stemkit-docs.css; Tailwind utilities are
- * generated into src/output.css and must not be hand-edited.
+ * Shared documentation styles live in src/stemkit-docs.css, the shared
+ * components (stk-*) in src/tailwind/input.css, and the Python panel in
+ * src/tools/python-panel.css. Tailwind utilities are generated into
+ * src/output.css and must not be hand-edited.
  */
 
-.table-container::-webkit-scrollbar { width: 8px; height: 8px; }
-.table-container::-webkit-scrollbar-track { background: var(--stk-surface-2); border-radius: 8px; }
-.table-container::-webkit-scrollbar-thumb { background: var(--stk-border-strong); border-radius: 8px; }
+.dc-ws { display: flex; flex-direction: column; gap: 1.25rem; min-width: 0; }
+.dc-pending { margin-top: .75rem; font-size: .8125rem; font-weight: 600; color: var(--stk-accent-text); }
+.dc-label { margin: 0; font-size: .75rem; font-weight: 700; color: var(--stk-fg-3); display: flex; align-items: center; gap: .4rem; }
+.dc-meta { font-size: .8125rem; color: var(--stk-fg-3); }
 
-/* Step 1 once a file is in: its name, what it holds, and a way to swap it. */
-.dc-filebar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: .9rem 1.25rem; border-radius: 1rem; border: 1px solid var(--stk-border); background: var(--stk-surface); box-shadow: var(--stk-shadow-sm); }
-.dc-filebar .stk-ptitle { min-width: 0; }
-.dc-meta { margin: .2rem 0 0 2.1rem; font-size: .8125rem; color: var(--stk-fg-3); }
+/* ---------------------------------------------------------------------------
+   Step 1: the file and how it is read
+--------------------------------------------------------------------------- */
+.dc-filebar { display: flex; align-items: center; gap: .75rem 1.25rem; flex-wrap: wrap; padding: .85rem 1.1rem; border-radius: var(--stk-radius-xl); border: 1px solid var(--stk-border); background: var(--stk-surface); box-shadow: var(--stk-shadow-sm); }
+.dc-file { min-width: 0; flex: 1 1 18rem; }
+.dc-file .stk-ptitle { min-width: 0; }
+.dc-file-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-file .dc-meta { margin: .2rem 0 0 2.1rem; }
+.dc-read { display: flex; align-items: center; gap: .5rem .9rem; flex-wrap: wrap; }
+.dc-read-f { display: inline-flex; align-items: center; gap: .4rem; font-size: .75rem; font-weight: 600; color: var(--stk-fg-3); }
+.dc-read-f .stk-select { width: auto; min-width: 7.5rem; }
+.dc-read-h { font-size: .75rem; font-weight: 600; color: var(--stk-fg-3); }
 
-/* Statistics of the chosen column, under the controls. */
-.dc-colstats { margin-top: 1.25rem; padding: .85rem 1rem; border-radius: var(--stk-radius-lg); background: var(--stk-surface-2); }
-.dc-colstats-title { font-size: .75rem; font-weight: 600; color: var(--stk-fg-3); margin-bottom: .4rem; }
-.dc-colstats-none { font-size: .8125rem; color: var(--stk-fg-3); }
-.dc-colstats dl { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; margin: 0; }
-.dc-colstats dt { font-size: .75rem; color: var(--stk-fg-3); }
-.dc-colstats dd { margin: 0; font-family: var(--stk-font-mono); font-size: .875rem; font-weight: 600; color: var(--stk-fg); font-variant-numeric: tabular-nums; }
+/* ---------------------------------------------------------------------------
+   Step 2 and the table, side by side from 1024 px
+--------------------------------------------------------------------------- */
+.dc-main, .dc-out { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+@media (min-width: 1024px) {
+  .dc-main, .dc-out { grid-template-columns: minmax(21rem, 27rem) minmax(0, 1fr); }
+}
 
-/* The operations applied so far, in order. */
-.dc-log { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--stk-border); }
-.dc-log-empty { margin-top: .35rem; font-size: .8125rem; color: var(--stk-fg-muted); }
-.dc-log-list { margin: .5rem 0 0; padding-left: 1.25rem; list-style: decimal; font-size: .8125rem; line-height: 1.55; color: var(--stk-fg-2); }
-.dc-log-list:empty { display: none; }
-.dc-log-list li + li { margin-top: .2rem; }
+.dc-clean { display: flex; flex-direction: column; min-width: 0; }
+.dc-clean-h { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .85rem 1rem; }
+.dc-history { display: flex; gap: .3rem; }
 
-/* --stk-ok (#059669) is 3.8:1 on white, short of AA for text this size, so
-   the light theme uses emerald-700. */
-.dc-export-note { margin-top: .75rem; font-size: .8125rem; color: #047857; }
-.dark .dc-export-note { color: var(--stk-ok); }
-.dc-export-note:empty { display: none; }
+/* One-click fixes for what the page spots. */
+.dc-suggest { display: flex; flex-direction: column; gap: .45rem; padding: 0 1rem .9rem; }
+.dc-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+.dc-chip { display: inline-flex; align-items: center; gap: .4rem; min-height: 1.875rem; padding: .3rem .7rem; border-radius: 9999px; border: 1px dashed var(--stk-accent-soft-border); background: var(--stk-accent-soft); color: var(--stk-accent-text); font-size: .75rem; font-weight: 600; line-height: 1.3; text-align: left; cursor: pointer; transition: border-color var(--stk-ease), background-color var(--stk-ease); }
+.dc-chip:hover { border-style: solid; border-color: var(--stk-accent); }
+.dc-chip i { font-size: .7rem; }
 
-.dc-missing { color: var(--stk-fg-muted); }
+/* The form that adds or edits a step. */
+.dc-form { display: flex; flex-direction: column; gap: .8rem; padding: .95rem 1rem 1rem; border-top: 1px solid var(--stk-border); transition: background-color var(--stk-ease); }
+.dc-form.is-editing { background: var(--stk-accent-soft); box-shadow: inset 3px 0 0 var(--stk-accent); }
+.dc-form.is-editing .dc-label { color: var(--stk-accent-text); }
+/* Muted text falls short of AA on the tint, so it darkens a step. */
+.dc-form.is-editing .stk-hint, .dc-form.is-editing .stk-btn-ghost { color: var(--stk-fg-3); }
+.dc-form-h { display: flex; align-items: center; justify-content: space-between; gap: .5rem; min-height: 1.875rem; }
+.dc-fields { display: flex; flex-direction: column; gap: .8rem; min-width: 0; }
+.dc-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+@media (max-width: 379.98px) { .dc-row { grid-template-columns: minmax(0, 1fr); } }
+.dc-form-f { display: flex; align-items: center; gap: .5rem .75rem; flex-wrap: wrap; }
+.dc-effect { flex: 1 1 10rem; margin: 0; font-size: .75rem; line-height: 1.45; color: var(--stk-fg-3); }
+.dc-effect.is-error { color: var(--stk-danger); }
+.dc-form .stk-seg-fill > button { white-space: normal; line-height: 1.2; height: auto; min-height: 1.75rem; padding-top: .25rem; padding-bottom: .25rem; }
 
+/* Column chips: every column as a toggle, "Every column" first. */
+.dc-cols { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 8.5rem; overflow: auto; padding: 1px; }
+.dc-col { display: inline-flex; align-items: center; gap: .35rem; max-width: 100%; height: 1.75rem; padding: 0 .65rem; border-radius: 9999px; border: 1px solid var(--stk-border-strong); background: var(--stk-surface); color: var(--stk-fg-3); font-size: .75rem; font-weight: 600; cursor: pointer; transition: border-color var(--stk-ease), background-color var(--stk-ease), color var(--stk-ease); }
+.dc-col > span { min-width: 0; max-width: 13rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-col:hover { border-color: var(--stk-fg-faint); color: var(--stk-fg); }
+.dc-col[aria-pressed="true"] { background: var(--stk-accent-soft); border-color: var(--stk-accent-soft-border); color: var(--stk-accent-text); }
+.dc-col i { font-size: .65rem; }
+.dc-col-all { font-style: italic; }
+.dc-form.is-editing .dc-col:not([aria-pressed="true"]) { background: var(--stk-surface); }
+
+/* The recipe. */
+.dc-recipe { padding: .95rem 1rem 1rem; border-top: 1px solid var(--stk-border); }
+.dc-recipe-h { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+.dc-recipe-actions { display: flex; gap: .15rem; flex-wrap: wrap; }
+.dc-empty { margin: .5rem 0 0; font-size: .8125rem; line-height: 1.55; color: var(--stk-fg-3); }
+.dc-steps { list-style: none; margin: .6rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .4rem; }
+.dc-steps:empty { display: none; }
+.dc-step { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "n main tools"; gap: .25rem .55rem; align-items: start; padding: .55rem .5rem .55rem .6rem; border: 1px solid var(--stk-border); border-radius: var(--stk-radius-lg); background: var(--stk-surface); transition: border-color var(--stk-ease), background-color var(--stk-ease), box-shadow var(--stk-ease); }
+.dc-step:hover { border-color: var(--stk-border-strong); }
+.dc-step-n { grid-area: n; display: inline-flex; align-items: center; justify-content: center; width: 1.375rem; height: 1.375rem; margin-top: .05rem; border-radius: 9999px; background: var(--stk-surface-2); box-shadow: inset 0 0 0 1px var(--stk-border-strong); font-size: .6875rem; font-weight: 700; color: var(--stk-fg-3); font-variant-numeric: tabular-nums; }
+.dc-step-main { grid-area: main; min-width: 0; }
+.dc-step-text { display: block; width: 100%; padding: 0; border: 0; background: none; text-align: left; font-size: .8125rem; font-weight: 600; line-height: 1.4; color: var(--stk-fg); overflow-wrap: anywhere; cursor: pointer; border-radius: var(--stk-radius-sm); }
+.dc-step-text:hover { color: var(--stk-accent-text); }
+.dc-step-meta { margin: .15rem 0 0; font-size: .75rem; line-height: 1.4; color: var(--stk-fg-3); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.dc-step-meta.is-error { color: var(--stk-danger); }
+.dc-step-tools { grid-area: tools; display: flex; align-items: center; gap: .05rem; }
+.dc-step-tools .stk-switch { margin-right: .3rem; }
+.dc-step-tools .stk-btn-icon.stk-btn-sm { width: 1.75rem; height: 1.75rem; }
+.dc-step-x:hover { color: var(--stk-danger); }
+.dc-step.is-viewing { border-color: var(--stk-accent); box-shadow: 0 0 0 1px var(--stk-accent); }
+.dc-step.is-viewing .dc-step-n { background: var(--stk-accent); color: var(--stk-accent-fg); box-shadow: none; }
+.dc-step.is-editing { background: var(--stk-accent-soft); border-color: var(--stk-accent-soft-border); }
+.dc-step.is-off .dc-step-text { color: var(--stk-fg-3); font-weight: 500; }
+.dc-step.is-off { background: var(--stk-surface-2); border-style: dashed; }
+.dc-step.is-error { border-color: var(--stk-danger-border); background: var(--stk-danger-soft); }
 @media (prefers-reduced-motion: no-preference) {
-  .toast-enter { animation: slideIn 0.3s forwards; }
+  .dc-step.is-new { animation: dc-step-in .45s ease-out; }
+}
+@keyframes dc-step-in {
+  from { transform: translateY(-4px); box-shadow: 0 0 0 3px var(--stk-ring); }
+  to { transform: none; box-shadow: 0 0 0 0 transparent; }
+}
+@media (max-width: 479.98px) {
+  .dc-step { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "n main" ". tools"; }
+  .dc-step-tools { justify-content: flex-start; margin-left: -.35rem; }
 }
 
-@keyframes slideIn {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+/* ---------------------------------------------------------------------------
+   The table
+--------------------------------------------------------------------------- */
+.dc-preview { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+@media (min-width: 1024px) {
+  .dc-preview { position: sticky; top: 6.25rem; }
 }
+.dc-preview-h { display: flex; align-items: center; gap: .5rem .75rem; flex-wrap: wrap; padding: .75rem 1rem; border-bottom: 1px solid var(--stk-border); }
+.dc-preview-t { margin: 0; font-size: 1rem; font-weight: 650; color: var(--stk-fg); }
+.dc-preview-note { margin-left: auto; }
+/* Statistics of the column the step form uses. */
+.dc-colstats { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem 1.1rem; margin: 0; padding: .5rem 1rem; border-bottom: 1px solid var(--stk-border); background: var(--stk-surface-2); }
+.dc-colstats > div { display: flex; align-items: baseline; gap: .35rem; }
+.dc-colstats dt { font-size: .6875rem; font-weight: 600; color: var(--stk-fg-3); }
+.dc-colstats dd { margin: 0; font-family: var(--stk-font-mono); font-size: .75rem; font-weight: 600; color: var(--stk-fg); font-variant-numeric: tabular-nums; }
+.dc-colstats .dc-colstats-name dd { font-family: inherit; font-size: .75rem; font-weight: 700; color: var(--stk-accent-text); max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-viewing { display: inline-flex; align-items: center; gap: .5rem; padding: .15rem .2rem .15rem .6rem; border-radius: var(--stk-radius); background: var(--stk-accent-soft); color: var(--stk-accent-text); font-size: .75rem; font-weight: 600; }
+.dc-table { overflow: auto; max-height: 34rem; min-height: 12rem; }
+@media (min-width: 1024px) {
+  .dc-table { max-height: calc(100vh - 12rem); min-height: 22rem; }
+}
+.dc-table table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .8125rem; }
+.dc-table thead th { position: sticky; top: 0; z-index: 1; padding: 0; background: var(--stk-surface-2); border-bottom: 1px solid var(--stk-border-strong); text-align: left; vertical-align: bottom; white-space: nowrap; }
+.dc-table thead th.is-picked { box-shadow: inset 0 -2px 0 var(--stk-accent); background: var(--stk-accent-soft); }
+.dc-th { display: flex; flex-direction: column; align-items: flex-start; gap: .1rem; width: 100%; padding: .5rem .75rem; border: 0; background: none; text-align: left; cursor: pointer; }
+th.is-num .dc-th { align-items: flex-end; text-align: right; }
+.dc-th:hover .dc-th-name { color: var(--stk-accent-text); }
+.dc-th-name { font-weight: 650; color: var(--stk-fg); }
+.dc-th-kind { font-size: .6875rem; font-weight: 500; color: var(--stk-fg-3); }
+.dc-table td { padding: .4rem .75rem; border-bottom: 1px solid var(--stk-border); color: var(--stk-fg-2); white-space: pre; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
+.dc-table td.is-num { text-align: right; font-family: var(--stk-font-mono); font-size: .75rem; font-variant-numeric: tabular-nums; }
+.dc-table td.dc-numtext { font-family: var(--stk-font-mono); font-size: .75rem; font-variant-numeric: tabular-nums; }
+.dc-table tbody tr:hover td { background: var(--stk-surface-2); }
+.dc-table .dc-rn { width: 1%; padding-right: .5rem; color: var(--stk-fg-3); font-size: .6875rem; font-variant-numeric: tabular-nums; text-align: right; }
+.dc-table thead .dc-rn { padding: .5rem .5rem .5rem .75rem; font-weight: 600; }
+.dc-gapcell { text-align: left; }
+.dc-table td.dc-gapcell.is-num { text-align: right; }
+.dc-gap { color: var(--stk-fg-muted); }
+.dc-pad { box-shadow: inset 0 -2px 0 var(--stk-warn-border); }
+.dc-odd { color: var(--stk-warn); font-weight: 600; }
+.dc-none { padding: 2rem 1rem !important; text-align: center; color: var(--stk-fg-3); white-space: normal !important; }
+
+/* ---------------------------------------------------------------------------
+   Step 3: the downloads and the script
+--------------------------------------------------------------------------- */
+.dc-download { display: flex; flex-direction: column; gap: .7rem; padding: 1rem 1.1rem 1.1rem; }
+.dc-out-lede { margin: 0; font-size: .8125rem; line-height: 1.5; color: var(--stk-fg-3); }
+.dc-wide { width: 100%; }
+.dc-out-file { margin: -.25rem 0 .25rem; font-size: .75rem; color: var(--stk-fg-3); overflow-wrap: anywhere; }
+.dc-out-file .stk-mono { color: var(--stk-fg-2); }
+.dc-out-hint { margin: 0; font-size: .75rem; line-height: 1.45; color: var(--stk-fg-3); }
+.dc-python { min-width: 0; }
+
+.dc-export-note { margin: 0; font-size: .8125rem; color: var(--stk-ok); }
+.dc-export-note:empty { display: none; }
