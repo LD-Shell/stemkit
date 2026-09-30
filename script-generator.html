@@ -6,8 +6,8 @@
 
     <title>MD Workflow Generator | GROMACS, LAMMPS & PLUMED | STEMKit</title>
     <meta name="title" content="MD Workflow Generator | GROMACS, LAMMPS & PLUMED | STEMKit">
-    <meta name="description" content="Generate SLURM, PBS, LSF and Grid Engine scripts for GROMACS and LAMMPS, plus GROMACS topology headers and PLUMED inputs, with warnings for risky settings.">
-    <meta name="keywords" content="slurm script generator, pbs qsub script, lsf bsub script, grid engine qsub, gromacs topology generator, fudgeLJ fudgeQQ, combination rule, amber charmm opls, hpc job array, mdrun openmp, cpus-per-task, plumed input">
+    <meta name="description" content="Build a GROMACS run: every .mdp file, checked like grompp and explained line by line, index groups and the job script for SLURM, PBS, LSF or Grid Engine, in one zip. LAMMPS and PLUMED too.">
+    <meta name="keywords" content="gromacs mdp generator, mdp file checker, gromacs index ndx, make_ndx, tc-grps, c-rescale barostat, parrinello-rahman, semi-isotropic membrane, hydrogen mass repartitioning, slurm script generator, pbs qsub script, lsf bsub script, grid engine qsub, gromacs topology generator, fudgeLJ fudgeQQ, amber charmm gromos opls martini, plumed input">
 
     <link rel="canonical" href="https://stemkit.net/script-generator.html">
     <meta property="og:url" content="https://stemkit.net/script-generator.html">
@@ -15,8 +15,8 @@
 
     <meta property="og:title" content="MD Workflow Generator | GROMACS, LAMMPS & PLUMED | STEMKit">
     <meta name="twitter:title" content="MD Workflow Generator | GROMACS, LAMMPS & PLUMED | STEMKit">
-    <meta property="og:description" content="Generate batch scripts for SLURM, PBS, LSF and Grid Engine, plus GROMACS topology headers with the force field, combination rule and fudge factors kept consistent.">
-    <meta name="twitter:description" content="Generate batch scripts for SLURM, PBS, LSF and Grid Engine, plus GROMACS topology headers with the force field, combination rule and fudge factors kept consistent.">
+    <meta property="og:description" content="A whole GROMACS run in one zip: every .mdp file checked like grompp, index groups and the job script for SLURM, PBS, LSF or Grid Engine. LAMMPS job scripts and PLUMED inputs too.">
+    <meta name="twitter:description" content="A whole GROMACS run in one zip: every .mdp file checked like grompp, index groups and the job script for SLURM, PBS, LSF or Grid Engine. LAMMPS job scripts and PLUMED inputs too.">
 
     <script type="application/ld+json">
         {
@@ -30,15 +30,15 @@
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "SLURM, PBS, LSF and Grid Engine headers", "Job arrays", "GROMACS topology headers", "Coupled force-field / fudge factors", "PLUMED input builder", "Input validation", "Client-side only" ]
+            "featureList": [ "GROMACS .mdp files for every stage", "Checks .mdp files against grompp's rules", "Line-by-line explanation of every .mdp option", "Index groups (.ndx) as gmx make_ndx makes them", "Hydrogen mass repartitioning", "One zip with the job script, .mdp files, index and README", "SLURM, PBS, LSF and Grid Engine headers", "Job arrays", "GROMACS topology headers", "PLUMED input builder", "Client-side only" ]
         }
     </script>
 
     <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"HowTo","name":"How to generate a batch script and GROMACS topology header","totalTime":"PT2M","step":[{"@type":"HowToStep","position":1,"name":"Set cluster parameters","text":"Pick the scheduler (SLURM, PBS Pro / OpenPBS, LSF or Grid Engine), then enter job name, nodes, CPUs per task, GPUs, wall time and memory. Toggle a job array if you need to run many systems at once."},{"@type":"HowToStep","position":2,"name":"Choose the force field","text":"Pick a force field. The combination rule and 1-4 fudge factors are set automatically to the values in that force field's forcefield.itp. AMBER99SB-ILDN and OPLS-AA ship with GROMACS; CHARMM36 is a separate download."},{"@type":"HowToStep","position":3,"name":"Review warnings","text":"If any parameter diverges from the canonical values, or a required scheduler directive is missing, an inline warning explains what to fix."},{"@type":"HowToStep","position":4,"name":"Copy the output","text":"Copy the generated submit.sh and topol.top header into your project. Fill in the [ molecules ] section with your species and counts."}]}
+    {"@context":"https://schema.org","@type":"HowTo","name":"How to build a GROMACS workflow with .mdp files, index groups and a job script","totalTime":"PT5M","step":[{"@type":"HowToStep","position":1,"name":"Choose the system","text":"Pick the force field (AMBER, CHARMM36, GROMOS 54A7, OPLS-AA or Martini 3), what you simulate (a solute in water, a membrane or a liquid), the temperature and pressure, the thermostat and barostat, the rigid bonds and the time step, with hydrogen mass repartitioning for 4 fs if you want it."},{"@type":"HowToStep","position":2,"name":"Set the stages","text":"Switch on energy minimisation, NVT and NPT equilibration, production, and optionally simulated annealing and pulling; give each a length, output intervals and position restraints. Velocities are generated for the first dynamics stage and carried over after it."},{"@type":"HowToStep","position":3,"name":"Build index groups","text":"Drop the .gro or .pdb grompp will read to get the gmx make_ndx groups, suggested groups for the ligand, complex, pocket, membrane and solvent, and the recommended tc-grps, checked to cover every atom once."},{"@type":"HowToStep","position":4,"name":"Set the job and download","text":"Choose the scheduler (SLURM, PBS Pro / OpenPBS, LSF or Grid Engine), resources and GPU offload, check each .mdp file's grompp verdict, and download one zip with submit.sh, every .mdp file, index.ndx and a README."}]}
     </script>
     <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why does choosing a force field change the combination rule and fudge factors?","acceptedAnswer":{"@type":"Answer","text":"Because they are physically coupled. Each GROMACS force field ships a [ defaults ] line with a specific combination rule and 1-4 scaling. AMBER uses rule 2 with 0.5/0.8333, CHARMM36 uses rule 2 with 1.0/1.0, and OPLS-AA uses rule 3 with 0.5/0.5. Mixing them silently produces a physically wrong topology."}},{"@type":"Question","name":"What are fudgeLJ and fudgeQQ?","acceptedAnswer":{"@type":"Answer","text":"They are the factors by which 1-4 Lennard-Jones and 1-4 electrostatic interactions are scaled. fudgeLJ is applied only when gen-pairs is yes; fudgeQQ is always applied."}},{"@type":"Question","name":"Is my data uploaded anywhere?","acceptedAnswer":{"@type":"Answer","text":"No. The generator runs entirely in your browser. Nothing you type is sent to a server."}},{"@type":"Question","name":"Why did the script add memory, log files and bash -e that I did not ask for?","acceptedAnswer":{"@type":"Answer","text":"These are HPC best practices. bash -e aborts the job on the first failing command so it shows as FAILED in sacct; explicit --mem avoids a small site default killing the job; and --output/--error capture logs per job or per array task."}},{"@type":"Question","name":"Which schedulers are supported?","acceptedAnswer":{"@type":"Answer","text":"SLURM, PBS Professional / OpenPBS, IBM Spectrum LSF and Grid Engine (SGE, UGE). The same resource request is translated into each scheduler's directives, environment variables and launch command; anything a site defines itself, such as the GPU resource name under PBS or Grid Engine, is marked as site-specific in the script."}},{"@type":"Question","name":"Can I override the auto-set parameters?","acceptedAnswer":{"@type":"Answer","text":"Yes. Enable Advanced override to edit the combination rule and fudge factors manually. A warning appears whenever your values differ from the force field's canonical parameters."}}]}
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why does choosing a force field change the combination rule and fudge factors?","acceptedAnswer":{"@type":"Answer","text":"Because they are physically coupled. Each GROMACS force field ships a [ defaults ] line with a specific combination rule and 1-4 scaling. AMBER uses rule 2 with 0.5/0.8333, CHARMM36 uses rule 2 with 1.0/1.0, and OPLS-AA uses rule 3 with 0.5/0.5. Mixing them silently produces a physically wrong topology."}},{"@type":"Question","name":"What are fudgeLJ and fudgeQQ?","acceptedAnswer":{"@type":"Answer","text":"They are the factors by which 1-4 Lennard-Jones and 1-4 electrostatic interactions are scaled. fudgeLJ is applied only when gen-pairs is yes; fudgeQQ is always applied."}},{"@type":"Question","name":"Which thermostat and barostat should I use for GROMACS?","acceptedAnswer":{"@type":"Answer","text":"V-rescale and C-rescale, unless you have a reason not to: both are stable from the first step and give the correct ensemble, so the GROMACS manual recommends C-rescale for equilibration and production. Parrinello-Rahman suits production and is the only choice for anisotropic scaling; the generator still equilibrates with C-rescale. Berendsen is deprecated and grompp warns."}},{"@type":"Question","name":"Is my data uploaded anywhere?","acceptedAnswer":{"@type":"Answer","text":"No. The generator runs entirely in your browser. Nothing you type is sent to a server."}},{"@type":"Question","name":"Why did the script add memory, log files and bash -e that I did not ask for?","acceptedAnswer":{"@type":"Answer","text":"These are HPC best practices. bash -e aborts the job on the first failing command so it shows as FAILED in sacct; explicit --mem avoids a small site default killing the job; and --output/--error capture logs per job or per array task."}},{"@type":"Question","name":"Which schedulers are supported?","acceptedAnswer":{"@type":"Answer","text":"SLURM, PBS Professional / OpenPBS, IBM Spectrum LSF and Grid Engine (SGE, UGE). The same resource request is translated into each scheduler's directives, environment variables and launch command; anything a site defines itself, such as the GPU resource name under PBS or Grid Engine, is marked as site-specific in the script."}},{"@type":"Question","name":"What does hydrogen mass repartitioning do?","acceptedAnswer":{"@type":"Answer","text":"With mass-repartition-factor = 3, grompp makes every hydrogen three times heavier, taking the mass from the atom it is bonded to, which allows a 4 fs time step with the bonds to hydrogen constrained. Equilibrium properties are unchanged and dynamics run slightly slower. The option needs GROMACS 2024 or newer."}},{"@type":"Question","name":"Why does the job script pass -maxwarn for GROMOS?","acceptedAnswer":{"@type":"Answer","text":"grompp warns for every GROMOS topology (its twin-range parametrisation) and stops at a single warning without -maxwarn. The generator passes exactly the number of warnings each .mdp file will draw, with a comment naming them, and none where no warning is expected."}},{"@type":"Question","name":"Can I check an .mdp file I already have?","acceptedAnswer":{"@type":"Answer","text":"Yes. Paste or drop it under Check a file: it is read as grompp reads it, you see whether grompp will stop, every problem with its line and a manual link, and the file explained line by line; Open in the builder continues from it."}},{"@type":"Question","name":"Can I override the auto-set parameters?","acceptedAnswer":{"@type":"Answer","text":"Yes. Enable Advanced override to edit the combination rule and fudge factors manually. A warning appears whenever your values differ from the force field's canonical parameters."}}]}
     </script>
 
     <meta name="author" content="Olanrewaju M. Daramola">
@@ -80,6 +80,7 @@
     <link rel="stylesheet" href="src/tools/figure.css">
     <link rel="stylesheet" href="src/tools/python-panel.css">
     <link rel="stylesheet" href="src/script-generator.css">
+    <link rel="stylesheet" href="src/tools/gromacs.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
 
@@ -140,7 +141,7 @@
         <header class="stk-pagehead">
             <div>
                 <h1 class="stk-pagehead-title">MD Workflow Generator</h1>
-                <p class="stk-pagehead-lede">Build a ready-to-submit batch script for GROMACS or LAMMPS on SLURM, PBS, LSF or Grid Engine, or a PLUMED input for enhanced sampling.</p>
+                <p class="stk-pagehead-lede">Set up a whole GROMACS run, every <code>.mdp</code> file explained and checked, index groups and the job script, or a LAMMPS job on SLURM, PBS, LSF or Grid Engine, or a PLUMED input for enhanced sampling.</p>
                 <ul class="stk-pagehead-meta">
                     <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
                     <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
@@ -168,6 +169,14 @@
         <div id="builderLayout" class="sg-layout">
 
             <div id="settingsColumn" class="sg-settings">
+
+                <!-- GROMACS set-up: four views of the panel below -->
+                <div id="gxSteps" class="stk-tabs gx-steps" role="tablist" aria-label="GROMACS set-up" hidden>
+                    <button type="button" role="tab" id="gxStepSystem" class="stk-tab gx-step" data-gx-step="system" aria-controls="gxViewSystem" aria-selected="true"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="gx-step-t"><span>System</span><small data-gx-info></small></span></button>
+                    <button type="button" role="tab" id="gxStepStages" class="stk-tab gx-step" data-gx-step="stages" aria-controls="gxViewStages" aria-selected="false" tabindex="-1"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="gx-step-t"><span>Stages</span><small data-gx-info></small></span></button>
+                    <button type="button" role="tab" id="gxStepIndex" class="stk-tab gx-step" data-gx-step="index" aria-controls="gxViewIndex" aria-selected="false" tabindex="-1"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="gx-step-t"><span>Index</span><small data-gx-info></small></span></button>
+                    <button type="button" role="tab" id="gxStepJob" class="stk-tab gx-step" data-gx-step="job" aria-controls="gxViewJob" aria-selected="false" tabindex="-1"><span class="stk-stepn" aria-hidden="true"><span>4</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="gx-step-t"><span>Job</span><small data-gx-info></small></span></button>
+                </div>
 
                 <!-- CLUSTER PARAMETERS -->
                 <section id="clusterCard" class="stk-panel" aria-labelledby="clusterTitle">
@@ -284,217 +293,914 @@
                 </section>
 
                 <!-- ============ GROMACS PANEL ============ -->
-                <div id="gromacsPanel" class="sg-panel-group" role="tabpanel">
+                <!-- Four views, chosen in #gxSteps above the cluster card:
+                     System (the physics every .mdp shares), Stages (one card per
+                     stage), Index groups (index.ndx from a structure) and Job
+                     (input files, GPU offload, PLUMED; the cluster card shows
+                     with it). js/script-generator-gromacs.js drives them. -->
+                <div id="gromacsPanel" class="sg-panel-group" role="tabpanel" aria-label="GROMACS">
 
-                    <!-- Workflow stages -->
-                    <section class="stk-panel" aria-labelledby="stagesTitle">
-                        <div class="stk-panel-h">
-                            <h2 class="stk-panel-t" id="stagesTitle"><i class="fa-solid fa-diagram-project"></i> Workflow stages</h2>
-                        </div>
-                        <div class="stk-panel-b sg-form">
-                            <div class="sg-grid">
+                    <!-- ===== 1. System ===== -->
+                    <div id="gxViewSystem" class="gx-view" data-gx-pane="system" role="tabpanel" aria-labelledby="gxStepSystem">
+
+                        <section class="stk-panel" aria-labelledby="gxFfTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="gxFfTitle"><i class="fa-solid fa-atom" aria-hidden="true"></i> Force field and system</h2>
+                                <span class="stk-badge" title="The .mdp files follow this GROMACS release">GROMACS 2025</span>
+                            </div>
+                            <div class="stk-panel-b sg-form">
                                 <div class="stk-field">
-                                    <label for="gmxStartConf">Start coordinates <span class="plumed-help" tabindex="0" data-tip="The input structure for the first stage (.gro or .pdb). Later stages read the previous stage's output coordinates.">?</span></label>
-                                    <input type="text" id="gmxStartConf" value="system.gro" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                    <label for="gxForceField">Force field</label>
+                                    <select id="gxForceField" class="stk-select">
+                                        <option value="amber" selected>AMBER (ff99SB-ILDN, ff14SB, ff19SB)</option>
+                                        <option value="charmm36">CHARMM36 / CHARMM36m</option>
+                                        <option value="gromos54a7">GROMOS 54A7 (united atom)</option>
+                                        <option value="opls-aa">OPLS-AA</option>
+                                        <option value="martini3">Martini 3 (coarse-grained)</option>
+                                    </select>
+                                    <p class="stk-hint" id="gxFfHint"></p>
                                 </div>
                                 <div class="stk-field">
-                                    <label for="gmxTopol">Topology <span class="plumed-help" tabindex="0" data-tip="The system topology (.top) passed to every grompp call. Must match the force field selected below.">?</span></label>
-                                    <input type="text" id="gmxTopol" value="topol.top" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                    <label for="gxSystem">What you simulate</label>
+                                    <select id="gxSystem" class="stk-select">
+                                        <option value="protein" selected>A protein or other solute in water</option>
+                                        <option value="membrane">A membrane, with or without a protein</option>
+                                        <option value="solution">A liquid or solution, nothing to hold in place</option>
+                                    </select>
+                                    <p class="stk-hint" id="gxSystemHint"></p>
                                 </div>
-                                <div class="stk-field">
-                                    <label for="gmxIndex">Index file <span class="plumed-help" tabindex="0" data-tip="A GROMACS index file (.ndx) defining custom atom groups, e.g. for position restraints or temperature-coupling groups. Leave blank if not needed.">?</span></label>
-                                    <input type="text" id="gmxIndex" value="" class="stk-input stk-mono" placeholder="optional, index.ndx" autocomplete="off" spellcheck="false">
-                                </div>
-                                <div class="stk-field">
-                                    <label for="gmxBinary">GROMACS executable <span class="plumed-help" tabindex="0" data-tip="The gmx command on the cluster. Many HPC modules install the MPI build as gmx_mpi (and some sites use a versioned name such as gmx_mpi_d for double precision). Run 'module load gromacs' then 'which gmx gmx_mpi' to check. Used for both grompp and mdrun.">?</span></label>
-                                    <input type="text" id="gmxBinary" value="gmx" list="gmxBinaryList" class="stk-input stk-mono" placeholder="gmx" autocomplete="off" spellcheck="false">
-                                    <datalist id="gmxBinaryList">
-                                        <option value="gmx"></option>
-                                        <option value="gmx_mpi"></option>
-                                        <option value="gmx_mpi_d"></option>
-                                        <option value="gmx_d"></option>
-                                    </datalist>
-                                    <p class="stk-hint">Use <code>gmx_mpi</code> if the module provides the MPI build. Check with <code>which gmx gmx_mpi</code> after loading it.</p>
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="gxTemp">Temperature (K)</label>
+                                        <input type="number" id="gxTemp" value="300" min="0" step="any" inputmode="decimal" class="stk-input">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="gxPressure">Pressure (bar)</label>
+                                        <input type="number" id="gxPressure" value="1" step="any" inputmode="decimal" class="stk-input">
+                                    </div>
                                 </div>
                             </div>
+                        </section>
 
-                            <p class="stk-hint">Each stage has its own <code>.mdp</code> and <code>-deffnm</code>; grompp chains automatically (each <code>-c</code> reads the previous stage's <code>.gro</code>, and <code>-t</code> its <code>.cpt</code> when that stage was MD; minimisation writes no checkpoint).</p>
-
-                            <div class="sg-option">
-                                <div class="stk-switch-row">
-                                    <span id="stageEmLabel">Energy minimisation</span>
-                                    <button type="button" id="stage_em_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="stageEmLabel"></button>
+                        <section class="stk-panel" aria-labelledby="gxCoupleTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="gxCoupleTitle"><i class="fa-solid fa-temperature-half" aria-hidden="true"></i> Thermostat and barostat</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <div class="stk-field">
+                                    <label for="gxThermostat">Thermostat <code class="gx-opt-code">tcoupl</code></label>
+                                    <select id="gxThermostat" class="stk-select">
+                                        <option value="v-rescale" selected>V-rescale (recommended)</option>
+                                        <option value="nose-hoover">Nose-Hoover</option>
+                                        <option value="berendsen">Berendsen (deprecated)</option>
+                                    </select>
                                 </div>
-                                <div class="sg-grid sg-stage">
+                                <div class="stk-field">
+                                    <label for="gxTcGrps">Temperature groups <code class="gx-opt-code">tc-grps</code></label>
+                                    <input type="text" id="gxTcGrps" value="Protein Non-Protein" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                    <div id="gxTcHint" class="gx-tc-hint"></div>
+                                </div>
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="gxBarostat">Barostat <code class="gx-opt-code">pcoupl</code></label>
+                                        <select id="gxBarostat" class="stk-select">
+                                            <option value="c-rescale" selected>C-rescale (recommended)</option>
+                                            <option value="parrinello-rahman">Parrinello-Rahman</option>
+                                            <option value="berendsen">Berendsen (deprecated)</option>
+                                        </select>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="gxPcouplType">Box scaling <code class="gx-opt-code">pcoupltype</code></label>
+                                        <select id="gxPcouplType" class="stk-select">
+                                            <option value="isotropic" selected>Isotropic</option>
+                                            <option value="semiisotropic">Semi-isotropic</option>
+                                            <option value="anisotropic">Anisotropic</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div id="gxCoupleNote" class="gx-note" aria-live="polite"></div>
+                                <dl id="gxCoupleValues" class="gx-values"></dl>
+
+                                <details class="stk-disclosure gx-guide" id="gxGuide">
+                                    <summary><span><i class="fa-solid fa-book-open" aria-hidden="true"></i> Barostat and thermostat guide</span></summary>
+                                    <div>
+                                        <h3 class="gx-guide-h">Thermostats</h3>
+                                        <dl class="gx-guide-dl">
+                                            <dt><a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#mdp-value-tcoupl-V-rescale" target="_blank" rel="noopener">V-rescale</a> <span class="stk-badge stk-badge-ok">recommended</span></dt>
+                                            <dd>Stochastic velocity rescaling (Bussi, Donadio and Parrinello 2007). It relaxes the temperature like a first-order coupling, so it is safe from the first step of NVT, and its random term gives the correct canonical distribution, so it is just as good in production. <code>tau-t</code> 0.1 ps (1 ps for Martini).</dd>
+                                            <dt><a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#mdp-value-tcoupl-Nose-Hoover" target="_blank" rel="noopener">Nose-Hoover</a></dt>
+                                            <dd>An extended system with the correct ensemble and no random numbers. The temperature oscillates around the target, strongly if it starts far from it, so use it after equilibration. Its <code>tau-t</code> is the period of those oscillations: 4 to 5 times a first-order constant, 0.5 ps here.</dd>
+                                            <dt><a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#mdp-value-tcoupl-Berendsen" target="_blank" rel="noopener">Berendsen</a> <span class="stk-badge stk-badge-warn">deprecated</span></dt>
+                                            <dd>Suppresses the natural fluctuations of the kinetic energy, so the ensemble is wrong. Kept in GROMACS to reproduce old runs; grompp warns, so the job script adds <code>-maxwarn</code>.</dd>
+                                            <dt><a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#mdp-tc-grps" target="_blank" rel="noopener">tc-grps</a></dt>
+                                            <dd>Couple separately the parts that exchange heat slowly (solute and solvent, a bilayer and the water), but give every group hundreds of atoms at least, or its temperature is noise. Never a group per ion or per small ligand. Every atom must be in exactly one group.</dd>
+                                        </dl>
+                                        <h3 class="gx-guide-h">Barostats</h3>
+                                        <dl class="gx-guide-dl">
+                                            <dt><a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#mdp-value-pcoupl-C-rescale" target="_blank" rel="noopener">C-rescale</a> <span class="stk-badge stk-badge-ok">recommended</span></dt>
+                                            <dd>Stochastic cell rescaling (Bernetti and Bussi 2020). It relaxes the pressure exponentially, so it is stable far from equilibrium, and its random term gives the correct volume fluctuations: the manual says it can be used for both equilibration and production. <code>tau-p</code> 1 ps. In GROMACS 2025 it scales isotropically, semi-isotropically or with a surface tension, not anisotropically.</dd>
+                                            <dt><a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#mdp-value-pcoupl-Parrinello-Rahman" target="_blank" rel="noopener">Parrinello-Rahman</a></dt>
+                                            <dd>The box vectors get an equation of motion. Correct fluctuations and any box shape, but it oscillates, very strongly if started away from the target pressure, and grompp notes that it is unstable with position restraints. So NPT equilibration here always uses C-rescale, and Parrinello-Rahman takes over in production. Its <code>tau-p</code> is a period: 5 ps.</dd>
+                                            <dt><a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#mdp-value-pcoupl-Berendsen" target="_blank" rel="noopener">Berendsen</a> <span class="stk-badge stk-badge-warn">deprecated</span></dt>
+                                            <dd>Wrong volume fluctuations; the manual recommends against it for new simulations and grompp warns.</dd>
+                                            <dt><a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#mdp-tau-p" target="_blank" rel="noopener">tau-p</a> and <a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#mdp-compressibility" target="_blank" rel="noopener">compressibility</a></dt>
+                                            <dd><code>tau-p</code> is how quickly the box answers a pressure difference; too short and the box rings. The compressibility says how much the volume changes per bar (water at 300 K: 4.5e-5 bar<sup>&minus;1</sup>). Together they set how hard the barostat pushes; the equilibrium density does not depend on them, so an approximate compressibility is fine.</dd>
+                                        </dl>
+                                        <h3 class="gx-guide-h">Box scaling</h3>
+                                        <dl class="gx-guide-dl">
+                                            <dt><a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#mdp-value-pcoupltype-isotropic" target="_blank" rel="noopener">Isotropic</a></dt>
+                                            <dd>x, y and z scale together and the box keeps its shape: liquids, solutions, proteins in water. One value each for <code>ref-p</code> and <code>compressibility</code>.</dd>
+                                            <dt><a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#mdp-value-pcoupltype-semiisotropic" target="_blank" rel="noopener">Semi-isotropic</a></dt>
+                                            <dd>The membrane plane (x/y) and the normal (z) scale separately, so the area per lipid and the thickness relax independently. Use it for bilayers and flat interfaces. Two values each: x/y, then z.</dd>
+                                            <dt><a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#mdp-value-pcoupltype-anisotropic" target="_blank" rel="noopener">Anisotropic</a></dt>
+                                            <dd>All six box components scale on their own: crystals and solids under stress. The manual warns it can deform the box drastically, and only Parrinello-Rahman supports it, so the page switches to it. Six values each.</dd>
+                                        </dl>
+                                        <h3 class="gx-guide-h">Position restraints under pressure</h3>
+                                        <p class="gx-guide-p">A restrained atom is pulled towards a reference position. When the box scales, that reference has to move with it, or the restraints fight the barostat: grompp warns about absolute restraints with pressure coupling. <a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#mdp-refcoord-scaling" target="_blank" rel="noopener"><code>refcoord-scaling = com</code></a> scales the centre of mass of the references with the box and keeps their shape, so every restrained stage with a barostat gets it. The coordinates grompp reads with <code>-r</code> (here the start of that stage) are the references.</p>
+                                        <p class="gx-guide-p gx-guide-src">From the GROMACS 2025.1 manual: <a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#temperature-coupling" target="_blank" rel="noopener">temperature coupling</a>, <a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#pressure-coupling" target="_blank" rel="noopener">pressure coupling</a> and the reference manual on <a href="https://manual.gromacs.org/2025.1/reference-manual/algorithms/molecular-dynamics.html#pressure-coupling" target="_blank" rel="noopener">coupling algorithms</a>.</p>
+                                    </div>
+                                </details>
+                            </div>
+                        </section>
+
+                        <section class="stk-panel" aria-labelledby="gxDtTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="gxDtTitle"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i> Time step and bonds</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="gxConstraints">Rigid bonds <code class="gx-opt-code">constraints</code></label>
+                                        <select id="gxConstraints" class="stk-select">
+                                            <option value="h-bonds" selected>Bonds to hydrogen</option>
+                                            <option value="all-bonds">All bonds</option>
+                                            <option value="none">None (flexible)</option>
+                                        </select>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="gxDt">Time step (fs) <code class="gx-opt-code">dt</code></label>
+                                        <input type="number" id="gxDt" value="" min="0" step="any" inputmode="decimal" class="stk-input" placeholder="2">
+                                    </div>
+                                </div>
+                                <div class="sg-option">
+                                    <div class="stk-switch-row">
+                                        <span id="gxHmrLabel">Hydrogen mass repartitioning, 4 fs</span>
+                                        <button type="button" id="gxHmr" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="gxHmrLabel" aria-describedby="gxHmrHint"></button>
+                                    </div>
+                                    <p class="stk-hint" id="gxHmrHint">Makes hydrogens three times heavier, taking the mass from the atom each is bonded to, so a 4 fs step stays stable. Needs GROMACS 2024 or newer.</p>
+                                    <details class="stk-disclosure" id="gxHmrMore">
+                                        <summary>What it does, and its limits</summary>
+                                        <div class="gx-prose">
+                                            <p>The fastest motions left once the bonds to hydrogen are rigid are the angles that move a hydrogen; they set the 2 fs limit. <a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html#mdp-mass-repartition-factor" target="_blank" rel="noopener"><code>mass-repartition-factor = 3</code></a> makes grompp find the lightest atom (hydrogen, 1.008 u), raise every atom lighter than three times that to 3.024 u, and take the difference from the one atom it is bonded to. The total mass is unchanged, so densities and equilibrium properties are too, while those vibrations slow down enough for <strong>4 fs</strong>.</p>
+                                            <ul>
+                                                <li><strong>4 fs is the limit.</strong> The manual: with <code>constraints = h-bonds</code>, a factor of 3 "will usually enable a time step of 4 fs". Go beyond it and other motions become unstable; the page warns above 4 fs.</li>
+                                                <li><strong>GROMACS 2024 or newer.</strong> The option arrived in 2024 (<a href="https://manual.gromacs.org/2025.1/release-notes/2024/major/performance.html" target="_blank" rel="noopener">release notes</a>). An older grompp does not know it, warns, and runs without repartitioning, which at 4 fs crashes. For 2023 and older, repartition the topology itself (for example with ParmEd's <code>HMassRepartition</code>) and drop the option.</li>
+                                                <li><strong>Dynamics run a little slower.</strong> The manual: it "does not affect equilibrium distributions, but makes dynamics slightly slower", so rates and diffusion from an HMR run need care.</li>
+                                                <li><strong>grompp stops</strong> when a light atom has more than one bond, when the atom it is bonded to would become too light, or with perturbed masses in a free-energy run; it warns about light atoms with no bond, which cannot be repartitioned. It also notes that bonds such as C=O now oscillate in fewer than ten time steps: expected at 4 fs with only the bonds to hydrogen rigid.</li>
+                                                <li>Water hydrogens are repartitioned too, which is harmless: rigid water has no internal motion.</li>
+                                            </ul>
+                                        </div>
+                                    </details>
+                                </div>
+                                <div id="gxDtNote" class="gx-note" aria-live="polite"></div>
+                            </div>
+                        </section>
+
+                        <!-- Topology header -->
+                        <section id="topologyCard" class="stk-panel" aria-labelledby="topologyTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="topologyTitle"><i class="fa-solid fa-sitemap" aria-hidden="true"></i> Topology header</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="topForcefield">Force-field files <span class="plumed-help" tabindex="0" data-tip="The force-field directory the #include lines name. It follows the force field chosen above; the combination rule and 1-4 fudge factors are filled in to match it.">?</span></label>
+                                        <select id="topForcefield" class="stk-select">
+                                            <option value="amber99sb-ildn">AMBER99SB-ILDN</option>
+                                            <option value="charmm36">CHARMM36 (separate download)</option>
+                                            <option value="gromos54a7">GROMOS 54A7</option>
+                                            <option value="opls-aa">OPLS-AA</option>
+                                            <option value="martini3">Martini 3 (separate download)</option>
+                                        </select>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="topSolvent">Water model <span class="plumed-help" tabindex="0" data-tip="The water model include (e.g. TIP3P, SPC/E). It should be compatible with the chosen force field.">?</span></label>
+                                        <select id="topSolvent" class="stk-select">
+                                            <option value="spce">SPC/E</option>
+                                            <option value="spc">SPC</option>
+                                            <option value="tip3p" selected>TIP3P</option>
+                                            <option value="tip4p">TIP4P</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <p class="stk-hint">Combination rule and 1&#8209;4 fudge factors are set automatically to match the force field. <a href="#method" class="sg-link">Why?</a></p>
+                                <div class="sg-option">
+                                    <div class="stk-switch-row">
+                                        <span id="topAdvancedLabel">Advanced override</span>
+                                        <button type="button" id="topAdvancedToggle" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="topAdvancedLabel"></button>
+                                    </div>
+                                    <div id="topAdvancedPanel" class="sg-grid" hidden>
+                                        <div class="stk-field">
+                                            <label for="topComb">Combination rule <span class="plumed-help" tabindex="0" data-tip="How pair Lennard-Jones parameters are combined: rule 2 is Lorentz-Berthelot (arithmetic/geometric); rules 1 and 3 are geometric. Set by the force field.">?</span></label>
+                                            <select id="topComb" class="stk-select">
+                                                <option value="2">2 (Lorentz&ndash;Berthelot)</option>
+                                                <option value="1">1 (Geometric)</option>
+                                                <option value="3">3 (OPLS, geometric)</option>
+                                            </select>
+                                        </div>
+                                        <div class="stk-field">
+                                            <label for="topFudge">fudgeLJ / fudgeQQ <span class="plumed-help" tabindex="0" data-tip="Scaling of 1-4 non-bonded interactions: fudgeLJ scales 1-4 Lennard-Jones (only with gen-pairs = yes); fudgeQQ scales 1-4 electrostatics and is always applied.">?</span></label>
+                                            <select id="topFudge" class="stk-select">
+                                                <option value="amber">0.5 / 0.8333 (AMBER)</option>
+                                                <option value="charmm">1.0 / 1.0 (CHARMM)</option>
+                                                <option value="opls">0.5 / 0.5 (OPLS)</option>
+                                                <option value="none">1.0 / 1.0 (None)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="stk-field">
+                                    <label for="topIncludes">Additional includes <span class="plumed-help" tabindex="0" data-tip="Extra #include lines (one per line) for ligand or ion .itp files, added after the force-field include in the topology header.">?</span></label>
+                                    <textarea id="topIncludes" class="stk-textarea stk-mono" rows="2" placeholder='e.g. #include "ligand.itp"' spellcheck="false">#include "ligand.itp"</textarea>
+                                </div>
+                                <div id="topWarnings" class="stk-callout stk-callout-warn" role="status" hidden></div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- ===== 2. Stages ===== -->
+                    <div id="gxViewStages" class="gx-view" data-gx-pane="stages" role="tabpanel" aria-labelledby="gxStepStages" hidden>
+
+                        <section class="stk-panel" aria-labelledby="gxGlanceTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="gxGlanceTitle"><i class="fa-solid fa-timeline" aria-hidden="true"></i> The workflow at a glance</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <ol id="gxGlance" class="gx-glance" aria-label="Stages in the order they run"></ol>
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="gxAtoms">Atoms in the system</label>
+                                        <input type="number" id="gxAtoms" value="" min="0" step="1" inputmode="numeric" class="stk-input" placeholder="e.g. 45000">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="gxSpeed">Speed (ns/day)</label>
+                                        <input type="number" id="gxSpeed" value="" min="0" step="any" inputmode="decimal" class="stk-input" placeholder="optional">
+                                    </div>
+                                </div>
+                                <p class="stk-hint" id="gxGlanceHint">The atom count gives the output sizes (it is filled in when you load a structure under Index groups); the speed, from the end of an earlier <code>md.log</code>, gives the run time.</p>
+                                <dl id="gxTotals" class="sg-summary stk-tnum" aria-live="polite"></dl>
+                            </div>
+                        </section>
+
+                        <!-- EM -->
+                        <section class="stk-panel gx-stage" data-stage="em" aria-labelledby="gxStageEmT">
+                            <div class="gx-stage-h">
+                                <button type="button" id="stage_em_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="gxStageEmT"></button>
+                                <div class="gx-stage-id">
+                                    <h3 class="gx-stage-t" id="gxStageEmT">Energy minimisation</h3>
+                                    <span class="gx-stage-sum" data-gx="sum"></span>
+                                </div>
+                                <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost gx-stage-file" data-gx-file="em"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> <span data-gx="fname">em.mdp</span></button>
+                            </div>
+                            <div class="gx-stage-b sg-form" data-gx="body">
+                                <p class="gx-stage-what">Relieves the clashes left by building and solvating, so the first step of dynamics does not blow up.</p>
+                                <div class="sg-grid sg-grid-3 gx-grid-3">
+                                    <div class="stk-field">
+                                        <label for="stage_em_method">Method</label>
+                                        <select id="stage_em_method" class="stk-select">
+                                            <option value="steep" selected>Steepest descent</option>
+                                            <option value="cg">Conjugate gradient</option>
+                                        </select>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_em_emtol">Stop below (kJ/mol/nm)</label>
+                                        <input type="number" id="stage_em_emtol" value="1000" min="0" step="any" inputmode="decimal" class="stk-input">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_em_steps">At most (steps)</label>
+                                        <input type="number" id="stage_em_steps" value="50000" min="0" step="1" inputmode="numeric" class="stk-input">
+                                    </div>
+                                </div>
+                                <label class="stk-check"><input type="checkbox" id="stage_em_posres"> <span>Position restraints (<code>-DPOSRES</code>, adds <code>-r</code>)</span></label>
+                                <div class="gx-names">
                                     <div class="stk-field">
                                         <label for="stage_em_mdp">.mdp file</label>
                                         <input type="text" id="stage_em_mdp" value="em.mdp" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                                     </div>
                                     <div class="stk-field">
-                                        <label for="stage_em_deffnm">-deffnm</label>
+                                        <label for="stage_em_deffnm">Output names <code class="gx-opt-code">-deffnm</code></label>
                                         <input type="text" id="stage_em_deffnm" value="em" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                                     </div>
-                                    <label class="stk-check sg-grid-span"><input type="checkbox" id="stage_em_posres"> <span>Position restraints (adds <code>-r</code>)</span></label>
                                 </div>
+                                <div class="gx-stage-notes" data-gx="notes"></div>
                             </div>
-                            <div class="sg-option">
-                                <div class="stk-switch-row">
-                                    <span id="stageNvtLabel">NVT equilibration</span>
-                                    <button type="button" id="stage_nvt_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="stageNvtLabel"></button>
+                        </section>
+
+                        <!-- NVT equilibration -->
+                        <section class="stk-panel gx-stage" data-stage="nvt" aria-labelledby="gxStageNvtT">
+                            <div class="gx-stage-h">
+                                <button type="button" id="stage_nvt_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="gxStageNvtT"></button>
+                                <div class="gx-stage-id">
+                                    <h3 class="gx-stage-t" id="gxStageNvtT">NVT equilibration</h3>
+                                    <span class="gx-stage-sum" data-gx="sum"></span>
                                 </div>
-                                <div class="sg-grid sg-stage">
+                                <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost gx-stage-file" data-gx-file="nvt"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> <span data-gx="fname">nvt.mdp</span></button>
+                            </div>
+                            <div class="gx-stage-b sg-form" data-gx="body">
+                                <p class="gx-stage-what">Brings the system to the target temperature at constant volume while the solute is held, so the solvent settles around it.</p>
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="stage_nvt_len">Length</label>
+                                        <div class="gx-len">
+                                            <input type="number" id="stage_nvt_len" value="100" min="0" step="any" inputmode="decimal" class="stk-input">
+                                            <select id="stage_nvt_unit" class="stk-select" aria-label="Unit of the length"><option value="ps" selected>ps</option><option value="ns">ns</option></select>
+                                        </div>
+                                        <p class="stk-hint" data-gx="steps"></p>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_nvt_vel">Starting velocities</label>
+                                        <select id="stage_nvt_vel" class="stk-select"><option value="auto" selected>Automatic</option><option value="new">New (gen-vel)</option><option value="continue">Carry over (continuation)</option></select>
+                                        <p class="stk-hint" data-gx="vel"></p>
+                                    </div>
+                                </div>
+                                <label class="stk-check"><input type="checkbox" id="stage_nvt_posres" checked> <span>Hold the solute: position restraints (<code>-DPOSRES</code>, adds <code>-r</code>)</span></label>
+                                <fieldset class="gx-every">
+                                    <legend>Write every (ps); 0 writes none</legend>
+                                    <div class="gx-every-grid">
+                                    <div class="stk-field">
+                                        <label for="stage_nvt_xtc">Coordinates <code>.xtc</code></label>
+                                        <input type="number" id="stage_nvt_xtc" value="10" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_nvt_edr">Energies <code>.edr</code></label>
+                                        <input type="number" id="stage_nvt_edr" value="1" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_nvt_log">Log</label>
+                                        <input type="number" id="stage_nvt_log" value="10" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_nvt_trr">Full <code>.trr</code></label>
+                                        <input type="number" id="stage_nvt_trr" value="0" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    </div>
+                                </fieldset>
+                                <div class="gx-names">
                                     <div class="stk-field">
                                         <label for="stage_nvt_mdp">.mdp file</label>
                                         <input type="text" id="stage_nvt_mdp" value="nvt.mdp" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                                     </div>
                                     <div class="stk-field">
-                                        <label for="stage_nvt_deffnm">-deffnm</label>
+                                        <label for="stage_nvt_deffnm">Output names <code class="gx-opt-code">-deffnm</code></label>
                                         <input type="text" id="stage_nvt_deffnm" value="nvt" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                                     </div>
-                                    <label class="stk-check sg-grid-span"><input type="checkbox" id="stage_nvt_posres" checked> <span>Position restraints (adds <code>-r</code>)</span></label>
                                 </div>
+                                <div class="gx-stage-notes" data-gx="notes"></div>
                             </div>
-                            <div class="sg-option">
-                                <div class="stk-switch-row">
-                                    <span id="stageNptLabel">NPT equilibration</span>
-                                    <button type="button" id="stage_npt_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="stageNptLabel"></button>
+                        </section>
+
+                        <!-- NPT equilibration -->
+                        <section class="stk-panel gx-stage" data-stage="npt" aria-labelledby="gxStageNptT">
+                            <div class="gx-stage-h">
+                                <button type="button" id="stage_npt_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="gxStageNptT"></button>
+                                <div class="gx-stage-id">
+                                    <h3 class="gx-stage-t" id="gxStageNptT">NPT equilibration</h3>
+                                    <span class="gx-stage-sum" data-gx="sum"></span>
                                 </div>
-                                <div class="sg-grid sg-stage">
+                                <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost gx-stage-file" data-gx-file="npt"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> <span data-gx="fname">npt.mdp</span></button>
+                            </div>
+                            <div class="gx-stage-b sg-form" data-gx="body">
+                                <p class="gx-stage-what">Lets the density settle at the target pressure, still holding the solute. The barostat is C-rescale here whatever production uses.</p>
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="stage_npt_len">Length</label>
+                                        <div class="gx-len">
+                                            <input type="number" id="stage_npt_len" value="100" min="0" step="any" inputmode="decimal" class="stk-input">
+                                            <select id="stage_npt_unit" class="stk-select" aria-label="Unit of the length"><option value="ps" selected>ps</option><option value="ns">ns</option></select>
+                                        </div>
+                                        <p class="stk-hint" data-gx="steps"></p>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_npt_vel">Starting velocities</label>
+                                        <select id="stage_npt_vel" class="stk-select"><option value="auto" selected>Automatic</option><option value="new">New (gen-vel)</option><option value="continue">Carry over (continuation)</option></select>
+                                        <p class="stk-hint" data-gx="vel"></p>
+                                    </div>
+                                </div>
+                                <label class="stk-check"><input type="checkbox" id="stage_npt_posres" checked> <span>Hold the solute: position restraints (<code>-DPOSRES</code>, adds <code>-r</code>)</span></label>
+                                <fieldset class="gx-every">
+                                    <legend>Write every (ps); 0 writes none</legend>
+                                    <div class="gx-every-grid">
+                                    <div class="stk-field">
+                                        <label for="stage_npt_xtc">Coordinates <code>.xtc</code></label>
+                                        <input type="number" id="stage_npt_xtc" value="10" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_npt_edr">Energies <code>.edr</code></label>
+                                        <input type="number" id="stage_npt_edr" value="1" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_npt_log">Log</label>
+                                        <input type="number" id="stage_npt_log" value="10" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_npt_trr">Full <code>.trr</code></label>
+                                        <input type="number" id="stage_npt_trr" value="0" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    </div>
+                                </fieldset>
+                                <div class="gx-names">
                                     <div class="stk-field">
                                         <label for="stage_npt_mdp">.mdp file</label>
                                         <input type="text" id="stage_npt_mdp" value="npt.mdp" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                                     </div>
                                     <div class="stk-field">
-                                        <label for="stage_npt_deffnm">-deffnm</label>
+                                        <label for="stage_npt_deffnm">Output names <code class="gx-opt-code">-deffnm</code></label>
                                         <input type="text" id="stage_npt_deffnm" value="npt" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                                     </div>
-                                    <label class="stk-check sg-grid-span"><input type="checkbox" id="stage_npt_posres" checked> <span>Position restraints (adds <code>-r</code>)</span></label>
                                 </div>
+                                <div class="gx-stage-notes" data-gx="notes"></div>
                             </div>
-                            <div class="sg-option">
-                                <div class="stk-switch-row">
-                                    <span id="stageProdLabel">Production MD</span>
-                                    <button type="button" id="stage_prod_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="stageProdLabel"></button>
+                        </section>
+
+                        <!-- Production -->
+                        <section class="stk-panel gx-stage" data-stage="prod" aria-labelledby="gxStageProdT">
+                            <div class="gx-stage-h">
+                                <button type="button" id="stage_prod_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="gxStageProdT"></button>
+                                <div class="gx-stage-id">
+                                    <h3 class="gx-stage-t" id="gxStageProdT">Production</h3>
+                                    <span class="gx-stage-sum" data-gx="sum"></span>
                                 </div>
-                                <div class="sg-grid sg-stage">
+                                <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost gx-stage-file" data-gx-file="prod"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> <span data-gx="fname">md.mdp</span></button>
+                            </div>
+                            <div class="gx-stage-b sg-form" data-gx="body">
+                                <p class="gx-stage-what">The run you analyse: restraints released, with the thermostat and barostat chosen under System.</p>
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="stage_prod_len">Length</label>
+                                        <div class="gx-len">
+                                            <input type="number" id="stage_prod_len" value="100" min="0" step="any" inputmode="decimal" class="stk-input">
+                                            <select id="stage_prod_unit" class="stk-select" aria-label="Unit of the length"><option value="ps">ps</option><option value="ns" selected>ns</option></select>
+                                        </div>
+                                        <p class="stk-hint" data-gx="steps"></p>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_prod_vel">Starting velocities</label>
+                                        <select id="stage_prod_vel" class="stk-select"><option value="auto" selected>Automatic</option><option value="new">New (gen-vel)</option><option value="continue">Carry over (continuation)</option></select>
+                                        <p class="stk-hint" data-gx="vel"></p>
+                                    </div>
+                                </div>
+                            <div class="stk-field">
+                                <label for="stage_prod_ens">Ensemble</label>
+                                <select id="stage_prod_ens" class="stk-select"><option value="NPT" selected>NPT: thermostat and barostat</option><option value="NVT">NVT: fixed box</option></select>
+                            </div>
+                                <label class="stk-check"><input type="checkbox" id="stage_prod_posres"> <span>Hold the solute: position restraints (<code>-DPOSRES</code>, adds <code>-r</code>)</span></label>
+                                <fieldset class="gx-every">
+                                    <legend>Write every (ps); 0 writes none</legend>
+                                    <div class="gx-every-grid">
+                                    <div class="stk-field">
+                                        <label for="stage_prod_xtc">Coordinates <code>.xtc</code></label>
+                                        <input type="number" id="stage_prod_xtc" value="10" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_prod_edr">Energies <code>.edr</code></label>
+                                        <input type="number" id="stage_prod_edr" value="10" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_prod_log">Log</label>
+                                        <input type="number" id="stage_prod_log" value="100" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_prod_trr">Full <code>.trr</code></label>
+                                        <input type="number" id="stage_prod_trr" value="0" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    </div>
+                                </fieldset>
+                                <div class="gx-names">
                                     <div class="stk-field">
                                         <label for="stage_prod_mdp">.mdp file</label>
                                         <input type="text" id="stage_prod_mdp" value="md.mdp" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                                     </div>
                                     <div class="stk-field">
-                                        <label for="stage_prod_deffnm">-deffnm</label>
+                                        <label for="stage_prod_deffnm">Output names <code class="gx-opt-code">-deffnm</code></label>
                                         <input type="text" id="stage_prod_deffnm" value="md" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
                                     </div>
-                                    <label class="stk-check sg-grid-span"><input type="checkbox" id="stage_prod_posres"> <span>Position restraints (adds <code>-r</code>)</span></label>
                                 </div>
+                                <div class="gx-stage-notes" data-gx="notes"></div>
                             </div>
-                        </div>
-                    </section>
+                        </section>
 
-                    <!-- GROMACS GPU flags -->
-                    <section id="gmxGpuCard" class="stk-panel" aria-labelledby="gpuTitle">
-                        <div class="stk-panel-h">
-                            <h2 class="stk-panel-t" id="gpuTitle"><i class="fa-solid fa-microchip"></i> GPU offload (mdrun)</h2>
-                        </div>
-                        <div class="stk-panel-b sg-form">
-                            <p class="stk-hint">Applied only when GPUs per node is above 0. Each flag offloads the named calculation to the GPU.</p>
-                            <div class="sg-grid sg-checks">
-                                <label class="stk-check"><input type="checkbox" id="gpuNb" checked> <code>-nb gpu</code> <span class="plumed-help" tabindex="0" data-tip="Offload the short-range non-bonded (particle-particle) interactions to the GPU. This is the main GROMACS GPU acceleration and is required for the other GPU offloads.">?</span></label>
-                                <label class="stk-check"><input type="checkbox" id="gpuPme" checked> <code>-pme gpu</code> <span class="plumed-help" tabindex="0" data-tip="Offload PME long-range electrostatics to the GPU. Only one PME rank is supported on the GPU, so with multiple ranks the tool adds -npme 1.">?</span></label>
-                                <label class="stk-check"><input type="checkbox" id="gpuBonded"> <code>-bonded gpu</code> <span class="plumed-help" tabindex="0" data-tip="Offload bonded interactions to the GPU. Requires -nb gpu, since it is part of the same particle-particle workload.">?</span></label>
-                                <label class="stk-check"><input type="checkbox" id="gpuUpdate"> <code>-update gpu</code> <span class="plumed-help" tabindex="0" data-tip="Run the integration and constraints update on the GPU (GPU-resident mode). Needs constraints = h-bonds and disables dynamic load balancing; not used for energy minimisation.">?</span></label>
+                        <!-- Simulated annealing -->
+                        <section class="stk-panel gx-stage" data-stage="anneal" aria-labelledby="gxStageAnnealT">
+                            <div class="gx-stage-h">
+                                <button type="button" id="stage_anneal_on" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="gxStageAnnealT"></button>
+                                <div class="gx-stage-id">
+                                    <h3 class="gx-stage-t" id="gxStageAnnealT">Simulated annealing</h3>
+                                    <span class="gx-stage-sum" data-gx="sum"></span>
+                                </div>
+                                <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost gx-stage-file" data-gx-file="anneal"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> <span data-gx="fname">anneal.mdp</span></button>
                             </div>
+                            <div class="gx-stage-b sg-form" data-gx="body">
+                                <p class="gx-stage-what">Heats and cools along a schedule of temperatures, to anneal a structure or to melt and quench a material.</p>
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="stage_anneal_len">Length</label>
+                                        <div class="gx-len">
+                                            <input type="number" id="stage_anneal_len" value="1" min="0" step="any" inputmode="decimal" class="stk-input">
+                                            <select id="stage_anneal_unit" class="stk-select" aria-label="Unit of the length"><option value="ps">ps</option><option value="ns" selected>ns</option></select>
+                                        </div>
+                                        <p class="stk-hint" data-gx="steps"></p>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_anneal_vel">Starting velocities</label>
+                                        <select id="stage_anneal_vel" class="stk-select"><option value="auto" selected>Automatic</option><option value="new">New (gen-vel)</option><option value="continue">Carry over (continuation)</option></select>
+                                        <p class="stk-hint" data-gx="vel"></p>
+                                    </div>
+                                </div>
                             <div class="stk-field">
-                                <label for="gpuNtmpi">-ntmpi <span class="plumed-help" tabindex="0" data-tip="Number of thread-MPI ranks. The CPUs per task are shared out between them (the script divides OMP_NUM_THREADS by this number). With PME on the GPU only one PME rank is allowed, so the tool adds -npme 1 when you set more than one rank.">?</span></label>
-                                <input type="text" id="gpuNtmpi" value="" class="stk-input stk-mono" placeholder="optional, e.g. 1" autocomplete="off" spellcheck="false">
+                                <label for="stage_anneal_sched">Schedule: time (ps) and temperature (K)</label>
+                                <input type="text" id="stage_anneal_sched" value="0 300, 200 400, 600 400, 1000 300" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                <p class="stk-hint" data-gx="sched">Pairs separated by commas; the temperature changes linearly between them and holds after the last.</p>
                             </div>
-                        </div>
-                    </section>
-
-                    <!-- PLUMED coupling -->
-                    <section class="stk-panel" aria-labelledby="gmxPlumedTitle">
-                        <div class="stk-panel-h">
-                            <h2 class="stk-panel-t" id="gmxPlumedTitle"><i class="fa-solid fa-wave-square"></i> PLUMED</h2>
-                        </div>
-                        <div class="stk-panel-b sg-form">
-                            <div class="stk-switch-row">
-                                <span id="gmxPlumedLabel">Attach <code>-plumed</code> to mdrun</span>
-                                <button type="button" id="gmxUsePlumed" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="gmxPlumedLabel"></button>
-                            </div>
-                            <div id="gmxPlumedWrap" class="sg-form" hidden>
-                                <div class="stk-field">
-                                    <label for="gmxPlumedFile">PLUMED input file <span class="plumed-help" tabindex="0" data-tip="The plumed.dat file passed to mdrun via -plumed. Build it in the PLUMED tab, then reference it here by name.">?</span></label>
-                                    <input type="text" id="gmxPlumedFile" value="plumed.dat" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
-                                </div>
-                                <div class="stk-field">
-                                    <label for="gmxPlumedScope">Apply to</label>
-                                    <select id="gmxPlumedScope" class="stk-select">
-                                        <option value="prod">Production stage only</option>
-                                        <option value="all">All MD stages (NVT, NPT, production)</option>
-                                    </select>
-                                    <p class="stk-hint">Build the <code>plumed.dat</code> in the PLUMED tab, then reference it here. Energy minimisation is never coupled.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Topology header -->
-                    <section id="topologyCard" class="stk-panel" aria-labelledby="topologyTitle">
-                        <div class="stk-panel-h">
-                            <h2 class="stk-panel-t" id="topologyTitle"><i class="fa-solid fa-atom"></i> Topology header</h2>
-                        </div>
-                        <div class="stk-panel-b sg-form">
                             <div class="sg-grid">
                                 <div class="stk-field">
-                                    <label for="topForcefield">Force field <span class="plumed-help" tabindex="0" data-tip="Selecting a force field fills in the matching combination rule and 1-4 fudge factors, which must be consistent with it.">?</span></label>
-                                    <select id="topForcefield" class="stk-select">
-                                        <option value="amber99sb-ildn">AMBER99SB-ILDN</option>
-                                        <option value="charmm36">CHARMM36 (separate download)</option>
-                                        <option value="opls-aa">OPLS-AA</option>
-                                    </select>
+                                    <label for="stage_anneal_type">Repeat</label>
+                                    <select id="stage_anneal_type" class="stk-select"><option value="single" selected>Once, then hold</option><option value="periodic">Periodically</option></select>
+                                </div>
+                                <label class="stk-check gx-check-end"><input type="checkbox" id="stage_anneal_p"> <span>Couple the pressure too</span></label>
+                            </div>
+                                <label class="stk-check"><input type="checkbox" id="stage_anneal_posres"> <span>Hold the solute: position restraints (<code>-DPOSRES</code>, adds <code>-r</code>)</span></label>
+                                <fieldset class="gx-every">
+                                    <legend>Write every (ps); 0 writes none</legend>
+                                    <div class="gx-every-grid">
+                                    <div class="stk-field">
+                                        <label for="stage_anneal_xtc">Coordinates <code>.xtc</code></label>
+                                        <input type="number" id="stage_anneal_xtc" value="10" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_anneal_edr">Energies <code>.edr</code></label>
+                                        <input type="number" id="stage_anneal_edr" value="1" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_anneal_log">Log</label>
+                                        <input type="number" id="stage_anneal_log" value="10" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_anneal_trr">Full <code>.trr</code></label>
+                                        <input type="number" id="stage_anneal_trr" value="0" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    </div>
+                                </fieldset>
+                                <div class="gx-names">
+                                    <div class="stk-field">
+                                        <label for="stage_anneal_mdp">.mdp file</label>
+                                        <input type="text" id="stage_anneal_mdp" value="anneal.mdp" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_anneal_deffnm">Output names <code class="gx-opt-code">-deffnm</code></label>
+                                        <input type="text" id="stage_anneal_deffnm" value="anneal" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                </div>
+                                <div class="gx-stage-notes" data-gx="notes"></div>
+                            </div>
+                        </section>
+
+                        <!-- Pulling -->
+                        <section class="stk-panel gx-stage" data-stage="pull" aria-labelledby="gxStagePullT">
+                            <div class="gx-stage-h">
+                                <button type="button" id="stage_pull_on" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="gxStagePullT"></button>
+                                <div class="gx-stage-id">
+                                    <h3 class="gx-stage-t" id="gxStagePullT">Pulling</h3>
+                                    <span class="gx-stage-sum" data-gx="sum"></span>
+                                </div>
+                                <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost gx-stage-file" data-gx-file="pull"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> <span data-gx="fname">pull.mdp</span></button>
+                            </div>
+                            <div class="gx-stage-b sg-form" data-gx="body">
+                                <p class="gx-stage-what">Pulls one group from another along a coordinate: a fixed umbrella-sampling window, or steered MD at a constant rate.</p>
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="stage_pull_len">Length</label>
+                                        <div class="gx-len">
+                                            <input type="number" id="stage_pull_len" value="10" min="0" step="any" inputmode="decimal" class="stk-input">
+                                            <select id="stage_pull_unit" class="stk-select" aria-label="Unit of the length"><option value="ps">ps</option><option value="ns" selected>ns</option></select>
+                                        </div>
+                                        <p class="stk-hint" data-gx="steps"></p>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_pull_vel">Starting velocities</label>
+                                        <select id="stage_pull_vel" class="stk-select"><option value="auto" selected>Automatic</option><option value="new">New (gen-vel)</option><option value="continue">Carry over (continuation)</option></select>
+                                        <p class="stk-hint" data-gx="vel"></p>
+                                    </div>
+                                </div>
+                            <div class="sg-grid">
+                                <div class="stk-field">
+                                    <label for="stage_pull_mode">Kind</label>
+                                    <select id="stage_pull_mode" class="stk-select"><option value="umbrella" selected>Umbrella window (fixed)</option><option value="steered">Steered (constant rate)</option></select>
                                 </div>
                                 <div class="stk-field">
-                                    <label for="topSolvent">Water model <span class="plumed-help" tabindex="0" data-tip="The water model include (e.g. TIP3P, SPC/E). It should be compatible with the chosen force field.">?</span></label>
-                                    <select id="topSolvent" class="stk-select">
-                                        <option value="spce">SPC/E</option>
-                                        <option value="tip3p">TIP3P</option>
-                                        <option value="tip4p">TIP4P</option>
+                                    <label for="stage_pull_ens">Ensemble</label>
+                                    <select id="stage_pull_ens" class="stk-select"><option value="NPT" selected>NPT</option><option value="NVT">NVT</option></select>
+                                </div>
+                                <div class="stk-field">
+                                    <label for="stage_pull_g1">Reference group</label>
+                                    <input type="text" id="stage_pull_g1" value="Protein" list="gxGroupNames" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                </div>
+                                <div class="stk-field">
+                                    <label for="stage_pull_g2">Pulled group</label>
+                                    <input type="text" id="stage_pull_g2" value="LIG" list="gxGroupNames" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                </div>
+                                <div class="stk-field">
+                                    <label for="stage_pull_geom">Coordinate</label>
+                                    <select id="stage_pull_geom" class="stk-select stk-select-sm"><option value="distance" selected>Distance between the two</option><option value="direction">Along a direction</option></select>
+                                </div>
+                                <div class="stk-field">
+                                    <label for="stage_pull_dim">Dimensions (x y z)</label>
+                                    <input type="text" id="stage_pull_dim" value="Y Y Y" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                </div>
+                                <div class="stk-field" data-gx="vec">
+                                    <label for="stage_pull_vec">Direction (x y z)</label>
+                                    <input type="text" id="stage_pull_vec" value="0 0 1" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                </div>
+                                <div class="stk-field">
+                                    <label for="stage_pull_k">Force constant (kJ/mol/nm²)</label>
+                                    <input type="number" id="stage_pull_k" value="1000" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                </div>
+                                <div class="stk-field" data-gx="rate">
+                                    <label for="stage_pull_rate">Rate (nm/ps)</label>
+                                    <input type="number" id="stage_pull_rate" value="0.01" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                </div>
+                                <div class="stk-field">
+                                    <label for="stage_pull_pout">Pull output every (ps)</label>
+                                    <input type="number" id="stage_pull_pout" value="1" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                </div>
+                            </div>
+                            <p class="stk-hint">Group names must exist in the index: build it under Index groups, where these fields offer every group.</p>
+                                <label class="stk-check"><input type="checkbox" id="stage_pull_posres"> <span>Hold the solute: position restraints (<code>-DPOSRES</code>, adds <code>-r</code>)</span></label>
+                                <fieldset class="gx-every">
+                                    <legend>Write every (ps); 0 writes none</legend>
+                                    <div class="gx-every-grid">
+                                    <div class="stk-field">
+                                        <label for="stage_pull_xtc">Coordinates <code>.xtc</code></label>
+                                        <input type="number" id="stage_pull_xtc" value="10" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_pull_edr">Energies <code>.edr</code></label>
+                                        <input type="number" id="stage_pull_edr" value="10" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_pull_log">Log</label>
+                                        <input type="number" id="stage_pull_log" value="100" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_pull_trr">Full <code>.trr</code></label>
+                                        <input type="number" id="stage_pull_trr" value="0" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    </div>
+                                </fieldset>
+                                <div class="gx-names">
+                                    <div class="stk-field">
+                                        <label for="stage_pull_mdp">.mdp file</label>
+                                        <input type="text" id="stage_pull_mdp" value="pull.mdp" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="stage_pull_deffnm">Output names <code class="gx-opt-code">-deffnm</code></label>
+                                        <input type="text" id="stage_pull_deffnm" value="pull" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                </div>
+                                <div class="gx-stage-notes" data-gx="notes"></div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- ===== 3. Index groups ===== -->
+                    <div id="gxViewIndex" class="gx-view" data-gx-pane="index" role="tabpanel" aria-labelledby="gxStepIndex" hidden>
+
+                        <section class="stk-panel" aria-labelledby="gxNdxTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="gxNdxTitle"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Index groups from your structure</h2>
+                                <span class="sg-panel-tools">
+                                    <button type="button" id="gxNdxClear" class="stk-btn stk-btn-sm stk-btn-ghost" hidden><i class="fa-solid fa-xmark" aria-hidden="true"></i> Remove</button>
+                                </span>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <div id="gxNdxDrop" class="stk-drop stk-drop-sm" aria-labelledby="gxNdxDropTitle">
+                                    <span class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-file-arrow-up"></i></span>
+                                    <h3 id="gxNdxDropTitle" class="stk-drop-title">Drop the structure grompp will read</h3>
+                                    <p class="stk-drop-text">The groups <code>gmx make_ndx</code> would make, the ones a set-up needs (ligand, complex, pocket, membrane, solvent) and the temperature groups for it, numbered as GROMACS numbers atoms. The file stays in your browser.</p>
+                                    <div class="stk-drop-actions">
+                                        <button type="button" id="gxNdxChoose" class="stk-btn stk-btn-primary stk-btn-sm">Choose file</button>
+                                        <button type="button" id="gxNdxSample" class="stk-btn stk-btn-ghost stk-btn-sm">Protein and ligand sample</button>
+                                        <button type="button" id="gxNdxSampleMemb" class="stk-btn stk-btn-ghost stk-btn-sm">Membrane sample</button>
+                                    </div>
+                                    <p class="stk-drop-formats"><span>.gro</span><span>.pdb</span></p>
+                                    <input type="file" id="gxNdxFile" accept=".gro,.pdb,.ent" hidden data-nosave>
+                                </div>
+                                <div id="gxNdxBody" class="sg-form" hidden>
+                                    <p id="gxNdxSummary" class="gx-ndx-sum"></p>
+                                    <div class="stk-table-wrap">
+                                        <table class="sg-species gx-comp">
+                                            <thead><tr><th scope="col">Residue</th><th scope="col">GROMACS calls it</th><th scope="col">Role</th><th scope="col">Residues</th><th scope="col">Atoms</th></tr></thead>
+                                            <tbody id="gxNdxComp"></tbody>
+                                        </table>
+                                    </div>
+                                    <div id="gxNdxNotes" class="stk-callout stk-callout-accent" hidden></div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section id="gxTcCard" class="stk-panel" aria-labelledby="gxTcTitle" hidden>
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="gxTcTitle"><i class="fa-solid fa-temperature-half" aria-hidden="true"></i> Temperature groups for this system</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <p class="gx-tc-line"><code id="gxTcLine"></code></p>
+                                <p class="stk-hint" id="gxTcReason"></p>
+                                <div class="sg-btnrow">
+                                    <button type="button" id="gxTcUse" class="stk-btn stk-btn-sm stk-btn-primary" data-gx-act="use-tc"><i class="fa-solid fa-check" aria-hidden="true"></i> Use in the .mdp files</button>
+                                </div>
+                                <div id="gxTcCheck" class="gx-check-list" aria-live="polite"></div>
+                            </div>
+                        </section>
+
+                        <section id="gxGroupsCard" class="stk-panel" aria-labelledby="gxGroupsTitle" hidden>
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="gxGroupsTitle"><i class="fa-solid fa-list-ol" aria-hidden="true"></i> Groups in index.ndx</h2>
+                                <span class="sg-panel-tools">
+                                    <button type="button" id="gxNdxView" class="stk-btn stk-btn-sm"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> View</button>
+                                    <button type="button" id="gxNdxDownload" class="stk-btn stk-btn-sm"><i class="fa-solid fa-download" aria-hidden="true"></i> index.ndx</button>
+                                </span>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <p class="stk-hint">Numbered as <code>gmx make_ndx</code> numbers them. The suggested groups can be left out; your own are added at the end.</p>
+                                <div id="gxGroups" class="gx-groups"></div>
+                            </div>
+                        </section>
+
+                        <section id="gxCustomCard" class="stk-panel" aria-labelledby="gxCustomTitle" hidden>
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="gxCustomTitle"><i class="fa-solid fa-plus" aria-hidden="true"></i> Make a group</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <p class="stk-hint">Fill in what the atoms have in common; every line you fill in must hold. Names take <code>*</code> and <code>?</code> as in make_ndx, and lists are separated by spaces or commas.</p>
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="gxCgFrom">Start from</label>
+                                        <select id="gxCgFrom" class="stk-select stk-select-sm" data-nosave></select>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="gxCgRes">Residue names</label>
+                                        <input type="text" id="gxCgRes" class="stk-input stk-input-sm stk-mono" placeholder="e.g. LIG HEM" autocomplete="off" spellcheck="false" data-nosave>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="gxCgResnr">Residue numbers</label>
+                                        <input type="text" id="gxCgResnr" class="stk-input stk-input-sm stk-mono" placeholder="e.g. 1-50 60" autocomplete="off" spellcheck="false" data-nosave>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="gxCgAtom">Atom names</label>
+                                        <input type="text" id="gxCgAtom" class="stk-input stk-input-sm stk-mono" placeholder="e.g. CA C* N" autocomplete="off" spellcheck="false" data-nosave>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="gxCgChain">Chain</label>
+                                        <input type="text" id="gxCgChain" class="stk-input stk-input-sm stk-mono" placeholder="PDB only, e.g. A" autocomplete="off" spellcheck="false" data-nosave>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="gxCgElem">Element</label>
+                                        <input type="text" id="gxCgElem" class="stk-input stk-input-sm stk-mono" placeholder="e.g. C N O" autocomplete="off" spellcheck="false" data-nosave>
+                                    </div>
+                                </div>
+                                <fieldset class="gx-within">
+                                    <legend><label class="stk-check"><input type="checkbox" id="gxCgWithinOn" data-nosave> <span>Only atoms near a group</span></label></legend>
+                                    <div class="gx-within-row">
+                                        <label for="gxCgWithin" class="sr-only">Distance in nm</label>
+                                        <span>within</span>
+                                        <input type="number" id="gxCgWithin" value="0.5" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm" data-nosave>
+                                        <span>nm of</span>
+                                        <label for="gxCgWithinOf" class="sr-only">Group the distance is measured from</label>
+                                        <select id="gxCgWithinOf" class="stk-select stk-select-sm" data-nosave></select>
+                                    </div>
+                                    <label class="stk-check"><input type="checkbox" id="gxCgByRes" checked data-nosave> <span>Take whole residues</span></label>
+                                </fieldset>
+                                <div class="gx-combine">
+                                    <label for="gxCgCombine">Then</label>
+                                    <select id="gxCgCombine" class="stk-select stk-select-sm" data-nosave>
+                                        <option value="">keep these atoms</option>
+                                        <option value="or">add the atoms of</option>
+                                        <option value="and">keep only those also in</option>
+                                        <option value="not">leave out the atoms of</option>
                                     </select>
+                                    <label for="gxCgCombineWith" class="sr-only">Group to combine with</label>
+                                    <select id="gxCgCombineWith" class="stk-select stk-select-sm" data-nosave></select>
+                                </div>
+                                <details class="stk-disclosure">
+                                    <summary>Or write a selection</summary>
+                                    <div>
+                                        <label for="gxCgQuery" class="sr-only">Selection</label>
+                                        <input type="text" id="gxCgQuery" class="stk-input stk-input-sm stk-mono" placeholder="e.g. resn:LIG or (protein and within 0.5 of resn:LIG)" autocomplete="off" spellcheck="false" data-nosave>
+                                        <p class="stk-hint">The selection language of the Structure Inspector; distances in nm. It is combined with the fields above.</p>
+                                    </div>
+                                </details>
+                                <div class="gx-cg-foot">
+                                    <div class="stk-field gx-cg-name">
+                                        <label for="gxCgName">Group name</label>
+                                        <input type="text" id="gxCgName" class="stk-input stk-input-sm stk-mono" placeholder="named for you" autocomplete="off" spellcheck="false" data-nosave>
+                                    </div>
+                                    <button type="button" id="gxCgAdd" class="stk-btn stk-btn-sm stk-btn-primary" disabled><i class="fa-solid fa-plus" aria-hidden="true"></i> Add group</button>
+                                </div>
+                                <p id="gxCgPreview" class="gx-cg-preview" aria-live="polite"></p>
+                            </div>
+                        </section>
+                        <datalist id="gxGroupNames"></datalist>
+                    </div>
+
+                    <!-- ===== 4. Job ===== -->
+                    <div id="gxViewJob" class="gx-view" data-gx-pane="job" role="tabpanel" aria-labelledby="gxStepJob" hidden>
+
+                        <section class="stk-panel" aria-labelledby="stagesTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="stagesTitle"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i> Input files and restarts</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="gmxStartConf">Start coordinates <span class="plumed-help" tabindex="0" data-tip="The input structure for the first stage (.gro or .pdb). Later stages read the previous stage's output coordinates.">?</span></label>
+                                        <input type="text" id="gmxStartConf" value="system.gro" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="gmxTopol">Topology <span class="plumed-help" tabindex="0" data-tip="The system topology (.top) passed to every grompp call. Must match the force field chosen under System.">?</span></label>
+                                        <input type="text" id="gmxTopol" value="topol.top" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="gmxIndex">Index file <span class="plumed-help" tabindex="0" data-tip="A GROMACS index file (.ndx) passed to grompp with -n. Filled in when you build one under Index groups; type your own file's name if it defines groups the .mdp files use, such as CHARMM-GUI's SOLU, MEMB and SOLV.">?</span></label>
+                                        <input type="text" id="gmxIndex" value="" class="stk-input stk-mono" placeholder="optional, index.ndx" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="gmxBinary">GROMACS executable <span class="plumed-help" tabindex="0" data-tip="The gmx command on the cluster. Many HPC modules install the MPI build as gmx_mpi (and some sites use a versioned name such as gmx_mpi_d for double precision). Run 'module load gromacs' then 'which gmx gmx_mpi' to check. Used for both grompp and mdrun.">?</span></label>
+                                        <input type="text" id="gmxBinary" value="gmx" list="gmxBinaryList" class="stk-input stk-mono" placeholder="gmx" autocomplete="off" spellcheck="false">
+                                        <datalist id="gmxBinaryList">
+                                            <option value="gmx"></option>
+                                            <option value="gmx_mpi"></option>
+                                            <option value="gmx_mpi_d"></option>
+                                            <option value="gmx_d"></option>
+                                        </datalist>
+                                    </div>
+                                </div>
+                                <p class="stk-hint">Use <code>gmx_mpi</code> if the module provides the MPI build (<code>which gmx gmx_mpi</code> after loading it). Each <code>grompp</code> reads the previous stage's <code>.gro</code> with <code>-c</code>, and its checkpoint with <code>-t</code> when velocities carry over.</p>
+                                <div class="sg-option">
+                                    <div class="stk-switch-row">
+                                        <span id="gxResumeLabel">Skip stages that already finished</span>
+                                        <button type="button" id="gxResume" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="gxResumeLabel" aria-describedby="gxResumeHint"></button>
+                                    </div>
+                                    <p class="stk-hint" id="gxResumeHint">Each stage runs only while its final <code>.gro</code> is missing, and mdrun continues from its checkpoint (<code>-cpi</code>). If the job hits its wall time, submit the same script again and it carries on where it stopped.</p>
                                 </div>
                             </div>
-                            <p class="stk-hint">Combination rule and 1&#8209;4 fudge factors are set automatically to match the force field. <a href="#method" class="sg-link">Why?</a></p>
-                            <div class="sg-option">
+                        </section>
+
+                        <!-- GROMACS GPU flags -->
+                        <section id="gmxGpuCard" class="stk-panel" aria-labelledby="gpuTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="gpuTitle"><i class="fa-solid fa-microchip"></i> GPU offload (mdrun)</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <p class="stk-hint">Applied only when GPUs per node is above 0. Each flag offloads the named calculation to the GPU.</p>
+                                <div class="sg-grid sg-checks">
+                                    <label class="stk-check"><input type="checkbox" id="gpuNb" checked> <code>-nb gpu</code> <span class="plumed-help" tabindex="0" data-tip="Offload the short-range non-bonded (particle-particle) interactions to the GPU. This is the main GROMACS GPU acceleration and is required for the other GPU offloads.">?</span></label>
+                                    <label class="stk-check"><input type="checkbox" id="gpuPme" checked> <code>-pme gpu</code> <span class="plumed-help" tabindex="0" data-tip="Offload PME long-range electrostatics to the GPU. Only one PME rank is supported on the GPU, so with multiple ranks the tool adds -npme 1.">?</span></label>
+                                    <label class="stk-check"><input type="checkbox" id="gpuBonded"> <code>-bonded gpu</code> <span class="plumed-help" tabindex="0" data-tip="Offload bonded interactions to the GPU. Requires -nb gpu, since it is part of the same particle-particle workload.">?</span></label>
+                                    <label class="stk-check"><input type="checkbox" id="gpuUpdate"> <code>-update gpu</code> <span class="plumed-help" tabindex="0" data-tip="Run the integration and constraints update on the GPU (GPU-resident mode). Needs constraints = h-bonds and disables dynamic load balancing; not used for energy minimisation.">?</span></label>
+                                </div>
+                                <div class="stk-field">
+                                    <label for="gpuNtmpi">-ntmpi <span class="plumed-help" tabindex="0" data-tip="Number of thread-MPI ranks. The CPUs per task are shared out between them (the script divides OMP_NUM_THREADS by this number). With PME on the GPU only one PME rank is allowed, so the tool adds -npme 1 when you set more than one rank.">?</span></label>
+                                    <input type="text" id="gpuNtmpi" value="" class="stk-input stk-mono" placeholder="optional, e.g. 1" autocomplete="off" spellcheck="false">
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- PLUMED coupling -->
+                        <section class="stk-panel" aria-labelledby="gmxPlumedTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="gmxPlumedTitle"><i class="fa-solid fa-wave-square"></i> PLUMED</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
                                 <div class="stk-switch-row">
-                                    <span id="topAdvancedLabel">Advanced override</span>
-                                    <button type="button" id="topAdvancedToggle" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="topAdvancedLabel"></button>
+                                    <span id="gmxPlumedLabel">Attach <code>-plumed</code> to mdrun</span>
+                                    <button type="button" id="gmxUsePlumed" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="gmxPlumedLabel"></button>
                                 </div>
-                                <div id="topAdvancedPanel" class="sg-grid" hidden>
+                                <div id="gmxPlumedWrap" class="sg-form" hidden>
                                     <div class="stk-field">
-                                        <label for="topComb">Combination rule <span class="plumed-help" tabindex="0" data-tip="How pair Lennard-Jones parameters are combined: rule 2 is Lorentz-Berthelot (arithmetic/geometric); rules 1 and 3 are geometric. Set by the force field.">?</span></label>
-                                        <select id="topComb" class="stk-select">
-                                            <option value="2">2 (Lorentz&ndash;Berthelot)</option>
-                                            <option value="1">1 (Geometric)</option>
-                                            <option value="3">3 (OPLS, geometric)</option>
-                                        </select>
+                                        <label for="gmxPlumedFile">PLUMED input file <span class="plumed-help" tabindex="0" data-tip="The plumed.dat file passed to mdrun via -plumed. Build it in the PLUMED tab, then reference it here by name.">?</span></label>
+                                        <input type="text" id="gmxPlumedFile" value="plumed.dat" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
                                     </div>
                                     <div class="stk-field">
-                                        <label for="topFudge">fudgeLJ / fudgeQQ <span class="plumed-help" tabindex="0" data-tip="Scaling of 1-4 non-bonded interactions: fudgeLJ scales 1-4 Lennard-Jones (only with gen-pairs = yes); fudgeQQ scales 1-4 electrostatics and is always applied.">?</span></label>
-                                        <select id="topFudge" class="stk-select">
-                                            <option value="amber">0.5 / 0.8333 (AMBER)</option>
-                                            <option value="charmm">1.0 / 1.0 (CHARMM)</option>
-                                            <option value="opls">0.5 / 0.5 (OPLS)</option>
-                                            <option value="none">1.0 / 1.0 (None)</option>
+                                        <label for="gmxPlumedScope">Apply to</label>
+                                        <select id="gmxPlumedScope" class="stk-select">
+                                            <option value="prod">Production stage only</option>
+                                            <option value="all">All MD stages</option>
                                         </select>
+                                        <p class="stk-hint">Build the <code>plumed.dat</code> in the PLUMED tab, then reference it here. Energy minimisation is never coupled.</p>
                                     </div>
                                 </div>
                             </div>
-                            <div class="stk-field">
-                                <label for="topIncludes">Additional includes <span class="plumed-help" tabindex="0" data-tip="Extra #include lines (one per line) for ligand or ion .itp files, added after the force-field include in the topology header.">?</span></label>
-                                <textarea id="topIncludes" class="stk-textarea stk-mono" rows="2" placeholder='e.g. #include "ligand.itp"' spellcheck="false">#include "ligand.itp"</textarea>
-                            </div>
-                            <div id="topWarnings" class="stk-callout stk-callout-warn" role="status" hidden></div>
-                        </div>
-                    </section>
+                        </section>
+                    </div>
                 </div>
 
                 <!-- ============ LAMMPS PANEL ============ -->
@@ -892,6 +1598,98 @@
                     <button type="button" class="stk-tab" role="tab" data-plumed-view="analyse" aria-selected="false" aria-controls="plumedAnBox"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Analyse a run</button>
                 </div>
 
+                <!-- GROMACS: the run files, every .mdp option, and checking a file -->
+                <div id="gxViews" class="stk-tabs sg-views" role="tablist" aria-label="GROMACS tools" hidden>
+                    <button type="button" class="stk-tab" role="tab" id="gxViewTabFiles" data-gx-view="files" aria-selected="true" aria-controls="gxFilesBox"><i class="fa-solid fa-folder-open" aria-hidden="true"></i> Run files</button>
+                    <button type="button" class="stk-tab" role="tab" id="gxViewTabOptions" data-gx-view="options" aria-selected="false" aria-controls="gxOptBox" tabindex="-1"><i class="fa-solid fa-book" aria-hidden="true"></i> All options</button>
+                    <button type="button" class="stk-tab" role="tab" id="gxViewTabCheck" data-gx-view="check" aria-selected="false" aria-controls="gxChkBox" tabindex="-1"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Check a file</button>
+                </div>
+
+                <section id="gxFilesBox" class="stk-panel sg-out gx-files" role="tabpanel" aria-labelledby="gxViewTabFiles" hidden>
+                    <div class="gx-files-h">
+                        <div id="gxFileTabs" class="gx-ftabs" role="tablist" aria-label="Files"></div>
+                    </div>
+                    <div class="gx-files-bar">
+                        <p id="gxFileWhat" class="gx-file-what"></p>
+                        <div class="sg-out-actions gx-file-actions">
+                            <div class="stk-seg" role="group" aria-label="How to show the file" id="gxModeSeg">
+                                <button type="button" data-gx-mode="code" aria-pressed="true">File</button>
+                                <button type="button" data-gx-mode="explain" aria-pressed="false">Explained</button>
+                            </div>
+                            <button type="button" id="gxCopy" class="stk-btn stk-btn-sm"><i class="fa-regular fa-copy" aria-hidden="true"></i> <span>Copy</span></button>
+                            <button type="button" id="gxDownload" class="stk-btn stk-btn-sm" aria-label="Download this file" title="Download this file"><i class="fa-solid fa-download" aria-hidden="true"></i></button>
+                            <button type="button" id="gxZip" class="stk-btn stk-btn-sm stk-btn-primary" title="submit.sh, every .mdp, index.ndx and a README in one zip"><i class="fa-solid fa-file-zipper" aria-hidden="true"></i> Download all</button>
+                        </div>
+                    </div>
+                    <div class="sg-out-body stk-scroll gx-code-wrap" id="gxCodeWrap" tabindex="0" role="region" aria-label="File contents">
+                        <pre class="sg-code gx-code"><code id="gxCode"></code></pre>
+                    </div>
+                    <div class="gx-explain stk-scroll" id="gxExplain" tabindex="0" role="region" aria-label="The file, line by line" hidden></div>
+                    <div class="sg-out-f gx-foot" id="gxFoot"></div>
+                </section>
+
+                <section id="gxOptBox" class="stk-panel sg-out sg-tool" role="tabpanel" aria-labelledby="gxViewTabOptions" hidden>
+                    <div class="stk-panel-h sg-out-h">
+                        <h2 class="stk-panel-t" id="gxOptTitle">Every .mdp option <span class="stk-badge">GROMACS 2025.1</span></h2>
+                        <div class="sg-out-actions">
+                            <label class="sg-inline-select">Values in <select id="gxOptFile" class="stk-select stk-select-sm stk-mono" data-nosave></select></label>
+                        </div>
+                    </div>
+                    <div class="gx-opt-bar">
+                        <label for="gxOptFind" class="sr-only">Find an option</label>
+                        <input type="search" id="gxOptFind" class="stk-input stk-input-sm" placeholder="Find: tau-p, barostat, cut-off, pull" autocomplete="off" spellcheck="false" data-nosave>
+                        <label for="gxOptSection" class="sr-only">Section</label>
+                        <select id="gxOptSection" class="stk-select stk-select-sm" data-nosave></select>
+                        <label class="stk-check gx-opt-only"><input type="checkbox" id="gxOptOnly" data-nosave> <span>Only those in the file</span></label>
+                        <span id="gxOptCount" class="gx-opt-count stk-tnum" aria-live="polite"></span>
+                    </div>
+                    <div class="sg-tool-body stk-scroll" id="gxOptScroll">
+                        <div id="gxOptList" class="gx-opts"></div>
+                    </div>
+                </section>
+
+                <section id="gxChkBox" class="stk-panel sg-out sg-tool" role="tabpanel" aria-labelledby="gxViewTabCheck" hidden>
+                    <div class="stk-panel-h sg-out-h">
+                        <h2 class="stk-panel-t" id="gxChkTitle">Check an .mdp file</h2>
+                        <div class="sg-out-actions">
+                            <button type="button" class="stk-btn stk-btn-sm" id="gxChkOpen"><i class="fa-regular fa-folder-open" aria-hidden="true"></i> Open a file</button>
+                            <input type="file" id="gxChkFile" accept=".mdp,.txt,text/plain" hidden data-nosave>
+                            <button type="button" class="stk-btn stk-btn-sm" id="gxChkCurrent" title="Check the .mdp file shown under Run files"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> From the builder</button>
+                            <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost" id="gxChkClear"><i class="fa-solid fa-eraser" aria-hidden="true"></i> Clear</button>
+                        </div>
+                    </div>
+                    <div class="sg-tool-body stk-scroll">
+                        <label class="sr-only" for="gxChkText">.mdp file to check</label>
+                        <textarea id="gxChkText" class="stk-textarea stk-mono sg-check-text" rows="9" spellcheck="false" autocomplete="off" data-nosave placeholder="Paste an .mdp file here, or drop it on this box."></textarea>
+                        <div class="gx-chk-ctx">
+                            <label class="sg-inline-select">Topology from <select id="gxChkFf" class="stk-select stk-select-sm" data-nosave>
+                                <option value="">any force field</option>
+                                <option value="amber">AMBER</option>
+                                <option value="charmm36">CHARMM36</option>
+                                <option value="gromos54a7">GROMOS</option>
+                                <option value="opls-aa">OPLS-AA</option>
+                                <option value="martini3">Martini</option>
+                            </select></label>
+                            <label class="sg-inline-select">grompp -maxwarn <input type="number" id="gxChkMaxwarn" value="0" min="0" step="1" inputmode="numeric" class="stk-input stk-input-sm gx-num-xs" data-nosave></label>
+                            <label class="stk-check" id="gxChkNdxWrap" hidden><input type="checkbox" id="gxChkNdx" checked data-nosave> <span>Group names from the index built here</span></label>
+                        </div>
+                        <div id="gxChkVerdict" class="gx-verdict" role="status"></div>
+                        <div class="sg-check-bar">
+                            <div class="stk-seg" role="group" aria-label="What to show">
+                                <button type="button" data-gx-chk="issues" aria-pressed="true">Problems</button>
+                                <button type="button" data-gx-chk="explain" aria-pressed="false">Line by line</button>
+                            </div>
+                            <div class="gx-chk-import">
+                                <label for="gxChkStage" class="sr-only">Open it as</label>
+                                <select id="gxChkStage" class="stk-select stk-select-sm" data-nosave></select>
+                                <button type="button" class="stk-btn stk-btn-sm stk-btn-primary" id="gxChkImport" disabled title="Continue from this file in the builder"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> Open in the builder</button>
+                            </div>
+                        </div>
+                        <div id="gxChkIssues"></div>
+                        <div id="gxChkExplain" class="gx-chk-explain" hidden></div>
+                    </div>
+                </section>
+
                 <section id="scriptBox" class="stk-panel sg-out" aria-labelledby="primaryOutputLabel">
                     <div class="stk-panel-h sg-out-h">
                         <h2 class="stk-panel-t"><span class="stk-mono" id="primaryOutputLabel">submit.sh</span> <span class="stk-badge stk-badge-accent" id="schedulerBadge">SLURM</span></h2>
@@ -1071,15 +1869,16 @@
         <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
             <div class="stk-wrap">
                 <span class="stk-chip"><i class="fa-solid fa-server"></i> How-to guide</span>
-                <h2 class="stk-h2">How to generate a batch script and topology header</h2>
-                <p class="stk-lead">Pick an engine and a scheduler, set the cluster resources, and copy or download the files the generator writes as you type. For GROMACS it chains a staged workflow (EM &rarr; NVT &rarr; NPT &rarr; production) with restraint and checkpoint wiring and GPU-offload flags; for LAMMPS it adds the flags of the accelerator package you choose; for PLUMED it composes a <code>plumed.dat</code> from collective variables picked by category, with the bias and speed options, all from keywords checked against each engine&rsquo;s documentation. It keeps the physics consistent so you do not ship a silently broken topology, and it remembers your settings between visits.</p>
+                <h2 class="stk-h2">How to build a GROMACS workflow or a batch script</h2>
+                <p class="stk-lead">Pick an engine and work through its set-up; the files are written as you type. For GROMACS that is the whole run: a <code>.mdp</code> file for every stage (minimisation, NVT and NPT equilibration, production, and optionally annealing and pulling), each checked the way <code>grompp</code> checks it and explained line by line, the index groups your <code>.mdp</code> files need, and the job script that chains <code>grompp</code> and <code>mdrun</code>, all in one zip. For LAMMPS it writes the job script with the flags of the accelerator package you choose; for PLUMED it composes a <code>plumed.dat</code> from collective variables picked by category. It remembers your settings between visits.</p>
                 <div class="stk-grid stk-grid-2">
-                    <div class="stk-step"><span class="stk-num">1</span><div><h3>Pick a scheduler, an engine and resources</h3><p>Choose <strong>GROMACS</strong> or <strong>LAMMPS</strong> at the top and the scheduler in the cluster card (SLURM, PBS Pro / OpenPBS, LSF or Grid Engine), then set nodes, GPUs, wall time and memory. GROMACS uses CPUs per task (threaded); LAMMPS uses MPI tasks per node. The summary line under the form totals the cores, GPUs and core-hours.</p></div></div>
-                    <div class="stk-step"><span class="stk-num">2</span><div><h3>Define the workflow</h3><p>For GROMACS, toggle the stages you need (EM &rarr; NVT &rarr; NPT &rarr; Production), each with its own <code>.mdp</code> and <code>-deffnm</code>. The tool chains <code>grompp</code> &rarr; <code>mdrun</code> and wires restraints and checkpoints between stages.</p></div></div>
-                    <div class="stk-step"><span class="stk-num">3</span><div><h3>Set the force field &amp; GPU flags</h3><p>The force field auto-sets the combination rule and 1&#8209;4 fudge factors. Choose which calculations to offload to the GPU (<code>-nb</code>, <code>-pme</code>, <code>-bonded</code>, <code>-update</code>). Warnings flag anything inconsistent.</p></div></div>
-                    <div class="stk-step"><span class="stk-num">4</span><div><h3>Copy or download, then submit</h3><p>Copy or download <code>submit.sh</code> (and, for GROMACS, the <code>topol.top</code> header), complete the <code>[ molecules ]</code> section with your species and counts, and submit with the command shown under the script: <code>sbatch</code>, <code>qsub</code>, or <code>bsub &lt; submit.sh</code> for LSF. Export settings writes a JSON file a group can share; Import settings reads one back.</p></div></div>
+                    <div class="stk-step"><span class="stk-num">1</span><div><h3>System: the physics every stage shares</h3><p>Choose the force field (AMBER, CHARMM36, GROMOS 54A7, OPLS-AA or Martini 3), which sets the cut-offs, dispersion correction and time step it was parametrised with, and what you simulate: a solute in water, a membrane (semi-isotropic pressure coupling) or a liquid. Then the temperature and pressure, the thermostat and barostat (the guide next to them explains each), the rigid bonds and the time step, with hydrogen mass repartitioning for 4&nbsp;fs.</p></div></div>
+                    <div class="stk-step"><span class="stk-num">2</span><div><h3>Stages: what runs, and for how long</h3><p>Switch stages on or off and give each a length in ps or ns, its output intervals, and whether the solute is held by position restraints. Velocities are handled for you: new ones for the first dynamics stage, carried over through the checkpoint after it. The panel at the top shows the workflow at a glance, with the steps, frames and file sizes.</p></div></div>
+                    <div class="stk-step"><span class="stk-num">3</span><div><h3>Index groups, when you need them</h3><p>Drop the <code>.gro</code> or <code>.pdb</code> grompp will read: you get the groups <code>gmx make_ndx</code> makes, suggestions for the ligand, the complex, the pocket, the membrane and the solvent, the temperature groups this system should use (applied to the <code>.mdp</code> files), and a builder for groups of your own. <code>index.ndx</code> goes into the zip and the script passes it with <code>-n</code>.</p></div></div>
+                    <div class="stk-step"><span class="stk-num">4</span><div><h3>Job, then download all</h3><p>Set the scheduler (SLURM, PBS Pro / OpenPBS, LSF or Grid Engine), resources, GPU offload and an optional PLUMED file. Every file is on the right with a tab of its own, and <strong>Download all</strong> gives <code>submit.sh</code>, the <code>.mdp</code> files, <code>index.ndx</code> and a README in one zip. Put your coordinates and topology next to them and submit with the command shown: <code>sbatch</code>, <code>qsub</code>, or <code>bsub &lt; submit.sh</code> for LSF.</p></div></div>
                 </div>
-                <div class="stk-note" style="margin-top:1.4rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>The generated script uses <code>#!/bin/bash -e</code>, requests memory explicitly, and writes per-job or per-array logs under <code>logs/</code>. These are deliberate HPC best practices, not noise, see the reasons in the next section. Anything the vendor leaves to the site (a GPU resource name, a parallel-environment name, a memory unit) is marked as site-specific in a comment inside the script.</div></div>
+                <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-book" style="margin-top:.15rem;"></i><div>Two more tools sit beside the files. <strong>All options</strong> lists every <code>.mdp</code> option of GROMACS 2025.1 by section, with its default, values and the manual's text; set a value there and it goes into the file you choose. <strong>Check a file</strong> reads an <code>.mdp</code> you already have, says whether grompp will stop, explains every line, and opens it in the builder to continue from it.</div></div>
+                <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i><div>The generated script uses <code>#!/bin/bash -e</code>, requests memory explicitly, and writes per-job or per-array logs under <code>logs/</code>. These are deliberate HPC best practices, not noise, see the reasons in the next section. Anything the vendor leaves to the site (a GPU resource name, a parallel-environment name, a memory unit) is marked as site-specific in a comment inside the script.</div></div>
             </div>
         </section>
 
@@ -1088,12 +1887,14 @@
             <div class="stk-wrap">
                 <h2 class="stk-h2">What the generator does, and why</h2>
                 <div class="stk-grid stk-grid-2">
+                    <div class="stk-card"><h3>Every .mdp file checked like grompp</h3><p>The <code>.mdp</code> files are written from the GROMACS 2025.1 option table, generated from grompp's own reader and the manual, and each one is checked against grompp's consistency rules as you type. The page says, before you submit, whether grompp would stop, which warnings to expect and why, and adds <code>-maxwarn</code> only where a warning cannot be avoided.</p></div>
+                    <div class="stk-card"><h3>Index groups numbered as GROMACS numbers them</h3><p>The default groups follow <code>gmx make_ndx</code> exactly, quirks included, and the structure is read with GROMACS's own column rules, so a group name offered here is one grompp will find, holding the atoms it expects. The temperature groups are checked to cover every atom exactly once, as grompp requires.</p></div>
                     <div class="stk-card"><h3>Coupled force-field parameters</h3><p>The combination rule and 1&#8209;4 fudge factors are not free choices: each force field ships a specific <code>[ defaults ]</code> line. Selecting a force field sets both for you, and any manual override that diverges from the canonical values is flagged.</p></div>
                     <div class="stk-card"><h3>One request, four schedulers</h3><p>Explicit memory, wall-time validation, <code>#!/bin/bash -e</code> and per-job or per-array logs under <code>logs/</code> follow published cluster best-practice guides so jobs fail loudly instead of silently. The same request becomes <code>#SBATCH</code>, <code>#PBS</code>, <code>#BSUB</code> or <code>#$</code> directives, with the matching job-id, array-index and launch conventions.</p></div>
                     <div class="stk-card"><h3>Hybrid CPU/GPU threading</h3><p>Under SLURM <code>OMP_NUM_THREADS</code> is tied to <code>SLURM_CPUS_PER_TASK</code>, and <code>SRUN_CPUS_PER_TASK</code> is exported for Slurm&nbsp;&gt;&nbsp;22.05; PBS sets <code>NCPUS</code> from <code>ompthreads</code>, which the script reads with the requested count as the fallback; LSF and Grid Engine expose only slot counts, so for them the requested thread count is written next to the directive it matches. <code>gmx mdrun</code> runs with <code>-ntomp</code> and <code>-pin on</code> for reproducible thread placement.</p></div>
                     <div class="stk-card"><h3>Everything stays local</h3><p>The whole tool runs in your browser. Nothing you type is uploaded, logged, or sent anywhere, safe for unpublished systems and internal project names.</p></div>
                 </div>
-                <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-triangle-exclamation" style="margin-top:.15rem;"></i><div>The generated files are a correct <em>starting point</em>, not a validated production input. Always run <code>gmx grompp</code> and check its warnings, and confirm module names, partitions and GPU flags against your own cluster's documentation.</div></div>
+                <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-triangle-exclamation" style="margin-top:.15rem;"></i><div>The generated files are a correct <em>starting point</em>, not a validated production input. The checks here cover what the <code>.mdp</code> file alone decides; your topology decides the rest, so read grompp's own output (the page lists what to expect), and confirm module names, partitions and GPU flags against your own cluster's documentation.</div></div>
             </div>
         </section>
 
@@ -1112,7 +1913,36 @@
                 </div>
 
                 <div class="doc-pane active" data-doc-pane="gromacs">
-                <h2 class="stk-h2">The parameters behind the topology header</h2>
+                <h2 class="stk-h2">How the .mdp files are written</h2>
+                <p class="stk-lead">Each <code>.mdp</code> file is complete and commented: every line says what it does, and the Explained view and the pointer over a line give the manual's meaning with a link to the option in the GROMACS&nbsp;2025.1 manual. The option names, kinds, defaults and allowed values come from a table generated from the GROMACS&nbsp;2025.1 source, grompp's own reader (<code>readir.cpp</code>) and the manual page (<code>mdp-options.rst</code>).</p>
+
+                <p class="stk-eqn-label">What each force field sets, from its GROMACS port or the GROMACS manual's force-field page:</p>
+                <div class="stk-table-wrap">
+                <table class="stk-table">
+                    <thead>
+                        <tr><th>Force field</th><th>Electrostatics</th><th>Lennard-Jones</th><th>Dispersion correction</th><th>Time step</th><th>tau-t / tau-p</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>AMBER</td><td>PME, 1.0&nbsp;nm</td><td>1.0&nbsp;nm, potential-shift</td><td>EnerPres</td><td>2&nbsp;fs, h-bonds</td><td>0.1 / 1.0&nbsp;ps (5.0 Parrinello-Rahman)</td></tr>
+                        <tr><td>CHARMM36</td><td>PME, 1.2&nbsp;nm</td><td>force-switch 1.0&ndash;1.2&nbsp;nm</td><td>no</td><td>2&nbsp;fs, h-bonds</td><td>0.1 / 1.0&nbsp;ps (5.0)</td></tr>
+                        <tr><td>GROMOS 54A7</td><td>PME, 1.4&nbsp;nm</td><td>1.4&nbsp;nm, potential-shift</td><td>no</td><td>2&nbsp;fs, h-bonds</td><td>0.1 / 1.0&nbsp;ps (5.0)</td></tr>
+                        <tr><td>OPLS-AA</td><td>PME, 1.0&nbsp;nm</td><td>1.0&nbsp;nm, potential-shift</td><td>EnerPres</td><td>2&nbsp;fs, h-bonds</td><td>0.1 / 1.0&nbsp;ps (5.0)</td></tr>
+                        <tr><td>Martini 3</td><td>reaction field, &epsilon;<sub>r</sub>&nbsp;15, 1.1&nbsp;nm</td><td>1.1&nbsp;nm, potential-shift</td><td>no</td><td>20&nbsp;fs, none</td><td>1.0 / 4.0&nbsp;ps (12.0)</td></tr>
+                    </tbody>
+                </table>
+                </div>
+                <ul class="sg-list">
+                    <li><span class="hl">Stages.</span> Minimisation uses steepest descent (or conjugate gradient) with flexible bonds and stops below the force you set. NVT and NPT equilibration hold the solute with the topology's position restraints (<code>define = -DPOSRES</code>, and grompp <code>-r</code> with the stage's start coordinates); production releases them. Lengths in ps or ns become <code>nsteps</code> at the time step, output intervals become <code>nstxout-compressed</code>, <code>nstenergy</code> and <code>nstlog</code>, and <code>nstcalcenergy</code> is the largest divisor of <code>nstenergy</code> up to 100.</li>
+                    <li><span class="hl">Velocities.</span> The first dynamics stage draws new velocities (<code>gen-vel = yes</code>, <code>continuation = no</code>); every later one carries them over (<code>gen-vel = no</code>, <code>continuation = yes</code>), and grompp reads the previous stage's checkpoint with <code>-t</code>. Each stage can override this.</li>
+                    <li><span class="hl">Thermostat and barostat.</span> V-rescale and C-rescale are the defaults, as the GROMACS manual recommends; NPT equilibration always uses C-rescale, because Parrinello-Rahman oscillates when the box starts away from equilibrium, and Parrinello-Rahman is used instead when the box must scale anisotropically, which C-rescale does not support in GROMACS&nbsp;2025. Restrained stages under pressure get <code>refcoord-scaling = com</code>. A membrane couples semi-isotropically.</li>
+                    <li><span class="hl">Hydrogen mass repartitioning</span> adds <code>mass-repartition-factor = 3</code> and a 4&nbsp;fs time step to every dynamics stage. grompp makes the lightest atoms three times heavier, taking the mass from the atom each is bonded to; the option exists since GROMACS&nbsp;2024.</li>
+                    <li><span class="hl">What grompp will say.</span> Each file is checked against grompp's consistency rules; the tab of every file shows the verdict. The job script passes <code>-maxwarn</code> only to a grompp call whose file draws warnings that cannot be avoided, with a comment naming them: every GROMOS topology draws one (its twin-range parametrisation), and a Berendsen thermostat or barostat, when chosen, draws one each.</li>
+                    <li><span class="hl">Restarts.</span> Each stage runs only while its final <code>.gro</code> is missing, and <code>mdrun -cpi</code> continues from its checkpoint, so a job that reaches its wall time can be submitted again and carries on. With a job array the <code>.mdp</code> files and the index stay in the submission directory and every task reads them there.</li>
+                    <li><span class="hl">Index groups.</span> The default groups port <code>analyse()</code> from GROMACS's <code>index.cpp</code> and match <code>gmx make_ndx</code> byte for byte; the suggested temperature groups couple solute and solvent (or membrane and solvent) separately when each is large enough, and are checked to cover every atom once, as grompp's <code>do_numbering</code> requires.</li>
+                </ul>
+                <p class="stk-where">Zips downloaded from this page were run with GROMACS&nbsp;2025 (grompp and a short mdrun for every stage) on an AMBER protein with C-rescale, a CHARMM bilayer with semi-isotropic coupling, a GROMOS system as a job array with <code>-maxwarn</code>, a 4&nbsp;fs run with hydrogen mass repartitioning, simulated annealing with OPLS-AA, steered pulling between groups built on the page with Parrinello-Rahman in production, and a coarse-grained system with Martini settings.</p>
+
+                <h2 class="stk-h2" style="margin-top:2.2rem;">The parameters behind the topology header</h2>
                 <p class="stk-lead">A GROMACS <code>[ defaults ]</code> directive declares the non-bonded function, the combination rule, whether 1&#8209;4 pairs are generated, and the 1&#8209;4 scaling factors <code>fudgeLJ</code> and <code>fudgeQQ</code>. These are properties of the force field and must match it.</p>
 
                 <p class="stk-eqn-label">The <code>[ defaults ]</code> line has the form:</p>
@@ -1131,11 +1961,13 @@
                         <tr><td>AMBER (e.g. 99SB-ILDN)</td><td>2</td><td>yes</td><td>0.5</td><td>0.8333</td></tr>
                         <tr><td>CHARMM36 / CHARMM36m</td><td>2</td><td>yes</td><td>1.0</td><td>1.0</td></tr>
                         <tr><td>OPLS-AA</td><td>3</td><td>yes</td><td>0.5</td><td>0.5</td></tr>
+                        <tr><td>GROMOS 54A7</td><td>1</td><td>no</td><td>1.0</td><td>1.0</td></tr>
+                        <tr><td>Martini 3</td><td>2</td><td>no</td><td>1.0</td><td>1.0</td></tr>
                     </tbody>
                 </table>
 
                 <p class="stk-where">
-                    Because <code>grompp</code> reads whichever <code>[ defaults ]</code> line the topology supplies rather than inferring it from the force field name, an inconsistent combination (for example OPLS atom types with rule&nbsp;2, or AMBER scaling on a CHARMM field) is accepted silently and yields physically wrong non-bonded and 1&#8209;4 interactions. grompp also accepts only one <code>[ defaults ]</code> directive, and each force field's <code>forcefield.itp</code> already contains it, so the header includes that file and shows its values as a comment rather than writing a second copy. An override is written as instructions for editing a local copy of the force field, with a warning that it departs from the canonical values. AMBER99SB-ILDN and OPLS-AA ship with GROMACS (<code>amber99sb-ildn.ff</code>, <code>oplsaa.ff</code>); CHARMM36 is a separate download from the MacKerell lab.
+                    Because <code>grompp</code> reads whichever <code>[ defaults ]</code> line the topology supplies rather than inferring it from the force field name, an inconsistent combination (for example OPLS atom types with rule&nbsp;2, or AMBER scaling on a CHARMM field) is accepted silently and yields physically wrong non-bonded and 1&#8209;4 interactions. grompp also accepts only one <code>[ defaults ]</code> directive, and each force field's <code>forcefield.itp</code> already contains it, so the header includes that file and shows its values as a comment rather than writing a second copy. An override is written as instructions for editing a local copy of the force field, with a warning that it departs from the canonical values. AMBER99SB-ILDN, GROMOS 54A7 and OPLS-AA ship with GROMACS (<code>amber99sb-ildn.ff</code>, <code>gromos54a7.ff</code>, <code>oplsaa.ff</code>); CHARMM36 is a separate download from the MacKerell lab, and Martini&nbsp;3 from cgmartini.nl, whose <code>martini_v3.0.0.itp</code> carries the <code>[ defaults ]</code> line. GROMOS lists its 1&#8209;4 pairs explicitly, so it generates none. The topology header is not in the zip, so it cannot overwrite the topology you already have.
                 </p>
 
                 <h2 class="stk-h2" style="margin-top:2.2rem;">GPU offload &amp; mdrun performance</h2>
@@ -1143,7 +1975,7 @@
                 <ul style="font-size:.9375rem;color:var(--stk-fg-3);line-height:1.7;padding-left:1.1rem;margin-top:.6rem;">
                     <li><span class="hl">PME on GPU allows only one PME rank.</span> When more than one rank is requested with <code>-pme gpu</code>, the tool adds <code>-npme 1</code> automatically.</li>
                     <li><strong><code>-bonded gpu</code> requires <code>-nb gpu</code>.</strong> Bonded offload is part of the same particle-particle workload, so the short-range non-bonded task must also be on the GPU; the tool warns if it is not.</li>
-                    <li><strong>GPU-resident mode (<code>-update gpu</code>)</strong> needs <code>constraints = h-bonds</code>, disables dynamic load balancing, and benefits from infrequent temperature/pressure coupling and a larger <code>nstcalcenergy</code> (the developers suggest coupling every &ge;&nbsp;50&ndash;100 steps).</li>
+                    <li><strong>GPU-resident mode (<code>-update gpu</code>)</strong> needs <code>constraints = h-bonds</code> (the page's <code>.mdp</code> files have it unless you choose all bonds), disables dynamic load balancing, and benefits from infrequent temperature/pressure coupling and a larger <code>nstcalcenergy</code> (the developers suggest coupling every &ge;&nbsp;50&ndash;100 steps).</li>
                     <li><strong>Use <code>constraints = h-bonds</code>, not <code>all-bonds</code></strong>, with a 2&nbsp;fs step: it is faster, required for GPU-resident mode, and is what most force fields were parametrised with.</li>
                     <li><strong>1&ndash;3 MPI ranks per GPU</strong> is generally optimal; with GPU-resident mode and direct GPU communication, 1&nbsp;rank/GPU is usually best.</li>
                     <li>After a run, check <code>ns/day</code> and the PP/PME balance at the end of <code>md.log</code> to see where time is going.</li>
@@ -1243,6 +2075,12 @@
                     <li>GROMACS reference manual. <em>Topology file formats</em> (<code>[ defaults ]</code>, comb-rule, fudgeLJ/fudgeQQ). <a href="https://manual.gromacs.org/current/reference-manual/topologies/topology-file-formats.html" target="_blank" rel="noopener">manual.gromacs.org</a>.</li>
                     <li>GROMACS user guide. <em>System preparation</em> (EM &rarr; NVT &rarr; NPT staging; <code>-r</code> restraints, <code>-t</code> checkpoint continuation). <a href="https://manual.gromacs.org/current/user-guide/system-preparation.html" target="_blank" rel="noopener">system preparation</a>.</li>
                     <li>GROMACS user guide. <em>Getting good performance from mdrun</em> (GPU offload rules: PME&nbsp;=&nbsp;1 rank, <code>-bonded</code> needs <code>-nb gpu</code>, GPU-resident constraints, ranks-per-GPU). <a href="https://manual.gromacs.org/current/user-guide/mdrun-performance.html" target="_blank" rel="noopener">mdrun-performance</a>.</li>
+                    <li>GROMACS 2025.1 user guide. <em>Molecular dynamics parameters (.mdp options)</em>, every option the page writes, lists and links to, and <em>Force fields</em> (the cut-off conventions of each). <a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html" target="_blank" rel="noopener">mdp-options</a>, <a href="https://manual.gromacs.org/2025.1/user-guide/force-fields.html" target="_blank" rel="noopener">force-fields</a>.</li>
+                    <li>GROMACS 2025.1 reference manual. <em>Molecular dynamics</em>: temperature coupling, pressure coupling and position restraints under pressure. <a href="https://manual.gromacs.org/2025.1/reference-manual/algorithms/molecular-dynamics.html" target="_blank" rel="noopener">molecular-dynamics</a>. GROMACS 2024 release notes, <em>Flexible hydrogen mass repartitioning using grompp</em>. <a href="https://manual.gromacs.org/2025.1/release-notes/2024/major/performance.html" target="_blank" rel="noopener">release notes</a>. <code>gmx make_ndx</code>: <a href="https://manual.gromacs.org/2025.1/onlinehelp/gmx-make_ndx.html" target="_blank" rel="noopener">gmx make_ndx</a>.</li>
+                    <li>Bussi, G., Donadio, D., &amp; Parrinello, M. (2007). Canonical sampling through velocity rescaling. <em>J. Chem. Phys.</em>, 126, 014101. (V-rescale.)</li>
+                    <li>Bernetti, M., &amp; Bussi, G. (2020). Pressure control using stochastic cell rescaling. <em>J. Chem. Phys.</em>, 153, 114107. (C-rescale.)</li>
+                    <li>Parrinello, M., &amp; Rahman, A. (1981). Polymorphic transitions in single crystals: A new molecular dynamics method. <em>J. Appl. Phys.</em>, 52, 7182&ndash;7190.</li>
+                    <li>Hopkins, C. W., Le Grand, S., Walker, R. C., &amp; Roitberg, A. E. (2015). Long-time-step molecular dynamics through hydrogen mass repartitioning. <em>J. Chem. Theory Comput.</em>, 11, 1864&ndash;1874.</li>
                     <li>Force-field <code>forcefield.itp</code> files, the <code>[ defaults ]</code> lines used for the table above: <code>amber99sb-ildn.ff</code> and <code>oplsaa.ff</code> as distributed with GROMACS, and the MacKerell lab's GROMACS port of CHARMM36, which is not distributed with GROMACS.</li>
                     <li>LAMMPS documentation. <em>Accelerator packages</em> (GPU, KOKKOS, INTEL, OPENMP, OPT; suffixes <code>gpu/kk/intel/omp/opt</code>) and <em>command-line options</em>. <a href="https://docs.lammps.org/Speed_packages.html" target="_blank" rel="noopener">Speed_packages</a>, <a href="https://docs.lammps.org/Run_options.html" target="_blank" rel="noopener">Run_options</a>.</li>
                     <li>University of Chicago RCC and NatLab Rockies HPC. <em>LAMMPS on SLURM</em> (OPENMP hybrid <code>-sf omp -pk omp N</code> with <code>srun -n R -c T</code>; INTEL/OPT usage; benchmarking). <a href="https://users.rcc.uchicago.edu/~tszasz/rccdocs/software/applications/lammps/index.html" target="_blank" rel="noopener">RCC</a>, <a href="https://github.com/NatLabRockies/HPC/blob/master/applications/lammps/README.md" target="_blank" rel="noopener">NatLabRockies</a>.</li>
@@ -1268,13 +2106,19 @@
                 <h2 class="stk-h2">Frequently asked questions</h2>
                 <div style="margin-top:1rem;">
                     <details class="stk-faq"><summary>Why did the tool add <code>-npme 1</code> or warn about my GPU flags?</summary><div>These are GROMACS rules. PME on a GPU supports only one PME rank, so <code>-npme 1</code> is added when you request <code>-pme gpu</code> with more than one rank. <code>-bonded gpu</code> requires <code>-nb gpu</code> because bonded offload is part of the same particle-particle workload. And <code>-update gpu</code> (GPU-resident mode) needs <code>constraints = h-bonds</code> and turns off dynamic load balancing.</div></details>
-                    <details class="stk-faq"><summary>How are the GROMACS stages chained together?</summary><div>Each stage's <code>grompp</code> reads the previous stage's <code>.gro</code> via <code>-c</code>, and its checkpoint via <code>-t</code> for continuation (NVT&nbsp;&rarr;&nbsp;NPT&nbsp;&rarr;&nbsp;Production). Energy minimisation writes no checkpoint, so the stage after it gets no <code>-t</code>. When a stage has position restraints, <code>-r</code> is added pointing at the same coordinate file. Production has restraints switched off by default, and a warning appears if you tick them.</div></details>
+                    <details class="stk-faq"><summary>How are the GROMACS stages chained together?</summary><div>Each stage's <code>grompp</code> reads the previous stage's <code>.gro</code> via <code>-c</code>, and, when velocities carry over, its checkpoint via <code>-t</code> (NVT&nbsp;&rarr;&nbsp;NPT&nbsp;&rarr;&nbsp;Production); the <code>.mdp</code> file then says <code>continuation = yes</code> and <code>gen-vel = no</code>. Energy minimisation writes no checkpoint, so the first dynamics stage draws new velocities instead. When a stage has position restraints, <code>-r</code> is added pointing at the same coordinate file. Production has restraints switched off by default, and a warning appears if you tick them. Each stage is skipped once its final <code>.gro</code> exists, so a resubmitted job carries on where it stopped.</div></details>
+                    <details class="stk-faq"><summary>Which thermostat and barostat should I use?</summary><div>V-rescale and C-rescale, unless you have a reason not to. Both relax like the old Berendsen methods, so they are stable from the first step, and both have a random term that gives the correct ensemble, so the GROMACS manual recommends C-rescale for equilibration and production alike. Parrinello-Rahman is a sound alternative in production (the page still equilibrates with C-rescale, because Parrinello-Rahman oscillates far from equilibrium), and the only choice for anisotropic scaling. Berendsen gives wrong fluctuations and is kept only to reproduce old runs; grompp warns. The guide under the thermostat and barostat on the System view explains each, with <code>tau-t</code>, <code>tau-p</code>, the compressibility and semi-isotropic coupling for membranes.</div></details>
+                    <details class="stk-faq"><summary>What does hydrogen mass repartitioning do, and which GROMACS do I need?</summary><div>With <code>mass-repartition-factor = 3</code>, grompp makes every hydrogen three times heavier and takes the extra mass from the atom it is bonded to, so the total mass, and with it the equilibrium properties, do not change, while the fast angle vibrations of hydrogens slow down enough for a 4&nbsp;fs time step with the bonds to hydrogen constrained. The dynamics run slightly slower, which matters for rates and diffusion. The option exists since GROMACS&nbsp;2024; for older versions repartition the topology itself. grompp notes that bonds such as C=O then oscillate in fewer than ten steps, which is expected.</div></details>
+                    <details class="stk-faq"><summary>Why does <code>submit.sh</code> pass <code>-maxwarn</code> for GROMOS?</summary><div>grompp warns for every GROMOS topology, because the force field was parametrised with a twin-range cut-off GROMACS no longer has, and without <code>-maxwarn</code> a single warning stops it. The page counts the warnings each <code>.mdp</code> file will draw and passes exactly that many, with a comment above the call naming each one; files that draw none get no <code>-maxwarn</code>, so an unexpected warning still stops the job.</div></details>
+                    <details class="stk-faq"><summary>Where do the temperature groups come from, and when do I need an index file?</summary><div>From what you simulate: <code>Protein Non-Protein</code> for a solute in water, which GROMACS makes by itself, <code>System</code> for a liquid, and <code>SOLU MEMB SOLV</code> for a membrane, as CHARMM-GUI names them in its index file. Load your structure under Index groups and the page recommends groups for it, builds <code>index.ndx</code>, checks that the groups cover every atom exactly once, and passes the file with <code>-n</code>. Any name GROMACS does not make itself needs an index file.</div></details>
+                    <details class="stk-faq"><summary>Can I check, or continue from, an <code>.mdp</code> file I already have?</summary><div>Yes: paste or drop it under Check a file. It is read the way grompp reads it, and you get the verdict (will grompp stop, and at how many warnings), every problem with its line and a link to the manual, and the file explained line by line. Open in the builder then fills the form from it and keeps every option the builder would write differently as one you set, so the files you download say the same as yours.</div></details>
+                    <details class="stk-faq"><summary>Can I set an option the builder has no field for?</summary><div>Yes, under All options: every <code>.mdp</code> option of GROMACS&nbsp;2025.1, by section, with its default, unit, allowed values and the manual's text. Set a value for one file or for all of them; the file then shows it with a comment, and Reset to generated puts back what the builder writes.</div></details>
                     <details class="stk-faq"><summary>Why does LAMMPS use tasks instead of CPUs per task?</summary><div>LAMMPS parallelises with MPI, so you request <code>--ntasks-per-node</code> (MPI ranks per node), whereas GROMACS <code>mdrun</code> is threaded and uses <code>--cpus-per-task</code>. The one exception is the LAMMPS <strong>OPENMP</strong> package, a hybrid MPI&nbsp;&times;&nbsp;OpenMP scheme that uses both, the tool then sets <code>-pk omp N</code> to match CPUs per task. For GPU or KOKKOS runs, MPI ranks per node usually matches GPUs per node.</div></details>
                     <details class="stk-faq"><summary>Which LAMMPS accelerator should I pick?</summary><div>It depends on your hardware and your input's styles, and there is no universal answer, you must benchmark. GPU/KOKKOS need a GPU; INTEL and OPT speed up CPU-only runs; OPENMP is hybrid and helps on high-core-count nodes. Acceleration is not automatically faster: offloading can leave the CPU idle, and adding cores past the optimum can slow a run down. Read the <code>Performance</code> and timing breakdown LAMMPS prints at the end, and scale up only what measurably helps.</div></details>
                     <details class="stk-faq"><summary>How does the PLUMED builder help me?</summary><div>It groups the collective variables by category and, for each one, exposes the exact keywords defined in the PLUMED source, atom lists, switching-function parameters, flags like <code>NOPBC</code> or <code>COMPONENTS</code>, so you get correct <code>plumed.dat</code> syntax without reading the code. You add CVs, label them, pick a bias method (standard, well-tempered or parallel-bias MetaD, OPES, a harmonic or moving restraint, upper or lower walls, or ABMD), and toggle speed options. The output targets PLUMED&nbsp;2.9 or 2.10, whichever you select next to the CV list.</div></details>
                     <details class="stk-faq"><summary>What is the difference between standard and well-tempered metadynamics here?</summary><div>Standard MetaD deposits Gaussian hills of fixed height. Well-tempered MetaD scales the hill height down over time using a <code>BIASFACTOR</code> (and <code>TEMP</code>), so the bias converges more smoothly. The builder adds those two keywords when you select the well-tempered variant, and OPES is offered as a modern alternative.</div></details>
                     <details class="stk-faq"><summary>Why does the PLUMED tab warn about grids and <code>CALC_RCT</code>?</summary><div>Metadynamics without a grid re-sums every deposited hill each step, so a long run slows down continuously, storing the bias on a grid keeps the cost flat. And <code>CALC_RCT</code> (on-the-fly c(t) reweighting) only works when the bias is on a grid, so the tool warns if you enable reweighting without it.</div></details>
-                    <details class="stk-faq"><summary>Why does choosing a force field change the combination rule and fudge factors?</summary><div>Because they are physically coupled. Each GROMACS force field ships a specific <code>[ defaults ]</code> line: AMBER uses rule&nbsp;2 with 0.5/0.8333, CHARMM36 uses rule&nbsp;2 with 1.0/1.0, and OPLS-AA uses rule&nbsp;3 with 0.5/0.5. Mixing them produces a silently wrong topology.</div></details>
+                    <details class="stk-faq"><summary>Why does choosing a force field change the combination rule and fudge factors?</summary><div>Because they are physically coupled. Each GROMACS force field ships a specific <code>[ defaults ]</code> line: AMBER uses rule&nbsp;2 with 0.5/0.8333, CHARMM36 uses rule&nbsp;2 with 1.0/1.0, OPLS-AA uses rule&nbsp;3 with 0.5/0.5, and GROMOS 54A7 rule&nbsp;1 with no generated pairs. Mixing them produces a silently wrong topology. The same choice sets the cut-offs and time step of the <code>.mdp</code> files.</div></details>
                     <details class="stk-faq"><summary>What exactly are fudgeLJ and fudgeQQ?</summary><div>They scale the 1&#8209;4 interactions (between atoms separated by three bonds). <code>fudgeLJ</code> scales the 1&#8209;4 Lennard-Jones term and is applied only when <code>gen-pairs</code> is <code>yes</code>; <code>fudgeQQ</code> scales the 1&#8209;4 electrostatics and is always applied.</div></details>
                     <details class="stk-faq"><summary>Can I override the auto-set parameters?</summary><div>Yes: enable <em>Advanced override</em> to edit the combination rule and fudge factors directly. Whenever your values differ from the force field's canonical ones, a warning explains the mismatch so you can confirm it is intentional.</div></details>
                     <details class="stk-faq"><summary>Why did the script add things I did not ask for (bash -e, memory, log files)?</summary><div>They are HPC best practices. <code>#!/bin/bash -e</code> makes the job stop and report <code>FAILED</code> on the first error; explicit <code>--mem</code> stops a small site default from killing the job; and <code>--output</code>/<code>--error</code> capture logs per job or per array task under <code>logs/</code>.</div></details>
@@ -1283,10 +2127,11 @@
                     <details class="stk-faq"><summary>What does "site-specific" mean in the generated script?</summary><div>A value the vendor documentation leaves to each installation: the GPU resource name under PBS (<code>ngpus</code> on most sites) or Grid Engine (no standard at all, so the script carries a commented placeholder), the Grid Engine parallel-environment name (<code>qconf -spl</code> lists them), the memory resource and its unit, and whether an LSF slot is a core. Check each against your cluster's documentation before submitting; the comment sits next to the line it concerns.</div></details>
                     <details class="stk-faq"><summary>Why does the submit hint start with <code>mkdir -p logs</code>?</summary><div>SLURM and Grid Engine open the output file as the job starts; if <code>logs/</code> does not exist yet, the job fails before the script's own <code>mkdir</code> can run. PBS and LSF spool the output and copy it back when the job ends, so for them the <code>mkdir</code> inside the script is in time.</div></details>
                     <details class="stk-faq"><summary>Where are my settings kept, and how do I share them?</summary><div>In your browser's local storage, written a moment after each change and restored when you return; nothing leaves your device. Export settings downloads the same data as a JSON file so a group can share one cluster configuration, Import settings reads it back (unknown keys are ignored), and Reset to defaults forgets the saved state.</div></details>
-                    <details class="stk-faq"><summary>Is this a validated production input?</summary><div>No. It is a correct, best-practice starting point. Always run <code>gmx grompp</code> and read its warnings, and check module names, partitions, GPU flags and account settings against your own cluster's documentation.</div></details>
+                    <details class="stk-faq"><summary>Is this a validated production input?</summary><div>No. It is a correct, best-practice starting point: the <code>.mdp</code> files pass grompp's rules as the page reproduces them, and zips from the page have been run with GROMACS&nbsp;2025, but your topology and system decide the rest. Read grompp's own output (the page lists what to expect), check the temperature, pressure and density of the equilibration before production, and check module names, partitions, GPU flags and account settings against your own cluster's documentation.</div></details>
                     <details class="stk-faq"><summary>Is my data uploaded anywhere?</summary><div>No. Everything runs locally in your browser. Nothing you type (job names, project directories, includes) leaves your device.</div></details>
                 </div>
                 <div class="stk-refs">
+                    <a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> GROMACS .mdp options</a>
                     <a href="https://manual.gromacs.org/current/reference-manual/topologies/topology-file-formats.html" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> GROMACS topology docs</a>
                     <a href="https://slurm.schedmd.com/sbatch.html" target="_blank" rel="noopener"><i class="fa-solid fa-terminal"></i> Slurm sbatch</a>
                     <a href="https://www.ibm.com/docs/en/spectrum-lsf/10.1.0?topic=reference-bsub" target="_blank" rel="noopener"><i class="fa-solid fa-terminal"></i> LSF bsub</a>

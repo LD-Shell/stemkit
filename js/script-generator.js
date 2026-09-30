@@ -3,12 +3,15 @@
  * Author: Olanrewaju M. Daramola
  *
  * Client-side only. Generates batch scripts for four schedulers, a staged
- * GROMACS workflow (EM / NVT / NPT / Production with grompp->mdrun chaining),
- * a GROMACS .top header, LAMMPS submission scripts and PLUMED input files.
- * The directive header comes from src/core/scheduler.js through the adapter
- * in script-generator-slurm.js and the PLUMED input from src/core/plumed.js
- * through script-generator-plumed.js; this file is DOM wiring and the engine
- * blocks.
+ * GROMACS workflow (EM / NVT / NPT / Production, optionally annealing and
+ * pulling, with grompp->mdrun chaining), a GROMACS .top header, LAMMPS
+ * submission scripts and PLUMED input files. The directive header comes from
+ * src/core/scheduler.js through the adapter in script-generator-slurm.js;
+ * the PLUMED input from src/core/plumed.js through script-generator-plumed.js;
+ * the GROMACS set-up (the .mdp files, index groups, the run files on the
+ * right) from script-generator-gromacs.js, which reads its form into
+ * script-generator-gromacs-model.js. This file is DOM wiring, the scheduler
+ * side of the scripts and the topology header.
  *
  * Correctness references (see on-page "Method & References"):
  *  - Force field <-> combination rule <-> fudge factors are coupled:
@@ -30,6 +33,8 @@ import { buildHeaderFromDOM } from './script-generator-slurm.js';
 import { getScheduler, envVars, launcher, submitCommand } from '../src/core/scheduler.js';
 import { estimateCoreHours, arrayConcurrency } from '../src/core/slurm.js';
 import { createPlumedBuilder } from './script-generator-plumed.js';
+import { createGromacsTab } from './script-generator-gromacs.js';
+import { gromacsRunBlock } from './script-generator-gromacs-model.js';
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -41,13 +46,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // =====================================================================
     // Canonical force-field parameter table
     // =====================================================================
-    // `dir` is the force-field directory the #include lines name. AMBER99SB-ILDN
-    // and OPLS-AA ship with GROMACS under these names; CHARMM36 does not, so
-    // it names the MacKerell lab port and the header says where to get it.
+    // `dir` is the force-field directory the #include lines name. AMBER99SB-ILDN,
+    // GROMOS 54A7 and OPLS-AA ship with GROMACS under these names; CHARMM36
+    // does not, so it names the MacKerell lab port and the header says where
+    // to get it. GROMOS generates no 1-4 pairs (gen-pairs no, its own pair
+    // list). Martini 3 comes as .itp files from cgmartini.nl, with [ defaults ]
+    // in martini_v3.0.0.itp.
     const FF_PRESETS = {
-        'amber99sb-ildn': { label: 'AMBER99SB-ILDN', comb: '2', fudgeLJ: '0.5', fudgeQQ: '0.8333', family: 'amber',  dir: 'amber99sb-ildn.ff' },
-        'charmm36':       { label: 'CHARMM36',       comb: '2', fudgeLJ: '1.0', fudgeQQ: '1.0',    family: 'charmm', dir: 'charmm36-jul2022.ff', download: true },
-        'opls-aa':        { label: 'OPLS-AA',        comb: '3', fudgeLJ: '0.5', fudgeQQ: '0.5',    family: 'opls',   dir: 'oplsaa.ff' }
+        'amber99sb-ildn': { label: 'AMBER99SB-ILDN', comb: '2', fudgeLJ: '0.5', fudgeQQ: '0.8333', family: 'amber',  genPairs: 'yes', dir: 'amber99sb-ildn.ff' },
+        'charmm36':       { label: 'CHARMM36',       comb: '2', fudgeLJ: '1.0', fudgeQQ: '1.0',    family: 'charmm', genPairs: 'yes', dir: 'charmm36-jul2022.ff', download: true },
+        'gromos54a7':     { label: 'GROMOS 54A7',    comb: '1', fudgeLJ: '1.0', fudgeQQ: '1.0',    family: 'none',   genPairs: 'no',  dir: 'gromos54a7.ff' },
+        'opls-aa':        { label: 'OPLS-AA',        comb: '3', fudgeLJ: '0.5', fudgeQQ: '0.5',    family: 'opls',   genPairs: 'yes', dir: 'oplsaa.ff' },
+        'martini3':       { label: 'Martini 3',      comb: '2', fudgeLJ: '1.0', fudgeQQ: '1.0',    family: 'none',   genPairs: 'no',  dir: 'martini_v3.0.0.itp', martini: true, download: true }
     };
 
     // =====================================================================
@@ -132,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e += `mkdir -p logs\n`;
         e += `module purge\n`;
         if (engine === 'gromacs') {
-            e += `module load gromacs/2023   # adjust to your cluster's module name\n\n`;
+            e += `module load gromacs/2025   # adjust to your cluster's module name\n\n`;
             if (scheduler === 'slurm') {
                 e += `# Match OpenMP threads to the CPUs Slurm granted.\n`;
                 e += `export OMP_NUM_THREADS=\${SLURM_CPUS_PER_TASK:-1}\n`;
@@ -212,9 +222,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Note: GPU-resident mode (-update gpu) is incompatible with dynamic
         // load balancing and needs constraints = h-bonds: the GPU constraint
         // code takes only small coupled groups, and all-bonds on a protein
-        // couples far more than that.
-        if (update) {
-            warnings.push('<strong>Action needed in your .mdp:</strong> <code>-update gpu</code> (GPU-resident mode) <strong>requires <code>constraints = h-bonds</code></strong>, not <code>all-bonds</code>. With all-bonds on a protein, <code>mdrun</code> refuses the GPU update at startup; the cause is your .mdp, not this script. GPU-resident mode also disables dynamic load balancing; for efficiency use infrequent T/P coupling and a larger <code>nstcalcenergy</code>.');
+        // couples far more than that. The .mdp files come from this page, so
+        // the warning is needed only when they constrain something else.
+        if (update && gromacs.plan().constraints === 'all-bonds') {
+            warnings.push('<code>-update gpu</code> (GPU-resident mode) needs <code>constraints = h-bonds</code>: with all bonds rigid, <code>mdrun</code> refuses the GPU update on a protein at startup. Choose bonds to hydrogen under System, or drop <code>-update gpu</code>.');
         }
 
         return { flags: flags.length ? ' ' + flags.join(' ') : '', warnings };
@@ -223,20 +234,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // =====================================================================
     // GROMACS staged workflow
     // =====================================================================
-    // Stage definitions come from the DOM. Each stage row has:
-    //   toggle checkbox (data-stage), mdp input, deffnm input, posres checkbox
-    const GMX_STAGES = ['em', 'nvt', 'npt', 'prod'];
-
-    function readStage(key) {
-        return {
-            key,
-            enabled: isChecked(`stage_${key}_on`),
-            mdp:     getStr(`stage_${key}_mdp`, `${key}.mdp`),
-            deffnm:  getStr(`stage_${key}_deffnm`, key),
-            posres:  isChecked(`stage_${key}_posres`)
-        };
-    }
-
+    // The stages, their .mdp files and what grompp will say about each come
+    // from the GROMACS tab (js/script-generator-gromacs.js, which reads its
+    // form into js/script-generator-gromacs-model.js); the grompp and mdrun
+    // lines from gromacsRunBlock in the model. This function adds the
+    // scheduler header, the environment and the thread wiring around them.
     function generateGromacsScript() {
         const out = $('slurmOutput');
         if (!out) return;
@@ -250,57 +252,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isArray) {
             const baseDir = getStr('jobArrayDir', 'run_');
-            s += `# One directory per array task.\n`;
+            s += `# One directory per array task. The .mdp files (and an index built on\n`;
+            s += `# the page) stay in the submission directory; each task reads them there.\n`;
+            s += `SUBMIT_DIR="$PWD"\n`;
             s += `SYSTEM_DIR="${baseDir}\${${envVars(scheduler).arrayIndex}}"\n`;
             s += `cd "\$SYSTEM_DIR" || { echo "Missing directory \$SYSTEM_DIR" >&2; exit 1; }\n\n`;
         }
 
-        const topol = getStr('gmxTopol', 'topol.top');
-        const startConf = getStr('gmxStartConf', 'system.gro');
-        const ndx = getStr('gmxIndex', '');
+        const wf = gromacs.plan();
+        const run = gromacs.runOptions();
         // GROMACS executable name. Many HPC modules ship the MPI build as
         // gmx_mpi, so this is user-settable rather than hardcoded.
         const gmxBin = (getStr('gmxBinary', 'gmx') || 'gmx').trim() || 'gmx';
         if (/\s/.test(gmxBin)) {
-            warnings.push(`The GROMACS executable name "<code>${gmxBin}</code>" contains a space. Use just the command name (e.g. <code>gmx</code> or <code>gmx_mpi</code>).`);
+            warnings.push(`The GROMACS executable name "<code>${escapeHtml(gmxBin)}</code>" contains a space. Use just the command name (e.g. <code>gmx</code> or <code>gmx_mpi</code>).`);
         }
-        const ndxFlag = ndx ? ` -n ${ndx}` : '';
         const gpuResult = gmxGpuFlags();
-        const gpuFlags = gpuResult.flags;
         gpuResult.warnings.forEach(w => { if (!warnings.includes(w)) warnings.push(w); });
 
-        // Optional PLUMED coupling for GROMACS mdrun.
-        const usePlumed = isChecked('gmxUsePlumed');
-        const plumedFile = getStr('gmxPlumedFile', 'plumed.dat');
-        const plumedScope = getStr('gmxPlumedScope', 'prod'); // 'prod' | 'all'
-
-        const stages = GMX_STAGES.map(readStage).filter(st => st.enabled);
-
-        if (!stages.length) {
-            s += `# (No workflow stages enabled, enable EM/NVT/NPT/Production on the left.)\n`;
-            renderOutput(out, s);
-            setWarnings($('slurmWarnings'), warnings);
+        if (!wf.stages.length) {
+            s += `# (No workflow stages enabled: switch a stage on under Stages.)\n`;
+            finishGromacs(out, s, warnings);
             return;
         }
-
-        // Warn if a restrained stage lacks a prior coordinate source is fine;
-        // but warn if production has restraints (unusual).
-        stages.forEach(st => {
-            if (st.key === 'prod' && st.posres) {
-                warnings.push('Production stage has position restraints enabled, unusual; restraints are normally released for production.');
-            }
+        wf.stages.filter(p => p.errors.length).forEach(p => {
+            warnings.push(`grompp will stop on <code>${escapeHtml(p.file)}</code>: ${escapeHtml(p.errors[0].message)}`);
         });
 
-        // If GPU-resident mode is on, put the .mdp requirement INTO the script.
-        // UI warnings are lost the moment someone copies the file, and grompp
-        // fails before mdrun runs, users otherwise blame the generated script.
+        // If GPU-resident mode is on, put the .mdp requirement INTO the script,
+        // where it survives copying; the page's own files already meet it.
         if (isChecked('gpuUpdate')) {
-            s += `# ==============================================================\n`;
-            s += `# IMPORTANT - '-update gpu' requires this in EVERY MD .mdp file:\n`;
-            s += `#     constraints = h-bonds      ; not all-bonds\n`;
-            s += `# With all-bonds on a protein, mdrun refuses the GPU update at\n`;
-            s += `# startup. That error comes from the .mdp, not from this script.\n`;
-            s += `# ==============================================================\n\n`;
+            if (wf.constraints === 'h-bonds') {
+                s += `# '-update gpu' (GPU-resident mode) needs constraints = h-bonds, which\n`;
+                s += `# every .mdp file written with this script has.\n\n`;
+            } else {
+                s += `# ==============================================================\n`;
+                s += `# IMPORTANT - '-update gpu' requires this in EVERY MD .mdp file:\n`;
+                s += `#     constraints = h-bonds      ; not all-bonds\n`;
+                s += `# With all-bonds on a protein, mdrun refuses the GPU update at\n`;
+                s += `# startup. That error comes from the .mdp, not from this script.\n`;
+                s += `# ==============================================================\n\n`;
+            }
         }
 
         // mdrun gets -ntomp $OMP_NUM_THREADS. The two must agree (mdrun stops
@@ -318,49 +310,30 @@ document.addEventListener('DOMContentLoaded', () => {
             s += `export OMP_NUM_THREADS=$((OMP_NUM_THREADS / ${ntmpi}))\n\n`;
         }
 
-        let prev = null; // previous stage (for -c / -t wiring)
-        stages.forEach((st, i) => {
-            const tpr = `${st.deffnm}.tpr`;
-            s += `# ---- ${st.key.toUpperCase()} ----\n`;
-
-            // grompp: -c from previous stage .gro (or initial conf), -r for restraints,
-            // -t from the previous stage's .cpt for continuation. Energy
-            // minimisation writes no checkpoint, so the stage after it gets no -t.
-            let grompp = `${gmxBin} grompp -f ${st.mdp} -p ${topol}${ndxFlag}`;
-            const cSource = prev ? `${prev.deffnm}.gro` : startConf;
-            grompp += ` -c ${cSource}`;
-            if (st.posres) grompp += ` -r ${cSource}`;   // restraint reference (often == -c)
-            if (prev && prev.key !== 'em') grompp += ` -t ${prev.deffnm}.cpt`; // continuation
-            grompp += ` -o ${tpr}`;
-            s += grompp + `\n`;
-
-            // mdrun. Energy minimisation is not an MD integrator, so drop
-            // -update gpu and the checkpoint restart there; keep -nb/-pme.
-            let stageGpu = gpuFlags;
-            if (st.key === 'em') {
-                stageGpu = stageGpu.replace(' -update gpu', '');
-            }
-            let mdrun = `${gmxBin} mdrun -deffnm ${st.deffnm}${stageGpu} -ntomp $OMP_NUM_THREADS -pin on`;
-            if (st.key !== 'em') {
-                // -cpi allows a safe restart; harmless if the .cpt is absent.
-                mdrun += ` -cpi ${st.deffnm}.cpt`;
-            }
-            // Optional PLUMED: attach to production only, or to every MD stage.
-            if (usePlumed) {
-                const attachHere = plumedScope === 'all'
-                    ? (st.key !== 'em')       // all MD stages (not EM)
-                    : (st.key === 'prod');    // production only
-                if (attachHere) mdrun += ` -plumed ${plumedFile}`;
-            }
-            s += mdrun + `\n\n`;
-
-            prev = st;
+        if (run.resume) {
+            s += `# Each stage runs only while its final .gro is missing, and mdrun\n`;
+            s += `# continues from its checkpoint: if the job reaches its wall time,\n`;
+            s += `# submit it again and it carries on where it stopped.\n\n`;
+        }
+        s += gromacsRunBlock(wf.stages, {
+            gmx: gmxBin,
+            topol: getStr('gmxTopol', 'topol.top'),
+            startConf: getStr('gmxStartConf', 'system.gro'),
+            index: run.index,
+            indexFromFiles: run.indexFromFiles,
+            filesDir: isArray ? '$SUBMIT_DIR/' : '',
+            gpuFlags: gpuResult.flags,
+            plumed: { on: isChecked('gmxUsePlumed'), file: getStr('gmxPlumedFile', 'plumed.dat'), scope: getStr('gmxPlumedScope', 'prod') },
+            resume: run.resume
         });
-
         s += `echo "Workflow complete."\n`;
+        finishGromacs(out, s, warnings);
+    }
 
+    function finishGromacs(out, s, warnings) {
         renderOutput(out, s);
         setWarnings($('slurmWarnings'), warnings);
+        gromacs.setSubmit(s, submitHintHtml());
     }
 
     // =====================================================================
@@ -498,13 +471,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const ffDir = preset ? preset.dir : `${ffKey}.ff`;
-        const defaultsRow = (c, lj, qq) => `1         ${c.padEnd(9, ' ')} yes        ${lj.padEnd(8, ' ')} ${qq}`;
+        const martini = !!(preset && preset.martini);
+        // The .itp that holds [ defaults ]: forcefield.itp in a force-field
+        // directory, or martini_v3.0.0.itp itself.
+        const defaultsFile = martini ? ffDir : `${ffDir}/forcefield.itp`;
+        const pairs = preset ? preset.genPairs : 'yes';
+        const defaultsRow = (c, lj, qq) => `1         ${c.padEnd(9, ' ')} ${pairs.padEnd(10, ' ')} ${lj.padEnd(8, ' ')} ${qq}`;
         const overridden = preset && (comb !== preset.comb || fudge.LJ !== preset.fudgeLJ || fudge.QQ !== preset.fudgeQQ);
 
         let t = `; ==================================================================\n`;
         t += `; STEMKit (stemkit.net) auto-generated GROMACS topology header\n`;
         t += `; Force field: ${preset ? preset.label : ffKey}\n`;
-        if (preset && preset.download) {
+        if (preset && preset.download && martini) {
+            t += `; Martini 3 is not distributed with GROMACS. Download martini_v3.0.0.itp\n`;
+            t += `; and its solvent and ion files from cgmartini.nl and put them here.\n`;
+        } else if (preset && preset.download) {
             t += `; ${preset.label} is not distributed with GROMACS. Download the GROMACS\n`;
             t += `; port from the MacKerell lab (mackerell.umaryland.edu), unpack it here\n`;
             t += `; and make the ${ffDir} paths below match its directory name.\n`;
@@ -515,40 +496,51 @@ document.addEventListener('DOMContentLoaded', () => {
         // accepts only one, so the header never writes a second. The values are
         // shown as a comment; an override becomes instructions for a local copy.
         if (overridden) {
-            t += `; Advanced override. ${ffDir}/forcefield.itp sets [ defaults ] itself,\n`;
+            t += `; Advanced override. ${defaultsFile} sets [ defaults ] itself,\n`;
             t += `; and grompp rejects a second one, so to run with these values copy\n`;
-            t += `; ${ffDir} into this directory and edit the line in its forcefield.itp\n`;
+            t += `; ${ffDir} into this directory and edit the line in ${martini ? 'it' : 'its forcefield.itp'}\n`;
             t += `; (grompp searches the working directory before the GROMACS library):\n`;
             t += `; nbfunc  comb-rule  gen-pairs  fudgeLJ  fudgeQQ\n`;
             t += `; ${defaultsRow(comb, fudge.LJ, fudge.QQ)}\n`;
             t += `; The force field ships:\n`;
             t += `; ${defaultsRow(preset.comb, preset.fudgeLJ, preset.fudgeQQ)}\n\n`;
         } else {
-            t += `; [ defaults ] comes from ${ffDir}/forcefield.itp (grompp accepts\n`;
+            t += `; [ defaults ] comes from ${defaultsFile} (grompp accepts\n`;
             t += `; only one [ defaults ] directive):\n`;
             t += `; nbfunc  comb-rule  gen-pairs  fudgeLJ  fudgeQQ\n`;
             t += `; ${defaultsRow(comb, fudge.LJ, fudge.QQ)}\n\n`;
         }
 
         t += `; --- Core force field ---\n`;
-        t += `#include "${ffDir}/forcefield.itp"\n\n`;
+        t += `#include "${defaultsFile}"\n\n`;
 
         if (includes && includes.trim() !== '') {
             t += `; --- Custom / additional topologies ---\n`;
             t += `${includes.trim()}\n\n`;
         }
 
-        t += `; --- Water model ---\n`;
-        t += `#include "${ffDir}/${solv}.itp"\n\n`;
+        if (martini) {
+            t += `; --- Solvents and ions ---\n`;
+            t += `#include "martini_v3.0.0_solvents_v1.itp"\n`;
+            t += `#include "martini_v3.0.0_ions_v1.itp"\n\n`;
+        } else {
+            t += `; --- Water model ---\n`;
+            t += `#include "${ffDir}/${solv}.itp"\n\n`;
 
-        t += `; --- Ions ---\n`;
-        t += `#include "${ffDir}/ions.itp"\n\n`;
+            t += `; --- Ions ---\n`;
+            t += `#include "${ffDir}/ions.itp"\n\n`;
+        }
 
         t += `[ system ]\n; Name\nMD system\n\n`;
         t += `[ molecules ]\n; Compound   #mols\n`;
         t += `; Fill in with your actual species and counts, e.g.:\n`;
-        t += `; Protein_A    1\n; SOL          10000\n; NA           30\n; CL           28\n`;
+        t += martini ? `; Protein      1\n; W            10000\n; NA           30\n; CL           28\n`
+            : `; Protein_A    1\n; SOL          10000\n; NA           30\n; CL           28\n`;
 
+        if (preset && preset.family === 'none' && !martini && solv !== 'spc' && solv !== 'spce') {
+            warnings.push(`${preset.label} is used with SPC water (or SPC/E); ${escapeHtml(solv.toUpperCase())} was parametrised for other force fields.`);
+        }
+        gromacs.setTopology(t);
         renderOutput(out, t, { topology: true });
         setWarnings($('topWarnings'), warnings);
     }
@@ -575,7 +567,8 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleVisibility($('gmxCpuField'),  engine === 'gromacs');
         toggleVisibility($('lmpTaskField'), engine === 'lammps');
         toggleVisibility($('lmpCpuField'),  engine === 'lammps');
-        toggleVisibility($('clusterCard'), engine !== 'plumed');
+        // GROMACS shows it with the Job view of its set-up.
+        toggleVisibility($('clusterCard'), engine === 'lammps' || (engine === 'gromacs' && gromacs.step() === 'job'));
 
         // Topology + GROMACS GPU flags only relevant to GROMACS
         toggleVisibility($('topologyCard'), engine === 'gromacs');
@@ -588,15 +581,36 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('[data-target="slurmOutput"]').forEach(btn => {
             btn.setAttribute('data-filename', OUTPUT_FILE[engine]);
         });
-        toggleVisibility($('topologyOutputBox'), engine === 'gromacs');
-        toggleVisibility($('outputSplit'), engine === 'gromacs');
+        // GROMACS shows its files (submit.sh, the .mdp files, index.ndx, the
+        // topology header, README.md) in a view of its own.
+        toggleVisibility($('topologyOutputBox'), false);
+        toggleVisibility($('outputSplit'), false);
 
         if (engine === 'plumed') plumedTab.enter();
         else plumedTab.leave();
+        if (engine === 'gromacs') {
+            toggleVisibility($('scriptBox'), false);
+            gromacs.enter();
+        } else {
+            gromacs.leave();
+        }
         syncSchedulerUI();
-        generateSubmitScript();
         if (engine === 'gromacs') generateTopologyHeader();
+        generateSubmitScript();
         scheduleSave();
+    }
+
+    // How to submit the script. SLURM and Grid Engine open the log file as
+    // the job starts, so the directory has to exist before submission; the
+    // script's mkdir is too late for them.
+    function submitCommandLine() {
+        const id = currentScheduler();
+        return (getScheduler(id).logDirAtStart ? 'mkdir -p logs && ' : '') + submitCommand(id);
+    }
+    function submitHintHtml() {
+        const meta = getScheduler(currentScheduler());
+        return `Submit with <code>${escapeHtml(submitCommandLine())}</code>` +
+            (meta.stdin ? ' (bsub reads the <code>#BSUB</code> lines from standard input only).' : '.');
     }
 
     // Everything on the page that follows the scheduler choice: the PE field,
@@ -622,12 +636,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (plumed) {
                 foot.innerHTML = 'Pass it to the engine, e.g. <code>gmx mdrun -plumed plumed.dat</code>.';
             } else {
-                // SLURM and Grid Engine open the log file as the job starts, so the
-                // directory has to exist before submission; the script's mkdir is
-                // too late for them.
-                const cmd = (meta.logDirAtStart ? 'mkdir -p logs && ' : '') + submitCommand(id);
-                foot.innerHTML = `Submit with <code>${escapeHtml(cmd)}</code>` +
-                    (meta.stdin ? ' (bsub reads the <code>#BSUB</code> lines from standard input only).' : '.');
+                foot.innerHTML = submitHintHtml();
             }
         }
 
@@ -794,6 +803,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // =====================================================================
+    // GROMACS tab: the set-up views, the .mdp files, index groups, and the
+    // run files on the right (js/script-generator-gromacs.js)
+    // =====================================================================
+    const gromacs = createGromacsTab({
+        $, escapeHtml, getStr, getInt, isChecked, highlightLine,
+        showToast: (...a) => showToast(...a),
+        downloadText: (...a) => downloadText(...a),
+        scheduleSave: () => scheduleSave(),
+        regenerate: () => { if (currentEngine === 'gromacs') generateSubmitScript(); },
+        onTopologyChange: () => {
+            if (!manualOverride) applyForcefieldPreset();
+            generateTopologyHeader();
+        },
+        onViewChange: () => {
+            toggleVisibility($('clusterCard'), currentEngine === 'lammps' ||
+                (currentEngine === 'gromacs' && gromacs.step() === 'job'));
+        },
+        schedulerInfo: () => {
+            const meta = getScheduler(currentScheduler());
+            return { label: meta.label, submit: submitCommandLine() };
+        }
+    });
+
+    // =====================================================================
     // Wire up events
     // =====================================================================
     // Engine tabs
@@ -814,15 +847,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const submitInputIds = [
         'jobName','jobPartition','jobNodes','jobCpus','jobTasks','lmpCpus','jobGpus',
         'jobTime','jobMem','jobArrayRange','jobArrayDir','jobMailUser','sgePe',
-        'gmxTopol','gmxStartConf','gmxIndex','gmxBinary','gpuNtmpi',
         'lmpInput','lmpLog'
     ];
+    // Every GROMACS field sits in #gromacsPanel, whose own listeners (in
+    // js/script-generator-gromacs.js) rewrite the files after any change.
     submitInputIds.forEach(id => { const el = $(id); if (el) el.addEventListener('input', generateSubmitScript); });
 
-    const submitToggleIds = [
-        'jobArrayToggle','usePartition','useMail',
-        'gpuNb','gpuPme','gpuBonded','gpuUpdate'
-    ];
+    const submitToggleIds = ['jobArrayToggle','usePartition','useMail'];
     submitToggleIds.forEach(id => { const el = $(id); if (el) el.addEventListener('change', generateSubmitScript); });
 
     if ($('lmpAccel')) $('lmpAccel').addEventListener('change', generateSubmitScript);
@@ -831,28 +862,12 @@ document.addEventListener('DOMContentLoaded', () => {
         generateSubmitScript();
     });
 
-    // GROMACS + PLUMED coupling
-    ['gmxUsePlumed','gmxPlumedScope'].forEach(id => {
-        const el = $(id); if (el) el.addEventListener('change', () => {
-            syncVisibility();
-            generateGromacsScript();
-        });
-    });
-    if ($('gmxPlumedFile')) $('gmxPlumedFile').addEventListener('input', generateGromacsScript);
+    // GROMACS + PLUMED coupling: the panel rewrites the script itself.
+    if ($('gmxUsePlumed')) $('gmxUsePlumed').addEventListener('change', syncVisibility);
 
     // Optional sections open and close with their switch.
     ['jobArrayToggle', 'usePartition', 'useMail'].forEach(id => {
         const el = $(id); if (el) el.addEventListener('change', syncVisibility);
-    });
-
-    // GROMACS stage rows
-    GMX_STAGES.forEach(key => {
-        ['on','mdp','deffnm','posres'].forEach(suffix => {
-            const el = $(`stage_${key}_${suffix}`);
-            if (!el) return;
-            const evt = (el.type === 'checkbox' || el.getAttribute('role') === 'switch') ? 'change' : 'input';
-            el.addEventListener(evt, generateGromacsScript);
-        });
     });
 
     // Force field coupling
@@ -988,7 +1003,8 @@ document.addEventListener('DOMContentLoaded', () => {
             version: SETTINGS_VERSION,
             engine: currentEngine,
             fields,
-            plumed: plumedTab.serialise()
+            plumed: plumedTab.serialise(),
+            gromacs: gromacs.serialise()
         };
     }
 
@@ -1002,6 +1018,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         plumedTab.restore(data.plumed, fields);
+        gromacs.restore(data.gromacs, fields);
 
         manualOverride = isChecked('topAdvancedToggle');
         if (!manualOverride) applyForcefieldPreset();
