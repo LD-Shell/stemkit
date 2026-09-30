@@ -52,47 +52,106 @@ function constant(text) {
  * they have as many columns as the first header names. Rows with a value that
  * is not a number are dropped and counted.
  *
+ * A new part of the run starts where the header is written again, or where
+ * the time goes back. When a job was stopped between two checkpoints, the
+ * next part starts from the last checkpoint, so part of the file is written
+ * twice. With `keepOverlap: false` the older copy is dropped (the rows of the
+ * earlier part at or after the new part's first time), as
+ * assets/plumed/analyse_plumed.py does by default; the default here keeps
+ * every row, as this function always has. Rows that share a time are not a
+ * new part: walkers that share one HILLS file write a hill each at the same
+ * time.
+ *
  * @param {string} text
+ * @param {{keepOverlap?: boolean}} [options]
  * @returns {{fields:string[], columns:Object<string, Float64Array>, rows:number,
  *   sets:Object<string, string>, periods:Object<string, {min:number, max:number}>,
- *   skipped:number, headers:number, errors:string[]}}
+ *   skipped:number, headers:number, dropped:number, parts:number, starts:number[],
+ *   cut:boolean, errors:string[]}} `starts` are the first rows of the parts,
+ *   `dropped` the rows a later part wrote again, `cut` whether the last line
+ *   was cut off mid-write (and left out).
  */
-export function parseColvar(text) {
+export function parseColvar(text, options = {}) {
+  const keepOverlap = !(options && options.keepOverlap === false);
   const errors = [];
   const sets = {};
   let fields = [];
   let headers = 0;
   let skipped = 0;
+  let dropped = 0;
   const data = [];
+  const starts = [0];
+  let newPart = false;
+  let ti = -1;
 
   if (typeof text !== 'string' || !text.trim()) {
-    return { fields, columns: {}, rows: 0, sets, periods: {}, skipped, headers, errors: ['The file is empty.'] };
+    return {
+      fields, columns: {}, rows: 0, sets, periods: {}, skipped, headers, dropped, parts: 1, starts, cut: false,
+      errors: ['The file is empty.']
+    };
   }
 
-  for (const raw of text.split(/\r\n|\r|\n/)) {
+  const lines = text.split(/\r\n|\r|\n/);
+  // A last line with no newline after it may have been cut off mid-write.
+  const unfinished = !/[\r\n]$/.test(text);
+  let lastData = -1;
+  lines.forEach((raw, i) => {
+    const t = raw.trim();
+    if (t && !t.startsWith('#') && !t.startsWith('@')) lastData = i;
+  });
+  let cut = false;
+
+  lines.forEach((raw, i) => {
     const line = raw.trim();
-    if (!line) continue;
+    if (!line) return;
     if (line.startsWith('#!')) {
       const words = line.slice(2).trim().split(/\s+/);
       if (words[0] === 'FIELDS') {
         headers += 1;
-        if (!fields.length) fields = words.slice(1);
+        if (!fields.length) {
+          fields = words.slice(1);
+          ti = fields[0] === 'time' ? 0 : -1;
+        } else {
+          newPart = true;
+        }
       } else if (words[0] === 'SET' && words.length >= 3) {
         sets[words[1]] = words.slice(2).join(' ');
       }
-      continue;
+      return;
     }
-    if (line.startsWith('#') || line.startsWith('@')) continue;
+    if (line.startsWith('#') || line.startsWith('@')) return;
     const parts = line.split(/\s+/);
     if (!fields.length) {
       // No header: name the columns by position.
-      fields = parts.map((_, i) => (i === 0 ? 'time' : `col${i + 1}`));
+      fields = parts.map((_, j) => (j === 0 ? 'time' : `col${j + 1}`));
+      ti = 0;
       errors.push('The file has no "#! FIELDS" header, so the columns are named by position.');
     }
-    if (parts.length !== fields.length) { skipped += 1; continue; }
-    const row = parts.map(Number);
-    if (row.some(v => !Number.isFinite(v))) { skipped += 1; continue; }
+    const row = parts.length === fields.length ? parts.map(Number) : null;
+    if (!row || row.some(v => !Number.isFinite(v))) {
+      skipped += 1;
+      // Cut off: too few columns, or a number that is not one ("1.5e");
+      // "nan" and "inf" are numbers written as such, not a cut.
+      const garbled = !row || parts.some((p, j) => Number.isNaN(row[j]) && !/^[+-]?(nan|inf|infinity)$/i.test(p));
+      if (unfinished && i === lastData && garbled) cut = true;
+      return;
+    }
+    if (ti >= 0 && data.length && (newPart || row[ti] < data[data.length - 1][ti])) {
+      if (!keepOverlap) {
+        while (data.length && data[data.length - 1][ti] >= row[ti]) {
+          data.pop();
+          dropped += 1;
+        }
+        while (starts.length > 1 && starts[starts.length - 1] > data.length) starts.pop();
+      }
+      if (starts[starts.length - 1] !== data.length) starts.push(data.length);
+    }
+    newPart = false;
     data.push(row);
+  });
+  if (dropped) {
+    errors.push(`${dropped} row${dropped === 1 ? '' : 's'} written again by a later part of the run ` +
+      `${dropped === 1 ? 'was' : 'were'} dropped (the older copy); the job was probably stopped between two checkpoints.`);
   }
 
   const columns = {};
@@ -115,7 +174,77 @@ export function parseColvar(text) {
   if (skipped) {
     errors.push(`${skipped} row${skipped === 1 ? ' was' : 's were'} left out: wrong number of columns, or a value that is not a number.`);
   }
-  return { fields, columns, rows: data.length, sets, periods, skipped, headers, errors };
+  if (cut) errors.push('The last line was cut off mid-write, as happens when a job is stopped; it was left out.');
+  return {
+    fields, columns, rows: data.length, sets, periods, skipped, headers, dropped, parts: starts.length, starts, cut, errors
+  };
+}
+
+/**
+ * Several files of the same columns as one run, in time order: the HILLS
+ * files of multiple walkers, one per walker, whose hills all add to the one
+ * surface. Rows at the same time keep the order of the files (a stable sort),
+ * as analyse_plumed.py pools them. The sets and periods are the first file's.
+ *
+ * @param {Array<ReturnType<typeof parseColvar>>} files
+ * @param {string[]} [names] - the files' names, joined for the result's `name`
+ * @returns {ReturnType<typeof parseColvar>|null} null when the files do not
+ *          have the same columns.
+ */
+export function poolRuns(files, names = []) {
+  const list = (files || []).filter(Boolean);
+  if (!list.length) return null;
+  if (list.length === 1) return list[0];
+  const fields = list[0].fields;
+  if (list.some(c => c.fields.length !== fields.length || c.fields.some((f, j) => f !== fields[j]))) return null;
+  const rows = [];
+  for (const c of list) {
+    for (let i = 0; i < c.rows; i++) rows.push(fields.map(f => c.columns[f][i]));
+  }
+  const ti = fields.indexOf('time');
+  if (ti >= 0) rows.sort((a, b) => a[ti] - b[ti]);
+  const columns = {};
+  fields.forEach((f, j) => {
+    const col = new Float64Array(rows.length);
+    for (let i = 0; i < rows.length; i++) col[i] = rows[i][j];
+    columns[f] = col;
+  });
+  const kernels = new Set(list.map(c => c.sets.kerneltype || ''));
+  const errors = list[0].errors.slice();
+  if (kernels.size > 1) {
+    errors.push(`The files do not all use the same kernel type (${[...kernels].map(k => k || 'unstated').sort().join(', ')}); ` +
+      "the first one's is used.");
+  }
+  return {
+    ...list[0], columns, rows: rows.length, errors,
+    name: names.length ? names.join(', ') : list[0].name, walkers: list.length
+  };
+}
+
+/* The bias and its bookkeeping, not a variable to analyse. */
+const BOOKKEEPING = /\.(bias|rbias|rct|work|force2|zed|neff|nker)$/;
+
+/**
+ * The columns of a COLVAR that are variables to analyse: all but the time
+ * and the bias's own bookkeeping (bias, rbias, rct, work …).
+ *
+ * @param {{fields:string[]}} c
+ * @returns {string[]}
+ */
+export function valueColumns(c) {
+  return (c && c.fields ? c.fields : []).filter(f => f !== 'time' && !BOOKKEEPING.test(f));
+}
+
+/**
+ * The bias column to reweight with: the first `*.rbias` (the bias less its
+ * running offset), else the first `*.bias`; '' when there is none.
+ *
+ * @param {{fields:string[]}} c
+ * @returns {string}
+ */
+export function biasColumn(c) {
+  const f = c && c.fields ? c.fields : [];
+  return f.find(x => /\.rbias$/.test(x)) || f.find(x => /\.bias$/.test(x)) || '';
 }
 
 /**

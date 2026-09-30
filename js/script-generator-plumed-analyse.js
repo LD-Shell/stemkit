@@ -5,19 +5,29 @@
  * A COLVAR from a trial run gives the hill widths and grids for the builder;
  * a HILLS file gives the free-energy surface and shows whether the bias has
  * settled. The numbers come from src/core/plumed-analysis.js, which is tested
- * against PLUMED's own sum_hills. Plotly is fetched when the first file is
- * dropped, not with the page.
+ * against PLUMED's own sum_hills.
+ *
+ * The figures are drawn one at a time by the plot area every plotting page
+ * shares (mountFigure in js/figure-plot.js): the same header, style panel,
+ * PDF, PNG and SVG, and Python panel as the Curve Fitter. What each figure
+ * shows, and the Python that computes it from the person's files, come from
+ * src/core/plumed-analysis-figures.js. The plot area and Plotly are loaded
+ * when the first file is read, not with the page.
  */
 
 import {
-  parseColvar, fileKind, hillsVariables, columnSummary, suggestBias, driftOf, sumHills,
-  fesOverTime, hillHeights, reweight, thermalEnergy
+  parseColvar, fileKind, hillsVariables, columnSummary, suggestBias, driftOf, hillHeights,
+  poolRuns, valueColumns, biasColumn
 } from '../src/core/plumed-analysis.js';
+import {
+  ANALYSIS_FIGURES, ENERGY_LABELS, availableFigures, analysisFigure, analysisScript, analysisData, fmt
+} from '../src/core/plumed-analysis-figures.js';
 
 const PLOTLY_SRC = 'js/dependencies/plotly.min.js';
 const MAX_BYTES = 300 * 1024 * 1024;
 const NON_NEGATIVE = /^(DISTANCE|COORDINATION|COORDINATIONNUMBER|GYRATION|RMSD|DRMSD|CONTACTMAP|Q[346]|LOCAL_Q[346]|ALPHARMSD|ANTIBETARMSD|PARABETARMSD|VOLUME)/;
-const ENERGY_LABEL = { 'kj/mol': 'kJ/mol', 'kcal/mol': 'kcal/mol', eV: 'eV', Ha: 'Hartree' };
+const STYLE_KEY = 'stemkit.plumed-analyse.styles';
+const FIGURE_KEY = 'stemkit.plumed-analyse.figure';
 
 let plotlyLoading = null;
 function loadPlotly() {
@@ -27,11 +37,80 @@ function loadPlotly() {
       const s = document.createElement('script');
       s.src = PLOTLY_SRC;
       s.onload = () => resolve(window.Plotly);
-      s.onerror = () => { plotlyLoading = null; reject(new Error('plotly')); };
+      s.onerror = () => { plotlyLoading = null; reject(new Error('The chart library could not be loaded.')); };
       document.head.appendChild(s);
     });
   }
   return plotlyLoading;
+}
+
+const clone = (o) => (o === undefined ? undefined : JSON.parse(JSON.stringify(o)));
+const isEmpty = (o) => !o || (typeof o === 'object' && !Array.isArray(o) && !Object.keys(o).length);
+
+function readStore(key, fallback) {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || 'null');
+    return v === null ? fallback : v;
+  } catch (e) {
+    return fallback;
+  }
+}
+function writeStore(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* storage full or blocked */ }
+}
+
+/*
+ * The person's look for each figure, kept as three parts so that it follows
+ * the data: the look of the figure (size, fonts, colours) by figure; the
+ * labels and x limits by what the figure is along (a label written for d
+ * should not stay when the figure shows t); and each panel by what it shows
+ * (the panel of a value keeps its y label and limits when others are added).
+ */
+const LABEL_FIELDS = ['title', 'xLabel', 'xLim'];
+
+export function composeStyle(styles, a) {
+  const out = clone(styles[a.styleKey] || {});
+  const labels = styles[`${a.styleKey}|label|${a.labelKey}`] || {};
+  for (const k of LABEL_FIELDS) if (labels[k] !== undefined) out[k] = clone(labels[k]);
+  if (labels.series) {
+    out.series = out.series || {};
+    for (const [id, s] of Object.entries(labels.series)) {
+      const q = out.series[id] || {};
+      if (s.label !== undefined) q.label = s.label;
+      if (s.colorbar) q.colorbar = { ...(q.colorbar || {}), ...s.colorbar };
+      out.series[id] = q;
+    }
+  }
+  const panels = a.panelKeys.map((k) => clone(styles[`${a.styleKey}|panel|${k}`] || {}));
+  if (panels.some((p) => !isEmpty(p))) out.panels = panels;
+  return out;
+}
+
+export function decomposeStyle(styles, a, style) {
+  const s = clone(style || {});
+  const labels = {};
+  for (const k of LABEL_FIELDS) if (s[k] !== undefined) { labels[k] = s[k]; delete s[k]; }
+  if (s.series) {
+    for (const [id, q] of Object.entries(s.series)) {
+      const l = {};
+      if (q.label !== undefined) { l.label = q.label; delete q.label; }
+      if (q.colorbar && q.colorbar.label !== undefined) {
+        l.colorbar = { label: q.colorbar.label };
+        delete q.colorbar.label;
+        if (isEmpty(q.colorbar)) delete q.colorbar;
+      }
+      if (!isEmpty(l)) (labels.series = labels.series || {})[id] = l;
+      if (isEmpty(q)) delete s.series[id];
+    }
+    if (isEmpty(s.series)) delete s.series;
+  }
+  const panels = Array.isArray(s.panels) ? s.panels : [];
+  delete s.panels;
+  const put = (key, v) => { if (isEmpty(v)) delete styles[key]; else styles[key] = v; };
+  put(a.styleKey, s);
+  put(`${a.styleKey}|label|${a.labelKey}`, labels);
+  a.panelKeys.forEach((k, i) => put(`${a.styleKey}|panel|${k}`, panels[i] || {}));
+  return styles;
 }
 
 /**
@@ -41,85 +120,29 @@ function loadPlotly() {
  */
 export function createPlumedAnalyse(ctx, builder) {
   const { $, escapeHtml, showToast, downloadText } = ctx;
-  const state = { colvar: null, colvarName: '', hills: null, hillsName: '', column: '', along: '', suggestions: [] };
+  const state = {
+    colvar: null, colvarName: '', colvarNotes: [],
+    hills: null, hillsNames: [], hillsNotes: [],
+    suggestions: [],
+    active: readStore(FIGURE_KEY, 'series'),
+    opts: { columns: null, column: '', bins: 50, reweightBins: 60, along: null, variable: '', slices: 5, contours: true },
+    current: null
+  };
+  let styles = readStore(STYLE_KEY, {});
+  if (!styles || typeof styles !== 'object' || Array.isArray(styles)) styles = {};
 
-  const fmt = (v, digits = 3) => (Number.isFinite(v) ? Number(v.toPrecision(digits)).toString() : '–');
-  const unit = () => ENERGY_LABEL[builder.energyUnit()] || builder.energyUnit();
-
-  /* Colours follow the page theme; the two series colours were checked for
-     colour-blind separation and contrast on each surface. */
-  function theme() {
-    const dark = document.documentElement.classList.contains('dark');
-    const css = getComputedStyle(document.documentElement);
-    const v = (n, d) => (css.getPropertyValue(n).trim() || d);
-    return {
-      dark,
-      series: dark ? '#4f8fcb' : '#1f5c96',
-      second: dark ? '#d95926' : '#eb6834',
-      text: v('--stk-fg', dark ? '#f1f5f9' : '#0f172a'),
-      muted: v('--stk-fg-3', dark ? '#94a3b8' : '#64748b'),
-      grid: v('--stk-border', dark ? '#1e293b' : '#e2e8f0'),
-      surface: v('--stk-surface', dark ? '#0f172a' : '#ffffff')
-    };
-  }
-
-  function layout(t, xTitle, yTitle, extra = {}) {
-    const axis = (title) => ({
-      title: { text: title, font: { size: 12, color: t.muted }, standoff: 8 },
-      color: t.muted, gridcolor: t.grid, zerolinecolor: t.grid, linecolor: t.grid,
-      tickfont: { size: 11, color: t.muted }, automargin: true
-    });
-    return {
-      margin: { l: 56, r: 16, t: 12, b: 44 },
-      height: 280,
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)',
-      font: { family: 'Inter, system-ui, sans-serif', color: t.text, size: 12 },
-      xaxis: axis(xTitle),
-      yaxis: axis(yTitle),
-      showlegend: false,
-      hovermode: 'x unified',
-      hoverlabel: { bgcolor: t.surface, bordercolor: t.grid, font: { color: t.text, size: 12 } },
-      ...extra
-    };
-  }
-
-  const CONFIG = { displayModeBar: false, responsive: true };
-
-  function draw(id, traces, lay) {
-    const el = $(id);
-    if (!el) return;
-    loadPlotly().then((Plotly) => {
-      Plotly.react(el, traces, lay, CONFIG);
-    }).catch(() => {
-      el.innerHTML = '<p class="stk-hint">The chart library could not be loaded. The numbers above and the ' +
-        'downloads still work.</p>';
-    });
-  }
-
-  /* One hue, faint to strong, for the same surface at later and later times.
-     The faintest still has 3:1 contrast with the surface. */
-  function ramp(t, n) {
-    const from = t.dark ? [70, 120, 170] : [100, 148, 194];
-    const to = t.dark ? [147, 197, 253] : [20, 62, 105];
-    return Array.from({ length: n }, (_, i) => {
-      const k = n === 1 ? 1 : i / (n - 1);
-      const c = from.map((a, j) => Math.round(a + (to[j] - a) * k));
-      return `rgb(${c[0]},${c[1]},${c[2]})`;
-    });
-  }
+  const unit = () => ENERGY_LABELS[builder.energyUnit()] || builder.energyUnit();
+  const timeUnit = () => ($('plumedUnitTime') && $('plumedUnitTime').value) || 'ps';
+  const code = (s) => `<code>${escapeHtml(s)}</code>`;
+  const count = (n) => Number(n).toLocaleString('en-GB');
+  const run = () => ({
+    colvar: state.colvar, colvarFile: state.colvarName,
+    hills: state.hills, hillsFiles: state.hillsNames
+  });
 
   /* ---------------------------------------------------------------- *
-   * COLVAR
+   * COLVAR: the table of widths and grids
    * ---------------------------------------------------------------- */
-
-  function valueColumns(c) {
-    return c.fields.filter(f => f !== 'time' && !/\.(bias|rbias|rct|work|force2|zed|neff|nker)$/.test(f));
-  }
-
-  function biasColumn(c) {
-    return c.fields.find(f => /\.rbias$/.test(f)) || c.fields.find(f => /\.bias$/.test(f)) || '';
-  }
 
   function renderColvar() {
     const wrap = $('plumedAnColvar');
@@ -128,10 +151,8 @@ export function createPlumedAnalyse(ctx, builder) {
     wrap.hidden = !c;
     if (!c) return;
     const cols = valueColumns(c);
-    if (!cols.includes(state.column)) state.column = cols[0] || '';
-
     const targets = builder.targets();
-    const biased = c.fields.some(f => /\.(bias|rbias)$/.test(f));
+    const biased = !!biasColumn(c);
     state.suggestions = [];
     const rows = cols.map((name) => {
       const period = c.periods[name] || null;
@@ -145,16 +166,16 @@ export function createPlumedAnalyse(ctx, builder) {
       return `<tr>
         <th scope="row"><code>${escapeHtml(name)}</code>${target ? ' <span class="stk-badge stk-badge-accent">biased</span>' : ''}</th>
         <td>${fmt(sum.mean)}</td><td>${fmt(sum.sd)}</td><td>${fmt(sum.min)} to ${fmt(sum.max)}</td>
-        <td>${s && s.sigma ? `<code>${escapeHtml(s.sigma)}</code>` : '–'}</td>
-        <td>${s && s.sigma ? `<code>${escapeHtml(s.min)}</code> to <code>${escapeHtml(s.max)}</code>, <code>${escapeHtml(s.bin)}</code> bins` : '–'}</td>
+        <td>${s && s.sigma ? code(s.sigma) : '–'}</td>
+        <td>${s && s.sigma ? `${code(s.min)} to ${code(s.max)}, ${code(s.bin)} bins` : '–'}</td>
         <td>${drift.drifting ? '<span class="stk-badge stk-badge-warn">still drifting</span>' : ''}</td>
       </tr>`;
     }).join('');
 
+    const notes = state.colvarNotes.length ? ` ${escapeHtml(state.colvarNotes.join(' '))}` : '';
     $('plumedAnColvarHead').innerHTML =
-      `<strong>${escapeHtml(state.colvarName)}</strong>: ${c.rows.toLocaleString('en-GB')} rows, ` +
-      `${cols.length} value${cols.length === 1 ? '' : 's'}.` +
-      (c.errors.length ? ` ${escapeHtml(c.errors.join(' '))}` : '');
+      `<strong>${escapeHtml(state.colvarName)}</strong>: ${count(c.rows)} rows` +
+      `${c.parts > 1 ? ` in ${c.parts} parts` : ''}, ${cols.length} value${cols.length === 1 ? '' : 's'}.${notes}`;
     $('plumedAnTable').innerHTML = rows;
     $('plumedAnAdvice').innerHTML = biased
       ? 'This run was biased, so the spread of a biased variable is wider than its fluctuation in one basin. ' +
@@ -171,65 +192,10 @@ export function createPlumedAnalyse(ctx, builder) {
           ? `Use for ${state.suggestions.map(s => s.arg).join(', ')}`
           : 'No column matches a biased variable';
     }
-
-    const sel = $('plumedAnColumn');
-    sel.innerHTML = cols.map(n => `<option value="${escapeHtml(n)}"${n === state.column ? ' selected' : ''}>${escapeHtml(n)}</option>`).join('');
-    drawColvar();
-    renderReweight();
-  }
-
-  function drawColvar() {
-    const c = state.colvar;
-    if (!c || !state.column) return;
-    const t = theme();
-    const y = c.columns[state.column];
-    const x = c.columns.time || Float64Array.from(y, (_, i) => i);
-    // A long run is thinned for drawing; the statistics use every row.
-    const step = Math.max(1, Math.floor(y.length / 4000));
-    const xs = [];
-    const ys = [];
-    for (let i = 0; i < y.length; i += step) { xs.push(x[i]); ys.push(y[i]); }
-    draw('plumedAnTrace', [{
-      x: xs, y: ys, type: 'scattergl', mode: 'lines', line: { color: t.series, width: 1.5 },
-      name: state.column, hovertemplate: `%{y:.4g}<extra></extra>`
-    }], layout(t, c.columns.time ? 'Time' : 'Row', state.column));
-  }
-
-  function renderReweight() {
-    const c = state.colvar;
-    const wrap = $('plumedAnReweight');
-    if (!wrap) return;
-    const bias = c ? biasColumn(c) : '';
-    wrap.hidden = !bias;
-    if (!bias) return;
-    const kT = thermalEnergy(builder.temperature(), builder.energyUnit());
-    const skip = Math.floor(c.rows * (/\.rbias$/.test(bias) ? 0 : 0.2));
-    const r = reweight(c.columns[state.column], c.columns[bias], {
-      kT, bins: 60, skip, period: c.periods[state.column] || undefined
-    });
-    const note = $('plumedAnReweightNote');
-    if (!r) {
-      note.textContent = 'There is too little to reweight.';
-      return;
-    }
-    note.innerHTML =
-      `Each frame is weighted by exp(V/kT) with V from <code>${escapeHtml(bias)}</code>, at ` +
-      `${escapeHtml(String(builder.temperature()))} K (kT = ${fmt(kT)} ${escapeHtml(unit())}). ` +
-      `${r.frames.toLocaleString('en-GB')} frames carry the weight of ` +
-      `<strong>${Math.round(r.effective).toLocaleString('en-GB')}</strong> equally weighted ones.` +
-      (skip ? ` The first fifth of the run is left out, since <code>${escapeHtml(bias)}</code> still grows there; ` +
-        'print <code>metad.rbias</code> with <code>CALC_RCT</code> to use the whole run.' : '') +
-      (r.effective < 50 ? ' <strong>That is too few to trust the surface.</strong>' : '');
-    const t = theme();
-    draw('plumedAnReweightPlot', [{
-      x: Array.from(r.x), y: Array.from(r.f), type: 'scatter', mode: 'lines+markers',
-      line: { color: t.series, width: 2 }, marker: { size: 5, color: t.series },
-      connectgaps: false, hovertemplate: `%{y:.3g} ${unit()}<extra></extra>`
-    }], layout(t, state.column, `Free energy (${unit()})`));
   }
 
   /* ---------------------------------------------------------------- *
-   * HILLS
+   * HILLS: what the heights say
    * ---------------------------------------------------------------- */
 
   function renderHills() {
@@ -240,182 +206,456 @@ export function createPlumedAnalyse(ctx, builder) {
     if (!h) return;
     const vars = hillsVariables(h.fields);
     const heights = hillHeights(h);
-    const t = theme();
     const last = h.columns.time ? h.columns.time[h.rows - 1] : h.rows;
-
+    const pct = Math.round(heights.ratio * 100);
     let verdict;
     if (!heights.tempered) {
       verdict = 'The run is not well-tempered, so every hill has the same height and the surface keeps ' +
         'oscillating by about that much. Average the surface over the last part of the run.';
     } else if (heights.ratio < 0.1) {
-      verdict = `The hills have fallen to <strong>${Math.round(heights.ratio * 100)}%</strong> of their first ` +
-        'height: the bias changes slowly now. Check below that the surface has stopped changing shape too.';
+      verdict = `The hills have fallen to <strong>${pct}%</strong> of their first height: the bias changes ` +
+        'slowly now. Check under Convergence that the surface has stopped changing shape too.';
     } else if (heights.ratio < 0.4) {
-      verdict = `The hills are at <strong>${Math.round(heights.ratio * 100)}%</strong> of their first height: ` +
-        'the basins in reach are filling, and the run is not finished.';
+      verdict = `The hills are at <strong>${pct}%</strong> of their first height: the basins in reach are ` +
+        'filling, and the run is not finished.';
     } else {
-      verdict = `The hills are still at <strong>${Math.round(heights.ratio * 100)}%</strong> of their first ` +
-        'height: the run is at an early stage, or the variable keeps finding new ground.';
+      verdict = `The hills are still at <strong>${pct}%</strong> of their first height: the run is at an early ` +
+        'stage, or the variable keeps finding new ground.';
     }
+    const names = state.hillsNames;
+    const who = names.length > 1
+      ? `${names.map(n => `<strong>${escapeHtml(n)}</strong>`).join(', ')} (${names.length} walkers, summed together)`
+      : `<strong>${escapeHtml(names[0] || 'HILLS')}</strong>`;
+    const notes = state.hillsNotes.length ? ` ${escapeHtml(state.hillsNotes.join(' '))}` : '';
     $('plumedAnHillsHead').innerHTML =
-      `<strong>${escapeHtml(state.hillsName)}</strong>: ${h.rows.toLocaleString('en-GB')} hills on ` +
-      `${vars.map(v => `<code>${escapeHtml(v)}</code>`).join(' and ')}, up to time ${fmt(last, 5)}` +
-      `${heights.tempered ? `, bias factor ${fmt(heights.biasFactor)}` : ''}. ${verdict}`;
-
-    draw('plumedAnHeights', [{
-      x: heights.time, y: heights.height, type: 'scatter', mode: 'lines',
-      line: { color: t.series, width: 2 }, hovertemplate: `%{y:.3g} ${unit()}<extra></extra>`
-    }], layout(t, 'Time', `Hill height (${unit()})`, { height: 220 }));
-
-    const along = $('plumedAnAlong');
-    const opts = vars.length > 1 ? [...vars, vars.slice(0, 2).join(' , ')] : vars;
-    if (!opts.includes(state.along)) state.along = opts[opts.length - 1];
-    along.innerHTML = opts.map(o => `<option value="${escapeHtml(o)}"${o === state.along ? ' selected' : ''}>${escapeHtml(o)}</option>`).join('');
-    along.parentElement.hidden = opts.length < 2;
-    drawFes();
+      `${who}: ${count(h.rows)} hills on ${vars.map(code).join(' and ')}, up to time ${fmt(last, 5)}` +
+      `${heights.tempered ? `, bias factor ${fmt(heights.biasFactor)}` : ''}. ${verdict}${notes}`;
   }
 
-  function drawFes() {
-    const h = state.hills;
-    if (!h) return;
-    const t = theme();
-    const two = state.along.includes(' , ');
-    const note = $('plumedAnFesNote');
-    if (two) {
-      const s = sumHills(h, { variables: state.along.split(' , '), bins: 100 });
-      const z = [];
-      for (let j = 0; j < s.shape[1]; j++) {
-        const row = [];
-        for (let i = 0; i < s.shape[0]; i++) row.push(s.f[i * s.shape[1] + j]);
-        z.push(row);
-      }
-      // One hue: the deep basins dark on a light page, light on a dark one.
-      const scale = t.dark
-        ? [[0, '#bfdbfe'], [0.5, '#3b82c4'], [1, '#0f172a']]
-        : [[0, '#143e69'], [0.5, '#6da5d6'], [1, '#f4f8fc']];
-      draw('plumedAnFes', [{
-        x: Array.from(s.x), y: Array.from(s.y), z, type: 'heatmap', colorscale: scale, zsmooth: 'best',
-        colorbar: { title: { text: unit(), font: { size: 11, color: t.muted } }, thickness: 12, len: 0.9, tickfont: { size: 10, color: t.muted }, outlinewidth: 0 },
-        hovertemplate: `${s.variables[0]} %{x:.3g}<br>${s.variables[1]} %{y:.3g}<br>%{z:.3g} ${unit()}<extra></extra>`
-      }], layout(t, s.variables[0], s.variables[1], { height: 340, hovermode: 'closest', margin: { l: 56, r: 8, t: 12, b: 44 } }));
-      note.innerHTML = `The surface is the negative sum of all ${s.hills.toLocaleString('en-GB')} hills, as ` +
-        '<code>plumed sum_hills</code> gives it, with its lowest point at zero. Dark is low.';
-      state.fes = s;
+  /* ---------------------------------------------------------------- *
+   * Figures
+   * ---------------------------------------------------------------- */
+
+  let plot = null;
+  let plotLoading = null;
+  /* In the two-column layout the figure should fit in the column under the
+     picker and its controls, so that all of it can be read while it is
+     styled; stacked, it may be as wide as the page. The column sticks under
+     the navigation bar at 100vh - 7rem (src/script-generator.css) once the
+     page is scrolled, whatever its height at this moment. */
+  const wide = window.matchMedia('(min-width: 1024px)');
+  function maxScale() {
+    if (!wide.matches) return 2;
+    const column = $('outputColumn');
+    const body = $('plumedAnBox') && $('plumedAnBox').querySelector('.sg-tool-body');
+    const section = $('plumedAnFigures');
+    const stage = $('plumedAnPlot') && $('plumedAnPlot').querySelector('.fg-stage');
+    if (!column || !body || !section || !stage) return 2;
+    // The figure being drawn (the last drawing's size may be another figure's).
+    const f = plot && plot.figure();
+    const tall = (f ? f.height : 4.8) * 96;
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const bodyRoom = window.innerHeight - 7 * rem - (body.getBoundingClientRect().top - column.getBoundingClientRect().top) - rem;
+    const above = stage.getBoundingClientRect().top - section.getBoundingClientRect().top;
+    return Math.max(0.5, Math.min(2, (bodyRoom - above - 28) / tall));
+  }
+  // A new window height changes how large the figure may be.
+  let lastHeight = window.innerHeight;
+  window.addEventListener('resize', () => {
+    if (Math.abs(window.innerHeight - lastHeight) < 40 || !plot || !state.current) return;
+    lastHeight = window.innerHeight;
+    plot.update(state.current.figure);
+  });
+
+  function exported(r, err, format) {
+    if (err) {
+      showToast(`The ${format.toUpperCase()} could not be made: ${err && err.message ? err.message : err}`, 'danger');
       return;
     }
-    const slices = fesOverTime(h, { variable: state.along, slices: 5, bins: 300 });
-    const colours = ramp(t, slices.length);
-    const traces = slices.map((s, i) => ({
-      x: Array.from(s.x), y: Array.from(s.f), type: 'scatter', mode: 'lines',
-      name: `to ${fmt(s.time, 4)}`,
-      line: { color: colours[i], width: i === slices.length - 1 ? 2.5 : 1.5 },
-      hovertemplate: `%{y:.3g} ${unit()}<extra>to ${fmt(s.time, 4)}</extra>`
-    }));
-    draw('plumedAnFes', traces, layout(t, state.along, `Free energy (${unit()})`, {
-      height: 320, showlegend: true,
-      legend: { orientation: 'h', y: -0.28, x: 0, font: { size: 11, color: t.muted }, title: { text: 'Hills summed ', font: { size: 11, color: t.muted } } },
-      margin: { l: 56, r: 16, t: 12, b: 76 }
-    }));
-    const lastTwo = slices.slice(-2);
-    let change = 0;
-    if (lastTwo.length === 2) {
-      // Compare where the surface is low enough to be sampled, below 16 kT.
-      const low = 16 * thermalEnergy(builder.temperature(), builder.energyUnit());
-      for (let i = 0; i < lastTwo[0].f.length; i++) {
-        if (lastTwo[1].f[i] < low) change = Math.max(change, Math.abs(lastTwo[1].f[i] - lastTwo[0].f[i]));
-      }
-    }
-    note.innerHTML = 'Each line sums the hills up to a time; the darkest is the whole run. Lines that lie on top ' +
-      'of one another say the surface has stopped changing. ' +
-      (lastTwo.length === 2
-        ? `Over the last fifth of the run it moved by at most <strong>${fmt(change)} ${escapeHtml(unit())}</strong>.`
-        : '');
-    state.fes = { variables: [state.along], x: slices[slices.length - 1].x, y: null, f: slices[slices.length - 1].f };
+    showToast(`Saved ${r.filename} (${fmt(r.widthIn)} × ${fmt(r.heightIn)} in).`, 'ok');
   }
 
-  function downloadFes() {
-    const s = state.fes;
-    if (!s) return;
-    const lines = [];
-    if (s.y) {
-      lines.push(`#! FIELDS ${s.variables[0]} ${s.variables[1]} file.free`);
-      for (let j = 0; j < s.y.length; j++) {
-        for (let i = 0; i < s.x.length; i++) lines.push(`${s.x[i]} ${s.y[j]} ${s.f[i * s.y.length + j]}`);
-        lines.push('');
-      }
-    } else {
-      lines.push(`#! FIELDS ${s.variables[0]} file.free`);
-      for (let i = 0; i < s.x.length; i++) lines.push(`${s.x[i]} ${s.f[i]}`);
+  function pythonNote(fig, source) {
+    const a = state.current;
+    const file = `${fig.export.filename}.py`;
+    const saves = `${fig.export.filename}.${fig.export.format}`;
+    const reads = a ? a.python.reads : [];
+    const lead = `Runs with Python 3, numpy and matplotlib 3.6 or later: ${code(`python ${file}`)}. `;
+    if (source === 'files') {
+      const cli = '<a href="assets/plumed/analyse_plumed.py" class="sg-link" download>analyse_plumed.py</a>';
+      return lead + `It reads ${reads.map(code).join(', ')} from the same folder, computes what the page shows with the ` +
+        `functions of ${cli}, and saves ${code(saves)}.`;
     }
-    downloadText(`${lines.join('\n')}\n`, 'fes.dat');
+    return lead + `It holds the numbers the page computed and saves ${code(saves)}.`;
+  }
+
+  function ensurePlot() {
+    if (plot) return Promise.resolve(plot);
+    if (plotLoading) return plotLoading;
+    const host = $('plumedAnPlot');
+    plotLoading = Promise.all([loadPlotly(), import('./figure-plot.js')]).then(([, figures]) => {
+      plot = figures.mountFigure(host, {
+        // On the left, over the builder, so that the figure on the right stays
+        // in view while it is styled; a sheet from the bottom on a phone.
+        styleDrawer: { side: 'left' },
+        // The drawer names the figure being styled, which changes with the picker.
+        styleTitle: () => {
+          const f = ANALYSIS_FIGURES.find(x => x.id === state.active);
+          return f ? `Style: ${f.label}` : 'Style';
+        },
+        style: state.current ? composeStyle(styles, state.current) : {},
+        onStyleChange: (style) => {
+          if (!state.current) return;
+          decomposeStyle(styles, state.current, style);
+          writeStore(STYLE_KEY, styles);
+        },
+        maxScale,
+        onExport: exported,
+        label: 'The figure, as the saved file will look',
+        python: {
+          host: $('plumedAnPython'),
+          headingLevel: 4,
+          sources: [{ id: 'files', label: 'Read the files' }, { id: 'embed', label: 'Data in the script' }],
+          script: (fig, source) => analysisScript(fig, source, state.current ? state.current.python : null),
+          note: pythonNote,
+          empty: '# The script appears here once there is a figure to draw.'
+        }
+      });
+      return plot;
+    }).catch((err) => {
+      plotLoading = null;
+      const notes = host && host.querySelector('.fg-notes');
+      if (notes) {
+        notes.textContent = `The plot could not load (${err && err.message ? err.message : err}). ` +
+          'The numbers above still work; reload the page to try again.';
+        notes.hidden = false;
+      }
+      throw err;
+    });
+    return plotLoading;
+  }
+
+  function figureOptions() {
+    return {
+      temperature: builder.temperature(), energy: builder.energyUnit(), timeUnit: timeUnit(),
+      ...state.opts
+    };
+  }
+
+  const setOptions = (sel, list, value) => {
+    sel.innerHTML = list.map(([v, label]) =>
+      `<option value="${escapeHtml(v)}"${v === value ? ' selected' : ''}>${escapeHtml(label)}</option>`).join('');
+  };
+
+  /* The controls of the figure shown, filled from what it drew. */
+  function renderControls(a) {
+    const show = (id, on) => { if ($(id)) $(id).hidden = !on; };
+    const o = a.options;
+    const c = state.colvar;
+    show('plumedAnColsWrap', a.id === 'series');
+    show('plumedAnColumnWrap', a.id === 'histogram' || a.id === 'reweight');
+    show('plumedAnAlongWrap', a.id === 'fes' && o.vars.length > 1);
+    show('plumedAnVariableWrap', a.id === 'convergence' && o.vars.length > 1);
+    show('plumedAnSlicesWrap', a.id === 'convergence');
+    show('plumedAnBinsWrap', a.id === 'histogram' || a.id === 'reweight');
+    show('plumedAnContoursWrap', a.id === 'fes' && o.along.length === 2);
+    if (a.id === 'series' && c) {
+      const all = c.fields.filter(f => f !== 'time');
+      $('plumedAnCols').innerHTML = all.map((f, i) => {
+        const on = o.columns.includes(f);
+        const full = !on && o.columns.length >= 8;
+        return `<label class="sg-an-chip"><input type="checkbox" value="${escapeHtml(f)}" id="plumedAnCol${i}"${on ? ' checked' : ''}` +
+          `${full ? ' disabled' : ''}> <span class="stk-mono">${escapeHtml(f)}</span></label>`;
+      }).join('');
+    }
+    if (a.id === 'histogram' || a.id === 'reweight') {
+      setOptions($('plumedAnColumn'), o.values.map(v => [v, v]), o.column);
+      $('plumedAnBins').value = String(a.id === 'histogram' ? o.bins : o.reweightBins);
+      if ($('plumedAnBins').value !== String(a.id === 'histogram' ? o.bins : o.reweightBins)) $('plumedAnBins').value = '50';
+    }
+    if (a.id === 'fes') {
+      const pairs = o.vars.map(v => [v, v]);
+      if (o.vars.length > 1) pairs.push([o.vars.slice(0, 2).join(','), `${o.vars[0]} and ${o.vars[1]}`]);
+      setOptions($('plumedAnAlong'), pairs, o.along.join(','));
+      $('plumedAnContours').checked = o.contours;
+    }
+    if (a.id === 'convergence') {
+      setOptions($('plumedAnVariable'), o.vars.map(v => [v, v]), o.variable);
+      $('plumedAnSlices').value = String(o.slices);
+    }
+    const data = analysisData(a);
+    show('plumedAnData', !!data);
+    if (data) {
+      $('plumedAnDataName').textContent = data.filename;
+      $('plumedAnData').setAttribute('aria-label', `Download ${data.filename}, the numbers of the figure`);
+    }
+  }
+
+  /* What the figure says, in a sentence or two, with the numbers that matter. */
+  function noteFor(a) {
+    const r = a.result;
+    const u = escapeHtml(unit());
+    switch (a.id) {
+      case 'series':
+        return `One panel for each value ticked above, sharing the time axis. ` +
+          (r.thinned
+            ? `The page draws the lowest and highest point of each stretch of the ${count(r.rows)} rows, which is ` +
+              'the same line; the script reads and draws every row.'
+            : `All ${count(r.rows)} rows are drawn.`);
+      case 'histogram':
+        return `${count(r.n)} values of ${code(r.column)} in ${r.bins} bins ` +
+          `${fmt(r.width)} wide, from ${fmt(r.min)} to ${fmt(r.max)}.`;
+      case 'reweight': {
+        const skip = r.skip;
+        return `Each frame is weighted by exp(V/kT) with V from ${code(r.bias)}, at ` +
+          `${escapeHtml(String(builder.temperature()))} K (kT = ${fmt(r.kT)} ${u}). ` +
+          `${count(r.frames)} frames carry the weight of ` +
+          `<strong>${count(Math.round(r.effective))}</strong> equally weighted ones.` +
+          (skip ? ` The first fifth of the run is left out, since ${code(r.bias)} still grows there; ` +
+            `print ${code('metad.rbias')} with ${code('CALC_RCT')} to use the whole run.` : '') +
+          (r.effective < 50 ? ' <strong>That is too few to trust the surface.</strong>' : '') +
+          ' Gaps are bins no frame reached.';
+      }
+      case 'fes':
+        return `The negative sum of all ${count(r.hills)} hills, as ${code('plumed sum_hills')} gives it, with its ` +
+          `lowest point at zero; it reaches ${fmt(r.max)} ${u}.` +
+          (r.y ? ' The colour bar gives the free energy; dark is low.' : '');
+      case 'convergence':
+        return 'Each line sums the hills up to a time; the darkest is the whole run. Lines that lie on top of one ' +
+          'another say the surface has stopped changing.' +
+          (r.change !== null
+            ? ` Over the last ${r.part} of the run it moved by at most <strong>${fmt(r.change)} ${u}</strong> ` +
+              'where it is below 16 kT.'
+            : '');
+      case 'heights': {
+        const tempered = r.tempered ? ' (the γ/(γ−1) a well-tempered file carries is taken off)' : '';
+        return `The mean height of each block of hills, as deposited${tempered}. The first hill was ` +
+          `${fmt(r.first)} ${u}; the last tenth of the run averages ${fmt(r.last)} ${u}.`;
+      }
+      default:
+        return '';
+    }
+  }
+
+  function renderPicker(ids) {
+    const buttons = Array.from(document.querySelectorAll('#plumedAnPick [data-an-fig]'));
+    for (const b of buttons) {
+      const id = b.getAttribute('data-an-fig');
+      const on = id === state.active;
+      b.hidden = !ids.includes(id);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      b.tabIndex = on ? 0 : -1;
+    }
+    if ($('plumedAnFigPanel')) $('plumedAnFigPanel').setAttribute('aria-labelledby', `plumedAnTab-${state.active}`);
+  }
+
+  let drawSeq = 0;
+  function renderFigures() {
+    const wrap = $('plumedAnFigures');
+    if (!wrap) return;
+    const r = run();
+    const ids = availableFigures(r);
+    wrap.hidden = !ids.length;
+    if (!ids.length) {
+      state.current = null;
+      if (plot) plot.update(null);
+      return;
+    }
+    if (!ids.includes(state.active)) state.active = ids[0];
+    renderPicker(ids);
+    const a = analysisFigure(state.active, r, figureOptions());
+    state.current = a;
+    if (!a) {
+      $('plumedAnNote').textContent = 'There is too little in the file to draw this figure.';
+      if (plot) plot.update(null);
+      return;
+    }
+    // What was drawn becomes what is asked for next, so the choices stay.
+    Object.assign(state.opts, {
+      columns: a.options.columns, column: a.options.column, along: a.options.along, variable: a.options.variable
+    });
+    renderControls(a);
+    $('plumedAnPlotTitle').textContent = a.title;
+    $('plumedAnNote').innerHTML = noteFor(a);
+    const seq = ++drawSeq;
+    ensurePlot().then((p) => {
+      if (seq !== drawSeq || state.current !== a) return;
+      const style = composeStyle(styles, a);
+      if (JSON.stringify(style) !== JSON.stringify(p.getStyle())) p.setStyle(style);
+      p.update(a.figure);
+    }, () => { /* the plot area could not load; its notes say so */ }).catch((err) => {
+      const notes = $('plumedAnPlot') && $('plumedAnPlot').querySelector('.fg-notes');
+      if (notes) {
+        notes.textContent = `The figure could not be drawn: ${err && err.message ? err.message : err}`;
+        notes.hidden = false;
+      }
+    });
+  }
+
+  function choose(id) {
+    if (!ANALYSIS_FIGURES.some(f => f.id === id)) return;
+    state.active = id;
+    writeStore(FIGURE_KEY, id);
+    renderFigures();
   }
 
   /* ---------------------------------------------------------------- *
    * Files
    * ---------------------------------------------------------------- */
 
-  function take(text, name) {
-    const parsed = parseColvar(text);
-    if (!parsed.rows) {
-      showToast(`${name}: ${parsed.errors[0] || 'no rows of numbers.'}`, 'danger');
-      return;
+  /*
+   * One or more files read together. A COLVAR is read one at a time; several
+   * HILLS files of the same variables are the walkers of one run, and their
+   * hills are summed together. A run continued from a checkpoint is read as
+   * one: rows a later part wrote again are counted once.
+   */
+  function take(list) {
+    const colvars = [];
+    const hills = [];
+    for (const { name, text } of list) {
+      const parsed = parseColvar(text, { keepOverlap: false });
+      if (!parsed.rows) {
+        showToast(`${name}: ${parsed.errors[0] || 'no rows of numbers.'}`, 'danger');
+        continue;
+      }
+      (fileKind(parsed.fields) === 'hills' ? hills : colvars).push({ name, parsed });
     }
-    if (fileKind(parsed.fields) === 'hills') {
-      state.hills = parsed;
-      state.hillsName = name;
-      state.along = '';
-    } else {
-      state.colvar = parsed;
-      state.colvarName = name;
-      state.column = '';
+    const told = [];
+    if (colvars.length) {
+      const first = colvars[0];
+      state.colvar = first.parsed;
+      state.colvarName = first.name;
+      state.colvarNotes = first.parsed.errors.slice();
+      state.opts.columns = null;
+      told.push(`${first.name} (${count(first.parsed.rows)} rows)`);
+      if (colvars.length > 1) {
+        showToast(`A COLVAR is read one at a time: ${first.name} was read, ${colvars.slice(1).map(c => c.name).join(', ')} not.`, 'danger');
+      }
     }
+    if (hills.length) {
+      let group = hills;
+      let pooled = poolRuns(group.map(x => x.parsed), group.map(x => x.name));
+      if (!pooled) {
+        group = [hills[0]];
+        pooled = hills[0].parsed;
+        showToast(`The HILLS files do not have the same columns, so only ${hills[0].name} was read.`, 'danger');
+      }
+      state.hills = pooled;
+      state.hillsNames = group.map(x => x.name);
+      state.hillsNotes = [];
+      for (const x of group) for (const e of x.parsed.errors) state.hillsNotes.push(group.length > 1 ? `${x.name}: ${e}` : e);
+      if (pooled.errors.length > group[0].parsed.errors.length) state.hillsNotes.push(...pooled.errors.slice(group[0].parsed.errors.length));
+      state.opts.along = null;
+      state.opts.variable = '';
+      told.push(group.length > 1
+        ? `${group.map(x => x.name).join(', ')} as ${group.length} walkers (${count(pooled.rows)} hills)`
+        : `${group[0].name} (${count(pooled.rows)} hills)`);
+    }
+    if (!colvars.length && !hills.length) return;
+    // A new file shows its own first figure unless the one shown still applies.
+    if (hills.length && !colvars.length && !['fes', 'convergence', 'heights'].includes(state.active)) state.active = 'fes';
+    if (colvars.length && !hills.length && ['fes', 'convergence', 'heights'].includes(state.active) && !state.hills) state.active = 'series';
     render();
-    showToast(`${name} read as ${fileKind(parsed.fields) === 'hills' ? 'hills' : 'a COLVAR'}: ` +
-      `${parsed.rows.toLocaleString('en-GB')} rows.`, 'ok');
+    showToast(`Read ${told.join(' and ')}.`, 'ok');
   }
 
   function readFiles(files) {
-    for (const file of Array.from(files || [])) {
+    const list = Array.from(files || []).filter((file) => {
       if (file.size > MAX_BYTES) {
         showToast(`${file.name} is larger than 300 MB.`, 'danger');
-        continue;
+        return false;
       }
-      file.text().then(t => take(t, file.name)).catch(() => showToast(`Could not read ${file.name}.`, 'danger'));
-    }
+      return true;
+    });
+    if (!list.length) return;
+    Promise.all(list.map(file => file.text().then(text => ({ name: file.name, text }))
+      .catch(() => { showToast(`Could not read ${file.name}.`, 'danger'); return null; })))
+      .then(read => take(read.filter(Boolean)));
   }
 
   function render() {
     const any = !!(state.colvar || state.hills);
-    if ($('plumedAnDrop')) $('plumedAnDrop').classList.toggle('stk-drop-sm', true);
     if ($('plumedAnEmpty')) $('plumedAnEmpty').hidden = any;
     if ($('plumedAnClear')) $('plumedAnClear').hidden = !any;
     renderColvar();
     renderHills();
+    renderFigures();
   }
 
   function sample() {
-    Promise.all(['COLVAR', 'HILLS_d'].map(n =>
-      fetch(`assets/samples/plumed/${n}`).then(r => (r.ok ? r.text() : Promise.reject(new Error(n))))))
-      .then(([c, h]) => { take(c, 'COLVAR'); take(h, 'HILLS'); })
+    Promise.all(['COLVAR', 'HILLS'].map(n =>
+      fetch(`assets/samples/plumed/${n}`).then(r => (r.ok ? r.text() : Promise.reject(new Error(n))))
+        .then(text => ({ name: n, text }))))
+      .then(take)
       .catch(() => showToast('The sample files could not be loaded.', 'danger'));
   }
+
+  /* ---------------------------------------------------------------- *
+   * Controls
+   * ---------------------------------------------------------------- */
 
   const on = (id, event, fn) => { if ($(id)) $(id).addEventListener(event, fn); };
   on('plumedAnChoose', 'click', () => $('plumedAnFile') && $('plumedAnFile').click());
   on('plumedAnFile', 'change', (e) => { readFiles(e.target.files); e.target.value = ''; });
   on('plumedAnSample', 'click', sample);
   on('plumedAnClear', 'click', () => {
-    state.colvar = null;
-    state.hills = null;
+    Object.assign(state, { colvar: null, colvarName: '', colvarNotes: [], hills: null, hillsNames: [], hillsNotes: [] });
+    if (plot) plot.closeStyle();
     render();
   });
-  on('plumedAnColumn', 'change', (e) => { state.column = e.target.value; drawColvar(); renderReweight(); });
-  on('plumedAnAlong', 'change', (e) => { state.along = e.target.value; drawFes(); });
   on('plumedAnApply', 'click', () => {
     const n = builder.applySuggestions(state.suggestions);
     showToast(n ? `Hill width and grid set for ${n} variable${n === 1 ? '' : 's'}.` : 'Nothing to set.', n ? 'ok' : 'danger');
   });
-  on('plumedAnFesGet', 'click', downloadFes);
+
+  const pick = $('plumedAnPick');
+  if (pick) {
+    pick.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-an-fig]');
+      if (b) choose(b.getAttribute('data-an-fig'));
+    });
+    // Arrow keys move along the tabs, as in any tab list.
+    pick.addEventListener('keydown', (e) => {
+      const tabs = Array.from(pick.querySelectorAll('[data-an-fig]')).filter(b => !b.hidden);
+      const at = tabs.findIndex(b => b.getAttribute('data-an-fig') === state.active);
+      let next = -1;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (at + 1) % tabs.length;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (at - 1 + tabs.length) % tabs.length;
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = tabs.length - 1;
+      if (next < 0) return;
+      e.preventDefault();
+      choose(tabs[next].getAttribute('data-an-fig'));
+      tabs[next].focus();
+    });
+  }
+  on('plumedAnCols', 'change', () => {
+    const picked = Array.from($('plumedAnCols').querySelectorAll('input:checked')).map(i => i.value);
+    if (!picked.length) {
+      showToast('Keep at least one value to draw.', 'danger');
+      renderFigures();
+      return;
+    }
+    state.opts.columns = picked;
+    renderFigures();
+  });
+  on('plumedAnColumn', 'change', (e) => { state.opts.column = e.target.value; renderFigures(); });
+  on('plumedAnBins', 'change', (e) => {
+    const n = parseInt(e.target.value, 10);
+    if (state.active === 'reweight') state.opts.reweightBins = n; else state.opts.bins = n;
+    renderFigures();
+  });
+  on('plumedAnAlong', 'change', (e) => { state.opts.along = e.target.value.split(','); renderFigures(); });
+  on('plumedAnVariable', 'change', (e) => { state.opts.variable = e.target.value; renderFigures(); });
+  on('plumedAnSlices', 'change', (e) => { state.opts.slices = parseInt(e.target.value, 10); renderFigures(); });
+  on('plumedAnContours', 'change', (e) => { state.opts.contours = e.target.checked; renderFigures(); });
+  on('plumedAnData', 'click', () => {
+    const d = analysisData(state.current);
+    if (d) downloadText(d.text, d.filename);
+  });
+  // The labels and kT follow the builder's units.
+  on('plumedUnitEnergy', 'change', () => { if (state.colvar || state.hills) render(); });
+  on('plumedUnitTime', 'change', () => { if (state.colvar || state.hills) renderFigures(); });
 
   const drop = $('plumedAnDrop');
   if (drop) {
@@ -427,9 +667,9 @@ export function createPlumedAnalyse(ctx, builder) {
       readFiles(e.dataTransfer && e.dataTransfer.files);
     });
   }
-  // Charts are drawn in the colours of the theme they were made in.
-  new MutationObserver(() => { if (state.colvar || state.hills) render(); })
-    .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
-  return { render, refresh: () => { if (state.colvar) renderColvar(); } };
+  return {
+    render,
+    refresh: () => { if (state.colvar || state.hills) { renderColvar(); renderFigures(); } }
+  };
 }

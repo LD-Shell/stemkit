@@ -290,26 +290,59 @@ a.plumed-doclink:hover { text-decoration: underline; }
 .sg-explain-t td:nth-child(2) { max-width: 16rem; overflow-wrap: anywhere; }
 .sg-explain-t td:last-child { color: var(--stk-fg-3); min-width: 12rem; }
 
-/* Analysis: charts and the table beside them. */
+/* Analysis: the table of widths and grids, then one figure at a time. The
+   figure itself is the shared plot area (src/tools/figure.css) and its script
+   the shared Python panel (src/tools/python-panel.css). */
 .sg-an { display: flex; flex-direction: column; gap: .6rem; min-width: 0; }
-.sg-an + .sg-an { padding-top: .9rem; border-top: 1px solid var(--stk-border); }
+.sg-an:not([hidden]) ~ .sg-an { padding-top: .9rem; border-top: 1px solid var(--stk-border); }
 .sg-an .stk-hint { margin: 0; }
 .sg-an-t { margin: 0; font-size: .875rem; font-weight: 700; color: var(--stk-fg); }
-.sg-an-bar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; margin-top: .4rem; }
-.sg-an-bar > .sg-an-t { margin-right: auto; }
 .sg-an-pick { flex-direction: row; align-items: center; gap: .4rem; }
-.sg-an-pick > label { margin: 0; }
-.sg-an-pick > .stk-select { width: auto; min-width: 8rem; max-width: 100%; }
+.sg-an-pick > label { margin: 0; white-space: nowrap; }
+.sg-an-pick > .stk-select { width: auto; min-width: 5rem; max-width: 100%; }
+.sg-an-pick > .stk-select.stk-mono { min-width: 8rem; }
+
+/* The figure picker: a segmented control of the figures the files allow,
+   in one row where it fits and in even rows of three on a phone. */
+.sg-an-figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.4rem, 1fr)); width: 100%; }
+.sg-an-figs > button { padding: 0 .45rem; }
+.sg-an-figs > button[hidden] { display: none; }
+.sg-an-figs > button:focus-visible { outline: 2px solid var(--stk-accent); outline-offset: 1px; }
+@media (max-width: 479.98px) {
+  .sg-an-figs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sg-an-figs > button { font-size: .6875rem; padding: 0 .25rem; }
+}
+.sg-an-fig { display: flex; flex-direction: column; gap: .6rem; min-width: 0; }
+
+/* What the figure shows: its values, variable, bins; its numbers to download. */
+.sg-an-opts { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .9rem; min-width: 0; }
+.sg-an-opts:not(:has(> :not([hidden]))) { display: none; }
+.sg-an-data { margin-left: auto; }
+.sg-an-cols { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; min-width: 0; margin: 0; padding: 0; border: 0; }
+.sg-an-cols > legend { float: left; margin-right: .15rem; padding: 0; font-size: .75rem; font-weight: 600; color: var(--stk-fg-2); }
+.sg-an-chips { display: flex; flex-wrap: wrap; gap: .35rem; min-width: 0; }
+.sg-an-chip { display: inline-flex; align-items: center; gap: .35rem; max-width: 100%; height: 1.75rem; padding: 0 .55rem; border-radius: 999px; font-size: .75rem; font-weight: 600; color: var(--stk-fg-2); background: var(--stk-surface); box-shadow: inset 0 0 0 1px var(--stk-border-strong); cursor: pointer; user-select: none; }
+.sg-an-chip > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-an-chip input { width: .9rem; height: .9rem; margin: 0; accent-color: var(--stk-accent); cursor: pointer; }
+.sg-an-chip:has(input:checked) { color: var(--stk-accent-text); background: var(--stk-accent-soft); box-shadow: inset 0 0 0 1px var(--stk-accent-soft-border); }
+.sg-an-chip:has(input:disabled) { opacity: .55; cursor: not-allowed; }
+.sg-an-chip:has(input:focus-visible) { outline: 2px solid var(--stk-accent); outline-offset: 2px; }
+.sg-an-note code { font-family: var(--stk-font-mono); font-size: .92em; }
+.sg-an-note:empty { display: none; }
+.sg-an-plot .fg-t { font-size: .875rem; }
+.sg-an-plot .fg-h { padding: .7rem .85rem; }
+.sg-an-plot .fg-stage, .sg-an-plot .fg-notes { margin-left: .85rem; margin-right: .85rem; }
+@media (max-width: 479.98px) {
+  .sg-an-plot .fg-h { padding: .6rem .65rem; }
+  .sg-an-plot .fg-stage, .sg-an-plot .fg-notes { margin-left: .5rem; margin-right: .5rem; }
+}
+
 .sg-an-table { width: 100%; border-collapse: collapse; font-size: .75rem; line-height: 1.4; }
 .sg-an-table th, .sg-an-table td { padding: .35rem .7rem .35rem 0; text-align: left; border-bottom: 1px solid var(--stk-border); white-space: nowrap; color: var(--stk-fg-2); font-variant-numeric: tabular-nums; }
 .sg-an-table thead th { font-weight: 600; color: var(--stk-fg-3); }
 .sg-an-table tbody th { font-weight: 600; color: var(--stk-fg); }
 .sg-an-table code { font-family: var(--stk-font-mono); color: var(--stk-fg); }
 .sg-an-table tbody tr:last-child th, .sg-an-table tbody tr:last-child td { border-bottom: 0; }
-.sg-plot { width: 100%; min-height: 280px; border: 1px solid var(--stk-border); border-radius: var(--stk-radius-sm); background: var(--stk-surface); overflow: hidden; }
-.sg-plot-sm { min-height: 220px; }
-.sg-plot-lg { min-height: 320px; }
-.sg-plot > .stk-hint { padding: .75rem; }
 /* What the method parameters come to, in words and numbers. */
 .sg-calc { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem .75rem; margin: 0; }
 .sg-calc > div { display: flex; flex-direction: column; gap: .05rem; min-width: 0; padding: .4rem .55rem; border: 1px solid var(--stk-border); border-radius: var(--stk-radius-sm); background: var(--stk-surface-2); }

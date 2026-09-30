@@ -77,6 +77,8 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tools/figure.css">
+    <link rel="stylesheet" href="src/tools/python-panel.css">
     <link rel="stylesheet" href="src/script-generator.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
@@ -964,32 +966,83 @@
                             </div>
                             <p id="plumedAnAdvice" class="stk-hint"></p>
                             <button type="button" id="plumedAnApply" class="stk-btn stk-btn-sm stk-btn-primary sg-btn-start" disabled></button>
-                            <div class="stk-field sg-an-pick">
-                                <label for="plumedAnColumn">Show</label>
-                                <select id="plumedAnColumn" class="stk-select stk-select-sm stk-mono"></select>
-                            </div>
-                            <div id="plumedAnTrace" class="sg-plot" role="img" aria-label="The chosen value through the run"></div>
-                            <div id="plumedAnReweight" hidden>
-                                <h3 class="sg-an-t">Free energy along it, reweighted</h3>
-                                <p id="plumedAnReweightNote" class="stk-hint"></p>
-                                <div id="plumedAnReweightPlot" class="sg-plot" role="img" aria-label="Reweighted free energy along the chosen value"></div>
-                            </div>
                         </section>
 
                         <section id="plumedAnHills" class="sg-an" aria-labelledby="plumedAnHillsTitle" hidden>
                             <h3 class="sg-an-t" id="plumedAnHillsTitle">The bias</h3>
                             <p id="plumedAnHillsHead" class="stk-hint"></p>
-                            <div id="plumedAnHeights" class="sg-plot sg-plot-sm" role="img" aria-label="Hill height through the run"></div>
-                            <div class="sg-an-bar">
-                                <h3 class="sg-an-t">Free-energy surface</h3>
-                                <div class="stk-field sg-an-pick" hidden>
-                                    <label for="plumedAnAlong">Along</label>
-                                    <select id="plumedAnAlong" class="stk-select stk-select-sm stk-mono"></select>
-                                </div>
-                                <button type="button" id="plumedAnFesGet" class="stk-btn stk-btn-sm"><i class="fa-solid fa-download" aria-hidden="true"></i> fes.dat</button>
+                        </section>
+
+                        <!-- Figures: one at a time, picked above, drawn by the shared plot area (js/figure-plot.js) -->
+                        <section id="plumedAnFigures" class="sg-an" aria-labelledby="plumedAnFigsTitle" hidden>
+                            <h3 class="sg-an-t" id="plumedAnFigsTitle">Figures</h3>
+                            <div id="plumedAnPick" class="stk-seg sg-an-figs" role="tablist" aria-label="Figure to show">
+                                <button type="button" role="tab" id="plumedAnTab-series" data-an-fig="series" aria-controls="plumedAnFigPanel" aria-selected="false" tabindex="-1" hidden>Time series</button>
+                                <button type="button" role="tab" id="plumedAnTab-histogram" data-an-fig="histogram" aria-controls="plumedAnFigPanel" aria-selected="false" tabindex="-1" hidden>Histogram</button>
+                                <button type="button" role="tab" id="plumedAnTab-reweight" data-an-fig="reweight" aria-controls="plumedAnFigPanel" aria-selected="false" tabindex="-1" hidden>Reweighted</button>
+                                <button type="button" role="tab" id="plumedAnTab-fes" data-an-fig="fes" aria-controls="plumedAnFigPanel" aria-selected="false" tabindex="-1" hidden>Free energy</button>
+                                <button type="button" role="tab" id="plumedAnTab-convergence" data-an-fig="convergence" aria-controls="plumedAnFigPanel" aria-selected="false" tabindex="-1" hidden>Convergence</button>
+                                <button type="button" role="tab" id="plumedAnTab-heights" data-an-fig="heights" aria-controls="plumedAnFigPanel" aria-selected="false" tabindex="-1" hidden>Hill heights</button>
                             </div>
-                            <div id="plumedAnFes" class="sg-plot sg-plot-lg" role="img" aria-label="Free-energy surface from the hills"></div>
-                            <p id="plumedAnFesNote" class="stk-hint"></p>
+                            <div id="plumedAnFigPanel" class="sg-an-fig" role="tabpanel" aria-labelledby="plumedAnTab-series">
+                                <div id="plumedAnOpts" class="sg-an-opts">
+                                    <fieldset id="plumedAnColsWrap" class="sg-an-cols" hidden>
+                                        <legend>Values</legend>
+                                        <div id="plumedAnCols" class="sg-an-chips"></div>
+                                    </fieldset>
+                                    <div class="stk-field sg-an-pick" id="plumedAnColumnWrap" hidden>
+                                        <label for="plumedAnColumn">Value</label>
+                                        <select id="plumedAnColumn" class="stk-select stk-select-sm stk-mono"></select>
+                                    </div>
+                                    <div class="stk-field sg-an-pick" id="plumedAnAlongWrap" hidden>
+                                        <label for="plumedAnAlong">Along</label>
+                                        <select id="plumedAnAlong" class="stk-select stk-select-sm stk-mono"></select>
+                                    </div>
+                                    <div class="stk-field sg-an-pick" id="plumedAnVariableWrap" hidden>
+                                        <label for="plumedAnVariable">Along</label>
+                                        <select id="plumedAnVariable" class="stk-select stk-select-sm stk-mono"></select>
+                                    </div>
+                                    <div class="stk-field sg-an-pick" id="plumedAnSlicesWrap" hidden>
+                                        <label for="plumedAnSlices">Times</label>
+                                        <select id="plumedAnSlices" class="stk-select stk-select-sm">
+                                            <option value="3">3</option><option value="4">4</option><option value="5" selected>5</option><option value="6">6</option><option value="8">8</option><option value="10">10</option>
+                                        </select>
+                                    </div>
+                                    <div class="stk-field sg-an-pick" id="plumedAnBinsWrap" hidden>
+                                        <label for="plumedAnBins">Bins</label>
+                                        <select id="plumedAnBins" class="stk-select stk-select-sm">
+                                            <option value="20">20</option><option value="30">30</option><option value="40">40</option><option value="50">50</option><option value="60">60</option><option value="80">80</option><option value="100">100</option>
+                                        </select>
+                                    </div>
+                                    <button type="button" id="plumedAnData" class="stk-btn stk-btn-sm sg-an-data" hidden><i class="fa-solid fa-download" aria-hidden="true"></i> <span id="plumedAnDataName" class="stk-mono">fes.dat</span></button>
+                                </div>
+                                <p id="plumedAnNote" class="stk-hint sg-an-note" aria-live="polite"></p>
+                                <section id="plumedAnPlot" class="fg fg-card sg-an-plot" aria-labelledby="plumedAnPlotTitle">
+                                    <div class="fg-h">
+                                        <h4 id="plumedAnPlotTitle" class="fg-t">Figure</h4>
+                                        <span class="fg-size stk-tnum" title="The size of the saved figure"></span>
+                                        <div class="fg-actions">
+                                            <label class="fg-toggle" id="plumedAnContoursWrap" hidden><input type="checkbox" id="plumedAnContours" checked> <span>Contour lines</span></label>
+                                            <button type="button" id="plumedAnStyle" class="stk-btn stk-btn-sm stk-btn-ghost" data-fg-style aria-haspopup="dialog"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Style</button>
+                                            <div class="fg-export" role="group" aria-label="Export the figure">
+                                                <button type="button" class="stk-btn stk-btn-sm" data-export="pdf" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> PDF</button>
+                                                <button type="button" class="stk-btn stk-btn-sm" data-export="png" disabled>PNG</button>
+                                                <button type="button" class="stk-btn stk-btn-sm" data-export="svg" disabled>SVG</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="fg-stage">
+                                        <div id="plumedAnPlotEmpty" class="fg-empty">
+                                            <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                                            <p class="fg-empty-title">Drawing the figure</p>
+                                            <p class="fg-empty-text">It is drawn at the size it will be saved, and styled with the Style button.</p>
+                                        </div>
+                                        <div class="fg-figure" hidden></div>
+                                    </div>
+                                    <div class="fg-notes" hidden></div>
+                                </section>
+                                <div id="plumedAnPython" class="sg-an-py"></div>
+                            </div>
                         </section>
                     </div>
                 </section>
