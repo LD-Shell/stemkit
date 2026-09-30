@@ -26,8 +26,8 @@
  *
  * Modules that need no third-party code, `xvg-parser`, `structure`, `slurm`,
  * `scheduler`, `digitizer`, `latex`, `units`, `expression`, `nonlinear-fit`,
- * `fit-python`, `plot-style`, `pdf`, `zip`, work without any registration at
- * all.
+ * `fit-python`, `plot-style`, `pdf`, `zip`, `gromacs-mdp`, `gromacs-ndx`, work
+ * without any registration at all.
  *
  * ## Name collisions
  *
@@ -83,6 +83,16 @@ export * as FitPython from './fit-python.js';
 export * as PlotStyle from './plot-style.js';
 export * as Pdf from './pdf.js';
 export * as Zip from './zip.js';
+export * as GromacsMdp from './gromacs-mdp.js';
+export * as GromacsNdx from './gromacs-ndx.js';
+export * as DataCleaningPython from './data-cleaning-python.js';
+export * as Figure from './figure.js';
+export * as FigurePython from './figure-python.js';
+export * as ErrorBarsFigure from './error-bars-figure.js';
+export * as StatisticsFigure from './statistics-figure.js';
+export * as OutliersFigure from './outliers-figure.js';
+export * as PlumedAnalysisFigures from './plumed-analysis-figures.js';
+export * as PlotBuilder from './plot-builder.js';
 
 /* ------------------------------------------------------------------ *
  * Flat exports | collision-free modules
@@ -115,6 +125,27 @@ export { generateFitScript } from './fit-python.js';
 export { defaultPlotStyle, normalisePlotStyle } from './plot-style.js';
 export { pdfFromSvg, pdfFromJpeg } from './pdf.js';
 export { buildZip } from './zip.js';
+export { generateCleaningScript } from './data-cleaning-python.js';
+export { normaliseFigure } from './figure.js';
+export { figureScript } from './figure-python.js';
+// Each plotting tool's figure and the script that repeats its numbers.
+export { errorBarFigure, errorBarScript } from './error-bars-figure.js';
+export { statisticsFigure, statisticsScript } from './statistics-figure.js';
+export { outlierFigure, outlierScript } from './outliers-figure.js';
+
+// GROMACS .mdp files. STAGES, FORCE_FIELDS, formatDuration and the like stay
+// under GromacsMdp: their names are too general to claim flat.
+export {
+  parseMdp, checkMdp, explainMdp, generateMdp, generateWorkflow, mdpDocUrl, optionInfo, loadMdpDocs
+} from './gromacs-mdp.js';
+
+// GROMACS index groups. Curated, since names such as parseNdx are specific
+// but orGroups or customGroup would read ambiguously beside other modules.
+export {
+  readGromacsStructure, toGromacsStructure, defaultGroups, makeNdx, writeNdx, parseNdx,
+  customGroup, suggestGroups, recommendTcGrps, describeGroups, checkGroupCoverage,
+  checkMdpGroups, mergeIndexGroups, renameIndexGroup, findIndexGroup
+} from './gromacs-ndx.js';
 
 /* ------------------------------------------------------------------ *
  * Flat exports, modules with collisions, resolved explicitly

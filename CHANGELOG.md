@@ -39,6 +39,83 @@ earlier version are worth re-checking.
   for SVG figures). The page no longer loads regression.js; `curve-fitting`
   keeps it for the npm package.
 
+### Added: GROMACS set-up with every .mdp setting explained
+
+- **Four steps, one zip**: System (force field, what is simulated,
+  temperature and pressure, thermostat and barostat with a plain guide to
+  C-rescale, Parrinello-Rahman and Berendsen, time step and bonds with a
+  hydrogen mass repartitioning switch for 4 fs), Stages (energy
+  minimisation, NVT, NPT, production, annealing and pulling, each with its
+  length, output intervals and restraints, and a timeline with step counts
+  and output sizes), Index and Job. Every `.mdp` file is written in full,
+  each line with a comment saying why and a link to the GROMACS manual, and
+  one download holds `submit.sh`, the `.mdp` files, `index.ndx` and a README.
+- **Checked by the real program**: 117 combinations (five force fields,
+  every stage, both barostats, with and without hydrogen mass
+  repartitioning, and membrane, anisotropic, Nose-Hoover, annealing and
+  pulling variants) pass `grompp` from GROMACS 2025 with no warnings beyond
+  the ones the file names, and the page's own downloads ran in `mdrun` for an AMBER
+  protein, a semi-isotropic membrane, GROMOS, 4 fs with hydrogen mass
+  repartitioning, annealing, pulling and a coarse-grained system.
+- **Every option, searchable**: all 325 options GROMACS 2025.1 reads, with
+  defaults, units, allowed values, the manual's text and a link, settable in
+  one file or all of them.
+- **Check a file**: paste an existing `.mdp` to see whether grompp will stop
+  and why (the checker agrees with grompp on 102 broken files), read it line
+  by line, and open it in the builder.
+- **Index groups**: drop a `.gro` or `.pdb` to get exactly the groups
+  `gmx make_ndx` makes, suggested groups (ligand, protein with ligand, pocket,
+  membrane, solvent), the temperature-coupling groups for the system with the
+  reason, and a group builder; the tc-grps are checked to cover every atom
+  once.
+- **`submit.sh`** skips stages that already finished and continues from the
+  checkpoint, so a job stopped at its wall time can be submitted again; it
+  adds `-maxwarn` only for a warning it names.
+- New core modules `gromacs-mdp` (tables generated from the GROMACS source by
+  `tools/build-gromacs-mdp.mjs`) and `gromacs-ndx`; `npm run check:gromacs`
+  and `npm run check:ndx` compare them with an installed GROMACS.
+
+### Added: one plot area and one Python script on every plotting page
+
+- **The same plot area everywhere**: the Curve Fitter, PLUMED "Analyse a
+  run", the XVG Visualizer, the Plot Digitizer, the Plot Builder, the Error
+  Bar Generator, the Statistics Calculator and the Outlier Detector share one
+  header with the figure's true size, one Style panel (size in inches,
+  centimetres, millimetres or pixels; fonts and separate title and tick
+  sizes; ticks; grid on either or both axes; markers, lines and colours per
+  series; legend; Publication, Presentation, Minimal and Dark presets), PDF,
+  PNG and SVG at the true size, and a Python panel. Learn it once.
+- **The Python draws the same figure** from your own files (or with the data
+  in the script) with matplotlib, and repeats the page's numbers: tests run
+  every page's script and compare matplotlib's axis limits with the preview's.
+- **PLUMED "Analyse a run"**: six figures (time series, histogram, reweighted
+  free energy, the free-energy surface along one variable or as a heatmap
+  with contours over two, its convergence, and hill heights), with a script
+  that reads COLVAR and HILLS (restarts, cut-off last lines, several walkers)
+  and matches the page to 1e-9.
+- **Error Bar Generator**: significance brackets from Holm-corrected Welch
+  tests, and a pairwise table. **Statistics Calculator**: the script reruns
+  the test, checked against the page for all twelve. **Outlier Detector**: a
+  chart of the values with the flagged ones and the rule's thresholds.
+  **Plot Builder**: error bars, bands, several panels and PDF export.
+  **Plot Digitizer**: the digitised series replotted as you click.
+- Large data: a 400,000-point scatter redraws in under a second; the script
+  reads the file rather than copying a million numbers into itself.
+- New core modules: `figure`, `figure-python`, `plot-builder`,
+  `error-bars-figure`, `statistics-figure`, `outliers-figure` and
+  `plumed-analysis-figures`.
+
+### Added: the Data Cleaner keeps a recipe and writes the pandas script
+
+- **Every action is a step in a recipe** you can undo and redo, switch off,
+  edit, reorder where it is safe, and click to see the table at that point,
+  with the rows each step leaves. Save the recipe and apply it to another
+  file. One-click suggestions for what the page spots.
+- **The pandas script** (a plain script or a `clean(df)` function) reads your
+  file, repeats each step with a comment saying what it does, and writes a
+  file byte-identical to the page's download, checked with pandas 2.1 and 3.0
+  on 800 random recipes. New core module `data-cleaning-python`.
+
 ### Added: PLUMED workbench
 
 - **Keyword tables for PLUMED 2.9, 2.10 and 2.11**, generated from PLUMED's
@@ -58,8 +135,31 @@ earlier version are worth re-checking.
 - Functions, walls, setup lines (`LOAD`, `INCLUDE`, `RESTART`, `FLUSH`) and
   several output files in the generator.
 
+### Changed
+
+- The XVG Visualizer's smoothing is a running mean over N points (the one
+  numpy repeats), not a spline; a series on another scale goes in a lower
+  panel instead of on a right-hand axis.
+- The Plot Builder breaks a line at a blank or text cell, as matplotlib does,
+  instead of joining across it; sub- and superscripts are written `$_{…}$`;
+  figure sizes run from 1 to 30 inches.
+- The Plot Digitizer's CSV gives every series a distinct name.
+- The Error Bar Generator's own "Customize plot" controls are replaced by the
+  shared Style panel.
+- The MD workflow generator's water model defaults to TIP3P, and its
+  topology header offers GROMOS 54A7 and Martini 3; the header is a tab of its
+  own and is left out of the zip so it cannot overwrite a real `topol.top`.
+- The PLUMED sample hills file is the two-variable run (`assets/samples/plumed/HILLS`).
+
 ### Fixed: output
 
+- `[output]` **The Data Cleaner's rounding** used `toFixed`, so 2.675 became
+  2.67; it now rounds the number as written (2.68), half away from zero or to
+  even as you choose. Its filters no longer treat a missing cell as 0, the log
+  of zero or a negative number is now missing rather than left unchanged,
+  sorting is by value then text rather than by the browser's locale, a column
+  with a blank name is no longer dropped, and `TRUE` or a date stays as
+  written.
 - `[output]` **Generated PLUMED inputs that PLUMED rejected.** Every
   metadynamics, PBMETAD, OPES and steered-MD input closed its block with
   `... METAD`, which PLUMED refuses. About twenty variables printed or biased

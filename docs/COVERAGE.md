@@ -15,7 +15,7 @@ instruments it, but nothing in it executes as a *statement*, so the counter stay
 at zero no matter how heavily the exports are used.
 
 The barrel is still checked, by `tests/smoke.mjs`, which imports the package by
-name, as a user's script does, and calls into 19 of the 29 modules through it; a
+name, as a user's script does, and calls into 24 of the 39 modules through it; a
 missing export fails the import itself:
 
 ```bash

@@ -87,6 +87,9 @@ Modules needing no registration: `xvg-parser`, `structure`, `selection`,
 | `nonlinear-fit` | Levenberg–Marquardt fitting of any typed equation, with automatic starting values, bounds, fixed parameters, weights, standard errors, confidence intervals and bands; matches `scipy.optimize.curve_fit` | none |
 | `fit-python` | The Python script (SciPy `curve_fit` and matplotlib) that repeats a fit and draws its figure | none |
 | `plot-style` | One description of a fitted plot's look, shared by the browser preview and the matplotlib script | none |
+| `figure` | One description of a figure (panels, lines, points, error bars, bars, histograms, box plots, heatmaps, contours, brackets), shared by the browser preview and the script | none |
+| `plot-builder` | The Plot Builder's CSV reading (as Python's `csv` and `float()` read it) and its figure | none |
+| `figure-python` | The matplotlib script that draws a figure description, reading the data from the user's files or embedding it | none |
 | `pdf` | A PDF writer: vector pages from SVG, or a JPEG page | none |
 | `structure` | PDB/GRO/XYZ parsing, centre of mass, R<sub>g</sub>, rotations, format conversion | none |
 | `slurm` | SLURM batch-script generation for GROMACS and LAMMPS | none |
@@ -97,11 +100,15 @@ Modules needing no registration: `xvg-parser`, `structure`, `selection`,
 | `plumed-parse` | Reading an existing PLUMED input: parse, check, explain, and open it in the builder | none |
 | `plumed-atoms` | Atom lists, groups and per-molecule centres from a structure file | none |
 | `plumed-analysis` | COLVAR and HILLS reading, hill width and grid suggestions, free-energy surfaces matching `sum_hills`, reweighting | none |
+| `plumed-analysis-figures` | The analysis figures (time series, histograms, free-energy surfaces, convergence, hill heights) and the Python that repeats them from the run's files | none |
 | `plumed-run` | Run files that start and continue a job: walkers, umbrella windows, restarts | none |
 | `zip` | Uncompressed zip archives of text files | none |
+| `gromacs-mdp` | Every GROMACS 2025.1 `.mdp` option with its manual text and link; reading, checking as grompp does, explaining and writing `.mdp` files | none |
+| `gromacs-ndx` | GROMACS index groups: `make_ndx` defaults, custom groups, tc-grps checks | none |
 | `selection` | Atom selection language, spatial neighbour queries | none |
 | `units` | 64 units in 10 categories, plus temperature; CODATA 2018 / SI 2019 | none |
 | `data-cleaning` | Tabular cleaning, deduplication, imputation, profiling | Papa Parse |
+| `data-cleaning-python` | The pandas script that repeats a cleaning recipe, with the same output file | none |
 | `latex` | LaTeX/Markdown table generation and text escaping | none |
 | `bibtex` | Parsing, union-find deduplication, field sanitising | bibtex-parse-js |
 | `digitizer` | Pixel-to-data mapping for figure digitisation | none |
@@ -239,7 +246,7 @@ npm test                # full suite
 npm run test:coverage   # with coverage
 ```
 
-The suite comprises 2066 tests across all 29 domain modules (`src/core` also holds the aggregate
+The suite comprises 2775 tests across all 39 domain modules (`src/core` also holds the aggregate
 export, the Node entry and the injection layer, which carry no domain logic). Numerical results are validated against
 independent references rather than against the implementation itself:
 

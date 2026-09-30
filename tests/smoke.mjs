@@ -9,9 +9,9 @@
  *
  *   node tests/smoke.mjs
  *
- * Prints one OK line per module checked, then a summary count. It reaches 19
- * of the 29 modules; `iso4`, `journals`, `pdf`, `zip` and the PLUMED modules
- * beyond `plumed` have no case yet.
+ * Prints one OK line per module checked, then a summary count. It reaches 24
+ * of the 39 modules; `iso4`, `journals`, `pdf`, `zip`, the per-page figure
+ * modules and the PLUMED modules beyond `plumed` have no case yet.
  */
 
 import {
@@ -30,7 +30,9 @@ import {
   generateLatexTable,
   parseDelimited, dropMissing,
   generatePlumedInput,
-  selectAtoms, SpatialGrid
+  selectAtoms, SpatialGrid,
+  generateWorkflow, checkMdp, GromacsMdp, readGromacsStructure, defaultGroups, writeNdx,
+  normaliseFigure, figureScript, generateCleaningScript
 } from 'stemkit-core';
 
 let ok = 0;
@@ -137,6 +139,25 @@ check('equation fitting', () => {
     parameters: parameters.map(name => ({ name })), data: { columns: { t }, y }, style: defaultPlotStyle(), fit: f
   });
   assert(py.includes('curve_fit'), 'no curve_fit in the script');
+});
+
+check('gromacs: .mdp and index', () => {
+  const files = generateWorkflow(GromacsMdp.defaultSettings('em'), ['em', 'nvt']);
+  assert(files.length === 2 && files[1].text.includes('integrator'), 'workflow not written');
+  const verdict = checkMdp(files[1].text);
+  assert(verdict.grompp.passes, `generated nvt.mdp would stop grompp: ${verdict.grompp.errors} errors`);
+  const gro = 'water\n 3\n    1SOL     OW    1   0.126   1.624   1.679\n' +
+    '    1SOL    HW1    2   0.190   1.661   1.747\n    1SOL    HW2    3   0.177   1.568   1.613\n   1.86206   1.86206   1.86206\n';
+  const groups = defaultGroups(readGromacsStructure(gro, 'water.gro'));
+  assert(groups.map(g => g.name).join() === 'System,Water,SOL', 'default groups differ from make_ndx');
+  assert(writeNdx(groups).startsWith('[ System ]'), 'index file not written');
+});
+
+check('figures and scripts', () => {
+  const py = figureScript(normaliseFigure({ panels: [{ series: [{ id: 'a', kind: 'line', x: [0, 1], y: [1, 2] }] }] }));
+  assert(py.includes('plt.subplots'), 'no figure in the script');
+  const clean = generateCleaningScript({ fileName: 'a.csv', columns: ['x', 'y'], steps: [{ type: 'dropMissing', params: {} }] });
+  assert(clean.code.includes('import pandas'), 'no pandas in the cleaning script');
 });
 
 check('outliers', () => {
