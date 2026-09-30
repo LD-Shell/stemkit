@@ -364,8 +364,11 @@ document.addEventListener('DOMContentLoaded', () => {
     polynomial3: String.raw`y = a_3x^3 + a_2x^2 + a_1x + a_0`
   };
 
-  const SCORE_TEX = String.raw`R^2 = 1 - \frac{\sum_i (y_i - \hat{y}_i)^2}{\sum_i (y_i - \bar{y})^2},
-        \qquad \mathrm{RMSE} = \sqrt{\frac{1}{n}\sum_i (y_i - \hat{y}_i)^2}`;
+  // One formula per line, so that each fits the width of the model column.
+  const SCORE_TEX = [
+    String.raw`R^2 = 1 - \frac{\sum_i (y_i - \hat{y}_i)^2}{\sum_i (y_i - \bar{y})^2}`,
+    String.raw`\mathrm{RMSE} = \sqrt{\frac{1}{n}\sum_i (y_i - \hat{y}_i)^2}`
+  ];
 
   // Matches LINEARISED_MODELS in the core: logarithmic is not one of them.
   const LINEARISED = new Set(['exponential', 'power']);
@@ -438,7 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
       `<div data-tex="${tex.replace(/"/g, '&quot;')}" title="LaTeX source in the data-tex attribute">${kx(tex, true)}</div>` +
       notes.map(n => `<p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400 mb-2">${n}</p>`).join('') +
 
-      `<div data-tex="${SCORE_TEX.replace(/"/g, '&quot;')}">${kx(SCORE_TEX, true)}</div>` +
+      SCORE_TEX.map(t => `<div data-tex="${t.replace(/"/g, '&quot;')}">${kx(t, true)}</div>`).join('') +
       `<div class="mf-defs"><div class="mf-defs-title">Where:</div><dl>${defs}</dl></div>`;
   }
 

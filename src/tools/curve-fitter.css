@@ -58,3 +58,11 @@
 .mf-def { display:contents; }
 .mf-defs dt { white-space:nowrap; text-align:right; }
 .mf-defs dd { margin:0; font-size:.75rem; color:var(--stk-fg-muted); line-height:1.5; }
+
+/* Formulas in the model column: kept inside it. A formula wider than the
+   column scrolls sideways within its own box instead of pushing the page. */
+#modelTheory, #theoryContainer { min-width: 0; max-width: 100%; }
+#theoryContainer [data-tex] { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+#theoryContainer .katex-display { margin: .6rem 0; padding: .15rem 0; }
+#theoryContainer .katex-display > .katex { font-size: 1.02em; white-space: nowrap; }
+#theoryContainer .mf-defs dl { grid-template-columns: max-content minmax(0, 1fr); }
