@@ -14,7 +14,7 @@
  *      -maxwarn 0, and the notes grompp prints must be the ones
  *      generateMdp() lists in `expected`;
  *   2. every broken file must get the same verdict (stops or passes) from
- *      checkMdp() as from grompp;
+ *      checkMdp() as from grompp (a grompp that hangs counts as stopping);
  *   3. every default in the option table must equal what grompp writes to
  *      mdout.mdp for an option the file leaves unset.
  *
@@ -54,9 +54,9 @@ if (!GMX) {
 const work = argWorkdir ? path.resolve(argWorkdir) : fs.mkdtempSync(path.join(os.tmpdir(), 'stemkit-gmx-'));
 fs.mkdirSync(work, { recursive: true });
 
-function gmx(args, cwd, input) {
-  const r = spawnSync(GMX, [...args, '-quiet'], { cwd, input, encoding: 'utf8', maxBuffer: 1 << 26, timeout: 300000 });
-  return { status: r.status, out: `${r.stdout || ''}\n${r.stderr || ''}` };
+function gmx(args, cwd, input, timeout = 300000) {
+  const r = spawnSync(GMX, [...args, '-quiet'], { cwd, input, encoding: 'utf8', maxBuffer: 1 << 26, timeout });
+  return { status: r.status, out: `${r.stdout || ''}\n${r.stderr || ''}`, timedOut: r.status === null && !!r.signal };
 }
 
 /* ------------------------------------------------------------------ *
@@ -243,19 +243,20 @@ function writeIndex(dir, kind) {
  * ------------------------------------------------------------------ */
 
 let seq = 0;
-function grompp(dir, mdpText, extra = []) {
+function grompp(dir, mdpText, extra = [], timeout = 300000) {
   const name = `case${++seq}`;
   const mdp = path.join(dir, `${name}.mdp`);
   fs.writeFileSync(mdp, mdpText);
   const r = gmx(['grompp', '-f', `${name}.mdp`, '-c', 'sys.gro', '-r', 'sys.gro', '-p', 'topol.top', '-n', 'index.ndx',
-    '-o', `${name}.tpr`, '-po', `${name}.out.mdp`, '-maxwarn', '0', ...extra], dir);
+    '-o', `${name}.tpr`, '-po', `${name}.out.mdp`, '-maxwarn', '0', ...extra], dir, undefined, timeout);
   const blocks = [];
   const re = /^(NOTE|WARNING|ERROR) \d+ \[file ([^\],]*)(?:, line (\d+))?\]:\n((?:.+\n?)+?)(?:\n|$)/gm;
   let m;
   while ((m = re.exec(r.out))) {
     blocks.push({ severity: m[1].toLowerCase(), file: m[2], line: m[3] ? Number(m[3]) : null, text: m[4].replace(/\s+/g, ' ').trim() });
   }
-  const fatal = /Fatal error:\n([\s\S]*?)\n\n/.exec(r.out);
+  const fatal = r.timedOut ? [null, `grompp did not finish within ${timeout / 1000} s`]
+    : /(?:Fatal error|Software inconsistency error|Assertion failed|Error in user input|Feature not implemented):?\n([\s\S]*?)\n\n/.exec(r.out);
   const res = {
     status: r.status,
     passes: r.status === 0,
@@ -288,7 +289,11 @@ const NOTE_IDS = [
   [/For free energy simulations, the optimal load limit/, 'pme-load-fep'],
   [/This run will generate roughly/, 'data-size'],
   [/You are using a plain Coulomb cut-off/, 'plain-cutoff'],
+  [/NVE simulation of length/, 'nve-drift'],
   [/NVE simulation/, 'nve-buffer'],
+  [/not explicitly set by user/, 'awh-diffusion'],
+  [/rot-k\d+ <= 0/, 'rot-k'],
+  [/fully frozen and part of COMM removal/, 'freeze-com-full'],
   [/You are applying a switch function to vdw forces/, 'rvdw-switch-wide'],
   [/Replacing vdwtype/, 'vdwtype-replaced'],
   [/Old option for temperature coupling given/, 'tcoupl-yes'],
@@ -338,6 +343,8 @@ function presetCases() {
     cases.push({ name: `${ff} nvt solution`, ff, settings: { stage: 'nvt', forceField: ff, system: 'solution' } });
     cases.push({ name: `${ff} anneal npt`, ff, settings: { stage: 'anneal', forceField: ff, anneal: { barostat: 'c-rescale' } } });
     cases.push({ name: `${ff} pull umbrella direction`, ff, settings: { stage: 'pull', forceField: ff, pull: { mode: 'umbrella', geometry: 'direction', dim: 'N N Y', vec: '0 0 1' } } });
+    // Central atoms of Chain_A and Chain_B, with the previous-step COM as reference.
+    cases.push({ name: `${ff} pull pbcatom`, ff, settings: { stage: 'pull', forceField: ff, pull: { pbcatom1: 3, pbcatom2: ff === 'martini3' ? 8 : 60 } } });
   }
   return cases;
 }
@@ -364,8 +371,26 @@ function mdp(changes = {}, extraLines = []) {
 /* The macros the pdb2gmx AMBER topology tests with #ifdef (topol.top, tip3p.itp, ions.itp). */
 const TOPOLOGY_MACROS = ['POSRES', 'FLEXIBLE', 'POSRES_WATER'];
 
-/* Each case: a name, what is wrong, the file, and the context checkMdp needs
-   for checks that depend on the topology. */
+/* The groups of index.ndx (writeIndex), for cases that check group names. */
+const INDEX_GROUPS = ['System', 'Protein', 'Non-Protein', 'Water', 'SOL', 'Ion', 'Water_and_ions', 'NA', 'CL', 'Chain_A', 'Chain_B',
+  'SOLU', 'MEMB', 'SOLV'];
+
+/* A pull coordinate between the two halves of the peptide, and an AWH bias on it. */
+const PULL = ['pull = yes', 'pull-ngroups = 2', 'pull-ncoords = 1', 'pull-group1-name = Chain_A', 'pull-group2-name = Chain_B',
+  'pull-coord1-groups = 1 2'];
+const AWH = [...PULL, 'pull-coord1-type = external-potential', 'pull-coord1-potential-provider = awh', 'pull-coord1-geometry = distance',
+  'awh = yes', 'awh-nbias = 1', 'awh1-ndim = 1', 'awh1-dim1-coord-index = 1', 'awh1-dim1-start = 0.3', 'awh1-dim1-end = 1.5',
+  'awh1-dim1-force-constant = 10000', 'awh1-dim1-diffusion = 1e-5'];
+const without = (lines, ...names) => lines.filter(l => !names.some(n => l.startsWith(`${n} `)));
+const ROT = ['rotation = yes', 'rot-group0 = Protein', 'rot-k0 = 500'];
+const NVE = { tcoupl: 'no', 'tc-grps': null, 'tau-t': null, 'ref-t': null };
+const MARTINI_CG = 'integrator = cg\nnsteps = 100\ncoulombtype = reaction-field\nrcoulomb = 1.1\nepsilon-r = 15\nrvdw = 1.1\n' +
+  'constraints = none\nconstraint-algorithm = shake\n';
+
+/* Each case: a name, what is wrong, the file, the context checkMdp needs
+   for checks that depend on the topology, and options: `system` (a test
+   system other than the AMBER peptide) and `timeout` (ms; for files grompp
+   never finishes, which then count as stopping). */
 const BROKEN = [
   ['valid-nvt', 'The base file: must pass.', mdp()],
   ['valid-npt', 'The base file with C-rescale: must pass.', mdp(NPT)],
@@ -468,7 +493,81 @@ const BROKEN = [
   ['plain-cutoff', 'A plain Coulomb cut-off: a note only.', mdp({ coulombtype: 'Cut-off' })],
   ['nve', 'No thermostat: an NVE buffer note.', mdp({ tcoupl: 'no', 'tc-grps': null, 'tau-t': null, 'ref-t': null })],
   ['define-unused', 'A misspelt -DPOSRE, which the topology never uses.', mdp({ define: '-DPOSRE' }), { usedMacros: TOPOLOGY_MACROS }],
-  ['define-used', '-DPOSRES and -DFLEXIBLE, both used: passes (with the position-restraint note).', mdp({ define: '-DPOSRES -DFLEXIBLE' }), { usedMacros: TOPOLOGY_MACROS }]
+  ['define-used', '-DPOSRES and -DFLEXIBLE, both used: passes (with the position-restraint note).', mdp({ define: '-DPOSRES -DFLEXIBLE' }), { usedMacros: TOPOLOGY_MACROS }],
+  // Found by the 2026 cross-check against grompp 2025.0.
+  ['density-shift-commas', 'A density-guided shift vector with commas, which grompp splits at spaces only.', mdp({}, ['density-guided-simulation-shift-vector = 0,0,0'])],
+  ['density-shift-spaces', 'The same vector with spaces: passes.', mdp({}, ['density-guided-simulation-shift-vector = 1 2 3'])],
+  ['density-matrix-commas', 'A density-guided matrix with commas.', mdp({}, ['density-guided-simulation-transformation-matrix = 1,0,0,0,1,0,0,0,1'])],
+  ['density-measure-case', 'Module values compare with case: Inner-Product is refused.', mdp({}, ['density-guided-simulation-similarity-measure = Inner-Product'])],
+  ['density-measure-prefix', 'Module values match by prefix: inner is inner-product, passes.', mdp({}, ['density-guided-simulation-similarity-measure = inner'])],
+  ['pull-print-com1-no-pull', 'The old name pull-print-com1 with pull = no: renamed, then unknown.', mdp({}, ['pull-print-com1 = yes'])],
+  ['pme-switch', 'PME-Switch with a narrow switching range: grompp accepts it.', mdp({ coulombtype: 'PME-Switch' }, ['rcoulomb-switch = 0.96'])],
+  ['pme-switch-range', 'PME-Switch with the default rcoulomb-switch of 0: the range warning.', mdp({ coulombtype: 'PME-Switch' })],
+  ['coulomb-modifier-force-switch', 'An undocumented coulomb-modifier spelling grompp refuses.', mdp({}, ['coulomb-modifier = Force-switch'])],
+  ['coulombtype-poisson', 'An undocumented coulombtype spelling grompp refuses.', mdp({ coulombtype: 'Poisson' })],
+  ['pbc-unset', 'pbc = unset: grompp crashes.', mdp({}, ['pbc = unset'])],
+  ['integrator-sd2', 'The removed sd2 integrator: grompp passes (mdrun stops).', mdp({ integrator: 'sd2 - removed' })],
+  ['awh-valid', 'A complete AWH bias: passes.', mdp({}, AWH)],
+  ['awh-no-force-constant', 'AWH without a force constant (default 0).', mdp({}, without(AWH, 'awh1-dim1-force-constant'))],
+  ['awh-diffusion-unset', 'AWH without a diffusion constant: grompp uses 1e-5 with a note.', mdp({}, without(AWH, 'awh1-dim1-diffusion'))],
+  ['awh-target-cutoff-unused', 'A target cutoff set for the constant target.', mdp({}, [...AWH, 'awh1-target-cutoff = 10'])],
+  ['awh-nstout-zero', 'AWH without output.', mdp({}, [...AWH, 'awh-nstout = 0'])],
+  ['awh-coord-index-range', 'An AWH coordinate beyond pull-ncoords (grompp then reads past its pull coordinates, so the number of its messages varies).',
+    mdp({}, [...without(AWH, 'awh1-dim1-coord-index'), 'awh1-dim1-coord-index = 2']), null, { counts: false }],
+  ['awh-share-group-negative', 'A negative share group.', mdp({}, [...AWH, 'awh1-share-group = -1'])],
+  ['awh-pull-umbrella', 'AWH on a pull coordinate that is not an external potential.', mdp({}, without(AWH, 'pull-coord1-type', 'pull-coord1-potential-provider'))],
+  ['rotation-valid', 'Enforced rotation of the protein: passes.', mdp({}, ROT)],
+  ['rotation-no-k', 'Rotation with the default rot-k0 of 0: a note.', mdp({}, without(ROT, 'rot-k0'))],
+  ['rotation-vec-zero', 'A zero rotation vector.', mdp({}, [...ROT, 'rot-vec0 = 0 0 0'])],
+  ['rotation-vec-two', 'A rotation vector of two numbers.', mdp({}, [...ROT, 'rot-vec0 = 1 0'])],
+  ['rotation-slab-dist', 'rot-slab-dist0 = 0.', mdp({}, [...ROT, 'rot-slab-dist0 = 0'])],
+  ['rotation-flex2-eps', 'flex2 with rot-eps0 = 0.', mdp({}, [...ROT, 'rot-type0 = flex2', 'rot-eps0 = 0'])],
+  ['rotation-no-group', 'Rotation without a group name.', mdp({}, without(ROT, 'rot-group0'))],
+  ['swap-no-split', 'Position swapping without split groups.', mdp({}, ['swapcoords = Z'])],
+  ['swap-iontype-unknown', 'An ion type that is not an index group.', mdp({}, ['swapcoords = Z', 'split-group0 = Chain_A', 'split-group1 = Chain_B',
+    'solvent-group = SOL', 'iontype0-name = Argon']), { indexGroups: INDEX_GROUPS }],
+  ['tc-grps-twice', 'The same temperature group twice.', mdp({ 'tc-grps': 'Protein Protein' })],
+  ['energygrps-twice', 'The same energy group twice.', mdp({ energygrps: 'SOL SOL' })],
+  ['comm-grps-system-plus', 'System next to another COM group.', mdp({ 'comm-grps': 'System Protein' })],
+  ['freeze-partial-com', 'A group frozen along z only, in the COM removal group.', mdp({ freezegrps: 'Protein', freezedim: 'N N Y' })],
+  ['freeze-full-com', 'A fully frozen group: a note only.', mdp({ freezegrps: 'Protein', freezedim: 'Y Y Y' })],
+  ['define-space-hang', 'define = -D POSRES: grompp never finishes.', mdp({ define: '-D POSRES' }), null, { timeout: 20000 }],
+  ['define-no-flag', 'A define word without -D.', mdp({ define: 'POSRES' })],
+  ['include-no-flag', 'An include path without -I.', mdp({}, ['include = /usr/include'])],
+  ['define-include-flag', 'An include path in define.', mdp({ define: '-I/usr/include' })],
+  ['hex-reals', 'Hexadecimal reals, which strtod reads: passes.', mdp({ 'ref-t': '0x12c 0x12c' }, ['tinit = 0x1p-3'])],
+  ['ref-t-inf', 'ref-t = inf, refused by fromString<real>.', mdp({ 'ref-t': 'inf inf' })],
+  ['ref-t-underflow', 'ref-t = 1e-400, an underflow.', mdp({ 'ref-t': '1e-400 300' })],
+  ['efield-inf', 'An infinite electric field.', mdp({}, ['electric-field-z = inf 0 0 0'])],
+  ['efield-sigma-zero', 'sigma = 0 with t0 set: grompp accepts it.', mdp({}, ['electric-field-z = 1 0 5 0'])],
+  ['accelerate-words', 'Accelerations that are not numbers.', mdp({ 'acc-grps': 'Protein', accelerate: 'a b c' })],
+  ['nstlist-wrap', 'nstlist = 2^31 wraps to a negative int.', mdp({ nstlist: '2147483648' })],
+  ['nstenergy-wrap', 'nstenergy = 2^31 wraps to a negative int: passes.', mdp({ nstenergy: '2147483648' })],
+  ['colvars-seed-overflow', 'A module integer beyond an int.', mdp({}, ['colvars-seed = 2147483648'])],
+  ['pull-vec-four', 'A pull vector of four numbers.', mdp({}, [...PULL, 'pull-coord1-geometry = direction', 'pull-coord1-dim = N N Y', 'pull-coord1-vec = 0 0 1 0'])],
+  ['pull-group-unset', 'A pull group without a name.', mdp({}, without(PULL, 'pull-group2-name'))],
+  ['nbsp-value', 'A no-break space after a value.', mdp({ tcoupl: 'V-rescale\u00a0' })],
+  ['bom-key', 'A byte-order mark before the first option.', mdp().replace('integrator = md', '\ufeffintegrator = md')],
+  ['cr-line-ends', 'Old Mac line ends (a lone CR): one line to grompp.', mdp().replace(/\n/g, '\r')],
+  ['cg-nstcomm-one', 'Conjugate gradients with nstcomm = 1: notes only.', mdp({ integrator: 'cg', nstcomm: '1', 'gen-vel': null })],
+  ['nve-drift', 'A 100 ps NVE run from gen-temp: the drift note.', mdp({ ...NVE, nsteps: '50000' })],
+  ['steep-nstcalcenergy-minus-one', 'Steepest descent with nstcalcenergy = -1.', mdp({ integrator: 'steep', nstcalcenergy: '-1', 'gen-vel': null })],
+  ['nve-nstcalcenergy-zero', 'NVE with nstcalcenergy = 0.', mdp({ ...NVE, nstcalcenergy: '0' })],
+  ['sd-nstcalcenergy-zero', 'sd with nstcalcenergy = 0.', mdp({ integrator: 'sd', 'tau-t': '1 1', nstcalcenergy: '0' })],
+  ['deform-shear-pcoupl', 'Shear deformation with isotropic pressure coupling.', mdp({ ...NPT, 'tc-grps': 'System', 'tau-t': '0.1', 'ref-t': '300',
+    deform: '0 0 0 0.01 0 0', 'deform-init-flow': 'yes' })],
+  ['sc-r-power-no-fep', 'sc-r-power = 48 without free energy.', mdp({ 'sc-r-power': '48' })],
+  ['sc-r-power-no-alpha', 'sc-r-power = 48 with free energy but sc-alpha = 0.', mdp({ 'free-energy': 'yes', 'init-lambda-state': '0', 'fep-lambdas': '0 1',
+    'sc-alpha': '0', 'sc-r-power': '48' })],
+  ['fourierspacing-zero', 'fourierspacing = 0 with PME.', mdp({ fourierspacing: '0' })],
+  ['mttk-flexible-water', 'MTTK with constraints = none and -DFLEXIBLE: no SETTLE, passes.', mdp({ integrator: 'md-vv', dt: '0.0005', constraints: 'none',
+    define: '-DFLEXIBLE', tcoupl: 'nose-hoover', 'tau-t': '1.0 1.0', pcoupl: 'MTTK', 'tau-p': '5.0', compressibility: '4.5e-5', 'ref-p': '1.0' })],
+  ['martini-cg-shake', 'cg with SHAKE on a coarse-grained system without constraints: passes.', MARTINI_CG,
+    { forceField: 'martini3', system: 'coarse-grained' }, { system: 'martini3' }],
+  ['rvdw-zero', 'rvdw = 0 with PME: grompp crashes sizing the buffer.', mdp({ rvdw: '0' })],
+  ['ewald-rtol-negative', 'ewald-rtol = -1: grompp never finishes.', mdp({ 'ewald-rtol': '-1' }), null, { timeout: 20000 }],
+  ['vdw-exact-cutoff', 'vdw-modifier = Exact-cutoff for dynamics.', mdp({}, ['vdw-modifier = Exact-cutoff'])],
+  ['epsilon-r-nan', 'epsilon-r = nan for dynamics.', mdp({ 'epsilon-r': 'nan' })]
 ];
 
 /* ------------------------------------------------------------------ *
@@ -543,8 +642,8 @@ console.log(`  Notes grompp gave across all presets: ${Object.entries(noteTally)
 /* 2 */
 const recorded = [];
 let agree = 0;
-for (const [name, description, text, context] of BROKEN) {
-  const r = grompp(dirs.amber, text);
+for (const [name, description, text, context, opts = {}] of BROKEN) {
+  const r = grompp(dirs[opts.system || 'amber'], text, [], opts.timeout);
   const mine = checkMdp(text, context ? { context } : {});
   const same = mine.grompp.passes === r.passes;
   if (same) agree += 1;
@@ -558,7 +657,8 @@ for (const [name, description, text, context] of BROKEN) {
       `${r.fatal && !/There (was|were) \d+ error|Too many warnings/.test(r.fatal) ? ', fatal' : ''}; checkMdp ${mine.grompp.errors}E ${mine.grompp.warnings}W ${mine.grompp.notes}N)`);
   }
   recorded.push({
-    name, description, mdp: text, ...(context ? { context } : {}),
+    name, description, mdp: text, ...(context ? { context } : {}), ...(opts.system ? { system: opts.system } : {}),
+    ...(opts.counts === false ? { counts: false } : {}),
     grompp: {
       passes: r.passes,
       errors: r.errors.length, warnings: r.warnings.length, notes: r.notes.length,
@@ -590,7 +690,7 @@ for (const name of listOptions()) {
   defaultsChecked += 1;
   let same;
   if (info.defaultFrom) same = true; // pull-coord1-kB copies pull-coord1-k
-  else if (info.kind === 'integer' || info.kind === 'real') same = Number(w.value) === Number(info.default) ||
+  else if (info.kind === 'integer' || info.kind === 'real') same = Number(w.value) === Number(info.gromppDefault ?? info.default) ||
     (/seed/.test(name) && info.default === '-1'); // grompp writes the seed it drew
   else if (info.kind === 'enum') same = normaliseName(w.value) === normaliseName(info.gromppDefault || info.default);
   else same = w.value.replace(/[\s,]+/g, ' ').trim() === String(info.default).replace(/[\s,]+/g, ' ').trim();
@@ -628,9 +728,9 @@ if (process.argv.includes('--mdrun')) {
       const gr = gmx(['grompp', '-f', `${name}.mdp`, '-c', conf, '-r', conf, '-p', 'topol.top', '-n', 'index.ndx',
         '-o', `${name}.tpr`, ...(cpt ? ['-t', cpt] : []), ...maxwarn], dir);
       if (gr.status !== 0) { fail(`mdrun ${ff} ${name}: grompp stops\n${gr.out.split('\n').filter(l => /ERROR|WARNING|Fatal|error/.test(l)).slice(0, 6).join('\n')}`); continue; }
-      const md = gmx(['mdrun', '-deffnm', name, '-nt', '4', '-pin', 'off'], dir);
+      const md = gmx(['mdrun', '-deffnm', name, '-nt', '2', '-pin', 'off'], dir);
       if (md.status !== 0) {
-        const md2 = gmx(['mdrun', '-deffnm', name, '-ntomp', '4', '-pin', 'off'], dir);
+        const md2 = gmx(['mdrun', '-deffnm', name, '-ntomp', '2', '-pin', 'off'], dir);
         if (md2.status !== 0) {
           fail(`mdrun ${ff} ${name}: mdrun stops\n      ${md2.out.split('\n').filter(l => l.trim()).slice(-8).join('\n      ')}`);
           continue;

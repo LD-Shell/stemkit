@@ -1,4 +1,4 @@
-import { describe, test, expect } from '@jest/globals';
+import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -20,7 +20,8 @@ const ANCHORS = fs.readFileSync(path.join(FIXTURES, 'manual-anchors-2025.1.txt')
 /*
  * grompp's verdicts on the broken files. Recorded by running real grompp
  * (GROMACS 2025.0, mixed precision, -maxwarn 0) on a solvated AMBER99SB-ILDN
- * peptide with position restraints available:
+ * peptide with position restraints available (a few cases, marked `system`,
+ * on the coarse-grained stand-in; a grompp that hangs counts as stopping):
  *     GMX_BIN=/path/to/gmx node tools/check-gromacs-grompp.mjs --record
  */
 const BROKEN = JSON.parse(fs.readFileSync(path.join(FIXTURES, 'broken-mdp.json'), 'utf8')).cases;
@@ -249,14 +250,15 @@ describe('checkMdp agrees with grompp', () => {
     const r = checkMdp(c.mdp, c.context ? { context: c.context } : {});
     expect(r.grompp.passes).toBe(c.grompp.passes);
     // Where grompp did not stop on a fatal error, the counts match too;
-    // couple-same draws messages that need the coordinates and topology.
-    if (!c.grompp.fatal && name !== 'couple-same') {
+    // couple-same draws messages that need the coordinates and topology, and
+    // cases marked counts: false have grompp read undefined memory.
+    if (!c.grompp.fatal && name !== 'couple-same' && c.counts !== false) {
       expect([r.grompp.errors, r.grompp.warnings, r.grompp.notes]).toEqual([c.grompp.errors, c.grompp.warnings, c.grompp.notes]);
     }
   });
 
   test('the set covers passing and failing files', () => {
-    expect(BROKEN.length).toBe(102);
+    expect(BROKEN.length).toBe(169);
     expect(BROKEN.filter(c => c.grompp.passes).length).toBeGreaterThan(20);
     expect(BROKEN.filter(c => !c.grompp.passes).length).toBeGreaterThan(60);
   });
@@ -530,6 +532,427 @@ describe('generateMdp', () => {
 });
 
 /*
+ * Regressions from a cross-check against GROMACS 2025.1's source and real
+ * grompp/mdrun 2025.0. The verdicts of grompp itself on the same kinds of
+ * file are in the fixture (tools/check-gromacs-grompp.mjs --record); these
+ * pin the messages and the explanations.
+ */
+describe('agreement with grompp on corner cases', () => {
+  const ids = (text, options) => checkMdp(text, options).issues.map(i => `${i.severity}:${i.id}`);
+  const B = 'integrator = md\ndt = 0.002\nnsteps = 1000\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nconstraints = h-bonds\n' +
+    'tcoupl = V-rescale\ntc-grps = System\ntau-t = 0.1\nref-t = 300\n';
+  const verdict = (text, options) => checkMdp(text, options).grompp;
+  const meaning = (text, name) => explainMdp(text).find(r => r.name === name);
+
+  test('density-guided vectors are space-separated, as grompp splits them', () => {
+    expect(optionInfo('density-guided-simulation-shift-vector').default).toBe('0 0 0');
+    expect(optionInfo('density-guided-simulation-transformation-matrix').default).toBe('1 0 0 0 1 0 0 0 1');
+    expect(verdict('density-guided-simulation-shift-vector = 0,0,0\n').passes).toBe(false);
+    expect(verdict('density-guided-simulation-transformation-matrix = 1,0,0,0,1,0,0,0,1\n').passes).toBe(false);
+    expect(verdict('density-guided-simulation-shift-vector = 1 , 2 , 3\n').passes).toBe(false);
+    expect(verdict('density-guided-simulation-shift-vector = 1 2 3\n').passes).toBe(true);
+    const m = checkMdp('density-guided-simulation-shift-vector = 0 0\n').issues.find(i => i.id === 'density-guided-vector').message;
+    expect(m).toMatch(/separated by spaces/);
+    expect(m).not.toMatch(/commas\./);
+  });
+
+  test('a renamed option is still gated like its new name (pull-print-com1)', () => {
+    const r = checkMdp('integrator = md\npull-print-com1 = yes\n');
+    expect(r.grompp.passes).toBe(false);
+    const w = r.issues.find(i => i.id === 'inactive');
+    expect(w).toMatchObject({ option: 'pull-print-com', line: 2 });
+    expect(w.message).toMatch(/Unknown left-hand 'pull-print-com'/);
+    const row = explainMdp('integrator = md\npull-print-com1 = yes\n')[1];
+    expect(row).toMatchObject({ status: 'inactive', name: 'pull-print-com1' });
+    expect(row.meaning).toMatch(/pull = yes/);
+    const on = checkMdp('pull = yes\npull-ngroups = 2\npull-group1-name = A\npull-group2-name = B\npull-coord1-groups = 1 2\npull-print-com1 = yes\n');
+    expect(on.issues.map(i => i.id)).not.toContain('inactive');
+  });
+
+  test('PME-Switch: grompp accepts it, and the text no longer says it stops', () => {
+    const v = optionInfo('coulombtype').values.find(x => x.value === 'PME-Switch');
+    expect(v.note).not.toMatch(/stops/);
+    expect(v.note).toMatch(/unsupported/);
+    const text = `${B.replace('coulombtype = PME', 'coulombtype = PME-Switch')}rcoulomb-switch = 0.96\n`;
+    expect(verdict(text).passes).toBe(true);
+    expect(meaning(text, 'coulombtype').meaning).not.toMatch(/stops/);
+    // With the default rcoulomb-switch of 0 the switching range draws grompp's warning.
+    expect(ids(B.replace('coulombtype = PME', 'coulombtype = PME-Switch'))).toContain('warning:coulomb-switch-range');
+  });
+
+  test('undocumented spellings say what grompp does with them, and failing ones are not offered', () => {
+    const cm = optionInfo('coulomb-modifier');
+    expect(cm.undocumented.find(u => u.value === 'Force-switch')).toMatchObject({ status: 'unsupported' });
+    expect(cm.undocumented.find(u => u.value === 'Potential-shift-Verlet')).toMatchObject({ status: null });
+    expect(cm.accepted).toEqual(expect.arrayContaining(['Potential-shift', 'None', 'Potential-shift-Verlet']));
+    for (const bad of ['Force-switch', 'Exact-cutoff', 'Potential-switch']) expect(cm.accepted).not.toContain(bad);
+    expect(optionInfo('pbc').accepted).not.toContain('unset');
+    expect(optionInfo('coulombtype').accepted).not.toContain('Poisson');
+    expect(optionInfo('integrator').accepted).not.toContain('sd2 - removed');
+    expect(optionInfo('QMMM').accepted).not.toContain('yes');
+    expect(optionInfo('tcoupl').accepted).toContain('yes'); // an alias, which works
+    expect(meaning(`${B}coulomb-modifier = Force-switch\n`, 'coulomb-modifier').meaning).toMatch(/grompp stops/);
+    expect(meaning(`${B}pbc = unset\n`, 'pbc').meaning).toMatch(/crashes/);
+    expect(meaning('tcoupl = yes\n', 'tcoupl').meaning).toMatch(/Berendsen/);
+    expect(meaning('pcoupl = Isotropic\n', 'pcoupl').meaning).toMatch(/Berendsen/);
+    expect(meaning('integrator = sd2 - removed\n', 'integrator').meaning).toMatch(/mdrun stops/);
+    // The checker agrees: pbc = unset is fatal, sd2 passes grompp but not mdrun.
+    expect(checkMdp(`${B}pbc = unset\n`).issues.find(i => i.id === 'pbc-unset')).toBeTruthy();
+    const sd2 = checkMdp(B.replace('integrator = md', 'integrator = sd2 - removed'));
+    expect(sd2.grompp.passes).toBe(true);
+    expect(sd2.issues.find(i => i.id === 'sd2-removed')).toMatchObject({ severity: 'error', source: 'mdrun' });
+    // Spellings with spaces keep them in the comparison key.
+    const nec = B.replace('coulombtype = PME', 'coulombtype = Reaction-Field-nec (unsupported)');
+    expect(ids(nec)).toContain('error:coulombtype-removed');
+    expect(ids(nec)).not.toContain('error:verlet-coulombtype');
+  });
+
+  test('module enums are read with case and by prefix, in explanations as in checks', () => {
+    const t = (v) => `density-guided-simulation-similarity-measure = ${v}\n`;
+    expect(verdict(t('Inner-Product')).passes).toBe(false);
+    expect(meaning(t('Inner-Product'), 'density-guided-simulation-similarity-measure')).toMatchObject({ isDefault: false });
+    expect(meaning(t('Inner-Product'), 'density-guided-simulation-similarity-measure').meaning).toMatch(/not one of the values.*case/);
+    expect(verdict(t('inner')).passes).toBe(true);
+    const inner = meaning(t('inner'), 'density-guided-simulation-similarity-measure');
+    expect(inner.meaning).toMatch(/read as inner-product/);
+    expect(inner.isDefault).toBe(true);
+    expect(meaning('qmmm-cp2k-qmmethod = B\n', 'qmmm-cp2k-qmmethod').meaning).toMatch(/read as BLYP/);
+  });
+
+  test('summaries: tinit, ld-seed, andersen-seed, iontype0-name', () => {
+    expect(optionInfo('tinit').summary).not.toMatch(/only changes the time stamps/);
+    expect(optionInfo('tinit').summary).toMatch(/pull rates/);
+    expect(optionInfo('andersen-seed').reason).not.toMatch(/ld-seed/);
+    expect(optionInfo('ld-seed').summary).toMatch(/v-rescale/);
+    expect(optionInfo('ld-seed').summary).not.toMatch(/Andersen/i);
+    expect(optionInfo('iontype0-name')).toMatchObject({ kind: 'group' });
+    expect(optionInfo('iontype0-name').summary).toMatch(/Index group/);
+    const swap = 'integrator = md\nnsteps = 0\ncontinuation = yes\nswapcoords = Z\nsplit-group0 = GA\nsplit-group1 = GB\nsolvent-group = REST\niontype0-name = Argon\n';
+    const r = checkMdp(swap, { context: { indexGroups: ['System', 'GA', 'GB', 'REST'] } });
+    expect(r.grompp.passes).toBe(false);
+    expect(r.issues.find(i => i.id === 'group-unknown')).toMatchObject({ option: 'iontype0-name' });
+  });
+
+  test('awh1-dim1-diffusion: grompp runs with 1e-5 when it is 0 or unset, and notes it', () => {
+    expect(optionInfo('awh1-dim1-diffusion')).toMatchObject({ default: '1e-05', gromppDefault: '0', docDefault: null });
+    const awh = 'integrator = md\ndt = 0.002\nnsteps = 0\ncontinuation = yes\ntcoupl = v-rescale\ntc-grps = System\ntau-t = 0.1\nref-t = 120\n' +
+      'nstcalcenergy = 100\nnstenergy = 100\npull = yes\npull-ngroups = 2\npull-group1-name = P1\npull-group2-name = P2\n' +
+      'pull-coord1-groups = 1 2\npull-coord1-type = external-potential\npull-coord1-potential-provider = awh\nawh = yes\nawh-nstout = 100\n' +
+      'awh1-ndim = 1\nawh1-dim1-start = 0.4\nawh1-dim1-end = 0.7\nawh1-dim1-force-constant = 5000\n';
+    expect(ids(awh)).toContain('note:awh-diffusion');
+    expect(ids(`${awh}awh1-dim1-diffusion = 0\n`)).toContain('note:awh-diffusion');
+    expect(ids(`${awh}awh1-dim1-diffusion = 5e-5\n`)).not.toContain('note:awh-diffusion');
+    const row = meaning(`${awh}awh1-dim1-diffusion = 0\n`, 'awh1-dim1-diffusion');
+    expect(row.isDefault).toBe(false);
+    expect(row.meaning).toMatch(/replaces .* by 1e-5/);
+  });
+
+  test('grompp needs a positive global communication period for every integrator', () => {
+    expect(ids('integrator = steep\nnstcalcenergy = -1\n')).toContain('error:nstglobalcomm');
+    expect(ids(`${B.replace('tcoupl = V-rescale', 'tcoupl = no')}nstcalcenergy = 0\n`)).toContain('error:nstglobalcomm');
+    expect(ids(`${B.replace('integrator = md', 'integrator = sd')}nstcalcenergy = 0\n`)).toContain('error:nstglobalcomm');
+    // A thermostat supplies the period, and comm-mode = None needs none.
+    expect(ids(`${B}nstcalcenergy = 0\n`)).not.toContain('error:nstglobalcomm');
+    expect(ids('integrator = steep\nnstcalcenergy = -1\ncomm-mode = None\n')).not.toContain('error:nstglobalcomm');
+    expect(ids('integrator = steep\n')).not.toContain('error:nstglobalcomm');
+    // The COM period note now covers minimisers too.
+    expect(ids('integrator = cg\nnstcomm = 1\n')).toContain('note:nstcomm-global');
+  });
+
+  test('shear deformation with pressure coupling draws grompp\'s off-diagonal warning', () => {
+    const npt = `${B}pcoupl = C-rescale\ntau-p = 2\ncompressibility = 4.5e-5\nref-p = 1\ndeform-init-flow = yes\n`;
+    const r = checkMdp(`${npt}deform = 0 0 0 0.01 0 0\n`);
+    expect(r.grompp).toMatchObject({ passes: false, errors: 0, warnings: 1 });
+    expect(r.issues.find(i => i.id === 'deform-shear-coupled').message).toMatch(/b\(x\)/);
+    expect(ids(`${npt}deform = 0.01 0 0 0 0 0\n`)).toContain('error:deform-compressibility');
+  });
+
+  test('frozen atoms in the COM removal group: a warning for partial, a note for full freezing', () => {
+    expect(checkMdp(`${B}freezegrps = Protein\nfreezedim = N N Y\n`).grompp).toMatchObject({ passes: false, warnings: 1 });
+    expect(ids(`${B}freezegrps = Protein\nfreezedim = Y Y Y\n`)).toContain('note:freeze-com-full');
+    expect(verdict(`${B}freezegrps = Protein\nfreezedim = Y Y Y\n`).passes).toBe(true);
+    // Every atom partially frozen, or no COM removal: no warning.
+    expect(ids(`${B}freezegrps = System\nfreezedim = N N Y\n`)).not.toContain('warning:freeze-com-partial');
+    expect(ids(`${B}freezegrps = Protein\nfreezedim = N N Y\ncomm-mode = None\nnsteps = 10\n`)).not.toContain('warning:freeze-com-partial');
+  });
+
+  test('define and include words that grompp drops, or hangs on', () => {
+    const hang = checkMdp(`${B}define = -D POSRES\n`);
+    expect(hang.grompp.passes).toBe(false);
+    expect(hang.issues.find(i => i.id === 'preprocessor-hang').message).toMatch(/hangs/);
+    expect(ids(`${B}define = POSRES\n`)).toContain('warning:preprocessor-malformed');
+    expect(ids(`${B}define = -I/usr/include\n`)).toContain('warning:preprocessor-malformed');
+    expect(ids(`${B}include = /usr/include\n`)).toContain('warning:preprocessor-malformed');
+    expect(ids(`${B}define = "-DPOSRES"\n`)).toContain('warning:preprocessor-malformed');
+    expect(ids(`${B}define = -DPOSRES -DFLEXIBLE\ninclude = -I/opt/itp\n`)).not.toContain('warning:preprocessor-malformed');
+    const rows = explainMdp('define = -DPOSRES -I/usr -D X\ninclude = /usr/include -I/opt\n');
+    expect(rows[0].meaning).toMatch(/-I\/usr: ignored/);
+    expect(rows[0].meaning).toMatch(/-D: too short .* hangs/);
+    expect(rows[0].meaning).not.toMatch(/passed to the topology preprocessor/);
+    expect(rows[1].meaning).toMatch(/\/usr\/include: ignored/);
+    expect(rows[1].meaning).toMatch(/\/opt is searched/);
+  });
+
+  test('sc-r-power other than 6 stops grompp whether or not soft-core is on', () => {
+    expect(ids(`${B}sc-r-power = 48\n`)).toContain('error:sc-r-power');
+    expect(ids(`${B}free-energy = yes\nfep-lambdas = 0 1\ninit-lambda-state = 0\nsc-alpha = 0\nsc-r-power = 48\n`)).toContain('error:sc-r-power');
+    expect(ids(`${B}sc-r-power = 6.0\n`)).not.toContain('error:sc-r-power');
+  });
+
+  test('fourierspacing must be above 0 when it sets the PME grid', () => {
+    for (const x of ['0', '-0.0', '-1', '1e-400']) expect(ids(`${B}fourierspacing = ${x}\n`)).toContain('error:fourierspacing');
+    expect(ids(`${B}fourierspacing = 0\nfourier-nx = 32\nfourier-ny = 32\nfourier-nz = 32\n`)).not.toContain('error:fourierspacing');
+    expect(ids(B.replace('coulombtype = PME', 'coulombtype = Reaction-Field') + 'fourierspacing = 0\n')).not.toContain('error:fourierspacing');
+  });
+
+  test('an electric field with sigma = 0 and t0 set is accepted, with advice', () => {
+    const r = checkMdp(`${B}electric-field-z = 1 0 5 0\n`);
+    expect(r.grompp.passes).toBe(true);
+    expect(r.issues.find(i => i.id === 'electric-field-t0')).toMatchObject({ source: 'advice', severity: 'note' });
+    expect(ids(`${B}electric-field-z = inf 0 0 0\n`)).toContain('error:electric-field');
+    expect(ids(`${B}electric-field-z = 1e40 0 0 0\n`)).toContain('error:electric-field');
+  });
+
+  test('rigid water is not assumed with -DFLEXIBLE or for coarse-grained systems', () => {
+    const mttk = 'integrator = md-vv\ndt = 0.0005\nnsteps = 100\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nconstraints = none\n' +
+      'tcoupl = nose-hoover\ntc-grps = System\ntau-t = 1.0\nref-t = 300\npcoupl = MTTK\ntau-p = 5.0\ncompressibility = 4.5e-5\nref-p = 1.0\n';
+    expect(ids(mttk)).toContain('error:mttk-constraints');
+    expect(ids(`${mttk}define = -DFLEXIBLE\n`)).not.toContain('error:mttk-constraints');
+    expect(ids(`${mttk}define = -DFLEXIBLE\n`, { context: { rigidWater: true } })).toContain('error:mttk-constraints');
+    const cg = 'integrator = cg\nnsteps = 100\ncoulombtype = reaction-field\nrcoulomb = 1.1\nepsilon-r = 15\nrvdw = 1.1\nconstraints = none\nconstraint-algorithm = shake\n';
+    expect(ids(cg, { context: { forceField: 'martini3', system: 'coarse-grained' } })).not.toContain('error:shake-minimiser');
+    expect(ids(cg)).toContain('error:shake-minimiser');
+  });
+
+  test('enforced rotation and swap groups are checked as read_rotparams and make_swap_groups do', () => {
+    const rot = `${B}rotation = yes\nrot-group0 = Protein\nrot-k0 = 500\n`;
+    expect(verdict(rot).passes).toBe(true);
+    expect(ids(`${rot}rot-vec0 = 0 0 0\n`)).toContain('error:rot-vec-zero');
+    expect(ids(`${rot}rot-slab-dist0 = 0\n`)).toContain('error:rot-slab-dist');
+    expect(ids(`${rot}rot-vec0 = 1 0\n`)).toContain('error:rot-vec-count');
+    expect(ids(`${rot}rot-type0 = flex2\nrot-eps0 = 0\n`)).toContain('error:rot-eps');
+    expect(ids(`${rot}rot-min-gauss0 = 0\n`)).toContain('error:rot-min-gauss');
+    expect(ids(`${rot}rot-fit-method0 = potential\nrot-potfit-nsteps0 = 0\n`)).toContain('error:rot-potfit-nsteps');
+    expect(ids(`${B}rotation = yes\nrot-group0 = Protein\n`)).toContain('note:rot-k');
+    expect(ids(`${B}rotation = yes\nrot-k0 = 500\n`)).toContain('error:group-unset');
+    expect(ids(`${B}rotation = yes\nrot-ngroups = 0\n`)).toContain('error:rot-ngroups');
+    expect(ids(`${B}swapcoords = Z\n`)).toContain('error:group-unset');
+  });
+
+  test('AWH parameters are checked as the AWH reader checks them', () => {
+    const pull = 'pull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-group2-name = Chain_B\npull-coord1-groups = 1 2\n' +
+      'pull-coord1-type = external-potential\npull-coord1-potential-provider = awh\npull-coord1-geometry = distance\n';
+    const awh = `${B}${pull}awh = yes\nawh-nbias = 1\nawh1-ndim = 1\nawh1-dim1-coord-index = 1\nawh1-dim1-start = 0.5\nawh1-dim1-end = 2.0\n` +
+      'awh1-dim1-diffusion = 1e-5\n';
+    expect(ids(awh)).toContain('error:awh-force-constant');
+    const ok = `${awh}awh1-dim1-force-constant = 10000\n`;
+    expect(verdict(ok).passes).toBe(true);
+    expect(ids(`${ok}awh1-target-cutoff = 10\n`)).toContain('error:awh-target-unused');
+    expect(ids(`${ok}awh1-target-beta-scaling = 0.5\n`)).toContain('error:awh-target-unused');
+    expect(ids(`${ok}awh-nstout = 0\n`)).toContain('error:awh-nstout');
+    expect(ids(`${ok}awh1-error-init = 0\n`)).toContain('error:awh-error-init');
+    expect(ids(ok.replace('awh1-dim1-coord-index = 1', 'awh1-dim1-coord-index = 2'))).toContain('error:awh-coord-range');
+    expect(ids(`${ok}awh1-share-group = -1\n`)).toContain('error:awh-share-group');
+    expect(ids(ok.replace('awh1-dim1-end = 2.0', 'awh1-dim1-end = 0.5'))).toContain('warning:awh-interval-zero');
+    expect(ids(ok.replace('awh1-dim1-start = 0.5', 'awh1-dim1-start = -0.5'))).toContain('error:awh-interval-range');
+    expect(ids(ok.replace('pull-coord1-type = external-potential\npull-coord1-potential-provider = awh\n', ''))).toContain('error:awh-pull-type');
+    expect(ids(ok.replace('awh-nbias = 1', 'awh-nbias = 0'))).toContain('error:awh-nbias');
+    // Two dimensions on one pull coordinate.
+    const twice = ok.replace('awh1-ndim = 1', 'awh1-ndim = 2') + 'awh1-dim2-coord-index = 1\nawh1-dim2-start = 0.5\nawh1-dim2-end = 2\n' +
+      'awh1-dim2-force-constant = 1000\nawh1-dim2-diffusion = 1e-5\n';
+    expect(ids(twice)).toContain('error:awh-coord-twice');
+  });
+
+  test('a group named twice, or System with another group, stops grompp', () => {
+    expect(ids(B.replace('tc-grps = System\ntau-t = 0.1\nref-t = 300', 'tc-grps = Protein Protein\ntau-t = 0.1 0.1\nref-t = 300 300'))).toContain('error:group-twice');
+    expect(ids(B.replace('tc-grps = System\ntau-t = 0.1\nref-t = 300', 'tc-grps = protein Protein\ntau-t = 0.1 0.1\nref-t = 300 300'))).toContain('error:group-twice');
+    expect(ids(`${B}energygrps = SOL SOL\n`)).toContain('error:group-twice');
+    const sys = checkMdp(`${B}comm-grps = System Protein\n`).issues.find(i => i.id === 'group-twice');
+    expect(sys.assumes).toMatch(/System/);
+    expect(ids(`${B}energygrps = Protein SOL\n`)).not.toContain('error:group-twice');
+  });
+
+  test('reads white space and line ends as grompp does', () => {
+    expect(verdict('integrator = md\nnsteps = 1000\ntcoupl = V-rescale\u00a0\ntc-grps = System\ntau-t = 0.1\nref-t = 300\n').passes).toBe(false);
+    expect(checkMdp('tcoupl = V-rescale\u00a0\n').issues[0].message).toMatch(/no-break space/);
+    expect(verdict('integrator\u00a0= md\n').passes).toBe(false);
+    const bom = checkMdp('\ufeffintegrator = md\nnsteps = 1000\n');
+    expect(bom.grompp.passes).toBe(false);
+    expect(bom.issues.find(i => i.id === 'unknown').message).toMatch(/byte-order mark/);
+    // A lone CR is not a line break: the file is one line to grompp.
+    const cr = parseMdp('integrator = md\rnsteps = 1000\r');
+    expect(cr.entries).toHaveLength(1);
+    expect(verdict('integrator = md\rnsteps = 1000\r').passes).toBe(false);
+    // CRLF works, and a vertical tab or form feed is still white space.
+    expect(parseMdp('dt = 0.002\r\nnsteps = 10\r\n').entries.map(e => e.value)).toEqual(['0.002', '10']);
+    expect(parseMdp('dt = 0.002\r\n').lines[0].raw).toBe('dt = 0.002');
+    expect(parseMdp('tc-grps = A\u00a0B\n').entries[0].value).toBe('A\u00a0B');
+    expect(checkMdp('tc-grps = A\tB\u000bC\n').settings['tc-grps']).toBe('A\tB\u000bC');
+  });
+
+  test('reals are read as strtod reads them, hexadecimal included', () => {
+    expect(verdict(`${B.replace('ref-t = 300', 'ref-t = 0x12c')}tinit = 0x1p-3\n`).passes).toBe(true);
+    expect(checkMdp(`${B}tinit = 0x1p-3\n`).settings.tinit).toBe(0.125);
+    expect(checkMdp(`${B}tinit = 0x1.8p1\n`).settings.tinit).toBe(3);
+    expect(ids(`${B}tinit = 0x\n`)).toContain('error:not-real');
+  });
+
+  test('number forms grompp refuses: overflow in lists, words in accelerate, four-number vectors, int wrap-around', () => {
+    expect(verdict(B.replace('ref-t = 300', 'ref-t = inf')).passes).toBe(false);
+    expect(verdict(B.replace('ref-t = 300', 'ref-t = 1e-400')).passes).toBe(false);
+    expect(verdict(B.replace('ref-t = 300', 'ref-t = 1e39')).passes).toBe(false);
+    expect(ids(`${B}acc-grps = Protein\naccelerate = a b c\n`).filter(x => x === 'error:accelerate-number')).toHaveLength(3);
+    const pull = 'pull = yes\npull-ngroups = 2\npull-group1-name = A\npull-group2-name = B\npull-coord1-groups = 1 2\n' +
+      'pull-coord1-geometry = direction\npull-coord1-dim = N N Y\n';
+    expect(ids(`${B}${pull}pull-coord1-vec = 0 0 1 0\n`)).toContain('error:pull-vector-count');
+    expect(ids(`${B}${pull}pull-coord1-vec = 0 0 1\n`)).not.toContain('error:pull-vector-count');
+    expect(ids(`${B}${pull}pull-coord1-vec = 0 0 1\npull-coord1-origin = 0 0\n`)).toContain('error:pull-vector-count');
+    // get_eint keeps the low 32 bits of strtol's long.
+    const wrap = checkMdp(`${B}nstlist = 2147483648\n`);
+    expect(wrap.grompp.passes).toBe(false);
+    expect(wrap.settings.nstlist).toBe(-2147483648);
+    expect(wrap.issues.find(i => i.id === 'integer-wrap')).toMatchObject({ source: 'advice' });
+    expect(checkMdp(`${B}nstlist = 4294967306\n`).settings.nstlist).toBe(10);
+    const energy = checkMdp(`${B}nstenergy = 2147483648\n`);
+    expect(energy.grompp.passes).toBe(true);
+    expect(energy.issues.map(i => i.id)).not.toContain('nstenergy-multiple');
+    // nsteps is read as a 64-bit integer; module integers are refused beyond an int.
+    expect(checkMdp(B.replace('nsteps = 1000', 'nsteps = 5000000000')).settings.nsteps).toBe(5000000000);
+    expect(ids(`${B}colvars-seed = 2147483648\n`)).toContain('error:integer-overflow');
+    expect(ids(`${B}density-guided-simulation-force-constant = 1e40\n`)).toContain('error:real-range');
+  });
+
+  test('explanations give pull and AWH values in the unit of their geometry', () => {
+    const text = 'integrator = md\npull = yes\npull-ngroups = 4\npull-ncoords = 2\npull-group1-name = A\npull-group2-name = B\n' +
+      'pull-group3-name = C\npull-group4-name = D\npull-coord1-geometry = angle\npull-coord1-groups = 1 2 3 4\npull-coord1-k = 1000\n' +
+      'pull-coord1-rate = 0.1\npull-coord1-init = 90\npull-coord2-groups = 1 2\npull-coord2-type = constant-force\npull-coord2-k = 100\n' +
+      'nsteps = 5e5\n';
+    const rows = explainMdp(text);
+    const m = (n) => rows.find(r => r.name === n);
+    expect(m('pull-coord1-k').meaning).toBe('1000 kJ mol⁻¹ rad⁻².');
+    expect(m('pull-coord1-rate').meaning).toBe('0.1 deg/ps.');
+    expect(m('pull-coord1-init').meaning).toBe('90 deg.');
+    expect(m('pull-coord1-init').unit).toBe('deg');
+    expect(m('pull-coord2-k').meaning).toBe('100 kJ mol⁻¹ nm⁻¹.');
+    expect(m('pull-coord2-type').meaning).toMatch(/pull-coord2-k is minus the force/);
+    expect(m('nsteps').meaning).toMatch(/not a whole number/);
+    expect(optionInfo('pull-coord3-start').summary).toMatch(/pull-coord3-init/);
+    expect(optionInfo('awh2-dim3-diffusion').summary).toBe(optionInfo('awh1-dim1-diffusion').summary);
+    const fep = explainMdp('integrator = md\nfree-energy = yes\nfep-lambdas = 0 0.5 1\ninit-lambda-state = 0\nawh = yes\nawh1-ndim = 1\n' +
+      'awh1-dim1-coord-provider = fep-lambda\nawh1-dim1-start = 0\nawh1-dim1-end = 2\n');
+    expect(fep.find(r => r.name === 'awh1-dim1-end').meaning).toBe('Lambda state 2.');
+  });
+
+  test('notes grompp prints: the NVE drift, and rot-k', () => {
+    const nve = `${B.replace('tcoupl = V-rescale', 'tcoupl = no').replace(/tc-grps.*\n|tau-t.*\n|ref-t.*\n/g, '')}nsteps = 50000\ngen-vel = yes\ngen-temp = 300\n`;
+    const r = checkMdp(nve.replace('nsteps = 1000\n', ''));
+    expect(r.issues.find(i => i.id === 'nve-drift').message).toMatch(/100 ps .* about 10%/);
+    expect(checkMdp(nve.replace('nsteps = 1000\n', '').replace('nsteps = 50000', 'nsteps = 1000')).issues.map(i => i.id)).not.toContain('nve-drift');
+  });
+
+  test('tau-t is quoted as written, not as a float', () => {
+    const m = checkMdp('integrator = md\ndt = 0.002\ntcoupl = nose-hoover\nnh-chain-length = 1\ntc-grps = System\ntau-t = 0.1\nref-t = 300\nnsttcouple = 10')
+      .issues.find(i => i.id === 'tau-t-short').message;
+    expect(m).toMatch(/^tau-t \(0\.1 ps\)/);
+  });
+
+  test('values that break grompp while it sizes the buffer, or mdrun later', () => {
+    const r = checkMdp(B.replace('rvdw = 1.0', 'rvdw = 0'));
+    expect(r.issues.find(i => i.id === 'rvdw-zero')).toMatchObject({ severity: 'error', source: 'grompp' });
+    expect(ids(B.replace('rvdw = 1.0', 'rvdw = 0.001'))).toContain('error:rvdw-zero');
+    expect(ids(B.replace('rvdw = 1.0', 'rvdw = 0.3'))).not.toContain('error:rvdw-zero');
+    expect(ids(`${B}epsilon-r = nan\n`)).toContain('error:epsilon-r-nan');
+    expect(ids(`${B}ewald-rtol = -1\n`)).toContain('error:ewald-rtol');
+    expect(ids(`${B}ewald-rtol = 0\n`)).not.toContain('error:ewald-rtol');
+    expect(ids(`${B}vdwtype = PME\newald-rtol-lj = -1\n`)).toContain('error:ewald-rtol-lj');
+    expect(ids(`${B}vdw-modifier = Exact-cutoff\n`)).toContain('error:vdw-exact-cutoff');
+    // Minimisation sizes no buffer: grompp passes, mdrun is what fails.
+    const em = checkMdp('integrator = steep\nnsteps = 10\ncoulombtype = PME\newald-rtol = -1\nvdw-modifier = Exact-cutoff\n');
+    expect(em.grompp.passes).toBe(true);
+    expect(em.issues.find(i => i.id === 'ewald-rtol')).toMatchObject({ source: 'mdrun' });
+  });
+
+  test('GROMOS 54A7 files constrain all bonds, as GROMOS was parametrised', () => {
+    expect(FORCE_FIELDS.gromos54a7.constraints).toBe('all-bonds');
+    const g = generateMdp({ stage: 'prod', forceField: 'gromos54a7' });
+    const line = (n) => g.text.split('\n').find(l => l.startsWith(`${n} `));
+    expect(parseMdp(g.text).values.constraints).toBe('all-bonds');
+    expect(line('constraints')).toMatch(/all bond lengths constrained/);
+    expect(line('dt')).toMatch(/all bonds are constrained/);
+    expect(g.text).not.toMatch(/bonds to hydrogen are constrained/);
+    expect(g.expected.map(e => e.id)).toEqual(['gromos-twin-range']);
+    expect(parseMdp(generateMdp({ stage: 'em', forceField: 'gromos54a7' }).text).values.constraints).toBe('none');
+  });
+
+  test('Martini 3 files follow the recommended Martini mdp: fixed rlist, coupling every nstlist, LINCS 8/2', () => {
+    const v = parseMdp(generateMdp({ stage: 'prod', forceField: 'martini3', system: 'membrane' }).text).values;
+    expect(v).toMatchObject({
+      'verlet-buffer-tolerance': '-1.0', rlist: '1.35', nstlist: '20', nsttcouple: '20', nstpcouple: '20', 'lincs-order': '8', 'lincs-iter': '2'
+    });
+    // Nose-Hoover's 4 ps would be too short for coupling every 20 steps: grompp chooses.
+    const nh = parseMdp(generateMdp({ stage: 'prod', forceField: 'martini3', thermostat: 'nose-hoover', barostat: 'parrinello-rahman' }).text).values;
+    expect(nh.nsttcouple).toBeUndefined();
+    expect(nh.nstpcouple).toBe('20');
+    const amber = parseMdp(generateMdp({ stage: 'prod' }).text).values;
+    expect(amber).toMatchObject({ 'verlet-buffer-tolerance': '0.005', 'lincs-order': '4' });
+    expect(amber.rlist).toBeUndefined();
+    // Conjugate gradients with LINCS on Martini's own [ constraints ].
+    const cg = generateMdp({ stage: 'em-cg', forceField: 'martini3' });
+    expect(parseMdp(cg.text).values['lincs-order']).toBe('8');
+    expect(cg.expected).toEqual([]);
+    expect(parseMdp(generateMdp({ stage: 'em-cg' }).text).values['lincs-order']).toBeUndefined();
+  });
+
+  test('the first dynamics stage of any workflow draws new velocities', () => {
+    for (const stages of [['em', 'npt', 'prod'], ['em', 'prod'], ['em', 'anneal'], ['em', 'pull']]) {
+      const files = generateWorkflow({ forceField: 'amber' }, stages);
+      const v = parseMdp(files[1].text).values;
+      expect(v).toMatchObject({ 'gen-vel': 'yes', continuation: 'no' });
+      for (const f of files.slice(2)) expect(parseMdp(f.text).values['gen-vel']).toBe('no');
+    }
+    const kept = generateWorkflow({ perStage: { npt: { genVel: false, continuation: true } } }, ['em', 'npt']);
+    expect(parseMdp(kept[1].text).values).toMatchObject({ 'gen-vel': 'no', continuation: 'yes' });
+  });
+
+  test('pull files can name central PBC atoms, and say when they need them', () => {
+    const plain = generateMdp({ stage: 'pull' });
+    expect(plain.warnings.join(' ')).toMatch(/pull-group1-pbcatom/);
+    expect(parseMdp(plain.text).values['pull-pbc-ref-prev-step-com']).toBeUndefined();
+    const g = generateMdp({ stage: 'pull', pull: { pbcatom1: 1234, pbcatom2: 56 } });
+    expect(parseMdp(g.text).values).toMatchObject({ 'pull-group1-pbcatom': '1234', 'pull-group2-pbcatom': '56', 'pull-pbc-ref-prev-step-com': 'yes' });
+    expect(g.warnings.join(' ')).not.toMatch(/pbcatom/);
+    expect(checkMdp(g.text).issues.filter(i => i.severity !== 'note')).toEqual([]);
+  });
+
+  test('the rvdw comment follows grompp\'s rule for the electrostatics used', () => {
+    const line = (ff) => generateMdp({ stage: 'prod', forceField: ff }).text.split('\n').find(l => l.startsWith('rvdw '));
+    expect(line('amber')).toMatch(/may be shorter than rcoulomb/);
+    expect(line('amber')).not.toMatch(/must equal/);
+    expect(line('martini3')).toMatch(/must equal rcoulomb/);
+  });
+
+  test('membrane groups: SOLU exists only with a solute', () => {
+    const g = generateMdp({ stage: 'nvt', forceField: 'charmm36', system: 'membrane' });
+    expect(g.text.split('\n').find(l => l.startsWith('tc-grps'))).toMatch(/SOLU exists only with a solute/);
+    expect(g.warnings.join(' ')).toMatch(/lipid-only bilayer use MEMB SOLV/);
+    const chosen = generateMdp({ stage: 'nvt', forceField: 'charmm36', system: 'membrane', tcGroups: ['MEMB', 'SOLV'] });
+    expect(chosen.warnings.join(' ')).not.toMatch(/SOLU/);
+  });
+
+  test('pull, rotation and module group names are checked against the index', () => {
+    const pull = `${B}pull = yes\npull-ngroups = 2\npull-group1-name = Protein\npull-group2-name = LIG\npull-coord1-groups = 1 2\n`;
+    const r = checkMdp(pull, { context: { indexGroups: ['System', 'Protein', 'Water'] } });
+    expect(r.grompp.passes).toBe(false);
+    expect(r.issues.find(i => i.id === 'group-unknown')).toMatchObject({ option: 'pull-group2-name' });
+    expect(ids(pull, { context: { indexGroups: ['System', 'Protein', 'LIG'] } })).not.toContain('error:group-unknown');
+    expect(ids(`${B}density-guided-simulation-active = yes\ndensity-guided-simulation-group = Ligand\n`, { context: { indexGroups: ['System'] } }))
+      .toContain('error:group-unknown');
+    expect(ids(`${B}density-guided-simulation-group = Ligand\n`, { context: { indexGroups: ['System'] } })).not.toContain('error:group-unknown');
+    expect(ids(pull.replace('pull-group2-name = LIG\n', ''))).toContain('error:group-unset');
+  });
+});
+
+/*
  * With GROMACS installed (GMX_BIN), hand two generated files to real grompp
  * on a small water box. tools/check-gromacs-grompp.mjs does this for every
  * preset and the broken files; this only makes sure the setup still runs.
@@ -538,20 +961,39 @@ const GMX = process.env.GMX_BIN || '';
 const withGromacs = GMX && fs.existsSync(GMX) ? describe : describe.skip;
 
 withGromacs('real grompp (GMX_BIN)', () => {
+  let dir;
+  const run = (args, input) => spawnSync(GMX, [...args, '-quiet'], { cwd: dir, input, encoding: 'utf8', timeout: 60000 });
+  const grompp = (name, text) => {
+    fs.writeFileSync(path.join(dir, `${name}.mdp`), text);
+    return run(['grompp', '-f', `${name}.mdp`, '-c', 'sys.gro', '-p', 'topol.top', '-o', `${name}.tpr`, '-maxwarn', '0']);
+  };
+  beforeAll(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stemkit-mdp-'));
+    fs.writeFileSync(path.join(dir, 'topol.top'), '#include "amber99sb-ildn.ff/forcefield.itp"\n#include "amber99sb-ildn.ff/tip3p.itp"\n[ system ]\nwater\n[ molecules ]\n');
+    expect(run(['solvate', '-cs', 'spc216.gro', '-box', '3', '3', '3', '-o', 'sys.gro', '-p', 'topol.top']).status).toBe(0);
+  }, 60000);
+  afterAll(() => { if (dir) fs.rmSync(dir, { recursive: true, force: true }); });
+
   test('accepts generated files for a water box', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stemkit-mdp-'));
-    const run = (args, input) => spawnSync(GMX, [...args, '-quiet'], { cwd: dir, input, encoding: 'utf8' });
-    try {
-      fs.writeFileSync(path.join(dir, 'topol.top'), '#include "amber99sb-ildn.ff/forcefield.itp"\n#include "amber99sb-ildn.ff/tip3p.itp"\n[ system ]\nwater\n[ molecules ]\n');
-      expect(run(['solvate', '-cs', 'spc216.gro', '-box', '3', '3', '3', '-o', 'sys.gro', '-p', 'topol.top']).status).toBe(0);
-      for (const stage of ['em', 'nvt']) {
-        const g = generateMdp({ stage, system: 'solution' });
-        fs.writeFileSync(path.join(dir, `${stage}.mdp`), g.text);
-        const r = run(['grompp', '-f', `${stage}.mdp`, '-c', 'sys.gro', '-p', 'topol.top', '-o', `${stage}.tpr`]);
-        expect(r.status).toBe(0);
-      }
-    } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
+    for (const stage of ['em', 'nvt']) {
+      const g = generateMdp({ stage, system: 'solution' });
+      expect(grompp(stage, g.text).status).toBe(0);
     }
   }, 60000);
+
+  test('agrees with checkMdp where the cross-check found them apart', () => {
+    const nvt = generateMdp({ stage: 'nvt', system: 'solution' }).text;
+    const cases = [
+      // The table's default, written out, is a value grompp takes; the manual's commas are not.
+      `${nvt}density-guided-simulation-shift-vector = ${optionInfo('density-guided-simulation-shift-vector').default}\n`,
+      `${nvt}density-guided-simulation-shift-vector = 0,0,0\n`,
+      `${nvt}pull-print-com1 = yes\n`,
+      `${nvt}electric-field-z = 1 0 5 0\n`,
+      `${nvt}sc-r-power = 48\n`,
+      nvt.replace(/^tc-grps .*$/m, 'tc-grps = System System').replace(/^tau-t .*$/m, 'tau-t = 0.1 0.1').replace(/^ref-t .*$/m, 'ref-t = 300 300')
+    ];
+    cases.forEach((text, i) => {
+      expect([i, grompp(`x${i}`, text).status === 0]).toEqual([i, checkMdp(text, { context: { posres: false } }).grompp.passes]);
+    });
+  }, 120000);
 });

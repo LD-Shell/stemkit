@@ -597,8 +597,10 @@ const MODULE_OPTIONS = {
   'density-guided-simulation-normalize-densities': { file: 'densityfittingoptions.cpp', kind: 'boolean', def: 'true' },
   'density-guided-simulation-adaptive-force-scaling': { file: 'densityfittingoptions.cpp', kind: 'boolean', def: 'false' },
   'density-guided-simulation-adaptive-force-scaling-time-constant': { file: 'densityfittingoptions.cpp', kind: 'real', def: '4' },
-  'density-guided-simulation-shift-vector': { file: 'densityfittingoptions.cpp', kind: 'reals', def: '0,0,0', count: 3 },
-  'density-guided-simulation-transformation-matrix': { file: 'densityfittingoptions.cpp', kind: 'reals', def: '1,0,0,0,1,0,0,0,1', count: 9 },
+  // The manual writes these (0,0,0), but grompp splits them at white space
+  // only (parsedArrayFromInputString), so a comma-separated vector is refused.
+  'density-guided-simulation-shift-vector': { file: 'densityfittingoptions.cpp', kind: 'reals', def: '0 0 0', count: 3 },
+  'density-guided-simulation-transformation-matrix': { file: 'densityfittingoptions.cpp', kind: 'reals', def: '1 0 0 0 1 0 0 0 1', count: 9 },
   'qmmm-cp2k-active': { file: 'qmmmoptions.cpp', kind: 'boolean', def: 'false' },
   'qmmm-cp2k-qmgroup': { file: 'qmmmoptions.cpp', kind: 'group', def: 'System' },
   'qmmm-cp2k-qmmethod': { file: 'qmmmoptions.cpp', kind: 'enum', def: 'PBE', values: ['PBE', 'BLYP', 'INPUT'] },
@@ -634,7 +636,9 @@ const OBSOLETE_REASONS = {
   title: 'No longer used; grompp ignores it. Put a comment (;) at the top of the file instead.',
   cpp: 'No longer used: grompp has its own preprocessor. grompp ignores it.',
   'domain-decomposition': 'No longer used; domain decomposition is set up by mdrun. grompp ignores it.',
-  'andersen-seed': 'No longer used; the Andersen thermostat takes its seed from ld-seed. grompp ignores it.',
+  // The Andersen thermostats draw from ir->andersen_seed, which grompp never
+  // sets and tpxio forces to 0: they take no user seed at all (not ld-seed).
+  'andersen-seed': 'No longer used; grompp ignores it (the Andersen thermostats no longer take a seed from the .mdp file).',
   dihre: 'Dihedral restraints are now switched on by the [ dihedral_restraints ] section of the topology. grompp ignores it.',
   'dihre-fc': 'Dihedral-restraint force constants are now given in the topology. grompp ignores it.',
   'dihre-tau': 'Time-averaged dihedral restraints were removed. grompp ignores it.',
@@ -730,7 +734,9 @@ const STRING_KINDS = {
   'split-group0': { kind: 'group' },
   'split-group1': { kind: 'group' },
   'solvent-group': { kind: 'group' },
-  'iontype0-name': { kind: 'text' }
+  // make_swap_groups looks the ion type up as an index group, like the split
+  // and solvent groups (readir.cpp; reference manual, comp-electrophys).
+  'iontype0-name': { kind: 'group' }
 };
 
 /* Units the documentation leaves out but the option plainly has. */
@@ -910,6 +916,11 @@ function assemble() {
     } else {
       def = r.def === undefined ? '' : String(r.def);
     }
+    if (DEFAULT_OVERRIDES[name]) {
+      // What grompp runs with differs from what it reads and writes back.
+      def = DEFAULT_OVERRIDES[name].d;
+      gromppDefault = DEFAULT_OVERRIDES[name].gd;
+    }
 
     /* documented choices, matched to the spellings grompp accepts */
     const values = [];
@@ -982,10 +993,17 @@ function assemble() {
     if (docDefault !== undefined) rec.dd = docDefault;
     if (defaultFrom) rec.df = defaultFrom;
     if (gromppDefault) rec.gd = gromppDefault;
+    if (r.reader === 'get_eint64') rec.i64 = 1; // strtoll: no 32-bit wrap-around
     if (kind === 'enum') {
       const documented = new Set(values.filter(v => !v.rejected).map(v => key(v.value)));
       const extra = accepted.filter(a => !documented.has(key(a)));
       if (extra.length) rec.acc = extra; // accepted but not documented
+      const notes = {};
+      for (const a of extra) if (ACC_STATUS[`${name}=${a}`]) notes[a] = ACC_STATUS[`${name}=${a}`];
+      if (Object.keys(notes).length) rec.as = notes;
+      for (const k of Object.keys(ACC_STATUS).filter(x => x.startsWith(`${name}=`))) {
+        if (!extra.includes(k.slice(name.length + 1))) problems.push(`${k}: status for a spelling grompp does not accept`);
+      }
     }
     if (values.length) {
       rec.v = values.map(v => {
@@ -1080,12 +1098,14 @@ const OPTION_STATUS = {
 };
 
 /* Status of single values. deprecated: grompp warns or notes; unsupported:
-   grompp stops with the Verlet scheme; removed: grompp stops; rejected: the
+   grompp stops with the Verlet scheme, or the manual calls the value
+   unsupported (the note says which); removed: grompp stops; rejected: the
    manual's spelling that grompp does not accept. */
 const VALUE_STATUS = {
   'cutoff-scheme=group': ['removed', 'The group scheme was removed in GROMACS 2020; grompp stops with an error.'],
   'coulombtype=User': ['unsupported', 'User tables are not supported with the Verlet scheme; grompp stops with an error.'],
-  'coulombtype=PME-Switch': ['unsupported', 'Not supported with the Verlet scheme; grompp stops with an error.'],
+  // check_ir only refuses the user-table types; usingPme() includes PME-Switch.
+  'coulombtype=PME-Switch': ['unsupported', 'The manual lists it as unsupported, though grompp accepts it (and warns when the switching range is wider than 5% of rcoulomb). Use PME.'],
   'coulombtype=PME-User': ['unsupported', 'Not supported with the Verlet scheme; grompp stops with an error.'],
   'coulombtype=PME-User-Switch': ['unsupported', 'Not supported with the Verlet scheme; grompp stops with an error.'],
   'vdwtype=User': ['unsupported', 'User tables are not supported with the Verlet scheme; grompp stops with an error.'],
@@ -1098,6 +1118,51 @@ const VALUE_STATUS = {
   'tcoupl=andersen-massive': ['limited', 'Only with the velocity Verlet integrators (md-vv).'],
   'integrator=md-vv-avek': ['limited', 'Meant mainly for validation; grompp notes this and needs nsttcouple = nstpcouple = 1.'],
   'QMMM=no': null
+};
+
+/*
+ * Spellings grompp's reader takes that the manual does not describe (the rest
+ * of each enum's string table), with what then happens: [status, note], where
+ * status is as for VALUE_STATUS or null for a plain alias. Checked against
+ * grompp and mdrun 2025.0.
+ */
+const ACC_STATUS = {
+  'integrator=sd2 - removed': ['removed', 'The sd2 integrator was removed: grompp accepts the name, but mdrun stops ("SD2 integrator has been removed"). Use sd.'],
+  'pbc=unset': ['unsupported', 'An internal placeholder rather than a choice: grompp crashes on it (an assertion). Use xyz, xy or no.'],
+  'pbc=screw': ['limited', 'Screw periodic boundaries along x, for a rectangular box; grompp refuses it with PME or Ewald.'],
+  'coulombtype=Generalized-Reaction-Field (unused)': ['removed', 'Generalised reaction field was removed; grompp stops with an error. Use Reaction-Field.'],
+  'coulombtype=Poisson': ['unsupported', 'Not supported with the Verlet scheme; grompp stops with an error.'],
+  'coulombtype=Switch': ['unsupported', 'Not supported with the Verlet scheme; grompp stops with an error.'],
+  'coulombtype=Shift': ['unsupported', 'Not supported with the Verlet scheme; grompp stops with an error.'],
+  'coulombtype=Generalized-Born (unused)': ['removed', 'Implicit solvent was removed; grompp stops with an error.'],
+  'coulombtype=Reaction-Field-nec (unsupported)': ['removed', 'No longer supported; grompp stops with an error. Use Reaction-Field.'],
+  'coulombtype=Encad-shift (unused)': ['unsupported', 'Not supported with the Verlet scheme; grompp stops with an error.'],
+  'coulombtype=Reaction-Field-zero': [null, 'Reaction field with epsilon-rf = 0 (infinity), so that potential and force go to zero at the cut-off.'],
+  'coulomb-modifier=Potential-shift-Verlet': [null, 'Old name of Potential-shift; grompp reads it as that.'],
+  'coulomb-modifier=Potential-switch': ['unsupported', 'Not supported for Coulomb with the Verlet scheme; grompp stops with an error.'],
+  'coulomb-modifier=Exact-cutoff': ['unsupported', 'Not supported for Coulomb with the Verlet scheme; grompp stops with an error.'],
+  'coulomb-modifier=Force-switch': ['unsupported', 'Not supported for Coulomb with the Verlet scheme; grompp stops with an error.'],
+  'vdwtype=Encad-shift (unused)': ['unsupported', 'Not supported with the Verlet scheme; grompp stops with an error.'],
+  'vdw-modifier=Potential-shift-Verlet': [null, 'Old name of Potential-shift; grompp reads it as that.'],
+  'vdw-modifier=Exact-cutoff': ['unsupported', 'grompp stops ("Unimplemented VdW modifier") when it sizes the pair-list buffer for dynamics; only minimisation gets past it.'],
+  'ensemble-temperature-setting=not available': [null, 'How grompp spells not-available (with a space).'],
+  'tcoupl=yes': ['deprecated', 'Old spelling of berendsen: grompp reads it as Berendsen, with a note, and warns as for berendsen.'],
+  'pcoupl=Isotropic': ['deprecated', 'Old spelling of Berendsen: grompp reads it as Berendsen, with a note.'],
+  'lmc-stats=minvar': [null, 'How grompp spells min-variance.'],
+  'lmc-move=metropolis': [null, 'How grompp spells metropolis-transition.'],
+  'lmc-move=barker': [null, 'How grompp spells barker-transition.'],
+  'dhdl-print-energy=yes': ['deprecated', 'Old spelling of total: grompp reads it as total, with a note.'],
+  'QMMM=yes': ['removed', 'The old QM/MM interface was removed: grompp stops with an error.']
+};
+
+/*
+ * Defaults grompp runs with that differ from what it reads and writes back to
+ * mdout.mdp. d: what grompp uses; gd: what mdout.mdp shows.
+ */
+const DEFAULT_OVERRIDES = {
+  // read_params.cpp: a diffusion constant <= 0 (the value read when unset) is
+  // replaced by 1e-5, with a note, so 0 is never used.
+  'awh1-dim1-diffusion': { d: '1e-05', gd: '0' }
 };
 
 /* Value summaries where the manual's first sentence does not stand alone. */
@@ -1226,7 +1291,7 @@ const SUMMARIES = {
   define: 'Preprocessor macros for the topology, such as -DPOSRES to switch on position restraints or -DFLEXIBLE for flexible water.',
   // Run control
   integrator: 'The algorithm that moves the system: molecular dynamics (md, sd, ...), energy minimisation (steep, cg, l-bfgs) or another method (nm, tpi).',
-  tinit: 'Time of the first step in ps; it only changes the time stamps in the output.',
+  tinit: 'Time of the first step in ps; output times and time-dependent settings (pull rates, annealing, electric-field pulses) count from it.',
   dt: 'Integration time step in ps: 0.002 (2 fs) is usual with h-bonds constraints, 0.004 with hydrogen mass repartitioning.',
   nsteps: 'Number of steps to integrate, or the most steps a minimisation may take; -1 runs without limit.',
   'init-step': 'Step number to start counting from, so that time, lambda and other schedules continue exactly after a restart.',
@@ -1242,7 +1307,7 @@ const SUMMARIES = {
   'IMD-group': 'Index group sent to an interactive MD (IMD) client such as VMD; left empty, interactive MD is off. Not described on the mdp page.',
   // Langevin dynamics
   'bd-fric': 'Friction coefficient for Brownian dynamics; 0 takes each atom\'s friction as its mass divided by tau-t.',
-  'ld-seed': 'Random seed for the noise of stochastic integrators and thermostats; -1 picks one at random.',
+  'ld-seed': 'Random seed for the noise of sd and bd dynamics and of the v-rescale thermostat and C-rescale barostat; -1 picks one at random.',
   // Energy minimisation
   emtol: 'Minimisation stops when the largest force on any atom is below this value.',
   emstep: 'Initial step size of steepest-descent minimisation.',
@@ -1402,7 +1467,7 @@ const SUMMARIES = {
   'awh1-dim1-force-constant': 'Force constant of the umbrella potentials along this dimension.',
   'awh1-dim1-start': 'Start of the sampling interval along this dimension.',
   'awh1-dim1-end': 'End of the sampling interval along this dimension.',
-  'awh1-dim1-diffusion': 'Rough estimate of the diffusion constant along this dimension, which sets the initial update rate.',
+  'awh1-dim1-diffusion': 'Rough estimate of the diffusion constant along this dimension, which sets the initial update rate; left at 0, grompp uses 1e-5 and notes it.',
   'awh1-dim1-cover-diameter': 'Distance one simulation must sample around a point before that point counts as covered.',
   // Enforced rotation
   rotation: 'Switches on enforced rotation of groups of atoms.',
@@ -1521,7 +1586,7 @@ const SUMMARIES = {
   'solvent-group': 'Index group of the solvent molecules that are swapped with ions.',
   'coupl-steps': 'Number of swap-attempt steps over which ion counts are averaged.',
   iontypes: 'Number of ion types whose counts are controlled.',
-  'iontype0-name': 'Molecule name of this ion type.',
+  'iontype0-name': 'Index group of the ions of this type (usually their molecule name).',
   'iontype0-in-A': 'Requested number of ions of this type in compartment A; -1 keeps the count at the start.',
   'iontype0-in-B': 'Requested number of ions of this type in compartment B; -1 keeps the count at the start.',
   'bulk-offsetA': 'Offset of the swap layer of compartment A from its midplane, between -1 and 1.',
@@ -1642,9 +1707,11 @@ function main() {
    *   dn name the manual documents, when grompp reads another
    *   dd default the manual prints, when grompp uses another
    *   df option the default is copied from     x 1 = not on the mdp-options page
- *   gd default as grompp writes it, when it is an alias of d
+ *   gd default as grompp writes it to mdout.mdp, when that differs from d
    *   v documented choices [value, summary, anchor?, [status, note]?]
    *   acc other spellings grompp accepts       c documented cases of a number
+   *   as what grompp does with some acc spellings: {spelling: [status|null, note]}
+   *   i64 1 = read as a 64-bit integer (no 32-bit wrap-around)
    *   g read only when switched on by: mts, pull, awh, rotation, swapcoords, expanded
    *   f numbered family [template, count option, first index, inner count?]
    *   per / count / times / words: what a list holds   r options the text refers to

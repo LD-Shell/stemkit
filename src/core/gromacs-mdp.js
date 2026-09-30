@@ -21,7 +21,10 @@
  *     `TAU-T` are one option, given twice is an error;
  *   - a line with nothing after `=` is ignored, and the default applies;
  *   - everything after the first `=` is the value, so `define = -DA -DB=2`
- *     works; the file is not preprocessed, so `#include` is not allowed.
+ *     works; the file is not preprocessed, so `#include` is not allowed;
+ *   - white space is C's (space, tab and line breaks): a no-break space or a
+ *     byte-order mark is part of a word, and lines end at a line feed only,
+ *     so a file with old Mac line ends (a lone carriage return) is one line.
  *
  * The checker then follows grompp's consistency checks (readir.cpp check_ir,
  * get_ir, do_index, triple_check, double_check and grompp.cpp) as far as they
@@ -166,6 +169,36 @@ function findValue(row, value) {
   return (row.v || []).find(v => key(v[0]) === k) || null;
 }
 
+/* The spellings grompp's reader takes for an enum: the documented values it
+   accepts, then the rest of its string table. */
+function enumSpellings(row) {
+  const docs = (row.v || []).filter(v => !(v[3] && v[3][0] === 'rejected'));
+  return [...docs.map(v => v[0]), ...(row.acc || [])];
+}
+
+/* Options of the MDModules, read through the options framework rather than
+   by get_ir. */
+function isModuleRow(row) {
+  return /^(electric-field|density-guided|qmmm-cp2k|colvars|nnpot)/.test(row.n);
+}
+
+/*
+ * The spelling grompp reads a value as, or null when it refuses it. The .mdp
+ * reader compares as normaliseName does (case, - and _ ignored); the options
+ * framework of the MDModules takes the shortest value that starts with what
+ * is written, with case (findEnumValue in basicoptions.cpp), so for those
+ * `inner` is inner-product and `Inner-Product` is refused.
+ */
+function matchEnumValue(row, raw) {
+  const all = enumSpellings(row);
+  if (isModuleRow(row)) {
+    const hits = all.filter(a => a.startsWith(raw));
+    return hits.length ? hits.sort((a, b) => a.length - b.length)[0] : null;
+  }
+  const k = key(raw);
+  return all.find(a => key(a) === k) || null;
+}
+
 /**
  * Everything known about one option.
  *
@@ -188,7 +221,14 @@ function findValue(row, value) {
  * @property {Array<{value:string, summary:string, url:string, status:string|null, note:string}>} values
  *   Documented choices of an enum or boolean. status: deprecated, limited,
  *   unsupported, removed, or rejected (documented, but grompp refuses the spelling).
- * @property {string[]} accepted - Every spelling grompp accepts (enums).
+ * @property {string[]} accepted - The spellings of an enum to offer: the documented
+ *   values grompp reads (their `status` says which are deprecated or refused
+ *   later) and the undocumented ones that do not make grompp or mdrun stop.
+ * @property {Array<{value:string, status:string|null, note:string}>} undocumented -
+ *   Every spelling grompp's reader takes that the manual does not describe, with
+ *   what then happens (status as for `values`; null for a plain alias such as
+ *   Potential-shift-Verlet). Summaries and notes of family members name the
+ *   member itself (pull-coord2-k, not pull-coord1-k).
  * @property {Array<{value:string, summary:string, url:string}>} cases - Documented
  *   special values of a number (nstlist 0, awh1-share-group positive).
  * @property {{option:string, when:string}|null} readWhen - grompp only reads
@@ -204,7 +244,8 @@ function findValue(row, value) {
  * @property {string|null} docName - Name the manual uses when grompp reads another.
  * @property {string|null} docDefault - Default the manual prints when grompp uses another.
  * @property {string|null} gromppDefault - Default as grompp writes it to mdout.mdp,
- *   when that is an alias of `default` (Potential-shift-Verlet for Potential-shift).
+ *   when that differs from `default`: an alias (Potential-shift-Verlet for
+ *   Potential-shift), or a value grompp replaces (awh1-dim1-diffusion: 0, run as 1e-5).
  */
 export function optionInfo(name) {
   const hit = lookup(name);
@@ -228,15 +269,24 @@ const GATE_TEXT = {
 
 function expand(row, hit = { name: row.n, index: [] }) {
   const section = SECTIONS[row.s];
+  const here = (text) => localise(text, row, hit.index);
   const values = (row.v || []).map(v => ({
     value: v[0],
-    summary: v[1] || '',
+    summary: here(v[1] || ''),
     url: mdpDocUrl(row.n, v[0]),
     status: v[3] ? v[3][0] : null,
-    note: v[3] ? v[3][1] : ''
+    note: v[3] ? here(v[3][1]) : ''
   }));
+  const undocumented = (row.acc || []).map(a => {
+    const st = (row.as || {})[a];
+    return { value: a, status: st ? st[0] : null, note: st ? st[1] : '' };
+  });
   let accepted = [];
-  if (row.k === 'enum') accepted = [...values.filter(v => v.status !== 'rejected').map(v => v.value), ...(row.acc || [])];
+  // Undocumented spellings that make grompp or mdrun stop are left out.
+  if (row.k === 'enum') {
+    accepted = [...values.filter(v => v.status !== 'rejected').map(v => v.value),
+      ...undocumented.filter(u => u.status !== 'unsupported' && u.status !== 'removed').map(u => u.value)];
+  }
   if (row.k === 'boolean') accepted = ['yes', 'no', 'true', 'false', '1', '0'];
   const fam = row.f ? { template: row.f[0], count: row.f[1], first: row.f[2], inner: row.f[3] || null, index: hit.index } : null;
   return {
@@ -246,7 +296,8 @@ function expand(row, hit = { name: row.n, index: [] }) {
     default: row.d,
     defaultFrom: row.df ? familyName(row.df, hit.index) : null,
     unit: row.u || '',
-    summary: row.t,
+    summary: here(row.t),
+    undocumented,
     url: mdpDocUrl(hit.name),
     values,
     accepted,
@@ -265,6 +316,27 @@ function expand(row, hit = { name: row.n, index: [] }) {
     docDefault: row.dd === undefined ? null : row.dd,
     gromppDefault: row.gd || null
   };
+}
+
+/*
+ * Text written for the first member of a numbered family, made to name the
+ * member at hand: for pull-coord2-type, "pull-coord1-k is minus the force"
+ * becomes "pull-coord2-k is minus the force".
+ */
+function localise(text, row, index) {
+  if (!text || !row.f || !index || !index.length) return text;
+  const first = row.f[2];
+  const [template] = row.f;
+  if (index.every(i => i === first)) return text;
+  if (template.startsWith('awh{N}-')) {
+    const [b, d] = index;
+    return text.replace(/\bawh1-dim1-/g, `awh${b}-dim${d ?? 1}-`).replace(/\bawh1-(?!dim)/g, `awh${b}-`);
+  }
+  if (template.startsWith('pull-coord{N}-')) return text.replace(/\bpull-coord1-/g, `pull-coord${index[0]}-`);
+  if (template.startsWith('pull-group{N}-')) return text.replace(/\bpull-group1-/g, `pull-group${index[0]}-`);
+  if (template.startsWith('iontype{N}-')) return text.replace(/\biontype0-/g, `iontype${index[0]}-`);
+  if (template.startsWith('rot-')) return text.replace(/\b(rot-[a-z-]+)0\b/g, `$1${index[0]}`);
+  return text;
 }
 
 /* pull-coord1-k with index [3] -> pull-coord3-k. */
@@ -408,42 +480,103 @@ function createDocs(docs) {
  * Numbers, as C reads them
  * ------------------------------------------------------------------ */
 
-/* strtol(s, &end, 10): leading blanks, a sign, digits; the rest must be empty. */
-function cInteger(s) {
-  const m = /^\s*([+-]?\d+)/.exec(s);
-  if (!m) return { value: 0, ok: false };
-  return { value: Number(m[1]), ok: m[0].length === s.length };
+/*
+ * White space as C's isspace() sees it in the "C" locale. grompp trims values
+ * and splits lists on these six characters only, so a no-break space (U+00A0,
+ * common in text copied from web pages) or a byte-order mark stays part of the
+ * word, where JavaScript's trim() and \s would quietly drop it.
+ */
+const C_SPACE = '[ \\t\\n\\v\\f\\r]';
+const LEADING_SPACE = new RegExp(`^${C_SPACE}+`);
+const TRAILING_SPACE = new RegExp(`${C_SPACE}+$`);
+const SPACES = new RegExp(`${C_SPACE}+`);
+const ctrim = (s) => String(s).replace(LEADING_SPACE, '').replace(TRAILING_SPACE, '');
+
+/* One number as strtod reads it: hexadecimal first, since the decimal
+   alternative would otherwise stop at the 0 of 0x1p-3. */
+const C_NUMBER = new RegExp(`^${C_SPACE}*([+-]?(?:0x(?:[0-9a-f]+\\.?[0-9a-f]*|\\.[0-9a-f]+)(?:p[+-]?\\d+)?|` +
+  '(?:\\d+\\.?\\d*|\\.\\d+)(?:e[+-]?\\d+)?|inf(?:inity)?|nan(?:\\([0-9a-z_]*\\))?))', 'i');
+
+/* The largest float: a mixed-precision grompp keeps reals in single precision. */
+const FLT_MAX = 3.4028234663852886e38;
+const DBL_MIN = 2.2250738585072014e-308;
+const INT_MIN = -2147483648;
+const INT_MAX = 2147483647;
+
+/*
+ * strtol(s, &end, 10) as get_eint and get_eint64 use it: leading blanks, a
+ * sign, digits; the rest must be empty. strtol saturates at the 64-bit limits,
+ * and get_eint then stores the result in an int, keeping the low 32 bits, so
+ * nstlist = 2147483648 becomes -2147483648 (`wrapped`).
+ */
+function cInteger(s, bits = 32) {
+  const m = new RegExp(`^${C_SPACE}*([+-]?\\d+)`).exec(s);
+  if (!m) return { value: 0, ok: false, wrapped: false };
+  const written = BigInt(m[1]);
+  const LIMIT = 1n << 63n;
+  let stored = written >= LIMIT ? LIMIT - 1n : written < -LIMIT ? -LIMIT : written;
+  if (bits === 32) stored = BigInt.asIntN(32, stored);
+  return { value: Number(stored), ok: m[0].length === s.length, wrapped: stored !== written };
 }
 
-/* strtod: decimal or hexadecimal, inf, nan. */
+/* strtod: decimal or hexadecimal, inf, nan. `range` is false where strtod
+   sets ERANGE: overflow to infinity, or a non-zero number that underflows. */
 function cReal(s) {
-  const m = /^\s*([+-]?(?:(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?|0[xX](?:[0-9a-fA-F]+\.?[0-9a-fA-F]*|\.[0-9a-fA-F]+)(?:[pP][+-]?\d+)?|inf(?:inity)?|nan(?:\([^)]*\))?))/i.exec(s);
-  if (!m) return { value: 0, ok: false };
+  const m = C_NUMBER.exec(s);
+  if (!m) return { value: 0, ok: false, range: true };
   const t = m[1];
   let value;
+  let nonZero = false;
   if (/^[+-]?0x/i.test(t)) {
-    const neg = t.startsWith('-');
     const [, mant, exp] = /0x([0-9a-f.]+)(?:p([+-]?\d+))?/i.exec(t);
     const [ip, fp = ''] = mant.split('.');
+    nonZero = /[1-9a-f]/i.test(mant);
     value = (parseInt(ip || '0', 16) + (fp ? parseInt(fp, 16) / 16 ** fp.length : 0)) * 2 ** Number(exp || 0);
-    if (neg) value = -value;
+    if (t.startsWith('-')) value = -value;
   } else if (/inf/i.test(t)) {
     value = t.startsWith('-') ? -Infinity : Infinity;
   } else if (/nan/i.test(t)) {
     value = NaN;
   } else {
     value = Number(t);
+    nonZero = /[1-9]/.test(t.replace(/e.*$/i, ''));
   }
-  return { value, ok: m[0].length === s.length };
+  const overflow = !Number.isFinite(value) && !/inf|nan/i.test(t);
+  const underflow = nonZero && Math.abs(value) < DBL_MIN;
+  return { value, ok: m[0].length === s.length, range: !overflow && !underflow };
 }
 
-/* gmx::fromString<real>: the whole word must be a number. */
+/* gmx::fromString<real> (floatFromString): the whole word must be a number,
+   without ERANGE and within the range of a float, so inf and 1e39 are
+   refused while nan gets through. */
 function strictReal(s) {
-  const r = cReal(s);
-  return r.ok && s !== '' ? r.value : null;
+  const str = String(s);
+  const r = cReal(str);
+  if (!r.ok || str === '' || !r.range || Math.abs(r.value) > FLT_MAX) return null;
+  return r.value;
 }
 
-const words = (s) => String(s || '').trim().split(/\s+/).filter(Boolean);
+/* gmx::fromString<int> (intFromString): the whole word, within an int. */
+function strictInt(s) {
+  const m = new RegExp(`^${C_SPACE}*([+-]?\\d+)$`).exec(String(s));
+  if (!m) return null;
+  const v = Number(m[1]);
+  return v < INT_MIN || v > INT_MAX ? null : v;
+}
+
+/* splitString: words separated by C white space. */
+const words = (s) => String(s || '').split(SPACES).filter(Boolean);
+
+/* Characters that look like white space or nothing but are not C white
+   space: a hint for values grompp refuses although they look right. */
+function hiddenCharacters(s) {
+  const found = [];
+  if (/\u00a0/.test(s)) found.push('a no-break space (U+00A0), which grompp does not treat as a space');
+  if (/\ufeff/.test(s)) found.push('a byte-order mark (U+FEFF), which grompp reads as part of the text');
+  if (/\r/.test(s)) found.push('a lone carriage return (old Mac line ends), which grompp does not treat as a line break');
+  if (/[\u2000-\u200b\u202f\u205f\u3000]/.test(s)) found.push('a Unicode space that grompp does not treat as a space');
+  return found.length ? ` It contains ${found.join(' and ')}.` : '';
+}
 
 /* ------------------------------------------------------------------ *
  * Reading a file
@@ -470,7 +603,10 @@ const words = (s) => String(s || '').trim().split(/\s+/).filter(Boolean);
  *   file to its value (the first occurrence of a duplicate).
  */
 export function parseMdp(text) {
-  const raw = String(text == null ? '' : text).replace(/\r\n?/g, '\n').split('\n');
+  // grompp's TextReader breaks lines at \n only: with Windows line ends the \r
+  // is trimmed as white space, but a lone \r (old Mac files) is not a line
+  // break, so such a file is one long line to grompp and to this reader.
+  const raw = String(text == null ? '' : text).split('\n');
   if (raw.length && raw[raw.length - 1] === '') raw.pop();
   const entries = [];
   const lines = [];
@@ -478,12 +614,15 @@ export function parseMdp(text) {
   const seen = new Map();
   const values = {};
 
-  raw.forEach((rawLine, i) => {
+  raw.forEach((fileLine, i) => {
     const line = i + 1;
-    const semi = rawLine.indexOf(';');
-    const code = (semi < 0 ? rawLine : rawLine.slice(0, semi)).replace(/\s+$/, '');
-    const comment = semi < 0 ? '' : rawLine.slice(semi + 1).trim();
-    if (!code.trim()) {
+    const rawLine = fileLine.endsWith('\r') ? fileLine.slice(0, -1) : fileLine;
+    const semi = fileLine.indexOf(';');
+    // TextReader cuts the comment, then trims " \t\r\n" from the end; the
+    // name and value are then trimmed of C white space (stripString).
+    const code = (semi < 0 ? fileLine : fileLine.slice(0, semi)).replace(/[ \t\r\n]+$/, '');
+    const comment = semi < 0 ? '' : ctrim(rawLine.slice(semi + 1));
+    if (!code) {
       lines.push({ line, raw: rawLine, kind: comment || semi >= 0 ? 'comment' : 'blank', comment });
       return;
     }
@@ -491,15 +630,15 @@ export function parseMdp(text) {
     if (eq < 0) {
       errors.push({
         line, id: 'no-equals',
-        message: `No "=" on this line, so grompp cannot tell the option from its value: "${code.trim()}". ` +
+        message: `No "=" on this line, so grompp cannot tell the option from its value: "${ctrim(code)}". ` +
           (/^\s*#/.test(code) ? 'An .mdp file is not preprocessed: #include and #define do not work here; ' +
             'use the include and define options instead.' : 'Write it as "name = value".')
       });
       lines.push({ line, raw: rawLine, kind: 'invalid', comment });
       return;
     }
-    const k = code.slice(0, eq).trim();
-    const value = code.slice(eq + 1).trim();
+    const k = ctrim(code.slice(0, eq));
+    const value = ctrim(code.slice(eq + 1));
     if (!k) {
       errors.push({
         line, id: 'no-name',
@@ -573,7 +712,8 @@ export function mdpValue(parsed, name) {
  * @param {object} [options]
  * @param {object} [options.context] - What the topology holds, for the checks
  *   that need it. `posres` (default: true when define has -DPOSRES), `rigidWater`
- *   (SETTLE water; default true), `charged` (default true), `system`
+ *   (SETTLE water; default true, but false when define has -DFLEXIBLE or the
+ *   system is coarse-grained), `charged` (default true), `system`
  *   ('all-atom' default, 'coarse-grained', or 'unknown' to skip time-step
  *   estimates), `usedMacros` (names the topology tests with #ifdef; grompp
  *   warns about any other -D in define), `forceField` (a key of {@link FORCE_FIELDS}: GROMOS topologies
@@ -616,8 +756,14 @@ const EI = {
   TPI: (i) => i === 'TPI' || i === 'TPIC',
   STATE_VELOCITY: (i) => EI.MD(i) || EI.SD(i)
 };
+/* Keys of the enum spellings with spaces in them: normaliseName keeps the
+   spaces, so 'Reaction-Field-nec (unsupported)' is REACTIONFIELDNEC (UNSUPPORTED). */
+const CT_GRF = key('Generalized-Reaction-Field (unused)');
+const CT_RF_NEC = key('Reaction-Field-nec (unsupported)');
+const CT_GB = key('Generalized-Born (unused)');
+const I_SD2 = key('sd2 - removed');
 const COULOMB = {
-  RF: (c) => ['REACTIONFIELD', 'GENERALIZEDREACTIONFIELD(UNUSED)', 'REACTIONFIELDNEC(UNSUPPORTED)', 'REACTIONFIELDZERO'].includes(c),
+  RF: (c) => ['REACTIONFIELD', CT_GRF, CT_RF_NEC, 'REACTIONFIELDZERO'].includes(c),
   PME: (c) => ['PME', 'PMESWITCH', 'PMEUSER', 'PMEUSERSWITCH', 'P3MAD'].includes(c),
   PME_OR_EWALD: (c) => COULOMB.PME(c) || c === 'EWALD',
   FULL: (c) => COULOMB.PME_OR_EWALD(c) || c === 'POISSON',
@@ -628,10 +774,13 @@ const MIN_STEPS_PER_PERIOD = 20;
 const GMX_REAL_EPS = 1.19209290e-07; // GMX_FLOAT_EPS: mixed precision, the usual build
 const BOLTZ = 0.0083144626181532; // kJ mol^-1 K^-1
 
-function gcd(a, b) {
-  a = Math.abs(a); b = Math.abs(b);
-  while (b) [a, b] = [b, a % b];
-  return a;
+/* lcd3 (md_support.cpp): the largest number dividing each positive input;
+   0 when no input is positive, where grompp stops. */
+function lcd3(a, b, c) {
+  // GROMACS counts down from the smallest input; that number is the greatest
+  // common divisor of the positive inputs, found here without the loop.
+  const gcd = (x, y) => { while (y) [x, y] = [y, x % y]; return x; };
+  return [a, b, c].filter(x => x > 0).reduce(gcd, 0);
 }
 
 class Checker {
@@ -682,11 +831,26 @@ class Checker {
     switch (row.k) {
       case 'integer': {
         if (raw === null) { value = row.df ? null : Number(row.d); break; }
-        const r = cInteger(raw);
+        if (this.isModule(row)) {
+          // The options framework (fromString<int>) refuses what does not fit.
+          value = strictInt(raw);
+          if (value === null) {
+            const r = cInteger(raw, 64);
+            this.add('error', r.ok ? 'integer-overflow' : 'not-integer', name, r.ok
+              ? `${name} = ${raw} does not fit in a 32-bit integer (at most ${INT_MAX}). grompp stops here.`
+              : `${name} needs a whole number, but "${raw}" is not one.${hiddenCharacters(raw)} grompp stops here.`);
+            value = r.value;
+          }
+          break;
+        }
+        const r = cInteger(raw, row.i64 ? 64 : 32);
         if (!r.ok) {
           this.add('error', 'not-integer', name, `${name} needs a whole number, but "${raw}" is not one` +
             (/^[+-]?\d*\.\d*([eE][+-]?\d+)?$|^[+-]?\d+[eE]/.test(raw) ? ' (no decimal point or exponent)' : '') +
-            '. grompp stops here.');
+            `.${hiddenCharacters(raw)} grompp stops here.`);
+        } else if (r.wrapped) {
+          this.add('warning', 'integer-wrap', name, `${name} = ${raw} does not fit in the ${row.i64 ? '64' : '32'}-bit integer grompp ` +
+            `stores it in: grompp reads it, without a message, as ${r.value}.`, { source: 'advice' });
         }
         value = r.value;
         break;
@@ -696,7 +860,11 @@ class Checker {
         const r = cReal(raw);
         if (!r.ok) {
           this.add('error', 'not-real', name, `${name} needs a number, but "${raw}" is not one` +
-            (/,/.test(raw) ? ' (use a point, not a comma, for decimals)' : '') + '. grompp stops here.');
+            (/,/.test(raw) ? ' (use a point, not a comma, for decimals)' : '') + `.${hiddenCharacters(raw)} grompp stops here.`);
+        } else if (this.isModule(row) && strictReal(raw) === null) {
+          // RealOption (fromString<real>): no overflow, underflow or infinity.
+          this.add('error', 'real-range', name, `${name} = ${raw} is outside the range of a single-precision number ` +
+            '(an overflow, an underflow or infinity). grompp stops here.');
         }
         value = r.value;
         break;
@@ -725,25 +893,19 @@ class Checker {
   }
 
   isModule(row) {
-    return /^(electric-field|density-guided|qmmm-cp2k|colvars|nnpot)/.test(row.n);
+    return isModuleRow(row);
   }
 
   matchEnum(name, row, raw) {
     const k = key(raw);
-    const docs = (row.v || []).filter(v => !(v[3] && v[3][0] === 'rejected'));
-    const all = [...docs.map(v => v[0]), ...(row.acc || [])];
-    if (this.isModule(row)) {
-      // Options framework: case-sensitive prefix match, shortest wins.
-      const hits = all.filter(a => a.startsWith(raw));
-      if (hits.length) return hits.sort((a, b) => a.length - b.length)[0];
-    } else {
-      const hit = all.find(a => key(a) === k);
-      if (hit) return hit;
-    }
+    const hit = matchEnumValue(row, raw);
+    if (hit) return hit;
+    const all = enumSpellings(row);
     const rejected = (row.v || []).find(v => v[3] && v[3][0] === 'rejected' && key(v[0]) === k);
-    const shown = docs.map(v => v[0]);
-    let message = `"${raw}" is not a value of ${name}. ` +
-      `grompp stops; use one of: ${shown.join(', ')}.`;
+    const shown = (row.v || []).filter(v => !(v[3] && v[3][0] === 'rejected')).map(v => v[0]);
+    let message = `"${raw}" is not a value of ${name}.${hiddenCharacters(raw)} ` +
+      `grompp stops; use one of: ${shown.join(', ')}` +
+      (this.isModule(row) ? ', written exactly so (this option is case-sensitive)' : '') + '.';
     if (rejected) {
       message = `"${raw}" is how the GROMACS manual spells it, but grompp ${MDP_RELEASE} does not accept it: ${rejected[3][1]}`;
     } else if (/^(adress|implicit-solvent)$/.test(name)) {
@@ -752,7 +914,9 @@ class Checker {
       const near = nearest(raw, all);
       if (near) message += ` Did you mean ${near}?`;
     }
-    this.add('error', 'bad-enum', name, message);
+    // The options framework throws on a module value it cannot match
+    // (findEnumValue), which stops grompp at once.
+    this.add('error', 'bad-enum', name, message, this.isModule(row) ? { fatal: true } : {});
     return row.d;
   }
 
@@ -900,31 +1064,45 @@ class Checker {
     }
   }
 
+  /* Why grompp did not read a known option. */
+  whyUnread(hit) {
+    const row = hit.row;
+    if (row.g && !this.gate[row.g]) {
+      return `${hit.name} is only read when ${GATE_TEXT[row.g].when}; otherwise grompp does not know it`;
+    }
+    if (row.f) {
+      const fam = FAMILIES.find(f => f.row === row);
+      const first = fam.first;
+      const n = this.v[fam.count];
+      return fam.inner
+        ? `${hit.name} is beyond the counts set by ${fam.count} and ${fam.inner.replace('{N}', hit.index[0])}, so grompp does not read it`
+        : `${fam.count} = ${n} means grompp reads ${fam.template.replace('{N}', first)} to ${fam.template.replace('{N}', first + n - 1)} only; ` +
+          `${hit.name} is not among them`;
+    }
+    return `grompp did not read ${hit.name}`;
+  }
+
   /* Whatever grompp did not read: "Unknown left-hand '...' in parameter file". */
   unknownNames() {
     for (const e of this.parsed.entries) {
       if (e.empty || e.duplicate) continue;
       const k = key(e.key);
       if (this.used.has(k)) continue;
-      if (OBSOLETE.has(k) && !lookup(e.key)) continue;
+      if (OBSOLETE.has(k) && !lookup(e.key)) {
+        // grompp renames the entry in place (replace_inp_entry) and then
+        // reads it under the new name only where that name is read: a
+        // renamed pull option is still unknown with pull = no.
+        const obs = OBSOLETE.get(k);
+        const nk = obs.replacement ? key(obs.replacement) : null;
+        if (!nk || this.byKey.get(nk) !== e || this.used.has(nk)) continue;
+        const hit = lookup(obs.replacement);
+        this.add('warning', 'inactive', hit.name, `"${e.key}" is the old name of ${hit.name}, and ${this.whyUnread(hit)}; grompp warns ` +
+          `"Unknown left-hand '${obs.replacement}' in parameter file".`, { line: e.line });
+        continue;
+      }
       const hit = lookup(e.key);
       if (hit) {
-        const row = hit.row;
-        let why;
-        if (row.g && !this.gate[row.g]) {
-          why = `${hit.name} is only read when ${GATE_TEXT[row.g].when}; otherwise grompp does not know it`;
-        } else if (row.f) {
-          const fam = FAMILIES.find(f => f.row === row);
-          const first = fam.first;
-          const n = this.v[fam.count];
-          why = fam.inner
-            ? `${hit.name} is beyond the counts set by ${fam.count} and ${fam.inner.replace('{N}', hit.index[0])}, so grompp does not read it`
-            : `${fam.count} = ${n} means grompp reads ${fam.template.replace('{N}', first)} to ${fam.template.replace('{N}', first + n - 1)} only; ` +
-              `${hit.name} is not among them`;
-        } else {
-          why = `grompp did not read ${hit.name}`;
-        }
-        this.add('warning', 'inactive', hit.name, `${why} and warns "Unknown left-hand '${e.key}' in parameter file".`, { line: e.line });
+        this.add('warning', 'inactive', hit.name, `${this.whyUnread(hit)} and warns "Unknown left-hand '${e.key}' in parameter file".`, { line: e.line });
         continue;
       }
       let hint = '';
@@ -938,7 +1116,7 @@ class Checker {
         if (near) hint = ` Did you mean ${near}?`;
       }
       this.add('warning', 'unknown', null, `"${e.key}" is not an option of GROMACS ${MDP_RELEASE}; grompp warns ` +
-        `"Unknown left-hand '${e.key}' in parameter file" and stops unless -maxwarn allows it.${hint}`, { line: e.line });
+        `"Unknown left-hand '${e.key}' in parameter file" and stops unless -maxwarn allows it.${hiddenCharacters(e.key)}${hint}`, { line: e.line });
     }
   }
 
@@ -952,34 +1130,287 @@ class Checker {
       const n = `electric-field-${axis}`;
       const ws = words(v[n]);
       if (!this.set[n] || !ws.length) continue;
-      if (ws.length !== 4 || ws.some(w => strictReal(w) === null)) {
+      if (ws.length !== 4) {
         this.add('error', 'electric-field', n, `${n} needs four numbers, E0 omega t0 sigma (for a static field: E0 0 0 0). grompp stops.`);
-      } else if (Number(ws[3]) === 0 && Number(ws[2]) !== 0) {
-        this.add('error', 'electric-field', n, `With sigma = 0 the field is not pulsed and t0 is ignored: set t0 to 0 in ${n}.`);
+      } else if (ws.some(w => strictReal(w) === null)) {
+        this.add('error', 'electric-field', n, `Each of the four numbers of ${n} must be a number within single precision ` +
+          `(not inf, nor beyond about 3.4e38); "${ws.find(w => strictReal(w) === null)}" is not. grompp stops.`);
+      } else if (strictReal(ws[3]) <= 0 && strictReal(ws[2]) !== 0) {
+        // electricfield.cpp tests this before the values are read, so grompp
+        // never refuses it; the field is then E0 cos(omega t) whatever t0 is.
+        this.add('note', 'electric-field-t0', n, `With sigma = 0 the field in ${n} is not pulsed and t0 has no effect: ` +
+          'it is E0 cos(omega t). grompp accepts it; set t0 to 0 to say so.', { source: 'advice' });
       }
     }
+    // parsedArrayFromInputString splits at white space only: "0,0,0" is one
+    // word to grompp, which then refuses the option.
     for (const [n, need] of [['density-guided-simulation-shift-vector', 3], ['density-guided-simulation-transformation-matrix', 9]]) {
       if (!this.set[n]) continue;
-      const parts = String(v[n]).split(/[\s,]+/).filter(Boolean);
+      const parts = words(v[n]);
       if (parts.length !== need || parts.some(w => strictReal(w) === null)) {
-        this.add('error', 'density-guided-vector', n, `${n} needs ${need} numbers separated by commas.`);
+        this.add('error', 'density-guided-vector', n, `${n} needs ${need} numbers separated by spaces` +
+          `${/,/.test(v[n]) ? ' (not commas: grompp splits the value at spaces only)' : ''}. grompp stops.`);
       }
     }
 
-    // Pulling, rotation and AWH (read_pullparams, read_rotparams, AwhParams)
+    // Pulling, AWH and rotation (read_pullparams, AwhParams, read_rotparams)
     if (this.gate.pull) this.pullChecks();
-    if (this.gate.rotation && v['rot-ngroups'] < 1) this.add('error', 'rot-ngroups', 'rot-ngroups', 'rot-ngroups must be 1 or more.');
-    if (this.gate.awh) {
-      if (v['awh-nbias'] <= 0) this.add('error', 'awh-nbias', 'awh-nbias', 'awh-nbias must be a whole number above 0.');
-      for (let b = 1; b <= Math.max(0, v['awh-nbias']); b++) {
-        const ndim = v[`awh${b}-ndim`];
-        if (!(ndim > 0 && ndim <= 4)) {
-          this.add('error', 'awh-ndim', `awh${b}-ndim`, `awh${b}-ndim must be between 1 and 4. Note that grompp's default is 0, ` +
-            'not 1 as the manual says, so it has to be set.');
+    if (this.hasFatal()) return;
+    if (this.gate.awh) this.awhReading();
+    if (this.hasFatal()) return;
+    if (this.gate.rotation) this.rotationReading();
+    if (this.hasFatal()) return;
+    if (this.gate.swapcoords && v.iontypes < 1) this.add('error', 'iontypes', 'iontypes', 'At least one ion type is needed for position swapping.');
+  }
+
+  /* read_rotparams (readrot.cpp), group by group. */
+  rotationReading() {
+    const v = this.v;
+    if (v['rot-ngroups'] < 1) {
+      this.add('error', 'rot-ngroups', 'rot-ngroups', 'rot-ngroups must be 1 or more. grompp stops.', { fatal: true });
+      return;
+    }
+    for (let g = 0; g < v['rot-ngroups']; g++) {
+      const p = (s) => `rot-${s}${g}`;
+      // string2dvec: sscanf of three numbers, or a fatal error.
+      const vec = scanReals(v[p('vec')], 3);
+      if (vec.length !== 3) {
+        this.add('error', 'rot-vec-count', p('vec'), `${p('vec')} needs three numbers (the rotation axis, x y z); ` +
+          `"${v[p('vec')]}" does not give three. grompp stops.`, { fatal: true });
+        return;
+      }
+      if (vec.every(x => x === 0)) this.add('error', 'rot-vec-zero', p('vec'), `${p('vec')} is 0 0 0: the rotation axis needs a direction.`);
+      const type = key(v[p('type')]);
+      if (['ISO', 'PM', 'RM', 'RM2'].includes(type) && scanReals(v[p('pivot')], 3).length !== 3) {
+        this.add('error', 'rot-pivot-count', p('pivot'), `With rot-type ${v[p('type')]}, ${p('pivot')} needs three numbers (x y z in nm). ` +
+          'grompp stops.', { fatal: true });
+        return;
+      }
+      if (v[p('k')] <= 0) {
+        this.add('note', 'rot-k', p('k'), `${p('k')} is ${v[p('k')]} (the default is 0), so this rotation group feels no force. ` +
+          'Set a force constant, such as 500 kJ mol^-1 nm^-2.');
+      }
+      if (v[p('slab-dist')] <= 0) this.add('error', 'rot-slab-dist', p('slab-dist'), `${p('slab-dist')} must be above 0.`);
+      if (v[p('min-gauss')] <= 0) this.add('error', 'rot-min-gauss', p('min-gauss'), `${p('min-gauss')} must be above 0.`);
+      if (v[p('eps')] <= 0 && (type === 'RM2' || type === 'FLEX2')) {
+        this.add('error', 'rot-eps', p('eps'), `With rot-type ${v[p('type')]}, ${p('eps')} must be above 0.`);
+      }
+      if (key(v[p('fit-method')]) === 'POTENTIAL' && v[p('potfit-nsteps')] < 1) {
+        this.add('error', 'rot-potfit-nsteps', p('potfit-nsteps'), `With the potential fit method, ${p('potfit-nsteps')} must be 1 or more.`);
+      }
+    }
+  }
+
+  /* What the AWH reader checks while reading (AwhParams, read_params.cpp). */
+  awhReading() {
+    const v = this.v;
+    const nbias = v['awh-nbias'];
+    if (nbias <= 0) {
+      this.add('error', 'awh-nbias', 'awh-nbias', 'awh-nbias must be a whole number above 0. grompp stops.', { fatal: true });
+      return;
+    }
+    const dims = [];
+    for (let b = 1; b <= nbias; b++) {
+      const q = (s) => `awh${b}-${s}`;
+      const target = key(v[q('target')]);
+      if (v[q('target-metric-scaling')] === 'yes' && (target === 'BOLTZMANN' || target === 'LOCALBOLTZMANN')) {
+        this.add('warning', 'awh-metric-scaling', q('target-metric-scaling'), `Scaling a ${v[q('target')]} target by the friction metric ` +
+          'can set up a feedback loop between the two adaptive updates. grompp warns.');
+      }
+      if (v[q('target-metric-scaling')] === 'yes' && v[q('target-metric-scaling-limit')] <= 1) {
+        this.add('warning', 'awh-metric-scaling-limit', q('target-metric-scaling-limit'), `${q('target-metric-scaling-limit')} must be above 1; ` +
+          'grompp uses 10 and warns.');
+      }
+      const ndim = v[q('ndim')];
+      if (!(ndim > 0 && ndim <= 4)) {
+        this.add('error', 'awh-ndim', q('ndim'), `${q('ndim')} must be between 1 and 4. Note that grompp's default is 0, ` +
+          'not 1 as the manual says, so it has to be set. grompp stops.', { fatal: true });
+        return;
+      }
+      for (let d = 1; d <= ndim; d++) {
+        const r = (s) => `awh${b}-dim${d}-${s}`;
+        if (v[r('coord-index')] < 1) {
+          this.add('error', 'awh-coord-index', r('coord-index'), `${r('coord-index')} must be 1 or more: pull coordinates are counted from 1.`);
+        }
+        if (!this.set[r('diffusion')] || v[r('diffusion')] <= 0) {
+          this.add('note', 'awh-diffusion', r('diffusion'), `${r('diffusion')} is not set (or not above 0), so grompp uses 1e-5 nm^2/ps ` +
+            '(or rad^2/ps) and notes that this may be far from right for the system. Set an estimate.',
+          { line: this.set[r('diffusion')] ? this.set[r('diffusion')].line : (this.set[q('ndim')] ? this.set[q('ndim')].line : null) });
+          v[r('diffusion')] = 1e-5;
+        }
+        const share = v[q('share-group')];
+        if (share <= 0 && v[r('cover-diameter')] > 0) {
+          this.add('warning', 'awh-cover-diameter', r('cover-diameter'), `${r('cover-diameter')} only matters when simulations share the bias ` +
+            `(${q('share-group')} above 0). grompp warns.`);
+        }
+        if (share > 0 && v[r('cover-diameter')] === 0) {
+          this.add('warning', 'awh-cover-diameter', r('cover-diameter'), `Simulations share this bias, so set ${r('cover-diameter')} above 0, ` +
+            'as grompp strongly recommends (it warns).');
+        }
+        dims.push({ b, d, pull: key(v[r('coord-provider')]) === 'PULL', index: v[r('coord-index')] });
+      }
+    }
+    // checkInputConsistencyAwh: one pull coordinate per AWH dimension. Pairs
+    // within one bias are met twice, as grompp meets them.
+    for (const x of dims) {
+      for (const y of dims) {
+        if (!x.pull || !y.pull || y.b < x.b || (x.b === y.b && x.d === y.d) || x.index !== y.index) continue;
+        this.add('error', 'awh-coord-twice', `awh${y.b}-dim${y.d}-coord-index`, `Pull coordinate ${x.index} is used by two AWH dimensions ` +
+          `(awh${x.b}-dim${x.d} and awh${y.b}-dim${y.d}); one pull coordinate can bias only one. Duplicate the coordinate if you mean this.`);
+      }
+    }
+    const shares = Array.from({ length: nbias }, (_, i) => v[`awh${i + 1}-share-group`]);
+    if (v['awh-share-multisim'] === 'yes' && !shares.some(s => s > 0)) {
+      this.add('warning', 'awh-share-multisim', 'awh-share-multisim', 'awh-share-multisim = yes, but no bias has a share-group above 0, ' +
+        'so nothing is shared. grompp warns.');
+    }
+    if (shares.some((s, i) => s > 0 && shares.indexOf(s) !== i)) {
+      this.add('warning', 'awh-share-within', 'awh1-share-group', 'Two biases of this simulation have the same share-group, which mdrun ' +
+        'does not support (yet). grompp warns.');
+    }
+  }
+
+  /* checkAwhParams (read_params.cpp), at the end of get_ir. */
+  awhProcessing() {
+    const v = this.v;
+    const nbias = v['awh-nbias'];
+    const dims = [];
+    for (let b = 1; b <= nbias; b++) {
+      for (let d = 1; d <= v[`awh${b}-ndim`]; d++) dims.push({ b, d, fep: key(v[`awh${b}-dim${d}-coord-provider`]) === 'FEPLAMBDA' });
+    }
+    if (this.useMts && this.validMts) {
+      const level = (g) => (this.mtsGroups.includes(g) ? 1 : 0);
+      if (dims.some(x => !x.fep) && level('pull') !== level('awh')) {
+        this.add('error', 'awh-mts', 'mts-level2-forces', 'With AWH on pull coordinates and multiple time stepping, pull and awh must be ' +
+          'in the same MTS level.');
+      }
+      if (dims.some(x => x.fep) && level('awh') !== 1) {
+        this.add('error', 'awh-mts', 'mts-level2-forces', 'With AWH on the free-energy lambda and multiple time stepping, awh must be in ' +
+          'mts-level2-forces.');
+      }
+      if (v['awh-nstsample'] % (level('awh') ? this.mtsFactor : 1) !== 0) {
+        this.add('error', 'awh-mts', 'awh-nstsample', 'With AWH in the slow MTS level, awh-nstsample must be a multiple of mts-level2-factor.');
+      }
+    }
+    if (v['awh-nstout'] <= 0) {
+      this.add('error', 'awh-nstout', 'awh-nstout', `awh-nstout = ${v['awh-nstout']}: AWH without output makes no sense; set it above 0.`);
+    }
+    if (v.nstenergy === 0 || v['awh-nstout'] % v.nstenergy !== 0) {
+      this.add('error', 'awh-nstout-nstenergy', 'awh-nstout', `awh-nstout (${v['awh-nstout']}) must be a multiple of nstenergy (${v.nstenergy}).`);
+    }
+    if (v['awh-nsamples-update'] <= 0) this.add('error', 'awh-nsamples-update', 'awh-nsamples-update', 'awh-nsamples-update must be above 0.');
+    // grompp checks the biases up to and including the first with a lambda dimension.
+    let haveFep = false;
+    for (let b = 1; b <= nbias && !haveFep; b++) {
+      this.awhBiasChecks(b);
+      haveFep = dims.some(x => x.b === b && x.fep);
+    }
+    if (haveFep) {
+      if (v['awh-nstsample'] % v.nstcalcenergy !== 0) {
+        this.add('error', 'awh-nstsample-fep', 'awh-nstsample', `With a lambda dimension, awh-nstsample (${v['awh-nstsample']}) must be a ` +
+          `multiple of nstcalcenergy (${v.nstcalcenergy}).`);
+      }
+      if (key(v['awh-potential']) !== 'UMBRELLA') {
+        this.add('error', 'awh-potential-fep', 'awh-potential', 'With a lambda dimension, awh-potential must be umbrella.');
+      }
+    }
+    if (v['init-step'] !== 0) this.add('error', 'awh-init-step', 'init-step', 'With AWH, init-step must be 0.');
+  }
+
+  /* checkBiasParams and checkDimParams for bias b. */
+  awhBiasChecks(b) {
+    const v = this.v;
+    const q = (s) => `awh${b}-${s}`;
+    if (v[q('error-init')] <= 0) this.add('error', 'awh-error-init', q('error-init'), `${q('error-init')} must be above 0.`);
+    if (v[q('growth-factor')] <= 1) this.add('error', 'awh-growth-factor', q('growth-factor'), `${q('growth-factor')} must be above 1.`);
+    const growthExp = key(v[q('growth')]) === 'EXPLINEAR';
+    if (v[q('equilibrate-histogram')] === 'yes' && !growthExp) {
+      this.add('warning', 'awh-equilibrate-histogram', q('equilibrate-histogram'), `${q('equilibrate-histogram')} only has an effect with ` +
+        `${q('growth')} = exp-linear. grompp warns.`);
+    }
+    const target = key(v[q('target')]);
+    if (target === 'LOCALBOLTZMANN' && growthExp) {
+      this.add('warning', 'awh-local-boltzmann', q('growth'), 'The local-boltzmann target with exp-linear growth is not expected to give ' +
+        `stable updates; use ${q('growth')} = linear. grompp warns.`);
+    }
+    const beta = v[q('target-beta-scaling')];
+    if (target === 'BOLTZMANN' || target === 'LOCALBOLTZMANN') {
+      if (beta < 0 || beta > 1) this.add('error', 'awh-target-beta-scaling', q('target-beta-scaling'), `${q('target-beta-scaling')} must be between 0 and 1.`);
+    } else if (beta !== 0) {
+      this.add('error', 'awh-target-unused', q('target-beta-scaling'), `${q('target-beta-scaling')} is set but ${q('target')} = ${v[q('target')]} ` +
+        'does not use it; grompp stops. Remove it.');
+    }
+    const cutoff = v[q('target-cutoff')];
+    if (target === 'CUTOFF') {
+      if (cutoff <= 0) this.add('error', 'awh-target-cutoff', q('target-cutoff'), `${q('target-cutoff')} must be above 0 for the cutoff target.`);
+    } else if (cutoff !== 0) {
+      this.add('error', 'awh-target-unused', q('target-cutoff'), `${q('target-cutoff')} is set but ${q('target')} = ${v[q('target')]} ` +
+        'does not use it; grompp stops. Remove it.');
+    }
+    if (v[q('share-group')] < 0) this.add('error', 'awh-share-group', q('share-group'), `${q('share-group')} cannot be negative.`);
+    const ndim = v[q('ndim')];
+    if (ndim > 2) {
+      this.add('note', 'awh-ndim-rough', q('ndim'), 'With more than two AWH dimensions the estimate from the diffusion and initial error ' +
+        'is only a rough guide; check it before production runs.');
+    }
+    for (let d = 1; d <= ndim; d++) {
+      const r = (s) => `awh${b}-dim${d}-${s}`;
+      const start = v[r('start')];
+      const end = v[r('end')];
+      if (key(v[r('coord-provider')]) === 'PULL') {
+        if (!this.gate.pull) {
+          this.add('error', 'awh-needs-pull', r('coord-provider'), `${r('coord-provider')} = pull needs pull = yes.`);
+          continue;
+        }
+        const index = v[r('coord-index')];
+        const ncoord = v['pull-ncoords'];
+        if (index < 1) {
+          this.add('error', 'awh-coord-index', r('coord-index'), `${r('coord-index')} must be 1 or more: pull coordinates are counted from 1.`);
+        }
+        if (index > ncoord) {
+          this.add('error', 'awh-coord-range', r('coord-index'), `${r('coord-index')} = ${index}, but there ${ncoord === 1 ? 'is' : 'are'} only ` +
+            `${ncoord} pull coordinate${ncoord === 1 ? '' : 's'} (pull-ncoords).`);
+        }
+        const inRange = index >= 1 && index <= ncoord;
+        if (inRange && v[`pull-coord${index}-rate`] !== 0) {
+          this.add('error', 'awh-pull-rate', `pull-coord${index}-rate`, `pull-coord${index}-rate must be 0 for a coordinate AWH biases.`);
+        }
+        if (end - start === 0) {
+          this.add('warning', 'awh-interval-zero', r('end'), `${r('start')} and ${r('end')} are equal, so the grid has one point along this ` +
+            'dimension. grompp warns.');
+        }
+        if (v[r('force-constant')] <= 0) {
+          this.add('error', 'awh-force-constant', r('force-constant'), `${r('force-constant')} must be above 0 (its default is 0, so it has to be set).`);
+        }
+        const geom = inRange ? key(v[`pull-coord${index}-geometry`]) : '';
+        if (geom === 'DISTANCE' && (start < 0 || end < 0)) {
+          this.add('error', 'awh-interval-range', r('start'), `${r('start')} and ${r('end')} cannot be negative with the distance geometry; ` +
+            'use geometry direction for signed values.');
+        } else if ((geom === 'ANGLE' || geom === 'ANGLEAXIS') && (start < 0 || end > 180)) {
+          this.add('error', 'awh-interval-range', r('start'), `${r('start')} and ${r('end')} must lie within 0 to 180 degrees for an angle.`);
+        } else if (geom === 'DIHEDRAL' && (start < -180 || end > 180)) {
+          this.add('error', 'awh-interval-range', r('start'), `${r('start')} and ${r('end')} must lie within -180 to 180 degrees for a dihedral.`);
+        }
+      } else {
+        const n = this.lambdas.n;
+        if (this.efep === 'NO') this.add('error', 'awh-needs-fep', r('coord-provider'), `${r('coord-provider')} = fep-lambda needs free-energy = yes.`);
+        if (v['calc-lambda-neighbors'] !== -1) {
+          this.add('error', 'awh-lambda-neighbors', 'calc-lambda-neighbors', 'AWH on the lambda state needs calc-lambda-neighbors = -1 (all states).');
+        }
+        if (this.efep === 'SLOWGROWTH' || v['delta-lambda'] !== 0) {
+          this.add('error', 'awh-slow-growth', 'delta-lambda', 'AWH on the lambda state cannot be combined with slow growth: delta-lambda must be 0.');
+        }
+        if (this.efep === 'EXPANDED') this.add('error', 'awh-expanded', 'free-energy', 'AWH on the lambda state cannot be combined with free-energy = expanded.');
+        if (start < 0) this.add('error', 'awh-lambda-range', r('start'), `${r('start')} is a lambda state and cannot be negative.`);
+        if (end >= n) this.add('error', 'awh-lambda-range', r('end'), `${r('end')} (${end}) must be below the number of lambda states (${n}).`);
+        if (end - start === 0) {
+          this.add('warning', 'awh-interval-zero', r('end'), `${r('start')} and ${r('end')} are equal, so only one lambda state is sampled. grompp warns.`);
+        }
+        if (v[r('force-constant')] !== 0) {
+          this.add('error', 'awh-force-constant-fep', r('force-constant'), `${r('force-constant')} is not used with the lambda state; leave it at 0.`);
         }
       }
     }
-    if (this.gate.swapcoords && v.iontypes < 1) this.add('error', 'iontypes', 'iontypes', 'At least one ion type is needed for position swapping.');
   }
 
   /* ---- get_ir: processing after reading ---- */
@@ -1024,7 +1455,7 @@ class Checker {
     if (key(v['comm-mode']) === 'NONE') v.nstcomm = 0;
 
     // Free energy
-    const couple = String(v['couple-moltype'] || '').trim();
+    const couple = ctrim(v['couple-moltype'] || '');
     if (couple) {
       if (this.efep !== 'NO') {
         if (key(v['couple-lambda0']) === key(v['couple-lambda1'])) {
@@ -1075,7 +1506,7 @@ class Checker {
 
     // Deformation
     this.deform = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
-    const deformText = String(v.deform || '').trim();
+    const deformText = ctrim(v.deform || '');
     if (deformText) {
       const nums = scanReals(deformText, 7);
       if (nums.length !== 6) {
@@ -1085,11 +1516,29 @@ class Checker {
       const d = [...nums, 0, 0, 0, 0, 0, 0];
       this.deform = [[d[0], 0, 0], [d[3], d[1], 0], [d[4], d[5], d[2]]];
       if (this.epc !== 'NO') {
-        let bad = false;
-        for (let i = 0; i < 3; i++) for (let j = 0; j <= i; j++) if (this.deform[i][j] !== 0 && this.compress[i][j] !== 0) bad = true;
-        if (bad) {
-          this.add('error', 'deform-compressibility', 'deform', 'A box element is both deformed (deform) and pressure-coupled ' +
-            '(compressibility above 0). Set the compressibility of deformed elements to 0.');
+        // readir.cpp: an error for each element both deformed and coupled...
+        const label = [['a', '', ''], ['b(x)', 'b', ''], ['c(x)', 'c(y)', 'c']];
+        for (let i = 0; i < 3; i++) {
+          for (let j = 0; j <= i; j++) {
+            if (this.deform[i][j] !== 0 && this.compress[i][j] !== 0) {
+              this.add('error', 'deform-compressibility', 'deform', `Box element ${label[i][j]} is both deformed (deform) and pressure-coupled ` +
+                '(compressibility above 0). Set the compressibility of deformed elements to 0.');
+            }
+          }
+        }
+        // ...and a warning for each off-diagonal element deformed while the
+        // same component of another box vector is pressure-coupled.
+        for (let i = 0; i < 3; i++) {
+          for (let j = 0; j < i; j++) {
+            if (this.deform[i][j] === 0) continue;
+            for (let m = j; m < 3; m++) {
+              if (this.compress[m][j] !== 0) {
+                this.add('warning', 'deform-shear-coupled', 'deform', `Box element ${label[i][j]} is deformed while the ` +
+                  `${'xyz'[j]} component of box vector ${'abc'[m]} is pressure-coupled, which can give spurious periodicity effects; ` +
+                  'grompp warns. Set that compressibility to 0 (anisotropic coupling) or couple the pressure without deform.');
+              }
+            }
+          }
         }
       }
     }
@@ -1119,6 +1568,8 @@ class Checker {
       this.validMts = v['mts-levels'] === 2 && this.mtsFactor > 1;
     }
 
+    // AWH: checkAwhParams closes get_ir.
+    if (this.gate.awh) this.awhProcessing();
   }
 
   fepParams() {
@@ -1180,7 +1631,7 @@ class Checker {
         this.add('error', 'pull-constraint-geometry', p('type'), `Constraint pulling cannot be combined with geometry ${v[p('geometry')]}; use umbrella.`);
       }
       if (type === 'EXTERNALPOTENTIAL') {
-        if (!String(v[p('potential-provider')] || '').trim()) {
+        if (!ctrim(v[p('potential-provider')] || '')) {
           this.add('error', 'pull-provider', p('potential-provider'), `Type external-potential needs ${p('potential-provider')} (for example awh).`);
         }
         if (v[p('rate')] !== 0) this.add('error', 'pull-external-rate', p('rate'), 'An external potential needs pull rate 0.');
@@ -1205,7 +1656,14 @@ class Checker {
       if (!bad && (geom === 'ANGLE' || geom === 'ANGLEAXIS') && ndim < 2) {
         this.add('error', 'pull-dim', p('dim'), `The ${v[p('geometry')]} geometry needs Y for at least two dimensions.`);
       }
-      const origin = scanReals(v[p('origin')], 3);
+      // string2dvec (readpull.cpp) wants exactly three numbers: a fourth is
+      // as fatal as a missing one.
+      const origin = scanReals(v[p('origin')], 4);
+      if (origin.length !== 3) {
+        this.add('error', 'pull-vector-count', p('origin'), `${p('origin')} needs exactly three numbers (x y z); "${v[p('origin')]}" ` +
+          `gives ${origin.length}. grompp stops.`, { fatal: true });
+        return;
+      }
       if (groups[0] !== 0 && origin.some(x => x !== 0)) {
         this.add('error', 'pull-origin', p('origin'), 'A pull origin can only be set when the first group is 0 (an absolute reference).');
       }
@@ -1220,7 +1678,12 @@ class Checker {
           this.add('warning', 'pull-init-angle', p('init'), `${p('init')} is outside -180 to 180 degrees for a dihedral.`);
         }
       }
-      const vec = scanReals(v[p('vec')], 3);
+      const vec = scanReals(v[p('vec')], 4);
+      if (vec.length !== 3) {
+        this.add('error', 'pull-vector-count', p('vec'), `${p('vec')} needs exactly three numbers (x y z); "${v[p('vec')]}" ` +
+          `gives ${vec.length}. grompp stops.`, { fatal: true });
+        return;
+      }
       const vecSet = vec.some(x => x !== 0);
       if (['DIRECTION', 'CYLINDER', 'DIRECTIONPERIODIC', 'ANGLEAXIS'].includes(geom)) {
         if (!vecSet) {
@@ -1239,7 +1702,7 @@ class Checker {
       }
       if (geom === 'TRANSFORMATION') {
         if (type === 'CONSTRAINT') this.add('error', 'pull-transformation', p('type'), 'A transformation coordinate cannot be of type constraint.');
-        const expr = String(v[p('expression')] || '').trim();
+        const expr = ctrim(v[p('expression')] || '');
         if (!expr) this.add('error', 'pull-transformation', p('expression'), `${p('expression')} must be set for geometry transformation.`);
         else if (/^["']/.test(expr)) this.add('error', 'pull-transformation', p('expression'), 'Write the expression without quotes.');
         if (v[p('dx')] === 0) this.add('error', 'pull-transformation', p('dx'), `${p('dx')} cannot be 0.`);
@@ -1268,6 +1731,17 @@ class Checker {
     const nbounded = pbc === 'XYZ' || pbc === 'SCREW' ? 3 : pbc === 'XY' ? (v.nwall === 2 ? 3 : 2) : 0;
     this.nbounded = nbounded;
 
+    // Spellings the reader takes but nothing after it does.
+    if (pbc === 'UNSET') {
+      this.add('error', 'pbc-unset', 'pbc', 'pbc = unset is an internal placeholder, not a choice: grompp crashes on it (an assertion ' +
+        'failure). Use pbc = xyz.', { fatal: true });
+      return;
+    }
+    if (I === I_SD2) {
+      this.add('error', 'sd2-removed', 'integrator', 'The sd2 integrator was removed: grompp accepts the name, but mdrun stops ' +
+        '("SD2 integrator has been removed"). Use integrator = sd.', { source: 'mdrun' });
+    }
+
     if (dyn && !(v.dt > 0)) this.add('error', 'dt', 'dt', 'dt must be larger than 0 for dynamics.');
 
     // MTS requirements
@@ -1290,7 +1764,7 @@ class Checker {
       }
     }
 
-    if (ct === 'REACTIONFIELDNEC(UNSUPPORTED)') this.add('error', 'coulombtype-removed', 'coulombtype', 'Reaction-Field-nec is no longer supported.');
+    if (ct === CT_RF_NEC) this.add('error', 'coulombtype-removed', 'coulombtype', 'Reaction-Field-nec is no longer supported; use Reaction-Field.');
 
     // Cut-offs
     if (v.rcoulomb < 0) this.add('error', 'rcoulomb-negative', 'rcoulomb', 'rcoulomb cannot be negative.');
@@ -1657,7 +2131,7 @@ class Checker {
       this.add('warning', 'lbfgs-cutoff', 'integrator', 'L-BFGS minimisation is inefficient with plain cut-offs; use PME or switched interactions.');
     }
     if (I === 'LBFGS' && v.nbfgscorr <= 0) this.add('warning', 'lbfgs-nbfgscorr', 'nbfgscorr', 'L-BFGS with nbfgscorr <= 0 is just steepest descent.');
-    if (ct === 'GENERALIZEDBORN(UNUSED)') this.add('error', 'coulombtype-gb', 'coulombtype', 'Generalized-Born is not a valid coulombtype.');
+    if (ct === CT_GB) this.add('error', 'coulombtype-gb', 'coulombtype', 'Generalized-Born is not a valid coulombtype: implicit solvent was removed.');
     if (v.QMMM === 'yes') {
       this.add('error', 'qmmm-removed', 'QMMM', 'The QM/MM interface this switched on was removed. Use integrator = mimic for MiMiC, or qmmm-cp2k-active = true for CP2K.');
     }
@@ -1882,15 +2356,16 @@ class Checker {
       this.add('error', 'genvel-continuation', 'gen-vel', 'gen-vel = yes and continuation = yes contradict each other: new velocities mean a new ' +
         'start. Choose one; when continuing from a checkpoint, use gen-vel = no.');
     }
-    const rigidWater = ctx.rigidWater !== false;
-    const constrained = this.nshake > 0 || rigidWater;
+    this.rigidWater = this.rigidWaterAssumed();
+    const constrained = this.nshake > 0 || this.rigidWater.rigid;
     if (constrained && key(v['constraint-algorithm']) === 'SHAKE') {
       if (I === 'CG' || I === 'LBFGS') {
         this.add('error', 'shake-minimiser', 'constraint-algorithm', `${v.integrator} cannot be used with SHAKE; use LINCS.`,
-          { assumes: this.nshake > 0 ? undefined : 'the topology has rigid (SETTLE) water' });
+          { assumes: this.nshake > 0 ? undefined : this.rigidWater.assumes });
       }
       if (v['periodic-molecules'] === 'yes') this.add('error', 'shake-periodic', 'constraint-algorithm', 'SHAKE does not work with periodic molecules; use LINCS.');
     }
+    if (this.preprocessorWords()) return;
     // Raised while reading the topology (topio.cpp and grompp.cpp): known
     // only when the caller says which force field the topology uses.
     const ffid = String(ctx.forceField || '').toLowerCase();
@@ -1914,6 +2389,48 @@ class Checker {
         `warns about macros defined but never used. ${unused.includes('POSRES') ? 'Remove -DPOSRES when the topology has no position restraints.' : 'Remove it or check its spelling.'}`,
         { assumes: Array.isArray(ctx.usedMacros) ? 'the topology uses only the macros listed' : 'the topology has no position restraints' });
     }
+  }
+
+  /*
+   * Whether the topology has rigid (SETTLE) water, which counts as a
+   * constraint for the SHAKE and MTTK checks. The caller may say; otherwise
+   * -DFLEXIBLE (which makes the pdb2gmx water models flexible) or a
+   * coarse-grained system (single-bead water) means no, and anything else yes.
+   */
+  rigidWaterAssumed() {
+    const ctx = this.ctx;
+    if (ctx.rigidWater !== undefined) return { rigid: !!ctx.rigidWater, assumes: undefined };
+    if (words(this.v.define).some(w => /^-DFLEXIBLE(=|$)/.test(w))) {
+      return { rigid: false, assumes: 'define has -DFLEXIBLE, so the water is flexible (no SETTLE)' };
+    }
+    if (ctx.system === 'coarse-grained') return { rigid: false, assumes: 'coarse-grained water has no SETTLE constraints' };
+    return { rigid: true, assumes: 'the topology has rigid (SETTLE) water' };
+  }
+
+  /*
+   * cpp_opts (topio.cpp): each word of define must start with -D and each
+   * word of include with -I. A longer word that does not is dropped with a
+   * warning. A word of one or two characters is never stepped over, so
+   * grompp loops for ever: "-D POSRES" (with a space) hangs it.
+   */
+  preprocessorWords() {
+    for (const [option, flag, example] of [['define', '-D', '-DPOSRES'], ['include', '-I', '-I/path/to/itp-files']]) {
+      for (const w of words(this.v[option])) {
+        if (w.length <= 2) {
+          this.add('error', 'preprocessor-hang', option, `"${w}" in ${option} is a word of ${w.length === 1 ? 'one character' : 'two characters'}, ` +
+            `which grompp's parser never steps over: grompp does not stop or finish, it hangs while reading the topology. ` +
+            `Write each ${option} as one word, such as ${example}.`, { fatal: true });
+          return true;
+        }
+        if (!w.startsWith(flag)) {
+          this.add('warning', 'preprocessor-malformed', option, `"${w}" in ${option} does not start with ${flag}: grompp ignores it and warns ` +
+            `"Malformed ${option} option ${w}".` + (option === 'define' && w.startsWith('-I') ? ' Include paths belong in include.'
+              : option === 'include' && w.startsWith('-D') ? ' Macros belong in define.'
+                : /^["']/.test(w) ? ' Write it without quotes.' : w.startsWith('-') ? '' : ` Write it as ${flag}${w}.`));
+        }
+      }
+    }
+    return false;
   }
 
   /* grompp.cpp between the two check_warning_error calls. */
@@ -2003,11 +2520,18 @@ class Checker {
     this.taus = tau.map(w => strictReal(w));
     this.refts = reft.map(w => strictReal(w));
     if (this.ctx.indexGroups) this.groupNames();
+    if (this.overlaps('tc-grps', 'T-Coupling')) return;
     this.tauMax = 0;
     this.refMax = 0;
     if (hasRefT && tcg.length && tau.length === tcg.length && reft.length === tcg.length) {
-      if (this.taus.some(x => x === null)) this.add('error', 'tau-t-number', 'tau-t', 'tau-t should hold only numbers separated by spaces.');
-      if (this.refts.some(x => x === null)) this.add('error', 'ref-t-number', 'ref-t', 'ref-t should hold only numbers separated by spaces.');
+      // convertReals: an error for each value that is not a number within
+      // single precision (inf and 1e39 included).
+      tau.forEach((w, i) => {
+        if (this.taus[i] === null) this.add('error', 'tau-t-number', 'tau-t', `"${w}" in tau-t is not a number grompp can read; tau-t should hold only numbers separated by spaces.`);
+      });
+      reft.forEach((w, i) => {
+        if (this.refts[i] === null) this.add('error', 'ref-t-number', 'ref-t', `"${w}" in ref-t is not a number grompp can read; ref-t should hold only numbers separated by spaces.`);
+      });
       let tauMin = 1e20;
       this.taus.forEach((t) => {
         if (t === null) return;
@@ -2038,7 +2562,8 @@ class Checker {
       const nstcmin = this.etc === 'NOSEHOOVER' ? MIN_STEPS_PER_PERIOD : ['BERENDSEN', 'VRESCALE'].includes(this.etc) ? MIN_STEPS_PER_TAU : 1;
       if (nstcmin > 1 && this.etc !== 'VRESCALE' && tauMin < 1e20) {
         if (tauMin / (v.dt * this.nsttcouple) < nstcmin - 10 * GMX_REAL_EPS) {
-          this.add('warning', 'tau-t-short', 'tau-t', `tau-t (${tauMin} ps) should be at least ${nstcmin} times nsttcouple x dt ` +
+          // tauMin is the float grompp compares; the message shows it as written.
+          this.add('warning', 'tau-t-short', 'tau-t', `tau-t (${fmt(tauMin)} ps) should be at least ${nstcmin} times nsttcouple x dt ` +
             `(${fmt(this.nsttcouple * v.dt)} ps) for ${v.tcoupl} to be integrated properly.`);
         }
       }
@@ -2055,24 +2580,41 @@ class Checker {
     this.annealing(tcg.length);
     if (this.hasErrors()) return;
 
+    // Pull, rotation and swap groups are looked up next: an empty name
+    // matches no group, so grompp stops.
+    if (this.namedGroups()) return;
+
     // Acceleration and freezing
     const acc = words(v['acc-grps']);
     const accVals = words(v.accelerate);
     if (acc.length * 3 !== accVals.length) {
       this.add('error', 'accelerate-count', 'accelerate', `acc-grps has ${acc.length} group${acc.length === 1 ? '' : 's'}, so accelerate needs ` +
-        `${acc.length * 3} numbers (x y z for each); it has ${accVals.length}. grompp stops.`);
+        `${acc.length * 3} numbers (x y z for each); it has ${accVals.length}. grompp stops.`, { fatal: true });
+      return;
+    }
+    if (this.overlaps('acc-grps', 'Acc. not used')) return;
+    // convertRvecs: an error for every word that is not a number.
+    for (const w of accVals.filter(x => strictReal(x) === null)) {
+      this.add('error', 'accelerate-number', 'accelerate', `"${w}" in accelerate is not a number: accelerate holds x y z accelerations ` +
+        '(nm ps^-2) for each group in acc-grps.');
     }
     this.useAcceleration = accVals.some(w => strictReal(w));
     const frz = words(v.freezegrps);
     const frzDim = words(v.freezedim);
     if (frzDim.length !== frz.length * 3) {
       this.add('error', 'freezedim-count', 'freezedim', `freezegrps has ${frz.length} group${frz.length === 1 ? '' : 's'}, so freezedim needs ` +
-        `${frz.length * 3} entries (Y or N for x, y and z of each); it has ${frzDim.length}. grompp stops.`);
-    } else {
-      const bad = frzDim.find(w => !/^[YN]/i.test(w));
-      if (bad) this.add('warning', 'freezedim-value', 'freezedim', `Use Y or N in freezedim, not "${bad}".`);
+        `${frz.length * 3} entries (Y or N for x, y and z of each); it has ${frzDim.length}. grompp stops.`, { fatal: true });
+      return;
     }
+    if (this.overlaps('freezegrps', 'Freeze')) return;
+    const bad = frzDim.find(w => !/^[YN]/i.test(w));
+    if (bad) this.add('warning', 'freezedim-value', 'freezedim', `Use Y or N in freezedim, not "${bad}".`);
     this.frozenAll = [0, 1, 2].map(d => frz.some((_, g) => /^y/i.test(frzDim[g * 3 + d] || '')));
+    if (this.overlaps('energygrps', 'Energy Mon.') || this.overlaps('comm-grps', 'VCM')) return;
+    if (this.commMode !== 'NONE') this.frozenInComGroups(frz, frzDim);
+    for (const [n, title] of [['user1-grps', 'User1'], ['user2-grps', 'User2'], ['compressed-x-grps', 'Compressed X'], ['orire-fitgrp', 'Or. Res. Fit']]) {
+      if (this.overlaps(n, title)) return;
+    }
 
     if (words(v['QMMM-grps']).length > 1) this.add('error', 'qmmm-groups', 'QMMM-grps', 'MiMiC supports only one QM group.');
     if (words(v['energygrp-excl']).length) {
@@ -2113,13 +2655,119 @@ class Checker {
 
   groupNames() {
     const known = new Set(this.ctx.indexGroups.map(g => String(g).toLowerCase()));
-    for (const n of ['tc-grps', 'comm-grps', 'energygrps', 'compressed-x-grps', 'acc-grps', 'freezegrps', 'user1-grps', 'user2-grps', 'QMMM-grps', 'orire-fitgrp']) {
-      for (const g of words(this.v[n])) {
+    const v = this.v;
+    const options = ['tc-grps', 'comm-grps', 'energygrps', 'compressed-x-grps', 'acc-grps', 'freezegrps', 'user1-grps', 'user2-grps',
+      'QMMM-grps', 'orire-fitgrp'];
+    // Group options read only when their feature is on: every one grompp read
+    // (this.v holds exactly those) is looked up in the index.
+    for (const n of Object.keys(v)) {
+      if (/^(pull-group\d+-name|rot-group\d+|split-group[01]|solvent-group|iontype\d+-name)$/.test(n)) options.push(n);
+    }
+    if (v['IMD-group']) options.push('IMD-group');
+    // Module groups are looked up only when the module is active.
+    for (const [sw, n] of [['density-guided-simulation-active', 'density-guided-simulation-group'], ['qmmm-cp2k-active', 'qmmm-cp2k-qmgroup'],
+      ['nnpot-active', 'nnpot-input-group']]) {
+      if (v[sw] === true) options.push(n);
+    }
+    for (const n of options) {
+      for (const g of words(v[n])) {
         if (!known.has(g.toLowerCase())) {
           this.add('error', 'group-unknown', n, `Group ${g} in ${n} is not in the index: group names must match [ moleculetype ] names, ` +
             'default groups or groups of the index file given to grompp -n.');
         }
       }
+    }
+  }
+
+  /*
+   * do_numbering puts each atom in at most one group of an option, and stops
+   * at the first atom it meets twice ("Atom 1 in multiple T-Coupling groups").
+   * A group named twice always does that; System next to any other group
+   * does too, as System holds every atom. Names compare ignoring case.
+   */
+  overlaps(option, title) {
+    const names = words(this.v[option]);
+    const seen = new Set();
+    for (const g of names) {
+      if (seen.has(g.toLowerCase())) {
+        this.add('error', 'group-twice', option, `${option} names ${g} twice, which puts its atoms in two ${title} groups: grompp stops ` +
+          `("Atom ... in multiple ${title} groups"). Name each group once.`, { fatal: true });
+        return true;
+      }
+      seen.add(g.toLowerCase());
+    }
+    if (names.length > 1 && seen.has('system')) {
+      this.add('error', 'group-twice', option, `${option} lists System with other groups, but System holds every atom, so atoms end up in ` +
+        `two ${title} groups and grompp stops. Use System alone, or groups that do not overlap.`,
+      { fatal: true, assumes: 'System is the default group of all atoms' });
+      return true;
+    }
+    return false;
+  }
+
+  /* Pull, rotation and swap groups by name (do_index): a name left empty
+     matches no index group, and grompp stops. */
+  namedGroups() {
+    const v = this.v;
+    const fatal = (option, message) => { this.add('error', 'group-unset', option, message, { fatal: true }); return true; };
+    if (this.gate.pull) {
+      for (let g = 1; g <= v['pull-ngroups']; g++) {
+        if (!ctrim(v[`pull-group${g}-name`] || '')) {
+          return fatal(`pull-group${g}-name`, `pull-group${g}-name is not set: pull-ngroups = ${v['pull-ngroups']} needs an index group for ` +
+            `each pull group. grompp stops ("Pull option pull_group${g} required by grompp has not been set").`);
+        }
+      }
+    }
+    if (this.gate.rotation) {
+      for (let g = 0; g < v['rot-ngroups']; g++) {
+        if (!ctrim(v[`rot-group${g}`] || '')) {
+          return fatal(`rot-group${g}`, `rot-group${g} is not set: every rotation group needs the index group it rotates. grompp stops.`);
+        }
+      }
+    }
+    if (this.gate.swapcoords) {
+      // make_swap_groups compares the two split groups exactly (strcmp).
+      if (String(v['split-group0'] || '') === String(v['split-group1'] || '')) {
+        return fatal('split-group1', `The two split groups are both "${v['split-group0'] || ''}": split-group0 and split-group1 must be the ` +
+          'two channels (index groups) that divide the compartments. grompp stops.');
+      }
+      const names = ['split-group0', 'split-group1', 'solvent-group'];
+      for (let t = 0; t < v.iontypes; t++) names.push(`iontype${t}-name`);
+      for (const n of names) {
+        if (!ctrim(v[n] || '')) return fatal(n, `${n} is not set: position swapping needs it as an index group. grompp stops.`);
+      }
+    }
+    return false;
+  }
+
+  /*
+   * checkAndUpdateVcmFreezeGroupConsistency (readir.cpp), with COM removal
+   * on: atoms frozen in one or two directions inside a COM-removal group get
+   * a warning (unless every atom is frozen that way); fully frozen ones are
+   * taken out of the group, with a note.
+   */
+  frozenInComGroups(frz, frzDim) {
+    let partial = false;
+    let partialAll = false;
+    let full = false;
+    frz.forEach((g, i) => {
+      const n = [0, 1, 2].filter(d => /^y/i.test(frzDim[i * 3 + d])).length;
+      if (n === 3) full = true;
+      else if (n > 0) {
+        partial = true;
+        if (g.toLowerCase() === 'system') partialAll = true;
+      }
+    });
+    const assumes = words(this.v['comm-grps']).length
+      ? { assumes: 'the frozen groups overlap the groups in comm-grps' } : { assumes: 'the frozen groups hold atoms (comm-grps is the whole system)' };
+    if (full) {
+      this.add('note', 'freeze-com-full', 'freezegrps', 'Fully frozen atoms (Y Y Y) are in a centre-of-mass removal group: grompp takes ' +
+        'them out of it and notes it.', assumes);
+    }
+    if (partial && !partialAll) {
+      this.add('warning', 'freeze-com-partial', 'freezedim', 'Atoms frozen in only one or two directions are in a centre-of-mass removal ' +
+        'group: their mass still counts along the frozen directions, so the correction is too small. grompp warns. Freeze them in all ' +
+        'three directions, leave them out of comm-grps, or set comm-mode = None.', assumes);
     }
   }
 
@@ -2143,10 +2791,11 @@ class Checker {
         `(one per temperature group); it has ${np.length}. grompp stops.`);
       return;
     }
+    // convertInts (fromString<int>): whole numbers within an int.
     const npts = np.map(w => {
-      const r = cInteger(w);
-      if (!r.ok) this.add('error', 'annealing-npoints-number', 'annealing-npoints', 'annealing-npoints should hold whole numbers only.');
-      return r.value;
+      const n = strictInt(w);
+      if (n === null) this.add('error', 'annealing-npoints-number', 'annealing-npoints', 'annealing-npoints should hold whole numbers only.');
+      return n === null ? 0 : n;
     });
     if (npts.some(n => n === 1)) {
       this.add('error', 'annealing-one-point', 'annealing-npoints', 'An annealing schedule needs at least a start and an end point (2 or more). grompp stops.');
@@ -2165,8 +2814,12 @@ class Checker {
     }
     const tv = times.map(strictReal);
     const Tv = temps.map(strictReal);
-    if (tv.some(x => x === null)) this.add('error', 'annealing-time-number', 'annealing-time', 'annealing-time should hold numbers only.');
-    if (Tv.some(x => x === null)) this.add('error', 'annealing-temp-number', 'annealing-temp', 'annealing-temp should hold numbers only.');
+    for (const w of times.filter((_, i) => tv[i] === null)) {
+      this.add('error', 'annealing-time-number', 'annealing-time', `"${w}" in annealing-time is not a number; annealing-time should hold numbers only.`);
+    }
+    for (const w of temps.filter((_, i) => Tv[i] === null)) {
+      this.add('error', 'annealing-temp-number', 'annealing-temp', `"${w}" in annealing-temp is not a number; annealing-temp should hold numbers only.`);
+    }
     let k = 0;
     for (let g = 0; g < npts.length; g++) {
       for (let j = 0; j < npts[g]; j++, k++) {
@@ -2244,7 +2897,7 @@ class Checker {
     } else if (charged && this.ct === 'CUTOFF' && v.rcoulomb > 0) {
       this.add('note', 'plain-cutoff', 'coulombtype', 'A plain Coulomb cut-off can cause artefacts; PME is usually better.', { assumes: 'the system has charges' });
     }
-    if (this.ct === 'GENERALIZEDREACTIONFIELD(UNUSED)') {
+    if (this.ct === CT_GRF) {
       this.add('error', 'grf', 'coulombtype', 'Generalized reaction field is no longer supported; use Reaction-Field.');
     }
     if (this.gate.pull && this.pullCoordGeom) {
@@ -2288,7 +2941,7 @@ class Checker {
     const v = this.v;
     const I = this.I;
     const normalConstraints = this.nshake > 0;
-    const anyConstraints = normalConstraints || this.ctx.rigidWater !== false;
+    const anyConstraints = normalConstraints || this.rigidWater.rigid;
     const shake = key(v['constraint-algorithm']) === 'SHAKE';
     if (normalConstraints && shake && v['shake-tol'] <= 0) this.add('error', 'shake-tol', 'shake-tol', 'shake-tol must be above 0.');
     if (!shake && normalConstraints) {
@@ -2302,7 +2955,7 @@ class Checker {
     }
     if (anyConstraints && this.epc === 'MTTK') {
       this.add('error', 'mttk-constraints', 'pcoupl', 'MTTK pressure coupling does not work with constraints.',
-        { assumes: normalConstraints ? undefined : 'the topology has rigid (SETTLE) water' });
+        { assumes: normalConstraints ? undefined : this.rigidWater.assumes });
     }
     if (v['lincs-warnangle'] > 90) this.add('warning', 'lincs-warnangle', 'lincs-warnangle', 'lincs-warnangle cannot exceed 90 degrees; grompp uses 90 and warns.');
     if (key(v.pbc) !== 'NO' && v.nstlist === 0) {
@@ -2319,32 +2972,138 @@ class Checker {
         this.add('note', 'nve-buffer', 'tcoupl', v['gen-vel'] === 'yes'
           ? `No thermostat (NVE): grompp sizes the Verlet buffer for the starting temperature, gen-temp = ${v['gen-temp']} K.`
           : 'No thermostat (NVE): grompp sizes the Verlet buffer for the temperature of the starting velocities.');
+        this.nveDrift();
       } else if (this.hasRefT && this.taus.some(t => t !== null && t < 0)) {
         this.add('warning', 'tau-t-uncoupled', 'tau-t', 'Some temperature groups are not coupled (tau-t = -1); grompp assumes they are no hotter ' +
           'than the others when sizing the Verlet buffer, and warns.');
       }
+    }
+    this.cutoffEvaluation();
+  }
+
+  /*
+   * grompp.cpp notes an NVE run whose buffer tolerance could let the energy
+   * drift by more than about 1%. Known only when gen-vel gives the
+   * temperature; otherwise it comes from the velocities in the structure.
+   */
+  nveDrift() {
+    const v = this.v;
+    if (v['gen-vel'] !== 'yes' || !(v['gen-temp'] > 0) || !(v.nstlist > 1) || !(v.nsteps > 0)) return;
+    const lengthPs = v.nsteps * v.dt;
+    const perPs = f32(2 * BOLTZ * f32(v['gen-temp']) / lengthPs);
+    const tol = f32(v['verlet-buffer-tolerance']);
+    if (tol > 1.1 * f32(0.01) * perPs) {
+      this.add('note', 'nve-drift', 'verlet-buffer-tolerance', `verlet-buffer-tolerance = ${fmt(tol)} kJ/mol/ps over an NVE run of ` +
+        `${fmt(lengthPs)} ps can let the total energy drift by about ${Math.round(tol / perPs * 100)}%. To conserve energy to 1% ` +
+        `(with constraints), grompp suggests verlet-buffer-tolerance = ${(0.01 * perPs).toExponential(1)}.`);
+    }
+  }
+
+  /* Whether grompp sizes the Verlet buffer, and so evaluates the
+     interactions at the cut-off (grompp.cpp, after do_index). */
+  sizesBuffer() {
+    const v = this.v;
+    if (!(key(v['cutoff-scheme']) === 'VERLET' && v['verlet-buffer-tolerance'] > 0 && EI.DYNAMICS(this.I) && this.nbounded === 3)) return false;
+    // An NVE run from zero temperature gets a fixed 10% buffer instead.
+    return !(EI.MD(this.I) && this.etc === 'NO' && v['gen-vel'] === 'yes' && !(v['gen-temp'] > 0));
+  }
+
+  /*
+   * Values the checks above let through but that break the evaluation of the
+   * interactions at the cut-off: in grompp when it sizes the buffer (an
+   * assertion, an internal error or a loop that never ends), otherwise in
+   * mdrun, which evaluates them when it starts.
+   */
+  cutoffEvaluation() {
+    const v = this.v;
+    const inGrompp = this.sizesBuffer();
+    const stop = (id, option, what, grompp, mdrun) => this.add('error', id, option,
+      `${what} ${inGrompp ? grompp : mdrun}`, inGrompp ? { fatal: true } : { source: 'mdrun' });
+    if (Number.isNaN(this.epsR)) {
+      stop('epsilon-r-nan', 'epsilon-r', 'epsilon-r is nan, which makes every electrostatic energy nan:',
+        'grompp stops with an assertion failure while sizing the Verlet buffer.', 'mdrun stops with a non-finite energy.');
+    }
+    if (COULOMB.PME_OR_EWALD(this.ct) && v['ewald-rtol'] < 0) {
+      stop('ewald-rtol', 'ewald-rtol', `ewald-rtol = ${v['ewald-rtol']} cannot be reached (it must be above 0, 1e-5 is usual):`,
+        'grompp never finishes while sizing the Verlet buffer.', 'mdrun never finishes setting up PME.');
+    }
+    if (this.vt === 'PME' && v['ewald-rtol-lj'] < 0) {
+      stop('ewald-rtol-lj', 'ewald-rtol-lj', `ewald-rtol-lj = ${v['ewald-rtol-lj']} cannot be reached (it must be above 0, 1e-3 is usual):`,
+        'grompp stops with an assertion failure while sizing the Verlet buffer.', 'mdrun stops setting up LJ-PME.');
+    }
+    if (!inGrompp) return;
+    if (this.vmod === 'EXACTCUTOFF') {
+      this.add('error', 'vdw-exact-cutoff', 'vdw-modifier', 'vdw-modifier = Exact-cutoff cannot be used for dynamics: grompp stops ' +
+        '("Unimplemented VdW modifier") while sizing the Verlet buffer. Use Potential-shift.', { fatal: true });
+    } else if (v.rvdw === 0 && v.rcoulomb > 0) {
+      this.add('error', 'rvdw-zero', 'rvdw', 'rvdw = 0 puts the Lennard-Jones cut-off at zero distance, where the potential is infinite: ' +
+        'grompp stops with an assertion failure while sizing the Verlet buffer. Use the force field\'s cut-off (1.0 to 1.2 nm).', { fatal: true });
+    } else if (v.rvdw > 0 && v.rvdw < 0.005) {
+      this.add('error', 'rvdw-zero', 'rvdw', `rvdw = ${v.rvdw} nm is so short that the Lennard-Jones terms overflow: grompp stops with an ` +
+        'assertion failure while sizing the Verlet buffer. Use the force field\'s cut-off (1.0 to 1.2 nm).',
+      { fatal: true, assumes: 'Lennard-Jones parameters of an all-atom force field (grompp 2025 fails below about 0.005 nm with AMBER, CHARMM and OPLS)' });
     }
   }
 
   finalChecks() {
     const v = this.v;
     const nk = [v['fourier-nx'], v['fourier-ny'], v['fourier-nz']];
-    if ((COULOMB.FULL(this.ct) || this.vt === 'PME') && !nk.every(x => x > 0) && nk.every(x => x !== 0)) {
-      this.add('error', 'fourier-partial', 'fourier-nx', 'Some of the Fourier grid sizes are set, but all of them need to be set.');
-    }
-    // COM removal frequency against the global communication period (grompp.cpp).
-    if (this.commMode !== 'NONE' && EI.DYNAMICS(this.I) && this.nstcomm > 0) {
-      let glob;
-      if (this.nstcalcenergy === 0 && this.etc === 'NO' && this.epc !== 'NO') glob = 200;
-      else {
-        glob = gcd(gcd(this.nstcalcenergy, this.etc !== 'NO' ? (this.nsttcouple > 0 ? this.nsttcouple : 0) : 0),
-          this.epc !== 'NO' ? this.nstpcouple : 0);
-        if (glob > 200) glob = gcd(glob, 200);
+    if (COULOMB.FULL(this.ct) || this.vt === 'PME') {
+      if (!nk.every(x => x > 0) && nk.every(x => x !== 0)) {
+        this.add('error', 'fourier-partial', 'fourier-nx', 'Some of the Fourier grid sizes are set, but all of them need to be set.');
       }
-      if (glob > 0 && this.nstcomm % glob !== 0) {
+      // calcFftGrid: a grid dimension left to fourierspacing needs a spacing above 0.
+      if (nk.some(x => x <= 0) && f32(v.fourierspacing) <= 0) {
+        this.add('error', 'fourierspacing', 'fourierspacing', `fourierspacing = ${v.fourierspacing} cannot set the PME grid: it must be above 0 ` +
+          '(0.12 nm is usual), unless fourier-nx, -ny and -nz are all given. grompp stops.', { fatal: true });
+        return;
+      }
+    }
+    // AWH registers its dimensions with the pull code (set_pull_init and
+    // setStateDependentAwhParams): each must be an external potential of AWH.
+    if (this.gate.awh && this.gate.pull) {
+      for (let b = 1; b <= v['awh-nbias']; b++) {
+        for (let d = 1; d <= v[`awh${b}-ndim`]; d++) {
+          if (key(v[`awh${b}-dim${d}-coord-provider`]) !== 'PULL') continue;
+          const c = v[`awh${b}-dim${d}-coord-index`];
+          if (key(v[`pull-coord${c}-type`]) !== 'EXTERNALPOTENTIAL') {
+            this.add('error', 'awh-pull-type', `pull-coord${c}-type`, `AWH biases pull coordinate ${c}, so pull-coord${c}-type must be ` +
+              `external-potential (with pull-coord${c}-potential-provider = awh), not ${v[`pull-coord${c}-type`]}. grompp stops.`, { fatal: true });
+            return;
+          }
+          // register_external_pull_potential compares the name ignoring case only.
+          if (String(v[`pull-coord${c}-potential-provider`]).toLowerCase() !== 'awh') {
+            this.add('error', 'awh-pull-provider', `pull-coord${c}-potential-provider`, `AWH biases pull coordinate ${c}, so ` +
+              `pull-coord${c}-potential-provider must be awh. grompp stops.`, { fatal: true });
+            return;
+          }
+        }
+      }
+    }
+    // The COM removal period against the global communication period
+    // (grompp.cpp, computeGlobalCommunicationPeriod), for every integrator.
+    if (this.commMode !== 'NONE') {
+      let glob = this.nstcalcenergy === 0 && this.etc === 'NO' && this.epc !== 'NO' ? 200
+        : lcd3(this.nstcalcenergy, this.etc !== 'NO' ? this.nsttcouple : 0, this.epc !== 'NO' ? this.nstpcouple : 0);
+      if (glob === 0) {
+        const I = this.I;
+        const why = EI.EM(I) ? `minimisers keep nstcalcenergy as given (only dynamics turns -1 into 100), and ${v.integrator} has no coupling`
+          : this.etc === 'NO' && this.epc === 'NO' ? 'no thermostat or barostat supplies a period' : 'the coupling periods are not above 0 either';
+        this.add('error', 'nstglobalcomm', 'nstcalcenergy', `nstcalcenergy = ${this.nstcalcenergy}: grompp needs a positive nstcalcenergy, ` +
+          `nsttcouple or nstpcouple to set how often ranks communicate, and ${why}. It stops with "All 3 inputs for determining ` +
+          'nstglobalcomm are <= 0". Set nstcalcenergy to 100, or comm-mode = None.', { fatal: true });
+        return;
+      }
+      glob = glob > 200 ? lcd3(glob, 200, 0) : glob;
+      if (this.nstcomm % glob !== 0) {
         this.add('note', 'nstcomm-global', 'nstcomm', `nstcomm (${this.nstcomm}) is not a multiple of the global communication period ` +
           `(${glob} steps, from nstcalcenergy, nsttcouple and nstpcouple), which costs extra communication in parallel. Set nstcomm to a multiple of ${glob}.`);
       }
+    }
+    // do_fepvals, writing the .tpr for every file: only sc-r-power = 6 is left.
+    if (f32(v['sc-r-power']) !== 6) {
+      this.add('error', 'sc-r-power', 'sc-r-power', `sc-r-power = ${v['sc-r-power']}: only 6 is supported (48 was removed), whether or not ` +
+        'free-energy or soft-core is on. grompp stops as it writes the .tpr file. Remove the line or set it to 6.', { fatal: true });
     }
     v.nsttcouple = this.nsttcouple;
     v.nstpcouple = this.nstpcouple;
@@ -2359,9 +3118,9 @@ function scanReals(text, max) {
   const out = [];
   let s = String(text || '');
   while (out.length < max) {
-    const m = /^\s*([+-]?(?:(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?|inf(?:inity)?|nan))/i.exec(s);
+    const m = C_NUMBER.exec(s);
     if (!m) break;
-    out.push(Number(/inf/i.test(m[1]) ? (m[1].startsWith('-') ? -Infinity : Infinity) : m[1]));
+    out.push(cReal(m[0]).value);
     s = s.slice(m[0].length);
   }
   return out;
@@ -2371,7 +3130,7 @@ function scanInts(text, max) {
   const out = [];
   let s = String(text || '');
   while (out.length < max) {
-    const m = /^\s*([+-]?\d+)/.exec(s);
+    const m = new RegExp(`^${C_SPACE}*([+-]?\\d+)`).exec(s);
     if (!m) break;
     out.push(Number(m[1]));
     s = s.slice(m[0].length);
@@ -2473,6 +3232,13 @@ export function explainMdp(input, options = {}) {
       row.url = info.replacement ? mdpDocUrl(info.replacement) : '';
       row.summary = info.replacement ? `Old name of ${info.replacement}.` : 'Obsolete.';
       row.meaning = info.reason;
+      // Renamed to an option that is only read when switched on.
+      const gate = info.replacement ? optionInfo(info.replacement).readWhen : null;
+      if (gate && row.issues.some(i => i.id === 'inactive')) {
+        row.status = 'inactive';
+        row.meaning = `Old name of ${info.replacement}, which grompp reads it as; but ${info.replacement} is only used when ${gate.when}, ` +
+          'so grompp warns "Unknown left-hand".';
+      }
       return row;
     }
     row.name = info.name;
@@ -2493,6 +3259,8 @@ export function explainMdp(input, options = {}) {
       return row;
     }
     row.isDefault = isDefaultValue(info, e.value);
+    const unit = unitFor(info, settings);
+    row.unit = unit === undefined ? info.unit : unit || '';
     row.meaning = meaningOf(info, e.value, { dt, dynamics, settings, parsed }) +
       (row.isDefault ? ' (This is the default.)' : '');
     return row;
@@ -2501,12 +3269,21 @@ export function explainMdp(input, options = {}) {
 
 function isDefaultValue(info, value) {
   const d = info.default;
+  const row = lookup(info.name).row;
   if (d === '' && info.defaultFrom) return false;
-  if (info.kind === 'integer' || info.kind === 'real') {
+  if (info.kind === 'integer') {
+    const a = cInteger(value, row.i64 ? 64 : 32);
+    return a.ok && d !== '' && a.value === Number(d);
+  }
+  if (info.kind === 'real') {
     const a = cReal(value);
     return a.ok && d !== '' && a.value === Number(d);
   }
-  if (info.kind === 'enum') return key(value) === key(d) || (info.gromppDefault !== null && key(value) === key(info.gromppDefault));
+  if (info.kind === 'enum') {
+    // As grompp reads it: with case and by prefix for the module options.
+    const hit = matchEnumValue(row, value);
+    return hit !== null && (key(hit) === key(d) || (info.gromppDefault !== null && key(hit) === key(info.gromppDefault)));
+  }
   if (info.kind === 'boolean') return ['1', 'yes', 'true'].includes(value.toLowerCase()) === (d === 'true');
   return words(value).join(' ') === words(d).join(' ');
 }
@@ -2523,13 +3300,38 @@ const DEFINES = {
 function meaningOf(info, value, ctx) {
   const n = info.name;
   const base = info.family ? n.replace(/\d+/g, '1') : n;
-  const num = cReal(value);
+  const row = lookup(n).row;
+  let num = cReal(value);
+  if (info.kind === 'integer') {
+    // Whole numbers only, as grompp stores them: nsteps = 5e5 is refused,
+    // and a get_eint option keeps only 32 bits.
+    const whole = isModuleRow(row) ? strictInt(value) : null;
+    const r = isModuleRow(row) ? { ok: whole !== null, value: whole, wrapped: false } : cInteger(value, row.i64 ? 64 : 32);
+    if (!r.ok) return `"${value}" is not a whole number${isModuleRow(row) ? ' that fits in 32 bits' : ''}, so grompp stops.`;
+    if (r.wrapped) return `${value} does not fit in the integer grompp keeps it in: grompp reads it, without a message, as ${r.value}.`;
+    num = { ok: true, value: r.value };
+  } else if (info.kind === 'real' && !num.ok) {
+    return `"${value}" is not a number, so grompp stops.`;
+  }
   const ps = (steps) => formatDuration(steps * ctx.dt);
-  if (info.kind === 'enum' || info.kind === 'boolean') {
+  if (info.kind === 'enum') {
+    const hit = matchEnumValue(row, value);
+    if (!hit) {
+      const refused = info.values.find(x => x.status === 'rejected' && key(x.value) === key(value));
+      if (refused) return `${value}: ${refused.summary || info.summary} ${refused.note}`;
+      return `"${value}" is not one of the values of ${n}${isModuleRow(row) ? ' (this option compares values with case)' : ''}, so grompp stops.`;
+    }
+    const read = isModuleRow(row) && hit !== value ? ` (read as ${hit})` : '';
+    const v = info.values.find(x => x.value === hit);
+    if (v) return `${value}${read}: ${v.summary || info.summary}${v.status && v.note ? ` ${v.note}` : ''}`;
+    const u = info.undocumented.find(x => x.value === hit);
+    if (u && u.note) return `${value}${read}: ${u.note}`;
+    return `${value}${read}: accepted by grompp, though the manual does not describe it.`;
+  }
+  if (info.kind === 'boolean') {
     const v = info.values.find(x => key(x.value) === key(value)) ||
-      (info.kind === 'boolean' ? info.values.find(x => x.value === (['1', 'yes', 'true'].includes(value.toLowerCase()) ? 'true' : 'false')) : null);
+      info.values.find(x => x.value === (['1', 'yes', 'true'].includes(value.toLowerCase()) ? 'true' : 'false'));
     if (v) return `${value}: ${v.summary || info.summary}${v.status && v.note ? ` ${v.note}` : ''}`;
-    if (info.accepted.some(a => key(a) === key(value))) return `${value}: accepted by grompp, though the manual does not describe it.`;
     return `"${value}" is not one of the values of ${n}.`;
   }
   if (n === 'nsteps' && num.ok) {
@@ -2550,16 +3352,20 @@ function meaningOf(info, value, ctx) {
     if (num.value < 0) return base === 'nsttcouple' || base === 'nstpcouple' ? 'grompp chooses (100 steps, or fewer if the time constant needs it).' : 'Negative.';
     return ctx.dynamics ? `Every ${num.value.toLocaleString('en-GB')} steps = ${ps(num.value)}.` : `Every ${num.value.toLocaleString('en-GB')} steps.`;
   }
-  if (n === 'define') {
-    const flags = words(value);
-    return flags.map(f => {
+  if (n === 'define' || n === 'include') {
+    // cpp_opts (topio.cpp): only words that start with -D (define) or -I
+    // (include) reach the preprocessor.
+    const flag = n === 'define' ? '-D' : '-I';
+    return words(value).map(f => {
+      if (f.length <= 2) return `${f}: too short for grompp's parser, which never finishes on it (grompp hangs).`;
+      if (!f.startsWith(flag)) return `${f}: ignored, with a warning ("Malformed ${n} option"), as it does not start with ${flag}.`;
+      if (n === 'include') return `${f}: ${f.slice(2)} is searched for #include files.`;
       const m = /^-D([A-Za-z_]\w*)(=(.*))?$/.exec(f);
       if (!m) return `${f}: passed to the topology preprocessor.`;
       const known = DEFINES[m[1]];
       return `-D${m[1]}${m[2] || ''}: ${known || `defines ${m[1]}${m[3] ? ` = ${m[3]}` : ''} for #ifdef blocks in the topology`}.`;
     }).join(' ');
   }
-  if (n === 'include') return `Topology include paths: ${words(value).join(', ')}.`;
   if (n === 'tc-grps' || n === 'tau-t' || n === 'ref-t') {
     const g = words(ctx.parsed.values['tc-grps'] || ctx.settings['tc-grps']);
     const tau = words(ctx.parsed.values['tau-t'] || '');
@@ -2578,11 +3384,57 @@ function meaningOf(info, value, ctx) {
     if (num.value <= 1) return 'Masses are not changed.';
     return `The lightest atoms (hydrogens, 1.008 u) become ${fmt(num.value * 1.008)} u; the mass comes from the atom each is bonded to.`;
   }
-  if (info.unit && num.ok && (info.kind === 'real' || info.kind === 'integer')) {
-    return `${value} ${info.unit.replace(/ or .*/, '')}.`;
+  if (/^awh\d+-dim\d+-diffusion$/.test(n) && num.ok && !(num.value > 0)) {
+    return `${value}: grompp replaces a diffusion constant of 0 or below by 1e-5 ${unitFor(info, ctx.settings) || 'nm²/ps'} and notes that it was not set.`;
+  }
+  const special = unitFor(info, ctx.settings);
+  if (special === null || special === 'lambda state') {
+    return /-end$|-start$/.test(n) ? `Lambda state ${value}.` : `${value}: not used when the coordinate is the lambda state (leave it at 0).`;
+  }
+  const unit = special === undefined ? info.unit.replace(/ or .*/, '') : special;
+  if (unit && num.ok && (info.kind === 'real' || info.kind === 'integer')) {
+    return `${value} ${unit}.`;
   }
   if (info.per) return `${words(value).length} value${words(value).length === 1 ? '' : 's'}: ${words(value).join(', ')}.`;
   return value ? `${value}.` : '';
+}
+
+/*
+ * The unit of a pull or AWH value, which the manual gives as alternatives
+ * ("nm or deg"): it follows the coordinate's geometry and type, and for AWH
+ * the coordinate provider. Returns undefined for other options, '' where the
+ * unit is not known (a transformation coordinate), 'lambda state' for an
+ * AWH interval along lambda and null for an AWH value lambda does not use.
+ */
+function unitFor(info, settings) {
+  const n = info.name;
+  const angular = (g) => ['ANGLE', 'ANGLEAXIS', 'DIHEDRAL'].includes(g);
+  let m = /^pull-coord(\d+)-(init|rate|k|kB)$/.exec(n);
+  if (m) {
+    const geom = key(settings[`pull-coord${m[1]}-geometry`] ?? 'distance');
+    if (geom === 'TRANSFORMATION') return '';
+    const ang = angular(geom);
+    if (m[2] === 'init') return ang ? 'deg' : 'nm';
+    if (m[2] === 'rate') return ang ? 'deg/ps' : 'nm/ps';
+    // A constant force is a force, not a force constant (mdp-options, pull-coord1-k).
+    const per = key(settings[`pull-coord${m[1]}-type`] ?? 'umbrella') === 'CONSTANTFORCE' ? '⁻¹' : '⁻²';
+    return `kJ mol⁻¹ ${ang ? 'rad' : 'nm'}${per}`;
+  }
+  m = /^awh(\d+)-dim(\d+)-(start|end|force-constant|diffusion|cover-diameter)$/.exec(n);
+  if (m) {
+    const at = (s) => settings[`awh${m[1]}-dim${m[2]}-${s}`];
+    if (key(at('coord-provider') ?? 'pull') === 'FEPLAMBDA') {
+      return { start: 'lambda state', end: 'lambda state', 'cover-diameter': 'lambda states', diffusion: 'ps⁻¹', 'force-constant': null }[m[3]];
+    }
+    const geom = key(settings[`pull-coord${at('coord-index')}-geometry`] ?? 'distance');
+    if (geom === 'TRANSFORMATION') return '';
+    const ang = angular(geom);
+    return {
+      start: ang ? 'deg' : 'nm', end: ang ? 'deg' : 'nm', 'cover-diameter': ang ? 'deg' : 'nm',
+      'force-constant': ang ? 'kJ mol⁻¹ rad⁻²' : 'kJ mol⁻¹ nm⁻²', diffusion: ang ? 'rad²/ps' : 'nm²/ps'
+    }[m[3]];
+  }
+  return undefined;
 }
 
 /* ------------------------------------------------------------------ *
@@ -2690,7 +3542,10 @@ export const FORCE_FIELDS = Object.freeze({
   }),
   gromos54a7: Object.freeze({
     id: 'gromos54a7', label: 'GROMOS 54A7 (united atom)', resolution: 'united-atom', water: 'SPC',
-    dt: 0.002, constraints: 'h-bonds', hmr: true, nstlist: 10,
+    // GROMOS was parametrised with every bond length constrained by SHAKE;
+    // GROMACS lists only AMBER, CHARMM and OPLS as fitted with h-bonds only
+    // (topio.cpp), and notes all-bonds for those three alone.
+    dt: 0.002, constraints: 'all-bonds', hmr: true, nstlist: 10,
     coulombtype: 'PME', rcoulomb: 1.4, vdwtype: 'Cut-off', vdwModifier: 'Potential-shift', rvdw: 1.4, rvdwSwitch: null,
     dispCorr: 'no', epsilonR: null, epsilonRf: null,
     tauT: { 'v-rescale': 0.1, 'nose-hoover': 0.5, berendsen: 0.1 },
@@ -2698,12 +3553,14 @@ export const FORCE_FIELDS = Object.freeze({
     compressibility: 4.5e-5,
     why: {
       cutoff: 'GROMOS: keep the 1.4 nm cut-off the parameters were fitted with (then with a reaction field; PME is the usual choice now)',
-      dispCorr: 'GROMOS was parametrised without a long-range dispersion correction'
+      dispCorr: 'GROMOS was parametrised without a long-range dispersion correction',
+      constraints: 'GROMOS was parametrised with all bond lengths constrained (SHAKE), which also allows the time step above'
     },
     notes: ['The GROMACS manual warns that GROMOS was parametrised with a twin-range cut-off scheme GROMACS no longer has, so properties such as the density may differ slightly from the intended values.'],
     references: [
       { text: 'GROMACS manual, force fields: GROMOS (and its warning)', url: `${FF_GUIDE}#gmx-gromos-ff` },
-      { text: 'Schmid et al., Eur. Biophys. J. 40, 843 (2011): GROMOS 54A7', url: 'https://doi.org/10.1007/s00249-011-0700-9' }
+      { text: 'Schmid et al., Eur. Biophys. J. 40, 843 (2011): GROMOS 54A7', url: 'https://doi.org/10.1007/s00249-011-0700-9' },
+      { text: 'Oostenbrink et al., J. Comput. Chem. 25, 1656 (2004): GROMOS 53A5/53A6, all bond lengths constrained with SHAKE at 2 fs', url: 'https://doi.org/10.1002/jcc.20090' }
     ]
   }),
   'opls-aa': Object.freeze({
@@ -2726,6 +3583,13 @@ export const FORCE_FIELDS = Object.freeze({
   martini3: Object.freeze({
     id: 'martini3', label: 'Martini 3 (coarse-grained)', resolution: 'coarse-grained', water: 'Martini W',
     dt: 0.02, constraints: 'none', hmr: false, nstlist: 20,
+    // The recommended Martini 3 mdp (cgmartini.nl, martini_v3.0_prod.mdp):
+    // the automatic buffer gives pressure artefacts with Martini, so the
+    // buffer is fixed; coupling every nstlist steps; LINCS for the
+    // constraint triangles and virtual sites the topologies carry.
+    pairList: Object.freeze({ verletBufferTolerance: -1, rlist: 1.35, nstcouple: 20 }),
+    lincs: Object.freeze({ order: 8, iter: 2 }),
+    topologyConstraints: true,
     coulombtype: 'Reaction-Field', rcoulomb: 1.1, vdwtype: 'Cut-off', vdwModifier: 'Potential-shift', rvdw: 1.1, rvdwSwitch: null,
     dispCorr: 'no', epsilonR: 15, epsilonRf: 0,
     tauT: { 'v-rescale': 1.0, 'nose-hoover': 4.0, berendsen: 1.0 },
@@ -2733,13 +3597,15 @@ export const FORCE_FIELDS = Object.freeze({
     compressibility: 3e-4,
     why: {
       cutoff: 'Martini 3: reaction field with epsilon-r = 15, epsilon-rf = 0 (infinity) and 1.1 nm cut-offs (de Jong et al. 2016)',
-      dispCorr: 'Martini is used without a dispersion correction'
+      dispCorr: 'Martini is used without a dispersion correction',
+      pairList: 'Martini 3: the automatic buffer gives pressure artefacts, so the recommended settings fix rlist (cgmartini.nl)',
+      lincs: 'Martini 3 recommendation for its constraint triangles and virtual sites at 20 fs'
     },
     notes: ['Martini topologies keep their own [ constraints ] (rings, helices); constraints = none only leaves ordinary bonds flexible.'],
     references: [
       { text: 'de Jong, Baoukina, Ingolfsson and Marrink, Comput. Phys. Commun. 199, 1 (2016): Martini with a 1.1 nm cut-off and the Verlet scheme', url: 'https://doi.org/10.1016/j.cpc.2015.09.014' },
       { text: 'Souza et al., Nat. Methods 18, 382 (2021): Martini 3', url: 'https://doi.org/10.1038/s41592-021-01098-3' },
-      { text: 'Martini force field: example input files', url: 'https://cgmartini.nl' }
+      { text: 'Martini force field: example input files (martini_v3.0_prod.mdp)', url: 'https://cgmartini.nl' }
     ]
   })
 });
@@ -2786,6 +3652,8 @@ export const STAGES = Object.freeze({
 /** System types: how the box is coupled and which groups are thermostatted. */
 export const SYSTEM_TYPES = Object.freeze({
   protein: Object.freeze({ id: 'protein', label: 'Protein (or other solute) in water', pcoupltype: 'isotropic', tcGroups: ['Protein', 'Non-Protein'] }),
+  // CHARMM-GUI's index groups; its index has SOLU only when there is a solute,
+  // so a lipid-only bilayer needs MEMB SOLV.
   membrane: Object.freeze({ id: 'membrane', label: 'Membrane (semi-isotropic coupling)', pcoupltype: 'semiisotropic', tcGroups: ['SOLU', 'MEMB', 'SOLV'] }),
   solution: Object.freeze({ id: 'solution', label: 'Liquid or solution (one coupling group)', pcoupltype: 'isotropic', tcGroups: ['System'] })
 });
@@ -2867,7 +3735,9 @@ export function defaultSettings(stage = 'prod', overrides = {}) {
  *   - `emtol`, `emstep`, `emSteps` (minimisation)
  *   - `anneal`: `{type: 'single'|'periodic', points: [[time ps, temperature K], ...]}`
  *   - `pull`: `{mode: 'umbrella'|'steered', group1, group2, geometry: 'distance'|'direction',
- *     dim, vec, k (kJ mol^-1 nm^-2), rateNmPerPs, outputPs}`
+ *     dim, vec, k (kJ mol^-1 nm^-2), rateNmPerPs, outputPs, pbcatom1, pbcatom2}`; the
+ *     pbcatoms (atom numbers near the centre of each group, 0 for none) are needed
+ *     for groups wider than a quarter of the box, and switch on pull-pbc-ref-prev-step-com
  * @returns {{text:string, fileName:string, stage:string, settings:object,
  *   entries:Array<{name:string, value:string, comment:string, section:string}>,
  *   warnings:string[], expected:Array<{severity:string, id:string, message:string}>}}
@@ -2932,6 +3802,10 @@ export function generateMdp(settings = {}) {
     warnings.push('Annealing with pressure coupling needs a single temperature group (C-rescale needs one ensemble temperature): tc-grps = System is used.');
     tcGroups = ['System'];
   }
+  if (s.system === 'membrane' && !settings.tcGroups && st.dynamics && tcGroups.includes('SOLU')) {
+    warnings.push('tc-grps = SOLU MEMB SOLV follows the index file CHARMM-GUI writes, which has a SOLU group only when the system has ' +
+      'a solute: for a lipid-only bilayer use MEMB SOLV, or grompp stops ("Group SOLU referenced in the .mdp file was not found").');
+  }
   let genVel = st.dynamics ? !!s.genVel : false;
   let continuation = st.dynamics ? !!s.continuation : false;
   if (genVel && continuation) {
@@ -2949,6 +3823,11 @@ export function generateMdp(settings = {}) {
   const nsttrr = st.dynamics ? steps(o.trrPs) : 0;
   const nstenergy = st.dynamics ? steps(o.energyPs) : Math.max(0, Math.round(Number(o.energySteps) || 0));
   const nstlog = st.dynamics ? steps(o.logPs) : Math.max(0, Math.round(Number(o.logSteps) || 0));
+  // Coupling every nstlist steps (Martini 3), where the time constants allow
+  // it: grompp warns below 5 steps per tau (20 per period for Nose-Hoover and
+  // Parrinello-Rahman); v-rescale has no such limit.
+  const nstCouple = st.dynamics && ff.pairList ? ff.pairList.nstcouple : 0;
+  const couples = (tau, min) => !min || tau / (dt * nstCouple) >= min;
   let nstcalcenergy = 100;
   if (st.dynamics && nstenergy > 0) {
     nstcalcenergy = 1;
@@ -2995,10 +3874,14 @@ export function generateMdp(settings = {}) {
     put('nsteps', nsteps, 'upper limit on minimisation steps');
   } else {
     put('integrator', 'md', 'leap-frog molecular dynamics');
-    put('dt', real(dt), hmr ? '4 fs, possible because hydrogens are 3x heavier (mass-repartition-factor) and bonds to H are constrained'
-      : cg ? '20 fs, the usual Martini time step' : '2 fs, possible because bonds to hydrogen are constrained');
+    const rigid = ff.constraints === 'all-bonds' ? 'all bonds are constrained' : 'bonds to hydrogen are constrained';
+    put('dt', real(dt), hmr ? `4 fs, possible because hydrogens are 3x heavier (mass-repartition-factor) and ${rigid}`
+      : cg ? '20 fs, the usual Martini time step' : `2 fs, possible because ${rigid}`);
     put('nsteps', nsteps, `${nsteps} x ${dt} ps = ${formatDuration(nsteps * dt)}`);
-    if (hmr) put('mass-repartition-factor', real(3), 'hydrogens become 3x heavier, the mass taken from their bonded atom (GROMACS manual: a factor of 3 with h-bonds constraints allows 4 fs)');
+    if (hmr) {
+      put('mass-repartition-factor', real(3), 'hydrogens become 3x heavier, the mass taken from their bonded atom (GROMACS manual: a factor of 3 ' +
+        `with the bonds to hydrogen constrained allows 4 fs${ff.constraints === 'all-bonds' ? '; here all bonds are' : ''})`);
+    }
     put('comm-mode', 'Linear', 'remove centre-of-mass drift');
     put('nstcomm', nstcalcenergy, 'as often as energies are calculated, so it costs no extra communication');
   }
@@ -3026,7 +3909,14 @@ export function generateMdp(settings = {}) {
   put('cutoff-scheme', 'Verlet', 'buffered pair lists, the only scheme GROMACS supports');
   put('nstlist', ff.nstlist, cg ? 'Martini: pair list every 20 steps' : 'pair-list update interval; mdrun may raise it, accuracy is kept by the buffer');
   put('pbc', 'xyz', 'periodic in all directions');
-  if (st.dynamics) put('verlet-buffer-tolerance', real(0.005), 'grompp sizes the pair-list buffer (rlist) from this; the default');
+  if (st.dynamics && ff.pairList) {
+    put('verlet-buffer-tolerance', real(ff.pairList.verletBufferTolerance), ff.why.pairList);
+    put('verlet-buffer-pressure-tolerance', real(-1), 'not used with a fixed rlist; -1 says so (grompp notes a positive value)');
+    put('rlist', real(ff.pairList.rlist), `pair-list cut-off (nm): at least ${ff.pairList.rlist} with nstlist = ${ff.nstlist} and ` +
+      `${ff.rcoulomb} nm cut-offs, as recommended`);
+  } else if (st.dynamics) {
+    put('verlet-buffer-tolerance', real(0.005), 'grompp sizes the pair-list buffer (rlist) from this; the default');
+  }
   put('coulombtype', ff.coulombtype, ff.why.cutoff);
   put('rcoulomb', real(ff.rcoulomb), 'real-space Coulomb cut-off (nm)');
   if (ff.epsilonR !== null) put('epsilon-r', ff.epsilonR, 'Martini screens electrostatics with a relative dielectric constant of 15');
@@ -3034,7 +3924,11 @@ export function generateMdp(settings = {}) {
   put('vdwtype', ff.vdwtype, 'Lennard-Jones with a cut-off');
   put('vdw-modifier', ff.vdwModifier, ff.vdwModifier === 'Force-switch' ? 'CHARMM36 needs the force switched to zero' : 'shift the potential to zero at the cut-off (forces unchanged)');
   if (ff.rvdwSwitch !== null) put('rvdw-switch', real(ff.rvdwSwitch), 'switching starts here (nm)');
-  put('rvdw', real(ff.rvdw), 'Lennard-Jones cut-off (nm); must equal rcoulomb with the Verlet scheme');
+  // check_ir: rcoulomb and rvdw may differ with the Verlet scheme only as
+  // rcoulomb > rvdw with PME (or Ewald) and cut-off Lennard-Jones.
+  put('rvdw', real(ff.rvdw), ff.coulombtype === 'PME'
+    ? 'Lennard-Jones cut-off (nm); with PME and the Verlet scheme it may be shorter than rcoulomb, never longer'
+    : 'Lennard-Jones cut-off (nm); with reaction field and the Verlet scheme it must equal rcoulomb');
   put('DispCorr', ff.dispCorr, ff.why.dispCorr);
   if (ff.coulombtype === 'PME') {
     put('fourierspacing', real(0.12), 'PME grid spacing (nm); mdrun may tune it with the cut-off');
@@ -3049,7 +3943,13 @@ export function generateMdp(settings = {}) {
     put('tcoupl', th.value, thermostat === 'v-rescale' ? 'stochastic velocity rescaling: correct canonical ensemble (Bussi et al. 2007)'
       : thermostat === 'nose-hoover' ? 'Nose-Hoover: tau-t is the period of the temperature oscillations' : 'Berendsen: deprecated, grompp warns');
     if (thermostat === 'nose-hoover') put('nh-chain-length', 1, 'leap-frog supports only chains of length 1');
-    put('tc-grps', tcGroups.join(' '), tcGroups.length > 1 ? 'coupled separately; the names must exist as default or index groups (grompp -n)' : 'the whole system as one group');
+    if (nstCouple && couples(tau, { 'v-rescale': 0, berendsen: MIN_STEPS_PER_TAU, 'nose-hoover': MIN_STEPS_PER_PERIOD }[thermostat])) {
+      put('nsttcouple', nstCouple, `thermostat every ${nstCouple} steps, a multiple of nstlist, as the Martini 3 settings recommend`);
+    }
+    const membraneGroups = s.system === 'membrane' && tcGroups.join(' ') === SYSTEM_TYPES.membrane.tcGroups.join(' ');
+    put('tc-grps', tcGroups.join(' '), membraneGroups
+      ? 'CHARMM-GUI index groups; SOLU exists only with a solute: use MEMB SOLV for a lipid-only bilayer'
+      : tcGroups.length > 1 ? 'coupled separately; the names must exist as default or index groups (grompp -n)' : 'the whole system as one group');
     put('tau-t', tcGroups.map(() => real(tau)).join(' '), `time constant (ps) for each group${thermostat === 'nose-hoover' ? '; the manual advises 4-5 times a first-order time constant' : ''}`);
     const T = Number(s.temperature);
     put('ref-t', tcGroups.map(() => real(T)).join(' '), 'target temperature (K) for each group');
@@ -3084,6 +3984,9 @@ export function generateMdp(settings = {}) {
         : couplingType === 'anisotropic' ? 'every box element scaled on its own' : 'the box keeps its shape');
       const tauP = ff.tauP[barostat];
       put('tau-p', real(tauP), barostat === 'parrinello-rahman' ? 'time constant (ps); the manual advises 4-5 times that of a first-order barostat' : 'time constant (ps)');
+      if (nstCouple && couples(tauP, barostat === 'parrinello-rahman' ? MIN_STEPS_PER_PERIOD : MIN_STEPS_PER_TAU)) {
+        put('nstpcouple', nstCouple, `barostat every ${nstCouple} steps, a multiple of nstlist, as the Martini 3 settings recommend`);
+      }
       const k = ff.compressibility;
       const P = Number(s.pressure);
       const count = couplingType === 'isotropic' ? 1 : couplingType === 'semiisotropic' ? 2 : 6;
@@ -3099,13 +4002,19 @@ export function generateMdp(settings = {}) {
   head('Bonds and constraints');
   const constraints = st.dynamics ? ff.constraints : 'none';
   put('constraints', constraints, !st.dynamics ? 'flexible bonds let the minimiser relax bond lengths too'
-    : constraints === 'h-bonds' ? 'bonds to hydrogen are rigid, which allows the time step above' : 'Martini topologies bring their own [ constraints ]');
+    : constraints === 'h-bonds' ? 'bonds to hydrogen are rigid, which allows the time step above'
+      : constraints === 'all-bonds' ? (ff.why.constraints || 'all bonds are rigid, which allows the time step above')
+        : 'Martini topologies bring their own [ constraints ]');
   put('constraint-algorithm', 'LINCS', 'fast parallel constraint solver');
   if (st.dynamics) {
     put('continuation', continuation ? 'yes' : 'no', continuation ? 'continues the previous stage (grompp -t state.cpt): do not re-constrain the start'
       : 'first dynamics after minimisation: constrain the starting structure');
-    put('lincs-iter', 1, 'enough with a thermostat');
-    put('lincs-order', 4, 'enough for normal MD');
+    put('lincs-iter', ff.lincs ? ff.lincs.iter : 1, ff.lincs ? ff.why.lincs : 'enough with a thermostat');
+    put('lincs-order', ff.lincs ? ff.lincs.order : 4, ff.lincs ? ff.why.lincs : 'enough for normal MD');
+  } else if (st.integrator === 'cg' && ff.topologyConstraints) {
+    // double_check notes lincs-order < 8 for cg with constraints, which
+    // Martini topologies bring whatever the constraints option says.
+    put('lincs-order', 8, 'accurate conjugate-gradient minimisation with LINCS needs order 8 (the topology has [ constraints ])');
   }
 
   /* ---- velocities ---- */
@@ -3128,8 +4037,22 @@ export function generateMdp(settings = {}) {
     put('pull', 'yes', 'switch on the pull code');
     put('pull-ngroups', 2, 'a reference group and a pulled group');
     put('pull-ncoords', 1, 'one pull coordinate');
-    put('pull-group1-name', p.group1, 'reference group (index group name)');
+    // readpull.cpp: grompp stops when a group reaches further than a quarter
+    // of the box from its reference atom, which is the middle atom by number
+    // unless pull-groupN-pbcatom names a central one.
+    const pbcatoms = [p.pbcatom1, p.pbcatom2].map(x => Math.max(0, Math.round(Number(x)) || 0));
+    put('pull-group1-name', p.group1, pbcatoms[0] ? 'reference group (index group name)'
+      : 'reference group (index group name); wider than a quarter of the box, it needs pull-group1-pbcatom');
+    if (pbcatoms[0]) put('pull-group1-pbcatom', pbcatoms[0], 'an atom near the centre of the reference group, for its periodic images');
     put('pull-group2-name', p.group2, 'pulled group (index group name)');
+    if (pbcatoms[1]) put('pull-group2-pbcatom', pbcatoms[1], 'an atom near the centre of the pulled group, for its periodic images');
+    if (pbcatoms.some(Boolean)) {
+      put('pull-pbc-ref-prev-step-com', 'yes', 'follow the centre of mass of the previous step, starting from the atoms above: for large or flexible groups');
+    } else {
+      warnings.push('grompp stops when a pull group reaches further than a quarter of the box from its reference atom, which is the middle ' +
+        'atom by number unless you choose one. For a large group, such as a membrane or a protein chain, set pull-group1-pbcatom ' +
+        '(or pull-group2-pbcatom) to an atom near its centre, with pull-pbc-ref-prev-step-com = yes.');
+    }
     put('pull-coord1-type', 'umbrella', 'harmonic potential on the coordinate');
     put('pull-coord1-geometry', geometry, geometry === 'distance' ? 'the distance between the two centres of mass' : 'the distance along pull-coord1-vec');
     put('pull-coord1-groups', '1 2', 'from group 1 to group 2');
@@ -3192,7 +4115,10 @@ function asciiOnly(s) {
  *
  * @param {object} [settings] - As for {@link generateMdp}, applied to every stage
  *   (the stage-specific defaults for position restraints, velocities and
- *   output still apply unless given).
+ *   output still apply unless given). The first dynamics stage in the list
+ *   always draws new velocities and constrains its start (gen-vel = yes,
+ *   continuation = no), since what precedes it is a minimisation or nothing;
+ *   settings.perStage can say otherwise.
  * @param {string[]} [stages]
  * @returns {Array<ReturnType<typeof generateMdp>>}
  */
@@ -3203,5 +4129,15 @@ export function generateWorkflow(settings = {}, stages = ['em', 'nvt', 'npt', 'p
   // What differs from stage to stage keeps the stage's default unless set
   // for that stage in settings.perStage.
   for (const k of ['posres', 'genVel', 'continuation', 'lengthNs', 'nsteps', 'output']) delete shared[k];
-  return stages.map(stage => generateMdp({ ...shared, stage, ...((settings.perStage || {})[stage] || {}) }));
+  let dynamicsBefore = false;
+  return stages.map(stage => {
+    const own = (settings.perStage || {})[stage] || {};
+    const first = STAGES[stage] && STAGES[stage].dynamics && !dynamicsBefore;
+    if (STAGES[stage] && STAGES[stage].dynamics) dynamicsBefore = true;
+    // The first dynamics stage follows a minimisation (or nothing), which
+    // leaves no velocities and unconstrained bonds: it draws new velocities
+    // and constrains the start, whichever stage it is.
+    const start = first ? { genVel: true, continuation: false } : {};
+    return generateMdp({ ...shared, stage, ...start, ...own });
+  });
 }

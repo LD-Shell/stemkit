@@ -1477,6 +1477,960 @@
     "fatal": null,
     "messages": []
    }
+  },
+  {
+   "name": "density-shift-commas",
+   "description": "A density-guided shift vector with commas, which grompp splits at spaces only.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ndensity-guided-simulation-shift-vector = 0,0,0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Error in mdp option \"density-guided-simulation-shift-vector\": Reading three real values as vector while parsing the .mdp input failed in density-guided-simulation.Expected empty string or string with 3 elements to convert, but received 1 el"
+    ]
+   }
+  },
+  {
+   "name": "density-shift-spaces",
+   "description": "The same vector with spaces: passes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ndensity-guided-simulation-shift-vector = 1 2 3\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "density-matrix-commas",
+   "description": "A density-guided matrix with commas.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ndensity-guided-simulation-transformation-matrix = 1,0,0,0,1,0,0,0,1\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Error in mdp option \"density-guided-simulation-transformation-matrix\": Reading nine real values as vector while parsing the .mdp input failed in density-guided-simulation.Expected empty string or string with 9 elements to convert, but recei"
+    ]
+   }
+  },
+  {
+   "name": "density-measure-case",
+   "description": "Module values compare with case: Inner-Product is refused.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ndensity-guided-simulation-similarity-measure = Inner-Product\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Invalid value: Inner-Product. Allowed values: inner-product, relative-entropy, cross-correlation.",
+    "messages": []
+   }
+  },
+  {
+   "name": "density-measure-prefix",
+   "description": "Module values match by prefix: inner is inner-product, passes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ndensity-guided-simulation-similarity-measure = inner\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "pull-print-com1-no-pull",
+   "description": "The old name pull-print-com1 with pull = no: renamed, then unknown.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull-print-com1 = yes\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: Unknown left-hand 'pull-print-com' in parameter file"
+    ]
+   }
+  },
+  {
+   "name": "pme-switch",
+   "description": "PME-Switch with a narrow switching range: grompp accepts it.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME-Switch\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nrcoulomb-switch = 0.96\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "pme-switch-range",
+   "description": "PME-Switch with the default rcoulomb-switch of 0: the range warning.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME-Switch\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: The switching range should be 5% or less (currently 100.00% using a switching range of 0.000000-1.000000) for accurate electrostatic energies, energy conservation will be good regardless, since ewald_rtol = 1e-05."
+    ]
+   }
+  },
+  {
+   "name": "coulomb-modifier-force-switch",
+   "description": "An undocumented coulomb-modifier spelling grompp refuses.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ncoulomb-modifier = Force-switch\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: coulomb_modifier=Force-switch is not supported"
+    ]
+   }
+  },
+  {
+   "name": "coulombtype-poisson",
+   "description": "An undocumented coulombtype spelling grompp refuses.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = Poisson\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: With Verlet lists only cut-off, reaction-field, PME and Ewald electrostatics are supported"
+    ]
+   }
+  },
+  {
+   "name": "pbc-unset",
+   "description": "pbc = unset: grompp crashes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npbc = unset\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Condition: false Number of PBC dimensions was requested before the PBC type set.",
+    "messages": []
+   }
+  },
+  {
+   "name": "integrator-sd2",
+   "description": "The removed sd2 integrator: grompp passes (mdrun stops).",
+   "mdp": "; STEMKit broken-file case\nintegrator = sd2 - removed\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "awh-valid",
+   "description": "A complete AWH bias: passes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-group2-name = Chain_B\npull-coord1-groups = 1 2\npull-coord1-type = external-potential\npull-coord1-potential-provider = awh\npull-coord1-geometry = distance\nawh = yes\nawh-nbias = 1\nawh1-ndim = 1\nawh1-dim1-coord-index = 1\nawh1-dim1-start = 0.3\nawh1-dim1-end = 1.5\nawh1-dim1-force-constant = 10000\nawh1-dim1-diffusion = 1e-5\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "awh-no-force-constant",
+   "description": "AWH without a force constant (default 0).",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-group2-name = Chain_B\npull-coord1-groups = 1 2\npull-coord1-type = external-potential\npull-coord1-potential-provider = awh\npull-coord1-geometry = distance\nawh = yes\nawh-nbias = 1\nawh1-ndim = 1\nawh1-dim1-coord-index = 1\nawh1-dim1-start = 0.3\nawh1-dim1-end = 1.5\nawh1-dim1-diffusion = 1e-5\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: The force AWH bias force constant should be > 0"
+    ]
+   }
+  },
+  {
+   "name": "awh-diffusion-unset",
+   "description": "AWH without a diffusion constant: grompp uses 1e-5 with a note.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-group2-name = Chain_B\npull-coord1-groups = 1 2\npull-coord1-type = external-potential\npull-coord1-potential-provider = awh\npull-coord1-geometry = distance\nawh = yes\nawh-nbias = 1\nawh1-ndim = 1\nawh1-dim1-coord-index = 1\nawh1-dim1-start = 0.3\nawh1-dim1-end = 1.5\nawh1-dim1-force-constant = 10000\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "awh-target-cutoff-unused",
+   "description": "A target cutoff set for the constant target.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-group2-name = Chain_B\npull-coord1-groups = 1 2\npull-coord1-type = external-potential\npull-coord1-potential-provider = awh\npull-coord1-geometry = distance\nawh = yes\nawh-nbias = 1\nawh1-ndim = 1\nawh1-dim1-coord-index = 1\nawh1-dim1-start = 0.3\nawh1-dim1-end = 1.5\nawh1-dim1-force-constant = 10000\nawh1-dim1-diffusion = 1e-5\nawh1-target-cutoff = 10\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Value for awh1-target-cutoff (10) set explicitly but will not be used for target type constant."
+    ]
+   }
+  },
+  {
+   "name": "awh-nstout-zero",
+   "description": "AWH without output.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-group2-name = Chain_B\npull-coord1-groups = 1 2\npull-coord1-type = external-potential\npull-coord1-potential-provider = awh\npull-coord1-geometry = distance\nawh = yes\nawh-nbias = 1\nawh1-ndim = 1\nawh1-dim1-coord-index = 1\nawh1-dim1-start = 0.3\nawh1-dim1-end = 1.5\nawh1-dim1-force-constant = 10000\nawh1-dim1-diffusion = 1e-5\nawh-nstout = 0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Not writing AWH output with AWH (awh-nstout = 0) does not make sense"
+    ]
+   }
+  },
+  {
+   "name": "awh-coord-index-range",
+   "description": "An AWH coordinate beyond pull-ncoords (grompp then reads past its pull coordinates, so the number of its messages varies).",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-group2-name = Chain_B\npull-coord1-groups = 1 2\npull-coord1-type = external-potential\npull-coord1-potential-provider = awh\npull-coord1-geometry = distance\nawh = yes\nawh-nbias = 1\nawh1-ndim = 1\nawh1-dim1-start = 0.3\nawh1-dim1-end = 1.5\nawh1-dim1-force-constant = 10000\nawh1-dim1-diffusion = 1e-5\nawh1-dim1-coord-index = 2\n",
+   "counts": false,
+   "grompp": {
+    "passes": false,
+    "errors": 2,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: The given AWH coordinate index (2) is larger than the number of pull coordinates (1)",
+     "error: Setting pull-coord2-rate (2.22216e-17) is incompatible with AWH biasing this coordinate"
+    ]
+   }
+  },
+  {
+   "name": "awh-share-group-negative",
+   "description": "A negative share group.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-group2-name = Chain_B\npull-coord1-groups = 1 2\npull-coord1-type = external-potential\npull-coord1-potential-provider = awh\npull-coord1-geometry = distance\nawh = yes\nawh-nbias = 1\nawh1-ndim = 1\nawh1-dim1-coord-index = 1\nawh1-dim1-start = 0.3\nawh1-dim1-end = 1.5\nawh1-dim1-force-constant = 10000\nawh1-dim1-diffusion = 1e-5\nawh1-share-group = -1\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: AWH bias share-group should be >= 0"
+    ]
+   }
+  },
+  {
+   "name": "awh-pull-umbrella",
+   "description": "AWH on a pull coordinate that is not an external potential.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-group2-name = Chain_B\npull-coord1-groups = 1 2\npull-coord1-geometry = distance\nawh = yes\nawh-nbias = 1\nawh1-ndim = 1\nawh1-dim1-coord-index = 1\nawh1-dim1-start = 0.3\nawh1-dim1-end = 1.5\nawh1-dim1-force-constant = 10000\nawh1-dim1-diffusion = 1e-5\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Module 'AWH' attempted to register an external potential for pull coordinate 1 which of type 'umbrella', whereas external potentials are only supported with type 'external-potential'",
+    "messages": []
+   }
+  },
+  {
+   "name": "rotation-valid",
+   "description": "Enforced rotation of the protein: passes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nrotation = yes\nrot-group0 = Protein\nrot-k0 = 500\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "rotation-no-k",
+   "description": "Rotation with the default rot-k0 of 0: a note.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nrotation = yes\nrot-group0 = Protein\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "rotation-vec-zero",
+   "description": "A zero rotation vector.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nrotation = yes\nrot-group0 = Protein\nrot-k0 = 500\nrot-vec0 = 0 0 0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: rot-vec0 = 0"
+    ]
+   }
+  },
+  {
+   "name": "rotation-vec-two",
+   "description": "A rotation vector of two numbers.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nrotation = yes\nrot-group0 = Protein\nrot-k0 = 500\nrot-vec0 = 1 0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Expected three numbers at input line 1 0",
+    "messages": []
+   }
+  },
+  {
+   "name": "rotation-slab-dist",
+   "description": "rot-slab-dist0 = 0.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nrotation = yes\nrot-group0 = Protein\nrot-k0 = 500\nrot-slab-dist0 = 0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: rot-slab-dist0 <= 0"
+    ]
+   }
+  },
+  {
+   "name": "rotation-flex2-eps",
+   "description": "flex2 with rot-eps0 = 0.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nrotation = yes\nrot-group0 = Protein\nrot-k0 = 500\nrot-type0 = flex2\nrot-eps0 = 0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: rot-eps0 <= 0"
+    ]
+   }
+  },
+  {
+   "name": "rotation-no-group",
+   "description": "Rotation without a group name.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nrotation = yes\nrot-k0 = 500\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Group referenced in the .mdp file was not found in the list of index groups. Group names must match either [moleculetype] names or custom index group names, in which case you must supply an index file to the '-n' option of grompp.",
+    "messages": []
+   }
+  },
+  {
+   "name": "swap-no-split",
+   "description": "Position swapping without split groups.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nswapcoords = Z\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "The split groups can not both be ''.",
+    "messages": []
+   }
+  },
+  {
+   "name": "swap-iontype-unknown",
+   "description": "An ion type that is not an index group.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nswapcoords = Z\nsplit-group0 = Chain_A\nsplit-group1 = Chain_B\nsolvent-group = SOL\niontype0-name = Argon\n",
+   "context": {
+    "indexGroups": [
+     "System",
+     "Protein",
+     "Non-Protein",
+     "Water",
+     "SOL",
+     "Ion",
+     "Water_and_ions",
+     "NA",
+     "CL",
+     "Chain_A",
+     "Chain_B",
+     "SOLU",
+     "MEMB",
+     "SOLV"
+    ]
+   },
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Group Argon referenced in the .mdp file was not found in the list of index groups. Group names must match either [moleculetype] names or custom index group names, in which case you must supply an index file to the '-n' option of grompp.",
+    "messages": []
+   }
+  },
+  {
+   "name": "tc-grps-twice",
+   "description": "The same temperature group twice.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Atom 1 in multiple T-Coupling groups (1 and 2)",
+    "messages": []
+   }
+  },
+  {
+   "name": "energygrps-twice",
+   "description": "The same energy group twice.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nenergygrps = SOL SOL\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Atom 128 in multiple Energy Mon. groups (1 and 2)",
+    "messages": []
+   }
+  },
+  {
+   "name": "comm-grps-system-plus",
+   "description": "System next to another COM group.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ncomm-grps = System Protein\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Atom 1 in multiple VCM groups (1 and 2)",
+    "messages": []
+   }
+  },
+  {
+   "name": "freeze-partial-com",
+   "description": "A group frozen along z only, in the COM removal group.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nfreezegrps = Protein\nfreezedim = N N Y\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: There are 127 atoms that are frozen along less then 3 dimensions and part of COMM removal group(s), due to limitations in the code these still contribute to the mass of the COM along frozen dimensions and therefore the COMM correction will "
+    ]
+   }
+  },
+  {
+   "name": "freeze-full-com",
+   "description": "A fully frozen group: a note only.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nfreezegrps = Protein\nfreezedim = Y Y Y\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "define-space-hang",
+   "description": "define = -D POSRES: grompp never finishes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ndefine = -D POSRES\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "grompp did not finish within 20 s",
+    "messages": []
+   }
+  },
+  {
+   "name": "define-no-flag",
+   "description": "A define word without -D.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ndefine = POSRES\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: Malformed define option POSRES"
+    ]
+   }
+  },
+  {
+   "name": "include-no-flag",
+   "description": "An include path without -I.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ninclude = /usr/include\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: Malformed include option /usr/include"
+    ]
+   }
+  },
+  {
+   "name": "define-include-flag",
+   "description": "An include path in define.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ndefine = -I/usr/include\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: Malformed define option -I/usr/include"
+    ]
+   }
+  },
+  {
+   "name": "hex-reals",
+   "description": "Hexadecimal reals, which strtod reads: passes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 0x12c 0x12c\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ntinit = 0x1p-3\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "ref-t-inf",
+   "description": "ref-t = inf, refused by fromString<real>.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = inf inf\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 2,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Invalid value for mdp option ref-t. ref-t should only consist of real numbers separated by spaces.",
+     "error: Invalid value for mdp option ref-t. ref-t should only consist of real numbers separated by spaces."
+    ]
+   }
+  },
+  {
+   "name": "ref-t-underflow",
+   "description": "ref-t = 1e-400, an underflow.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 1e-400 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Invalid value for mdp option ref-t. ref-t should only consist of real numbers separated by spaces."
+    ]
+   }
+  },
+  {
+   "name": "efield-inf",
+   "description": "An infinite electric field.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nelectric-field-z = inf 0 0 0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Error in mdp option \"electric-field-z\": Invalid value: 'inf'; it causes an overflow/underflow"
+    ]
+   }
+  },
+  {
+   "name": "efield-sigma-zero",
+   "description": "sigma = 0 with t0 set: grompp accepts it.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nelectric-field-z = 1 0 5 0\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "accelerate-words",
+   "description": "Accelerations that are not numbers.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nacc-grps = Protein\naccelerate = a b c\n",
+   "grompp": {
+    "passes": false,
+    "errors": 3,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Invalid value for mdp option accelerations. accelerations should only consist of real numbers separated by spaces.",
+     "error: Invalid value for mdp option accelerations. accelerations should only consist of real numbers separated by spaces.",
+     "error: Invalid value for mdp option accelerations. accelerations should only consist of real numbers separated by spaces."
+    ]
+   }
+  },
+  {
+   "name": "nstlist-wrap",
+   "description": "nstlist = 2^31 wraps to a negative int.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnstlist = 2147483648\n",
+   "grompp": {
+    "passes": false,
+    "errors": 2,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": [
+     "error: nstlist can not be smaller than 0. (If you were trying to use the heuristic neighbour-list update scheme for efficient buffering for improved energy conservation, please use the Verlet cut-off scheme instead.)",
+     "error: With Verlet lists nstlist should be larger than 0"
+    ]
+   }
+  },
+  {
+   "name": "nstenergy-wrap",
+   "description": "nstenergy = 2^31 wraps to a negative int: passes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 2147483648\nnstlog = 1000\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "colvars-seed-overflow",
+   "description": "A module integer beyond an int.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ncolvars-seed = 2147483648\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Error in mdp option \"colvars-seed\": Invalid value: '2147483648'; it causes an integer overflow"
+    ]
+   }
+  },
+  {
+   "name": "pull-vec-four",
+   "description": "A pull vector of four numbers.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-group2-name = Chain_B\npull-coord1-groups = 1 2\npull-coord1-geometry = direction\npull-coord1-dim = N N Y\npull-coord1-vec = 0 0 1 0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Expected three numbers at input line 0 0 1 0",
+    "messages": []
+   }
+  },
+  {
+   "name": "pull-group-unset",
+   "description": "A pull group without a name.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npull = yes\npull-ngroups = 2\npull-ncoords = 1\npull-group1-name = Chain_A\npull-coord1-groups = 1 2\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Group referenced in the .mdp file was not found in the list of index groups. Group names must match either [moleculetype] names or custom index group names, in which case you must supply an index file to the '-n' option of grompp.",
+    "messages": []
+   }
+  },
+  {
+   "name": "nbsp-value",
+   "description": "A no-break space after a value.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale \ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 1,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "error: Invalid enum 'V-rescale ' for variable tcoupl, using 'No' Next time, use one of: 'No' 'Berendsen' 'Nose-Hoover' 'yes' 'Andersen' 'Andersen-massive' 'V-rescale'"
+    ]
+   }
+  },
+  {
+   "name": "bom-key",
+   "description": "A byte-order mark before the first option.",
+   "mdp": "; STEMKit broken-file case\n﻿integrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: Unknown left-hand ' integrator' in parameter file"
+    ]
+   }
+  },
+  {
+   "name": "cr-line-ends",
+   "description": "Old Mac line ends (a lone CR): one line to grompp.",
+   "mdp": "; STEMKit broken-file case\rintegrator = md\rdt = 0.002\rnsteps = 1000\rcutoff-scheme = Verlet\rcoulombtype = PME\rrcoulomb = 1.0\rrvdw = 1.0\rDispCorr = EnerPres\rconstraints = h-bonds\rtcoupl = V-rescale\rtc-grps = Protein Non-Protein\rtau-t = 0.1 0.1\rref-t = 300 300\rgen-vel = yes\rgen-temp = 300\rnstenergy = 1000\rnstlog = 1000\r",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 4,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "cg-nstcomm-one",
+   "description": "Conjugate gradients with nstcomm = 1: notes only.",
+   "mdp": "; STEMKit broken-file case\nintegrator = cg\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnstcomm = 1\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 4,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "nve-drift",
+   "description": "A 100 ps NVE run from gen-temp: the drift note.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 50000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = no\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 3,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "steep-nstcalcenergy-minus-one",
+   "description": "Steepest descent with nstcalcenergy = -1.",
+   "mdp": "; STEMKit broken-file case\nintegrator = steep\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnstcalcenergy = -1\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": "All 3 inputs for determining nstglobalcomm are <= 0",
+    "messages": []
+   }
+  },
+  {
+   "name": "nve-nstcalcenergy-zero",
+   "description": "NVE with nstcalcenergy = 0.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = no\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnstcalcenergy = 0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 2,
+    "fatal": "All 3 inputs for determining nstglobalcomm are <= 0",
+    "messages": []
+   }
+  },
+  {
+   "name": "sd-nstcalcenergy-zero",
+   "description": "sd with nstcalcenergy = 0.",
+   "mdp": "; STEMKit broken-file case\nintegrator = sd\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 1 1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnstcalcenergy = 0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": "All 3 inputs for determining nstglobalcomm are <= 0",
+    "messages": []
+   }
+  },
+  {
+   "name": "deform-shear-pcoupl",
+   "description": "Shear deformation with isotropic pressure coupling.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = System\ntau-t = 0.1\nref-t = 300\ngen-vel = no\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\npcoupl = C-rescale\ntau-p = 2.0\ncompressibility = 4.5e-5\nref-p = 1.0\ncontinuation = yes\ndeform = 0 0 0 0.01 0 0\ndeform-init-flow = yes\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 1,
+    "notes": 0,
+    "fatal": null,
+    "messages": [
+     "warning: An off-diagonal box element has deform set while compressibility > 0 for the same component of another box vector, this might lead to spurious periodicity effects."
+    ]
+   }
+  },
+  {
+   "name": "sc-r-power-no-fep",
+   "description": "sc-r-power = 48 without free energy.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nsc-r-power = 48\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Only sc-r-power=6 is supported. Value in file is 48.000000",
+    "messages": []
+   }
+  },
+  {
+   "name": "sc-r-power-no-alpha",
+   "description": "sc-r-power = 48 with free energy but sc-alpha = 0.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nfree-energy = yes\ninit-lambda-state = 0\nfep-lambdas = 0 1\nsc-alpha = 0\nsc-r-power = 48\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": "Only sc-r-power=6 is supported. Value in file is 48.000000",
+    "messages": []
+   }
+  },
+  {
+   "name": "fourierspacing-zero",
+   "description": "fourierspacing = 0 with PME.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nfourierspacing = 0\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "invalid fourier grid spacing: 0",
+    "messages": []
+   }
+  },
+  {
+   "name": "mttk-flexible-water",
+   "description": "MTTK with constraints = none and -DFLEXIBLE: no SETTLE, passes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md-vv\ndt = 0.0005\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = none\ntcoupl = nose-hoover\ntc-grps = Protein Non-Protein\ntau-t = 1.0 1.0\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ndefine = -DFLEXIBLE\npcoupl = MTTK\ntau-p = 5.0\ncompressibility = 4.5e-5\nref-p = 1.0\n",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 1,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "martini-cg-shake",
+   "description": "cg with SHAKE on a coarse-grained system without constraints: passes.",
+   "mdp": "integrator = cg\nnsteps = 100\ncoulombtype = reaction-field\nrcoulomb = 1.1\nepsilon-r = 15\nrvdw = 1.1\nconstraints = none\nconstraint-algorithm = shake\n",
+   "context": {
+    "forceField": "martini3",
+    "system": "coarse-grained"
+   },
+   "system": "martini3",
+   "grompp": {
+    "passes": true,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": null,
+    "messages": []
+   }
+  },
+  {
+   "name": "rvdw-zero",
+   "description": "rvdw = 0 with PME: grompp crashes sizing the buffer.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Condition: std::isfinite(drift_tot) The drift estimate should be a finite value",
+    "messages": []
+   }
+  },
+  {
+   "name": "ewald-rtol-negative",
+   "description": "ewald-rtol = -1: grompp never finishes.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\newald-rtol = -1\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "grompp did not finish within 20 s",
+    "messages": []
+   }
+  },
+  {
+   "name": "vdw-exact-cutoff",
+   "description": "vdw-modifier = Exact-cutoff for dynamics.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nvdw-modifier = Exact-cutoff\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Unimplemented VdW modifier",
+    "messages": []
+   }
+  },
+  {
+   "name": "epsilon-r-nan",
+   "description": "epsilon-r = nan for dynamics.",
+   "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nepsilon-r = nan\n",
+   "grompp": {
+    "passes": false,
+    "errors": 0,
+    "warnings": 0,
+    "notes": 0,
+    "fatal": "Condition: std::isfinite(drift_tot) The drift estimate should be a finite value",
+    "messages": []
+   }
   }
  ]
 }
