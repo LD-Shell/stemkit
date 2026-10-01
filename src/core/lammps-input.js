@@ -909,6 +909,31 @@ const fmtNum = (x) => {
 /* A stop: LAMMPS ends the script here. */
 class Stop extends Error {}
 
+/*
+ * The variables by name. Besides the ones defined so far, families that a
+ * command fills in as it runs, as kim query NAME split does (NAME_1,
+ * NAME_2 ..., as many values as the query returns): a member of a family
+ * is made, with a value only the run knows, when it is first looked up.
+ */
+class VariableTable extends Map {
+  get(name) {
+    const v = super.get(name);
+    if (v || !this.families || typeof name !== 'string') return v;
+    for (const [base, line] of this.families) {
+      if (name.startsWith(`${base}_`) && /^[1-9]\d*$/.test(name.slice(base.length + 1))) {
+        const made = { style: 'string', values: [UNKNOWN], which: 0, line };
+        this.set(name, made);
+        return made;
+      }
+    }
+    return undefined;
+  }
+
+  addFamily(base, line) {
+    (this.families || (this.families = new Map())).set(base, line);
+  }
+}
+
 class Machine {
   constructor(parsed, options) {
     this.parsed = parsed;
@@ -918,7 +943,7 @@ class Machine {
     this.issues = [];
     this.seen = new Set();
     this.executed = 0;
-    this.vars = new Map();
+    this.vars = new VariableTable();
     for (const [name, value] of Object.entries(options.vars || {})) {
       const values = Array.isArray(value) ? value.map(String) : [String(value)];
       this.vars.set(name, { style: 'index', values, which: 0, line: 0 });
@@ -1328,11 +1353,18 @@ Object.assign(Machine.prototype, {
     this.quoted = quoted;
     this.recordContext(cmd, args);
     this.url = lammpsDocUrl(cmd) || '';
-    const st = this.st;
     if (META.has(cmd)) { this[`m_${cmd}`](args, quoted); return; }
     const handler = this[`c_${cmd}`];
     if (handler) { handler.call(this, args, quoted); return; }
-    // A command the reference knows: check that this build has it, and the box.
+    this.genericCommand(cmd, args);
+  },
+
+  /*
+   * A command the reference knows: check that this build has it, the box,
+   * and its argument table. Returns true when LAMMPS goes on.
+   */
+  genericCommand(cmd, args) {
+    const st = this.st;
     const info = commandInfo(cmd);
     if (!info || (!info.exists && !info.removed)) {
       const near = didYouMean(cmd, 'command');
@@ -1342,33 +1374,34 @@ Object.assign(Machine.prototype, {
         `"${cmd}" is not a LAMMPS command, so LAMMPS stops ("Unknown command").` +
         (near ? ` Did you mean ${near}?` : /^\d|^[-+.]/.test(cmd) ? ' A number at the start of a line usually means a continuation "&" is missing on the line before.' : ''),
         { url: page('Commands_all') });
-      return;
+      return false;
     }
     if (info.removed) {
       const r = info.removed;
-      if (r.status === 'ignored') { this.note('removed-command', `${r.note}`, { url: info.url || this.url }); return; }
+      if (r.status === 'ignored') { this.note('removed-command', `${r.note}`, { url: info.url || this.url }); return false; }
       if (r.status === 'renamed') {
         this.warn('renamed-command', `${r.note}`, { url: info.url || this.url });
         // LAMMPS runs the new command through Input::one, which is what it reports if that stops.
         if (r.renamed) this.exec(this.entry, [r.renamed, ...args.map(a => (/\s/.test(a) ? `"${a}"` : a))].join(' '), true);
-        return;
+        return false;
       }
       this.error('removed-command', 'This command is no longer available', `${r.note}`, { url: info.url || this.url });
-      return;
+      return false;
     }
     if (!this.havePackages(info.packages)) {
       this.error('missing-package', `Unknown command: ${(this.rawLine || [cmd, ...args].join(' ')).replace(/\s+$/, '')}`,
         `${cmd} comes with the ${info.packages.join(' and ')} package${info.packages.length > 1 ? 's' : ''}, which this LAMMPS build does not have, ` +
         'so LAMMPS stops ("Unknown command"). Rebuild LAMMPS with it, or use a build that has it.', { url: info.url || this.url });
-      return;
+      return false;
     }
     this.needPackages(info.packages);
-    if (NEEDS_BOX[cmd] && !st.box) { this.error('needs-box', NEEDS_BOX[cmd], this.boxMessage(cmd)); return; }
-    if (BEFORE_BOX[cmd] && st.box) { this.error('after-box', BEFORE_BOX[cmd], this.afterBoxMessage(cmd)); return; }
+    if (NEEDS_BOX[cmd] && !st.box) { this.error('needs-box', NEEDS_BOX[cmd], this.boxMessage(cmd)); return false; }
+    if (BEFORE_BOX[cmd] && st.box) { this.error('after-box', BEFORE_BOX[cmd], this.afterBoxMessage(cmd)); return false; }
     // Commands with several forms (delete_atoms region ..., displace_atoms g random ...) have a table per form.
     const sub = [0, 1].map(k => `${cmd} ${args[k]}`).find(k => SPECS[k]);
-    if (sub) this.checkSpec(sub, args);
-    else if (SPECS[cmd]) this.checkSpec(cmd, args);
+    if (sub) return this.checkSpec(sub, args) !== null;
+    if (SPECS[cmd]) return this.checkSpec(cmd, args) !== null;
+    return true;
   },
 
   /* What explainInput needs about a line: its words after substitution and the units, timestep and styles in force. */
@@ -2177,6 +2210,15 @@ const PAIR_INFO = {
   'zero': {  }
 };
 
+/*
+ * The CORESHELL styles (born/coul/long/cs ...) are their base styles with
+ * another force loop: same settings, coefficients and checks, and the same
+ * need for kspace.
+ */
+for (const b of ['born/coul/dsf', 'born/coul/long', 'born/coul/wolf', 'buck/coul/long', 'coul/long', 'coul/wolf', 'lj/class2/coul/long', 'lj/cut/coul/long']) {
+  if (PAIR_INFO[b]) PAIR_INFO[`${b}/cs`] = PAIR_INFO[b];
+}
+
 /* ---- the commands input.cpp handles itself ---- */
 
 Object.assign(Machine.prototype, {
@@ -2354,7 +2396,7 @@ Object.assign(Machine.prototype, {
     let done = false;
     for (const name of args) {
       const v = this.vars.get(name);
-      if (v.style === 'file' || v.style === 'atomfile') { done = null; continue; }
+      if (v.style === 'file' || v.style === 'atomfile' || v.unknownCount) { done = null; continue; }
       v.which += 1;
       const n = v.style === 'loop' || v.style === 'uloop' ? v.last : v.values.length;
       if (v.which >= n) { done = done === null ? null : true; this.vars.delete(name); }
@@ -2696,6 +2738,20 @@ Object.assign(Machine.prototype, {
       return;
     }
     this.needPackages([pk]);
+    if (pk === 'GPU') this.st.gpuPackage = true;
+  },
+
+  /*
+   * A GPU pair or kspace style needs the GPU package set up before it
+   * (GPU_EXTRA::gpu_ready): by a package gpu command, or by -sf gpu or
+   * -pk gpu N on the command line, which the script does not show.
+   */
+  gpuReady(style, what) {
+    if (!/\/gpu$/.test(style) || this.st.gpuPackage || this.gpuWarned) return;
+    this.gpuWarned = true;
+    this.warn('gpu-package', `${what} ${style} is a GPU style, and no "package gpu" command comes before it: LAMMPS stops here ` +
+      '("The package gpu command is required for gpu styles") unless it is started with -sf gpu or -pk gpu N. Add e.g. "package gpu 1" at the top of the script.',
+    { url: page('package') });
   },
 
   c_suffix(args) {
@@ -2746,6 +2802,7 @@ Object.assign(Machine.prototype, {
     }
     st.pairRestart = null;
     if (style !== 'none' && !this.checkStyle('pair_style', style, 'pair')) { st.pair = { style, args: args.slice(1), line: this.entry.line, broken: true, subs: [] }; return; }
+    this.gpuReady(style, 'pair_style');
     st.pair = style === 'none' ? null : { style, args: args.slice(1), line: this.entry.line, subs: [], coeffs: [] };
     st.pairCoeffs = [];
     if (!st.pair) return;
@@ -2760,6 +2817,10 @@ Object.assign(Machine.prototype, {
     if (base === 'tracker' && words.length < 2 && !words.some(isUnknown)) {
       this.error('pair-style-args', 'Illegal pair_style command', 'pair_style tracker needs at least a fix ID and how often to store, so LAMMPS stops.', { url: lammpsDocUrl('pair_style', base) });
       return;
+    }
+    if (base === 'mliap') {
+      const stop = mliapUnavailable(words, this.packages, 'pair');
+      if (stop) { this.error('missing-package', stop.lammps, mliapMessage(stop, 'pair_style mliap'), { url: lammpsDocUrl('pair_style', base) }); return; }
     }
     if (!info || !info.s) { this.checkSpec(`pair_style ${base}`, words); return; }
     if (words.some(isUnknown)) return;
@@ -2796,6 +2857,7 @@ Object.assign(Machine.prototype, {
       if (w === undefined) break;
       if (/^hybrid/.test(w)) { this.error('bad-value', 'Pair style hybrid cannot have hybrid as a sub-style'); return; }
       if (!isUnknown(w) && w !== 'none' && !this.checkStyle('pair_style', w, 'pair')) return;
+      this.gpuReady(w, 'pair_style hybrid sub-style');
       const sub = { style: w, args: [] };
       i += 1;
       while (i < words.length && !(styleExists('pair_style', words[i]) && !isLammpsNumber(words[i])) && !(scaled && (isLammpsNumber(words[i]) || words[i].startsWith('v_')) && i + 1 < words.length && styleExists('pair_style', words[i + 1]))) {
@@ -3000,6 +3062,7 @@ Object.assign(Machine.prototype, {
     const style = args[0];
     if (style === 'none') { this.st.kspace = null; return; }
     if (!this.checkStyle('kspace_style', style, 'kspace')) return;
+    this.gpuReady(style, 'kspace_style');
     this.st.kspace = { style, args: args.slice(1), line: this.entry.line };
     this.checkSpec(`kspace_style ${baseStyle(style)}`, args);
   },
@@ -3410,6 +3473,15 @@ Object.assign(Machine.prototype, {
     if (!st.groups.has(name)) st.groups.set(name, { line: this.entry.line });
   },
 
+  /* atom_modify first G: Atom::init looks the group up whenever the system is set up. */
+  c_atom_modify(args) {
+    const r = this.checkSpec('atom_modify', args);
+    if (r === null || !r.kw.has('first')) return;
+    const g = r.kw.get('first')[0];
+    this.st.firstGroup = g === 'all' || isUnknown(g) ? null : g;
+    this.st.firstGroupLine = this.entry.line;
+  },
+
   c_velocity(args) {
     const st = this.st;
     if (!this.requireBox('velocity')) return;
@@ -3426,6 +3498,34 @@ Object.assign(Machine.prototype, {
     }
     const r = this.checkSpec(isUnknown(vstyle) ? 'velocity' : `velocity ${vstyle}`, args);
     if (r === null) return;
+    // Velocity::options: the temperature compute and rigid fix named must exist.
+    const start = { create: 4, set: 5, scale: 3, ramp: 8, zero: 3 }[vstyle];
+    const known = !st.uncertain && !st.fromRestart;
+    let temp = null;
+    let rigid = null;
+    for (let i = start ?? args.length; i + 1 < args.length; i += 2) {
+      const [k, v] = [args[i], args[i + 1]];
+      if (isUnknown(k) || isUnknown(v)) break;
+      if (k === 'temp') {
+        temp = st.computes.get(v);
+        if (!temp && known) {
+          this.error('undefined-compute', `Could not find velocity temperature compute ID: ${v}`, `velocity ... temp names compute "${v}", which is not defined at this point, so LAMMPS stops.`, { url: page('velocity') });
+          return;
+        }
+      } else if (k === 'rigid') {
+        rigid = st.fixes.get(v);
+        if (!rigid && known) {
+          this.error('undefined-fix', `Fix ID ${v} for velocity does not exist`, `velocity ... rigid names fix "${v}", which is not defined at this point, so LAMMPS stops.`, { url: page('velocity') });
+          return;
+        }
+      }
+    }
+    // With a temp/cs compute (create, set) or a rigid/small fix (zero), velocity sets the
+    // system up first (lmp->init), so the checks of a run apply here.
+    if (((vstyle === 'create' || vstyle === 'set') && temp && baseStyle(temp.style) === 'temp/cs') ||
+      (vstyle === 'zero' && rigid && /^rigid.*\/small/.test(rigid.style))) {
+      if (!this.initChecks('velocity')) return;
+    }
     if (args[1] === 'create') {
       const seed = args[3];
       st.velocityCreated = { line: this.entry.line, temp: args[2], seed };
@@ -3434,10 +3534,35 @@ Object.assign(Machine.prototype, {
   }
 });
 
+/* ---- package commands that define what later lines use ---- */
+
+Object.assign(Machine.prototype, {
+  /*
+   * kim (KIM package). Two sub-commands define variables the script then
+   * uses: kim query NAME [list|split|index] FUNCTION ... asks openkim.org,
+   * so its values (and for split and index, how many) are known only when
+   * it runs; kim init MODEL UNITS unit_conversion_mode makes the _u_*
+   * conversion factors.
+   */
+  c_kim(args) {
+    if (!this.genericCommand('kim', args)) return;
+    const [sub, name, format] = args;
+    const line = this.entry.line;
+    if (sub === 'query' && args.length >= 3 && !isUnknown(name)) {
+      if (format === 'split') this.vars.addFamily(name, line);
+      else this.vars.set(name, { style: format === 'index' ? 'index' : 'string', values: [UNKNOWN], which: 0, line, unknownCount: format === 'index' });
+    } else if (sub === 'init' && args.includes('unit_conversion_mode')) {
+      for (const u of ['mass', 'distance', 'time', 'energy', 'velocity', 'force', 'torque', 'temperature', 'pressure', 'viscosity', 'charge', 'dipole', 'efield', 'density']) {
+        if (!this.vars.get(`_u_${u}`)) this.vars.set(`_u_${u}`, { style: 'internal', value: null, line });
+      }
+    }
+  }
+});
+
 /* ---- fixes, computes, dumps ---- */
 
 /* Fixes that move atoms (they set time_integrate in LAMMPS). */
-const INTEGRATOR_RE = /^(nve|nvt|npt|nph)(\/|$)|^rigid|^(move|nvk|gld|gle|brownian|brownian\/sphere|brownian\/asphere|tfmc|ffl|pafi|sph|mvv\/dpd|mvv\/tdpd|mvv\/edpd|meso\/move|python\/move|rheo|poems|msst|qbmsst|bocs|tgnvt\/drude|tgnpt\/drude|pimd\/langevin|pimd\/nvt|smd\/integrate_tlsph|smd\/integrate_ulsph|smd\/move_tri_surf|npt\/cauchy|ehex)$/;
+const INTEGRATOR_RE = /^(nve|nvt|npt|nph)(\/|$)|^rigid|^(move|nvk|gld|gle|brownian|brownian\/sphere|brownian\/asphere|tfmc|ffl|pafi|sph|mvv\/dpd|mvv\/tdpd|mvv\/edpd|meso\/move|python\/move|rheo|poems|msst|qbmsst|nphug|bocs|tgnvt\/drude|tgnpt\/drude|pimd\/langevin|smd\/integrate_tlsph|smd\/integrate_ulsph|smd\/move_tri_surf|npt\/cauchy|ehex)$/;
 const NOT_INTEGRATOR = new Set(['nve/noforce']);
 const isIntegrator = (style) => {
   const b = baseStyle(style);
@@ -3478,15 +3603,16 @@ Object.assign(Machine.prototype, {
     const fix = { style, group, line: this.entry.line, file: this.entry.file, args, integrates: isIntegrator(style) };
     if (old) this.dropCreated(id);
     st.fixes.set(id, fix);
-    for (const c of FIX_CREATES[baseStyle(style)] || []) {
-      const cid = c.replace('<ID>', id);
+    const creates = FIX_CREATES[baseStyle(style)] || [];
+    for (const [pattern, cstyle, cgroup] of typeof creates === 'function' ? creates(args) : creates) {
+      const cid = pattern.replace('<ID>', id);
       if (st.computes.has(cid)) {
         this.error('compute-reuse', `Reuse of compute ID '${cid}'`, `fix ${style} makes a compute named ${cid} for itself, and a compute with that ID already exists (line ${st.computes.get(cid).line}), so LAMMPS stops.`,
           { related: [st.computes.get(cid).line] });
         fix.broken = true;
         return;
       }
-      st.computes.set(cid, { style: /press/.test(cid) ? 'pressure' : /_pe$/.test(cid) ? 'pe' : 'temp', group: /press|_temp$/.test(cid) && /^(npt|nph|press|box|rigid\/np|plumed|bond)/.test(style) ? 'all' : group, line: this.entry.line, byFix: id });
+      st.computes.set(cid, { style: cstyle, group: cgroup === 'fix' ? group : 'all', line: this.entry.line, byFix: id });
     }
     const pre = FIX_PARSE[baseStyle(style)];
     let opts = {};
@@ -3630,25 +3756,47 @@ Object.assign(Machine.prototype, {
   }
 });
 
-/* Computes a fix makes for itself (<ID> is the fix ID). */
+/*
+ * Computes a fix makes for itself when it is defined (in its constructor):
+ * [ID, compute style, group], where <ID> is the fix ID and the group is
+ * 'all' or 'fix' (the fix's own group). A thermostat measures the
+ * temperature of its group; a barostat the temperature and pressure of the
+ * whole system. Accelerated variants (/omp, /gpu, /kk, /intel) make the same.
+ * A function of the fix arguments when the fix makes them only for some
+ * settings.
+ */
+const T_FIX = ['<ID>_temp', 'temp', 'fix'];
+const T_ALL = ['<ID>_temp', 'temp', 'all'];
+const P_ALL = ['<ID>_press', 'pressure', 'all'];
+const PE_ALL = ['<ID>_pe', 'pe', 'all'];
+const BARO = [T_ALL, P_ALL];
 const FIX_CREATES = {
-  'bond/swap': ['<ID>_temp'],
-  'box/relax': ['<ID>_temp','<ID>_press'],
-  'nph': ['<ID>_temp','<ID>_press'],
-  'npt': ['<ID>_temp','<ID>_press'],
-  'nvt': ['<ID>_temp'],
-  'nvt/sllod': ['<ID>_temp'],
-  'plumed': ['plmd_pe','plmd_press'],
-  'press/berendsen': ['<ID>_temp','<ID>_press'],
-  'rigid/nph': ['<ID>_temp','<ID>_press'],
-  'rigid/nph/small': ['<ID>_temp','<ID>_press'],
-  'rigid/npt': ['<ID>_temp','<ID>_press'],
-  'rigid/npt/small': ['<ID>_temp','<ID>_press'],
-  'temp/berendsen': ['<ID>_temp'],
-  'temp/csld': ['<ID>_temp'],
-  'temp/csvr': ['<ID>_temp'],
-  'temp/rescale': ['<ID>_temp'],
-  'tgnvt/drude': ['<ID>_temp']
+  'nvt': [T_FIX], 'nvt/sllod': [T_FIX], 'nvt/sphere': [T_FIX], 'nvt/asphere': [T_FIX], 'nvt/body': [T_FIX],
+  'nvt/eff': [T_FIX], 'nvt/sllod/eff': [T_FIX], 'nvt/manifold/rattle': [T_FIX], 'tgnvt/drude': [T_FIX],
+  'temp/berendsen': [T_FIX], 'temp/rescale': [T_FIX], 'temp/rescale/eff': [T_FIX], 'temp/csvr': [T_FIX], 'temp/csld': [T_FIX],
+  'npt': BARO, 'nph': BARO, 'npt/sphere': BARO, 'nph/sphere': BARO, 'npt/asphere': BARO, 'nph/asphere': BARO,
+  'npt/body': BARO, 'nph/body': BARO, 'npt/eff': BARO, 'nph/eff': BARO, 'npt/cauchy': BARO, 'tgnpt/drude': BARO,
+  'nvt/uef': BARO, 'npt/uef': BARO, 'box/relax': BARO, 'press/berendsen': BARO, 'bocs': BARO,
+  'rigid/npt': BARO, 'rigid/nph': BARO, 'rigid/npt/small': BARO, 'rigid/nph/small': BARO,
+  'press/langevin': [P_ALL],
+  'nphug': [...BARO, PE_ALL],
+  'qbmsst': [...BARO, PE_ALL],
+  'msst': [['<ID>MSST_temp', 'temp', 'all'], ['<ID>MSST_press', 'pressure', 'all'], ['<ID>MSST_pe', 'pe', 'all']],
+  'grem': [...BARO, ['<ID>_ke', 'ke', 'all'], PE_ALL],
+  'alchemy': [PE_ALL, ...BARO],
+  'neb': [PE_ALL], 'neb/spin': [PE_ALL], 'numdiff': [PE_ALL], 'numdiff/virial': [PE_ALL],
+  'pimd/langevin': [['<ID>_pimd_pe', 'pe', 'all'], ['<ID>_pimd_press', 'pressure', 'all']],
+  'bond/swap': [T_ALL],
+  'plumed': [['plmd_pe', 'pe', 'all'], ['plmd_press', 'pressure', 'all']],
+  'ipi': [['IPI_TEMP', 'temp', 'all'], ['IPI_PRESS', 'pressure', 'all']],
+  // Only when a dimension or the box is pressure-controlled.
+  'deform/pressure': (args) => {
+    const at = (k) => args.indexOf(k, 3);
+    const yes = (w) => ['yes', 'on', 'true', '1'].includes(w);
+    const p = args.slice(3).some(w => w === 'pressure' || w === 'pressure/mean') ||
+      (at('couple') > 0 && args[at('couple') + 1] !== 'none') || (at('vol/balance/p') > 0 && yes(args[at('vol/balance/p') + 1]));
+    return p ? BARO : [];
+  }
 };
 
 /*
@@ -3842,6 +3990,53 @@ Object.assign(Machine.prototype, {
 const COMPUTE_RULES = {};
 const DUMP_RULES = {};
 
+/*
+ * ML-IAP parts that need more than the ML-IAP package: the ace descriptor
+ * is compiled in only with ML-PACE (-DMLIAP_ACE), the mliappy model and
+ * unified only with Python support, which needs the PYTHON package (and
+ * Cython and NumPy, which the package list does not show). `words` are the
+ * keywords of compute mliap or pair_style mliap, read in order as LAMMPS
+ * does; returns where LAMMPS stops ({need, lammps}: the package, the
+ * message), or null.
+ */
+function mliapUnavailable(words, packages, kind) {
+  if (!packages) return null;
+  const python = packages.has('PYTHON');
+  const compute = kind === 'compute';
+  for (let i = 0; i < words.length;) {
+    const [k, v] = [words[i], words[i + 1]];
+    if (isUnknown(k) || isUnknown(v ?? '')) return null;
+    // With PYTHON, whether ML-IAP has Python support is not known: LAMMPS may stop there.
+    if (k === 'model') {
+      if (v === 'mliappy') {
+        if (python) return null;
+        return { need: 'PYTHON', lammps: compute ? "Must enable PYTHON package and -DMLIAP_PYTHON setting to use 'mliappy' model" : 'Using pair_style mliap model mliappy requires ML-IAP with python support' };
+      }
+      i += compute ? 2 : 3;
+    } else if (k === 'descriptor') {
+      if (v === 'ace' && !packages.has('ML-PACE')) return { need: 'ML-PACE', lammps: compute ? "Must enable ML-PACE package and -DMLIAP_ACE setting to use 'ace' descriptor" : 'Illegal pair_style mliap command' };
+      i += 3;
+    } else if (k === 'unified' && !compute) {
+      if (python) return null;
+      return { need: 'PYTHON', lammps: 'Using pair_style mliap unified requires ML-IAP with python support' };
+    } else if (k === 'gradgradflag' && compute) {
+      i += 2;
+    } else return null;
+  }
+  return null;
+}
+
+function mliapMessage(stop, what) {
+  const ace = stop.need === 'ML-PACE';
+  return `${what} uses ${ace ? 'the ace descriptor, which ML-IAP has only when LAMMPS is built with the ML-PACE package' : 'a Python model (mliappy or unified), which ML-IAP has only when LAMMPS is built with the PYTHON package and ML-IAP Python support'}; ` +
+    `this build lacks ${stop.need}, so LAMMPS stops ("${stop.lammps}").`;
+}
+
+COMPUTE_RULES.mliap = function mliap(c, r, args) {
+  const stop = mliapUnavailable(args.slice(3), this.packages, 'compute');
+  if (stop) { this.error('missing-package', stop.lammps, mliapMessage(stop, `compute ${args[0]}`)); c.broken = true; }
+};
+
 /* What each per-atom attribute needs from the atom style. */
 const DUMP_NEEDS = { mol: 'mol', q: 'q', mux: 'mu', muy: 'mu', muz: 'mu', mu: 'mu', radius: 'radius', diameter: 'radius' };
 
@@ -3963,6 +4158,14 @@ function KSPACE_FLAGS(style) {
   if (/^msm/.test(b)) return ['msm'];
   return null;
 }
+/* The kspace solvers that stop in 2d, by the name their message gives (KSpace::init). */
+const KSPACE_2D = {
+  'pppm': 'PPPM', 'pppm/cg': 'PPPM', 'pppm/tip4p': 'PPPM', 'pppm/stagger': 'PPPM',
+  'pppm/disp': 'PPPMDisp', 'pppm/disp/tip4p': 'PPPMDisp', 'pppm/dipole': 'PPPMDipole', 'pppm/dipole/spin': 'PPPMDipoleSpin',
+  'ewald': 'Ewald', 'ewald/disp': 'EwaldDisp', 'ewald/disp/dipole': 'EwaldDisp', 'ewald/dipole': 'EwaldDipole', 'ewald/dipole/spin': 'EwaldDipoleSpin',
+  'msm': 'MSM', 'msm/cg': 'MSM'
+};
+
 /* Atom styles whose particles carry their own mass (AtomVec mass_type PER_ATOM). */
 const PER_ATOM_MASS_STYLES = new Set(['sphere', 'ellipsoid', 'line', 'tri', 'body', 'bpm/sphere', 'peri', 'smd']);
 
@@ -4093,6 +4296,15 @@ Object.assign(Machine.prototype, {
     // KSpace is set up before the pair style (Force::init).
     if (kspace) {
       const kf = KSPACE_FLAGS(kspace.style);
+      const solver = KSPACE_2D[baseStyle(kspace.style)];
+      if (st.dimension === 2 && solver) {
+        const lammps = solver === 'MSM' ? 'Cannot (yet) use MSM with 2d simulation' : `Cannot use ${solver} with 2d simulation`;
+        this.error('kspace-2d', lammps,
+          `kspace_style ${kspace.style} (line ${kspace.line}) works in three dimensions only, and this is a 2d simulation, so LAMMPS stops ${where}. ` +
+          'Use a cut-off Coulomb pair style instead (coul/cut, coul/dsf, coul/wolf).',
+          { url: page('kspace_style'), related: [kspace.line] });
+        return false;
+      }
       const needsQ = !/dipole|disp$/.test(baseStyle(kspace.style)) || /^(pppm|ewald)\/disp/.test(kspace.style) && flags && flags.has('coul');
       if (!charged && needsQ && !/dipole/.test(kspace.style) && !/disp/.test(kspace.style)) {
         this.error('kspace-no-charge', 'Kspace style requires atom attribute q',
@@ -4162,6 +4374,12 @@ Object.assign(Machine.prototype, {
     }
     if (!this.bondedComplete(where)) return false;
     if (!this.massesComplete(atRun ? 'run' : kind)) return false;
+    if (st.firstGroup && !this.knownGroup(st.firstGroup)) {
+      this.error('undefined-group', `Could not find atom_modify first group ID ${st.firstGroup}`,
+        `atom_modify first (line ${st.firstGroupLine}) names group "${st.firstGroup}", which is not defined at this point; LAMMPS looks it up ${where} and stops. Define the group before this line.`,
+        { url: page('atom_modify'), related: [st.firstGroupLine] });
+      return false;
+    }
     if (!this.fixOrder(where)) return false;
     if (!this.outputReferences(where)) return false;
     this.adviseRun(kind);
@@ -4526,7 +4744,9 @@ Object.assign(Machine.prototype, {
     if (!args.length) { this.missing('thermo_style'); return; }
     if (!this.requireBox('thermo_style')) return;
     const style = args[0];
-    if (st.thermoStyle && st.thermoStyle.modified) this.warn('thermo-modify-lost', 'A new thermo_style drops the earlier thermo_modify settings; LAMMPS warns ("New thermo_style command, previous thermo_modify settings will be lost"). Put thermo_modify after thermo_style.', { related: [st.thermoStyle.modifiedLine] });
+    // Output::create_thermo: also when the thermo_modify changed the default thermo output.
+    if (st.thermoModified) this.warn('thermo-modify-lost', 'A new thermo_style drops the earlier thermo_modify settings; LAMMPS warns ("New thermo_style command, previous thermo_modify settings will be lost"). Put thermo_modify after thermo_style.', { related: [st.thermoModified] });
+    st.thermoModified = null;
     const ts = { style, line: this.entry.line, refs: [], keywords: [] };
     if (style === 'one' || style === 'multi' || style === 'yaml') {
       if (args.length > 1 && !isUnknown(args[1])) { /* LAMMPS ignores extra words here */ }
@@ -4602,7 +4822,7 @@ Object.assign(Machine.prototype, {
   c_thermo_modify(args) {
     const r = this.checkSpec('thermo_modify', args);
     if (r === null) return;
-    if (this.st.thermoStyle) { this.st.thermoStyle.modified = true; this.st.thermoStyle.modifiedLine = this.entry.line; }
+    this.st.thermoModified = this.entry.line;
     for (const k of ['temp', 'press']) {
       if (r.kw.has(k)) {
         const id = r.kw.get(k)[0];

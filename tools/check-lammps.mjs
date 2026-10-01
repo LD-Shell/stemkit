@@ -34,15 +34,18 @@
  *     (its "Last command:" mapped to the logical line that ran last with that
  *     text), unless the error is of a class STEMKit cannot know from the
  *     script alone (the content of a data, restart or potential file, a file
- *     that is not there, a value only a run produces, the MPI environment).
- *     Then STEMKit must simply not stop earlier.
+ *     that is not there, a value only a run produces, or what the command
+ *     line and the machine give: MPI ranks, -partition replicas, -sf gpu or
+ *     -pk gpu, Python support, KIM models, a network peer). Then STEMKit
+ *     must simply not stop earlier.
  *
  * Screen output goes to stdout through `stdbuf -oL`: with -screen <file> the
  * message of an error that aborts (error->one) is lost in the file buffer.
  *
  * Inputs with `fix plumed` run in LMP_PLUMED_BIN when it is given. A LAMMPS
- * that crashes or hangs (a few examples wait for a network peer) is not
- * compared, and is counted as such.
+ * that crashes or hangs (fix imd waits for a client; hyper and prd run their
+ * dynamics in a loop -skiprun does not stop) is not compared, and is counted
+ * as such.
  *
  *     LMP_BIN=/path/to/lmp [LMP_PLUMED_BIN=/path/to/lmp-with-plumed] \
  *       node tools/check-lammps.mjs [--verbose] [--list] [--only <text>] [--jobs 2]
@@ -253,8 +256,9 @@ function makeCase(kind, name, dir, file, original) {
  * cannot know it. Checked in order; the first match wins.
  */
 const CLASSES = [
-  ['environment', 'needs MPI ranks, partitions, a GPU, Python, KIM, a plugin or a network connection (IMD) that this run does not have',
-    /World variable count|partition|Python|python|KIM|kim_|GPU|Kokkos|KOKKOS|processors|# of procs|Universe\/uloop|lock file|plugin|MPI|mdi|MDI|error in IMD/],
+  ['environment', 'needs what the command line or the machine gives, which this run does not have: MPI ranks, partitions (several replicas for NEB, TAD, PRD and temper), ' +
+    'the GPU package switched on (-sf gpu or -pk gpu, when the script has no package gpu), Python support, KIM models, a plugin, or a network peer (IMD, i-PI)',
+  /World variable count|partition|single replica|only one replica|-processor replicas|Python|python|KIM|kim_|GPU|package gpu command is required|accelerator|Kokkos|KOKKOS|processors|# of procs|Universe\/uloop|lock file|plugin|MPI|mdi|MDI|error in IMD|socket/],
   ['lammps-bug', 'is a consistency check inside LAMMPS that fails for this style ("Contact the developer"), not a mistake in the input',
     /Contact the developer|contact the developers/],
   ['files', 'reads a file that is not in the example directory (often written by another example)',
@@ -302,7 +306,12 @@ function compare(c, lmp) {
   const first = mine.firstError;
   const firstAt = mine.firstErrorAt;
   const res = { case: c, lmp, mine, first };
-  if (lmp.timedOut) return { ...res, verdict: 'skip', why: 'LAMMPS did not finish within the time limit' };
+  if (lmp.timedOut) {
+    // -skiprun stops run and minimize, not the loops of these commands.
+    const why = /^\s*fix\s+\S+\s+\S+\s+imd\s/m.test(c.text) ? ': fix imd waits for a client to connect'
+      : /^\s*(hyper|prd|tad|neb|temper\S*)\s/m.test(c.text) ? ': hyper, prd, tad, neb and temper run dynamics in a loop that -skiprun does not stop' : '';
+    return { ...res, verdict: 'skip', why: `LAMMPS did not finish within the time limit${why}` };
+  }
   if (lmp.signal && !lmp.error) {
     // LAMMPS crashes on charge() without charges; STEMKit says so instead.
     if (first && first.id === 'charge-crash') return { ...res, verdict: 'agree' };
@@ -659,13 +668,24 @@ const WARNINGS = [
 let wSeen = 0;
 let wGot = 0;
 const wMissed = {};
+const wExtra = {};
 for (const r of [...exResults, ...muResults]) {
   if (!r.lmp || r.lmp.error || r.verdict !== 'agree') continue;
   for (const [re, id] of WARNINGS) {
-    if (!r.lmp.warnings.some(w => re.test(w))) continue;
+    if (!r.lmp.warnings.some(w => re.test(w))) {
+      // And the reverse: a modelled warning STEMKit gives that LAMMPS does not print.
+      if (r.mine.issues.some(i => i.id === id) && r.lmp.warnings.length < 40) {
+        wExtra[id] = (wExtra[id] || 0) + 1;
+        if (verbose) console.log(`  warning LAMMPS does not give (${id}): ${r.case.name}`);
+      }
+      continue;
+    }
     wSeen += 1;
     if (r.mine.issues.some(i => i.id === id)) wGot += 1;
-    else wMissed[id] = (wMissed[id] || 0) + 1;
+    else {
+      wMissed[id] = (wMissed[id] || 0) + 1;
+      if (verbose) console.log(`  warning missed (${id}): ${r.case.name}`);
+    }
   }
 }
 // Where both stop on the same line: does STEMKit quote the message LAMMPS prints?
@@ -674,7 +694,8 @@ const sameText = sameLine.filter(r => (r.first.lammps || '').trim() === r.lmp.er
 console.log(`Messages: where both stop on the same line, STEMKit quotes LAMMPS's own message word for word in ${sameText.length} of ${sameLine.length} cases.`);
 if (verbose) for (const r of sameLine.filter(x => !sameText.includes(x)).slice(0, 40)) console.log(`  differs: ${r.case.name}\n      LAMMPS:  ${r.lmp.error}\n      STEMKit: ${r.first.lammps || r.first.message}`);
 console.log(`Warnings: STEMKit gives ${wGot} of the ${wSeen} modelled LAMMPS warnings printed by inputs that run` +
-  `${Object.keys(wMissed).length ? ` (missed: ${Object.entries(wMissed).map(([k, v]) => `${k} ${v}`).join(', ')})` : ''}.`);
+  `${Object.keys(wMissed).length ? ` (missed: ${Object.entries(wMissed).map(([k, v]) => `${k} ${v}`).join(', ')})` : ''}` +
+  `, and ${Object.values(wExtra).reduce((a, b) => a + b, 0)} that LAMMPS does not print${Object.keys(wExtra).length ? ` (${Object.entries(wExtra).map(([k, v]) => `${k} ${v}`).join(', ')})` : ''}.`);
 
 const dis = [...(ex ? ex.disagree : []), ...(mu ? mu.disagree : [])];
 if (dis.length) {

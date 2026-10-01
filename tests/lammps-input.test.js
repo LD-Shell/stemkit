@@ -417,6 +417,156 @@ describe('checkInput: what LAMMPS checks when a run starts', () => {
 
 /* ------------------------------------------------------------------ */
 
+/*
+ * Found by running tools/check-lammps.mjs against a LAMMPS with more
+ * packages (ASPHERE, BODY, CORESHELL, GPU, KIM, ML-IAP, REPLICA ...).
+ */
+const FULLER_BUILD = ('ASPHERE BODY CLASS2 COLLOID COMPRESS CORESHELL DIPOLE EXTRA-COMPUTE EXTRA-DUMP EXTRA-FIX EXTRA-MOLECULE EXTRA-PAIR GPU ' +
+  'GRANULAR KIM KSPACE MANYBODY MC MISC ML-IAP ML-SNAP MOLECULE OPT PERI PLUMED PYTHON QEQ REPLICA RIGID SHOCK SRD VORONOI').split(' ');
+
+describe('checkInput: styles of the packages of a fuller build', () => {
+  /* A 2d system of ellipsoids, as examples/ellipse sets up. */
+  const ELLIPSE = [
+    'units lj',
+    'atom_style ellipsoid',
+    'dimension 2',
+    'lattice sq 0.02',
+    'region box block 0 10 0 10 -0.5 0.5',
+    'create_box 2 box',
+    'create_atoms 1 box',
+    'set type 1 mass 1.0',
+    'set type 1 shape 3 1 1',
+    'pair_style gayberne 1.0 3.0 1.0 4.0',
+    'pair_coeff * * 1.0 1.7 1.7 3.4 3.4 1.0 1.0 1.0',
+    'fix 1 all npt/asphere temp 2.0 2.0 0.1 iso 0.0 1.0 1.0 mtk no pchain 0 tchain 1',
+    'fix 2 all enforce2d',
+    'compute_modify 1_temp extra/dof 0',
+    'run 10'
+  ].join('\n') + '\n';
+
+  test('fixes of other packages make their own computes too (nvt/asphere, nvt/body, grem ...)', () => {
+    // examples/ellipse: npt/asphere makes 1_temp and 1_press, like npt.
+    expect(errors(checkInput(ELLIPSE, { packages: FULLER_BUILD }))).toEqual([]);
+    expect(errors(checkInput(ELLIPSE.replace('npt/asphere temp 2.0 2.0 0.1 iso 0.0 1.0 1.0 mtk no pchain 0 tchain 1', 'nvt/asphere temp 2.0 2.0 0.1')))).toEqual([]);
+    // examples/body/in.cubes: thermo prints c_1_temp of fix nvt/body.
+    const cubes = 'units lj\natom_style body rounded/polyhedron 1 10\nread_data data.cubes\npair_style body/rounded/polyhedron 1 1\npair_coeff * * 1 1\n' +
+      'fix 1 all nvt/body temp 1.2 1.2 0.1\nthermo_style custom step ke pe c_1_temp\nrun 10\n';
+    expect(errors(checkInput(cubes, { packages: FULLER_BUILD }))).toEqual([]);
+    // examples/PACKAGES/grem: fix grem makes ID_temp, ID_press, ID_ke and ID_pe.
+    const grem = REAL.replace('fix 1 all nvt temp 300 300 100', 'fix fxnpt all npt temp 300 300 100 iso 0 0 1000\nfix fxgREM all grem 400 -.01 -30000 fxnpt\nthermo_modify press fxgREM_press\nthermo_style custom step c_fxgREM_ke c_fxgREM_pe');
+    expect(errors(checkInput(grem, { packages: FULLER_BUILD }))).toEqual([]);
+    // A compute with the ID of one the fix made, or is about to make, stops LAMMPS.
+    expect(checkInput(grem.replace('thermo_modify press fxgREM_press', 'compute fxgREM_pe all pe'), { packages: FULLER_BUILD }).firstError)
+      .toMatchObject({ line: 19, lammps: "Reuse of compute ID 'fxgREM_pe'" });
+    expect(checkInput(grem.replace('fix fxgREM all grem', 'compute fxgREM_ke all ke\nfix fxgREM all grem'), { packages: FULLER_BUILD }).firstError)
+      .toMatchObject({ line: 19, lammps: "Reuse of compute ID 'fxgREM_ke'" });
+    // fix deform/pressure makes them only when it controls a pressure.
+    const deform = (how) => checkInput(insertAfter(LJ, 12, `fix 2 all deform/pressure 1 ${how}\ncompute_modify 2_temp extra/dof 0`)).firstError;
+    expect(deform('x pressure 1.0 0.1')).toBeNull();
+    expect(deform('x final 0.0 6.0')).toMatchObject({ line: 14, lammps: 'Could not find compute_modify ID 2_temp' });
+    // fix msst names them without the underscore.
+    expect(errors(checkInput(insertAfter(LJ, 12, 'fix 2 all msst z 28.0\ncompute_modify 2MSST_temp extra/dof 0')))).toEqual([]);
+  });
+
+  test('a thermostat measures its own group, a barostat the whole system', () => {
+    const r = checkInput(insertAfter(LJ, 7, 'group half id <= 50') + 'fix 2 half temp/csvr 3.0 3.0 1.0 4928\nfix 3 all press/berendsen iso 1 1 10\n');
+    const computes = Object.fromEntries(r.state.computes.map(c => [c.id, c.group]));
+    expect(computes).toMatchObject({ '2_temp': 'half', '3_temp': 'all', '3_press': 'all' });
+  });
+
+  test('CORESHELL pair styles are their base styles: same coefficients, and long-range ones need kspace', () => {
+    // examples/coreshell with kspace_style removed.
+    const cs = REAL.replace('pair_style lj/cut/coul/long 10.0', 'pair_style born/coul/long/cs 10.0').replace('pair_coeff * * 0.1 3.0', 'pair_coeff * * 0.0 1.0 0.0 0.0 0.0');
+    expect(errors(checkInput(cs, { packages: FULLER_BUILD }))).toEqual([]);
+    expect(checkInput(cs.replace('kspace_style pppm 1.0e-4\n', ''), { packages: FULLER_BUILD }).firstError)
+      .toMatchObject({ line: 18, lammps: 'Pair style requires a KSpace style' });
+    expect(checkInput(cs.replace('pair_coeff * * 0.0 1.0 0.0 0.0 0.0', 'pair_coeff * * 0.0 1.0'), { packages: FULLER_BUILD }).firstError)
+      .toMatchObject({ line: 12, lammps: 'Incorrect args for pair coefficients' });
+    expect(checkInput(cs.replace('kspace_style pppm 1.0e-4\n', '').replace('born/coul/long/cs', 'born/coul/wolf/cs 0.2'), { packages: FULLER_BUILD }).firstError).toBeNull();
+  });
+
+  test('velocity with a temp/cs compute sets the system up first, as a run does', () => {
+    // examples/coreshell/in.coreshell: velocity ... temp CStemp is where LAMMPS stops without kspace.
+    const cs = REAL.replace('pair_style lj/cut/coul/long 10.0', 'pair_style born/coul/long/cs 10.0').replace('pair_coeff * * 0.1 3.0', 'pair_coeff * * 0.0 1.0 0.0 0.0 0.0')
+      .replace('kspace_style pppm 1.0e-4\n', '')
+      .replace('timestep 1.0', 'comm_modify vel yes\ngroup cores type 1\ngroup shells type 2\ncompute CStemp all temp/cs cores shells\n' +
+        'velocity all create 1427 134 dist gaussian mom yes rot no bias yes temp CStemp');
+    expect(checkInput(cs, { packages: FULLER_BUILD }).firstError).toMatchObject({ line: 19, lammps: 'Pair style requires a KSpace style' });
+    // With a plain temp compute it does not.
+    expect(checkInput(cs.replace('temp/cs cores shells', 'temp').replace('bias yes ', ''), { packages: FULLER_BUILD }).firstError).toMatchObject({ line: 22, lammps: 'Pair style requires a KSpace style' });
+    // The compute and the rigid fix velocity names must exist.
+    expect(checkInput(replaceLine(LJ, 8, 'velocity all create 3.0 87287 temp nope')).firstError).toMatchObject({ line: 8, lammps: 'Could not find velocity temperature compute ID: nope' });
+    expect(checkInput(insertAfter(LJ, 12, 'velocity all zero linear rigid nope')).firstError).toMatchObject({ line: 13, lammps: 'Fix ID nope for velocity does not exist' });
+  });
+
+  test('atom_modify first: the group must exist whenever LAMMPS sets the system up', () => {
+    // examples/ASPHERE/box/in.box.mp with reset_ids before "group big".
+    const first = insertAfter(LJ, 2, 'atom_modify map array first big');
+    expect(checkInput(first).firstError).toMatchObject({ line: 15, lammps: 'Could not find atom_modify first group ID big' });
+    expect(checkInput(insertAfter(first, 8, 'reset_atoms id\ngroup big type 1')).firstError).toMatchObject({ line: 9, lammps: 'Could not find atom_modify first group ID big' });
+    expect(errors(checkInput(insertAfter(first, 8, 'group big type 1\nreset_atoms id')))).toEqual([]);
+    expect(errors(checkInput(insertAfter(LJ, 2, 'atom_modify first all')))).toEqual([]);
+  });
+
+  test('kspace in 2d stops LAMMPS before the charges are checked', () => {
+    // examples/ASPHERE/dimer with kspace_style pppm added.
+    const twoD = (k) => checkInput(ELLIPSE.replace('pair_coeff * * 1.0 1.7 1.7 3.4 3.4 1.0 1.0 1.0', `pair_coeff * * 1.0 1.7 1.7 3.4 3.4 1.0 1.0 1.0\nkspace_style ${k} 1.0e-4`), { packages: FULLER_BUILD }).firstError;
+    expect(twoD('pppm')).toMatchObject({ line: 16, lammps: 'Cannot use PPPM with 2d simulation' });
+    expect(twoD('ewald')).toMatchObject({ lammps: 'Cannot use Ewald with 2d simulation' });
+    expect(twoD('msm')).toMatchObject({ lammps: 'Cannot (yet) use MSM with 2d simulation' });
+  });
+
+  test('ML-IAP: the ace descriptor needs ML-PACE, Python models need PYTHON', () => {
+    // examples/mliap/in.mliap.ace.compute
+    const ace = 'units metal\nregion b block 0 4 0 4 0 4\ncreate_box 1 b\ncreate_atoms 1 random 20 1 NULL\nmass 1 1.0\npair_style zero 5.7\npair_coeff * *\n' +
+      'compute ace all mliap descriptor ace H.yace model linear gradgradflag 1\nrun 0\n';
+    expect(checkInput(ace, { packages: FULLER_BUILD }).firstError)
+      .toMatchObject({ line: 8, lammps: "Must enable ML-PACE package and -DMLIAP_ACE setting to use 'ace' descriptor" });
+    expect(errors(checkInput(ace, { packages: [...FULLER_BUILD, 'ML-PACE'] }))).toEqual([]);
+    expect(errors(checkInput(ace))).toEqual([]);
+    const py = ace.replace('pair_style zero 5.7\npair_coeff * *\ncompute ace all mliap descriptor ace H.yace model linear gradgradflag 1', 'pair_style mliap model mliappy Ta.pt descriptor sna Ta.mliap.descriptor\npair_coeff * * Ta');
+    const noPython = FULLER_BUILD.filter(p => p !== 'PYTHON');
+    expect(checkInput(py, { packages: noPython }).firstError).toMatchObject({ line: 6, lammps: 'Using pair_style mliap model mliappy requires ML-IAP with python support' });
+    // With PYTHON, ML-IAP may or may not have been built with Python support.
+    expect(errors(checkInput(py, { packages: FULLER_BUILD }))).toEqual([]);
+    expect(checkInput(py.replace('descriptor sna Ta.mliap.descriptor', 'descriptor ace Ta.yace').replace('model mliappy Ta.pt', 'model linear Ta.model'), { packages: FULLER_BUILD }).firstError)
+      .toMatchObject({ line: 6, lammps: 'Illegal pair_style mliap command' });
+  });
+
+  test('kim query defines the variables it names', () => {
+    // examples/kim/in.kim-query and in.kim-pm-query.melt
+    const kim = 'kim init SW_StillingerWeber_1985_Si__MO_405512056662_005 real\n' +
+      'kim query a0 get_lattice_constant_cubic crystal=["fcc"] species=["Si"] units=["angstrom"]\n' +
+      'kim query latconst split get_lattice_constant_hexagonal crystal=["hcp"] species=["Zr"] units=["angstrom"]\n' +
+      'print "a0 = ${a0}, a = ${latconst_1}, c = ${latconst_2}"\nlattice fcc ${a0}\n';
+    expect(errors(checkInput(kim, { packages: FULLER_BUILD }))).toEqual([]);
+    expect(checkInput(`${kim}print "\${latconst}"\n`, { packages: FULLER_BUILD }).firstError).toMatchObject({ line: 6, lammps: 'Substitution for illegal variable latconst' });
+    expect(checkInput(kim, { packages: FULLER_BUILD.filter(p => p !== 'KIM') }).firstError).toMatchObject({ line: 1, id: 'missing-package' });
+    expect(errors(checkInput('kim init EAM_Al metal unit_conversion_mode\nvariable a equal 4.05*${_u_distance}\n', { packages: FULLER_BUILD }))).toEqual([]);
+  });
+
+  test('GPU styles need package gpu, or -sf gpu / -pk gpu, which LAMMPS checks; STEMKit warns', () => {
+    // examples/PACKAGES/imd/in.melt_imd-gpu
+    const gpu = LJ.replace('pair_style lj/cut 2.5', 'pair_style lj/cut/gpu 2.5');
+    const r = checkInput(gpu, { packages: FULLER_BUILD });
+    expect(errors(r)).toEqual([]);
+    expect(r.issues.find(i => i.id === 'gpu-package')).toMatchObject({ severity: 'warning', line: 9 });
+    expect(checkInput(insertAfter(gpu, 1, 'package gpu 1'), { packages: FULLER_BUILD }).issues.find(i => i.id === 'gpu-package')).toBeUndefined();
+  });
+
+  test('warnings LAMMPS gives: thermo_modify of the default output, fixes that do not integrate', () => {
+    // examples/rigid/in.rigid.gravity: thermo_modify before any thermo_style.
+    const lost = checkInput(insertAfter(LJ, 1, 'thermo_modify flush yes') + 'thermo_style custom step temp\n');
+    expect(lost.issues.find(i => i.id === 'thermo-modify-lost')).toMatchObject({ line: 16, related: [2] });
+    expect(checkInput(LJ + 'thermo_style custom step temp\nthermo_modify flush yes\n').issues.find(i => i.id === 'thermo-modify-lost')).toBeUndefined();
+    // fix pimd/nvt does not set time_integrate (LAMMPS warns), fix nphug does.
+    expect(ids(checkInput(replaceLine(REAL, 17, 'fix 1 all pimd/nvt method nmpimd fmass 1.0 temp 300.0 nhc 4')), 'warning')).toContain('no-integrator');
+    expect(ids(checkInput(replaceLine(LJ, 12, 'fix 1 all nphug temp 1.0 1.0 1.0 z 40.0 40.0 70.0')), 'warning')).not.toContain('no-integrator');
+  });
+});
+
+/* ------------------------------------------------------------------ */
+
 describe('restart files and chains of inputs', () => {
   test('after read_restart the units are unknown unless told', () => {
     const r = checkInput('read_restart a.restart\ntimestep 2.0\nfix 1 all nve\nrun 100\n');
