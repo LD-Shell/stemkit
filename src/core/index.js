@@ -24,11 +24,9 @@
  * registerFromGlobals();
  * ```
  *
- * Modules that need no third-party code, `xvg-parser`, `structure`, `slurm`,
- * `scheduler`, `digitizer`, `latex`, `units`, `expression`, `nonlinear-fit`,
- * `fit-python`, `plot-style`, `pdf`, `zip`, `gromacs-mdp`, `gromacs-ndx` and the
- * `lammps-*` modules, work
- * without any registration at all.
+ * Only `statistics`, `outliers`, `error-bars` (and `error-bars-figure`, which
+ * uses it), `curve-fitting`, `data-cleaning` and `bibtex` need the vendored
+ * libraries; every other module works without any registration at all.
  *
  * ## Name collisions
  *

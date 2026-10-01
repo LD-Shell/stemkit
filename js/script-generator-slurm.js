@@ -1,11 +1,10 @@
 /**
  * Scheduler-header adapter for the MD workflow generator.
  *
- * `script-generator.js` is mostly the PLUMED collective-variable builder and
- * the MDP stage forms, both densely coupled to the DOM. Converting all of it
- * would be a large, hard-to-review change with little benefit, so this module
- * covers only the part with real logic in it: the directive header and its
- * resource warnings. The page reads the form, this module turns it into the
+ * `script-generator.js` owns the shared job form; the GROMACS, PLUMED and
+ * LAMMPS tabs live in their own `script-generator-*.js` files. This module
+ * covers the part of the job form with real logic in it: the directive header
+ * and its resource warnings. The page reads the form, this module turns it into the
  * configuration object `core/scheduler` takes, and the tested core produces
  * the header. For SLURM the result is byte for byte what the page produced
  * before the core existed.

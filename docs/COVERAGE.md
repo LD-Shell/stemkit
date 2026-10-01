@@ -4,9 +4,12 @@
 npm run test:coverage
 ```
 
-Roughly 94% of statements and 98% of lines across `src/core/`.
+Roughly 88% of statements and 93% of lines across `src/core/`. Some suites run
+only when Python, PLUMED, LAMMPS or GROMACS is installed, so the figure moves a
+little between machines.
 
-Two files report far below that. Neither is an untested gap.
+Two files report far below that without being untested gaps. (`lammps-input.js`
+also reports far below it, and that one is a gap; see below.)
 
 ## `index.js` reports 0%
 
@@ -39,10 +42,17 @@ needs one. The rest exist to produce a good error, not to be measured.
 ## What to watch
 
 The numerical modules, not the total: `statistics.js`, `structure.js`,
-`units.js`, `curve-fitting.js`, `outliers.js`. A regression in any of those
-changes a published number.
+`units.js`, `curve-fitting.js`, `nonlinear-fit.js`, `outliers.js`. A regression
+in any of those changes a published number.
 
-One real gap: `iso4.js` at about 88% of statements, 80% of branches, 90% of
-functions. Unlike the two files above, that is genuinely untested code. It is
-also one of the two modules, with `journals.js`, that `smoke.mjs` does not
-call into.
+Real gaps, unlike the two files above, are genuinely untested code:
+
+- `lammps-input.js`, the LAMMPS input checker: about 61% of statements, 53% of
+  branches, 79% of functions. Its agreement with LAMMPS is tested separately,
+  by `npm run check:lammps` against an installed LAMMPS.
+- `lammps-data.js`: about 83% of statements, 76% of branches.
+- `gromacs-mdp.js`: about 84% of statements, 76% of branches.
+- `iso4.js`: about 88% of statements, 80% of branches, 90% of functions.
+
+`iso4.js` is also one of the 15 modules `smoke.mjs` does not call into;
+`docs/SETUP.md` lists them.

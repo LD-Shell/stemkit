@@ -82,6 +82,7 @@ into the Python panel on every change, and hands back:
 | `setTitle(text)` | A new title for the header; the style drawer's title ("Style: <title>") follows. Option `styleTitle` (text, or `(figure) => text`, asked again on each `update`) sets the drawer's title outright. |
 | `info()`, `figure()`, `script()` | The last drawing's info, the figure as drawn (normalised, style applied), the script. |
 | `destroy()` | Removes what the component made. |
+| `element` | The host. |
 
 Other options of `mountFigure(host, options)`: `titleId`; `styleDrawer: { side: 'left' }` for a page whose figure sits on the right (the drawer then opens on the left; a phone still gets the sheet from the bottom); `framed: false`
 inside a page's own panel (no card); `styleHost`, an element to hold the style
@@ -93,6 +94,14 @@ a small figure; `label`, what the figure shows, for screen readers;
 `stylePanel: false`, when the page styles the figure itself and passes
 complete descriptions (the Curve Fitter does this, with the shared panel in
 its Style tab and `onStyle` opening it).
+
+Also `title` (the header's; 'Plot' by default), `figure` (a first description
+to draw), `styleButtonId`, and `empty.icon` and
+`empty.action: { label, icon, id, onClick }` (a button on the empty stage).
+`python` also takes `title`, `headingLevel`, `source` (the source shown
+first), `onSourceChange(id)`, `note` (text, or `(figure, source) => html`, for
+the line under the script), `empty`, `header` (passed to `figureScript`) and
+`create` (a `createPythonPanel` to use instead).
 
 The page may also write the header and the empty stage in its HTML, so they
 show before any script has run: when the host already holds a `.fg-h`, the
@@ -115,7 +124,10 @@ text`; for code the figure needs first (a free-energy surface computed from
 HILLS, say), pass `python.prelude` (lines) and `python.imports`, and give the
 fields that use it `{ values, py: 'fes' }`.
 
-`figureScript(figure, options)` (and so `python`) takes:
+`figureScript(figure, options)` takes the following. `python` passes on
+`files`, `header`, `imports` and `prelude`, and `data` from the chosen source.
+For `after` or `names`, write the script with `python.script`, as the Error Bar
+Generator does.
 
 - `data: 'embed' | 'files'`, `files: { <source id>: { file, format: 'csv' | 'table', delimiter } }`
 - `header` (the first comment lines), `imports` (more import lines); the
@@ -188,7 +200,8 @@ Text follows matplotlib's rule: maths between `$` signs (`'$\\Delta G$ (kcal/mol
 Every series has `id` (give one: the person's style is kept by id; any
 text, dots and spaces included), `kind`,
 `show`, `label` (the legend's text; empty: not in the legend), `legend`
-(false: never in the legend), `color` and `alpha`. A series with no colour
+(false: never in the legend), `color`, `alpha` and `zorder` (the script's
+drawing order; the preview draws in the order given). A series with no colour
 takes the next of the cycle, as matplotlib's property cycle does; a series
 with a colour of its own does not use one up, so a page that sets
 `color: '#e8590c'` on one series and leaves the next to the cycle gets that
@@ -206,13 +219,13 @@ number from 0), `py` a Python expression already defined by the prelude.
 |---|---|---|---|
 | `line` | `x`, `y` | `lineWidth` 1.5, `lineStyle` solid · dashed · dotted · dashdot, `marker` (none), `size` 6, `step` pre · mid · post | `ax.plot` |
 | `scatter` | `x`, `y` | `marker` o · s · ^ · v · D · x · + · ., `size` 6, `edgeColor`, `edgeWidth` 1 | `ax.plot(..., linestyle='none')` |
-| `errorbar` | `x`, `y`, `yerr` and/or `xerr`: one array (symmetric) or `[below, above]` | as scatter (`marker` may be `none`), `errorWidth` 1, `capSize` 0 (points either side), `lineStyle` none to join the points | `ax.errorbar` |
+| `errorbar` | `x`, `y`, `yerr` and/or `xerr`: one array (symmetric) or `[below, above]` | as scatter (`marker` may be `none`), `errorWidth` 1, `capSize` 0 (points either side), `lineStyle` (none; set one to join the points, `lineWidth` 1.5) | `ax.errorbar` |
 | `band` | `x`, `lower`, `upper` | `alpha` 0.2, `edgeWidth` 0; gaps (NaN) split it | `ax.fill_between` |
 | `bar` | `y` (heights), `x` (positions; default 0, 1, 2 …), `yerr` | `width` 0.8 of a place, shared by the bars of a panel standing side by side (`group: false` to overlap); `bottom` 0; `edgeColor`, `edgeWidth` 0; `capSize` 3, `errorWidth`, `errorColor` (the foreground) | `ax.bar` |
 | `histogram` | `values` and `bins` (a number, or the edges), `density`; or `counts` and `edges` | `histtype` stepfilled · step · bar, `alpha` 0.6, `edgeColor`, `edgeWidth` | `np.histogram`, then `ax.stairs` (or `ax.bar`) |
 | `box` | `groups`: arrays, or `{ values, position }` | `width` 0.5, `whis` 1.5, `fliers` (outliers), `points` (each value, spread the same way every time), `pointSize` 4, `jitter` 0.3 of the width, `mean` (the mean and its Student's t interval at `level` 0.95), `meanOffset`, `faceAlpha` 0.25, `medianColor`, `lineWidth` 1 | `ax.boxplot(patch_artist=True)`, `scipy.stats` for the interval |
 | `heatmap` | `x`, `y` (cell centres), `z` (rows along y: `z[j][i]` at `x[i]`, `y[j]`); from a file listed point by point, `z: { values, source, column, x, y }` (the columns of z, x and y) | `colormap`, `vmin`, `vmax` (null: the data's), `colorbar: { show: true, label }` | `ax.pcolormesh(shading='nearest')`, `fig.colorbar` |
-| `contour` | as heatmap | `filled`, `levels` (about this many, or the list), `colors` (one colour for lines; none: the colormap), `lineWidth` 0.8 (0 for filled), `lineStyle`, `colorbar` (filled only) | `ax.contour` / `ax.contourf` |
+| `contour` | as heatmap | `filled`, `levels` (about this many, or the list), `colors` (one colour for the lines, the foreground by default; `null`, or a `colormap` of the series' own: the colormap), `lineWidth` 0.8 (0 for filled), `lineStyle`, `colorbar` (filled only) | `ax.contour` / `ax.contourf` |
 | `hline`, `vline` | `y` / `x` | `lineWidth` 1, `lineStyle` dashed, colour the foreground | `ax.axhline` / `ax.axvline` |
 | `axline` | `points: [[x0, y0], [x1, y1]]`, or one point and `slope` | as hline | `ax.axline` |
 | `text` | `x`, `y`, `text` | `coords` data · axes, `ha` left · center · right, `va` baseline · bottom · center · top, `fontSize`, `rotation` 0 · 90 | `ax.text` |
@@ -302,13 +315,15 @@ recolouring one series never moves the others.
 The preview lays out the figure as matplotlib does, with matplotlib's rules
 ported (locators, formatters, constrained layout and colour bars, the "best"
 legend, autoscaling with sticky edges, contour levels, colormap lookups, box
-statistics, histogram bins). Checked against matplotlib for the demo's nine
-figures (heatmap with contours and colour bar, grouped bars with error bars
-and brackets, box plots with points and means, two panels of a time series,
-histograms, error bars in x and y with a diagonal, filled contours at chosen
-levels, log axes with a two-column legend, and a dark figure) and by the
-tests, which run the scripts and compare matplotlib's axis limits with the
-preview's. What differs:
+statistics, histogram bins). Checked against matplotlib by
+`tests/figure-python.test.js`, which runs the scripts of nine figures and
+compares matplotlib's axis limits with the preview's: lines with a band,
+steps, reference lines and a note; error bars in x and y with a diagonal and a
+two-column legend; grouped bars with error bars and a bracket; box plots with
+points and means; histograms; a heatmap with contours and a colour bar; filled
+contours at chosen levels; a log x axis shared by two panels; and two panels
+of a time series on log axes. Each page's figure tests do the same for its own
+figures. What differs:
 
 - Text is measured from the browser's fonts; matplotlib snaps text to device
   pixels at the output's dpi, so a legend or a label can sit a pixel away.
@@ -345,31 +360,36 @@ preview's. What differs:
 - On dense data (hundreds of thousands of points) the "best" legend can land
   one place away from matplotlib's: hundreds of points sit on the legend's
   edge, and a pixel of font metrics tips the count. Past 20 000 points the
-  preview counts locations within 0.2% of the fewest as a tie and takes the
+  preview counts a location as a tie when its count is within 0.2% of the
+number of points of the fewest, and takes the
   first in matplotlib's order, which agrees more often; set the position when
   it matters.
 
 ## The pages
 
-Every plotting page now shows its figures through the component. What each
+Every plotting page shows its figures through the component. What each
 draws, where its description is built, and what its Python reads:
 
 | Page | Figures | Built in | Python |
 |---|---|---|---|
 | Curve Fitter | The data with error bars, the fitted curve, its confidence band, and the residuals in a panel below; the page's own switches (Residuals, Confidence band) in the header; the shared figure panel in the Style tab, editing the fit's plot style (`createStylePanel` in `js/fit-plot.js`): data points, fit line and confidence band are its series, with error bars, the curve's points and the band's level beside them, and a Residuals group; `openStyle({ series: 'data' \| 'fit' \| 'band' \| 'residuals' })` opens the tab there | `js/fit-plot.js` (`fitFigure`), `src/core/fit-python.js` | Fits the model again with `curve_fit` and draws with the shared pieces; embeds the data or reads the page's CSV |
 | PLUMED "Analyse a run" | Six figures: the COLVAR time series, a histogram, the reweighted FES, the 1D or 2D FES with contours and a colour bar, convergence over time, hill heights | `src/core/plumed-analysis-figures.js` | Reads COLVAR and HILLS itself, with `analyse_plumed.py`'s functions in the prelude |
-| XVG Visualizer | Lines and markers from an .xvg; the series once on a right-hand axis now in a lower panel sharing x; a running mean (`numpy.convolve` in the script); Grace escapes as text | `xvgFigure` in `src/core/xvg-parser.js` | Reads the .xvg with `np.loadtxt` |
+| XVG Visualizer | Lines and markers from an .xvg; any column switched to the lower panel, sharing x; a running mean (`numpy.convolve` in the script); Grace escapes as mathematics (`\xa\f{}` as $\alpha$, `\S2\N` as a superscript) | `xvgFigure` in `src/core/xvg-parser.js` | Reads the .xvg with `np.loadtxt`, or holds the numbers (up to 60 000; a larger file is read instead) |
 | Plot Builder | A rail with Data, Series and Style tabs beside the shared plot area; several CSV files; series as line, points or both, with error bars, bands and panels; Log x and Log y switches in the header; drag to zoom, double-click to fit and hover values on top of the shared preview (the builder's own) | `src/core/plot-builder.js` | Reads each CSV by its header (Python's csv and float rules) or embeds it; PDF, PNG and SVG from the header |
-| Plot Digitizer | The digitised datasets as lines and markers, one panel or stacked; the plot area under the workspace | `digitizerFigure` in `src/core/digitizer.js` | Reads the page's own CSV |
+| Plot Digitizer | The digitised datasets as lines and markers, one panel or stacked; the plot area under the workspace | `digitizerFigure` in `src/core/digitizer.js` | Reads the CSV the page saves, or holds the points |
 | Error Bar Generator | Bars or points with SD, SEM or CI, the replicates, and Holm-corrected Welch brackets | `src/core/error-bars-figure.js` | Embeds the replicates and computes the tests in the prelude; the brackets are drawn through `after` |
 | Statistics Calculator | Box plots with the points and the mean with its interval, pair lines, the μ₀ line, scatter with the least-squares line | `src/core/statistics-figure.js` | Runs the test again, then draws |
-| Outlier Detector | New: the values by row, the flagged ones marked, and the threshold lines | `src/core/outliers-figure.js` | Embeds the values |
+| Outlier Detector | The values by row, the flagged ones marked, and the rule's centre and threshold lines (a Threshold lines switch in the header) | `src/core/outliers-figure.js` | Reads the column from the person's CSV or holds the values; flags them by the page's rule, runs Grubbs' test with scipy and prints what it found, then draws |
 
 ## Checking a page
 
 `npm test` runs `tests/figure.test.js`, `tests/figure-plot.test.js` and
-`tests/figure-python.test.js` (the last runs the scripts when Python with
-numpy, scipy and matplotlib 3.6 is installed, and checks the axis limits
-against the preview's). For a page: the headless sweep (errors, overflow,
-contrast at 1280 and 390 px in both themes), then export a PNG from the page
-and run the page's script, and compare the two side by side.
+`tests/figure-python.test.js`, and each page's figure tests (`xvg-figure`,
+`digitizer-figure`, `plot-builder`, `error-bars-figure`, `statistics-figure`,
+`outliers-figure` and `plumed-analysis-figures`, each
+`tests/<name>.test.js`). When python3 with numpy, scipy and matplotlib is
+installed, they run the scripts and check matplotlib's axis limits against the
+preview's; the preview follows matplotlib 3.6. For a page, open it at 1280 and
+390 px wide in both themes. Check the console for errors, the page for
+sideways overflow and the text for contrast. Then export a PNG from the page,
+run the page's script, and compare the two side by side.

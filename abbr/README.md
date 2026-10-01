@@ -56,14 +56,14 @@ Word patterns use hyphens to mark where a rule may extend:
 the default — gives better results, and the reason is worth knowing.
 
 LTWA tags a word with the languages in which that spelling occurs, and the
-tagging is uneven. Restricting to English drops rules that English titles
-genuinely need, and it breaks any title that is not English. Measured against
-the real list:
+tagging is uneven. Rules tagged "Multiple languages" apply under any filter, so
+English titles mostly come out the same, but any title that is not English
+breaks. Measured against the real list:
 
-- *Journal of Molecular Biology* → `J. Mol. Biol.` unfiltered, but
-  `J. Mol. Biology` when restricted to English.
 - *Angewandte Chemie International Edition* → `Angew. Chem. Int. Ed.`
-  unfiltered, but largely unabbreviated when restricted to English.
+  unfiltered, but `Angewandte Chemie Int. Ed.` when restricted to English.
+- *Annalen der Physik* → `Ann. Phys.` unfiltered, but `Ann. Physik` when
+  restricted to English.
 
 The option exists for callers who know they want it. The tool does not use it.
 

@@ -5,18 +5,27 @@ Which file a rule belongs in depends on who owns it.
 | File | Owner | Hand-edit? |
 |---|---|---|
 | `src/output.css` | Tailwind build | No. Regenerated. |
-| `src/tailwind/input.css` | you | Yes. Tokens, base rules, shared `.stk-*` components. |
+| `src/tailwind/input.css` | you | Yes. Tokens, base rules, shared `.stk-*` components, page chrome. |
 | `src/stemkit-docs.css` | you | Yes. The "How to use" and FAQ furniture. |
+| `src/home.css` | you | Yes. The footer directory every page shows, and the home page (`hm-*`). |
+| `src/tools/figure.css`, `python-panel.css` | you | Yes. The shared plot area and Python panel (`docs/FIGURES.md`). |
 | `src/tools/<tool>.css` | you | Yes. One tool only. |
-| `src/home.css` | you | Yes. The home page only. |
+| `src/script-generator.css` | you | Yes. The MD workflow generator, with `src/tools/gromacs.css` and `src/tools/lammps.css` for its tabs. |
 
 Pages link them in this order, so a per-tool rule overrides a shared one:
 
 ```html
+<link rel="stylesheet" href="src/home.css">
 <link rel="stylesheet" href="src/output.css">
 <link rel="stylesheet" href="src/stemkit-docs.css">
+<link rel="stylesheet" href="src/tools/figure.css">
+<link rel="stylesheet" href="src/tools/python-panel.css">
 <link rel="stylesheet" href="src/tools/xvg-visualizer.css">
 ```
+
+`css/all.min.css` (Font Awesome) and, on some pages,
+`css/dependencies/katex.min.css` come first. Only the pages with a figure or a
+Python script link `figure.css` and `python-panel.css`.
 
 ## Do not put component CSS in `src/output.css`
 
@@ -24,16 +33,20 @@ It is generated Tailwind output. Anything added by hand is deleted, silently,
 by the next build:
 
 ```bash
-npm run build:css     # after editing src/tailwind/input.css
+npm run build:css     # after editing src/tailwind/input.css, or using a new Tailwind class
 npm run watch:css     # rebuild on change
 ```
 
 Hand-written rules go in `src/tailwind/input.css` instead. Rules placed
 between the `@tailwind` directives are emitted in that position, which is how
 the file is organised: base rules before `@tailwind components`, shared
-components between `components` and `utilities`, and the longhand utilities
-after. Because the components sit before the utilities layer, a utility on the
-same element still wins (`class="stk-btn w-full"`).
+components between `components` and `utilities`, and after `utilities` the
+hand-written arbitrary-value utilities and the viewer-shell classes
+(`.stk-shell*`, `.stk-preview-pane`, `.stk-tnum`), which therefore beat a
+utility on the same element. Because the other components sit before the
+utilities layer, a utility on the same element still wins
+(`class="stk-btn w-full"`). The build keeps only the Tailwind classes it finds
+in the pages and scripts, so a class no page used before needs a rebuild too.
 
 ## Tokens
 
@@ -52,8 +65,10 @@ action looks the same everywhere.
 
 Other hues carry meaning and stay out of decoration: red for errors and
 destructive actions, amber for warnings, emerald for success and significant
-results, blue for informational toasts. Chart series colours are data and
-live in each tool's script.
+results, blue for informational toasts. Chart series colours are data. The
+pages that use the shared plot area take theirs from `COLOR_CYCLE` in
+`src/core/figure.js` (see `docs/FIGURES.md`); a chart outside it keeps its
+colours in the tool's script.
 
 The tokens are the place to change a colour site-wide. Changing one changes
 every page, which is the point, so look at a few pages afterwards and run the
@@ -71,11 +86,15 @@ header, body and footer, `.stk-group`, `.stk-disclosure` (a `<details>`),
 `.stk-table-wrap`, and the app-shell classes `.stk-shell`, `.stk-shell-pane`,
 `.stk-shell-main`, `.stk-shell-tall`. Each is documented where it is defined.
 
-The page chrome that `js/site.js` drives has its own classes in the same
-file: `.stk-navlink` and `.stk-find` in the header, `.stk-skip`, the
-`.stk-finder` dialog, the `.stk-next` cards under each tool, and `.stk-logo`,
-the benzene mark drawn inline in the header and footer. `assets/favicon.svg`
-is the same drawing; the PNG and ICO favicons are rendered from it.
+The page chrome has its own classes in the same file: `.stk-navlink` and
+`.stk-find` in the header, `.stk-skip`, the `.stk-finder` dialog and the
+`.stk-next` cards that `js/site.js` draws under each tool, `.stk-pagehead` at
+the top of each tool, and in the footer `.stk-mdp-credit`, the credit written
+as `.mdp` lines (not `.stk-credit`, the privacy note in
+`src/stemkit-docs.css`). `.stk-logo` is the benzene mark drawn inline in the
+header and footer (`.stk-logo-foot` in the footer). The footer's tool
+directory, `.stk-dir`, is in `src/home.css`. `assets/favicon.svg` is the same
+drawing; the PNG and ICO favicons are rendered from it.
 
 Prefer these over a new per-tool class. When a tool needs something they do
 not cover, add a rule to its own stylesheet using the tokens.
@@ -108,9 +127,11 @@ page scroll sideways on a phone.
 
 ## Inline `style` attributes
 
-Around five per page remain, deliberately. Each is a one-off nudge on a single
+Most pages keep a handful, deliberately. Each is a one-off nudge on a single
 element (`margin-top:1rem`, `max-width:52rem`). A class name for a rule used once
-adds indirection without removing duplication.
+adds indirection without removing duplication. Two pages carry more: the MD
+workflow generator has 16 and the Plot Builder 13, nine of them the same
+`color:var(--stk-fg-muted);line-height:1.6`, which would be better as a class.
 
 Known wart: some are near-duplicates differing only slightly, such as
 `margin-bottom:.3rem` on one page against `.4rem` on another. Unifying them
@@ -118,7 +139,9 @@ changes rendered spacing, so it is a design decision, not a refactor. Left open.
 
 ## Conversion state
 
-Every tool page links the three stylesheets above and carries no inline
-`<style>` block. `404.html` keeps its own small block: it is not a tool and
-does not need a stylesheet of its own. `script-generator.html` uses `src/script-generator.css`, not
-`src/tools/`.
+Every tool page links `src/output.css`, `src/stemkit-docs.css` and a
+stylesheet of its own, and carries no inline `<style>` block. `404.html` keeps
+its own small block: it is not a tool and does not need a stylesheet of its
+own. `script-generator.html` has `src/script-generator.css` in place of a
+`src/tools/` file, plus `src/tools/gromacs.css` and `src/tools/lammps.css` for
+its GROMACS and LAMMPS tabs.

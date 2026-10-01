@@ -71,15 +71,21 @@ import { registerFromGlobals } from './src/core/index.js';
 registerFromGlobals();
 ```
 
-Modules needing no registration: `xvg-parser`, `structure`, `selection`,
-`slurm`, `scheduler`, `plumed`, `digitizer`, `latex`, `units`, `journals`,
-`iso4`.
+Modules marked none under Needs below work without registration.
+
+Every module is also exported whole, as a namespace (`Stats`, `LammpsInput`,
+`GromacsMdp` and so on, 43 in all) and by path (`stemkit-core/lammps-input`).
+Names too general to export flat, or used by two modules, are reached that way:
+`LammpsInput.parseInput`, `CurveFitting.generateMatplotlibCode`, and
+`DataCleaning.columnStats` (population SD; the flat `columnStats` is
+xvg-parser's sample SD). A path import skips `node.js`, so it registers
+nothing: import `stemkit-core` first, or call `registerVendor`.
 
 ## Modules
 
 | Module | Purpose | Needs |
 |---|---|---|
-| `xvg-parser` | GROMACS/Grace `.xvg` and PLUMED `COLVAR` parsing | none |
+| `xvg-parser` | GROMACS/Grace `.xvg` and other numeric tables; the XVG Visualizer's figure and its script | none |
 | `statistics` | Descriptives, t-tests, classic and Welch's ANOVA, Pearson and Spearman correlation, non-parametrics, post-hoc comparisons, assumption checks, test choice | jStat |
 | `outliers` | Z-score, modified Z-score, Tukey IQR, Grubbs' test | jStat |
 | `curve-fitting` | Preset models (linear, polynomial, exponential, power, logarithmic) with goodness-of-fit and adequacy checks | regression.js |
@@ -115,10 +121,13 @@ Modules needing no registration: `xvg-parser`, `structure`, `selection`,
 | `data-cleaning-python` | The pandas script that repeats a cleaning recipe, with the same output file | none |
 | `latex` | LaTeX/Markdown table generation and text escaping | none |
 | `bibtex` | Parsing, union-find deduplication, field sanitising | bibtex-parse-js |
-| `digitizer` | Pixel-to-data mapping for figure digitisation | none |
+| `digitizer` | Pixel-to-data mapping for figure digitisation; the digitised series' figure and its script | none |
 | `journals` | Whole-title journal abbreviation from a dictionary | none |
 | `iso4` | ISO 4 word-level abbreviation from the ISSN LTWA | none |
 | `error-bars` | Group summaries, SD/SEM/CI, Holm-corrected pairwise tests | jStat |
+| `error-bars-figure` | The Error Bar Generator's figure (bars or means with SD, SEM or CI, the replicates, Holm-corrected Welch brackets) and the Python that recomputes and draws it | jStat |
+| `statistics-figure` | The Statistics Calculator's figure for each test (box plots with the points and the mean's interval, pair lines, the μ₀ line, scatter with the least-squares line) and the Python that runs the test again and draws it | none |
+| `outliers-figure` | The Outlier Detector's figure (the values by row, the flagged ones, the rule's lines) and the Python that flags them again, runs Grubbs' test and draws it | none |
 
 ## Worked examples
 
@@ -269,6 +278,14 @@ independent references rather than against the implementation itself:
   their figures inspected with **matplotlib 3.6.3**
 - **PLUMED 2.9, 2.10 and 2.11**, every generated input parsed by the real
   program; hill sums checked against `plumed sum_hills`
+- **GROMACS 2025**, index files written by `gmx make_ndx` and selections by
+  `gmx select`, compared byte for byte; `grompp`'s verdicts on generated and
+  broken `.mdp` files
+- **LAMMPS 29 Aug 2024**, `read_data` on every data file of the LAMMPS
+  examples, every style `lmp -h` lists, the checker's verdict on every example
+  input and on broken copies, and the workflow's inputs run stage by stage
+- **pandas**, the cleaning scripts run and their output compared with the
+  page's, cell by cell
 - **`scipy.constants`**, every CODATA conversion factor
 - **Physical invariants**, water's molecular weight and centre of mass,
   rotation-matrix orthonormality, distance preservation under rotation,
@@ -295,7 +312,7 @@ asymptotic expansion takes over.
 protein and calcium in an ion record. Naïve rules mis-assign heme iron (`FE`
 in `HEM`) and selenomethionine selenium, and drop numeric-prefixed hydrogens
 (`1HB`, `2HG1`) entirely, giving wrong molecular weights and centres of mass
-for metalloproteins. The resolution here is checked against 40 real atom names.
+for metalloproteins. The resolution here is checked against 25 real atom names.
 
 **Uncertainties of a nonlinear fit.** `fitModel` follows `curve_fit`: the
 covariance is (JᵀWJ)⁻¹ scaled by the reduced chi-square, unless the

@@ -22,7 +22,7 @@ cd stemkit
 python3 -m http.server 8000     # then open http://localhost:8000/
 ```
 
-Opening the HTML files over `file://` will not work. Sixteen tools load ES
+Opening the HTML files over `file://` will not work. Seventeen tools load ES
 modules, which browsers block outside HTTP.
 
 Use the library, from npm (Node 18 or later, no dependencies):
@@ -80,7 +80,7 @@ Three further pages are workflow helpers, not research tools, and are not part
 of the scholarly contribution: Pomodoro timer, decision matrix, kinetics
 sandbox.
 
-`stemkit-core` holds the computation: 17 DOM-free domain modules, plus an
+`stemkit-core` holds the computation: 43 DOM-free domain modules, plus an
 aggregate export (`index.js`), a Node entry (`node.js`) and a
 dependency-injection layer (`vendor.js`).
 API reference in [`src/core/README.md`](src/core/README.md).
@@ -100,9 +100,10 @@ version-pinnable and testable.
 | [`docs/SETUP.md`](docs/SETUP.md) | layout, deployment, gotchas |
 | [`docs/COVERAGE.md`](docs/COVERAGE.md) | reading the coverage report |
 | [`docs/CSS.md`](docs/CSS.md) | stylesheets and where rules belong |
+| [`docs/FIGURES.md`](docs/FIGURES.md) | the shared plot area and Python script on every plotting page |
 | [`CHANGELOG.md`](CHANGELOG.md) | changes, including output-affecting fixes |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | contributing, and where code belongs |
-| [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) | vendored library licences |
+| [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) | licences of vendored libraries and of the GROMACS, PLUMED and LAMMPS reference data |
 | [`paper/`](paper/) | manuscript, LaTeX and Markdown |
 
 ## Citing
