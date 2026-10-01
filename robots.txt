@@ -1,9 +1,14 @@
 User-agent: *
 Allow: /
 
-# Build sources and vendored assets add no search value.
-Disallow: /src/
-Disallow: /js/dependencies/
-Disallow: /css/dependencies/
+# The pages' stylesheets and scripts live in /src/, /css/, /js/ and their
+# dependencies/ folders. They stay crawlable: a search engine renders a page
+# with them, and a page rendered without them reads as broken.
+
+# Test files and fixtures, and the maintenance scripts, are code with no reader
+# value; no page loads anything from them. /paper/ (the preprint) and /docs/
+# stay open.
+Disallow: /tests/
+Disallow: /tools/
 
 Sitemap: https://stemkit.net/sitemap.xml

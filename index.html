@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-H7j13t9cG57A6Vy86oX+3nDdJHSRu7XYqlRnDTg3sEI=' 'sha256-1zVV8bHxZsJDQqLjd39EBj5ho6Hn4To9f6I8WBatrOk='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
     <title>STEMKit: Free Browser Tools for Data, Simulation &amp; Writing</title>
-    <meta name="description" content="21 free tools for scientists: digitize plots, run statistics, fit curves, build figures, view molecules and tidy BibTeX. Runs in your browser, no sign-up.">
+    <meta name="description" content="18 free research tools for scientists: digitize plots, run statistics, fit curves, build figures, view molecules and tidy BibTeX. Runs in your browser, no sign-up.">
     <meta name="keywords" content="plot digitizer, curve fitting, statistics calculator, t-test ANOVA online, error bar generator, unit converter, GROMACS xvg viewer, molecular structure viewer, LaTeX equation editor, DOI to BibTeX, free science tools, in-browser data analysis">
-    <link rel="canonical" href="https://stemkit.net/index.html">
-    <meta property="og:url" content="https://stemkit.net/index.html">
-    <meta property="og:title" content="STEMKit, Free Browser Tools for Research & Scientific Writing">
-    <meta property="og:description" content="21 free, privacy-first tools for scientists: digitize plots, run stats, fit curves, build figures, convert units, and format citations, all in your browser.">
+    <link rel="canonical" href="https://stemkit.net/">
+    <meta property="og:url" content="https://stemkit.net/">
+    <meta property="og:title" content="STEMKit: Free Browser Tools for Data, Simulation & Writing">
+    <meta property="og:description" content="18 free, privacy-first research tools for scientists: digitize plots, run stats, fit curves, build figures, convert units, and format citations, all in your browser.">
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://stemkit.net/assets/og-image.jpg">
     <meta property="og:image:type" content="image/jpeg">
@@ -20,7 +21,7 @@
     <meta name="twitter:image" content="https://stemkit.net/assets/og-image.jpg">
     <meta name="twitter:image:alt" content="STEMKit: research tools that run in your browser">
     <script type="application/ld+json">
-        {"@context":"https://schema.org","@type":"WebApplication","name":"STEMKit","url":"https://stemkit.net/index.html","description":"21 free, privacy-first browser tools for scientists and students: plot digitizing, statistics, curve fitting, figure building, unit conversion, molecular viewing, and LaTeX/BibTeX formatting.","applicationCategory":"EducationalApplication","operatingSystem":"All","browserRequirements":"Requires JavaScript","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["Computation runs in the browser","No data uploads","No sign-up","Keeps working offline once loaded"]}
+        {"@context":"https://schema.org","@type":"WebApplication","name":"STEMKit","url":"https://stemkit.net/","description":"18 free, privacy-first research tools for scientists and students: plot digitizing, statistics, curve fitting, figure building, unit conversion, molecular viewing, and LaTeX/BibTeX formatting.","applicationCategory":"EducationalApplication","operatingSystem":"All","browserRequirements":"Requires JavaScript","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"featureList":["Computation runs in the browser","No data uploads","No sign-up","Keeps working offline once loaded"]}
     </script>
     <meta name="author" content="STEMKit">
     <meta name="theme-color" content="#1f5c96">
@@ -331,7 +332,7 @@
             <div class="hm-proof-in">
                 <div class="hm-proof-main">
                     <h2 id="hm-proof-h">Use the library behind the tools</h2>
-                    <p>Most tools compute with <code>stemkit-core</code>: 17 modules covered by 1,284 tests validated against SciPy, NumPy and statsmodels. The same functions run in Node, so an analysis explored here can be scripted, version-pinned and re-run.</p>
+                    <p>Most tools compute with <code>stemkit-core</code>: 43 domain modules covered by 4,371 tests validated against SciPy, NumPy and statsmodels. The same functions run in Node, so an analysis explored here can be scripted, version-pinned and re-run.</p>
                     <ol class="hm-setup">
                         <li>
                             <p>Install it from npm. It needs Node 18 or later and brings no other packages with it.</p>
@@ -573,10 +574,12 @@ console.log(`${removed} duplicate(s) removed, ${kept.length} kept`);</code></pre
                 </div>
                 <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">built-by    </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell" target="_blank" rel="noopener">Olanrewaju M. Daramola</a> + Claude
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
-<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">ensemble    </span><span class="stk-mdp-credit-c">= </span>NVT (nights, very tired)</pre>
-                <div class="flex gap-6 text-sm font-medium">
+<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">ensemble    </span><span class="stk-mdp-credit-c">= </span>NVT (nights, very tired)
+<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">version     </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md" target="_blank" rel="noopener">v0.3.0</a> (2026-10-01)</pre>
+                <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
                     <a href="privacy.html#privacy" class="hover:text-brand-500 transition-colors">Privacy Policy</a>
                     <a href="privacy.html#terms" class="hover:text-brand-500 transition-colors">Terms of Service</a>
+                    <a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md" target="_blank" rel="noopener" class="hover:text-brand-500 transition-colors">Changelog</a>
                 </div>
             </div>
         </div>

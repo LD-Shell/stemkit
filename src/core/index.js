@@ -96,11 +96,13 @@ export * as LammpsReference from './lammps-reference.js';
 export * as LammpsInput from './lammps-input.js';
 export * as LammpsData from './lammps-data.js';
 export * as LammpsWorkflow from './lammps-workflow.js';
+export * as Version from './version.js';
 
 /* ------------------------------------------------------------------ *
  * Flat exports | collision-free modules
  * ------------------------------------------------------------------ */
 
+export * from './version.js';
 export * from './vendor.js';
 export * from './structure.js';
 export * from './slurm.js';

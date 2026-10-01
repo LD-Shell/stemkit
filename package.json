@@ -43,7 +43,9 @@
     "build:css": "tailwindcss -c tailwind.config.js -i src/tailwind/input.css -o src/output.css --minify",
     "watch:css": "tailwindcss -c tailwind.config.js -i src/tailwind/input.css -o src/output.css --watch",
     "build:sitemap": "node tools/build-sitemap.mjs",
-    "check:sitemap": "node tools/build-sitemap.mjs --check"
+    "check:sitemap": "node tools/build-sitemap.mjs --check",
+    "build:csp": "node tools/build-csp.mjs",
+    "check:csp": "node tools/build-csp.mjs --check"
   },
   "keywords": [
     "computational-chemistry",

@@ -16,8 +16,16 @@
  *   5. each tool in the js/site.js catalogue has a page whose only <h1> is its
  *      name, a home page card with that name in the right section, and a
  *      link with that name in the tool directory of every page's footer
+ *   6. every footer's .mdp credit ends "; version = vX.Y.Z (date)", with the
+ *      version from package.json and the date from src/core/version.js, linked
+ *      to the changelog, its "=" in line with the others; and the footer's
+ *      links include the changelog. A release that bumps package.json but not
+ *      the pages fails here.
+ *   7. every page carries the Content-Security-Policy that tools/build-csp.mjs
+ *      writes, before any script or stylesheet, with the hash of each inline
+ *      script it runs (after editing one: npm run build:csp)
  *
- * No dependencies.
+ * No dependencies beyond tools/build-csp.mjs.
  *
  *   node tools/check-chrome.mjs
  *
@@ -26,6 +34,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { cspProblems } from './build-csp.mjs';
 
 const ROOT = path.resolve(path.join(import.meta.dirname ?? '.', '..'));
 const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
@@ -37,6 +46,14 @@ const OVERLAY = new Set(['sandbox.html']);
 const pages = fs.readdirSync(ROOT).filter(f => f.endsWith('.html')).sort();
 const problems = [];
 const fail = (page, msg) => problems.push(`${page}: ${msg}`);
+
+// ---- the release -----------------------------------------------------------
+const CHANGELOG = 'https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md';
+const VERSION = JSON.parse(read('package.json')).version;
+const versionJs = read('src/core/version.js');
+const coreVersion = (versionJs.match(/STEMKIT_VERSION = '([^']*)'/) || [])[1];
+const RELEASE_DATE = (versionJs.match(/RELEASE_DATE = '([^']*)'/) || [])[1];
+if (coreVersion !== VERSION) fail('src/core/version.js', `STEMKIT_VERSION is ${coreVersion}, package.json says ${VERSION}`);
 
 // ---- the catalogue ---------------------------------------------------------
 const site = read('js/site.js');
@@ -85,8 +102,24 @@ for (const page of pages) {
   const tool = byId.get(page.replace(/\.html$/, ''));
   if (tool && (h1s.length !== 1 || h1s[0] !== tool.name)) fail(page, `<h1> is ${JSON.stringify(h1s)}, catalogue says "${tool.name}"`);
 
+  for (const p of cspProblems(page, html)) fail(page, p);
+
   // Only the full footer lists the tools; the 404 page keeps a short one.
   const footer = (html.match(/<footer\b[\s\S]*?<\/footer>/) || [''])[0];
+  if (footer) {
+    const credit = (footer.match(/<pre class="stk-mdp-credit">([\s\S]*?)<\/pre>/) || [])[1];
+    const v = credit && credit.match(/stk-mdp-credit-k">version +<\/span><span class="stk-mdp-credit-c">= <\/span><a href="([^"]*)"[^>]*>v([^<]*)<\/a> \(([^)]*)\)$/);
+    if (!credit) fail(page, 'footer has no .mdp credit');
+    else if (!v) fail(page, 'footer credit does not end with "; version = vX.Y.Z (date)"');
+    else {
+      if (v[2] !== VERSION) fail(page, `footer says v${v[2]}, package.json says ${VERSION}`);
+      if (v[3] !== RELEASE_DATE) fail(page, `footer dates v${v[2]} ${v[3]}, src/core/version.js says ${RELEASE_DATE}`);
+      if (v[1] !== CHANGELOG) fail(page, `footer version links to ${v[1]}, not the changelog`);
+      const keys = [...credit.matchAll(/stk-mdp-credit-k">([^<]*)</g)].map(m => m[1].length);
+      if (new Set(keys).size > 1) fail(page, 'footer credit keys differ in width, so the "=" signs do not line up');
+    }
+    if (!footer.includes(`<a href="${CHANGELOG}" target="_blank" rel="noopener" class="hover:text-brand-500 transition-colors">Changelog</a>`)) fail(page, 'footer links do not include the changelog');
+  }
   if (footer.includes('stk-dir')) {
     for (const t of tools) {
       const m = footer.match(new RegExp(`<a href="${t.id}\\.html"[^>]*>([\\s\\S]*?)</a>`));
@@ -115,6 +148,6 @@ if (problems.length) {
   console.log(`\n${problems.length} problem${problems.length === 1 ? '' : 's'}:`);
   for (const p of problems) console.log('  ' + p);
 } else {
-  console.log(`\n${pages.length} pages, ${tools.length} tools: header, theme, names and cards agree.`);
+  console.log(`\n${pages.length} pages, ${tools.length} tools: header, theme, names, cards, footer v${VERSION} and CSP agree.`);
 }
 process.exit(problems.length ? 1 : 0);
