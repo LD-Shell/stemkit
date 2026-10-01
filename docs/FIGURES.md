@@ -3,8 +3,11 @@
 Every plotting page shows its figures the same way: one plot area with the
 same header (title, size of the saved figure, the page's own switches, Style,
 PDF, PNG, SVG), the same preview of the figure at its saved size, the same
-style panel and the same Python panel. The preview draws what matplotlib 3.6
+style panel and the same Python panel. The preview draws what matplotlib
 will draw from the script, down to the tick positions and the legend's place.
+The scripts run on matplotlib 3.6 and later; the preview follows the newest
+rules (3.11), and [matplotlib versions](#matplotlib-versions) lists what an
+older matplotlib draws differently.
 
 | File | What it is |
 |---|---|
@@ -316,14 +319,16 @@ The preview lays out the figure as matplotlib does, with matplotlib's rules
 ported (locators, formatters, constrained layout and colour bars, the "best"
 legend, autoscaling with sticky edges, contour levels, colormap lookups, box
 statistics, histogram bins). Checked against matplotlib by
-`tests/figure-python.test.js`, which runs the scripts of nine figures and
-compares matplotlib's axis limits with the preview's: lines with a band,
-steps, reference lines and a note; error bars in x and y with a diagonal and a
-two-column legend; grouped bars with error bars and a bracket; box plots with
-points and means; histograms; a heatmap with contours and a colour bar; filled
-contours at chosen levels; a log x axis shared by two panels; and two panels
-of a time series on log axes. Each page's figure tests do the same for its own
-figures. What differs:
+`tests/figure-python.test.js`, which runs the scripts of thirteen figures and
+compares matplotlib's axis limits, ticks, tick labels and legend places with
+the preview's: lines with a band, steps, reference lines and a note; error
+bars in x and y with a diagonal and a two-column legend; grouped bars with
+error bars and a bracket; box plots with points and means; histograms; a
+heatmap with contours and a colour bar; filled contours at chosen levels; a
+log x axis shared by two panels; log axes over many decades and over one;
+error bars and bars on log axes; "best" legends beside a band and beside a
+note; and two panels of a time series on log axes. Each page's figure tests
+compare the axis limits of its own figures. What differs:
 
 - Text is measured from the browser's fonts; matplotlib snaps text to device
   pixels at the output's dpi, so a legend or a label can sit a pixel away.
@@ -381,6 +386,39 @@ draws, where its description is built, and what its Python reads:
 | Statistics Calculator | Box plots with the points and the mean with its interval, pair lines, the μ₀ line, scatter with the least-squares line | `src/core/statistics-figure.js` | Runs the test again, then draws |
 | Outlier Detector | The values by row, the flagged ones marked, and the rule's centre and threshold lines (a Threshold lines switch in the header) | `src/core/outliers-figure.js` | Reads the column from the person's CSV or holds the values; flags them by the page's rule, runs Grubbs' test with scipy and prints what it found, then draws |
 
+## matplotlib versions
+
+The scripts run on matplotlib 3.6 and later. Where matplotlib has changed its
+rules, the preview follows the newest, 3.11, and the script says so in its
+header: `# Needs numpy and matplotlib 3.6 or later (3.11 or later to match the
+preview).` Two differences the script removes itself, so every version draws
+the same:
+
+- A log x axis shared by panels whose data reach 0 or below starts at the
+  smallest positive x of all the panels from 3.8 on; 3.6 and 3.7 took the top
+  panel's alone (the lower one's 0.01 against the top one's 0.25 starts the
+  axis at 0.007 rather than 0.21). The script tells every panel the shared
+  value (`axes.update_datalim`) before it sets the scale.
+- From 3.8 to 3.10, error bars drawn on an axis that is already logarithmic
+  have their limits taken in log units (`vlines` and `hlines` go through
+  `Collection.get_datalim`, mended in 3.11), so the axis can miss the data.
+  The script sets the log scales once everything is drawn.
+
+The rest cannot be set from the script, and an older matplotlib draws them its
+own way:
+
+| Before | What it draws differently |
+|---|---|
+| 3.11 | A log axis that spans more decades than it has room to label ticks other decades (3.11 ticks as many as fit, on multiples of the stride; 3.8 to 3.10 took `decades // numticks + 1` from below the view, 3.6 and 3.7 `(decades + 1) // numticks + 1`). A log axis with at most one decade tick inside labels some of its minor ticks from 3.11 on (before, only when it spanned at most one decade): an axis from 4 to 60 labels 4, 6, 20, 30, 40 and 60 as well as 10, where 3.10 labels 10 alone. |
+| 3.9 | The "best" legend leaves bands (`fill_between`) and text on the axes out of its count, so it can sit over them. A sticky edge (a bar's base) just beyond the data stops the margin when it is within 1e-5 of the axis's largest value, not of its range. |
+| 3.8 | Minor ticks on a linear axis (minor ticks or a minor grid on) leave out one that falls exactly on an end of the axis, as the 5% margins often make one. |
+| 3.7 | The "best" legend counts a histogram's steps and a box by their boxes, not their outlines; a line contour with no level inside the data is drawn at the lowest value. |
+
+matplotlib 3.11's wheels also render text with a newer FreeType: labels sit
+up to a pixel away from where 3.10 puts them, which the preview, measuring
+the browser's fonts, cannot tell apart anyway. And `fill_between` returns a
+`FillBetweenPolyCollection` (a `PolyCollection`) from 3.10 on.
+
 ## Checking a page
 
 `npm test` runs `tests/figure.test.js`, `tests/figure-plot.test.js` and
@@ -388,8 +426,24 @@ draws, where its description is built, and what its Python reads:
 `digitizer-figure`, `plot-builder`, `error-bars-figure`, `statistics-figure`,
 `outliers-figure` and `plumed-analysis-figures`, each
 `tests/<name>.test.js`). When python3 with numpy, scipy and matplotlib is
-installed, they run the scripts and check matplotlib's axis limits against the
-preview's; the preview follows matplotlib 3.6. For a page, open it at 1280 and
-390 px wide in both themes. Check the console for errors, the page for
-sideways overflow and the text for contrast. Then export a PNG from the page,
-run the page's script, and compare the two side by side.
+installed, they run the scripts and check what matplotlib draws against the
+preview; without it they are skipped. The tests run the `python3` first on
+the PATH (the data-cleaning tests take `STEMKIT_PYTHON` first), so to check
+another matplotlib, put a virtual environment's `bin` first:
+
+```sh
+python3 -m venv /tmp/mpl && /tmp/mpl/bin/pip install numpy scipy matplotlib pandas
+PATH=/tmp/mpl/bin:$PATH npm test
+```
+
+Ticks and labels on log axes are compared with matplotlib 3.11 and later
+only, minor ticks on linear axes with 3.8 and later, and "best" legends with
+3.9 and later; axis limits with every version. CI runs `npm test` with the
+current numpy, scipy, matplotlib and pandas, and with matplotlib 3.6.3 (numpy
+1.26.4, scipy 1.11.4, pandas 2.1.4, as Ubuntu 24.04 has them); checked by
+hand with 3.6.3, 3.7.5, 3.8.4, 3.9.4, 3.10.9 and 3.11.2.
+
+For a page, open it at 1280 and 390 px wide in both themes. Check the console
+for errors, the page for sideways overflow and the text for contrast. Then
+export a PNG from the page, run the page's script, and compare the two side
+by side.

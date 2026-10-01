@@ -29,7 +29,7 @@
 import { FUNCTIONS, CONSTANTS } from './expression.js';
 import { normalisePlotStyle } from './plot-style.js';
 import {
-  pyNum, short, pyStr, comment, wrapItems, pyArray, pyCall, wrapComment, rcLines, subplotsLines, seriesLines,
+  pyNum, short, pyStr, comment, wrapItems, pyArray, pyCall, wrapComment, rcLines, subplotsLines, seriesLines, scaleComment,
   tickLines, frameBody, legendCall, saveLines, gridOn
 } from './figure-python.js';
 
@@ -299,7 +299,7 @@ export function generateFitScript(spec) {
   L.push('# Fits the model by non-linear least squares with scipy.optimize.curve_fit,');
   L.push('# prints each parameter with its standard error and 95% confidence interval,');
   L.push(`# draws the figure as the page shows it and saves it as ${fileName}.`);
-  L.push('# Needs numpy, scipy and matplotlib 3.6 or later.');
+  L.push('# Needs numpy, scipy and matplotlib 3.6 or later (3.11 or later to match the preview).');
   blank();
 
   /* Imports */
@@ -580,9 +580,6 @@ function figureLines(L, ctx) {
     L.push(`# The fit above, the residuals below: the lower panel is ${short(s.residuals.heightRatio)} times as tall.`);
   }
   subplotsLines(L, s, residualsPanel ? ['ax', 'ax_res'] : ['ax'], [1, s.residuals.heightRatio]);
-  // Scales first: setting a scale resets the axis's tick locators.
-  if (s.xScale === 'log') L.push("ax.set_xscale('log')");
-  if (s.yScale === 'log') L.push("ax.set_yscale('log')");
   blank();
 
   const handles = [];
@@ -670,6 +667,14 @@ function figureLines(L, ctx) {
   const order = ['data_points', 'fit_line', 'band'];
   handles.sort((a, b) => order.indexOf(a) - order.indexOf(b));
   blank();
+
+  /* Log scales, once everything is drawn */
+  if (s.xScale === 'log' || s.yScale === 'log') {
+    scaleComment(L);
+    if (s.xScale === 'log') L.push("ax.set_xscale('log')");
+    if (s.yScale === 'log') L.push("ax.set_yscale('log')");
+    blank();
+  }
 
   /* Axes */
   L.push('# Axes');

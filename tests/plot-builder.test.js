@@ -232,11 +232,16 @@ def _data(l):
     return [[None if v != v else float(v) for v in l.get_xdata()], [None if v != v else float(v) for v in l.get_ydata()]]
 
 
+def _kind(c):
+    # fill_between gives a FillBetweenPolyCollection from matplotlib 3.10 on: a PolyCollection.
+    return 'PolyCollection' if type(c).__name__ == 'FillBetweenPolyCollection' else type(c).__name__
+
+
 print('@@FIG@@' + _json.dumps({
     'panels': [{
         'xlim': [float(v) for v in a.get_xlim()], 'ylim': [float(v) for v in a.get_ylim()],
         'yscale': a.get_yscale(), 'lines': [_data(l) for l in a.get_lines()],
-        'collections': [type(c).__name__ for c in a.collections],
+        'collections': [_kind(c) for c in a.collections],
         'legend': [t.get_text() for t in a.get_legend().get_texts()] if a.get_legend() else None,
         'xlabel': a.get_xlabel(), 'ylabel': a.get_ylabel(),
     } for a in fig.axes],
@@ -299,7 +304,8 @@ const STATE = {
 // A log y with a limit of its own in the second panel; the person's colour and name for a series.
 const LOG_STYLE = { panels: [{}, { yScale: 'log', yLim: [null, 200] }], series: { s2: { color: '#000000', label: 'With errors' } }, title: 'Two runs' };
 // Log x, on one panel and shared by two: the run's first time, 0, is left off as matplotlib
-// leaves it, and the smallest positive x of the first panel sets the lower limit.
+// leaves it, and the smallest positive x of all the panels sets the lower limit (matplotlib
+// 3.8's rule; the script gives 3.6 and 3.7 the same).
 const LOGX_STATE = { files: FILES, series: STATE.series.slice(0, 3) };
 const FIGS = {
   linear: applyStyle(builderFigure(STATE, { title: 'Two runs' }), { title: 'Two runs' }),

@@ -2,7 +2,8 @@
  * The figure description (src/core/figure.js): normalising, the person's
  * style laid over the page's description, and the numbers each kind works
  * out as numpy and matplotlib do (box statistics, histogram bins, colormap
- * lookups). REF holds matplotlib 3.6.3's and numpy 1.26's own answers.
+ * lookups). REF holds matplotlib's and numpy's own answers, the same from
+ * matplotlib 3.6.3 with numpy 1.26 and from 3.11.2 with numpy 2.5.
  */
 import { describe, test, expect } from '@jest/globals';
 import {

@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function scriptNote(fig, source) {
     const py = `${fig.export.filename}.py`;
     const out = `${fig.export.filename}.${fig.export.format}`;
-    const needs = `Runs with Python 3, numpy and matplotlib 3.6 or later: <code>python ${esc(py)}</code>. `;
+    const needs = `Runs with Python 3, numpy and matplotlib 3.6 or later (3.11 or later to match the preview): <code>python ${esc(py)}</code>. `;
     const reads = `It reads <code>${esc(state.fileName)}</code> from the same folder and saves <code>${esc(out)}</code>.`;
     if (source === 'embed' && embedRefused) {
       const rows = state.parsed ? state.parsed.rowCount.toLocaleString('en-GB') : '';

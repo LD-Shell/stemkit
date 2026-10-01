@@ -33,12 +33,17 @@ from matplotlib.colors import to_hex as _hex
 fig.canvas.draw()
 
 
+def _kind(c):
+    # fill_between gives a FillBetweenPolyCollection from matplotlib 3.10 on: a PolyCollection.
+    return 'PolyCollection' if type(c).__name__ == 'FillBetweenPolyCollection' else type(c).__name__
+
+
 def _panel(a):
     leg = a.get_legend()
     return {
         'xlim': [float(v) for v in a.get_xlim()], 'ylim': [float(v) for v in a.get_ylim()],
         'xscale': a.get_xscale(), 'yscale': a.get_yscale(),
-        'lines': len(a.get_lines()), 'collections': [type(c).__name__ for c in a.collections],
+        'lines': len(a.get_lines()), 'collections': [_kind(c) for c in a.collections],
         'patches': [type(p).__name__ for p in a.patches], 'containers': [type(c).__name__ for c in a.containers],
         'texts': [t.get_text() for t in a.texts],
         'legend': [t.get_text() for t in leg.get_texts()] if leg else None,
@@ -54,8 +59,45 @@ def _panel(a):
     }
 
 
+import math as _math
+import matplotlib as _mpl
+from matplotlib.transforms import Bbox as _Bbox
+_r = fig.canvas.get_renderer()
+_LOCS = ['best', 'upper right', 'upper left', 'lower left', 'lower right', 'right', 'center left',
+         'center right', 'lower center', 'upper center', 'center']
+
+
+def _ticks(axis):
+    # The ticks inside the view, with the labels their formatters give.
+    log = axis.get_scale() == 'log'
+    t = _math.log10 if log else float
+    lo, hi = sorted(axis.get_view_interval())
+    a, b = t(lo), t(hi)
+    tol = (b - a) * 1e-10
+    out = {}
+    for which, locs, fmt in (('major', axis.get_majorticklocs(), axis.get_major_formatter()),
+                             ('minor', axis.get_minorticklocs(), axis.get_minor_formatter())):
+        locs = [float(v) for v in locs]
+        labels = fmt.format_ticks(locs) if locs else []
+        out[which] = [[v, s] for v, s in zip(locs, labels) if (v > 0 or not log) and a - tol <= t(v) <= b + tol]
+    return out
+
+
+def _legend_loc(a):
+    # Where the legend stands, as the name of the place whose box it fills.
+    leg = a.get_legend()
+    if leg is None:
+        return None
+    bb = leg.get_window_extent(_r)
+    best = min(range(1, len(_LOCS)), key=lambda i: sum(abs(u - v) for u, v in zip(
+        leg._get_anchored_bbox(i, _Bbox.from_bounds(0, 0, bb.width, bb.height), leg.get_bbox_to_anchor(), _r), (bb.x0, bb.y0))))
+    return _LOCS[best]
+
+
 print('@@FIG@@' + _json.dumps({
-    'panels': [_panel(a) for a in fig.axes if a.get_label() != '<colorbar>'],
+    'version': _mpl.__version__,
+    'panels': [dict(_panel(a), ticks={'x': _ticks(a.xaxis), 'y': _ticks(a.yaxis)}, legendLoc=_legend_loc(a))
+               for a in fig.axes if a.get_label() != '<colorbar>'],
     'colorbars': [{'label': a.get_ylabel(), 'ylim': [float(v) for v in a.get_ylim()]} for a in fig.axes if a.get_label() == '<colorbar>'],
     'size': [float(v) for v in fig.get_size_inches()],
 }))
@@ -148,14 +190,53 @@ const CASES = {
     ] }]
   }),
   // A log x axis shared by two panels, the top one's data reaching 0: the
-  // view starts from the top panel's smallest positive x (0.25), not the
-  // lower panel's (0.01), as LogLocator.nonsingular has it.
+  // view starts from the smallest positive x of both panels (the lower
+  // one's 0.01), as LogLocator.nonsingular has it since matplotlib 3.8; the
+  // script tells 3.6 and 3.7, which took the top panel's 0.25.
   minpos: () => ({
     xScale: 'log', export: { filename: 'minpos', format: 'png' }, dpi: 50,
     panels: [
       { series: [{ kind: 'line', x: [0, 0.25, 9.75], y: [1, 1, 1] }] },
       { series: [{ kind: 'line', x: [0.01, 10], y: [1, 2] }] }
     ]
+  }),
+  // Log axes where matplotlib 3.11 places and labels ticks its own way: six
+  // decades and five on short panels (a tick every second and every fifth
+  // decade), and a log x axis from about 4 to 60, one decade tick, whose
+  // minor ticks get labels.
+  logTicks: () => ({
+    xScale: 'log', width: 4, height: 3.2, export: { filename: 'logticks', format: 'png' }, dpi: 60,
+    panels: [
+      { yScale: 'log', series: [{ id: 'up', kind: 'line', x: [4, 15, 60], y: [1e-3, 1, 1e3], label: 'Up' }] },
+      { ratio: 0.4, yScale: 'log', series: [{ id: 'down', kind: 'scatter', x: [4, 15, 60], y: [1e4, 30, 0.1] }] }
+    ]
+  }),
+  // Error bars on log axes: matplotlib 3.8 to 3.10 take their limits in log
+  // units when the axis is logarithmic as they are drawn, so the script sets
+  // the scales after the data.
+  logErrors: () => ({
+    xScale: 'log', export: { filename: 'logerrors', format: 'png' }, dpi: 60,
+    panels: [{ yScale: 'log', series: [
+      { id: 'err', kind: 'errorbar', x: [1, 3, 10, 30, 100], y: [2, 5, 20, 60, 150], yerr: [0.5, 1, 4, 10, 30], xerr: [0.2, 0.5, 2, 5, 20], capSize: 2, label: 'Rates' }
+    ] }, { ratio: 0.5, series: [
+      { id: 'bars', kind: 'bar', x: [1, 3, 10, 30, 100], y: [1, 2, 3, 2, 1], yerr: [0.2, 0.3, 0.2, 0.4, 0.1], width: 0.2 }
+    ] }]
+  }),
+  // "best" keeps clear of a band's outline and of text on the axes, as
+  // matplotlib 3.9 and later weigh them.
+  bestBand: () => ({
+    export: { filename: 'bestband', format: 'png' }, dpi: 60,
+    panels: [{ series: [
+      { id: 'band', kind: 'band', x: range(60, (i) => i / 6), lower: range(60, (i) => i / 30 - 1), upper: range(60, (i) => i / 30 + 3), label: 'Band' },
+      { id: 'mid', kind: 'line', x: range(60, (i) => i / 6), y: range(60, (i) => i / 30 + 1), label: 'Middle' }
+    ] }]
+  }),
+  bestText: () => ({
+    export: { filename: 'besttext', format: 'png' }, dpi: 60,
+    panels: [{ series: [
+      { id: 'fall', kind: 'line', x: [0, 10], y: [1, 0], label: 'Falling' },
+      { id: 'note', kind: 'text', x: 9, y: 0.95, text: 'Note here' }
+    ] }]
   }),
   panels: () => ({
     title: 'Two panels', xLabel: 'Time (ps)', height: 5.5, xScale: 'log',
@@ -188,6 +269,15 @@ function previewRanges(fig) {
 }
 const close = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
 
+/* matplotlib's version, as [major, minor], from the run. */
+const versionOf = (r) => r.fig.version.split('.').slice(0, 2).map(Number);
+const atLeast = (r, minor) => { const [a, b] = versionOf(r); return a > 3 || (a === 3 && b >= minor); };
+/* A tick label as text to compare: matplotlib's mathtext and the preview's HTML alike. */
+const plainLabel = (t) => String(t)
+  .replace(/\\mathdefault\{((?:[^{}]|\{[^{}]*\})*)\}/g, '$1').replace(/\$/g, '')
+  .replace(/<sup>(.*?)<\/sup>/g, '^{$1}').replace(/\\times/g, '×')
+  .replace(/[\s\u2006]/g, '').replace(/\u2212/g, '-');
+
 describe('figureScript', () => {
   test('is deterministic, and keeps user text out of the code', () => {
     expect(figureScript(FIGS.lines)).toBe(figureScript(FIGS.lines));
@@ -214,6 +304,19 @@ describe('figureScript', () => {
     expect(identifier('λ', taken)).toBe('λ_2');
     expect(pyStr('a\\b')).toBe("r'a\\b'");
     expect(pyNum(Infinity)).toBe('np.inf');
+  });
+
+  test('a shared log x axis whose data reach 0 tells every panel where it starts', () => {
+    const code = figureScript(FIGS.minpos);
+    expect(code).toContain('x_min_positive = min(axes.dataLim.minposx for axes in (ax, ax_panel2))');
+    expect(code).toContain('    axes.update_datalim([(x_min_positive, 1)], updatey=False)');
+    // Only then: all x positive, one panel, or a linear axis need nothing.
+    expect(figureScript(FIGS.panels)).not.toContain('update_datalim');
+    expect(figureScript({ ...FIGS.minpos, panels: FIGS.minpos.panels.slice(0, 1) })).not.toContain('update_datalim');
+    expect(figureScript({ ...FIGS.minpos, xScale: 'linear' })).not.toContain('update_datalim');
+    // Bars, boxes and heatmaps reach 0 by their edges.
+    const bars = { xScale: 'log', panels: [{ series: [{ kind: 'bar', x: [0.3, 1], y: [1, 2] }] }, { series: [{ kind: 'line', x: [1, 2], y: [1, 2] }] }] };
+    expect(figureScript(bars)).toContain('update_datalim');
   });
 
   test('a million points read from a file make a short script', () => {
@@ -421,12 +524,12 @@ describe('the page\'s names are left alone', () => {
     expect(code).toMatch(/^fit_2, = ax\.plot\(/m);
     expect(code).toMatch(/^values_2, = ax\.plot\(/m);
     expect(code).toContain('for _position, _values in zip(');
-    expect(code).toContain('# Needs numpy, scipy and matplotlib 3.6 or later.');
+    expect(code).toContain('# Needs numpy, scipy and matplotlib 3.6 or later (3.11 or later to match the preview).');
     expect(code).not.toMatch(/^reserved\b/m);
     const plain = figureScript({ panels: [{ series: [{ kind: 'line', x: [1, 2], y: [1, 2] }] }] });
-    expect(plain).toContain('# Needs numpy and matplotlib 3.6 or later.');
+    expect(plain).toContain('# Needs numpy and matplotlib 3.6 or later (3.11 or later to match the preview).');
     expect(figureScript(fig, { prelude: ['stats = {}'] })).toContain('from scipy import stats as scipy_stats');
-    expect(figureScript({ panels: [] }, { prelude: ['import pandas as pd'] })).toContain('# Needs numpy, pandas and matplotlib 3.6 or later.');
+    expect(figureScript({ panels: [] }, { prelude: ['import pandas as pd'] })).toContain('# Needs numpy, pandas and matplotlib 3.6 or later (3.11 or later to match the preview).');
   });
 
   withPython('the prelude\'s values survive the figure', async () => {
@@ -461,6 +564,43 @@ describe('the script runs and draws what the page describes', () => {
         if (!ok) throw new Error(`${name} panel ${i + 1}: matplotlib x ${p.xlim} y ${p.ylim}, preview x ${x} y ${y}`);
       });
     }
+  });
+
+  withPython('the ticks, their labels and the legend\'s place are the preview\'s', () => {
+    // On log axes the ticks follow matplotlib 3.11, which changed the decades
+    // a log axis ticks and which minor ticks it labels; minor ticks on a
+    // linear axis follow 3.8; "best" weighs bands and text from 3.9 on. Older
+    // versions are held to what has not changed since.
+    let checked = 0;
+    for (const [name, r] of Object.entries(runs)) {
+      const f = normaliseFigure(FIGS[name]);
+      const { info } = buildFigure(f);
+      r.fig.panels.forEach((p, i) => {
+        for (const k of ['x', 'y']) {
+          const log = (k === 'x' ? f.xScale : f.panels[i].yScale) === 'log';
+          if (log && !atLeast(r, 11)) continue;
+          const [lo, hi] = log ? p[`${k}lim`].map(Math.log10) : p[`${k}lim`];
+          const at = (v) => (log ? Math.log10(v) : v);
+          for (const which of ['major', 'minor']) {
+            if (which === 'minor' && !log && !atLeast(r, 8)) continue;
+            const got = p.ticks[k][which];
+            const want = info.ticks[i][k][which];
+            const where = `${name} panel ${i + 1} ${k} ${which}`;
+            expect([where, got.length]).toEqual([where, want.length]);
+            got.forEach(([v, text], j) => {
+              expect([where, Math.abs(at(v) - at(want[j].v)) <= 1e-9 * Math.abs(hi - lo)]).toEqual([where, true]);
+              expect([where, plainLabel(text)]).toEqual([where, plainLabel(want[j].text)]);
+              checked++;
+            });
+          }
+        }
+        if (atLeast(r, 9)) {
+          const same = (a) => (a === 'center right' ? 'right' : a);
+          expect([name, i, same(p.legendLoc)]).toEqual([name, i, same(info.legends[i])]);
+        }
+      });
+    }
+    expect(checked).toBeGreaterThan(50);
   });
 
   withPython('lines, bands, reference lines and notes', () => {
@@ -514,10 +654,10 @@ describe('the script runs and draws what the page describes', () => {
     expect(f.colorbars[0].ylim).toEqual([0, 30]);
   });
 
-  withPython('a shared log x axis starts from the top panel\'s smallest positive x', () => {
+  withPython('a shared log x axis starts from the smallest positive x of all the panels', () => {
     const [top] = runs.minpos.fig.panels;
-    expect(top.xlim[0]).toBeCloseTo(0.20794, 4);
-    expect(top.xlim[1]).toBeCloseTo(12.0255, 3);
+    expect(top.xlim[0]).toBeCloseTo(0.0070795, 6);
+    expect(top.xlim[1]).toBeCloseTo(14.1254, 3);
   });
 
   withPython('two panels sharing a log x axis, with their own y', () => {

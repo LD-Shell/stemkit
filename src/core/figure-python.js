@@ -703,6 +703,76 @@ export function saveLines(L, s, section) {
   L.push('    plt.show()');
 }
 
+/**
+ * The comment over the log scales, which the script sets once the data are
+ * drawn: matplotlib 3.8 to 3.10 take the limits of error bars drawn on an
+ * axis that is already logarithmic in log units (vlines and hlines go
+ * through Collection.get_datalim, which 3.11 mended), so the axis would miss
+ * the data. Setting a scale also resets its tick locators: the ticks are set
+ * after.
+ *
+ * @param {string[]} L
+ */
+export function scaleComment(L) {
+  L.push('# Log scales once the data are drawn: matplotlib 3.8 to 3.10 misplace the limits of');
+  L.push('# error bars drawn on an axis that is already logarithmic.');
+}
+
+/*
+ * Whether the data on the shared x axis reach 0 or below, as matplotlib's
+ * data limits count them: bars and boxes by their edges, a heatmap by its
+ * cells (a box plot on categories also half a place beyond its outer boxes).
+ */
+export function xReachesZero(f) {
+  const low = (values) => {
+    for (const v of values || []) if (Number.isFinite(v) && v <= 0) return true;
+    return false;
+  };
+  return f.panels.some((p) => p.series.some((q) => {
+    if (!q.show) return false;
+    switch (q.kind) {
+      case 'line': case 'scatter': case 'band': case 'contour': return low(q.x);
+      case 'errorbar': return low(q.x) || (!!q.xerr && low(q.x.map((v, i) => v - (q.xerr[0][i] ?? 0))));
+      case 'bar': return low(q.x.map((v) => v + (q.offset || 0) - (q.barWidth || q.width) / 2));
+      case 'histogram': return low(q.edges);
+      case 'box': return low(q.groups.map((g) => g.position - q.width / 2 - 0.5));
+      case 'heatmap': {
+        const xs = (q.x || []).filter(Number.isFinite);
+        if (!xs.length) return false;
+        return low([xs[0] - (xs.length > 1 ? Math.abs(xs[1] - xs[0]) / 2 : 0.5), ...xs]);
+      }
+      case 'vline': return low([q.x]);
+      case 'axline': return low(q.points.map((pt) => pt[0]));
+      case 'bracket': return low([q.x1, q.x2]);
+      default: return false;
+    }
+  }));
+}
+
+/**
+ * The lines that start a log x axis shared by panels at the smallest
+ * positive x of all of them, when the data reach 0 or below (a log axis
+ * cannot show those). matplotlib 3.8 and later do so on their own; 3.6 and
+ * 3.7 took the smallest positive x of the panel that owns the axis's
+ * locator, so the script tells every panel the shared value. Written after
+ * everything is drawn and before the log scale is set (setting the scale
+ * autoscales there and then); it changes nothing but where the x axis starts.
+ *
+ * @param {string[]} L
+ * @param {string[]} names - the panels' axes names
+ * @param {Set<string>} taken - the names in use (the new name is added)
+ */
+export function sharedLogLines(L, names, taken) {
+  const x = identifier('x_min_positive', taken);
+  const all = `(${names.join(', ')})`;
+  L.push('# The log x axis cannot show 0 or below: it starts at the smallest positive x of');
+  L.push('# all the panels, as matplotlib 3.8 and later choose. (3.6 and 3.7 take the top');
+  L.push("# panel's alone; telling every panel the shared value makes them agree.)");
+  L.push(`${x} = min(axes.dataLim.minposx for axes in ${all})`);
+  L.push(`for axes in ${all}:`);
+  L.push(`    axes.update_datalim([(${x}, 1)], updatey=False)`);
+}
+
 /* ------------------------------------------------------------------ *
  * The whole script
  * ------------------------------------------------------------------ */
@@ -988,7 +1058,7 @@ export function figureScript(figure, options = {}) {
   const needs = importedPackages([...(needsStats ? [statsImport] : []), ...(options.imports || []), ...prelude, ...afterLines])
     .filter((m) => m !== 'numpy' && m !== 'matplotlib');
   const list = ['numpy', ...needs];
-  L.push(`# Needs ${list.join(', ')} and matplotlib 3.6 or later.`);
+  L.push(`# Needs ${list.join(', ')} and matplotlib 3.6 or later (3.11 or later to match the preview).`);
   blank();
 
   /* Imports */
@@ -1029,9 +1099,6 @@ export function figureScript(figure, options = {}) {
     L.push(`# ${f.panels.length} panels, one above the other, sharing the x axis; heights ${f.panels.map((p) => short(p.ratio)).join(' : ')}.`);
   }
   subplotsLines(L, f, panelNames, f.panels.map((p) => p.ratio));
-  // Scales first: setting a scale resets the axis's tick locators.
-  if (f.xScale === 'log') L.push("ax.set_xscale('log')");
-  f.panels.forEach((p, i) => { if (p.yScale === 'log') L.push(`${panelNames[i]}.set_yscale('log')`); });
   blank();
 
   const handles = f.panels.map(() => []);
@@ -1052,6 +1119,23 @@ export function figureScript(figure, options = {}) {
   /* The page's own drawing, after the series: annotations its prelude worked out */
   if (afterLines.length) {
     append(L, afterLines);
+    blank();
+  }
+
+  /* A shared log x axis whose data reach 0 or below starts where every
+     matplotlib starts it. Before the scale is set: setting it autoscales. */
+  if (f.xScale === 'log' && panelNames.length > 1 && xReachesZero(f)) {
+    sharedLogLines(L, panelNames, taken);
+    blank();
+  }
+
+  /* Log scales, once everything is drawn */
+  const scales = [];
+  if (f.xScale === 'log') scales.push("ax.set_xscale('log')");
+  f.panels.forEach((p, i) => { if (p.yScale === 'log') scales.push(`${panelNames[i]}.set_yscale('log')`); });
+  if (scales.length) {
+    scaleComment(L);
+    append(L, scales);
     blank();
   }
 

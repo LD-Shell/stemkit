@@ -326,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
           const reads = source === 'files' && sourceFile
             ? `, reading <code>${esc(sourceFile.name)}</code> from the same folder` : '';
-          return `Runs with Python 3, numpy, scipy and matplotlib 3.6 or later: <code>python outliers.py</code>. ` +
+          return `Runs with Python 3, numpy, scipy and matplotlib 3.6 or later (3.11 or later to match the preview): <code>python outliers.py</code>. ` +
             `It prints the flagged rows and Grubbs' test and saves <code>${esc(figure.export.filename)}.${esc(figure.export.format)}</code>${reads}.`;
         }
       } : false

@@ -4,8 +4,9 @@
  * Node), the limits matplotlib's autoscaling gives (sticky edges included),
  * contour levels, colour bars, the legend, and the style panel's presets.
  *
- * MPL holds matplotlib 3.6.3's own answers: the contour levels of a grid, and
- * where constrained layout puts a colour bar.
+ * MPL holds matplotlib's own answers: the contour levels of a grid, and
+ * where constrained layout puts a colour bar (recorded with 3.6.3; 3.11.2
+ * gives the same levels and the bar within a pixel).
  */
 import { describe, test, expect } from '@jest/globals';
 import { spawnSync } from 'node:child_process';

@@ -112,7 +112,7 @@ function pythonNote(fig, source) {
   const files = state.files.filter((f) => used.has(f.id));
   const read = source === 'files' ? files.filter((f) => !f.example) : [];
   const code = (t) => `<code>${esc(t)}</code>`;
-  let note = `Runs with Python 3, numpy and matplotlib 3.6 or later: ${code(`python ${fig.export.filename}.py`)}. `
+  let note = `Runs with Python 3, numpy and matplotlib 3.6 or later (3.11 or later to match the preview): ${code(`python ${fig.export.filename}.py`)}. `
     + `It saves ${code(`${fig.export.filename}.${fig.export.format}`)}`;
   note += read.length ? `, reading ${read.map((f) => code(f.name)).join(' and ')} from the same folder.` : '.';
   if (source === 'files' && files.some((f) => f.example)) note += ' The example’s numbers are in the script.';

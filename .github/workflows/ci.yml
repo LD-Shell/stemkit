@@ -28,6 +28,42 @@ jobs:
       - run: npm test
       - run: node tests/smoke.mjs
 
+  python:
+    # With numpy, scipy, matplotlib and pandas installed, npm test also runs
+    # the scripts the pages write (figures, fits, data cleaning, PLUMED
+    # analysis) and checks what matplotlib draws against the preview. The
+    # tests that need GROMACS, LAMMPS or PLUMED still skip: none is installed.
+    name: Tests with Python (matplotlib ${{ matrix.matplotlib }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The current releases: the preview follows the newest matplotlib.
+          - python: '3.13'
+            matplotlib: latest
+            packages: numpy scipy matplotlib pandas
+          # The oldest the scripts support, as Ubuntu 24.04 ships it.
+          - python: '3.11'
+            matplotlib: '3.6.3'
+            packages: matplotlib==3.6.3 numpy==1.26.4 scipy==1.11.4 pandas==2.1.4
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install ${{ matrix.packages }}
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install ${{ matrix.packages }}
+          python3 -c "import numpy, scipy, matplotlib, pandas; print('numpy', numpy.__version__, 'scipy', scipy.__version__, 'matplotlib', matplotlib.__version__, 'pandas', pandas.__version__)"
+      - run: npm ci
+      - run: npm test
+
   site:
     name: Site checks
     runs-on: ubuntu-latest

@@ -12,7 +12,7 @@
  *     histograms, images, contours and box plots set, then the user's limits;
  *   - tick positions: AutoLocator, MaxNLocator, MultipleLocator, LogLocator,
  *     FixedLocator, AutoMinorLocator and the minor LogLocator, ported line by
- *     line from matplotlib 3.6, including the number of ticks that fits the
+ *     line from matplotlib, including the number of ticks that fits the
  *     axis length;
  *   - tick labels: ScalarFormatter (significant digits, offset and ×10ⁿ),
  *     LogFormatterSciNotation, FormatStrFormatter (Python % formatting) and
@@ -24,6 +24,15 @@
  *   - contour levels (MaxNLocator over the data, trimmed as ContourSet does),
  *     colormap lookups value for value, box-plot statistics, histogram bins;
  *   - the "best" legend position, by matplotlib's own overlap count.
+ *
+ * Where matplotlib has changed these rules, the preview follows the newest
+ * (3.11): the decades a log axis ticks and which minor ticks it labels
+ * (3.11), the smallest positive value a shared log axis starts from (3.8),
+ * where AutoMinorLocator starts (3.8), the sticky-edge tolerance and what
+ * "best" counts (3.9), contour lines at levels outside the data (3.7). The
+ * script makes 3.6 and 3.7 start a shared log axis where 3.8 does, and sets
+ * log scales once the data are drawn, which 3.8 to 3.10 need for the limits
+ * of error bars; the rest can differ before 3.11 (docs/FIGURES.md).
  *
  * The figure is drawn at its true size, 96 px per inch, and scaled with a
  * CSS transform to fit the page, so the preview is the exported figure in
@@ -787,8 +796,22 @@ const isCloseToInt = (x) => {
   return Math.abs(x - r) <= 1e-9 * Math.max(Math.abs(x), Math.abs(r));
 };
 
+/* The next double below x (math.nextafter(x, -math.inf)). */
+function nextDown(x) {
+  if (!Number.isFinite(x)) return x;
+  if (x === 0) return -Number.MIN_VALUE;
+  const f = new Float64Array([x]);
+  const u = new BigInt64Array(f.buffer);
+  u[0] += x > 0 ? -1n : 1n;
+  return f[0];
+}
+
 /**
- * matplotlib's LogFormatterSciNotation labels for base 10.
+ * matplotlib's LogFormatterSciNotation labels for base 10. Which ticks
+ * between the decades get a label follows matplotlib 3.11: with at most one
+ * decade tick in the view, some (more than 0.4 decades) or all of them;
+ * with two or more, none. (Before 3.11 it went by the decades spanned, so an
+ * axis from 4 to 60 labelled only 10.)
  *
  * @param {number[]} locs
  * @param {[number, number]} view
@@ -799,8 +822,12 @@ export function logFormat(locs, view) {
   let sublabels;
   if (a <= 0) sublabels = new Set([1]);
   else {
-    const numdec = Math.abs(Math.log10(b) - Math.log10(a));
-    if (numdec > 1) sublabels = new Set([1]);
+    // math.log(v, 10), as matplotlib computes it
+    const lmin = Math.log(a) / Math.LN10;
+    const lmax = Math.log(b) / Math.LN10;
+    const numticks = Math.floor(lmax) - Math.floor(nextDown(lmin));
+    const numdec = Math.abs(lmax - lmin);
+    if (numticks > 1) sublabels = new Set([1]);
     else if (numdec > 0.4) sublabels = new Set([1, 2, 3, 4, 6, 10]);
     else sublabels = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   }
@@ -909,17 +936,30 @@ export function multipleLocator(vmin, vmax, base) {
   return { locs: out, tooMany: out.length > MAXTICKS ? out.length : 0 };
 }
 
-/** LogLocator.tick_values, matplotlib 3.6. subs: [1] (major), 'auto' (minor). */
+/* Python's % for numbers of either sign (the result takes the divisor's sign). */
+const pyMod = (x, y) => pyDivmod(x, y)[1];
+
+/**
+ * LogLocator.tick_values as matplotlib 3.11 has it. subs: [1] (major),
+ * 'auto' (minor). The decades: as many ticks as fit (at most `numticks`),
+ * every `stride` decades, on multiples of the stride where that gives as
+ * many; minor ticks only with a tick every decade. (3.6 and 3.7 took a
+ * stride of (decades + 1) // numticks + 1 counted from below the view, 3.8
+ * to 3.10 decades // numticks + 1, which can pick other decades on an axis
+ * spanning many of them for its length.)
+ */
 export function logLocator(vmin, vmax, { base = 10, subs = [1], numticks = 9 } = {}) {
   if (vmax < vmin) [vmin, vmax] = [vmax, vmin];
   if (!(vmin > 0)) return [];
-  const lb = Math.log(base);
-  const logVmin = Math.log(vmin) / lb;
-  const logVmax = Math.log(vmax) / lb;
-  const numdec = Math.floor(logVmax) - Math.ceil(logVmin);
+  const logB = base === 10 ? Math.log10 : (v) => Math.log(v) / Math.log(base);
+  const efmin = logB(vmin);
+  const efmax = logB(vmax);
+  const emin = Math.ceil(efmin);
+  const emax = Math.floor(efmax);
+  const nAvail = emax - emin + 1;   // decades with a tick inside the view
   let sub = subs;
   if (typeof subs === 'string') {
-    if (numdec > 10 || base < 3) {
+    if (nAvail >= 10 || base < 3) {
       if (subs === 'auto') return [];
       sub = [1];
     } else {
@@ -927,42 +967,65 @@ export function logLocator(vmin, vmax, { base = 10, subs = [1], numticks = 9 } =
       for (let v = subs === 'auto' ? 2 : 1; v < base; v++) sub.push(v);
     }
   }
-  let stride = Math.floor((numdec + 1) / numticks) + 1;
-  if (stride >= numdec) stride = Math.max(1, numdec - 1);
-  const haveSubs = sub.length > 1 || (sub.length === 1 && sub[0] !== 1);
-  const decades = [];
-  for (let d = Math.floor(logVmin) - stride; d < Math.ceil(logVmax) + 2 * stride; d += stride) decades.push(d);
+  let nRequest = numticks;
+  let stride = Math.floor(nAvail / (nRequest + 1)) + 1;
+  const nr = Math.ceil(nAvail / stride);
+  if (nr <= nRequest) nRequest = nr;
+  let decades;
+  if (nRequest === 0) {
+    // No decade inside the view: one just outside each end.
+    decades = [emin - 1, emax + 1];
+    stride = decades[1] - decades[0];
+  } else if (nRequest === 1) {
+    const mid = npRound((efmin + efmax) / 2, 0);
+    stride = Math.max(mid - (emin - 1), (emax + 1) - mid);
+    decades = [mid - stride, mid, mid + stride];
+  } else {
+    stride = Math.floor((nAvail - 1) / (nRequest - 1));
+    if (stride < nAvail / nRequest) stride = Math.floor(nAvail / nRequest);
+    const olo = Math.max(nAvail - stride * nRequest, 0);
+    const ohi = Math.min(nAvail - stride * (nRequest - 1), stride);
+    let offset = pyMod(-emin, stride);
+    if (!(olo <= offset && offset < ohi)) offset = olo;
+    decades = [];
+    for (let d = emin + offset - stride; d < emax + stride + 1; d += stride) decades.push(d);
+  }
+  const isMinor = sub.length > 1 || (sub.length === 1 && sub[0] !== 1);
   let locs;
-  if (haveSubs) {
-    locs = stride === 1 ? decades.flatMap((d) => sub.map((s) => s * base ** d)) : [];
+  if (isMinor) {
+    locs = [];
+    if (stride === 1 || nAvail <= 1) {
+      for (let d = emin - 1; d < emax + 1; d++) for (const s of sub) locs.push(s * base ** d);
+    }
   } else {
     locs = decades.map((d) => base ** d);
   }
-  if (sub.length > 1 && stride === 1 && locs.filter((t) => vmin <= t && t <= vmax).length <= 1) {
+  if (sub.length > 1 && stride === 1 && decades.length - 2 + locs.filter((t) => vmin <= t && t <= vmax).length <= 1) {
     return maxNLocator(vmin, vmax, 9, AUTO_STEPS);
   }
   return locs;
 }
 
-/** AutoMinorLocator for a linear axis. */
+/**
+ * AutoMinorLocator for a linear axis, as matplotlib 3.8 and later place the
+ * ticks: whole multiples of the minor step from the first major tick.
+ */
 export function autoMinorLocator(majorLocs, view) {
-  if (majorLocs.length < 2) return [];
-  const majorstep = majorLocs[1] - majorLocs[0];
-  if (!(majorstep > 0) && !(majorstep < 0)) return [];
-  const m = 10 ** (((Math.log10(Math.abs(majorstep)) % 1) + 1) % 1);
+  const majors = [...new Set(majorLocs)].sort((p, q) => p - q);   // np.unique
+  if (majors.length < 2) return [];
+  const majorstep = majors[1] - majors[0];
+  if (!(majorstep > 0)) return [];
+  const m = 10 ** (((Math.log10(majorstep) % 1) + 1) % 1);
   const ndivs = [1, 2.5, 5, 10].some((v) => Math.abs(m - v) <= 1e-8 + 1e-5 * v) ? 5 : 4;
   const minorstep = majorstep / ndivs;
   let [vmin, vmax] = view;
   if (vmin > vmax) [vmin, vmax] = [vmax, vmin];
-  const t0 = majorLocs[0];
-  const tmin = (pyFloorDiv(vmin - t0, minorstep) + 1) * minorstep;
-  const tmax = (pyFloorDiv(vmax - t0, minorstep) + 1) * minorstep;
+  const t0 = majors[0];
+  const tmin = npRound((vmin - t0) / minorstep, 0);
+  const tmax = npRound((vmax - t0) / minorstep, 0) + 1;
+  if (tmax - tmin > MAXTICKS * 5) return [];
   const out = [];
-  const n = Math.ceil((tmax - tmin) / minorstep);
-  if (n > MAXTICKS * 5) return [];
-  // np.arange fills start + k*delta with delta = (start + step) - start.
-  const delta = (tmin + minorstep) - tmin;
-  for (let k = 0; k < n; k++) out.push(tmin + k * delta + t0);
+  for (let k = tmin; k < tmax; k++) out.push(k * minorstep + t0);
   return out;
 }
 
@@ -1106,16 +1169,17 @@ function dataLimits(arrays, log) {
  * The data limits of a log axis, as autoscale_view and LogLocator.nonsingular
  * make them: the smallest and largest value of every panel sharing the axis
  * (zero and below included), then, if the smallest is not positive, the
- * smallest positive value of the axes that owns the locator (`own`, the top
- * panel), not of all the panels.
+ * smallest positive value of all those panels. That is matplotlib 3.8's rule;
+ * 3.6 and 3.7 took the smallest positive value of the panel that owned the
+ * locator alone, and the script tells them the shared one (figure-python.js).
  */
-function logDataLimits(arrays, own) {
+function logDataLimits(arrays) {
   const all = dataLimits(arrays, false);
   if (!all || !(all[1] > 0)) return null;
   let [lo] = all;
   if (!(lo > 0)) {
-    const mine = dataLimits(own, true);
-    lo = mine ? mine[0] : 1e-300;
+    const positive = dataLimits(arrays, true);
+    lo = positive ? positive[0] : 1e-300;
   }
   return lo <= all[1] ? [lo, all[1]] : dataLimits(arrays, true);
 }
@@ -1142,7 +1206,8 @@ function autoscale(lim, log, stickies = []) {
   const st = stickies.filter((v) => Number.isFinite(v) && (!log || v > 0)).sort((p, q) => p - q);
   let lowStop = null; let highStop = null;
   if (st.length) {
-    const tol = 1e-5 * Math.max(Math.abs(a), Math.abs(b), Math.abs(b - a));
+    // matplotlib 3.9's tolerance; before, 1e-5 of the largest of |a|, |b| and the range.
+    const tol = 1e-5 * Math.abs(b - a);
     for (const v of st) if (v < a + tol) lowStop = v;
     for (let i = st.length - 1; i >= 0; i--) if (st[i] > b - tol) highStop = st[i];
   }
@@ -1237,8 +1302,9 @@ function contourLevels(s) {
     if (i1 - i0 < 3) { i0 = 0; i1 = lev.length; }
     levels = lev.slice(i0, i1);
   }
-  if (!s.filled && !levels.some((v) => v > zmin && v < zmax)) levels = [zmin];
-  if (s.filled && levels.length < 2) return null;
+  // Line contours keep their levels even when none falls inside the data
+  // (matplotlib 3.7 and later; 3.6 drew one line at the lowest value instead).
+  if (!levels.length || (s.filled && levels.length < 2)) return null;
   const values = s.filled ? levels.slice(0, -1).map((v, i) => 0.5 * (v + levels[i + 1])) : levels.slice();
   const vmin = s.vmin ?? Math.min(...levels);
   const vmax = s.vmax ?? Math.max(...levels);
@@ -1801,9 +1867,13 @@ function bestLegend(lg, box, fs, { lines, boxes }) {
 
 /*
  * The lines and patches of a panel as the "best" legend weighs them
- * (Legend._auto_legend_data): every Line2D's vertices and path, and the box
- * of every Rectangle and Patch. Collections (bands, images, contours) count
- * only by an offset matplotlib puts at the figure's corner, so not at all.
+ * (Legend._auto_legend_data, matplotlib 3.9 and later): every Line2D's
+ * vertices and path; the box of every Rectangle (bars); the path of every
+ * other patch (a histogram's steps, a box plot's boxes) and of every polygon
+ * of a band, as lines; and the box of every text on the axes. Other
+ * collections (images, contours, error bars) count only by an offset
+ * matplotlib puts at the figure's corner, so not at all. (3.6 counted the
+ * steps and boxes by their boxes, and 3.6 to 3.8 left bands and texts out.)
  */
 function legendObstacles(d, series) {
   const lines = []; const boxes = [];
@@ -1838,10 +1908,38 @@ function legendObstacles(d, series) {
         }
         break;
       }
+      case 'band': {
+        // fill_between's polygons, one for each run of finite points: the
+        // first upper point, the lower points forward, the upper points back,
+        // and the first upper point again where the path closes.
+        let i = 0;
+        const n = s.x.length;
+        const ok = (k) => Number.isFinite(s.x[k]) && Number.isFinite(s.lower[k]) && Number.isFinite(s.upper[k]);
+        while (i < n) {
+          if (!ok(i)) { i++; continue; }
+          let j = i;
+          while (j < n && ok(j)) j++;
+          const xs = [s.x[i]]; const ys = [s.upper[i]];
+          for (let k = i; k < j; k++) { xs.push(s.x[k]); ys.push(s.lower[k]); }
+          xs.push(s.x[j - 1]); ys.push(s.upper[j - 1]);
+          for (let k = j - 1; k >= i; k--) { xs.push(s.x[k]); ys.push(s.upper[k]); }
+          xs.push(s.x[i]); ys.push(s.upper[i]);
+          line(xs, ys);
+          i = j;
+        }
+        break;
+      }
       case 'histogram':
         if (s.edges.length > 1) {
           if (s.histtype === 'bar') s.counts.forEach((c, i) => rect(s.edges[i], s.edges[i + 1], 0, c));
-          else rect(s.edges[0], s.edges[s.edges.length - 1], minOf(s.counts, 0), maxOf(s.counts, 0));
+          else {
+            // stairs: up from the baseline at the first edge, along the
+            // counts, down to the baseline at the last edge.
+            const xs = [s.edges[0]]; const ys = [0];
+            s.counts.forEach((c, i) => { xs.push(s.edges[i], s.edges[i + 1]); ys.push(c, c); });
+            xs.push(s.edges[s.edges.length - 1]); ys.push(0);
+            line(xs, ys);
+          }
         }
         break;
       case 'box':
@@ -1850,7 +1948,8 @@ function legendObstacles(d, series) {
           const p = g.position; const st = g.stats; const w = s.width / 2; const cw = s.width / 4;
           line([p, p], [st.q1, st.whislo]); line([p, p], [st.q3, st.whishi]);
           line([p - cw, p + cw], [st.whislo, st.whislo]); line([p - cw, p + cw], [st.whishi, st.whishi]);
-          rect(p - w, p + w, st.q1, st.q3);
+          // The box, a closed path: its first corner three times.
+          line([p - w, p + w, p + w, p - w, p - w, p - w], [st.q1, st.q1, st.q3, st.q3, st.q1, st.q1]);
           line([p - w, p + w], [st.med, st.med]);
           if (s.fliers) line(st.fliers.map(() => p), st.fliers);
           if (s.points) line(jitterOffsets(g.values.length, s.jitter * s.width).map((o) => p + o), g.values);
@@ -1864,6 +1963,8 @@ function legendObstacles(d, series) {
       default: break;
     }
   }
+  // Text on the axes (notes, and the labels of brackets), by its box.
+  for (const it of d.items) if (it.note) boxes.push(it.box);
   return { lines, boxes };
 }
 
@@ -2136,10 +2237,10 @@ export function buildFigure(figure, options = {}) {
     const yLog = p.yScale === 'log';
     const series = p.series.filter((q) => q.show);
     series.forEach((q) => { if (q.kind === 'box') q.managed = !!s.xCategories; });
-    const yArrays = []; const ySticky = []; const xOwn = [];
+    const yArrays = []; const ySticky = [];
     for (const q of series) {
       const e = seriesExtent(q);
-      xArrays.push(...e.x); xSticky.push(...e.sx); xOwn.push(...e.x);
+      xArrays.push(...e.x); xSticky.push(...e.sx);
       yArrays.push(...e.y); ySticky.push(...e.sy);
     }
     texts.push(p.yLabel, ...p.yTicks.labels);
@@ -2187,7 +2288,7 @@ export function buildFigure(figure, options = {}) {
     }
     const minorLocated = p.yTicks.minor || (s.grid.show && s.grid.minor && s.grid.axis !== 'x');
     return {
-      index: i, id: p.id, ratio: p.ratio, series, yLog, yArrays, ySticky, xOwn, yLim: p.yLim,
+      index: i, id: p.id, ratio: p.ratio, series, yLog, yArrays, ySticky, yLim: p.yLim,
       yTicks: p.yTicks, yMarks: tickMarks(p.yTicks), yMinor: minorLocated,
       yLabel: html(p.yLabel), yMath: isMathText(p.yLabel), top: i === 0, bottom: i === s.panels.length - 1,
       entries, legendShow: p.legend.show === null ? s.legend.show : p.legend.show,
@@ -2196,8 +2297,8 @@ export function buildFigure(figure, options = {}) {
   });
 
   /* Limits: autoscaled over everything drawn, the x axis shared by all panels */
-  const xView = viewLimits(xLog ? logDataLimits(xArrays, panels.length ? panels[0].xOwn : []) : dataLimits(xArrays, false), s.xLim, xLog, xSticky);
-  for (const pn of panels) pn.yView = viewLimits(pn.yLog ? logDataLimits(pn.yArrays, pn.yArrays) : dataLimits(pn.yArrays, false), pn.yLim, pn.yLog, pn.ySticky);
+  const xView = viewLimits(xLog ? logDataLimits(xArrays) : dataLimits(xArrays, false), s.xLim, xLog, xSticky);
+  for (const pn of panels) pn.yView = viewLimits(pn.yLog ? logDataLimits(pn.yArrays) : dataLimits(pn.yArrays, false), pn.yLim, pn.yLog, pn.ySticky);
 
   const xTicks = xTickSpec(s);
   const P = {
@@ -2521,6 +2622,12 @@ export function buildFigure(figure, options = {}) {
       legend: legends.find(Boolean) ? legends.find(Boolean).loc : null,
       legends: legends.map((l) => (l ? l.loc : null)),
       axes: dressed.map((d) => ({ l: d.box.l + ox, t: d.box.t + oy, r: d.box.r + ox, b: d.box.b + oy })),
+      // Each panel's ticks inside the view, as the script's locators and
+      // formatters give them (labels as Plotly HTML; '' for none).
+      ticks: dressed.map((d) => {
+        const pick = (t) => ({ major: t.major.map(({ v, text }) => ({ v, text })), minor: t.minor.map(({ v, text }) => ({ v, text })) });
+        return { x: pick(d.xt), y: pick(d.yt) };
+      }),
       legendBox: legends.find(Boolean) ? (({ l, t, r, b }) => ({ l: l + ox, t: t + oy, r: r + ox, b: b + oy }))(legends.find(Boolean).box) : null,
       // Each legend's box and the span of its entries, on the page in px.
       legendLayouts: layouts.map((g) => (g ? { box: { l: g.box.l + ox, t: g.box.t + oy, r: g.box.r + ox, b: g.box.b + oy }, entries: { l: g.entries.l + ox, r: g.entries.r + ox } } : null)),
@@ -4428,7 +4535,7 @@ export function mountFigure(host, options = {}) {
     if (typeof py.note === 'string') return py.note;
     const scipy = /\bfrom scipy\b|\bimport scipy\b/.test(code);
     const read = pySource === 'files' && py.files ? Object.values(py.files).map((f) => f.file).filter((f) => code.includes(pyStr(f))) : [];
-    return `Runs with Python 3, numpy${scipy ? ', scipy' : ''} and matplotlib 3.6 or later: <code>python ${esc(filename)}</code>. `
+    return `Runs with Python 3, numpy${scipy ? ', scipy' : ''} and matplotlib 3.6 or later (3.11 or later to match the preview): <code>python ${esc(filename)}</code>. `
       + `It saves <code>${esc(fig.export.filename)}.${esc(fig.export.format)}</code>`
       + (read.length ? `, reading ${read.map((f) => `<code>${esc(f)}</code>`).join(' and ')} from the same folder.` : '.');
   }

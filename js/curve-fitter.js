@@ -2388,7 +2388,7 @@ function startPage() {
       ui.pyCode.innerHTML = `<span class="cf-code-empty"># The script appears here once there are data and an equation to fit.</span>`;
       ui.pyCopy.disabled = true;
       ui.pyDownload.disabled = true;
-      ui.pyFoot.innerHTML = `Runs with Python 3, numpy, scipy and matplotlib 3.6 or later: <code>python ${esc(fileName)}</code>. It prints the parameters and saves the figure.`;
+      ui.pyFoot.innerHTML = `Runs with Python 3, numpy, scipy and matplotlib 3.6 or later (3.11 or later to match the preview): <code>python ${esc(fileName)}</code>. It prints the parameters and saves the figure.`;
       return;
     }
     let text;
@@ -2406,7 +2406,7 @@ function startPage() {
     ui.pyCopy.disabled = false;
     ui.pyDownload.disabled = false;
     const ext = state.style.export.format;
-    ui.pyFoot.innerHTML = `Runs with Python 3, numpy, scipy and matplotlib 3.6 or later: <code>python ${esc(fileName)}</code>. It prints the parameters and saves <code>${esc(state.style.export.filename)}.${esc(ext)}</code>` +
+    ui.pyFoot.innerHTML = `Runs with Python 3, numpy, scipy and matplotlib 3.6 or later (3.11 or later to match the preview): <code>python ${esc(fileName)}</code>. It prints the parameters and saves <code>${esc(state.style.export.filename)}.${esc(ext)}</code>` +
       (src === 'csv' ? `, reading the data from <code>${esc(state.csvName || 'data.csv')}</code> in the same folder.` : '.');
   }
 

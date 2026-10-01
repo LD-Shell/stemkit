@@ -367,7 +367,7 @@ export function createPlumedAnalyse(ctx, builder) {
     const file = `${fig.export.filename}.py`;
     const saves = `${fig.export.filename}.${fig.export.format}`;
     const reads = a ? a.python.reads : [];
-    const lead = `Runs with Python 3, numpy and matplotlib 3.6 or later: ${code(`python ${file}`)}. `;
+    const lead = `Runs with Python 3, numpy and matplotlib 3.6 or later (3.11 or later to match the preview): ${code(`python ${file}`)}. `;
     if (source === 'files') {
       const cli = '<a href="assets/plumed/analyse_plumed.py" class="sg-link" download>analyse_plumed.py</a>';
       return lead + `It reads ${reads.map(code).join(', ')} from the same folder, computes what the page shows with the ` +
