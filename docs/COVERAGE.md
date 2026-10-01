@@ -47,8 +47,8 @@ in any of those changes a published number.
 
 Real gaps, unlike the two files above, are genuinely untested code:
 
-- `lammps-input.js`, the LAMMPS input checker: about 61% of statements, 53% of
-  branches, 79% of functions. Its agreement with LAMMPS is tested separately,
+- `lammps-input.js`, the LAMMPS input checker: about 63% of statements, 56% of
+  branches, 80% of functions. Its agreement with LAMMPS is tested separately,
   by `npm run check:lammps` against an installed LAMMPS.
 - `lammps-data.js`: about 83% of statements, 76% of branches.
 - `gromacs-mdp.js`: about 84% of statements, 76% of branches.

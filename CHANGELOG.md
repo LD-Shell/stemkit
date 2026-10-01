@@ -5,7 +5,13 @@ Notable changes to STEMKit and `stemkit-core`.
 `[output]` marks a change that alters a reported number. Figures produced with an
 earlier version are worth re-checking.
 
-## Unreleased
+## v0.3.0 — 2026-10-01
+
+Whole MD runs set up and checked: GROMACS and LAMMPS inputs with every line
+explained and checked against the programs themselves, and a PLUMED
+workbench. Also a curve fitter for any equation, one plot area and Python
+script on every plotting page, the Data Cleaner's pandas script, and
+continuous integration.
 
 ### Added: a curve fitter for any equation
 
@@ -20,8 +26,9 @@ earlier version are worth re-checking.
   data, weighted when an uncertainty column is given, with starting values
   found by the fitter. Each parameter comes with its standard error and 95%
   interval, and the fit with R², adjusted R², RMSE, reduced χ², AIC, BIC and
-  the parameter correlations. The numbers match `scipy.optimize.curve_fit` to
-  better than 1e-7.
+  the parameter correlations. The fitted values match
+  `scipy.optimize.curve_fit` to better than 1e-7, and the standard errors and
+  confidence band to about 1e-6.
 - **The plot is styled on the page and saved as PDF, PNG or SVG**: size,
   fonts, ticks (automatic, every step, a count, or listed with labels), log
   axes, limits, markers, error bars, the fit line, a confidence band, a
@@ -32,8 +39,8 @@ earlier version are worth re-checking.
   same fit and the same figure, with the data embedded or read from a CSV.
 - **One workspace.** The equation sits in a bar that stays in view while the
   results scroll, with the models in a searchable menu beside it. Data, model
-  and plot style are tabs next to the plot, each marked done or in need of
-  attention, and a file can be dropped anywhere on the fitter.
+  and plot style are tabs next to the plot; Data and Model are marked done or
+  in need of attention, and a file can be dropped anywhere on the fitter.
 - New core modules: `expression` (parsing, derivatives and LaTeX, with no
   `eval`), `nonlinear-fit`, `fit-python`, `plot-style` and `pdf` (a PDF writer
   for SVG figures). The page no longer loads regression.js; `curve-fitting`
@@ -49,7 +56,9 @@ earlier version are worth re-checking.
   length, output intervals and restraints, and a timeline with step counts
   and output sizes), Index and Job. Every `.mdp` file is written in full,
   each line with a comment saying why and a link to the GROMACS manual, and
-  one download holds `submit.sh`, the `.mdp` files, `index.ndx` and a README.
+  one download holds `submit.sh`, the `.mdp` files, `index.ndx` when the
+  groups were built, the PLUMED input when a stage runs with PLUMED, and a
+  README.
 - **Checked by the real program**: 122 combinations (five force fields,
   every stage, both barostats, with and without hydrogen mass
   repartitioning, and membrane, anisotropic, Nose-Hoover, annealing and
@@ -85,8 +94,10 @@ earlier version are worth re-checking.
   header with the figure's true size, one Style panel (size in inches,
   centimetres, millimetres or pixels; fonts and separate title and tick
   sizes; ticks; grid on either or both axes; markers, lines and colours per
-  series; legend; Publication, Presentation, Minimal and Dark presets), PDF,
-  PNG and SVG at the true size, and a Python panel. Learn it once.
+  series; legend; a background: white, transparent with dark or light text
+  and lines, dark, or your own colour; Publication, Presentation and Minimal
+  presets), PDF, PNG and SVG at the true size, and a Python panel. Learn it
+  once.
 - **The Python draws the same figure** from your own files (or with the data
   in the script) with matplotlib, and repeats the page's numbers: tests run
   every page's script and compare matplotlib's axis limits with the preview's.
@@ -136,13 +147,19 @@ earlier version are worth re-checking.
   windows. Checked by killing jobs at random for every method and layout.
 - Functions, walls, setup lines (`LOAD`, `INCLUDE`, `RESTART`, `FLUSH`) and
   several output files in the generator.
+- New core modules: `plumed-syntax`, `plumed-parse`, `plumed-atoms`,
+  `plumed-analysis` and `plumed-run`; the MD Workflow Generator's PLUMED form
+  now calls `plumed`, so the page and the package write the same input.
+  `npm run check:plumed` hands every generated input to installed PLUMED
+  builds; `npm run build:plumed-syntax` regenerates the tables.
 
 ### Added: LAMMPS set-up with every input line explained
 
 - **The LAMMPS tab works like the GROMACS one**: System (a data file, a
   lattice or a restart; force-field presets for CHARMM36, CHARMM22/27, AMBER,
-  OPLS-AA, class2, TIP3P, SPC/E and TIP4P/2005 water, EAM, Tersoff,
-  Stillinger-Weber, ReaxFF and Lennard-Jones units, or your own lines;
+  OPLS-AA, COMPASS/PCFF (class II), TIP3P, SPC/E and TIP4P/2005 water, EAM
+  (one element, alloy and Finnis-Sinclair), Tersoff, Stillinger-Weber, ReaxFF
+  and a Lennard-Jones fluid in reduced units, or your own lines;
   thermostat, barostat, time step, SHAKE or RATTLE, cut-offs), Stages
   (minimise, NVT, NPT, production, with restraints and output), Groups and
   Job. It writes `in.system`, `in.settings` and one input per stage chained
@@ -153,12 +170,14 @@ earlier version are worth re-checking.
 - **A data file is read in the browser**: counts, box, atom types with
   their elements and charges, the water model and its geometry, the types
   SHAKE holds, CMAP crossterms, net charge and density, and groups for water,
-  ions and the solute. It agrees with LAMMPS on 1081 of 1081 files and broken
-  copies.
+  ions and the solute. It agrees with LAMMPS 29 Aug 2024 on 1081 of 1081 files
+  and broken copies (a build with 17 packages).
 - **Check an input you already have**: every line explained in the input's
   own units, with a link to the LAMMPS manual, and the line LAMMPS would stop
-  on. It agrees with LAMMPS 29 Aug 2024 on 806 of 806 example inputs and 479
-  of 479 broken copies, quoting LAMMPS's own message.
+  on. It agrees with LAMMPS 29 Aug 2024 on every example input and broken copy
+  compared, quoting LAMMPS's own message: 806 examples and 479 broken copies
+  with a build of 17 packages, 804 and 480 with one of 32 (ASPHERE, BODY, GPU,
+  KIM, PLUMED, REPLICA and others).
 - **Every command and style, searchable**: kind, package, accelerated
   variants, syntax, keywords and defaults, with a summary in plain words and
   the manual link. The tables hold facts only (LAMMPS is GPL-2.0).
@@ -167,13 +186,24 @@ earlier version are worth re-checking.
   without PLUMED.
 - New core modules: `lammps-reference`, `lammps-input`, `lammps-data` and
   `lammps-workflow`; `npm run check:lammps`, `check:lammps-data` and
-  `check:lammps-workflow` compare them with an installed LAMMPS (`LMP_BIN`).
+  `check:lammps-workflow` compare them with an installed LAMMPS (`LMP_BIN`),
+  and `npm run build:lammps-docs` regenerates the reference tables from a
+  LAMMPS source tree.
 
 ### Added: continuous integration
 
 - GitHub Actions runs the tests and the smoke test on Node 18, 22 and 24, and
-  the site checks, on every push and pull request. The README shows its
-  status, the npm version and the Zenodo DOI.
+  the site checks, on every push to main and every pull request. The README
+  shows its status, the npm version and the Zenodo DOI. The smoke test now
+  reaches 28 of the 43 modules.
+
+### Added: smaller pieces
+
+- **A background for every figure**: white, transparent (with dark or light
+  text and lines), dark, or your own colour, for any export format; it
+  replaces the Dark preset.
+- New core module `zip`: uncompressed zip archives of text files, used by the
+  MD Workflow Generator's "Download all".
 
 ### Changed
 
@@ -190,12 +220,14 @@ earlier version are worth re-checking.
   topology header offers GROMOS 54A7 and Martini 3; the header is a tab of its
   own and is left out of the zip so it cannot overwrite a real `topol.top`.
 - The PLUMED sample hills file is the two-variable run (`assets/samples/plumed/HILLS`).
-- **`parsePDB` reads the first model of a multi-model PDB**, as GROMACS and
-  PLUMED do, and says how many it skipped (`modelCount`, `warnings`); pass
-  `{ models: 'all' }` for the old behaviour. It keeps four-letter residue
-  names (POPC, TIP3) and residue number 0, and `parseGRO` reads files written
-  at any precision. Selections take the box (`box`, `boxVectors`) and measure
-  `within:` to the nearest periodic image, matching `gmx select`.
+- The footer carries a new credit line, written as `.mdp` lines.
+- `[output]` **`parsePDB` reads the first model of a multi-model PDB**, as
+  GROMACS and PLUMED do, and says how many it skipped (`modelCount`,
+  `warnings`); pass `{ models: 'all' }` for the old behaviour. It keeps
+  four-letter residue names (POPC, TIP3) and residue number 0, and `parseGRO`
+  reads files written at any precision. Selections take the box (`box`,
+  `boxVectors`) and measure `within:` to the nearest periodic image, matching
+  `gmx select`.
 
 ### Fixed: GROMACS and PLUMED, cross-checked against the programs
 
@@ -258,12 +290,12 @@ it was fixed, each with a regression test.
   distance between pull groups as grompp does and says when grompp will stop
   because it exceeds 0.49 of the box, with the fix; it agrees with grompp
   within 0.0015 nm.
-- **GROMACS launch:** the thread-MPI `gmx` gets `-ntmpi 1` (it started a rank
-  per visible core and oversubscribed shared nodes), a job without GPUs gets
-  `-nb cpu` (it took a GPU the node showed but the job did not ask for), and
-  threads are pinned with `-pin auto` rather than `-pin on`, which pinned from
-  core 0 whatever the scheduler gave. A placeholder 1 Å `CRYST1` line is read
-  as no box.
+- **GROMACS launch** (the page and `generateScript`): the thread-MPI `gmx`
+  gets `-ntmpi 1` (it started a rank per visible core and oversubscribed
+  shared nodes), and a job without GPUs gets `-nb cpu` (it took a GPU the node
+  showed but the job did not ask for). On the page, threads are pinned with
+  `-pin auto` rather than `-pin on`, which pinned from core 0 whatever the
+  scheduler gave. A placeholder 1 Å `CRYST1` line is read as no box.
 
 ### Fixed: output
 
@@ -278,7 +310,7 @@ it was fixed, each with a regression test.
   metadynamics, PBMETAD, OPES and steered-MD input closed its block with
   `... METAD`, which PLUMED refuses. About twenty variables printed or biased
   components that do not exist, such as `cv1` for POSITION or `.s` for
-  PATHMSD, which has `.sss`. All 308 generated inputs now parse in
+  PATHMSD, which has `.sss`. All 311 generated inputs now parse in
   PLUMED 2.9, 2.10 and 2.11.
 - `[output]` **An OPES run continued from the kernels file** and came back
   about 18 kJ/mol off even after a clean stop; it now restarts from the state
