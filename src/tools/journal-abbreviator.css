@@ -5,16 +5,41 @@
  * utilities are generated into src/output.css and must not be hand-edited.
  */
 
-/* Highlights in the output. The pane is dark in both themes. A replaced
-   title is marked in the accent; a title the core recognises but leaves
-   unchanged (Nature, Science) is not marked at all; a journal-like title it
-   does not know is marked in amber. The browser's yellow <mark> never shows. */
+/* Highlights in the output. The pane is dark in both themes. A title replaced
+   from the built-in list is filled in the accent; one abbreviated by ISO 4
+   rules is only tinted, with a dashed underline and an "ISO 4" tag, because it
+   is a draft to check; a title the core recognises but leaves unchanged
+   (Nature, Science) is not marked at all; a journal-like title it does not
+   know is marked in amber. The browser's yellow <mark> never shows. */
 .ja-hit, .ja-unknown {
   color: inherit;
   padding: 0 2px;
   border-radius: 2px;
 }
 .ja-hit { background: rgba(53, 116, 176, 0.32); border-bottom: 2px solid #5c93c7; }
+/* An underline rather than a border, so it follows the text when a mark wraps
+   and stops short of the tag. */
+.ja-hit-rule {
+  background: rgba(53, 116, 176, 0.1);
+  border-bottom: 0;
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-color: #92b8dd;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.ja-hit-rule::after {
+  content: "ISO 4";
+  display: inline-block;
+  margin-left: 0.4em;
+  padding: 0 0.3em;
+  border: 1px solid rgba(146, 184, 221, 0.5);
+  border-radius: 3px;
+  font: 600 0.625rem/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  letter-spacing: 0.03em;
+  color: #b6cfe8;
+  vertical-align: 0.1em;
+}
 .ja-hit-identity { background: none; border: 0; padding: 0; }
 .ja-unknown { background: rgba(245, 158, 11, 0.16); border-bottom: 2px dotted #f59e0b; cursor: help; }
 

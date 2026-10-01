@@ -1,8 +1,15 @@
 import { describe, test, expect } from '@jest/globals';
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import { fileURLToPath } from 'node:url';
 import {
   parseLTWA, sniffDelimiter, classifyPattern, buildIso4Engine,
-  abbreviateWord, abbreviateTitle, matchCase, loadIso4, normLanguage
+  abbreviateWord, abbreviateTitle, matchCase, loadIso4, normLanguage, fold
 } from '../src/core/iso4.js';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const repo = path.join(here, '..');
 
 /*
  * A small stand-in for the ISSN LTWA export. Real downloads carry tens of
@@ -116,19 +123,32 @@ describe('word matching', () => {
   test('stems match any extension of the stem', () => {
     expect(abbreviateWord('Chemical', engine).value).toBe('Chem.');
     expect(abbreviateWord('Chemistry', engine).value).toBe('Chem.');
-    expect(abbreviateWord('Chemi', engine).value).toBe('Chem.');
   });
 
-  test('suffix patterns match word endings', () => {
-    // "Radiologie" has no matching stem, so only "-ologie" can fire.
+  test('a word that would lose only one letter stays in full (ISO 4, 3.1)', () => {
+    const r = abbreviateWord('Chemi', engine);
+    expect(r.matched).toBe(true);
+    expect(r.reason).toBe('too-short');
+    expect(r.value).toBe('Chemi');
+  });
+
+  test('a final component keeps the head of the word, without a hyphen', () => {
+    // "Radiologie" has no matching stem, so only "-ologie" can fire, and the
+    // abbreviation's leading hyphen stands for "Radi", not for itself.
     const r = abbreviateWord('Radiologie', engine);
     expect(r.reason).toBe('suffix');
-    expect(r.value).toBe('-ol.');
+    expect(r.value).toBe('Radiol.');
   });
 
-  test('infix patterns match inside a word', () => {
+  test('an inner component keeps the head and truncates the rest', () => {
     const r = abbreviateWord('Bibliographical', engine);
-    expect(r.matched).toBe(true);
+    expect(r.reason).toBe('infix');
+    expect(r.value).toBe('Bibliogr.');
+  });
+
+  test('a component pattern never applies to the bare component', () => {
+    expect(abbreviateWord('Ologie', engine).matched).toBe(false);
+    expect(abbreviateWord('Graphic', engine).matched).toBe(false);
   });
 
   test('the longest matching pattern wins', () => {
@@ -355,5 +375,379 @@ describe('real ISSN export format', () => {
     const engine = buildIso4Engine(parseLTWA(REAL_SHAPE).entries);
     expect(abbreviateTitle('Journal of Chemical Biology', engine).abbreviation)
       .toBe('J. Chem. Biol.');
+  });
+});
+
+describe('LTWA row shapes beyond word and stem', () => {
+  const ROWS = [
+    'WORD,ABBREVIATION,LANGUAGES',
+    'Band (book),Bd.,German',
+    'labor (work),,English',
+    'Labor (laboratory),Lab.,German',
+    'Wachst(h)um,Wachst.,German',
+    'United States of America,U. S. A.,English',
+    'Los alamos,,English',
+    'tomejas,tom. .,Latvian',
+    'confinamento,confinam-,Italian',
+    'lektira,lekt,Serbian',
+    'katoen,katoen,Dutch',
+    'œcolog-,œcol.,English',
+    '-forschung,-forsch.,German',
+    '-mægling,mægl.,Danish'
+  ].join('\n');
+  const { entries } = parseLTWA(ROWS);
+  const find = (p) => entries.find(e => e.pattern === p);
+
+  test('a sense note in parentheses is not part of the word', () => {
+    expect(find('Band').abbrev).toBe('Bd.');
+    expect(find('Band').sense).toBe('book');
+  });
+
+  test('an optional letter yields both spellings', () => {
+    expect(find('Wachstum').abbrev).toBe('Wachst.');
+    expect(find('Wachsthum').abbrev).toBe('Wachst.');
+  });
+
+  test('multi-word rows are kept as phrases', () => {
+    expect(find('United States of America').words).toEqual(['united', 'states', 'of', 'america']);
+    expect(find('Los alamos').noAbbreviation).toBe(true);
+  });
+
+  test('typos in the abbreviation column are repaired', () => {
+    expect(find('tomejas').abbrev).toBe('tom.');
+    expect(find('confinamento').abbrev).toBe('confinam.');
+    expect(find('lektira').abbrev).toBe('lekt.');
+    // An "abbreviation" equal to the word means it is not abbreviated.
+    expect(find('katoen').noAbbreviation).toBe(true);
+  });
+
+  test('a component row drops the hyphen from its abbreviation', () => {
+    expect(find('-forschung').abbrev).toBe('forsch.');
+    expect(find('-mægling').abbrev).toBe('mægl.');
+  });
+
+  test('a ligature row also matches the spelled-out form', () => {
+    expect(find('oecolog-').abbrev).toBe('oecol.');
+  });
+
+  test('ambiguous senses fall back to leaving the word in full', () => {
+    const engine = buildIso4Engine(entries);
+    expect(abbreviateWord('labor', engine).value).toBe('labor');
+  });
+
+  test('fold removes diacritics but keeps the length', () => {
+    expect(fold('Überwachung')).toBe('uberwachung');
+    expect(fold('Przemysł').length).toBe('Przemysł'.length);
+  });
+});
+
+/*
+ * Everything below runs on the ISSN list shipped in abbr/, the file the
+ * Journal Abbreviator loads, so the rules are checked against real data.
+ */
+const LTWA = fs.readFileSync(path.join(repo, 'abbr', 'abbreviation.csv'), 'utf8');
+const REAL = loadIso4(LTWA).engine;
+const iso4 = (title) => abbreviateTitle(title, REAL).abbreviation;
+
+describe('ISO 4 on the real LTWA: reported regressions', () => {
+  test('a section letter is kept', () => {
+    expect(iso4('Journal of Physics A')).toBe('J. Phys. A');
+  });
+
+  test('a component row does not turn a whole word into "-ph."', () => {
+    expect(iso4('Phase Transitions')).toBe('Phase Transit.');
+    expect(iso4('Fluid Phase Equilibria')).toBe('Fluid Phase Equilib.');
+  });
+
+  test('a final component keeps the head of its compound', () => {
+    expect(iso4('Zeitschrift für Naturforschung')).toBe('Z. Naturforsch.');
+    expect(iso4('Zeitschrift für Naturforschung A')).toBe('Z. Naturforsch. A');
+  });
+});
+
+describe('ISO 4 on the real LTWA: the standard\'s own examples', () => {
+  // Title and abbreviation pairs printed in ISO 4:1997, by clause.
+  test.each([
+    ['4.2', 'The Magistrate', 'Magistrate'],
+    ['4.2', 'Medicina. Supplement', 'Medicina, Suppl.'],
+    ['4.2', 'Forum (Düsseldorf)', 'Forum (Düsseld.)'],
+    ['4.3', 'The New Hungarian Quarterly', 'New Hung. Q.'],
+    ['4.3', 'Los Alamos science', 'Los Alamos sci.'],
+    ['4.3', 'Journal of in vitro fertilization and embryo transfer', 'J. in vitro fertil. embryo transf.'],
+    ['4.3', 'Vom Abenberger Land', 'Vom Abenb. Land'],
+    ['4.3', "Vers l'éducation permanente", 'Vers éduc. perm.'],
+    ['4.4', 'AEG-Mitteilungen', 'AEG-Mitt.'],
+    ['4.4', 'Revue du CETHEDEC', 'Rev. CETHEDEC'],
+    ['4.5', 'Archives of internal medicine', 'Arch. intern. med.'],
+    ['4.6', 'Acta mineralogica, petrografica', 'Acta mineral. petrogr.'],
+    ['4.6', 'Soviet physics. Technical physics', 'Sov. phys., Tech. phys.'],
+    ['4.6', 'E.S.A. bulletin', 'E.S.A. bull.'],
+    ['4.6', "Mr. Rodger's journal", "Mr. Rodger's j."],
+    ['4.6', 'Proceedings of the ... annual meeting of the Acadian Entomological Society',
+      'Proc. annu. meet. Acadian Entomol. Soc.'],
+    ['4.7', 'Europe on $ ... a day', 'Eur. $ day'],
+    ['4.7', 'Metall-Reinigung + Vorbehandlung', 'Met.-Reinig. Vorbehandl.'],
+    ['4.7', 'Computer & control abstracts', 'Comput. control abstr.'],
+    ['4.8', 'Journal of botany. Section A', 'J. bot., Sect. A'],
+    ['4.8', "Annales scientifiques de l'Université de Besançon. Géologie", 'Ann. sci. Univ. Besançon, Géol.'],
+    ['3.9', 'Proceedings of the International Seed Testing Association', 'Proc. Int. Seed Test. Assoc.']
+  ])('%s: %s', (_clause, title, expected) => {
+    expect(iso4(title)).toBe(expected);
+  });
+});
+
+describe('ISO 4 on the real LTWA: word rules', () => {
+  const word = (w) => abbreviateWord(w, REAL);
+
+  test('plurals and inflected forms take the singular\'s abbreviation (3.4)', () => {
+    expect(word('Reports').value).toBe('Rep.');
+    expect(word('Sensors').value).toBe('Sens.');
+    expect(word('Horizons').value).toBe('Horiz.');
+    expect(word('Instruments').value).toBe('Instrum.');
+    expect(word('Equilibria').value).toBe('Equilib.');
+    expect(word('Accounts').value).toBe('Acc.');
+  });
+
+  test('an inflected form never borrows letters it does not have (3.4.1, 3.12)', () => {
+    // weekly = wkly.; the "y" is not in "weeklies", so it stays in full. (The
+    // list spells such plurals out where it wants them: countries = ctries.)
+    expect(word('Weekly').value).toBe('Wkly.');
+    expect(word('Weeklies').value).toBe('Weeklies');
+    expect(word('countries').value).toBe('ctries.');
+  });
+
+  test('dropping one letter is not abbreviating (3.1)', () => {
+    expect(word('Alloys').value).toBe('Alloys');
+    expect(iso4('Journal of Alloys and Compounds')).toBe('J. Alloys Compd.');
+  });
+
+  test('diacritics: an accent-free spelling matches, and the title\'s letters are kept (3.2)', () => {
+    expect(word('Electronic').value).toBe('Electron.');
+    expect(word('Atmospheric').value).toBe('Atmos.');
+    expect(iso4('Revista Brasileira de Ciência do Solo')).toBe('Rev. Bras. Ciênc. Solo');
+  });
+
+  test('a row spelled exactly like the word beats an accent-only match', () => {
+    // Latin "Botanica" is "botan-" (bot.), not Spanish "botánica" (botán.).
+    expect(word('Botanica').value).toBe('Bot.');
+  });
+
+  test('a ligature row matches a title that spells it out', () => {
+    expect(word('Oecologica').value).toBe('Oecol.');
+  });
+
+  test('components: the head of a compound stays, short heads do not count (3.7, 3.8, 3.10)', () => {
+    expect(word('Naturforschung').value).toBe('Naturforsch.');
+    expect(word('Southampton').value).toBe('Southampt.');   // the 3.10 example
+    expect(word('Dalton').value).toBe('Dalton');            // a person, not "Dal" + "-ton"
+    expect(word('Phase').value).toBe('Phase');              // "-phas-" is a component only
+  });
+
+  test('a closed compound the list lacks is read as combining form + known word (3.7)', () => {
+    expect(word('Electrochimica').value).toBe('Electrochim.');
+    expect(word('Bioorganic').value).toBe('Bioorg.');
+    // A surname is never split.
+    expect(word('Beilstein').value).toBe('Beilstein');
+  });
+
+  test('a hyphenated compound is abbreviated part by part (3.7)', () => {
+    expect(iso4('Physics-Uspekhi')).toBe('Phys.-Uspekhi');
+    expect(iso4('Journal of Non-Equilibrium Thermodynamics')).toBe('J. Non-Equilib. Thermodyn.');
+  });
+
+  test('artificial words keep their form unless one row spans their capitals (3.3)', () => {
+    expect(iso4('CrystEngComm Letters')).toBe('CrystEngComm Lett.');
+    expect(iso4('Advances in OptoElectronics')).toBe('Adv. OptoElectron.');
+  });
+
+  test('every output letter is copied from the title (3.12, 4.5)', () => {
+    expect(iso4('JOURNAL OF THE AMERICAN CHEMICAL SOCIETY')).toBe('J. AM. CHEM. SOC.');
+    expect(iso4('journal of chemical physics')).toBe('j. chem. phys.');
+  });
+});
+
+describe('ISO 4 on the real LTWA: designators and function words', () => {
+  test.each([
+    ['Physical Review A', 'Phys. Rev. A'],
+    ['Physical Review E', 'Phys. Rev. E'],
+    ['Physical Review X', 'Phys. Rev. X'],
+    ['Journal of Physics A: Mathematical and Theoretical', 'J. Phys. A: Math. Theor.'],
+    ['Acta Crystallographica Section B: Structural Science', 'Acta Crystallogr. Sect. B: Struct. Sci.'],
+    ['Studies in History and Philosophy of Science Part B', 'Stud. Hist. Philos. Sci. Part B'],
+    ['Journal of Physics II', 'J. Phys. II'],
+    ['Comptes Rendus Series IV', 'Comptes Rendus Ser. IV'],
+    ['Journal of Polymer Science Part A-1', 'J. Polym. Sci. Part A-1'],
+    ['2D Materials', '2D Mater.'],
+    ['JACS Au', 'JACS Au'],
+    ['Lab on a Chip', 'Lab Chip'],
+    ['Chemistry - A European Journal', 'Chem. - Eur. J.'],
+    ['Geochimica et Cosmochimica Acta', 'Geochim. Cosmochim. Acta'],
+    ['Auk, The', 'Auk'],
+    ['Italia forestale e montana, L’', 'Ital. for. mont.'],
+    ['From Zero to Hero', 'From Zero Hero'],
+    ['Physica A', 'Physica A']
+  ])('%s', (title, expected) => {
+    expect(iso4(title)).toBe(expected);
+  });
+
+  test('a phrase the list knows is abbreviated as a whole', () => {
+    expect(iso4('Proceedings of the National Academy of Sciences of the United States of America'))
+      .toBe('Proc. Natl. Acad. Sci. U. S. A.');
+  });
+});
+
+/*
+ * The official abbreviations in the built-in dictionary (js/journal-data.js)
+ * are the yardstick. The rules alone agreed on 150 of the 184 titles that are
+ * actually abbreviated before the 2026-10 fixes; the floor below must only
+ * ever rise. A title the rules do not reproduce must be listed here with the
+ * rule output and the reason: these are places where the registered
+ * abbreviation departs from ISO 4 on purpose, not engine bugs, and they are
+ * deliberately not special-cased.
+ */
+const AGREEMENT_FLOOR = 169;
+const KNOWN_DEVIATIONS = new Map([
+  // CASSI keeps words that ISO 4 abbreviates by the LTWA.
+  ['ACS Sustainable Chemistry & Engineering', 'ACS Sustain. Chem. Eng.'],
+  ['International Journal of Hydrogen Energy', 'Int. J. Hydrog. Energy'],
+  ['International Journal of Heat and Mass Transfer', 'Int. J. Heat Mass Transf.'],
+  ['Bioconjugate Chemistry', 'Bioconjug. Chem.'],          // 3.7; NLM: Bioconjug Chem
+  // The LTWA lists "Cheminformatics" as not abbreviated; CASSI uses "Cheminf.".
+  ['Journal of Cheminformatics', 'J. Cheminformatics'],
+  // CASSI puts a comma before a section letter or edition statement that the
+  // title as written has no full stop for (4.6 only converts full stops).
+  ['Journal of Vacuum Science & Technology A', 'J. Vac. Sci. Technol. A'],
+  ['Angewandte Chemie International Edition', 'Angew. Chem. Int. Ed.'],
+  ['Nuclear Instruments and Methods in Physics Research Section A', 'Nucl. Instrum. Methods Phys. Res. Sect. A'],
+  // CASSI also drops the section title, which 4.8 keeps.
+  ['Applied Catalysis A: General', 'Appl. Catal. A: Gen.'],
+  ['Applied Catalysis B: Environmental', 'Appl. Catal. B: Environ.'],
+  ['Colloids and Surfaces A: Physicochemical and Engineering Aspects', 'Colloids Surf. A: Physicochem. Eng. Asp.'],
+  ['Spectrochimica Acta Part A: Molecular and Biomolecular Spectroscopy', 'Spectrochim. Acta Part A: Mol. Biomol. Spectrosc.'],
+  ['Sensors and Actuators B: Chemical', 'Sens. Actuators B: Chem.'],
+  // The LTWA spaces the initials ("U. S. A."); the registered form does not.
+  ['Proceedings of the National Academy of Sciences of the United States of America', 'Proc. Natl. Acad. Sci. U. S. A.'],
+  // The dictionary maps the short name to the full journal's abbreviation.
+  ['Proceedings of the National Academy of Sciences', 'Proc. Natl. Acad. Sci.']
+]);
+
+function loadDictionary() {
+  const sandbox = { window: {} };
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(repo, 'js', 'journal-data.js'), 'utf8'), sandbox);
+  return sandbox.window.STEMKIT_JOURNALS;
+}
+
+describe('ISO 4 rules against the built-in dictionary', () => {
+  const dictionary = loadDictionary();
+  const abbreviated = dictionary.filter(([t, a]) => t.toLowerCase() !== a.toLowerCase());
+  const results = abbreviated.map(([title, official]) => ({ title, official, rules: iso4(title) }));
+  const misses = results.filter(r => r.rules !== r.official);
+
+  test('the dictionary is the expected size', () => {
+    expect(abbreviated.length).toBe(184);
+  });
+
+  test(`the rules alone agree on at least ${AGREEMENT_FLOOR} of the abbreviated titles`, () => {
+    expect(results.length - misses.length).toBeGreaterThanOrEqual(AGREEMENT_FLOOR);
+  });
+
+  test('every disagreement is a listed deviation, with the listed rule output', () => {
+    const unexplained = misses
+      .filter(m => KNOWN_DEVIATIONS.get(m.title) !== m.rules)
+      .map(m => `${m.title}: rules "${m.rules}", dictionary "${m.official}"`);
+    expect(unexplained).toEqual([]);
+  });
+
+  test('no listed deviation has started to agree (if one has, remove it and raise the floor)', () => {
+    const missed = new Set(misses.map(m => m.title));
+    expect([...KNOWN_DEVIATIONS.keys()].filter(t => !missed.has(t))).toEqual([]);
+  });
+
+  test('titles left in full by the dictionary stay in full', () => {
+    const identity = dictionary.filter(([t, a]) => t.toLowerCase() === a.toLowerCase());
+    expect(identity.filter(([t]) => iso4(t) !== t)).toEqual([]);
+  });
+});
+
+/*
+ * Malformed output, over many titles built from LTWA rows of every shape:
+ * stems with endings, components with long and short heads, phrases, stop
+ * words, designators, punctuation, hyphenated compounds, elisions,
+ * possessives and all three capitalisations. Seeded, so a failure reproduces.
+ */
+describe('ISO 4 never produces malformed output', () => {
+  function mulberry32(seed) {
+    return () => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  const { entries } = parseLTWA(LTWA);
+  const rnd = mulberry32(20261001);
+  const pick = (a) => a[Math.floor(rnd() * a.length)];
+  const ENDINGS = ['', '', 'al', 'ic', 'ics', 'ical', 'y', 'ies', 's', 'ation', 'en', 'e', 'a', 'ung', 'ique'];
+  const HEADS = ['', 'X', 'Ab', 'Dal', 'Natur', 'Bio', 'Kunst', 'Southamp', 'Geo', 'Electro'];
+  const EXTRAS = ['of', 'the', 'and', '&', 'in', 'A', 'B', 'E', 'II', 'IV', 'Part', 'Section', '12', 'A-1',
+    ':', '-', 'for', 'de', 'la', 'für', 'und', 'et', 'y', 'e', 'i', 'a', 'Au', '2D'];
+  const styled = (w) => {
+    const r = rnd();
+    if (r < 0.6) return w.charAt(0).toUpperCase() + w.slice(1);
+    return r < 0.85 ? w.toLowerCase() : w.toUpperCase();
+  };
+  const formOf = (e) => {
+    if (e.words) return e.pattern.replace(/-$/, '');
+    const s = e.pattern.replace(/^-/, '').replace(/-$/, '');
+    if (e.kind === 'exact') return s;
+    if (e.kind === 'prefix') return s + pick(ENDINGS);
+    if (e.kind === 'suffix') return pick(HEADS) + s + (rnd() < 0.3 ? 's' : '');
+    return pick(HEADS) + s + pick(ENDINGS);
+  };
+  const lettersOf = (s) => fold(s).replace(/[^\p{L}]/gu, '');
+  const isSubsequence = (a, b) => { let i = 0; for (const c of b) if (c === a[i]) i++; return i === a.length; };
+
+  const titles = [];
+  for (let n = 0; n < 20000; n++) {
+    const parts = [];
+    const length = 1 + Math.floor(rnd() * 6);
+    for (let k = 0; k < length; k++) {
+      if (rnd() < 0.25) { parts.push(pick(EXTRAS)); continue; }
+      let w = styled(formOf(pick(entries)));
+      const r = rnd();
+      if (r < 0.06) w = w + '-' + styled(formOf(pick(entries)));
+      else if (r < 0.09) w = "l'" + w;
+      else if (r < 0.12) w = w + "'s";
+      else if (r < 0.16) w = w + pick([',', '.', ':', ';']);
+      else if (r < 0.18) w = '(' + w + ')';
+      parts.push(w);
+    }
+    if (/\p{L}/u.test(parts.join(''))) titles.push(parts.join(' '));
+  }
+
+  const outputs = titles.map(t => [t, iso4(t)]);
+  const failures = (check) => outputs.filter(([t, out]) => !check(out, t)).slice(0, 5);
+
+  test('the sample is large', () => {
+    expect(titles.length).toBeGreaterThan(19000);
+  });
+
+  test('no output word starts with a hyphen', () => {
+    expect(failures(out => !out.split(' ').some(w => /^[-‐–—]\p{L}/u.test(w)))).toEqual([]);
+  });
+
+  test('no empty words, stray spaces or empty results', () => {
+    expect(failures(out => out !== '' && out === out.trim() && !/\s\s/.test(out))).toEqual([]);
+  });
+
+  test('no doubled full stops or stray commas', () => {
+    expect(failures(out => !/\.\.|,,|\s,|^,|,$/.test(out))).toEqual([]);
+    expect(failures(out => !out.split(' ').some(w => /^[.,;]+$/.test(w)))).toEqual([]);
+  });
+
+  test('every output letter comes from the title, in order (3.12)', () => {
+    expect(failures((out, t) => isSubsequence(lettersOf(out), lettersOf(t)))).toEqual([]);
   });
 });

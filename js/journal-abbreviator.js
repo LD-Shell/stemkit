@@ -9,7 +9,8 @@ import {
   parseCustomRules,
   processText,
   segmentText,
-  findUnknownTitles
+  findUnknownTitles,
+  normKey
 } from '../src/core/journals.js';
 import { loadIso4, deriveRulesForUnknowns } from '../src/core/iso4.js';
 
@@ -40,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     'Nguyen, T. energy & environmental science 2021, 14, 4561.',
     'Garcia, M. The Journal of Chemical Physics 2020, 153, 044302.',
     'Zhou, L. Journal of Physics: Condensed Matter 2019, 31, 275901.',
+    'Kim, S. Journal of Physics A 2017, 50, 015001.',
     'Okafor, C. Journal of Imaginary Results 2018, 3, 12.'
   ].join('\n');
 
@@ -114,8 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let label = `Matched against ${engine.builtinCount} built-in titles` +
       (n ? ` and ${n} of your own` : '');
     if (iso4Status === 'ready' && iso4Stats) {
-      label += `; other titles are abbreviated word by word from the ISO 4 list ` +
-        `(${iso4Stats.indexed.toLocaleString()} words).`;
+      label += `; other titles are abbreviated word by word by ISO 4 rules ` +
+        `(${iso4Stats.parsed.toLocaleString()} LTWA words) and tagged ISO 4.`;
     } else if (iso4Status === 'loading') {
       label += '. Loading the ISO 4 word list…';
     } else if (iso4Status === 'error') {
@@ -172,27 +174,33 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- 4. Rendering ---
 
   /**
-   * Engine to use for this pass.
+   * Engine to use for this pass, and which of its titles came from the rules.
    *
    * The dictionary is authoritative, so it runs first. Anything it did not
    * recognise is put through ISO 4, and the results are folded back in as
    * ordinary rules, that way replacement, highlighting and counting all stay
-   * in one code path instead of being duplicated per tier.
+   * in one code path instead of being duplicated per tier. The keys of the
+   * rule-made entries are returned alongside, because a rule-based
+   * abbreviation is a draft the reader should check, and the output says so.
    */
   function activeEngine(text) {
-    if (!iso4Engine || !engine) return engine;
+    const none = { eng: engine, fromRules: new Set() };
+    if (!iso4Engine || !engine) return none;
 
     const unknowns = findUnknownTitles(text, engine);
-    if (!unknowns.length) return engine;
+    if (!unknowns.length) return none;
 
     const derived = deriveRulesForUnknowns(unknowns, iso4Engine);
-    if (!derived.length) return engine;
+    if (!derived.length) return none;
 
     const builtin = Array.isArray(window.STEMKIT_JOURNALS)
       ? window.STEMKIT_JOURNALS
       : [];
     const custom = parseCustomRules(customRules ? customRules.value : '');
-    return buildEngine(builtin, [...custom, ...derived]);
+    return {
+      eng: buildEngine(builtin, [...custom, ...derived]),
+      fromRules: new Set(derived.map(([title]) => normKey(title)))
+    };
   }
 
   function render() {
@@ -212,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const eng = activeEngine(text);
+    const { eng, fromRules } = activeEngine(text);
     const result = processText(text, eng);
     if (rawOutput) rawOutput.textContent = result.text;
 
@@ -220,25 +228,37 @@ document.addEventListener('DOMContentLoaded', () => {
     if (legend) legend.hidden = !highlight;
     if (visualOutput) {
       visualOutput.innerHTML = highlight
-        ? renderHighlighted(text, eng)
+        ? renderHighlighted(text, eng, fromRules)
         : escapeHtml(result.text);
     }
 
     if (statsLabel) {
       // Recognised counts every dictionary hit; changed counts only the ones
       // that actually rewrote the text, since some journals are not
-      // abbreviated at all.
-      const changed = result.replacements.filter(r => r.changed).length;
+      // abbreviated at all. Rule-made ones are counted apart: they need a
+      // second look, so the count should not hide them.
+      const changedHits = result.replacements.filter(r => r.changed);
+      const byRules = changedHits.filter(r => fromRules.has(normKey(r.from))).length;
       const unknown = result.unknown.length;
       statsLabel.textContent =
-        `${changed} abbreviated, ${result.replacements.length} recognised` +
+        `${changedHits.length} abbreviated` +
+        (byRules ? ` (${byRules} by ISO 4 rules, to check)` : '') +
+        `, ${result.replacements.length} recognised` +
         (unknown ? `, ${unknown} not recognised` : '');
     }
   }
 
-  /** Build highlighted HTML from the core's segments. */
-  function renderHighlighted(text, eng) {
+  /**
+   * Build highlighted HTML from the core's segments.
+   *
+   * A title from the built-in list (or the user's own rules) is solid blue; a
+   * title abbreviated by ISO 4 rules gets a dashed underline and an "ISO 4"
+   * tag, so the reader knows which ones to check against the journal.
+   */
+  function renderHighlighted(text, eng, fromRules = new Set()) {
     const segments = segmentText(text, eng || engine);
+    const custom = new Set(parseCustomRules(customRules ? customRules.value : '')
+      .map(([title]) => normKey(title)));
     const parts = [];
 
     for (const seg of segments) {
@@ -246,11 +266,16 @@ document.addEventListener('DOMContentLoaded', () => {
         parts.push(markUnknown(seg.value));
         continue;
       }
-      const cls = seg.changed
-        ? 'ja-hit'
-        : 'ja-hit ja-hit-identity';
+      const key = normKey(seg.original);
+      const ruleMade = fromRules.has(key);
+      let cls = 'ja-hit';
+      if (!seg.changed) cls += ' ja-hit-identity';
+      else if (ruleMade) cls += ' ja-hit-rule';
+      const source = ruleMade
+        ? 'From ISO 4 rules: check against the journal\'s own site'
+        : custom.has(key) ? 'From your own abbreviations' : 'From the built-in list';
       parts.push(
-        `<mark class="${cls}" title="${escapeHtml(seg.original)}">` +
+        `<mark class="${cls}" title="${escapeHtml(`${source}. Original: ${seg.original}`)}">` +
         `${escapeHtml(seg.value)}</mark>`
       );
     }
