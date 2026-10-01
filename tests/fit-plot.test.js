@@ -9,7 +9,9 @@
  * give the same ticks and the same label text.
  */
 import { describe, test, expect } from '@jest/globals';
-import { deflateSync, crc32 } from 'node:zlib';
+import { deflateSync } from 'node:zlib';
+// zlib's own crc32 needs Node 20.15; the package supports Node 18.
+import { crc32 } from '../src/core/zip.js';
 import {
   maxNLocator, multipleLocator, logLocator, autoMinorLocator, scalarFormat, logFormat, pyPercent, printfFormat,
   textToHtml, axisTicks, fitCurveGrid, buildFitFigure, pngWithDpi, plotlyDash, rgba, fitFigure, foldFigureStyle

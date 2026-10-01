@@ -212,6 +212,10 @@ function timeInNode(spec) {
   }
 }
 
+// Shared CI runners are slower and busier than a desktop; the bound still
+// catches a fit that has become several times slower.
+const SPEED_BOUND_MS = process.env.CI ? 5000 : 2000;
+
 describe('fitModel speed', () => {
   test('10 000 points and 5 parameters', () => {
     const g = normal(12);
@@ -223,7 +227,7 @@ describe('fitModel speed', () => {
     const { ms, iterations } = timeInNode(spec);
     console.log(`10 000 points, 5 parameters: ${ms.toFixed(0)} ms, ${iterations} iterations`);
     // About 0.2 s on a desktop; the target is 1 s, and the bound leaves room for a busy machine.
-    expect(ms).toBeLessThan(2000);
+    expect(ms).toBeLessThan(SPEED_BOUND_MS);
   });
 
   test('10 000 points of a damped oscillation, 5 parameters', () => {
@@ -237,7 +241,7 @@ describe('fitModel speed', () => {
     const { ms, iterations } = timeInNode(spec);
     console.log(`10 000 points, damped oscillation: ${ms.toFixed(0)} ms, ${iterations} iterations`);
     // About 0.1 s on a desktop.
-    expect(ms).toBeLessThan(2000);
+    expect(ms).toBeLessThan(SPEED_BOUND_MS);
   });
 });
 

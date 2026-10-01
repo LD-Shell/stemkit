@@ -1,5 +1,7 @@
 # STEMKit
 
+[![CI](https://github.com/LD-Shell/stemkit/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/LD-Shell/stemkit/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/stemkit-core?label=npm)](https://www.npmjs.com/package/stemkit-core)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21543112.svg)](https://doi.org/10.5281/zenodo.21543112)
 
 Browser tools for computational chemistry, plus `stemkit-core`, the tested
