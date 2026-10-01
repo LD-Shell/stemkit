@@ -11,14 +11,15 @@
  *
  * `statisticsScript` writes the matplotlib script that draws it. The script
  * holds the values the test used, runs the same test with scipy (the rank
- * tests the page computes with a normal approximation are written out with
- * numpy, as statistics.js computes them), prints the result, and draws the
- * plot from the same arrays. tests/statistics-figure.test.js runs it and
- * compares the numbers and matplotlib's axis limits with the page's.
+ * tests with the method the page used, exact or asymptotic, passed
+ * explicitly), prints the result, and draws the plot from the same arrays.
+ * tests/statistics-figure.test.js runs it and compares the numbers and
+ * matplotlib's axis limits with the page's.
  */
 
 import { jitterOffsets, normaliseFigure } from './figure.js';
 import { figureScript, pyStr, pyNum, pyArray, wrapItems, comment } from './figure-python.js';
+import { mannWhitneyU, wilcoxonSignedRank, oneSampleWilcoxon } from './statistics.js';
 
 const BOX_WIDTH = 0.5;
 const BOX_JITTER = 0.3;
@@ -30,14 +31,14 @@ const PAIR_COLOUR = '#8c96a3';
 export const STATISTICS_TESTS = Object.freeze({
   ttest_welch: "Welch's t-test (unequal variances)",
   ttest_ind: "Student's t-test (pooled variance)",
-  mannwhitney: 'Mann–Whitney U test (normal approximation, tie-corrected)',
+  mannwhitney: 'Mann–Whitney U test',
   ttest_pair: 'Paired t-test',
-  wilcoxon: 'Wilcoxon signed-rank test (normal approximation)',
+  wilcoxon: 'Wilcoxon signed-rank test',
   anova: 'One-way ANOVA',
   welch_anova: "Welch's ANOVA",
   kruskal: 'Kruskal–Wallis H test',
   ttest_one: 'One-sample t-test',
-  wilcoxon_one: 'One-sample Wilcoxon signed-rank test (normal approximation)',
+  wilcoxon_one: 'One-sample Wilcoxon signed-rank test',
   pearson: 'Pearson correlation',
   spearman: 'Spearman rank correlation'
 });
@@ -117,23 +118,73 @@ export function statisticsFigure(model) {
 
 const section = (L, title) => L.push(`# ${title} ` + '-'.repeat(Math.max(4, 76 - title.length)));
 
-/* The signed-rank test as statistics.js computes it: zero differences
-   dropped, average ranks for ties, the normal approximation with neither a
-   continuity nor a tie correction. */
-function signedRankLines(L, diff) {
-  L.push(`d = ${diff}`);
-  L.push('d = d[d != 0]  # zero differences are dropped');
-  L.push('ranks = stats.rankdata(np.abs(d))  # ties share their average rank');
-  L.push('w_plus, w_minus = ranks[d > 0].sum(), ranks[d < 0].sum()');
-  L.push('statistic = min(w_plus, w_minus)  # W');
-  L.push('m = len(d)');
-  L.push('z = (statistic - m * (m + 1) / 4) / np.sqrt(m * (m + 1) * (2 * m + 1) / 24)');
-  L.push('p_value = 2 * stats.norm.sf(abs(z))');
+/* The Mann–Whitney test with the method the page used (statistics.js). */
+function mannWhitneyLines(L, method) {
+  if (method === 'exact') {
+    L.push('# No tied values, and 8 or fewer in a group: the exact distribution of U, as');
+    L.push("# SciPy's default (method='auto') chooses here.");
+    L.push("result = stats.mannwhitneyu(a, b, alternative='two-sided', method='exact')");
+  } else {
+    L.push('# Tied values, or more than 8 in each group: the normal approximation, as');
+    L.push("# SciPy's default (method='auto') chooses here, with the tie-corrected variance");
+    L.push("# but without the continuity correction SciPy's default would add.");
+    L.push("result = stats.mannwhitneyu(a, b, alternative='two-sided', use_continuity=False, method='asymptotic')");
+  }
+}
+
+/* The signed-rank test on `d` with the method the page used (statistics.js),
+   then z and the effect size r = |z|/sqrt(n) as the page computes them. Older
+   SciPy names or lacks two of the methods, so those fall back. */
+function signedRankLines(L, method) {
+  if (method === 'exact') {
+    L.push('# 50 or fewer differences, none tied or zero: the exact distribution of W, as');
+    L.push("# SciPy's default (method='auto') chooses here.");
+    L.push("result = stats.wilcoxon(d, method='exact')");
+    L.push('statistic, p_value = result.statistic, result.pvalue  # W, the smaller rank sum');
+  } else if (method === 'permutation') {
+    L.push('# 13 or fewer differences, some tied or zero: the exact p over all 2**n ways of');
+    L.push("# signing them, ties as they are, as SciPy's default (method='auto') chooses here.");
+    L.push('try:');
+    L.push('    result = stats.wilcoxon(d, method=stats.PermutationMethod())');
+    L.push('    found = result.statistic, result.pvalue');
+    L.push('except (AttributeError, ValueError):  # SciPy before 1.13: the same count, by permutation_test');
+    L.push('    ranks = np.zeros(len(d))');
+    L.push('    ranks[d != 0] = stats.rankdata(np.abs(d[d != 0]))');
+    L.push("    result = stats.permutation_test((d,), lambda s: ranks[s > 0].sum(), permutation_type='samples', n_resamples=np.inf)");
+    L.push('    found = min(result.statistic, ranks.sum() - result.statistic), result.pvalue');
+    L.push('statistic, p_value = found  # W, the smaller rank sum');
+  } else {
+    L.push('# More than 50 differences, or more than 13 with some tied or zero: the normal');
+    L.push("# approximation with the tie-corrected variance and no continuity correction, as");
+    L.push("# SciPy's default (method='auto') chooses here.");
+    L.push('try:');
+    L.push("    result = stats.wilcoxon(d, method='asymptotic')");
+    L.push("except ValueError:  # SciPy before 1.15 calls it 'approx'");
+    L.push("    result = stats.wilcoxon(d, method='approx')");
+    L.push('statistic, p_value = result.statistic, result.pvalue  # W, the smaller rank sum');
+  }
+  L.push('');
+  L.push('# z, for the effect size: zero differences dropped, ties at their average rank');
+  L.push('# and in the variance.');
+  L.push('kept = d[d != 0]');
+  L.push('m = len(kept)');
+  L.push('ties = np.unique(np.abs(kept), return_counts=True)[1]');
+  L.push('z = (statistic - m * (m + 1) / 4) / np.sqrt(m * (m + 1) * (2 * m + 1) / 24 - (ties ** 3 - ties).sum() / 48)');
   L.push('effect = abs(z) / np.sqrt(m)  # r = |z| / sqrt(n)');
 }
 
+/* Which method the page's rank test used on the data in the model. */
+function rankMethod(test, model, mu0) {
+  const values = (model.groups || []).map((g) => (g && Array.isArray(g.values) ? g.values : []));
+  let r = null;
+  if (test === 'mannwhitney') r = mannWhitneyU(values[0] || [], values[1] || []);
+  else if (test === 'wilcoxon') r = wilcoxonSignedRank(values[0] || [], values[1] || []);
+  else if (test === 'wilcoxon_one') r = oneSampleWilcoxon(values[0] || [], mu0);
+  return r ? r.method : 'asymptotic';
+}
+
 /* The test, as the page runs it, into `statistic`, `p_value` and `effect`. */
-function testLines(L, test, names, mu0) {
+function testLines(L, test, names, mu0, method) {
   const [n1, n2] = names;
   const pairOf = () => { L.push(`a, b = ${dataRef(n1)}, ${dataRef(n2)}`); };
   const t2 = (pooled) => {
@@ -156,7 +207,7 @@ function testLines(L, test, names, mu0) {
     case 'ttest_ind': t2(true); break;
     case 'mannwhitney':
       pairOf();
-      L.push("result = stats.mannwhitneyu(a, b, alternative='two-sided', use_continuity=False, method='asymptotic')");
+      mannWhitneyLines(L, method);
       L.push('statistic = min(result.statistic, len(a) * len(b) - result.statistic)  # U, the smaller of U1 and U2');
       L.push('p_value = result.pvalue');
       L.push('effect = 1 - 2 * statistic / (len(a) * len(b))  # rank-biserial r');
@@ -172,7 +223,8 @@ function testLines(L, test, names, mu0) {
       break;
     case 'wilcoxon':
       pairOf();
-      signedRankLines(L, 'a - b');
+      L.push('d = a - b');
+      signedRankLines(L, method);
       L.push("print(f'W = {statistic:.1f}, z = {z:.4f}, p = {p_value:.4g}, r = {effect:.3f}')");
       break;
     case 'anova': {
@@ -230,7 +282,8 @@ function testLines(L, test, names, mu0) {
     case 'wilcoxon_one':
       L.push(`MU0 = ${pyNum(mu0)}  # the reference value`);
       L.push(`a = ${dataRef(n1)}`);
-      signedRankLines(L, 'a - MU0');
+      L.push('d = a - MU0');
+      signedRankLines(L, method);
       L.push("print(f'W = {statistic:.1f}, z = {z:.4f}, p = {p_value:.4g}, r = {effect:.3f}')");
       break;
     case 'pearson':
@@ -289,7 +342,7 @@ export function statisticsScript(figure, spec = {}) {
   P.push('', '');
   section(P, 'Test');
   P.push(`# ${STATISTICS_TESTS[test] || comment(test)}${names.length ? `: ${comment(names.join(', '))}` : ''}.`);
-  testLines(P, test, names, mu0);
+  testLines(P, test, names, mu0, rankMethod(test, model, mu0));
 
   if (model.kind === 'scatter' && figure) {
     const drawnFit = (figure.panels || []).some((p) => (p.series || []).some((q) => q.id === 'fit'));

@@ -136,6 +136,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const adviceBox = $('adviceBox');
   const adviceTitle = $('adviceTitle');
   const adviceText = $('adviceText');
+  // The link under the suggestion opens the guide's "Which test" tab, which
+  // states the rules and why choosing a test from a normality test is contested.
+  const adviceWhy = document.querySelector('[data-advice-why]');
+  if (adviceWhy) {
+    adviceWhy.addEventListener('click', (e) => {
+      const tab = document.getElementById('doc-tab-choose');
+      if (!tab) return;
+      e.preventDefault();
+      tab.click();
+      tab.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
   const adviceUse = $('adviceUse');
 
   const resultsContainer = $('resultsContainer');
@@ -792,28 +804,61 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  /*
+   * How a rank test's p was found (statistics.js picks the method as SciPy's
+   * default does): the start of the line under the result, the sentence for
+   * the footer, and the statistic and p for the summary.
+   */
+  function rankP(r, stat, value, noun) {
+    const z = `z = ${fx(r.z, 3)}`;
+    const apa = `${stat} = ${value.toFixed(1)}`;
+    if (r.method === 'exact') {
+      return {
+        ci: `Exact p, from the distribution of ${stat}; ${z}`,
+        footer: stat === 'U'
+          ? 'No tied values and a group of 8 or fewer, so p is exact.'
+          : `No ties or zeros among 50 or fewer ${noun}, so p is exact.`,
+        apa: `${apa}, exact ${pEq(r.p)}`
+      };
+    }
+    if (r.method === 'permutation') {
+      return {
+        ci: `Exact p, over all ${2 ** r.n} ways of signing the ${r.n} differences; ${z}`,
+        footer: `Ties or zeros among 13 or fewer ${noun}, so p is counted exactly over every way of signing the differences, ties as they are.`,
+        apa: `${apa}, exact ${pEq(r.p)}`
+      };
+    }
+    const tied = r.tieCorrected ? ', tie-corrected' : '';
+    return {
+      ci: `${z} (normal approximation${tied})`,
+      footer: `p from the normal approximation${tied}, without a continuity correction.`,
+      apa: `${apa}, ${z}, ${pEq(r.p)}`
+    };
+  }
+
   function runOneSampleWilcoxon(sel) {
     const [name] = sel.names;
     const r = oneSampleWilcoxon(sel.groups[0], sel.mu0);
     if (!r) return showToast('Every value equals μ₀, so there is nothing to rank.', 'error');
     const mu = formatNumber(r.mu0);
+    const how = rankP(r, 'W', r.W, 'values');
 
     return {
       method: `One-sample Wilcoxon signed-rank test, ${name} against μ₀ = ${mu}`,
       stat: ['W statistic', r.W], p: r.p, effect: ['effect r (z/√n)', r.effectR],
-      ci: `z = ${fx(r.z, 3)} (normal approximation); median ${r.median.toPrecision(6)}; ` +
+      ci: `${how.ci}; median ${r.median.toPrecision(6)}; ` +
           `${r.n} values differ from μ₀`,
       assumptions: {
         warns: [{
           level: 'ok',
           text: 'Rank-based: no normality assumption, but the values should be roughly symmetric about their median.'
         }],
-        footer: `${r.nDropped} value(s) equal to μ₀ dropped; normal approximation used (recommended for n ≳ 20).`
+        footer: `${r.nDropped} value(s) equal to μ₀ dropped. ${how.footer}`
       },
       summary:
         `A one-sample Wilcoxon signed-rank test compared ${name} (Mdn = ${r.median.toPrecision(4)}, n = ${r.n + r.nDropped}) ` +
         `with μ₀ = ${mu}. The difference was ${verdict(r.p)}, ` +
-        `W = ${r.W.toFixed(1)}, z = ${fx(r.z, 3)}, ${pEq(r.p)}, effect r = ${fx(r.effectR, 2)}.`,
+        `${how.apa}, effect r = ${fx(r.effectR, 2)}.`,
       plot: groupPlot(sel, { ref: { value: r.mu0, label: `μ₀ = ${mu}` }, xLabel: '' }),
       desc: { rows: descRows(sel) },
       pairwise: null
@@ -894,24 +939,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const [n1Name, n2Name] = sel.names;
     const r = mannWhitneyU(sel.groups[0], sel.groups[1]);
     if (!r) return showToast('Both groups need at least one value.', 'error');
+    const how = rankP(r, 'U', r.U);
+    // Ties rule out the exact p, however small the groups.
+    const rough = r.method === 'asymptotic' && Math.min(r.n1, r.n2) <= 8;
 
     return {
       method: `Mann–Whitney U test, ${n1Name} against ${n2Name}`,
       stat: ['U statistic', r.U], p: r.p, effect: ['rank-biserial r', r.rankBiserial],
-      ci: `z = ${fx(r.z, 3)} (normal approximation${r.tieCorrected ? ', tie-corrected' : ''}); ` +
+      ci: `${how.ci}; ` +
           `medians: ${n1Name} ${r.median1.toFixed(2)}, ${n2Name} ${r.median2.toFixed(2)}`,
       assumptions: {
         warns: [{
           level: 'ok',
           text: 'Non-parametric: no normality assumption. Tests whether one distribution ' +
                 'is stochastically shifted relative to the other.'
-        }],
-        footer: `n₁ = ${r.n1}, n₂ = ${r.n2}. Normal approximation used; for very small n consult exact U tables.`
+        }].concat(rough ? [{
+          level: 'warn',
+          text: 'Tied values rule out the exact p, so it comes from the normal approximation, ' +
+                'which is rough with 8 or fewer values in a group.'
+        }] : []),
+        footer: `n₁ = ${r.n1}, n₂ = ${r.n2}. ${how.footer}`
       },
       summary:
         `A Mann–Whitney U test compared ${n1Name} (Mdn = ${r.median1.toFixed(2)}, n = ${r.n1}) ` +
         `and ${n2Name} (Mdn = ${r.median2.toFixed(2)}, n = ${r.n2}). The difference was ${verdict(r.p)}, ` +
-        `U = ${r.U.toFixed(1)}, z = ${fx(r.z, 3)}, ${pEq(r.p)}, ` +
+        `${how.apa}, ` +
         `rank-biserial r = ${r.rankBiserial.toFixed(2)}.`,
       plot: groupPlot(sel),
       desc: { rows: descRows(sel) },
@@ -923,23 +975,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const [n1Name, n2Name] = sel.names;
     const r = wilcoxonSignedRank(sel.groups[0], sel.groups[1]);
     if (!r) return showToast('No non-zero differences to test.', 'error');
+    const how = rankP(r, 'W', r.W, 'pairs');
 
     return {
       method: `Wilcoxon signed-rank test, ${n1Name} against ${n2Name}`,
       stat: ['W statistic', r.W], p: r.p, effect: ['effect r (z/√n)', r.effectR],
-      ci: `z = ${fx(r.z, 3)} (normal approximation); n = ${r.n} non-zero differences`,
+      ci: `${how.ci}; n = ${r.n} non-zero differences`,
       assumptions: {
         warns: [{
           level: 'ok',
           text: 'Non-parametric paired test: assumes a symmetric distribution of ' +
                 'differences, not normality.'
         }],
-        footer: `${r.nDropped} zero difference(s) dropped; normal approximation used (recommended for n ≳ 20).`
+        footer: `${r.nDropped} zero difference(s) dropped. ${how.footer}`
       },
       summary:
         `A Wilcoxon signed-rank test compared ${n1Name} and ${n2Name} ` +
         `(n = ${r.n} non-zero differences). The difference was ${verdict(r.p)}, ` +
-        `W = ${r.W.toFixed(1)}, z = ${fx(r.z, 3)}, ${pEq(r.p)}, ` +
+        `${how.apa}, ` +
         `effect r = ${fx(r.effectR, 2)}.`,
       ...pairedParts(sel)
     };
@@ -1291,15 +1344,21 @@ document.addEventListener('DOMContentLoaded', () => {
     \end{aligned}`,
     mannwhitney: String.raw`\begin{aligned}
       U_1 &= R_1 - \frac{n_1(n_1+1)}{2} \\[6pt]
-      z &= \frac{U - \mu_U}{\sigma_U}, \qquad \mu_U = \frac{n_1 n_2}{2}
+      z &= \frac{U - \mu_U}{\sigma_U}, \qquad \mu_U = \frac{n_1 n_2}{2} \\[6pt]
+      p &= 2\,P(U' \le U) \ \text{or} \ 2\,\Phi(-|z|)
     \end{aligned}`,
     wilcoxon: String.raw`\begin{aligned}
       W &= \min(W_+,\, W_-) \\[6pt]
-      z &= \frac{W - \frac{n(n+1)}{4}}{\sqrt{\dfrac{n(n+1)(2n+1)}{24}}}
+      z &= \frac{W - n(n+1)/4}{\sigma_W} \\[6pt]
+      \sigma_W^2 &= \frac{n(n+1)(2n+1)}{24} \\ &\quad - \frac{\sum (t^3 - t)}{48} \\[6pt]
+      p &= 2\,P(W' \le W) \ \text{or} \ 2\,\Phi(-|z|)
     \end{aligned}`,
     wilcoxon_one: String.raw`\begin{aligned}
-      d_i &= x_i - \mu_0, \qquad W = \min(W_+,\, W_-) \\[6pt]
-      z &= \frac{W - \frac{n(n+1)}{4}}{\sqrt{\dfrac{n(n+1)(2n+1)}{24}}}
+      d_i &= x_i - \mu_0 \\[6pt]
+      W &= \min(W_+,\, W_-) \\[6pt]
+      z &= \frac{W - n(n+1)/4}{\sigma_W} \\[6pt]
+      \sigma_W^2 &= \frac{n(n+1)(2n+1)}{24} \\ &\quad - \frac{\sum (t^3 - t)}{48} \\[6pt]
+      p &= 2\,P(W' \le W) \ \text{or} \ 2\,\Phi(-|z|)
     \end{aligned}`
   };
 
@@ -1384,20 +1443,27 @@ document.addEventListener('DOMContentLoaded', () => {
       [String.raw`R_1`, 'sum of the ranks held by group 1 once both groups are ranked together'],
       [String.raw`U_1`, 'rank-sum statistic for group 1; U₂ is defined the same way'],
       [String.raw`U`, 'the smaller of U₁ and U₂'],
-      [String.raw`\mu_U,\ \sigma_U`, 'mean and standard deviation of U when the groups do not differ'],
-      [String.raw`z`, 'normal approximation to U, used once both groups are reasonably large']
+      [String.raw`\mu_U,\ \sigma_U`, 'mean and standard deviation of U when the groups do not differ; σ_U carries the tie correction'],
+      [String.raw`U'`, 'U when the groups do not differ, every split of the ranks equally likely: the exact p, used when no values are tied and a group has 8 or fewer, as in SciPy'],
+      [String.raw`z`, 'normal approximation to U, used otherwise, without a continuity correction']
     ],
     wilcoxon: [
       [String.raw`W_+,\ W_-`, 'sum of the ranks of the positive and of the negative differences'],
       [String.raw`W`, 'the smaller of the two rank sums'],
       [String.raw`n`, 'number of pairs with a non-zero difference; ties at zero are discarded'],
-      [String.raw`z`, 'normal approximation to W, used once n is reasonably large']
+      [String.raw`\sigma_W`, 'standard deviation of W when the differences are symmetric about zero, less for ties'],
+      [String.raw`t`, 'size of each group of tied |differences|'],
+      [String.raw`W'`, 'W when every sign pattern of the differences is equally likely: the exact p, used for 50 or fewer pairs with no ties or zeros, or 13 or fewer with them, as in SciPy'],
+      [String.raw`z`, 'normal approximation to W, used otherwise, without a continuity correction']
     ],
     wilcoxon_one: [
       [String.raw`d_i`, 'each value minus μ₀; values equal to μ₀ are discarded'],
       [String.raw`W_+,\ W_-`, 'sum of the ranks of |d| for the values above and below μ₀'],
       [String.raw`n`, 'number of values that differ from μ₀'],
-      [String.raw`z`, 'normal approximation to W, used once n is reasonably large']
+      [String.raw`\sigma_W`, 'standard deviation of W when the values are symmetric about μ₀, less for ties'],
+      [String.raw`t`, 'size of each group of tied |d|'],
+      [String.raw`W'`, 'W when every sign pattern of the d is equally likely: the exact p, used for 50 or fewer values with no ties or zeros, or 13 or fewer with them, as in SciPy'],
+      [String.raw`z`, 'normal approximation to W, used otherwise, without a continuity correction']
     ]
   };
 

@@ -1,5 +1,6 @@
 import { describe, test, expect } from '@jest/globals';
 import '../tests/setup.js';
+import { spawnSync } from 'node:child_process';
 import {
   mean, variance, sd, median, skewness, kurtosis, ranks, describe as summarise,
   descriptives, boxPlotStats,
@@ -270,6 +271,18 @@ describe('distribution tails', () => {
     expect(zTwoSided(0)).toBeCloseTo(1, 12);
   });
 
+  test('normal tail keeps its relative accuracy far out', () => {
+    // 2 * stats.norm.sf(z), SciPy 1.18.1. jStat's erfc was 1e-5 off at z = 7.
+    const ref = [[1, 0.31731050786291415], [3, 0.0026997960632601866], [4.5, 6.795346249460107e-06],
+      [5, 5.733031437583866e-07], [6, 1.973175290075389e-09], [7, 2.55962508777167e-12],
+      [8, 1.244192114854348e-15], [9.5, 2.098903015072521e-21], [12, 3.552964224155306e-33],
+      [20, 5.507248237212311e-89]];
+    for (const [z, p] of ref) {
+      expect(Math.abs(zTwoSided(z) / p - 1)).toBeLessThan(1e-12);
+      expect(zTwoSided(-z)).toBe(zTwoSided(z));
+    }
+  });
+
   test('normal tail stays positive beyond the vendored erfc range', () => {
     // jStat's erfc underflows to 0 at |z| > 8; the asymptotic branch takes over.
     const p = zTwoSided(10);
@@ -459,15 +472,17 @@ describe('oneSampleTTest', () => {
 
 describe('oneSampleWilcoxon', () => {
   test('W and p match scipy wilcoxon on x - mu0', () => {
-    // stats.wilcoxon(TITR - 0.1, zero_method='wilcox', correction=False, method='approx')
-    // The absolute differences are all distinct, so SciPy's tie correction
-    // to the variance is inactive and the two agree exactly.
+    // stats.wilcoxon(TITR - 0.1) (SciPy 1.18.1): ten distinct, non-zero
+    // differences, so SciPy's default is the exact test, 2 * 1 / 2**10.
     const r = oneSampleWilcoxon(TITR, 0.1);
     expect(r.W).toBe(0);
-    expect(r.p).toBeCloseTo(0.005062032126267864, 12);
+    expect(r.method).toBe('exact');
+    expect(r.p).toBe(0.001953125);
     expect(r.wPositive).toBe(55);
     expect(r.mu0).toBe(0.1);
     expect(r.median).toBeCloseTo(0.10105, 14);
+    // z is still reported, for the effect size: method='asymptotic' gives the same.
+    expect(r.z).toBeCloseTo(-2.8030595529069404, 12);
   });
 
   test('drops values equal to mu0', () => {
@@ -745,6 +760,35 @@ describe('mannWhitneyU', () => {
     expect(mannWhitneyU([1, 2, 3], [4, 5, 6]).tieCorrected).toBe(false);
   });
 
+  test('separated triplicates are not significant: the exact p is 0.1', () => {
+    // The normal approximation gave 0.0495 here. stats.mannwhitneyu([1, 2, 3],
+    // [4, 5, 6]) is exact by default: 2 of the 20 splits are this extreme.
+    const r = mannWhitneyU([1, 2, 3], [4, 5, 6]);
+    expect(r.method).toBe('exact');
+    expect(r.p).toBeCloseTo(0.1, 15);
+    expect(r.z).toBeCloseTo(-1.9639610121239315, 12);
+    expect(mannWhitneyU([4, 5, 6], [1, 2, 3]).p).toBeCloseTo(0.1, 15);
+  });
+
+  test('chooses the method as SciPy does: exact without ties while a group has 8 or fewer', () => {
+    const seq = (n, from) => Array.from({ length: n }, (_, i) => from + i);
+    expect(mannWhitneyU(seq(8, 0), seq(200, 0.5)).method).toBe('exact');
+    expect(mannWhitneyU(seq(200, 0.5), seq(8, 0)).method).toBe('exact');
+    expect(mannWhitneyU(seq(9, 0), seq(9, 0.5)).method).toBe('asymptotic');
+    expect(mannWhitneyU([1, 2, 3], [3, 4, 5]).method).toBe('asymptotic');
+  });
+
+  test('the exact p is the share of splits at least as extreme', () => {
+    // Sizes 3 and 3: 20 equally likely splits, with U = 0, 1, 2 for 1, 1, 2 of them.
+    expect(mannWhitneyU([1, 2, 4], [3, 5, 6]).p).toBeCloseTo((2 * 2) / 20, 15);
+    expect(mannWhitneyU([1, 3, 4], [2, 5, 6]).p).toBeCloseTo((2 * 4) / 20, 15);
+    // One against one: U = 0 or 1, each half the time, so p is capped at 1.
+    expect(mannWhitneyU([1], [2]).p).toBe(1);
+    // Five against 200, U = 0: the one most extreme split of C(205, 5), twice.
+    const r = mannWhitneyU([1, 2, 3, 4, 5], Array.from({ length: 200 }, (_, i) => 10 + i));
+    expect(r.p / (2 / 2872408791)).toBeCloseTo(1, 13);
+  });
+
   test('reports group medians', () => {
     const r = mannWhitneyU([1, 2, 3], [10, 20, 30]);
     expect(r.median1).toBe(2);
@@ -845,6 +889,38 @@ describe('wilcoxonSignedRank', () => {
   test('a uniformly positive shift drives W to zero', () => {
     const r = wilcoxonSignedRank([10, 20, 30, 40], [1, 2, 3, 4]);
     expect(r.W).toBe(0);
+  });
+
+  test('five pairs all one way are not significant: the exact p is 0.0625', () => {
+    // The normal approximation gave 0.043 here; stats.wilcoxon is exact by
+    // default: 2 of the 32 sign patterns are this extreme.
+    const r = wilcoxonSignedRank([1, 2, 3, 4, 5], [2, 4, 6, 8, 10]);
+    expect(r.method).toBe('exact');
+    expect(r.p).toBe(0.0625);
+    expect(r.W).toBe(0);
+  });
+
+  test('chooses the method as SciPy does, counting zero differences', () => {
+    const seq = (n) => Array.from({ length: n }, (_, i) => i + 1);
+    const zeros = (n) => new Array(n).fill(0);
+    expect(wilcoxonSignedRank(seq(50), zeros(50)).method).toBe('exact');
+    expect(wilcoxonSignedRank(seq(51), zeros(51)).method).toBe('asymptotic');
+    const tied = (n) => seq(n).map((v) => Math.ceil(v / 2));
+    expect(wilcoxonSignedRank(tied(13), zeros(13)).method).toBe('permutation');
+    expect(wilcoxonSignedRank(tied(14), zeros(14)).method).toBe('asymptotic');
+    // Twelve non-zero differences and one zero: 13 pairs, so still counted.
+    expect(wilcoxonSignedRank([...seq(12), 0], zeros(13)).method).toBe('permutation');
+    expect(wilcoxonSignedRank([...seq(13), 0], zeros(14)).method).toBe('asymptotic');
+  });
+
+  test('ties go into the variance of the normal approximation', () => {
+    // stats.wilcoxon(d, method='asymptotic') for 20 differences in tied pairs:
+    // Σ(t³ − t) = 10 · 6 = 60, so σ² = 20·21·41/24 − 60/48 = 716.25.
+    const d = Array.from({ length: 20 }, (_, i) => (i % 3 === 0 ? -1 : 1) * Math.ceil((i + 1) / 2));
+    const r = wilcoxonSignedRank(d, new Array(20).fill(0));
+    expect(r.method).toBe('asymptotic');
+    expect(r.tieCorrected).toBe(true);
+    expect(r.z).toBeCloseTo((r.W - 105) / Math.sqrt(716.25), 14);
   });
 });
 
@@ -1259,4 +1335,378 @@ describe('data shaping', () => {
     expect(pivotLongToGroups(rows, 'score', 'score').order).toEqual([]);
     expect(pivotLongToGroups(rows, 'score', null).order).toEqual([]);
   });
+});
+
+/* ------------------------------------------------------------------ *
+ * The rank tests' p-values against SciPy's defaults
+ * ------------------------------------------------------------------ */
+
+/*
+ * Rank-test references computed with SciPy 1.18.1, with its default
+ * method='auto': scipy.stats.mannwhitneyu(x, y, use_continuity=False) and
+ * scipy.stats.wilcoxon(x - y), or x - mu0. `method` is the one SciPy chose,
+ * checked by asking for it explicitly and getting the same p.
+ */
+const RANK_REFERENCE = {
+  mannWhitney: [
+    {
+      name: 'separated triplicates', method: 'exact', U1: 0, p: 0.1,
+      x: [1, 2, 3],
+      y: [4, 5, 6]
+    },
+    {
+      name: "SciPy's docstring example", method: 'exact', U1: 17, p: 0.1111111111111111,
+      x: [19, 22, 16, 29, 24],
+      y: [20, 11, 17, 12]
+    },
+    {
+      name: 'one value each', method: 'exact', U1: 0, p: 1,
+      x: [1],
+      y: [2]
+    },
+    {
+      name: '2 against 5, separated', method: 'exact', U1: 0, p: 0.09523809523809523,
+      x: [1, 2],
+      y: [3, 4, 5, 6, 7]
+    },
+    {
+      name: 'U at its mean', method: 'exact', U1: 8, p: 1,
+      x: [1, 4, 5, 8],
+      y: [2, 3, 6, 7]
+    },
+    {
+      name: '8 against 9', method: 'exact', U1: 32, p: 0.7429864253393665,
+      x: [1.1, 5.1, 3.6, 5.9, -1.9, 0.9, 0.4, 4.3],
+      y: [-1, -3, 3.2, 2.2, 6.2, 5.5, 3.5, 10.5, 3.1]
+    },
+    {
+      name: '9 against 8', method: 'exact', U1: 45, p: 0.4234471410941999,
+      x: [7.1, -3.3, 1.8, -2, 3.9, -3.6, 2.2, 4.8, 8.2],
+      y: [-0.2, 3.5, -2.5, -1.8, -5.6, 4, 2.8, 1.4]
+    },
+    {
+      name: '4 against 40', method: 'exact', U1: 89, p: 0.7378951167947198,
+      x: [-0.97, -1.94, -3.27, -3.38],
+      y: [
+        -2.89, -1.03, 0.24, -2.13, 4.17, -0.6, -8.29, -1.29, 1.03, -0.47, 1.59, 1.13, -4.8,
+        -1.13, -4.27, -2.51, -3.78, -4.28, -5.28, -2.56, 0.64, -3.25, -2.38, -5.94, -2.62, -5.24,
+        -7.39, -6.45, -6.93, 0.36, -4.36, -4.58, -2.81, -8.72, -4.1, -6.62, 1.12, -2.39, -5.52,
+        2.34
+      ]
+    },
+    {
+      name: '8 against 120', method: 'exact', U1: 608, p: 0.21377051646295173,
+      x: [1.24, 2.782, 0.108, -0.025, 0.097, -1.638, -4.095, -3.575],
+      y: [
+        -4.825, -4.459, -5.596, -4.394, -0.632, 1.18, 0.642, -3.579, -4.011, 0.633, 0.065,
+        -0.003, -1.404, -5.877, -0.806, 6.643, -0.648, 2.423, -3.597, 1.931, -5.982, -2.193,
+        -4.762, 0.545, -6.65, 0.485, 4.302, -2.983, 0.28, -3.199, -8.115, -5.838, 0.175, 5.912,
+        -0.113, 0.647, -1.106, -4.492, -3.171, -4.463, -5.508, -0.557, -8.297, 1.417, 0.427,
+        -1.3, -4.429, 4.939, -2.903, 1.695, 1.099, -1.641, -1.853, -9.226, -5.976, 3.515, -3.926,
+        -7.209, -3.589, -10.028, -11.344, -3.466, -1.081, 0.958, -7.863, -2.013, -10.469, -0.61,
+        -2.08, -7.499, -2.015, -1.706, -4.395, 3.222, 4.288, -2.505, -7.683, 2.17, -8.042,
+        -3.982, -1.098, -0.269, 5.716, -1.579, 3.878, 2.625, 1.467, -5.172, -2.787, 4.423,
+        -3.646, -2.709, -2.291, -3.125, 3.02, -1.746, -2.917, -4.813, 0.809, -2.454, -0.449,
+        -6.112, -8.34, -6.965, -1.877, -4.268, -1.237, 2.332, 3.155, -6.557, -8.493, -7.362,
+        -6.658, 0.141, -5.884, -4.32, -8.449, 1.949, 0.829, 2.3
+      ]
+    },
+    {
+      name: 'tied triplicates', method: 'asymptotic', U1: 0.5, p: 0.07652250047505922,
+      x: [1, 2, 3],
+      y: [3, 4, 5]
+    },
+    {
+      name: '5 against 7 with ties', method: 'asymptotic', U1: 0, p: 0.004009362509751113,
+      x: [1, 0, 0, 0, 1],
+      y: [7, 7, 2, 3, 4, 5, 3]
+    },
+    {
+      name: '9 against 9, no ties', method: 'asymptotic', U1: 35, p: 0.6272069263720121,
+      x: [0.4, 2.4, 1.2, 4, 5.1, 3.8, -2.9, -5.4, 2.1],
+      y: [7.9, 1.8, 1.1, 0.2, -3.2, 4.6, 4.9, -1.5, 7]
+    },
+    {
+      name: '15 against 12 with ties', method: 'asymptotic', U1: 53, p: 0.06817005831668857,
+      x: [2, 0, 6, 0, 3, 3, 3, 7, 6, 1, 3, 6, 7, 1, 4],
+      y: [1, 7, 6, 5, 8, 7, 4, 8, 7, 1, 8, 1]
+    },
+    {
+      name: '30 against 25', method: 'asymptotic', U1: 447, p: 0.22359579728336432,
+      x: [
+        2.41, 1.38, -0.45, 1.57, 2.76, 0.64, 6.65, 2.95, -0.59, 0.2, 1.42, 2.73, 8.34, -1.26,
+        5.6, -3.03, 0.81, -3.12, 0.16, -5.58, -7.54, -3.3, -3.29, -3.18, 2.26, 4.04, 0.52, -3.05,
+        1.78, 1.58
+      ],
+      y: [
+        1.92, 7.05, -0.33, -1.43, -3.35, -7.84, -1.85, 3.18, -0.82, -9.99, -0.09, 4.27, -4.17,
+        -1.25, -3.64, 8.18, 8.68, -4.7, -1.39, 3.86, -6.91, -2.08, -3.13, -4.23, 4.2
+      ]
+    }
+  ],
+  wilcoxon: [
+    {
+      name: 'five pairs, all one way', method: 'exact', W: 0, p: 0.0625,
+      x: [1, 2, 3, 4, 5],
+      y: [2, 4, 6, 8, 10]
+    },
+    {
+      name: 'one pair', method: 'exact', W: 0, p: 1,
+      x: [3],
+      y: [1]
+    },
+    {
+      name: '10 pairs', method: 'exact', W: 5, p: 0.01953125,
+      x: [2.9, -2.6, 1.2, -2, -6.2, 1.3, -4.4, -5.7, -0.7, -1],
+      y: [3.2, -3, 4.2, -2.8, -4.9, 4.5, 0.3, 5.6, 5, 5.1]
+    },
+    {
+      name: '20 pairs', method: 'exact', W: 90, p: 0.5958194732666016,
+      x: [
+        2.32, 0.85, 1.42, 6, -1.14, 4.44, 5.34, -1.28, 1.08, -0.13, 2.02, 2.7, 5.16, 1.88, 2.24,
+        5.99, -2.24, 7.66, -5.84, 2.64
+      ],
+      y: [
+        6.52, 0.55, -6.33, 12.24, 1.08, 6.31, 6.4, -1.24, 3.66, -1.46, 0.07, -1.08, 4.93, 4.32,
+        -0.91, 5.56, -2.92, 8.28, -4.13, 3.25
+      ]
+    },
+    {
+      name: '50 pairs, the exact limit', method: 'exact', W: 480, p: 0.13045894629165566,
+      x: [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+      ],
+      y: [
+        -4.542, -3.778, -6.639, 6.171, 4.501, -5.179, -1.481, -2.95, -0.056, 2.954, -3.911,
+        -3.377, 4.507, 0.39, -4.202, 3.731, 2.539, -4.82, -2.626, -5.408, 2.725, -4.492, 3.615,
+        -2.856, -0.536, 6.389, 0.327, -4.342, -2.055, 6.055, -5.084, -1.557, -5.686, -1.863,
+        3.061, -2.364, 0.874, -1.986, -1.598, -5.703, 1.382, -1.531, -7.991, -3.394, 0.277,
+        7.673, 0.525, 2.44, 3.997, -3.279
+      ]
+    },
+    {
+      name: '51 pairs, one past it', method: 'asymptotic', W: 436, p: 0.03335557893949904,
+      x: [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+      ],
+      y: [
+        -1.935, -3.999, 0.056, -0.378, -1.58, 2.721, -5.449, -0.482, 1.331, -2.767, -1.322, 0.55,
+        -5.061, 4.635, 1.202, -4.204, 1.968, -3.624, -1.592, -3.603, -5.156, -1.486, -3.501,
+        0.957, 7.051, 0.948, -0.174, -9.909, -4.71, 6.503, -1.295, 0.433, -4.35, -0.764, -3.25,
+        1.214, -2.113, 1.479, -2.818, -3.955, 1.924, -2.842, 0.257, -5.397, -1.595, 6.168,
+        -0.808, 3.192, -3.522, 1.816, 1.501
+      ]
+    },
+    {
+      name: 'before and after (the page example)', method: 'permutation', W: 0, p: 0.001953125,
+      x: [120, 135, 128, 142, 118, 150, 133, 127, 145, 122],
+      y: [112, 128, 119, 133, 115, 139, 124, 121, 138, 116]
+    },
+    {
+      name: '13 pairs with ties', method: 'permutation', W: 16, p: 0.044189453125,
+      x: [2, 0, 0, 2, 3, -1, 1, 1, 2, 2, 1, 1, 3],
+      y: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+    },
+    {
+      name: '14 pairs with ties', method: 'asymptotic', W: 33, p: 0.21201643182118513,
+      x: [2, 3, 1, 2, -1, 1, 3, 0, 2, -1, 2, -1, 1, 0],
+      y: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+    },
+    {
+      name: '13 pairs with a zero', method: 'permutation', W: 38.5, p: 0.986328125,
+      x: [-2.8, 2.8, 6.7, -2.6, 0, -2.5, 2.1, -0.7, -5.3, 1.3, -0.8, 3.1, -0.1],
+      y: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    },
+    {
+      name: '14 pairs with a zero', method: 'asymptotic', W: 42.5, p: 0.8338854386599464,
+      x: [-5.1, -1.6, 3.1, 1, 0, -0.2, 3.8, 1.6, -1.5, -2.1, -0.5, -4.2, 3.9, 0.4],
+      y: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    },
+    {
+      name: 'six pairs with a zero and a tie', method: 'permutation', W: 1.5, p: 0.1875,
+      x: [2, 3, 5, 5, 1, 4],
+      y: [2, 1, 2, 2, 3, 1]
+    },
+    {
+      name: 'one sample of ten (the page example)', method: 'exact', W: 0, p: 0.001953125,
+      x: [0.1012, 0.1008, 0.1015, 0.1003, 0.1011, 0.1009, 0.1017, 0.1006, 0.1013, 0.101],
+      mu0: 0.1
+    },
+    {
+      name: 'one sample of 20 with ties and zeros', method: 'asymptotic', W: 39, p: 0.07172876725710192,
+      x: [6, 5, 4, 6, 6, 6, 3, 1, 6, 4, 3, 4, 0, 2, 6, 5, 1, 3, 1, 5],
+      mu0: 3
+    },
+    {
+      name: 'one sample of 60', method: 'asymptotic', W: 600.5, p: 0.020598523960106852,
+      x: [
+        -1.24, 0.86, 2.42, -0.38, -0.66, 2.41, -2.06, -0.48, 3.76, 0.48, 0.62, -5.64, 4.32, 3.15,
+        1.85, 4.11, 1.38, 0.88, 0.05, 7.42, 1.24, 2.32, -3.11, -2.64, -2.13, -1.25, 5.04, -4.3,
+        3.21, -1.79, 6.61, 3.72, 2.46, 2.26, -0.76, -0.79, 0.06, -0.8, 0.76, -0.18, 5.65, -1.17,
+        5.25, 3, 1.37, -2.6, 5.45, -6.26, 0.8, 4.3, -4.13, -1.94, 0.65, 4.87, -0.29, -3.7, 7.32,
+        1.66, 5.7, 0.89
+      ],
+      mu0: 0
+    }
+  ]
+};
+
+/* Relative difference, 0 when both are 0. */
+const relDiff = (a, b) => (a === b ? 0 : Math.abs(a - b) / Math.max(Math.abs(a), Math.abs(b)));
+/* The agreement asked of each method: the counted ones to 1e-12, the normal approximation to 1e-10. */
+const RANK_TOL = { exact: 1e-12, permutation: 1e-12, asymptotic: 1e-10 };
+
+describe('rank tests against SciPy', () => {
+  test("Mann-Whitney U reproduces SciPy's default p and its choice of method", () => {
+    for (const c of RANK_REFERENCE.mannWhitney) {
+      const r = mannWhitneyU(c.x, c.y);
+      const got = [c.name, r.method, r.U1, relDiff(r.p, c.p) <= RANK_TOL[c.method]];
+      expect(got).toEqual([c.name, c.method, c.U1, true]);
+    }
+  });
+
+  test("Wilcoxon signed-rank reproduces SciPy's default p and its choice of method", () => {
+    for (const c of RANK_REFERENCE.wilcoxon) {
+      const r = c.y ? wilcoxonSignedRank(c.x, c.y) : oneSampleWilcoxon(c.x, c.mu0);
+      const got = [c.name, r.method, r.W, relDiff(r.p, c.p) <= RANK_TOL[c.method]];
+      expect(got).toEqual([c.name, c.method, c.W, true]);
+    }
+  });
+});
+
+/*
+ * Many random data sets, small and medium, with and without ties and zeros,
+ * against the SciPy that is installed (STEMKIT_PYTHON, or python3), when
+ * there is one. SciPy is asked for the method this code chose, by name, so
+ * any SciPy from 1.11 on will do (older ones name or lack two of the
+ * methods, and the driver falls back as the page's script does); from 1.15
+ * on, SciPy's own default (method='auto') must give the same p as well.
+ */
+const PYTHON_BIN = process.env.STEMKIT_PYTHON || 'python3';
+const SCIPY = (() => {
+  try {
+    return spawnSync(PYTHON_BIN, ['-c', 'import numpy, scipy'], { encoding: 'utf8', timeout: 60000 }).status === 0;
+  } catch {
+    return false;
+  }
+})();
+const withScipy = SCIPY ? test : test.skip;
+
+const RANK_DRIVER = String.raw`
+import json, sys, warnings
+import numpy as np
+import scipy
+from scipy import stats
+warnings.simplefilter('ignore')  # SciPy before 1.15 warns about small samples
+version = tuple(int(v) for v in scipy.__version__.split('.')[:2])
+cases = json.load(sys.stdin)
+
+def wilcoxon(d, method):
+    if method == 'permutation':
+        try:
+            res = stats.wilcoxon(d, method=stats.PermutationMethod())
+        except (AttributeError, ValueError):  # SciPy before 1.13
+            ranks = np.zeros(len(d))
+            ranks[d != 0] = stats.rankdata(np.abs(d[d != 0]))
+            res = stats.permutation_test((d,), lambda s, axis: (ranks * (s > 0)).sum(axis=axis),
+                                         permutation_type='samples', n_resamples=np.inf, vectorized=True)
+            return min(res.statistic, ranks.sum() - res.statistic), res.pvalue
+    elif method == 'asymptotic':
+        try:
+            res = stats.wilcoxon(d, method='asymptotic')
+        except ValueError:  # SciPy before 1.15
+            res = stats.wilcoxon(d, method='approx')
+    else:
+        res = stats.wilcoxon(d, method='exact')
+    return res.statistic, res.pvalue
+
+out = {'version': scipy.__version__, 'mw': [], 'wx': []}
+for c in cases['mw']:
+    x, y = np.array(c['x'], float), np.array(c['y'], float)
+    res = stats.mannwhitneyu(x, y, use_continuity=False, method=c['method'])
+    auto = stats.mannwhitneyu(x, y, use_continuity=False).pvalue  # 'auto' chooses alike from 1.11 on
+    out['mw'].append([float(res.statistic), float(res.pvalue), float(auto)])
+for c in cases['wx']:
+    d = np.array(c['d'], float)
+    statistic, p = wilcoxon(d, c['method'])
+    auto = float(stats.wilcoxon(d).pvalue) if version >= (1, 15) else None
+    out['wx'].append([float(statistic), float(p), auto])
+print(json.dumps(out))
+`;
+
+/* A seeded generator, so the data sets are the same on every run. */
+function lcg(seed) {
+  let s = seed;
+  return () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
+}
+
+function randomRankCases() {
+  const rnd = lcg(20261001);
+  const gauss = () => Math.sqrt(-2 * Math.log(1 - rnd())) * Math.cos(2 * Math.PI * rnd());
+  // Six decimals keep values distinct; halves make ties common.
+  const draw = (n, shift, ties) => Array.from({ length: n }, () => {
+    const v = gauss() + shift;
+    return ties ? Math.round(v * 2) / 2 : Math.round(v * 1e6) / 1e6;
+  });
+  const size = (lo, hi) => lo + Math.floor(rnd() * (hi - lo + 1));
+  const mw = [];
+  for (let k = 0; k < 1200; k++) {
+    const [n1, n2] = [[size(1, 8), size(1, 12)], [size(1, 8), size(9, 150)], [size(1, 40), size(1, 40)]][k % 3];
+    const ties = rnd() < 0.3;
+    const shift = rnd() < 0.5 ? 0 : 3 * rnd();
+    const x = draw(n1, 0, ties);
+    const y = draw(n2, shift, ties);
+    const pair = rnd() < 0.5 ? [x, y] : [y, x];
+    mw.push({ x: pair[0], y: pair[1], r: mannWhitneyU(pair[0], pair[1]) });
+  }
+  const wx = [];
+  for (let k = 0; k < 1200; k++) {
+    const n = k % 3 === 0 ? size(1, 15) : size(1, 70);
+    const ties = rnd() < 0.4;
+    const zeros = rnd() < 0.3;
+    let d = draw(n, rnd() < 0.5 ? 0 : 2 * rnd(), ties);
+    if (zeros) d = d.map((v) => (rnd() < 0.2 ? 0 : v));
+    const r = wilcoxonSignedRank(d, d.map(() => 0));
+    if (r) wx.push({ d, r });
+  }
+  return { mw, wx };
+}
+
+describe('rank tests against the installed SciPy', () => {
+  withScipy('agree on random data sets, with and without ties and zeros', () => {
+    const { mw, wx } = randomRankCases();
+    const input = JSON.stringify({
+      mw: mw.map(({ x, y, r }) => ({ x, y, method: r.method })),
+      wx: wx.map(({ d, r }) => ({ d, method: r.method }))
+    });
+    const run = spawnSync(PYTHON_BIN, ['-c', RANK_DRIVER], { input, encoding: 'utf8', timeout: 240000, maxBuffer: 1 << 26 });
+    expect(run.stderr).toBe('');
+    const out = JSON.parse(run.stdout);
+
+    // Every method turns up, so each branch is compared.
+    const methods = (list) => [...new Set(list.map((c) => c.r.method))].sort();
+    expect(methods(mw)).toEqual(['asymptotic', 'exact']);
+    expect(methods(wx)).toEqual(['asymptotic', 'exact', 'permutation']);
+
+    const worst = {};
+    const note = (key, e) => { worst[key] = Math.max(worst[key] || 0, e); };
+    mw.forEach(({ r }, i) => {
+      const [U1, p, auto] = out.mw[i];
+      expect(r.U1).toBe(U1);
+      note(`mw ${r.method}`, relDiff(r.p, p));
+      note(`mw ${r.method} (auto)`, relDiff(r.p, auto));
+    });
+    wx.forEach(({ r }, i) => {
+      const [W, p, auto] = out.wx[i];
+      expect(r.W).toBe(W);
+      note(`wx ${r.method}`, relDiff(r.p, p));
+      if (auto !== null) note(`wx ${r.method} (auto)`, relDiff(r.p, auto));
+    });
+    for (const [key, e] of Object.entries(worst)) {
+      const method = key.split(' ')[1];
+      if (!(e <= RANK_TOL[method])) throw new Error(`${key}: relative difference ${e} from SciPy ${out.version}`);
+    }
+  }, 300000);
 });

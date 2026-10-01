@@ -121,6 +121,7 @@
 .advice-title { font-weight:700; color:var(--stk-fg); }
 .advice-kicker { color:var(--stk-accent-text); margin-right:.2rem; }
 .advice-text { margin-top:.15rem; color:var(--stk-fg-3); }
+.advice-why { color:var(--stk-accent-text); font-weight:600; text-decoration:underline; text-underline-offset:2px; }
 .advice-use { align-self:center; margin-left:auto; }
 .advice.is-match { background:var(--stk-ok-soft); border-color:transparent; }
 .advice.is-match .advice-ico { color:var(--stk-ok); }

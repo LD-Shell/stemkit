@@ -22,9 +22,10 @@ import { statisticsFigure, statisticsScript, STATISTICS_TESTS } from '../src/cor
 import { normaliseFigure } from '../src/core/figure.js';
 import { buildFigure } from '../js/figure-plot.js';
 
+const PYTHON_BIN = process.env.STEMKIT_PYTHON || 'python3';
 const PYTHON = (() => {
   try {
-    return spawnSync('python3', ['-c', 'import numpy, scipy, matplotlib'], { encoding: 'utf8', timeout: 60000 }).status === 0;
+    return spawnSync(PYTHON_BIN, ['-c', 'import numpy, scipy, matplotlib'], { encoding: 'utf8', timeout: 60000 }).status === 0;
   } catch {
     return false;
   }
@@ -51,7 +52,7 @@ function run(script) {
   const dir = mkdtempSync(join(tmpdir(), 'stemkit-stats-'));
   writeFileSync(join(dir, 'statistics.py'), script + INSPECT);
   return new Promise((resolve) => {
-    const child = spawn('python3', ['statistics.py'], { cwd: dir, env: { ...process.env, MPLBACKEND: 'Agg' } });
+    const child = spawn(PYTHON_BIN, ['statistics.py'], { cwd: dir, env: { ...process.env, MPLBACKEND: 'Agg' } });
     let stdout = ''; let stderr = '';
     child.stdout.on('data', (d) => { stdout += d; });
     child.stderr.on('data', (d) => { stderr += d; });
@@ -84,7 +85,13 @@ const S = {
   Site_B: [21, 24, 19, 22, 75, 20, 23, 26, 19, 21],
   Site_C: [33, 29, 38, 31, 99, 34, 30, 36, 32, 124],
   GroupX: [1.1, 1.2, 1.0, 1.3, 1.1, 1.2, 1.0, 14.8, 1.1, 1.2],
-  GroupY: [2.0, 2.1, 1.9, 2.2, 2.0, 15.5, 1.8, 2.1, 2.0, 18.2]
+  GroupY: [2.0, 2.1, 1.9, 2.2, 2.0, 15.5, 1.8, 2.1, 2.0, 18.2],
+  // Beyond the page's examples, so that the script meets every method the rank tests use.
+  WT: [1.2, 2.3, 3.1],
+  KO: [4.4, 5.0, 6.2],
+  Day0: [5.1, 6.3, 4.8, 7.2, 5.9, 6.6],
+  Day7: [4.2, 6.9, 3.1, 5.0, 3.6, 3.4],
+  Score: [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3]
 };
 
 /* The page's model and numbers for each test, as js/stats-calculator.js makes them. */
@@ -131,14 +138,19 @@ const CASES = {
   ttest_one: ['Concentration_M'],
   wilcoxon_one: ['Concentration_M'],
   pearson: ['Height_cm', 'Weight_kg'],
-  spearman: ['Temperature_C', 'Rate_per_min']
+  spearman: ['Temperature_C', 'Rate_per_min'],
+  // test:method, for the rank tests' other methods.
+  'mannwhitney:exact': ['WT', 'KO'],
+  'wilcoxon:exact': ['Day0', 'Day7'],
+  'wilcoxon_one:asymptotic': ['Score']
 };
 
-function make(testKey) {
+function make(key) {
   const mu0 = 0.1;
-  const { model, want } = page(testKey, CASES[testKey], mu0);
+  const test = key.split(':')[0];
+  const { model, want } = page(test, CASES[key], mu0);
   const drawn = normaliseFigure(statisticsFigure(model));
-  return { model, want, drawn, script: statisticsScript(drawn, { test: testKey, model, mu0 }) };
+  return { model, want, drawn, script: statisticsScript(drawn, { test, model, mu0 }) };
 }
 
 const close = (a, b, rel) => Math.abs(a - b) <= rel * Math.max(1, Math.abs(a), Math.abs(b));
@@ -197,6 +209,28 @@ describe('statisticsScript', () => {
     expect(script).toContain('23.1, 22.8, 24.2');
     expect(script).toContain('stats.ttest_ind(a, b, equal_var=False)');
     expect(make('pearson').script).toContain('least_squares = stats.linregress(x, y)');
+  });
+
+  test('the rank tests pass scipy the method the page used', () => {
+    const cases = {
+      'mannwhitney:exact': ['exact', "stats.mannwhitneyu(a, b, alternative='two-sided', method='exact')"],
+      mannwhitney: ['asymptotic', "stats.mannwhitneyu(a, b, alternative='two-sided', use_continuity=False, method='asymptotic')"],
+      'wilcoxon:exact': ['exact', "result = stats.wilcoxon(d, method='exact')"],
+      wilcoxon: ['permutation', 'result = stats.wilcoxon(d, method=stats.PermutationMethod())'],
+      wilcoxon_one: ['exact', "result = stats.wilcoxon(d, method='exact')"],
+      'wilcoxon_one:asymptotic': ['asymptotic', "result = stats.wilcoxon(d, method='asymptotic')"]
+    };
+    const methodOf = (key) => {
+      const [test] = key.split(':');
+      const g = CASES[key].map((n) => S[n]);
+      if (test === 'mannwhitney') return mannWhitneyU(g[0], g[1]).method;
+      if (test === 'wilcoxon') return wilcoxonSignedRank(g[0], g[1]).method;
+      return oneSampleWilcoxon(g[0], 0.1).method;
+    };
+    for (const [key, [method, call]] of Object.entries(cases)) {
+      expect([key, methodOf(key)]).toEqual([key, method]);
+      expect(make(key).script).toContain(call);
+    }
   });
 
   test('keeps names out of the code', () => {

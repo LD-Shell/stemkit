@@ -21,6 +21,7 @@
 
 import { requireVendor } from './vendor.js';
 import { quantile } from './error-bars.js';
+import { special } from './expression.js';
 
 /* ------------------------------------------------------------------ *
  * Descriptive statistics
@@ -348,31 +349,21 @@ export function fUpperTail(f, d1, d2) {
 }
 
 /**
- * Two-sided p-value for a standard normal deviate.
+ * Two-sided p-value for a standard normal deviate, erfc(|z|/√2).
  *
- * Uses the vendored jStat `erfc` for |z| <= 8. Beyond that jStat's series
- * underflows to exactly 0, so the standard asymptotic expansion
- *
- *   erfc(x) ~ exp(-x^2)/(x*sqrt(pi)) * (1 - 1/(2x^2) + 3/(4x^4) - ...)
- *
- * is used instead (Abramowitz & Stegun 7.1.23). At x = 8/sqrt(2) the two agree
- * to better than 1e-3 relative, and the expansion improves monotonically
- * further out. Such p-values are far below any decision threshold and are
- * reported only so that output reads "2.1e-23" rather than a misleading "0".
+ * Uses the erfc of expression.js, which sums erf's positive series below
+ * x = 2.5 and evaluates erfc's continued fraction above it, so the tail keeps
+ * its relative accuracy however small it gets: within 1.3e-12 of the true
+ * value, the worst just below |z| = 3.5 where 1 − erf still cancels. jStat's
+ * erfc is 1 − erf throughout, which loses it: 1e-10 relative by |z| = 5,
+ * 1e-5 by |z| = 7 and everything past |z| ≈ 8.3.
  *
  * @param {number} z
  * @returns {number} P(|Z| >= |z|).
  */
 export function zTwoSided(z) {
-  const jStat = requireVendor('jStat');
   if (!Number.isFinite(z)) return NaN;
-  const az = Math.abs(z);
-  if (az <= 8) return jStat.erfc(az / Math.SQRT2);
-
-  const x = az / Math.SQRT2;
-  const x2 = x * x;
-  const series = 1 - 1 / (2 * x2) + 3 / (4 * x2 * x2) - 15 / (8 * x2 * x2 * x2);
-  return (Math.exp(-x2) / (x * Math.sqrt(Math.PI))) * series;
+  return special.erfc(Math.abs(z) / Math.SQRT2);
 }
 
 /**
@@ -898,14 +889,109 @@ export function leastSquaresLine(arr1, arr2) {
  * Non-parametric tests
  * ------------------------------------------------------------------ */
 
+/** Σ(t³ − t) over the runs of equal values: the usual tie term. */
+function tieSum(values) {
+  const counts = new Map();
+  for (const v of values) counts.set(v, (counts.get(v) || 0) + 1);
+  let s = 0;
+  for (const t of counts.values()) s += t * t * t - t;
+  return s;
+}
+
+/*
+ * The cut-offs of SciPy's `method='auto'` for the rank tests (SciPy 1.15 to
+ * 1.18.1; see mannWhitneyU and wilcoxonSignedRank).
+ */
+const MWU_EXACT_MAX = 8;
+const WILCOXON_EXACT_MAX = 50;
+const WILCOXON_PERMUTATION_MAX = 13;
+
 /**
- * Mann–Whitney U test, using the tie-corrected normal approximation.
+ * P(U ≤ u) for the Mann–Whitney U of two samples of sizes n1 and n2 with no
+ * ties, under the null hypothesis that every split of the ranks is equally
+ * likely.
+ *
+ * The number of splits giving U = k is the coefficient of q^k in the
+ * Gaussian binomial [n + m choose m]_q = Π_{i=1..m} (1 − q^(n+i))/(1 − q^i),
+ * with m = min(n1, n2) and n = max(n1, n2). It is built one factor at a time,
+ * dividing by 1 − q^i (a running sum with stride i) and multiplying by
+ * 1 − q^(n+i), keeping only the coefficients up to q^u: O(m·u) work. Every
+ * intermediate value is a count no larger than C(n + m, m), so the arithmetic
+ * is exact while that is below 2^53 (with m ≤ 8, up to n ≈ 360) and good to
+ * a few units in the last place beyond.
+ *
+ * @param {number} u - an integer from 0 to n1·n2
+ * @param {number} n1
+ * @param {number} n2
+ * @returns {number}
+ */
+function mannWhitneyLowerTail(u, n1, n2) {
+  const m = Math.min(n1, n2);
+  const n = Math.max(n1, n2);
+  const c = new Float64Array(u + 1);
+  c[0] = 1;
+  let total = 1;
+  for (let i = 1; i <= m; i++) {
+    for (let k = i; k <= u; k++) c[k] += c[k - i];
+    for (let k = u; k >= n + i; k--) c[k] -= c[k - n - i];
+    total = (total * (n + i)) / i; // C(n + i, i)
+  }
+  let s = 0;
+  for (let k = 0; k <= u; k++) s += c[k];
+  return s / total;
+}
+
+/**
+ * P(T ≤ t) where T sums a random subset of `weights`, each weight in or out
+ * with probability 1/2 independently: the null distribution of the
+ * signed-rank statistic given its ranks, counted over all 2^n sign patterns
+ * (a 0/1 knapsack count). The counts are integers below 2^n, so for
+ * n ≤ 50 every step, and the result, is exact.
+ *
+ * @param {number} t
+ * @param {number[]} weights - non-negative integers
+ * @returns {number}
+ */
+function subsetSumLowerTail(t, weights) {
+  let total = 0;
+  for (const w of weights) total += w;
+  const c = new Float64Array(total + 1);
+  c[0] = 1;
+  let top = 0;
+  for (const w of weights) {
+    for (let k = top; k >= 0; k--) c[k + w] += c[k];
+    top += w;
+  }
+  let s = 0;
+  for (let k = 0; k <= Math.min(t, total); k++) s += c[k];
+  return s / 2 ** weights.length;
+}
+
+/**
+ * Mann–Whitney U test, two-sided.
+ *
+ * Both groups are ranked together, ties taking their average rank;
+ * U₁ = R₁ − n₁(n₁ + 1)/2 from group 1's rank sum, U₂ = n₁n₂ − U₁, and U is
+ * the smaller. The p-value is chosen as `scipy.stats.mannwhitneyu` chooses it
+ * by default (`method='auto'`, the same from SciPy 1.11 to 1.18.1):
+ *
+ * - 'exact' when no value is tied and either group has at most 8 values:
+ *   p = 2·P(U' ≤ U), capped at 1, from the null distribution of U.
+ * - 'asymptotic' otherwise: the normal approximation, with the tie-corrected
+ *   variance σ² = n₁n₂/12 · [(N + 1) − Σ(t³ − t)/(N(N − 1))] and no
+ *   continuity correction, which is `use_continuity=False` in SciPy (its
+ *   default applies one).
+ *
+ * z = (U − n₁n₂/2)/σ is reported whichever gave p. The rank-biserial
+ * correlation is 1 − 2U/(n₁n₂).
  *
  * @param {number[]} arr1
  * @param {number[]} arr2
  * @returns {{U:number, U1:number, U2:number, z:number, p:number,
+ *            method:'exact'|'asymptotic',
  *            rankBiserial:number, n1:number, n2:number,
  *            median1:number, median2:number, tieCorrected:boolean}|null}
+ *          z and p are NaN when every value is the same.
  */
 export function mannWhitneyU(arr1, arr2) {
   if (!Array.isArray(arr1) || !Array.isArray(arr2)) return null;
@@ -921,44 +1007,57 @@ export function mannWhitneyU(arr1, arr2) {
   const U = Math.min(U1, U2);
 
   const muU = (n1 * n2) / 2;
-  const counts = {};
-  for (const v of combined) counts[v] = (counts[v] || 0) + 1;
   const N = n1 + n2;
-  const tieTerm = Object.values(counts).reduce((s, t) => s + (t ** 3 - t), 0);
+  const tieTerm = tieSum(combined);
   const sigmaU = Math.sqrt(
     ((n1 * n2) / 12) * ((N + 1) - tieTerm / (N * (N - 1)))
   );
+  const z = sigmaU > 0 ? (U - muU) / sigmaU : NaN;
 
-  if (!Number.isFinite(sigmaU) || sigmaU === 0) {
-    return {
-      U, U1, U2, z: NaN, p: NaN,
-      rankBiserial: 1 - (2 * U) / (n1 * n2),
-      n1, n2, median1: median(arr1), median2: median(arr2),
-      tieCorrected: tieTerm > 0
-    };
-  }
-
-  const z = (U - muU) / sigmaU;
-  const p = zTwoSided(z);
-  const rankBiserial = 1 - (2 * U) / (n1 * n2);
+  const method = tieTerm === 0 && Math.min(n1, n2) <= MWU_EXACT_MAX ? 'exact' : 'asymptotic';
+  const p = method === 'exact'
+    ? Math.min(1, 2 * mannWhitneyLowerTail(U, n1, n2))
+    : zTwoSided(z);
 
   return {
-    U, U1, U2, z, p, rankBiserial,
+    U, U1, U2, z, p, method,
+    rankBiserial: 1 - (2 * U) / (n1 * n2),
     n1, n2, median1: median(arr1), median2: median(arr2),
     tieCorrected: tieTerm > 0
   };
 }
 
 /**
- * Wilcoxon signed-rank test for paired samples.
+ * Wilcoxon signed-rank test for paired samples, two-sided.
  *
- * Zero differences are discarded (Wilcoxon's original procedure) and the
- * normal approximation is applied to the remaining ranks.
+ * Zero differences are dropped (Wilcoxon's method, SciPy's default
+ * `zero_method='wilcox'`), and the n absolute differences left are ranked,
+ * ties taking their average rank. W is the smaller of W₊ and W₋, the rank
+ * sums of the positive and of the negative differences. The p-value is
+ * chosen as `scipy.stats.wilcoxon` chooses it by default (`method='auto'`,
+ * SciPy 1.15 to 1.18.1), where N counts every pair, zeros included:
+ *
+ * - 'exact' when N ≤ 50 and there are no ties and no zeros: from the null
+ *   distribution of W, every one of the 2^n sign patterns equally likely.
+ * - 'permutation' when N ≤ 13 and there are ties or zeros: the same count
+ *   over all 2^n sign patterns, with the average ranks as they are, which is
+ *   the exhaustive permutation test SciPy runs here. It is exact too, given
+ *   the ties.
+ * - 'asymptotic' otherwise: the normal approximation, with the tie-corrected
+ *   variance σ² = n(n + 1)(2n + 1)/24 − Σ(t³ − t)/48 and no continuity
+ *   correction (SciPy's default, `correction=False`).
+ *
+ * The two counted branches give p = 2·P(W' ≤ W), capped at 1. z =
+ * (W − n(n + 1)/4)/σ is reported in every case, and the effect size
+ * r = |z|/√n comes from it.
  *
  * @param {number[]} arr1
  * @param {number[]} arr2
  * @returns {{W:number, wPositive:number, wNegative:number, z:number,
- *            p:number, effectR:number, n:number, nDropped:number}|null}
+ *            p:number, method:'exact'|'permutation'|'asymptotic',
+ *            effectR:number, n:number, nDropped:number,
+ *            tieCorrected:boolean}|null}
+ *          n counts the non-zero differences; null when there are none.
  */
 export function wilcoxonSignedRank(arr1, arr2) {
   const pair = alignPairs(arr1, arr2);
@@ -970,7 +1069,8 @@ export function wilcoxonSignedRank(arr1, arr2) {
   const nDropped = allDiffs.length - n;
   if (n < 1) return null;
 
-  const absRanks = ranks(diffs.map(Math.abs));
+  const absDiffs = diffs.map(Math.abs);
+  const absRanks = ranks(absDiffs);
   let wPositive = 0;
   let wNegative = 0;
   diffs.forEach((d, i) => {
@@ -979,17 +1079,28 @@ export function wilcoxonSignedRank(arr1, arr2) {
   });
   const W = Math.min(wPositive, wNegative);
 
+  const tieTerm = tieSum(absDiffs);
   const muW = (n * (n + 1)) / 4;
-  const sigmaW = Math.sqrt((n * (n + 1) * (2 * n + 1)) / 24);
-  if (sigmaW === 0) {
-    return { W, wPositive, wNegative, z: NaN, p: NaN, effectR: NaN, n, nDropped };
-  }
+  const sigmaW = Math.sqrt((n * (n + 1) * (2 * n + 1)) / 24 - tieTerm / 48);
+  const z = sigmaW > 0 ? (W - muW) / sigmaW : NaN;
 
-  const z = (W - muW) / sigmaW;
-  const p = zTwoSided(z);
+  const N = allDiffs.length;
+  const clean = tieTerm === 0 && nDropped === 0;
+  let method = 'asymptotic';
+  if (clean && N <= WILCOXON_EXACT_MAX) method = 'exact';
+  else if (!clean && N <= WILCOXON_PERMUTATION_MAX) method = 'permutation';
+
+  // Average ranks are whole or half numbers, so doubling them gives the
+  // integer weights the count needs, and 2W is an integer.
+  const p = method === 'asymptotic'
+    ? zTwoSided(z)
+    : Math.min(1, 2 * subsetSumLowerTail(2 * W, absRanks.map(x => 2 * x)));
   const effectR = Math.abs(z) / Math.sqrt(n);
 
-  return { W, wPositive, wNegative, z, p, effectR, n, nDropped };
+  return {
+    W, wPositive, wNegative, z, p, method, effectR, n, nDropped,
+    tieCorrected: tieTerm > 0
+  };
 }
 
 /**
@@ -997,15 +1108,17 @@ export function wilcoxonSignedRank(arr1, arr2) {
  *
  * The signed-rank test on the differences x − μ₀, with the conventions of
  * `wilcoxonSignedRank`: values equal to μ₀ are dropped, ties among the
- * absolute differences get average ranks, and z uses the normal approximation
- * with no continuity correction and no tie correction to its variance. It
- * assumes the distribution is symmetric about its median, and tests that
+ * absolute differences get average ranks, and p is exact (counted over the
+ * sign patterns) or from the tie-corrected normal approximation, as
+ * `scipy.stats.wilcoxon(x - mu0)` chooses by default (`method` says which).
+ * It assumes the distribution is symmetric about its median, and tests that
  * median against μ₀.
  *
  * @param {number[]} a
  * @param {number} [mu0=0]
  * @returns {{W:number, wPositive:number, wNegative:number, z:number,
- *            p:number, effectR:number, n:number, nDropped:number,
+ *            p:number, method:'exact'|'permutation'|'asymptotic',
+ *            effectR:number, n:number, nDropped:number, tieCorrected:boolean,
  *            mu0:number, median:number}|null}
  *          wPositive sums the ranks of values above μ₀.
  */
@@ -1109,11 +1222,7 @@ export function kruskalWallis(groups) {
   }
   const meanRanks = rankSums.map((s, i) => s / groupNs[i]);
 
-  const counts = new Map();
-  for (const v of all) counts.set(v, (counts.get(v) || 0) + 1);
-  let tieSum = 0;
-  for (const t of counts.values()) tieSum += t * t * t - t;
-  const C = 1 - tieSum / (N * N * N - N);
+  const C = 1 - tieSum(all) / (N * N * N - N);
 
   const base = {
     df: k - 1, k, N, meanRanks, rankSums, groupNs,
