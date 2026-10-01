@@ -265,5 +265,5 @@ describe('the script, run', () => {
     const r = await run(script);
     expect([r.code, r.stderr]).toEqual([0, '']);
     expect(r.out.ylim).toEqual([0, 12]);
-  });
+  }, 60000); // matplotlib takes seconds to start, more under coverage
 });
