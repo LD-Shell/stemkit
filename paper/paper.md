@@ -39,8 +39,8 @@ of parsing and numerical routines with no DOM dependency. All computation runs
 inside the user's own browser: the data analysed never leaves it, no account is
 required and nothing is installed, so the tools stay usable for unpublished or
 confidential data. The same modules run under Node.js, so an interactive
-analysis can be captured as a version-pinned script. The 42 domain modules carry
-3705 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
+analysis can be captured as a version-pinned script. The 43 domain modules carry
+4371 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
 GROMACS, PLUMED, LAMMPS and physical invariants rather than against the
 implementation itself. That
 validation exposed four defects that had been altering reported results, among
@@ -194,7 +194,7 @@ enumerates the modules.
 ┌───────────────────────────────┐   ┌───────────────────────────────┐
 │        Browser host           │   │         Node.js host          │
 │  21 static HTML/CSS tool pages│   │  user analysis scripts        │
-│  DOM wiring only;             │   │  3705-test Jest suite;        │
+│  DOM wiring only;             │   │  4371-test Jest suite;        │
 │  FileReader input             │   │  smoke test                   │
 │  UMD bundles via <script>     │   │  UMD bundles: createRequire   │
 └───────────────┬───────────────┘   └───────────────┬───────────────┘
@@ -203,7 +203,7 @@ enumerates the modules.
                                   ▼
         ┌─────────────────────────────────────────────────┐
         │                 stemkit-core                    │
-        │  42 DOM-free domain modules, aggregated by      │
+        │  43 DOM-free domain modules, aggregated by      │
         │  src/core/index.js                              │
         └─────────────────────────┬───────────────────────┘
                                   ▼
@@ -230,21 +230,22 @@ on it (261 in all).
 
 | Module | Domain | Tests | Dependency |
 | --- | --- | ---: | --- |
+| `gromacs-mdp`, `gromacs-ndx` | GROMACS `.mdp` settings and checks, index groups | 1168 | none |
 | `plumed`, `plumed-syntax`, `plumed-parse`, `plumed-atoms`, `plumed-run` | PLUMED input generation and checking, atom groups, run files | 644 | none |
-| `gromacs-mdp`, `gromacs-ndx` | GROMACS `.mdp` settings and checks, index groups | 597 | none |
-| `expression`, `nonlinear-fit`, `fit-python`, `plot-style` | Typed equations, Levenberg–Marquardt fitting, fit scripts | 380 | none |
+| `expression`, `nonlinear-fit`, `fit-python`, `plot-style` | Typed equations, Levenberg–Marquardt fitting, fit scripts | 381 | none |
 | `lammps-reference`, `lammps-input`, `lammps-data`, `lammps-workflow` | LAMMPS commands, input checks, data files, run inputs | 350 | none |
+| `statistics`, `statistics-figure` | Inferential and descriptive statistics | 188 | jStat |
 | `data-cleaning`, `data-cleaning-python` | Tabular transformation, pandas script | 182 | Papa Parse |
-| `statistics`, `statistics-figure` | Inferential and descriptive statistics | 177 | jStat |
 | `bibtex` | Reference deduplication, sanitising | 140 | bibtex-parse-js |
 | `xvg-parser` | GROMACS/PLUMED trajectory data | 129 | none |
 | `structure` | Molecular geometry, PDB/GRO/XYZ | 125 | none |
 | `plumed-analysis`, `plumed-analysis-figures` | COLVAR and HILLS analysis, free-energy surfaces | 121 | none |
+| `iso4` | ISO 4 word-level abbreviation (LTWA) | 119 | none |
 | `selection` | Atom selection, spatial queries | 94 | none |
 | `curve-fitting` | Least-squares regression | 81 | regression.js |
 | `error-bars`, `error-bars-figure` | Group summaries, error bars | 74 | jStat |
-| `units` | Physical unit conversion | 73 | none |
-| `figure`, `figure-python` | Figure description, matplotlib script | 72 | none |
+| `units` | Physical unit conversion | 74 | none |
+| `figure`, `figure-python` | Figure description, matplotlib script | 74 | none |
 | `outliers`, `outliers-figure` | Anomaly detection | 63 | jStat |
 | `slurm` | SLURM job scripts, resource checks | 61 | none |
 | `latex` | Table generation and escaping | 59 | none |
@@ -252,10 +253,10 @@ on it (261 in all).
 | `pdf` | PDF export of figures | 56 | none |
 | `journals` | Whole-title journal abbreviation | 53 | none |
 | `scheduler` | Scheduler directives and launchers | 51 | none |
-| `iso4` | ISO 4 word-level abbreviation (LTWA) | 44 | none |
 | `plot-builder` | Plot builder tables and figures | 18 | none |
+| `version` | Release version and date | 5 | none |
 | `zip` | Archives of generated files | 4 | none |
-| **Total** | | **3705** | |
+| **Total** | | **4371** | |
 
 Four third-party libraries are vendored within the repository for the core:
 jStat for statistical distributions, Papa Parse for delimited-text parsing,
@@ -286,8 +287,8 @@ under that interpretation the UMD factory takes its browser branch and fails.
 Scoping `"type": "commonjs"` to the dependency directory alone restores correct
 behaviour.
 
-The test suite comprises 3705 tests in 56 suites across the 42 domain modules,
-with 88.3% statement and 92.9% line coverage of `src/core/`. Its governing
+The test suite comprises 4371 tests in 57 suites across the 43 domain modules,
+with 88.5% statement and 93.0% line coverage of `src/core/`. Its governing
 principle is that numerical results are validated against *independent*
 references rather than against the implementation under test, since a test
 written from the same source as the code confirms only internal consistency.
@@ -310,7 +311,7 @@ molecular weight and
 centre of mass of water, the orthonormality of rotation matrices, the
 preservation of interatomic distances under rotation, and round-trip fidelity
 through every supported file format. An end-to-end smoke test additionally
-exercises one representative path through 28 of the 43 modules the package
+exercises one representative path through 28 of the 44 modules the package
 exposes, the injection layer among them, against
 a real installation, detecting the class of failure that unit tests cannot: a broken
 aggregate export, a misconfigured module type declaration, or a vendored bundle
@@ -454,10 +455,10 @@ reference.
 | Games–Howell | Studentised range, per-pair Welch df | Formula, `scipy.stats.studentized_range` |
 | Pearson $r$, CI | Fisher $z$ transform | `scipy.stats.pearsonr` |
 | Spearman $\rho$, CI | Pearson on average ranks; Bonett–Wright interval [@bonett2000] | `scipy.stats.spearmanr` |
-| Mann–Whitney $U$ | Tie-corrected normal approximation | `scipy.stats.mannwhitneyu` |
+| Mann–Whitney $U$ | Exact without ties when a group has at most 8 values; tie-corrected normal approximation otherwise | `scipy.stats.mannwhitneyu` |
 | Kruskal–Wallis $H$ | Tie-corrected; $\chi^2$ tail | `scipy.stats.kruskal` |
 | Dunn's test | Rank-sum $z$, Holm adjustment | Formula, statsmodels `multipletests` |
-| Wilcoxon $W$ | Signed-rank, zeros discarded | `scipy.stats.wilcoxon` |
+| Wilcoxon $W$ | Exact up to 50 pairs without ties or zeros; permutation up to 13 pairs; tie-corrected normal approximation otherwise | `scipy.stats.wilcoxon` |
 | D'Agostino–Pearson $K^2$ | $\sqrt{b_1}$ [@dagostino1970] and $b_2$ [@anscombe1983] transforms | `scipy.stats.normaltest` |
 | Levene $W$ | Brown–Forsythe (median-centred) | `scipy.stats.levene` |
 | Quantiles | Linear interpolation (type 7) | `numpy.percentile` |
@@ -816,13 +817,13 @@ results to a third-party service.
 ## 5. Conclusions
 
 STEMKit is a suite of 18 browser-based tools for computational chemistry built on
-a tested, dependency-injected JavaScript core of 42 domain modules. The architecture
+a tested, dependency-injected JavaScript core of 43 domain modules. The architecture
 addresses three constraints simultaneously that existing tooling addresses only
 in pairs: it requires no installation, transmits no data and remains scriptable.
 
 Both properties are structural rather than contractual: computation occurs
 entirely within the browser, and the modules behind the interface are the ones
-that run under Node.js. The 3705-test suite validates every numerical result
+that run under Node.js. The 4371-test suite validates every numerical result
 against an independent reference, and the four defects that this
 strategy exposed (deflated standardised moments, tail probabilities floored at
 zero, misassigned elements in metalloproteins, and an adjusted moment fed into a
