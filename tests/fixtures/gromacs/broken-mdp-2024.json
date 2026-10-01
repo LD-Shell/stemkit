@@ -1,7 +1,7 @@
 {
- "about": "Verdicts of real grompp (GROMACS 2025.0, mixed precision) on the broken-file cases of tools/check-gromacs-grompp.mjs, run with -maxwarn 0 on a solvated AMBER99SB-ILDN peptide with position restraints available. Regenerate with GMX_BIN=... node tools/check-gromacs-grompp.mjs --record.",
- "version": "2025",
- "release": "2025.0",
+ "about": "Verdicts of real grompp (GROMACS 2024.6, mixed precision) on the broken-file cases of tools/check-gromacs-grompp.mjs, run with -maxwarn 0 on a solvated AMBER99SB-ILDN peptide with position restraints available. Regenerate with GMX_BIN=... node tools/check-gromacs-grompp.mjs --record.",
+ "version": "2024",
+ "release": "2024.6",
  "cases": [
   {
    "name": "valid-nvt",
@@ -1532,7 +1532,7 @@
     "errors": 0,
     "warnings": 0,
     "notes": 0,
-    "fatal": "Invalid value: Inner-Product. Allowed values: inner-product, relative-entropy, cross-correlation.",
+    "fatal": "Invalid value: Inner-Product",
     "messages": []
    }
   },
@@ -1732,7 +1732,7 @@
     "fatal": null,
     "messages": [
      "error: The given AWH coordinate index (2) is larger than the number of pull coordinates (1)",
-     "error: Setting pull-coord2-rate (-1.03427e-23) is incompatible with AWH biasing this coordinate"
+     "error: Setting pull-coord2-rate (3.94409e+30) is incompatible with AWH biasing this coordinate"
     ]
    }
   },
@@ -2359,7 +2359,7 @@
     "passes": true,
     "errors": 0,
     "warnings": 0,
-    "notes": 1,
+    "notes": 0,
     "fatal": null,
     "messages": []
    }
@@ -2491,12 +2491,14 @@
    "description": "nnpot-active = no (neural-network potentials are new in 2025).",
    "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\nnnpot-active = no\n",
    "grompp": {
-    "passes": true,
+    "passes": false,
     "errors": 0,
-    "warnings": 0,
+    "warnings": 1,
     "notes": 0,
     "fatal": null,
-    "messages": []
+    "messages": [
+     "warning: Unknown left-hand 'nnpot-active' in parameter file"
+    ]
    }
   },
   {
@@ -2504,12 +2506,14 @@
    "description": "init-lambda-counts with expanded ensemble off (new in 2025).",
    "mdp": "; STEMKit broken-file case\nintegrator = md\ndt = 0.002\nnsteps = 1000\ncutoff-scheme = Verlet\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nDispCorr = EnerPres\nconstraints = h-bonds\ntcoupl = V-rescale\ntc-grps = Protein Non-Protein\ntau-t = 0.1 0.1\nref-t = 300 300\ngen-vel = yes\ngen-temp = 300\nnstenergy = 1000\nnstlog = 1000\ninit-lambda-counts = 0 0\n",
    "grompp": {
-    "passes": true,
+    "passes": false,
     "errors": 0,
-    "warnings": 0,
+    "warnings": 1,
     "notes": 0,
     "fatal": null,
-    "messages": []
+    "messages": [
+     "warning: Unknown left-hand 'init-lambda-counts' in parameter file"
+    ]
    }
   },
   {

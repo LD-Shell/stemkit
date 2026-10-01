@@ -16,18 +16,25 @@
  * it needs -r) is read back from the final file, so options set by hand are
  * described as grompp will read them.
  *
+ * The files are written for, and checked as, the GROMACS release chosen
+ * under System (`gromacsVersion`, 2025 by default; see GROMACS_VERSIONS in
+ * gromacs-mdp.js).
+ *
  * The GPU rules follow GROMACS 2025's own checks: pme_gpu_supports_input
  * (src/gromacs/ewald/pme.cpp), inputSupportsListedForcesGpu
  * (listed_forces/listed_forces_gpu_impl.cpp), decideWhetherToUseGpuForUpdate
  * and the thread-MPI rank count (taskassignment/decidegpuusage.cpp and
  * resourcedivision.cpp). mdrun stops at start-up when a flag asks for
- * something those checks refuse, so a stage never gets such a flag.
+ * something those checks refuse, so a stage never gets such a flag. They are
+ * the same in 2022 to 2024, except that those also run the update on the GPU
+ * with box deformation or triangle constraints, which leaving -update gpu
+ * out only costs speed.
  */
 
 import {
   generateMdp, checkMdp, parseMdp, normaliseName, canonicalName, optionInfo, mdpDocUrl, pullStart,
   FORCE_FIELDS, THERMOSTATS, BAROSTATS, SYSTEM_TYPES, formatDuration, psToSteps,
-  MDP_RELEASE, MDP_MANUAL
+  MDP_RELEASE, gromacsVersion, gromacsVersionInfo, DEFAULT_GROMACS_VERSION
 } from '../src/core/gromacs-mdp.js';
 
 /* ------------------------------------------------------------------ *
@@ -85,6 +92,7 @@ export function defaultGxState(forceField = 'amber') {
   stages.pull.ensemble = 'NPT';
   stages.pull.pull = { mode: 'umbrella', group1: 'Protein', group2: 'LIG', geometry: 'distance', dim: 'Y Y Y', vec: '0 0 1', k: 1000, rate: 0.01, outputPs: 1 };
   return {
+    gromacsVersion: DEFAULT_GROMACS_VERSION,
     forceField: ffId, system: 'protein', temperature: 300, pressure: 1.0,
     thermostat: 'v-rescale', barostat: 'c-rescale', couplingType: 'isotropic',
     tcGroups: 'Protein Non-Protein', constraints: FORCE_FIELDS[ffId].constraints, hmr: false, dtFs: null,
@@ -395,12 +403,18 @@ function warnReason(issue) {
   return first.length > 150 ? `${first.slice(0, 147)}...` : first;
 }
 
+/* Whether the files repartition hydrogen masses: asked for, a force field
+   with hydrogens, and a GROMACS that has mass-repartition-factor (2024 on). */
+function hmrApplies(state, ff) {
+  return !!state.hmr && !!ff.hmr && Number(gromacsVersion(state.gromacsVersion)) >= 2024;
+}
+
 /* The time step the file will use, in ps. */
 function effectiveDt(state, ff) {
   const cg = ff.resolution === 'coarse-grained';
   const given = num(state.dtFs, NaN);
   if (given > 0) return given / 1000;
-  if (state.hmr && ff.hmr) return 0.004;
+  if (hmrApplies(state, ff)) return 0.004;
   if (!cg && state.constraints === 'none') return 0.001;
   return ff.dt;
 }
@@ -639,7 +653,8 @@ function needsIndexMessage(names, lost) {
  *   context.structure takes it: each plan then has `pullStart`, where the
  *   pull groups start, and the pull checks grompp makes on it).
  * @returns {{stages:object[], warnings:string[], dt:number, forceField:object, hmr:boolean,
- *   constraints:string, tcGroups:string[], system:string, needsIndex:string[], indexWarning:string|null}}
+ *   constraints:string, tcGroups:string[], system:string, needsIndex:string[], indexWarning:string|null,
+ *   version:string}} `version`: the GROMACS release the files are for.
  *   `needsIndex`: group names the files use that no index defines; `indexWarning`
  *   says so (it is in `warnings` too).
  */
@@ -649,7 +664,8 @@ export function resolveWorkflow(state) {
   const ff = FORCE_FIELDS[s.forceField] || FORCE_FIELDS.amber;
   const cg = ff.resolution === 'coarse-grained';
   const system = SYSTEM_TYPES[s.system] ? s.system : 'protein';
-  const hmr = !!s.hmr && !!ff.hmr;
+  const version = gromacsVersion(s.gromacsVersion);
+  const hmr = hmrApplies(s, ff);
   const dt = effectiveDt(s, ff);
   const constraints = cg ? 'none' : (['h-bonds', 'all-bonds', 'none'].includes(s.constraints) ? s.constraints : ff.constraints);
   const tcGroups = words(s.tcGroups).length ? words(s.tcGroups) : SYSTEM_TYPES[system].tcGroups.slice();
@@ -665,6 +681,11 @@ export function resolveWorkflow(state) {
     ? s.structure : null;
 
   if (s.hmr && !ff.hmr) warnings.push(`Hydrogen mass repartitioning is off: ${ff.label} has no hydrogens to repartition.`);
+  else if (s.hmr && !hmr) {
+    warnings.push(`Hydrogen mass repartitioning is off: GROMACS ${version} has no mass-repartition-factor (new in 2024), and its grompp ` +
+      'stops on the option. For 4 fs, repartition the hydrogen masses in the topology itself (ParmEd\'s HMassRepartition, factor 3) ' +
+      'and set the time step to 4 fs, or choose GROMACS 2024 or newer.');
+  }
   if (hmr && constraints === 'none') {
     warnings.push('Hydrogen mass repartitioning allows 4 fs only with the bonds to hydrogen constrained; choose constraints = h-bonds.');
   }
@@ -716,6 +737,7 @@ export function resolveWorkflow(state) {
 
     const lengthPs = Math.max(0, num(st.lengthPs, def.lengthPs || 0));
     const settings = {
+      version,
       stage: coreStage,
       forceField: ff.id,
       system,
@@ -845,7 +867,7 @@ export function resolveWorkflow(state) {
     };
     if (indexNames) context.indexGroups = indexNames;
     if (structure) context.structure = structure;
-    const check = checkMdp(plan.text, { context });
+    const check = checkMdp(plan.text, { context, version });
     plan.issues = check.issues;
     // Where the pull groups start, from the loaded structure. grompp reads
     // the coordinates the stage before leaves, which equilibration has
@@ -969,7 +991,7 @@ export function resolveWorkflow(state) {
   }
 
   if (!stages.length) warnings.push('No stage is switched on.');
-  return { stages, warnings, dt, hmr, constraints, tcGroups, forceField: ff, system, needsIndex, indexWarning };
+  return { stages, warnings, dt, hmr, constraints, tcGroups, forceField: ff, system, needsIndex, indexWarning, version };
 }
 
 /* ------------------------------------------------------------------ *
@@ -1402,8 +1424,12 @@ export function workflowReadme(wf, opts = {}) {
   const L = [];
   const date = opts.date instanceof Date ? opts.date : new Date();
   L.push(`# GROMACS workflow${opts.jobName ? `: ${opts.jobName}` : ''}`, '');
+  const version = gromacsVersion(wf.version);
+  const release = gromacsVersionInfo(version);
   L.push(`Written by the STEMKit MD Workflow Generator (https://stemkit.net/script-generator.html) ` +
-    `for GROMACS ${MDP_RELEASE}, ${date.toISOString().slice(0, 10)}.`, '');
+    `for GROMACS ${version === DEFAULT_GROMACS_VERSION ? MDP_RELEASE : version}, ${date.toISOString().slice(0, 10)}.` +
+    (version === DEFAULT_GROMACS_VERSION ? '' : ` The files use only the options GROMACS ${version} reads, and what grompp will say is ` +
+      `what grompp ${release.release} says.`), '');
   L.push('## The files', '', '| File | What it is for |', '|---|---|');
   for (const f of opts.files || []) L.push(`| \`${f.name}\` | ${f.note} |`);
   L.push('');
@@ -1503,9 +1529,9 @@ export function workflowReadme(wf, opts = {}) {
     }
   }
   L.push('## Read more', '');
-  L.push(`- Every .mdp option: ${MDP_MANUAL}`);
+  L.push(`- Every .mdp option: ${release.manual}`);
   for (const r of ff.references) L.push(`- ${r.text}: ${r.url}`);
-  L.push(`- Getting good performance from mdrun: https://manual.gromacs.org/${MDP_RELEASE}/user-guide/mdrun-performance.html`, '');
+  L.push(`- Getting good performance from mdrun: https://manual.gromacs.org/${release.release}/user-guide/mdrun-performance.html`, '');
   return `${L.join('\n')}`;
 }
 
@@ -1584,6 +1610,11 @@ export function builderFromMdp(text, current = defaultGxState()) {
   const mrf = Number(v('mass-repartition-factor'));
   if (!em) {
     shared.hmr = mrf > 1 && !!ff.hmr;
+    const version = gromacsVersion(current.gromacsVersion);
+    if (shared.hmr && Number(version) < 2024) {
+      notes.push(`The file repartitions hydrogen masses (mass-repartition-factor), which needs GROMACS 2024 or newer; with GROMACS ${version} ` +
+        'chosen under System the builder leaves it out and uses the usual time step. Choose GROMACS 2024 or newer to keep it.');
+    }
     if (dt > 0) {
       const auto = shared.hmr ? 0.004 : ff.dt;
       shared.dtFs = Math.abs(dt - auto) < 1e-9 ? null : Number((dt * 1000).toPrecision(6));

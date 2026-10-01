@@ -16,7 +16,7 @@
 
 import {
   explainMdp, optionInfo, mdpDocUrl, FORCE_FIELDS, THERMOSTATS, SYSTEM_TYPES,
-  formatDuration, MDP_RELEASE, MDP_MANUAL
+  formatDuration, MDP_RELEASE, gromacsVersion, gromacsVersionInfo, versionChanges, DEFAULT_GROMACS_VERSION
 } from '../src/core/gromacs-mdp.js';
 import { buildZip } from '../src/core/zip.js';
 import { walltimeToSeconds } from '../src/core/scheduler.js';
@@ -118,6 +118,7 @@ export function createGromacsTab(ctx) {
     }
     const dtFs = numOr('gxDt', NaN);
     return {
+      gromacsVersion: gromacsVersion(val('gxVersion', DEFAULT_GROMACS_VERSION)),
       forceField: val('gxForceField', 'amber'),
       system: val('gxSystem', 'protein'),
       temperature: numOr('gxTemp', 300),
@@ -237,6 +238,24 @@ export function createGromacsTab(ctx) {
     syncDerived();
   }
 
+  /* The GROMACS release: before 2024 there is no mass-repartition-factor,
+     so hydrogen mass repartitioning is switched off (as for Martini). */
+  function versionChosen() {
+    if (!hmrAvailable() && on('gxHmr')) {
+      setValue('gxHmr', false);
+      if (numOr('gxDt', NaN) === 4) setValue('gxDt', '');
+    }
+    syncDerived();
+  }
+
+  function chosenVersion() {
+    return gromacsVersion(val('gxVersion', DEFAULT_GROMACS_VERSION));
+  }
+
+  function hmrAvailable() {
+    return Number(chosenVersion()) >= 2024;
+  }
+
   function hmrChosen() {
     if (on('gxHmr')) {
       if (val('gxConstraints') === 'none') setValue('gxConstraints', 'h-bonds');
@@ -255,9 +274,18 @@ export function createGromacsTab(ctx) {
     const cg = ff.resolution === 'coarse-grained';
     if ($('gxConstraints')) $('gxConstraints').disabled = cg;
     const hmrBtn = $('gxHmr');
+    const hmrOk = ff.hmr && hmrAvailable();
     if (hmrBtn) {
-      hmrBtn.disabled = !ff.hmr;
-      hmrBtn.setAttribute('aria-disabled', String(!ff.hmr));
+      hmrBtn.disabled = !hmrOk;
+      hmrBtn.setAttribute('aria-disabled', String(!hmrOk));
+    }
+    const hmrHint = $('gxHmrHint');
+    if (hmrHint) {
+      const version = chosenVersion();
+      hmrHint.textContent = !hmrAvailable()
+        ? `Not with GROMACS ${version}: its grompp has no mass-repartition-factor (new in 2024) and stops on it. For 4 fs, repartition ` +
+          'the topology itself (see below) and set the time step to 4 fs, or choose GROMACS 2024 or newer above.'
+        : 'Makes hydrogens three times heavier, taking the mass from the atom each is bonded to, so a 4 fs step stays stable. Needs GROMACS 2024 or newer.';
     }
     const auto = on('gxHmr') && ff.hmr ? 4 : (!cg && val('gxConstraints') === 'none' ? 1 : ff.dt * 1000);
     if ($('gxDt')) $('gxDt').placeholder = `${auto} (automatic)`;
@@ -310,7 +338,46 @@ export function createGromacsTab(ctx) {
 
   const link = (url, text) => `<a href="${esc(url)}" target="_blank" rel="noopener" class="sg-link">${text}</a>`;
 
+  /* What the chosen release reads differently from the newest, said under
+     the choice; the panel's badge names the release. */
+  function renderVersion(wf) {
+    const version = wf.version;
+    const info = gromacsVersionInfo(version);
+    const badge = $('gxVersionBadge');
+    if (badge) badge.textContent = info.label;
+    const host = $('gxVersionHint');
+    if (!host) return;
+    if (version === DEFAULT_GROMACS_VERSION) {
+      host.innerHTML = `Files for the newest release, checked as grompp ${esc(MDP_RELEASE)} reads them. <code>gmx --version</code> says which one a cluster has.`;
+      return;
+    }
+    // The two the builder's files would use first, then the rest by release.
+    const changes = versionChanges(version);
+    const code = (n) => `<code>${esc(n)}</code>`;
+    const list = (items) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`);
+    const parts = [`Files for GROMACS ${esc(version)}, checked as grompp ${esc(info.release)} reads them.`];
+    if (Number(version) < 2024) {
+      parts.push(`No hydrogen mass repartitioning (${code('mass-repartition-factor')} is new in 2024), and Martini files fix ` +
+        `${code('rlist')} without ${code('verlet-buffer-pressure-tolerance')} (2024).`);
+    }
+    const shown = new Set(['mass-repartition-factor', 'verlet-buffer-pressure-tolerance']);
+    const bySince = new Map();
+    for (const c of changes.filter(x => x.change === 'added' && !shown.has(x.option))) {
+      const name = /^colvars/.test(c.option) ? 'Colvars' : /^nnpot/.test(c.option) ? 'neural-network potentials'
+        : /^awh1/.test(c.option) ? 'the AWH growth options' : code(c.option);
+      if (!bySince.has(c.since)) bySince.set(c.since, []);
+      if (!bySince.get(c.since).includes(name)) bySince.get(c.since).push(name);
+    }
+    if (bySince.size) parts.push(`Also new after ${esc(version)}: ${[...bySince].map(([y, names]) => `${list(names)} (${esc(y)})`).join('; ')}.`);
+    const defaults = changes.filter(x => x.change === 'default');
+    if (defaults.length) {
+      parts.push(`Its defaults: ${list(defaults.map(c => `${code(c.option)} ${esc(c.before)}${c.option === 'tau-p' ? ' ps' : ''} (changed in ${esc(c.since)})`))}.`);
+    }
+    host.innerHTML = parts.join(' ');
+  }
+
   function renderSystem(wf) {
+    renderVersion(wf);
     const ff = wf.forceField;
     const cg = ff.resolution === 'coarse-grained';
     const ffHint = $('gxFfHint');
@@ -381,7 +448,7 @@ export function createGromacsTab(ctx) {
     if (th === 'nose-hoover') notes.push('Nose-Hoover oscillates when the temperature starts away from the target; the equilibration stages still settle it, and production then samples the right ensemble without random numbers.');
     if (th === 'berendsen') notes.push('Berendsen gives the wrong kinetic-energy distribution; grompp warns, so submit.sh adds <code>-maxwarn</code>.');
     if (ba === 'c-rescale') notes.push(type === 'anisotropic'
-      ? 'C-rescale cannot scale the box anisotropically in GROMACS 2025, so every stage with a barostat uses Parrinello-Rahman.'
+      ? `C-rescale cannot scale the box anisotropically in GROMACS ${wf.version}, so every stage with a barostat uses Parrinello-Rahman.`
       : 'C-rescale in every stage with a barostat: stable while equilibrating and correct in production.');
     if (ba === 'parrinello-rahman') notes.push('Parrinello-Rahman in production; NPT equilibration uses C-rescale, because Parrinello-Rahman oscillates when the box is far from equilibrium' +
       `${type === 'anisotropic' ? ' (except with anisotropic scaling, which C-rescale cannot do)' : ''}.`);
@@ -725,7 +792,7 @@ export function createGromacsTab(ctx) {
         context.indexGroups = index.names();
         context.structure = index.pullStructure();
       }
-      ui.explainCache.set(f.text, explainMdp(f.text, { context }));
+      ui.explainCache.set(f.text, explainMdp(f.text, { context, version: plan().version }));
     }
     return ui.explainCache.get(f.text);
   }
@@ -858,7 +925,7 @@ export function createGromacsTab(ctx) {
       const reasons = p.maxwarn ? ` ${esc(p.maxwarnReasons.join(' '))}` : '';
       const errors = p.errors.length ? ` ${esc(p.errors.map(e => e.message).join(' '))}` : '';
       foot.innerHTML = `<span class="gx-foot-st gx-ft-${st.level}"><i class="fa-solid ${st.level === 'ok' ? 'fa-circle-check' : SEVERITY[st.level].icon}" aria-hidden="true"></i> ${esc(st.text)}.</span>${reasons}${errors} ` +
-        `${link(MDP_MANUAL, `Every option in the GROMACS ${esc(MDP_RELEASE)} manual`)}`;
+        `${link(gromacsVersionInfo(plan().version).manual, `Every option in the GROMACS ${esc(gromacsVersionInfo(plan().version).release)} manual`)}`;
     } else if (f.kind === 'sh') {
       foot.innerHTML = ui.submitHint;
     } else if (f.kind === 'ndx') {
@@ -1055,6 +1122,7 @@ export function createGromacsTab(ctx) {
     gxForceField: forceFieldChosen,
     gxSystem: systemChosen,
     gxHmr: hmrChosen,
+    gxVersion: versionChosen,
     stage_em_method: emMethodChosen,
     topForcefield: topologyChosen
   };

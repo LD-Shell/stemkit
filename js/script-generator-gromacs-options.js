@@ -12,11 +12,15 @@
  * Check a file: grompp's verdict on a pasted or dropped .mdp, the problems by
  * severity, the file line by line, and "Open in the builder" to continue
  * from it.
+ *
+ * Both follow the GROMACS release chosen under System (gx.plan().version):
+ * an option that release does not read is marked, and the checks are its
+ * grompp's.
  */
 
 import {
   sectionsInOrder, optionInfo, searchOptions, loadMdpDocs, parseMdp, checkMdp, explainMdp,
-  normaliseName, MDP_RELEASE
+  normaliseName, MDP_RELEASE, gromacsVersion, gromacsVersionInfo
 } from '../src/core/gromacs-mdp.js';
 import { GX_STAGE, GX_STAGES, builderFromMdp, diffOverrides } from './script-generator-gromacs-model.js';
 
@@ -72,7 +76,9 @@ export function createGromacsOptions(ctx, gx) {
         row.dataset.name = name;
         row.dataset.section = section.id;
         const bid = `gxOpt_${name.replace(/[^A-Za-z0-9_-]/g, '_')}`;
-        const st = info.status ? `<span class="stk-badge ${STATUS_BADGE[info.status.status] || 'stk-badge-warn'}">${esc(info.status.status)}</span>` : '';
+        const st = (info.status ? `<span class="stk-badge ${STATUS_BADGE[info.status.status] || 'stk-badge-warn'}">${esc(info.status.status)}</span>` : '') +
+          // Options newer than the release chosen under System (refreshValues shows it).
+          (info.since ? `<span class="stk-badge stk-badge-warn" data-since="${esc(info.since)}" hidden>${esc(info.since)} on</span>` : '');
         row.innerHTML = `<button type="button" class="gx-opt-h" id="${bid}" aria-expanded="false" aria-controls="${bid}_b">` +
           `<span class="gx-opt-top"><code class="gx-opt-name">${esc(name)}</code>${st}<span class="gx-opt-val" data-val></span></span>` +
           `<span class="gx-opt-sum">${esc(info.summary || '')}</span></button>` +
@@ -165,7 +171,17 @@ export function createGromacsOptions(ctx, gx) {
     refreshValues(fv);
   }
 
+  /* The release the files are written for, as a number (2025, 2023, ...). */
+  const version = () => Number(gromacsVersion(gx.plan().version));
+
   function refreshValues(fv = fileValues()) {
+    const ver = version();
+    for (const { row, info } of s.rows.values()) {
+      if (!info.since) continue;
+      const badge = row.querySelector('[data-since]');
+      badge.hidden = ver >= Number(info.since);
+      badge.title = badge.hidden ? '' : `New in GROMACS ${info.since}: grompp ${ver} does not know it`;
+    }
     for (const [name, { row }] of s.rows) {
       if (row.hidden) continue;
       const chip = row.querySelector('[data-val]');
@@ -201,11 +217,18 @@ export function createGromacsOptions(ctx, gx) {
     const gen = Object.prototype.hasOwnProperty.call(fv.generated, name) ? fv.generated[name] : null;
     const mineKey = Object.keys(fv.mine).find(k => normaliseName(k) === normaliseName(name));
     const mine = mineKey !== undefined;
+    const ver = version();
+    const older = info.olderDefault && ver < Number(info.olderDefault.before);
     const kv = [
       ['Section', `<a href="${esc(info.section.url)}" target="_blank" rel="noopener" class="sg-link">${esc(info.section.title)}</a>`],
       ['Takes', esc(KIND_TEXT[info.kind] || info.kind) + (info.per ? `, one per <code>${esc(info.per)}</code> group` : '') + (info.count ? `, ${info.count} values` : '')],
-      ['Default', info.default === '' ? (info.defaultFrom ? `from <code>${esc(info.defaultFrom)}</code>` : 'none') : `<code>${esc(info.default)}</code>`]
+      ['Default', older ? `<code>${esc(info.olderDefault.value)}</code> in GROMACS ${ver} (<code>${esc(info.default)}</code> from ${esc(info.olderDefault.before)} on)`
+        : info.default === '' ? (info.defaultFrom ? `from <code>${esc(info.defaultFrom)}</code>` : 'none') : `<code>${esc(info.default)}</code>`]
     ];
+    if (info.since) {
+      kv.push(['Since', ver >= Number(info.since) ? `GROMACS ${esc(info.since)}`
+        : `GROMACS ${esc(info.since)}. <span class="gx-opt-note">grompp ${ver} does not know it: it warns "Unknown left-hand" and stops without -maxwarn.</span>`]);
+    }
     if (info.unit) kv.push(['Unit', esc(info.unit)]);
     if (info.readWhen) kv.push(['Read', `only when <code>${esc(info.readWhen.when)}</code>`]);
     const values = info.values.length ? `<ul class="gx-opt-values">${info.values.map(v => `<li><a href="${esc(v.url)}" target="_blank" rel="noopener"><code>${esc(v.value)}</code></a>` +
@@ -451,7 +474,8 @@ export function createGromacsCheck(ctx, gx) {
     }
     const parsed = parseMdp(t);
     const maxwarn = Math.max(0, parseInt($('gxChkMaxwarn')?.value || '0', 10) || 0);
-    const r = checkMdp(parsed, { context: context(parsed), maxwarn });
+    const ver = gromacsVersion(gx.plan().version);
+    const r = checkMdp(parsed, { context: context(parsed), maxwarn, version: ver });
     s.result = r;
     const g = r.grompp;
     const mdrun = r.issues.filter(i => i.source === 'mdrun' && i.severity === 'error').length;
@@ -471,7 +495,7 @@ export function createGromacsCheck(ctx, gx) {
       verdict.className = `gx-verdict ${cls}`;
       verdict.innerHTML = `<i class="fa-solid ${cls === 'is-ok' ? 'fa-circle-check' : cls === 'is-warn' ? 'fa-triangle-exclamation' : 'fa-circle-xmark'}" aria-hidden="true"></i>` +
         `<div><p class="gx-verdict-h">${esc(head)}</p><p class="gx-verdict-c">${parsed.entries.length} option${parsed.entries.length === 1 ? '' : 's'}${counts ? ' · ' : ''}${counts}` +
-        `${advice ? ` <span class="stk-badge">${advice} suggestion${advice === 1 ? '' : 's'}</span>` : ''} <span class="gx-verdict-vs">against GROMACS ${esc(MDP_RELEASE)}</span></p>` +
+        `${advice ? ` <span class="stk-badge">${advice} suggestion${advice === 1 ? '' : 's'}</span>` : ''} <span class="gx-verdict-vs">against GROMACS ${esc(ver === '2025' ? MDP_RELEASE : gromacsVersionInfo(ver).release)}</span></p>` +
         `${note ? `<p class="gx-verdict-raw">${esc(note)}</p>` : ''}</div>`;
     }
     if (issuesHost) {
@@ -491,7 +515,7 @@ export function createGromacsCheck(ctx, gx) {
         : '<p class="sg-cv-empty">No problems found. The checks follow grompp\'s own; run <code>gmx grompp</code> with your topology for the final word.</p>';
     }
     if (explainHost) {
-      const rows = explainMdp(parsed, { context: context(parsed) });
+      const rows = explainMdp(parsed, { context: context(parsed), version: ver });
       explainHost.innerHTML = `<ol class="gx-xl">${rows.filter(x => x.kind !== 'blank').map(x => {
         if (x.kind === 'comment') return '';
         const worst = x.issues.find(i => i.severity === 'error') || x.issues.find(i => i.severity === 'warning');

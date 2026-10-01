@@ -7,7 +7,8 @@ import {
   MDP_RELEASE, MDP_MANUAL, normaliseName, canonicalName, mdpDocUrl, optionInfo, sectionsInOrder, listOptions,
   obsoleteOptions, searchOptions, loadMdpDocs, parseMdp, mdpValue, checkMdp, explainMdp,
   psToSteps, nsToSteps, stepsToPs, formatDuration, pullStart,
-  FORCE_FIELDS, THERMOSTATS, BAROSTATS, STAGES, SYSTEM_TYPES, defaultSettings, generateMdp, generateWorkflow
+  FORCE_FIELDS, THERMOSTATS, BAROSTATS, STAGES, SYSTEM_TYPES, defaultSettings, generateMdp, generateWorkflow,
+  GROMACS_VERSIONS, DEFAULT_GROMACS_VERSION, MDP_VERSION_CHANGES, gromacsVersion, gromacsVersionInfo, versionChanges
 } from '../src/core/gromacs-mdp.js';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -23,8 +24,12 @@ const ANCHORS = fs.readFileSync(path.join(FIXTURES, 'manual-anchors-2025.1.txt')
  * peptide with position restraints available (a few cases, marked `system`,
  * on the coarse-grained stand-in; a grompp that hangs counts as stopping):
  *     GMX_BIN=/path/to/gmx node tools/check-gromacs-grompp.mjs --record
+ * The same cases through grompp 2024.6, 2023.5 and 2022.6 (built from source)
+ * are in broken-mdp-<version>.json, checked with checkMdp's version option.
  */
 const BROKEN = JSON.parse(fs.readFileSync(path.join(FIXTURES, 'broken-mdp.json'), 'utf8')).cases;
+const BROKEN_BY_VERSION = Object.fromEntries(['2024', '2023', '2022'].map(v =>
+  [v, JSON.parse(fs.readFileSync(path.join(FIXTURES, `broken-mdp-${v}.json`), 'utf8'))]));
 
 const anchorOf = (url) => url.slice(url.indexOf('#') + 1);
 
@@ -258,9 +263,28 @@ describe('checkMdp agrees with grompp', () => {
   });
 
   test('the set covers passing and failing files', () => {
-    expect(BROKEN.length).toBe(169);
+    expect(BROKEN.length).toBe(180);
     expect(BROKEN.filter(c => c.grompp.passes).length).toBeGreaterThan(20);
     expect(BROKEN.filter(c => !c.grompp.passes).length).toBeGreaterThan(60);
+  });
+});
+
+describe.each(['2024', '2023', '2022'])('checkMdp agrees with grompp %s', (version) => {
+  const fixture = BROKEN_BY_VERSION[version];
+
+  test('the cases were recorded with that release, all of them', () => {
+    expect(fixture.version).toBe(version);
+    expect(fixture.release.startsWith(`${version}.`)).toBe(true);
+    expect(fixture.cases.map(c => c.name)).toEqual(BROKEN.map(c => c.name));
+  });
+
+  test.each(fixture.cases.map(c => [c.name, c]))('%s', (name, c) => {
+    const r = checkMdp(c.mdp, { ...(c.context ? { context: c.context } : {}), version });
+    expect(r.version).toBe(version);
+    expect(r.grompp.passes).toBe(c.grompp.passes);
+    if (!c.grompp.fatal && name !== 'couple-same' && c.counts !== false) {
+      expect([r.grompp.errors, r.grompp.warnings, r.grompp.notes]).toEqual([c.grompp.errors, c.grompp.warnings, c.grompp.notes]);
+    }
   });
 });
 
@@ -537,6 +561,163 @@ describe('generateMdp', () => {
  * file are in the fixture (tools/check-gromacs-grompp.mjs --record); these
  * pin the messages and the explanations.
  */
+describe('GROMACS versions', () => {
+  const since = (name) => (optionInfo(name) || {}).since || null;
+  const newerThan = (version) => (name) => since(name) !== null && Number(since(name)) > Number(version);
+
+  test('lists the releases newest first, each with the patch release read and its manual', () => {
+    expect(GROMACS_VERSIONS.map(v => v.id)).toEqual(['2025', '2024', '2023', '2022']);
+    expect(DEFAULT_GROMACS_VERSION).toBe('2025');
+    expect(GROMACS_VERSIONS.map(v => v.release)).toEqual([MDP_RELEASE, '2024.6', '2023.5', '2022.6']);
+    expect(gromacsVersionInfo('2023').manual).toBe('https://manual.gromacs.org/2023.5/user-guide/mdp-options.html');
+    expect(gromacsVersionInfo().manual).toBe(MDP_MANUAL);
+    expect(['2023.3', 2023, 'GROMACS 2023', ' 2023 '].map(gromacsVersion)).toEqual(['2023', '2023', '2023', '2023']);
+    // Anything else is the default, not a guess.
+    expect([undefined, null, '', '2021', '2026', 'latest'].map(gromacsVersion)).toEqual(Array(6).fill('2025'));
+  });
+
+  test('what each release lacks names options of the table, added in 2023 to 2025, or a changed default', () => {
+    for (const c of MDP_VERSION_CHANGES) {
+      expect([c.option, optionInfo(c.option) && !optionInfo(c.option).obsolete]).toEqual([c.option, true]);
+      expect(['2023', '2024', '2025']).toContain(c.since);
+      expect(['added', 'default']).toContain(c.change);
+      expect(c.note.length).toBeGreaterThan(10);
+    }
+    expect(since('mass-repartition-factor')).toBe('2024');
+    expect(since('verlet-buffer-pressure-tolerance')).toBe('2024');
+    expect(since('ensemble-temperature-setting')).toBe('2023');
+    expect(since('awh2-growth-factor')).toBe('2024');
+    expect(since('nnpot-active')).toBe('2025');
+    expect(since('tau-t')).toBeNull();
+    expect(optionInfo('tau-p').olderDefault).toEqual({ value: '1', before: '2024' });
+    expect(optionInfo('awh-nsamples-update').olderDefault).toEqual({ value: '10', before: '2025' });
+    expect(versionChanges('2025')).toEqual([]);
+    expect(versionChanges('2024').every(c => c.since === '2025')).toBe(true);
+    const lacks2023 = versionChanges('2023').map(c => c.option);
+    expect(lacks2023).toEqual(expect.arrayContaining(['mass-repartition-factor', 'verlet-buffer-pressure-tolerance', 'tau-p']));
+    expect(lacks2023).not.toContain('ensemble-temperature');
+    expect(versionChanges('2022').map(c => c.option)).toContain('ensemble-temperature');
+  });
+
+  test('listOptions keeps to the options a release reads', () => {
+    expect(listOptions({ version: '2025' })).toEqual(listOptions());
+    const v2023 = listOptions({ version: '2023' });
+    expect(v2023).not.toContain('mass-repartition-factor');
+    expect(v2023).toContain('ensemble-temperature');
+    expect(listOptions({ version: '2022' })).not.toContain('ensemble-temperature');
+    expect(listOptions().length - v2023.length).toBe(MDP_VERSION_CHANGES.filter(c => c.change === 'added' && c.since > '2023').length);
+  });
+
+  test('an option newer than the release is unknown to its grompp, with what to do instead', () => {
+    const text = 'integrator = md\nmass-repartition-factor = 3\n';
+    const old = checkMdp(text, { version: '2023' });
+    const issue = old.issues.find(i => i.id === 'newer-option');
+    expect(issue).toMatchObject({ severity: 'warning', option: 'mass-repartition-factor', line: 2, source: 'grompp' });
+    expect(issue.message).toMatch(/new in GROMACS 2024: grompp 2023 does not know it/);
+    expect(issue.message).toMatch(/HMassRepartition/);
+    expect(old.grompp.passes).toBe(false);
+    expect(old.version).toBe('2023');
+    expect(checkMdp(text, { version: '2024' }).issues.some(i => i.id === 'newer-option')).toBe(false);
+    expect(checkMdp(text).version).toBe('2025');
+    // A family member, and a misspelt name, name the release too.
+    const awh = BROKEN.find(c => c.name === 'version-awh-growth-factor');
+    expect(checkMdp(awh.mdp, { version: '2022' }).issues.find(i => i.id === 'newer-option').option).toBe('awh1-growth-factor');
+    expect(checkMdp('nstxtcouts = 1\n', { version: '2022' }).issues[0].message).toMatch(/not an option of GROMACS 2022/);
+  });
+
+  test('defaults are the release\'s own', () => {
+    const npt = 'integrator = md\ntcoupl = v-rescale\ntc-grps = System\ntau-t = 0.1\nref-t = 300\npcoupl = C-rescale\ncompressibility = 4.5e-5\nref-p = 1\n';
+    expect(checkMdp(npt, { version: '2023' }).settings['tau-p']).toBe(1);
+    expect(checkMdp(npt, { version: '2024' }).settings['tau-p']).toBe(5);
+    const row = (version) => explainMdp('tau-p = 1\n', { version })[0];
+    expect([row('2023').isDefault, row('2023').default]).toEqual([true, '1']);
+    expect([row('2025').isDefault, row('2025').default]).toEqual([false, '5']);
+  });
+
+  test('explainMdp marks an option newer than the release', () => {
+    const rows = explainMdp('integrator = md\nverlet-buffer-pressure-tolerance = -1\n', { version: '2023' });
+    expect(rows[1]).toMatchObject({ name: 'verlet-buffer-pressure-tolerance', status: 'unknown' });
+    expect(rows[1].meaning).toMatch(/^New in GROMACS 2024: grompp 2023 does not know it/);
+    expect(explainMdp('integrator = md\nverlet-buffer-pressure-tolerance = -1\n')[1].status).toBe('ok');
+  });
+
+  test('checks that came and went: C-rescale anisotropic, andersen-massive, deform', () => {
+    const aniso = BROKEN.find(c => c.name === 'crescale-anisotropic').mdp;
+    expect(checkMdp(aniso, { version: '2022' }).issues.find(i => i.id === 'crescale-type').source).toBe('mdrun');
+    expect(checkMdp(aniso, { version: '2023' }).issues.find(i => i.id === 'crescale-type').source).toBe('grompp');
+    const deform = BROKEN.find(c => c.name === 'version-deform-two-groups').mdp;
+    expect(checkMdp(deform, { version: '2023' }).issues.some(i => /deform/.test(i.id))).toBe(false);
+    expect(checkMdp(deform, { version: '2024' }).issues.map(i => i.id)).toContain('deform-tc-grps');
+    const andersen = BROKEN.find(c => c.name === 'version-andersen-massive-constraints').mdp;
+    expect(checkMdp(andersen, { version: '2023' }).issues.map(i => i.id)).toContain('andersen-constraints');
+    expect(checkMdp(andersen, { version: '2024' }).issues.map(i => i.id)).not.toContain('andersen-constraints');
+  });
+
+  test('Martini 3 files leave out verlet-buffer-pressure-tolerance before 2024, and say why', () => {
+    for (const version of ['2022', '2023']) {
+      for (const stage of ['nvt', 'npt', 'prod', 'anneal', 'pull']) {
+        const g = generateMdp({ stage, forceField: 'martini3', version });
+        const v = parseMdp(g.text).values;
+        expect([version, stage, v['verlet-buffer-pressure-tolerance']]).toEqual([version, stage, undefined]);
+        expect(v['verlet-buffer-tolerance']).toBe('-1.0');
+        expect(v.rlist).toBe('1.35');
+        const line = g.text.split('\n').find(l => l.startsWith('verlet-buffer-tolerance'));
+        expect(line).toMatch(new RegExp(`GROMACS ${version} has no verlet-buffer-pressure-tolerance to switch off \\(new in 2024\\)`));
+        expect(g.text).toMatch(new RegExp(`for GROMACS ${version}\\.\\n; Every option: https://manual\\.gromacs\\.org/${version}\\.\\d/`));
+        const r = checkMdp(g.text, { version, context: { posres: g.settings.posres, forceField: 'martini3', system: 'coarse-grained' } });
+        expect([version, stage, r.grompp.errors, r.grompp.warnings]).toEqual([version, stage, 0, 0]);
+        // Nothing to warn about for the release (pulling keeps its own pbcatom advice).
+        expect(g.warnings.filter(w => /GROMACS 20\d\d/.test(w))).toEqual([]);
+      }
+    }
+    for (const version of ['2024', '2025']) {
+      const g = generateMdp({ stage: 'prod', forceField: 'martini3', version });
+      expect(parseMdp(g.text).values['verlet-buffer-pressure-tolerance']).toBe('-1.0');
+      expect(g.text).not.toMatch(/has no verlet-buffer-pressure-tolerance/);
+    }
+  });
+
+  test('hydrogen mass repartitioning needs 2024: older releases keep 2 fs and say so on the dt line', () => {
+    const g = generateMdp({ stage: 'nvt', forceField: 'amber', hmr: true, version: '2023' });
+    const v = parseMdp(g.text).values;
+    expect(v['mass-repartition-factor']).toBeUndefined();
+    expect(v.dt).toBe('0.002');
+    expect(g.settings.hmr).toBe(false);
+    expect(g.warnings.join(' ')).toMatch(/needs GROMACS 2024 or newer.*HMassRepartition/);
+    expect(g.text.split('\n').find(l => l.startsWith('dt '))).toMatch(/no HMR: GROMACS 2023 has no mass-repartition-factor \(new in 2024\)/);
+    const newer = generateMdp({ stage: 'nvt', forceField: 'amber', hmr: true, version: '2024' });
+    expect(parseMdp(newer.text).values['mass-repartition-factor']).toBe('3.0');
+    expect(parseMdp(newer.text).values.dt).toBe('0.004');
+    // 4 fs typed by hand with a 2023 topology repartitioned elsewhere: the advice says how.
+    const typed = generateMdp({ stage: 'nvt', forceField: 'amber', dt: 0.004, version: '2023' });
+    expect(typed.warnings.join(' ')).toMatch(/unless the topology's hydrogen masses are already repartitioned/);
+  });
+
+  test('every preset passes the checker of every release, using only options it reads', () => {
+    for (const { id: version } of GROMACS_VERSIONS) {
+      for (const ff of Object.keys(FORCE_FIELDS)) {
+        for (const stage of Object.keys(STAGES)) {
+          for (const hmr of STAGES[stage].dynamics && FORCE_FIELDS[ff].hmr ? [false, true] : [false]) {
+            for (const barostat of ['npt', 'prod', 'pull'].includes(stage) ? ['c-rescale', 'parrinello-rahman'] : [undefined]) {
+              const g = generateMdp({ stage, forceField: ff, hmr, version, ...(barostat ? { barostat } : {}) });
+              const where = `${version} ${ff} ${stage}${hmr ? ' HMR' : ''} ${barostat || ''}`;
+              expect([where, g.entries.map(e => e.name).filter(newerThan(version))]).toEqual([where, []]);
+              expect([where, g.expected.filter(e => e.severity !== 'note').length]).toEqual([where, ff === 'gromos54a7' ? 1 : 0]);
+              expect([where, g.settings.version]).toEqual([where, version]);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  test('a workflow carries the release to every stage', () => {
+    const wf = generateWorkflow({ forceField: 'martini3', version: '2023' });
+    expect(wf.map(g => g.settings.version)).toEqual(['2023', '2023', '2023', '2023']);
+    expect(wf.some(g => /verlet-buffer-pressure-tolerance\s*=/.test(g.text))).toBe(false);
+  });
+});
+
 describe('agreement with grompp on corner cases', () => {
   const ids = (text, options) => checkMdp(text, options).issues.map(i => `${i.severity}:${i.id}`);
   const B = 'integrator = md\ndt = 0.002\nnsteps = 1000\ncoulombtype = PME\nrcoulomb = 1.0\nrvdw = 1.0\nconstraints = h-bonds\n' +

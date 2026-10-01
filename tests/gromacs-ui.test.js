@@ -191,6 +191,66 @@ describe('resolveWorkflow: choices', () => {
   });
 });
 
+describe('the GROMACS version chosen under System', () => {
+  test('2025 unless chosen; every plan says which', () => {
+    expect(defaultGxState().gromacsVersion).toBe('2025');
+    expect(resolveWorkflow(defaultGxState()).version).toBe('2025');
+    expect(resolveWorkflow(state({ gromacsVersion: '2023.3' })).version).toBe('2023');
+  });
+
+  test('Martini 3 for GROMACS 2023: no verlet-buffer-pressure-tolerance, and every stage passes grompp 2023', () => {
+    for (const version of ['2022', '2023']) {
+      const wf = resolveWorkflow(state({ forceField: 'martini3', system: 'solution', tcGroups: 'System', gromacsVersion: version }));
+      for (const p of wf.stages) {
+        expect([version, p.key, values(p.text)['verlet-buffer-pressure-tolerance']]).toEqual([version, p.key, undefined]);
+        expect([version, p.key, p.errors, p.maxwarn, p.grompp.passes]).toEqual([version, p.key, [], 0, true]);
+        expect(p.text).toContain(`for GROMACS ${version}.`);
+      }
+    }
+    const now = byKey(resolveWorkflow(state({ forceField: 'martini3', system: 'solution', tcGroups: 'System' })));
+    expect(values(now.prod.text)['verlet-buffer-pressure-tolerance']).toBe('-1.0');
+  });
+
+  test('HMR is off before 2024, with the reason and what to do instead', () => {
+    const wf = resolveWorkflow(state({ hmr: true, gromacsVersion: '2023' }));
+    const p = byKey(wf);
+    expect(wf.hmr).toBe(false);
+    expect(wf.dt).toBe(0.002);
+    expect(values(p.prod.text)['mass-repartition-factor']).toBeUndefined();
+    expect(values(p.prod.text).dt).toBe('0.002');
+    expect(wf.warnings.join(' ')).toMatch(/GROMACS 2023 has no mass-repartition-factor \(new in 2024\).*HMassRepartition/);
+    expect(wf.stages.every(x => x.maxwarn === 0 && x.grompp.passes)).toBe(true);
+    const later = resolveWorkflow(state({ hmr: true, gromacsVersion: '2024' }));
+    expect([later.hmr, later.dt, values(byKey(later).prod.text)['mass-repartition-factor']]).toEqual([true, 0.004, '3.0']);
+  });
+
+  test('an option set by hand that the release does not read counts as a grompp warning', () => {
+    const wf = resolveWorkflow(state({ gromacsVersion: '2023', overrides: { prod: { 'verlet-buffer-pressure-tolerance': '0.5' } } }));
+    const prod = byKey(wf).prod;
+    expect(prod.maxwarn).toBe(1);
+    expect(prod.issues.find(i => i.id === 'newer-option').option).toBe('verlet-buffer-pressure-tolerance');
+    expect(prod.maxwarnReasons[0]).toMatch(/new in GROMACS 2024/);
+  });
+
+  test('the README names the release and links its manual', () => {
+    const wf = resolveWorkflow(state({ gromacsVersion: '2022' }));
+    const md = workflowReadme(wf, { files: [], date: new Date(2026, 0, 2) });
+    expect(md).toMatch(/for GROMACS 2022, 2026-01-02\. The files use only the options GROMACS 2022 reads/);
+    expect(md).toContain('grompp 2022.6 says');
+    expect(md).toContain('- Every .mdp option: https://manual.gromacs.org/2022.6/user-guide/mdp-options.html');
+    expect(md).toContain('https://manual.gromacs.org/2022.6/user-guide/mdrun-performance.html');
+    expect(workflowReadme(resolveWorkflow(state()), { files: [] })).toContain('https://manual.gromacs.org/2025.1/user-guide/mdp-options.html');
+  });
+
+  test('an .mdp with repartitioned hydrogens, opened with 2023 chosen, says the builder leaves it out', () => {
+    const text = resolveWorkflow(state({ hmr: true })).stages.find(p => p.key === 'prod').text;
+    const guess = builderFromMdp(text, state({ gromacsVersion: '2023' }));
+    expect(guess.shared.hmr).toBe(true);
+    expect(guess.notes.join(' ')).toMatch(/needs GROMACS 2024 or newer; with GROMACS 2023/);
+    expect(builderFromMdp(text, state()).notes.join(' ')).not.toMatch(/GROMACS 2024 or newer/);
+  });
+});
+
 describe('applyOverrides', () => {
   const text = resolveWorkflow(defaultGxState()).stages[3].text;
 

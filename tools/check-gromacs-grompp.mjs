@@ -20,8 +20,13 @@
  *
  *     GMX_BIN=/path/to/gmx node tools/check-gromacs-grompp.mjs [--verbose] [--keep] [--record]
  *
+ * Any GROMACS from 2022 on: the files are generated, and checkMdp answers,
+ * for the release GMX_BIN reports (gmx --version), or the one given with
+ * --gromacs-version (2022, 2023, 2024 or 2025).
+ *
  * --record  write grompp's verdicts and messages for the broken files to
- *           tests/fixtures/gromacs/broken-mdp.json, which the Jest tests read
+ *           tests/fixtures/gromacs/broken-mdp.json (GROMACS 2025) or
+ *           broken-mdp-<version>.json (older releases), which the Jest tests read
  * --workdir reuse a directory (the systems are built once)
  *
  * Exits 0 when nothing fails, or when GMX_BIN is unset (nothing to check).
@@ -35,16 +40,17 @@ import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
-  generateMdp, checkMdp, parseMdp, optionInfo, listOptions, STAGES, FORCE_FIELDS, normaliseName
+  generateMdp, checkMdp, parseMdp, optionInfo, listOptions, STAGES, FORCE_FIELDS, normaliseName,
+  gromacsVersion, GROMACS_VERSIONS, DEFAULT_GROMACS_VERSION
 } from '../src/core/gromacs-mdp.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const FIXTURE = path.join(ROOT, 'tests', 'fixtures', 'gromacs', 'broken-mdp.json');
 const GMX = process.env.GMX_BIN || '';
 const verbose = process.argv.includes('--verbose');
 const keep = process.argv.includes('--keep');
 const record = process.argv.includes('--record');
-const argWorkdir = (() => { const i = process.argv.indexOf('--workdir'); return i > -1 ? process.argv[i + 1] : ''; })();
+const argOf = (name) => { const i = process.argv.indexOf(name); return i > -1 ? process.argv[i + 1] : ''; };
+const argWorkdir = argOf('--workdir');
 
 if (!GMX) {
   console.log('GMX_BIN is not set; nothing to check.');
@@ -58,6 +64,17 @@ function gmx(args, cwd, input, timeout = 300000) {
   const r = spawnSync(GMX, [...args, '-quiet'], { cwd, input, encoding: 'utf8', maxBuffer: 1 << 26, timeout });
   return { status: r.status, out: `${r.stdout || ''}\n${r.stderr || ''}`, timedOut: r.status === null && !!r.signal };
 }
+
+/* The release GMX_BIN is, and the one files are written and checked for. */
+const GMX_RELEASE = (gmx(['--version'], work).out.match(/GROMACS version:\s+(\S+)/) || [])[1] || '';
+const VERSION = gromacsVersion(argOf('--gromacs-version') || GMX_RELEASE);
+if (!GROMACS_VERSIONS.some(v => GMX_RELEASE.startsWith(v.id)) && !argOf('--gromacs-version')) {
+  console.log(`GMX_BIN reports GROMACS ${GMX_RELEASE || '(unknown)'}, which is not one of ${GROMACS_VERSIONS.map(v => v.id).join(', ')}; ` +
+    `checking as ${VERSION}. Pass --gromacs-version to choose.`);
+}
+const FIXTURE = path.join(ROOT, 'tests', 'fixtures', 'gromacs',
+  VERSION === DEFAULT_GROMACS_VERSION ? 'broken-mdp.json' : `broken-mdp-${VERSION}.json`);
+console.log(`grompp ${GMX_RELEASE || '?'}: files written and checked for GROMACS ${VERSION}.`);
 
 /* ------------------------------------------------------------------ *
  * Test systems
@@ -329,22 +346,23 @@ function presetCases() {
       const baros = ['npt', 'prod', 'pull'].includes(stage) ? ['c-rescale', 'parrinello-rahman'] : [undefined];
       for (const hmr of hmrs) {
         for (const barostat of baros) {
-          const s = { stage, forceField: ff, hmr };
+          const s = { stage, forceField: ff, hmr, version: VERSION };
           if (barostat) s.barostat = barostat;
           if (stage === 'pull') s.pull = { mode: 'steered' };
           cases.push({ name: `${ff} ${stage}${barostat ? ` ${barostat}` : ''}${hmr ? ' HMR' : ''}`, ff, settings: s });
         }
       }
     }
-    cases.push({ name: `${ff} npt membrane`, ff, settings: { stage: 'npt', forceField: ff, system: 'membrane' } });
-    cases.push({ name: `${ff} prod membrane`, ff, settings: { stage: 'prod', forceField: ff, system: 'membrane' } });
-    cases.push({ name: `${ff} prod anisotropic`, ff, settings: { stage: 'prod', forceField: ff, couplingType: 'anisotropic', barostat: 'parrinello-rahman' } });
-    cases.push({ name: `${ff} prod nose-hoover`, ff, settings: { stage: 'prod', forceField: ff, thermostat: 'nose-hoover', barostat: 'parrinello-rahman' } });
-    cases.push({ name: `${ff} nvt solution`, ff, settings: { stage: 'nvt', forceField: ff, system: 'solution' } });
-    cases.push({ name: `${ff} anneal npt`, ff, settings: { stage: 'anneal', forceField: ff, anneal: { barostat: 'c-rescale' } } });
-    cases.push({ name: `${ff} pull umbrella direction`, ff, settings: { stage: 'pull', forceField: ff, pull: { mode: 'umbrella', geometry: 'direction', dim: 'N N Y', vec: '0 0 1' } } });
+    const version = VERSION;
+    cases.push({ name: `${ff} npt membrane`, ff, settings: { stage: 'npt', forceField: ff, system: 'membrane', version } });
+    cases.push({ name: `${ff} prod membrane`, ff, settings: { stage: 'prod', forceField: ff, system: 'membrane', version } });
+    cases.push({ name: `${ff} prod anisotropic`, ff, settings: { stage: 'prod', forceField: ff, couplingType: 'anisotropic', barostat: 'parrinello-rahman', version } });
+    cases.push({ name: `${ff} prod nose-hoover`, ff, settings: { stage: 'prod', forceField: ff, thermostat: 'nose-hoover', barostat: 'parrinello-rahman', version } });
+    cases.push({ name: `${ff} nvt solution`, ff, settings: { stage: 'nvt', forceField: ff, system: 'solution', version } });
+    cases.push({ name: `${ff} anneal npt`, ff, settings: { stage: 'anneal', forceField: ff, anneal: { barostat: 'c-rescale' }, version } });
+    cases.push({ name: `${ff} pull umbrella direction`, ff, settings: { stage: 'pull', forceField: ff, pull: { mode: 'umbrella', geometry: 'direction', dim: 'N N Y', vec: '0 0 1' }, version } });
     // Central atoms of Chain_A and Chain_B, with the previous-step COM as reference.
-    cases.push({ name: `${ff} pull pbcatom`, ff, settings: { stage: 'pull', forceField: ff, pull: { pbcatom1: 3, pbcatom2: ff === 'martini3' ? 8 : 60 } } });
+    cases.push({ name: `${ff} pull pbcatom`, ff, settings: { stage: 'pull', forceField: ff, pull: { pbcatom1: 3, pbcatom2: ff === 'martini3' ? 8 : 60 }, version } });
   }
   return cases;
 }
@@ -567,7 +585,26 @@ const BROKEN = [
   ['rvdw-zero', 'rvdw = 0 with PME: grompp crashes sizing the buffer.', mdp({ rvdw: '0' })],
   ['ewald-rtol-negative', 'ewald-rtol = -1: grompp never finishes.', mdp({ 'ewald-rtol': '-1' }), null, { timeout: 20000 }],
   ['vdw-exact-cutoff', 'vdw-modifier = Exact-cutoff for dynamics.', mdp({}, ['vdw-modifier = Exact-cutoff'])],
-  ['epsilon-r-nan', 'epsilon-r = nan for dynamics.', mdp({ 'epsilon-r': 'nan' })]
+  ['epsilon-r-nan', 'epsilon-r = nan for dynamics.', mdp({ 'epsilon-r': 'nan' })],
+  // What differs between GROMACS releases (MDP_VERSION_CHANGES and the
+  // checks that came and went), each passing in some and stopping others.
+  ['version-pressure-buffer', 'A fixed rlist with verlet-buffer-pressure-tolerance = -1, as Martini 3 files have (new in 2024).',
+    mdp({ 'verlet-buffer-tolerance': '-1', rlist: '1.1', 'verlet-buffer-pressure-tolerance': '-1' })],
+  ['version-ensemble-temperature', 'A constant ensemble temperature (new in 2023).',
+    mdp({ 'ensemble-temperature-setting': 'constant', 'ensemble-temperature': '300' })],
+  ['version-awh-growth-factor', 'An AWH growth factor (new in 2024).', mdp({}, [...AWH, 'awh1-growth-factor = 3'])],
+  ['version-colvars-off', 'colvars-active = no (the Colvars module is new in 2024).', mdp({}, ['colvars-active = no'])],
+  ['version-nnpot-off', 'nnpot-active = no (neural-network potentials are new in 2025).', mdp({}, ['nnpot-active = no'])],
+  ['version-lambda-counts', 'init-lambda-counts with expanded ensemble off (new in 2025).', mdp({}, ['init-lambda-counts = 0 0'])],
+  ['version-tau-p-default', 'C-rescale without tau-p every 150 steps: the default is 5 ps from 2024 on, 1 ps before.',
+    mdp({ ...NPT, 'tau-p': null, nstpcouple: '150' })],
+  ['version-andersen-massive-constraints', 'andersen-massive with constraints: refused before 2024.',
+    mdp({ integrator: 'md-vv', tcoupl: 'andersen-massive', 'tau-t': '1 1', nstcalcenergy: '1', nstenergy: '100', nstlog: '100' })],
+  ['version-cutoffs-zero', 'rcoulomb = rvdw = 0 with the Verlet scheme: refused from 2024.3 on.', mdp({ coulombtype: 'Cut-off', rcoulomb: '0', rvdw: '0', DispCorr: 'no' })],
+  ['version-deform-two-groups', 'Box deformation with two temperature groups: refused from 2024 on.',
+    mdp({ 'gen-vel': 'no', continuation: 'yes', deform: '0 0 0 0.01 0 0' })],
+  ['version-nstcalcenergy-auto', 'nstcalcenergy = -1 for dynamics: 2022 chooses it itself, later releases use 100 and note it.',
+    mdp({ nstcalcenergy: '-1', nstenergy: '50', nstlog: '50' })]
 ];
 
 /* ------------------------------------------------------------------ *
@@ -644,7 +681,7 @@ const recorded = [];
 let agree = 0;
 for (const [name, description, text, context, opts = {}] of BROKEN) {
   const r = grompp(dirs[opts.system || 'amber'], text, [], opts.timeout);
-  const mine = checkMdp(text, context ? { context } : {});
+  const mine = checkMdp(text, context ? { context, version: VERSION } : { version: VERSION });
   const same = mine.grompp.passes === r.passes;
   if (same) agree += 1;
   else {
@@ -670,15 +707,22 @@ for (const [name, description, text, context, opts = {}] of BROKEN) {
 console.log(`Broken files: checkMdp agrees with grompp on ${agree} of ${BROKEN.length}.`);
 
 /* 3 */
-const d = grompp(dirs.amber, `${GATES_ON.join('\n')}\n`);
+// Switches of modules this release does not have are left out.
+const gatesOn = GATES_ON.filter(l => {
+  const info = optionInfo(l.split('=')[0].trim());
+  return !info || !info.since || Number(info.since) <= Number(VERSION);
+});
+const d = grompp(dirs.amber, `${gatesOn.join('\n')}\n`);
 const written = mdoutValues(d.mdout);
 let defaultsChecked = 0;
 let defaultsBad = 0;
-const setByCase = new Set(GATES_ON.map(l => normaliseName(l.split('=')[0].trim())));
+const setByCase = new Set(gatesOn.map(l => normaliseName(l.split('=')[0].trim())));
 /* The density-guided module writes these two to mdout.mdp only when they are set. */
 const NOT_IN_MDOUT = new Set(['density-guided-simulation-shift-vector', 'density-guided-simulation-transformation-matrix']);
-for (const name of listOptions()) {
+for (const name of listOptions({ version: VERSION })) {
   const info = optionInfo(name);
+  // The default this release uses (tau-p was 1 ps before 2024).
+  if (info.olderDefault && Number(VERSION) < Number(info.olderDefault.before)) info.default = info.olderDefault.value;
   const k = normaliseName(info.gromppName || name);
   if (setByCase.has(k) || NOT_IN_MDOUT.has(name)) continue;
   const w = written[k];
@@ -723,7 +767,7 @@ if (process.argv.includes('--mdrun')) {
     if (!cg) chain.push(['prod-hmr', { stage: 'prod', ...short, hmr: true }, 'npt.gro', 'npt.cpt']);
     for (const [name, settings, conf, cpt] of chain) {
       runs += 1;
-      const g = generateMdp({ forceField: ff, ...settings });
+      const g = generateMdp({ forceField: ff, ...settings, version: VERSION });
       fs.writeFileSync(path.join(dir, `${name}.mdp`), g.text);
       const gr = gmx(['grompp', '-f', `${name}.mdp`, '-c', conf, '-r', conf, '-p', 'topol.top', '-n', 'index.ndx',
         '-o', `${name}.tpr`, ...(cpt ? ['-t', cpt] : []), ...maxwarn], dir);
@@ -747,10 +791,11 @@ if (process.argv.includes('--mdrun')) {
 
 if (record) {
   const payload = {
-    about: 'Verdicts of real grompp (GROMACS ' + (gmx(['--version'], work).out.match(/GROMACS version:\s+(\S+)/) || [])[1] +
-      ', mixed precision) on the broken-file cases of tools/check-gromacs-grompp.mjs, run with -maxwarn 0 on a ' +
-      'solvated AMBER99SB-ILDN peptide with position restraints available. Regenerate with GMX_BIN=... node ' +
-      'tools/check-gromacs-grompp.mjs --record.',
+    about: `Verdicts of real grompp (GROMACS ${GMX_RELEASE}, mixed precision) on the broken-file cases of ` +
+      'tools/check-gromacs-grompp.mjs, run with -maxwarn 0 on a solvated AMBER99SB-ILDN peptide with position restraints ' +
+      'available. Regenerate with GMX_BIN=... node tools/check-gromacs-grompp.mjs --record.',
+    version: VERSION,
+    release: GMX_RELEASE,
     cases: recorded
   };
   fs.writeFileSync(FIXTURE, `${JSON.stringify(payload, null, 1)}\n`);

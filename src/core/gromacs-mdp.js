@@ -91,6 +91,123 @@ const OBSOLETE = new Map(Object.entries(TABLE.obsolete).map(([n, [replacement, r
   name: n, replacement: replacement || null, reason: reason || null
 }]));
 
+/* ------------------------------------------------------------------ *
+ * GROMACS versions
+ * ------------------------------------------------------------------ */
+
+const versionRecord = (id, release, note = '') => Object.freeze({
+  id, label: `GROMACS ${id}`, release, note,
+  manual: `https://manual.gromacs.org/${release}/user-guide/mdp-options.html`
+});
+
+/**
+ * The GROMACS releases files are written for and checked as, newest first.
+ * The option table is GROMACS 2025.1's; what the older releases do not
+ * read, or read differently, is in {@link MDP_VERSION_CHANGES}. It was found
+ * by comparing the readers (readir.cpp with readpull.cpp, readrot.cpp, the
+ * AWH reader and the MDModules' options) and the checks of the last patch
+ * release of each series, `release` below, and confirmed with their grompp.
+ * From 2022 to 2025 options were only added, never renamed or removed, and
+ * no value changed its spelling; two defaults changed.
+ */
+export const GROMACS_VERSIONS = Object.freeze([
+  versionRecord('2025', TABLE.release),
+  versionRecord('2024', '2024.6'),
+  versionRecord('2023', '2023.5', 'Ubuntu 24.04 packages GROMACS 2023.3'),
+  versionRecord('2022', '2022.6')
+]);
+const VERSION_BY_ID = new Map(GROMACS_VERSIONS.map(v => [v.id, v]));
+
+/** The version files are written for unless another is chosen. */
+export const DEFAULT_GROMACS_VERSION = '2025';
+
+/**
+ * The version a choice means: '2023', 2023, '2023.3' and 'GROMACS 2023' are
+ * all 2023. Anything that is not one of {@link GROMACS_VERSIONS} is the default.
+ *
+ * @param {string|number} [version]
+ * @returns {string} e.g. '2023'
+ */
+export function gromacsVersion(version) {
+  const m = /(20\d\d)/.exec(String(version == null ? '' : version));
+  return m && VERSION_BY_ID.has(m[1]) ? m[1] : DEFAULT_GROMACS_VERSION;
+}
+
+/** The record of a version: label, the patch release read, its manual. */
+export function gromacsVersionInfo(version) {
+  return VERSION_BY_ID.get(gromacsVersion(version));
+}
+
+const added = (since, note, ...options) => options.map(option => Object.freeze({ option, since, change: 'added', note }));
+
+/**
+ * What changed in the .mdp options from GROMACS 2022 to 2025. `added`:
+ * grompp reads the option from release `since` on; an older grompp does not
+ * know it and warns "Unknown left-hand", which stops it without -maxwarn.
+ * `default`: the default was `before` in the releases before `since`.
+ * Numbered families are named by their first member (awh1-growth-factor).
+ */
+export const MDP_VERSION_CHANGES = Object.freeze([
+  ...added('2023', 'the ensemble temperature that C-rescale, AWH and MTTK work with; before 2023 they take the ref-t of the temperature groups',
+    'ensemble-temperature-setting', 'ensemble-temperature'),
+  ...added('2024', 'hydrogen mass repartitioning by grompp; before 2024 the topology itself has to carry the repartitioned masses',
+    'mass-repartition-factor'),
+  ...added('2024', 'a Verlet buffer that also bounds the error in the pressure; before 2024 only the energy drift sets the buffer',
+    'verlet-buffer-pressure-tolerance'),
+  ...added('2024', 'the flow profile of deform, which corrects velocities for shear flow from 2024 on', 'deform-init-flow'),
+  ...added('2024', 'AWH growth control; before 2024 the growth factor was fixed at 3 and the target was not scaled',
+    'awh1-growth-factor', 'awh1-target-metric-scaling', 'awh1-target-metric-scaling-limit'),
+  ...added('2024', 'the Colvars module built into GROMACS', 'colvars-active', 'colvars-configfile', 'colvars-seed'),
+  ...added('2025', 'expanded-ensemble counts carried over between runs', 'init-lambda-counts', 'init-wl-histogram-counts'),
+  ...added('2025', 'neural-network potentials', 'nnpot-active', 'nnpot-modelfile', 'nnpot-input-group',
+    'nnpot-model-input1', 'nnpot-model-input2', 'nnpot-model-input3', 'nnpot-model-input4'),
+  Object.freeze({ option: 'tau-p', since: '2024', change: 'default', before: '1',
+    note: 'the default pressure-coupling time is 5 ps from 2024 on, 1 ps before' }),
+  Object.freeze({ option: 'awh-nsamples-update', since: '2025', change: 'default', before: '10',
+    note: 'the default is 100 samples per AWH update from 2025 on, 10 before' })
+]);
+
+/* What to do instead, for a file meant for a release that lacks the option. */
+const VERSION_ADVICE = {
+  'ensemble-temperature-setting': 'Leave it out: before 2023, C-rescale, AWH and MTTK take the ref-t of the temperature groups.',
+  'ensemble-temperature': 'Leave it out: before 2023, C-rescale, AWH and MTTK take the ref-t of the temperature groups.',
+  'mass-repartition-factor': 'Before 2024, repartition the hydrogen masses in the topology itself (for example with ParmEd\'s ' +
+    'HMassRepartition) and leave the option out.',
+  'verlet-buffer-pressure-tolerance': 'Leave it out: before 2024 verlet-buffer-tolerance (or a fixed rlist) alone sets the buffer.',
+  'deform-init-flow': 'Leave it out: before 2024 deform keeps no flow profile.',
+  'awh1-growth-factor': 'Leave it out: before 2024 the growth factor is 3.',
+  'awh1-target-metric-scaling': 'Leave it out: before 2024 the target is not scaled by the friction metric.',
+  'awh1-target-metric-scaling-limit': 'Leave it out: before 2024 the target is not scaled by the friction metric.',
+  'colvars-active': 'Before 2024, Colvars needs a GROMACS patched with the Colvars library.',
+  'nnpot-active': 'Neural-network potentials need GROMACS 2025.'
+};
+const ADDED_IN = new Map(MDP_VERSION_CHANGES.filter(c => c.change === 'added').map(c => [c.option, c]));
+const DEFAULT_BEFORE = new Map(MDP_VERSION_CHANGES.filter(c => c.change === 'default').map(c => [c.option, c]));
+
+/* Whether the grompp of a version reads a row of the table. */
+function rowInVersion(row, version) {
+  const c = ADDED_IN.get(row.n);
+  return !c || Number(version) >= Number(c.since);
+}
+
+/* A row's default in a version. */
+function rowDefault(row, version) {
+  const c = DEFAULT_BEFORE.get(row.n);
+  return c && Number(version) < Number(c.since) ? c.before : row.d;
+}
+
+/**
+ * What a version lacks or reads differently, compared with the newest:
+ * the {@link MDP_VERSION_CHANGES} after it.
+ *
+ * @param {string|number} version
+ * @returns {Array<{option:string, since:string, change:'added'|'default', note:string, before?:string}>}
+ */
+export function versionChanges(version) {
+  const v = Number(gromacsVersion(version));
+  return MDP_VERSION_CHANGES.filter(c => Number(c.since) > v);
+}
+
 /**
  * Find the option a name refers to, as grompp would. Numbered family members
  * (`pull-coord2-k`) resolve to their family with the index filled in.
@@ -246,6 +363,10 @@ function matchEnumValue(row, raw) {
  * @property {string|null} gromppDefault - Default as grompp writes it to mdout.mdp,
  *   when that differs from `default`: an alias (Potential-shift-Verlet for
  *   Potential-shift), or a value grompp replaces (awh1-dim1-diffusion: 0, run as 1e-5).
+ * @property {string|null} since - The first GROMACS release that reads the
+ *   option, when it is newer than 2022 (see {@link MDP_VERSION_CHANGES}).
+ * @property {{value:string, before:string}|null} olderDefault - The default in
+ *   the releases before `before`, when it changed (tau-p: 1 before 2024).
  */
 export function optionInfo(name) {
   const hit = lookup(name);
@@ -314,7 +435,9 @@ function expand(row, hit = { name: row.n, index: [] }) {
     gromppName: row.gn || null,
     docName: row.dn || null,
     docDefault: row.dd === undefined ? null : row.dd,
-    gromppDefault: row.gd || null
+    gromppDefault: row.gd || null,
+    since: ADDED_IN.has(row.n) ? ADDED_IN.get(row.n).since : null,
+    olderDefault: DEFAULT_BEFORE.has(row.n) ? { value: DEFAULT_BEFORE.get(row.n).before, before: DEFAULT_BEFORE.get(row.n).since } : null
   };
 }
 
@@ -366,12 +489,15 @@ export function sectionsInOrder(options = {}) {
 /**
  * Every option, in the order of the manual.
  *
- * @param {{section?:string, undocumented?:boolean}} [options]
+ * @param {{section?:string, undocumented?:boolean, version?:string}} [options] -
+ *   `version`: only the options that GROMACS release reads.
  * @returns {string[]}
  */
 export function listOptions(options = {}) {
   const { section = null, undocumented = true } = options;
-  return ROWS.filter(r => (!section || SECTIONS[r.s].id === section) && (undocumented || !r.x)).map(r => r.n);
+  const version = options.version ? gromacsVersion(options.version) : null;
+  return ROWS.filter(r => (!section || SECTIONS[r.s].id === section) && (undocumented || !r.x) &&
+    (!version || rowInVersion(r, version))).map(r => r.n);
 }
 
 /**
@@ -724,16 +850,20 @@ export function mdpValue(parsed, name) {
  *   = yes, the checks set_pull_init makes of the pull groups and of how far
  *   apart they start).
  * @param {number} [options.maxwarn=0] - grompp -maxwarn.
+ * @param {string} [options.version='2025'] - The GROMACS release whose grompp
+ *   to answer for, one of {@link GROMACS_VERSIONS}: options it does not read
+ *   are unknown to it, defaults and checks are its own.
  * @returns {{issues:MdpIssue[], parsed:ReturnType<typeof parseMdp>,
  *   grompp:{passes:boolean, errors:number, warnings:number, notes:number},
- *   settings:Object<string,*>}} `settings` holds every option as grompp
- *   resolved it (after its own adjustments, e.g. nstcalcenergy).
+ *   settings:Object<string,*>, version:string}} `settings` holds every option
+ *   as grompp resolved it (after its own adjustments, e.g. nstcalcenergy).
  */
 export function checkMdp(input, options = {}) {
   const parsed = typeof input === 'string' || input == null ? parseMdp(input) : input;
   const ctx = options.context || {};
   const issues = [];
-  const run = new Checker(parsed, ctx, issues);
+  const version = gromacsVersion(options.version);
+  const run = new Checker(parsed, ctx, issues, version);
   run.all();
   const counted = issues.filter(i => i.source === 'grompp');
   const errors = counted.filter(i => i.severity === 'error').length;
@@ -744,7 +874,8 @@ export function checkMdp(input, options = {}) {
     issues,
     parsed,
     grompp: { passes: errors === 0 && warnings <= maxwarn, errors, warnings, notes },
-    settings: run.settings()
+    settings: run.settings(),
+    version
   };
 }
 
@@ -777,20 +908,29 @@ const MIN_STEPS_PER_PERIOD = 20;
 const GMX_REAL_EPS = 1.19209290e-07; // GMX_FLOAT_EPS: mixed precision, the usual build
 const BOLTZ = 0.0083144626181532; // kJ mol^-1 K^-1
 
+function gcd(x, y) {
+  let a = Math.abs(x);
+  let b = Math.abs(y);
+  while (b) [a, b] = [b, a % b];
+  return a;
+}
+
 /* lcd3 (md_support.cpp): the largest number dividing each positive input;
    0 when no input is positive, where grompp stops. */
 function lcd3(a, b, c) {
   // GROMACS counts down from the smallest input; that number is the greatest
   // common divisor of the positive inputs, found here without the loop.
-  const gcd = (x, y) => { while (y) [x, y] = [y, x % y]; return x; };
   return [a, b, c].filter(x => x > 0).reduce(gcd, 0);
 }
 
 class Checker {
-  constructor(parsed, ctx, issues) {
+  constructor(parsed, ctx, issues, version = DEFAULT_GROMACS_VERSION) {
     this.parsed = parsed;
     this.ctx = ctx;
     this.issues = issues;
+    // The release whose grompp this is, as a number for comparisons.
+    this.version = version;
+    this.ver = Number(version);
     this.byKey = new Map();
     for (const e of parsed.entries) {
       if (e.empty || e.duplicate) continue;
@@ -833,7 +973,7 @@ class Checker {
     let value;
     switch (row.k) {
       case 'integer': {
-        if (raw === null) { value = row.df ? null : Number(row.d); break; }
+        if (raw === null) { value = row.df ? null : Number(rowDefault(row, this.version)); break; }
         if (this.isModule(row)) {
           // The options framework (fromString<int>) refuses what does not fit.
           value = strictInt(raw);
@@ -859,7 +999,7 @@ class Checker {
         break;
       }
       case 'real': {
-        if (raw === null) { value = row.df ? null : Number(row.d); break; }
+        if (raw === null) { value = row.df ? null : Number(rowDefault(row, this.version)); break; }
         const r = cReal(raw);
         if (!r.ok) {
           this.add('error', 'not-real', name, `${name} needs a number, but "${raw}" is not one` +
@@ -910,7 +1050,7 @@ class Checker {
       `grompp stops; use one of: ${shown.join(', ')}` +
       (this.isModule(row) ? ', written exactly so (this option is case-sensitive)' : '') + '.';
     if (rejected) {
-      message = `"${raw}" is how the GROMACS manual spells it, but grompp ${MDP_RELEASE} does not accept it: ${rejected[3][1]}`;
+      message = `"${raw}" is how the GROMACS manual spells it, but grompp ${this.version} does not accept it: ${rejected[3][1]}`;
     } else if (/^(adress|implicit-solvent)$/.test(name)) {
       message = `${name === 'adress' ? 'AdResS' : 'Implicit solvent'} was removed from GROMACS; grompp accepts only ${name} = no.`;
     } else {
@@ -928,6 +1068,7 @@ class Checker {
     const out = {};
     // Only the members with as many indices as given: awh{N}- is not awh{N}-dim{M}-.
     for (const fam of FAMILIES.filter(f => f.template.startsWith(template) && f.slots.length === index.length)) {
+      if (!rowInVersion(fam.row, this.version)) continue;
       let j = 0;
       const name = fam.template.replace(/\{[NM]\}/g, () => index[j++]);
       out[fam.row.n] = this.read(name, fam.row);
@@ -1038,6 +1179,8 @@ class Checker {
     for (const row of ROWS) {
       if (row.f) continue;
       if (row.g && !gate[row.g]) continue;
+      // An option newer than this grompp is unknown to it (unknownNames).
+      if (!rowInVersion(row, this.version)) continue;
       if (this.v[row.n] !== undefined) continue;
       this.read(row.n, row);
     }
@@ -1104,6 +1247,13 @@ class Checker {
         continue;
       }
       const hit = lookup(e.key);
+      if (hit && !rowInVersion(hit.row, this.version)) {
+        const since = ADDED_IN.get(hit.row.n).since;
+        this.add('warning', 'newer-option', hit.name, `${hit.name} is new in GROMACS ${since}: grompp ${this.version} does not know it and ` +
+          `warns "Unknown left-hand '${e.key}' in parameter file", which stops it unless -maxwarn allows it. ` +
+          `${VERSION_ADVICE[hit.row.n] || `Leave it out for GROMACS ${this.version}, or run GROMACS ${since} or newer.`}`, { line: e.line });
+        continue;
+      }
       if (hit) {
         this.add('warning', 'inactive', hit.name, `${this.whyUnread(hit)} and warns "Unknown left-hand '${e.key}' in parameter file".`, { line: e.line });
         continue;
@@ -1112,13 +1262,13 @@ class Checker {
       if (key(e.key) === 'LMCMCMOVE') {
         hint = ' The manual documents it as lmc-mc-move, but grompp reads lmc-move.';
       } else {
-        let near = nearest(e.key, [...ROWS.map(r => r.n), ...[...OBSOLETE.values()].map(o => o.name)]);
+        let near = nearest(e.key, [...ROWS.filter(r => rowInVersion(r, this.version)).map(r => r.n), ...[...OBSOLETE.values()].map(o => o.name)]);
         // A near miss of an old name points at its replacement.
         const old = near && !ROW_BY_NAME.has(near) ? OBSOLETE.get(key(near)) : null;
         if (old) near = old.replacement || '';
         if (near) hint = ` Did you mean ${near}?`;
       }
-      this.add('warning', 'unknown', null, `"${e.key}" is not an option of GROMACS ${MDP_RELEASE}; grompp warns ` +
+      this.add('warning', 'unknown', null, `"${e.key}" is not an option of GROMACS ${this.version}; grompp warns ` +
         `"Unknown left-hand '${e.key}' in parameter file" and stops unless -maxwarn allows it.${hiddenCharacters(e.key)}${hint}`, { line: e.line });
     }
   }
@@ -1236,8 +1386,9 @@ class Checker {
           this.add('error', 'awh-coord-index', r('coord-index'), `${r('coord-index')} must be 1 or more: pull coordinates are counted from 1.`);
         }
         if (!this.set[r('diffusion')] || v[r('diffusion')] <= 0) {
-          this.add('note', 'awh-diffusion', r('diffusion'), `${r('diffusion')} is not set (or not above 0), so grompp uses 1e-5 nm^2/ps ` +
-            '(or rad^2/ps) and notes that this may be far from right for the system. Set an estimate.',
+          // A note from GROMACS 2023 on; GROMACS 2022 warns.
+          this.add(this.ver < 2023 ? 'warning' : 'note', 'awh-diffusion', r('diffusion'), `${r('diffusion')} is not set (or not above 0), so grompp uses 1e-5 nm^2/ps ` +
+            `(or rad^2/ps) and ${this.ver < 2023 ? 'warns' : 'notes'} that this may be far from right for the system. Set an estimate.`,
           { line: this.set[r('diffusion')] ? this.set[r('diffusion')].line : (this.set[q('ndim')] ? this.set[q('ndim')].line : null) });
           v[r('diffusion')] = 1e-5;
         }
@@ -1246,7 +1397,7 @@ class Checker {
           this.add('warning', 'awh-cover-diameter', r('cover-diameter'), `${r('cover-diameter')} only matters when simulations share the bias ` +
             `(${q('share-group')} above 0). grompp warns.`);
         }
-        if (share > 0 && v[r('cover-diameter')] === 0) {
+        if (share > 0 && v[r('cover-diameter')] === 0 && this.ver >= 2024) {
           this.add('warning', 'awh-cover-diameter', r('cover-diameter'), `Simulations share this bias, so set ${r('cover-diameter')} above 0, ` +
             'as grompp strongly recommends (it warns).');
         }
@@ -1750,7 +1901,9 @@ class Checker {
     // MTS requirements
     if (this.useMts && this.validMts) {
       const f = this.mtsFactor;
-      if (I !== 'MD') this.add('error', 'mts-integrator', 'mts', 'Multiple time stepping works only with integrator = md.');
+      if (I !== 'MD' && !(I === 'SD' && this.ver < 2023)) {
+        this.add('error', 'mts-integrator', 'mts', `Multiple time stepping works only with integrator = md${this.ver < 2023 ? ' or sd' : ''}.`);
+      }
       if ((COULOMB.FULL(ct) || vt === 'PME') && !this.mtsGroups.includes('longrange-nonbonded')) {
         this.add('error', 'mts-longrange', 'mts-level2-forces', 'With PME or Ewald, mts-level2-forces must include longrange-nonbonded.');
       }
@@ -1773,7 +1926,8 @@ class Checker {
     if (v.rcoulomb < 0) this.add('error', 'rcoulomb-negative', 'rcoulomb', 'rcoulomb cannot be negative.');
     if (v.rvdw < 0) this.add('error', 'rvdw-negative', 'rvdw', 'rvdw cannot be negative.');
     const verlet = key(v['cutoff-scheme']) === 'VERLET';
-    if (verlet && v.rcoulomb === 0 && v.rvdw === 0) {
+    // From GROMACS 2024.3 on.
+    if (verlet && v.rcoulomb === 0 && v.rvdw === 0 && this.ver >= 2024) {
       this.add('error', 'cutoffs-zero', 'rcoulomb', 'With the Verlet scheme at least one of rcoulomb and rvdw must be above 0.');
     }
     let rlist = v.rlist;
@@ -1883,10 +2037,19 @@ class Checker {
     let nstcalcenergy = v.nstcalcenergy;
     this.nstpcouple = v.nstpcouple;
     if (dyn) {
-      if (nstcalcenergy < 0) nstcalcenergy = 100;
       const nstdhdl = v.nstdhdl;
       const fep = this.efep !== 'NO';
-      if ((v.nstenergy > 0 && nstcalcenergy > v.nstenergy) || (fep && nstdhdl > 0 && nstcalcenergy > nstdhdl)) {
+      const automatic2022 = nstcalcenergy < 0 && this.ver < 2023;
+      if (automatic2022) {
+        // GROMACS 2022 chose -1 itself: nstlist (10 without one), and no more
+        // than nstenergy, without a note.
+        nstcalcenergy = v.nstlist > 0 ? v.nstlist : 10;
+        if (this.useMts && this.validMts) nstcalcenergy = nstcalcenergy * this.mtsFactor / gcd(nstcalcenergy, this.mtsFactor);
+        if (v.nstenergy !== 0 && v.nstenergy < nstcalcenergy) nstcalcenergy = v.nstlist > 0 ? gcd(v.nstenergy, v.nstlist) : v.nstenergy;
+      } else if (nstcalcenergy < 0) {
+        nstcalcenergy = 100;
+      }
+      if (!automatic2022 && ((v.nstenergy > 0 && nstcalcenergy > v.nstenergy) || (fep && nstdhdl > 0 && nstcalcenergy > nstdhdl))) {
         let minName = 'nstenergy';
         let minNst = v.nstenergy;
         if (fep && nstdhdl > 0 && (v.nstenergy === 0 || nstdhdl < v.nstenergy)) { minNst = nstdhdl; minName = 'nstdhdl'; }
@@ -2005,8 +2168,11 @@ class Checker {
         this.add('note', 'andersen-comm', 'nstcomm', 'Centre-of-mass removal is not needed with Andersen coupling, which re-randomises velocities.');
       }
       if (nstcomm > 1 && this.etc === 'ANDERSEN') this.add('error', 'andersen-nstcomm', 'nstcomm', 'With Andersen coupling nstcomm must be 1.');
-      if (this.nshake !== 0 && this.etc === 'ANDERSEN') {
-        this.add('error', 'andersen-constraints', 'tcoupl', 'Andersen coupling does not work with constraints; use andersen-massive.');
+      // Before 2024 grompp refused constraints with andersen-massive too.
+      if (this.nshake !== 0 && (this.etc === 'ANDERSEN' || this.ver < 2024)) {
+        this.add('error', 'andersen-constraints', 'tcoupl', this.etc === 'ANDERSEN'
+          ? 'Andersen coupling does not work with constraints; use andersen-massive.'
+          : `grompp ${this.version} refuses Andersen coupling with constraints, andersen-massive included (allowed from 2024 on).`);
       }
     }
     if (this.etc === 'BERENDSEN') {
@@ -2022,7 +2188,9 @@ class Checker {
       this.epc = 'BERENDSEN';
     }
     if (this.epc === 'CRESCALE' && !['ISOTROPIC', 'SEMIISOTROPIC', 'SURFACETENSION'].includes(key(v.pcoupltype))) {
-      this.add('error', 'crescale-type', 'pcoupltype', `C-rescale does not support pcoupltype = ${v.pcoupltype} yet; use Parrinello-Rahman for anisotropic coupling.`);
+      // grompp checks this from 2023 on; GROMACS 2022's mdrun stops on it.
+      this.add('error', 'crescale-type', 'pcoupltype', `C-rescale does not support pcoupltype = ${v.pcoupltype} yet; use Parrinello-Rahman for anisotropic coupling.` +
+        (this.ver < 2023 ? ` grompp ${this.version} accepts it, but mdrun stops.` : ''), this.ver < 2023 ? { source: 'mdrun' } : {});
     }
     if (this.epc !== 'NO') {
       // check_ir keeps nstpcouple x dt in a real (single precision).
@@ -2139,7 +2307,8 @@ class Checker {
       this.add('error', 'qmmm-removed', 'QMMM', 'The QM/MM interface this switched on was removed. Use integrator = mimic for MiMiC, or qmmm-cp2k-active = true for CP2K.');
     }
     if (v['cos-acceleration'] !== 0 && I !== 'MD') this.add('error', 'cos-acceleration', 'cos-acceleration', 'cos-acceleration works only with integrator = md.');
-    if (this.haveDeform && v['deform-init-flow'] !== 'yes') {
+    // The flow profile of deform, from GROMACS 2024 on.
+    if (this.haveDeform && this.ver >= 2024 && v['deform-init-flow'] !== 'yes') {
       if (v['gen-vel'] === 'yes') {
         this.add('error', 'deform-genvel', 'deform-init-flow', 'The box is deformed and velocities are generated: set deform-init-flow = yes so the flow profile is set up.');
       } else if (v.continuation !== 'yes') {
@@ -2161,17 +2330,20 @@ class Checker {
     }
   }
 
-  /* ir_optimal_nstpcouple and ir_optimal_nsttcouple (inputrec.cpp). */
+  /* ir_optimal_nstpcouple and ir_optimal_nsttcouple (inputrec.cpp). GROMACS
+     2022 wanted 10 steps, and compared nstpcouple x dt (nsttcouple x dt)
+     with tau itself rather than tau over the minimum number of steps. */
   optimalNstpcouple() {
     const v = this.v;
     const min = ['BERENDSEN', 'CRESCALE', 'ISOTROPIC'].includes(this.epc) ? MIN_STEPS_PER_TAU : this.epc === 'NO' ? 0 : MIN_STEPS_PER_PERIOD;
-    const wanted = 100;
+    const old = this.ver < 2023;
+    const wanted = old ? 10 : 100;
     const minNst = this.useMts && this.validMts ? this.mtsFactor : 1;
     let n;
     // delta_t is a double in GROMACS; tau-p is single precision (real).
     const dt = Number(v.dt);
     const tauP = f32(v['tau-p']);
-    if (min === 0 || wanted * dt <= f32(tauP / min)) {
+    if (min === 0 || wanted * dt <= (old ? tauP : f32(tauP / min))) {
       n = wanted;
     } else {
       n = Math.floor(tauP / (dt * min) + 0.001);
@@ -2185,9 +2357,10 @@ class Checker {
   optimalNsttcouple(tauMin) {
     const min = this.etc === 'NOSEHOOVER' ? MIN_STEPS_PER_PERIOD : ['BERENDSEN', 'VRESCALE', 'YES'].includes(this.etc) ? MIN_STEPS_PER_TAU
       : this.etc === 'NO' ? 0 : 1;
-    const wanted = 100;
+    const old = this.ver < 2023;
+    const wanted = old ? 10 : 100;
     const dt = Number(this.v.dt);
-    if (min === 0 || dt * wanted <= f32(tauMin / min)) return wanted;
+    if (min === 0 || dt * wanted <= (old ? f32(tauMin) : f32(tauMin / min))) return wanted;
     let n = Math.floor(tauMin / (dt * min) + 0.001);
     if (n < 1) n = 1;
     while (wanted % n !== 0) n -= 1;
@@ -2469,7 +2642,8 @@ class Checker {
     const system = this.ctx.system || 'all-atom';
     if (system !== 'all-atom') return;
     const dt = v.dt;
-    const factor = v['mass-repartition-factor'];
+    // Before 2024 grompp has no mass-repartition-factor: masses are the topology's.
+    const factor = v['mass-repartition-factor'] ?? 1;
     let period;
     let what;
     if (this.nshake === 0) {
@@ -2491,7 +2665,9 @@ class Checker {
     }
     if (dt > 0.0025 && this.nshake > 0 && factor < 2 && key(v.constraints) === 'HBONDS') {
       this.add('warning', 'dt-without-hmr', 'dt', `dt = ${dt} ps with only bonds to hydrogen constrained is unstable: angles involving ` +
-        'hydrogen are too fast. Use dt = 0.002, or mass-repartition-factor = 3 for dt = 0.004.', { source: 'advice' });
+        'hydrogen are too fast. ' + (this.ver >= 2024 ? 'Use dt = 0.002, or mass-repartition-factor = 3 for dt = 0.004.'
+          : `Use dt = 0.002, unless the topology's hydrogen masses are repartitioned (GROMACS ${this.version} has no mass-repartition-factor).`),
+      { source: 'advice' });
     }
   }
 
@@ -2551,7 +2727,7 @@ class Checker {
           this.add('error', 'vv-nh-berendsen', 'pcoupl', 'md-vv cannot combine Nose-Hoover with Berendsen pressure coupling.');
         }
         if (this.epc === 'MTTK') {
-          this.add('note', 'mttk-deprecated', 'pcoupl', 'MTTK coupling is deprecated and will soon be removed.');
+          if (this.ver >= 2025) this.add('note', 'mttk-deprecated', 'pcoupl', 'MTTK coupling is deprecated and will soon be removed.');
           if (this.etc !== 'NOSEHOOVER') this.add('error', 'mttk-nh', 'tcoupl', 'MTTK pressure coupling needs Nose-Hoover temperature coupling.');
           else if (this.nstpcouple !== this.nsttcouple) {
             this.add('note', 'mttk-nst', 'nstpcouple', 'With md-vv, nsttcouple and nstpcouple must be equal; grompp sets both to the smaller.');
@@ -2631,12 +2807,15 @@ class Checker {
       this.add('warning', 'nstexpanded-unset', 'nstexpanded', 'nstexpanded is not set for simulated tempering; grompp uses 2 x tau-t / dt. Set it explicitly.');
     }
 
-    // Ensemble temperature (processEnsembleTemperature)
+    // Ensemble temperature (processEnsembleTemperature, from GROMACS 2023 on;
+    // before, C-rescale, AWH and MTTK take ref-t of the groups).
     const setting = key(v['ensemble-temperature-setting']);
     const allCoupled = tcg.length > 0;
     let ens = 'NOTAVAILABLE';
     const equalRefT = this.refts.length > 0 && this.refts.every(x => x === this.refts[0]);
-    if (setting === 'CONSTANT') {
+    if (this.ver < 2023) {
+      ens = hasRefT && equalRefT ? 'CONSTANT' : 'NOTAVAILABLE';
+    } else if (setting === 'CONSTANT') {
       ens = 'CONSTANT';
       if (v['ensemble-temperature'] < 0) this.add('error', 'ensemble-temperature-negative', 'ensemble-temperature', 'ensemble-temperature cannot be negative.');
       else if (hasRefT && equalRefT && v['ensemble-temperature'] !== this.refts[0]) {
@@ -2874,7 +3053,16 @@ class Checker {
         'the whole system drift. Use comm-mode = Linear.', this.assumePosres());
     }
     const haveEns = this.ensemble === 'CONSTANT' || this.ensemble === 'VARIABLE';
-    if (this.epc === 'CRESCALE' && !haveEns) {
+    if (this.epc === 'CRESCALE' && this.ver < 2023) {
+      // GROMACS 2022: a thermostat (or sd, bd), whose first ref-t it uses.
+      if (!EI.RANDOM(I) && this.etc === 'NO') {
+        this.add('error', 'crescale-temperature', 'pcoupl', 'C-rescale needs a reference temperature, and there is no thermostat. Use a thermostat, ' +
+          'such as tcoupl = V-rescale.');
+      } else if (this.hasRefT && !this.equalRefT) {
+        this.add('warning', 'crescale-ref-t', 'ref-t', `C-rescale needs one reference temperature, but the groups have different ref-t: grompp ${this.version} ` +
+          'uses the first group\'s and warns. Give every group the same ref-t.');
+      }
+    } else if (this.epc === 'CRESCALE' && !haveEns) {
       let why = 'there is no thermostat';
       if (this.anneals && this.ngtc > 1) why = 'simulated annealing with more than one temperature group leaves no single ensemble temperature';
       else if (this.hasRefT && !this.equalRefT) why = 'the groups have different ref-t';
@@ -2893,7 +3081,9 @@ class Checker {
           'artefacts; set refcoord-scaling = com (or all).', { ...this.assumePosres(), line: this.set['refcoord-scaling'] ? this.set['refcoord-scaling'].line : (this.set.pcoupl ? this.set.pcoupl.line : null) });
       }
     }
-    if (this.epc === 'MTTK' && this.ensemble !== 'CONSTANT') this.add('error', 'mttk-temperature', 'pcoupl', 'MTTK needs a constant ensemble temperature.');
+    if (this.epc === 'MTTK' && this.ver >= 2023 && this.ensemble !== 'CONSTANT') {
+      this.add('error', 'mttk-temperature', 'pcoupl', 'MTTK needs a constant ensemble temperature.');
+    }
     const charged = ctx.charged !== false;
     if (!charged && COULOMB.FULL(this.ct)) {
       this.add('warning', 'full-elec-no-charges', 'coulombtype', `${v.coulombtype} for a system without charges only costs time; use Cut-off.`, { assumes: 'the system has no charges' });
@@ -2923,9 +3113,14 @@ class Checker {
         }
       }
     }
-    if (this.gate.awh && this.ensemble !== 'CONSTANT') {
+    if (this.gate.awh && this.ver < 2023 && !(this.ensemble === 'CONSTANT' && this.refts[0] > 0)) {
+      this.add('error', 'awh-temperature', 'awh', `AWH needs one temperature above 0 for every temperature group: grompp ${this.version} stops ` +
+        '("AWH biasing is currently only supported for identical temperatures"). Use a thermostat with one ref-t.', { fatal: true });
+    } else if (this.gate.awh && this.ver >= 2023 && this.ensemble !== 'CONSTANT') {
       this.add('error', 'awh-temperature', 'awh', 'AWH needs a constant ensemble temperature: a thermostat with one ref-t, or ensemble-temperature-setting = constant.');
     }
+    // The deform and acceleration checks came with the corrected deform of 2024.
+    if (this.ver < 2024) return;
     if (this.haveDeform) {
       if (EI.DYNAMICS(I) && I !== 'MD' && (EI.SD(I) || this.etc !== 'NO')) {
         this.add('note', 'deform-thermostat', 'deform', 'With integrators other than md the thermostat also scales the flow from deform.');
@@ -3020,11 +3215,16 @@ class Checker {
   cutoffEvaluation() {
     const v = this.v;
     const inGrompp = this.sizesBuffer();
-    const stop = (id, option, what, grompp, mdrun) => this.add('error', id, option,
-      `${what} ${inGrompp ? grompp : mdrun}`, inGrompp ? { fatal: true } : { source: 'mdrun' });
+    // From GROMACS 2024 on grompp also sizes the buffer for the pressure,
+    // which evaluates the interactions in ways a nan epsilon-r or a zero
+    // rvdw break; before, grompp passes them and mdrun stops (tried with
+    // GROMACS 2023.5: a non-finite energy, a std::length_error).
+    const pressureBuffer = inGrompp && this.ver >= 2024;
+    const stop = (id, option, what, grompp, mdrun, here = inGrompp) => this.add('error', id, option,
+      `${what} ${here ? grompp : mdrun}`, here ? { fatal: true } : { source: 'mdrun' });
     if (Number.isNaN(this.epsR)) {
       stop('epsilon-r-nan', 'epsilon-r', 'epsilon-r is nan, which makes every electrostatic energy nan:',
-        'grompp stops with an assertion failure while sizing the Verlet buffer.', 'mdrun stops with a non-finite energy.');
+        'grompp stops with an assertion failure while sizing the Verlet buffer.', 'mdrun stops with a non-finite energy.', pressureBuffer);
     }
     if (COULOMB.PME_OR_EWALD(this.ct) && v['ewald-rtol'] < 0) {
       stop('ewald-rtol', 'ewald-rtol', `ewald-rtol = ${v['ewald-rtol']} cannot be reached (it must be above 0, 1e-5 is usual):`,
@@ -3038,6 +3238,9 @@ class Checker {
     if (this.vmod === 'EXACTCUTOFF') {
       this.add('error', 'vdw-exact-cutoff', 'vdw-modifier', 'vdw-modifier = Exact-cutoff cannot be used for dynamics: grompp stops ' +
         '("Unimplemented VdW modifier") while sizing the Verlet buffer. Use Potential-shift.', { fatal: true });
+    } else if (v.rvdw >= 0 && v.rvdw < 0.005 && v.rcoulomb > 0 && !pressureBuffer) {
+      this.add('error', 'rvdw-zero', 'rvdw', `rvdw = ${v.rvdw} nm puts the Lennard-Jones cut-off at (almost) zero distance: grompp ` +
+        `${this.version} accepts it, but mdrun crashes. Use the force field's cut-off (1.0 to 1.2 nm).`, { source: 'mdrun' });
     } else if (v.rvdw === 0 && v.rcoulomb > 0) {
       this.add('error', 'rvdw-zero', 'rvdw', 'rvdw = 0 puts the Lennard-Jones cut-off at zero distance, where the potential is infinite: ' +
         'grompp stops with an assertion failure while sizing the Verlet buffer. Use the force field\'s cut-off (1.0 to 1.2 nm).', { fatal: true });
@@ -3157,6 +3360,15 @@ class Checker {
     if (this.commMode !== 'NONE') {
       let glob = this.nstcalcenergy === 0 && this.etc === 'NO' && this.epc !== 'NO' ? 200
         : lcd3(this.nstcalcenergy, this.etc !== 'NO' ? this.nsttcouple : 0, this.epc !== 'NO' ? this.nstpcouple : 0);
+      if (this.ver < 2023) {
+        // GROMACS 2022 (md_support.cpp): 10 steps, or nstenergy when shorter,
+        // unless a period is chosen; then nstlist counts too (lcd4).
+        const nt = this.etc !== 'NO' ? this.nsttcouple : 0;
+        const np = this.epc !== 'NO' ? this.nstpcouple : 0;
+        glob = !(this.nstcalcenergy > 0 || v.nstlist > 0 || this.etc !== 'NO' || this.epc !== 'NO')
+          ? (v.nstenergy > 0 && v.nstenergy < 10 ? v.nstenergy : 10)
+          : [this.nstcalcenergy, v.nstlist, nt, np].filter(x => x > 0).reduce(gcd, 0);
+      }
       if (glob === 0) {
         const I = this.I;
         const why = EI.EM(I) ? `minimisers keep nstcalcenergy as given (only dynamics turns -1 into 100), and ${v.integrator} has no coupling`
@@ -3166,7 +3378,7 @@ class Checker {
           'nstglobalcomm are <= 0". Set nstcalcenergy to 100, or comm-mode = None.', { fatal: true });
         return;
       }
-      glob = glob > 200 ? lcd3(glob, 200, 0) : glob;
+      if (this.ver >= 2023) glob = glob > 200 ? lcd3(glob, 200, 0) : glob;
       if (this.nstcomm % glob !== 0) {
         this.add('note', 'nstcomm-global', 'nstcomm', `nstcomm (${this.nstcomm}) is not a multiple of the global communication period ` +
           `(${glob} steps, from nstcalcenergy, nsttcouple and nstpcouple), which costs extra communication in parallel. Set nstcomm to a multiple of ${glob}.`);
@@ -3588,7 +3800,7 @@ function nearest(word, candidates) {
  * Explain a file line by line, in plain English.
  *
  * @param {string|ReturnType<typeof parseMdp>} input
- * @param {{context?:object}} [options] - As for {@link checkMdp}.
+ * @param {{context?:object, version?:string}} [options] - As for {@link checkMdp}.
  * @returns {Array<{line:number, kind:'entry'|'empty'|'comment'|'blank'|'invalid', text:string,
  *   name:string|null, value:string, summary:string, meaning:string, url:string, valueUrl:string,
  *   unit:string, default:string, isDefault:boolean, status:'ok'|'unknown'|'obsolete'|'inactive'|'duplicate'|'ignored',
@@ -3596,7 +3808,7 @@ function nearest(word, candidates) {
  */
 export function explainMdp(input, options = {}) {
   const parsed = typeof input === 'string' || input == null ? parseMdp(input) : input;
-  const { issues, settings } = checkMdp(parsed, options);
+  const { issues, settings, version } = checkMdp(parsed, options);
   const dt = typeof settings.dt === 'number' ? settings.dt : 0.001;
   const I = key(settings.integrator);
   const dynamics = EI.DYNAMICS(I);
@@ -3621,7 +3833,7 @@ export function explainMdp(input, options = {}) {
       row.status = 'unknown';
       const hint = row.issues.find(i => i.id === 'unknown');
       const near = hint && /Did you mean ([^?]+)\?|documents it as lmc-mc-move/.exec(hint.message);
-      row.meaning = `Not an option of GROMACS ${MDP_RELEASE}; grompp warns "Unknown left-hand".` +
+      row.meaning = `Not an option of GROMACS ${version}; grompp warns "Unknown left-hand".` +
         (near ? (near[1] ? ` Did you mean ${near[1]}?` : ' grompp reads lmc-move.') : '');
       return row;
     }
@@ -3652,20 +3864,25 @@ export function explainMdp(input, options = {}) {
     row.summary = info.summary;
     row.url = info.url;
     row.unit = info.unit;
-    row.default = info.default;
+    row.default = info.olderDefault && Number(version) < Number(info.olderDefault.before) ? info.olderDefault.value : info.default;
     if (e.duplicate) {
       row.status = 'duplicate';
       row.meaning = 'Given twice: grompp stops.';
       return row;
     }
     row.valueUrl = info.values.length ? mdpDocUrl(info.name, e.value) : '';
+    if (row.issues.some(i => i.id === 'newer-option')) {
+      row.status = 'unknown';
+      row.meaning = `New in GROMACS ${info.since}: grompp ${version} does not know it and warns "Unknown left-hand".`;
+      return row;
+    }
     if (row.issues.some(i => i.id === 'inactive')) {
       row.status = 'inactive';
       row.meaning = `Not read: ${info.readWhen ? `${info.name} is only used when ${info.readWhen.when}`
         : 'it is beyond the count of its numbered family'}, so grompp warns "Unknown left-hand".`;
       return row;
     }
-    row.isDefault = isDefaultValue(info, e.value);
+    row.isDefault = isDefaultValue({ ...info, default: row.default }, e.value);
     const unit = unitFor(info, settings);
     row.unit = unit === undefined ? info.unit : unit || '';
     row.meaning = meaningOf(info, e.value, { dt, dynamics, settings, parsed }) +
@@ -4084,6 +4301,7 @@ export function defaultSettings(stage = 'prod', overrides = {}) {
     stage: st.id,
     forceField: ffId,
     system: systemId,
+    version: DEFAULT_GROMACS_VERSION,
     temperature: 300,
     pressure: 1.0,
     thermostat: 'v-rescale',
@@ -4130,6 +4348,10 @@ export function defaultSettings(stage = 'prod', overrides = {}) {
  *
  * @param {object} [settings] - Anything left out takes the value
  *   {@link defaultSettings} gives for the stage:
+ *   - `version`: the GROMACS release to write for, one of {@link GROMACS_VERSIONS}
+ *     ('2025' by default). Options it does not read are left out (and HMR,
+ *     which needs 2024, is not applied); every line where the release
+ *     changes something says so in its comment
  *   - `stage`: 'em' | 'em-cg' | 'nvt' | 'npt' | 'prod' | 'anneal' | 'pull'
  *   - `forceField`: a key of {@link FORCE_FIELDS}; `system`: a key of {@link SYSTEM_TYPES}
  *   - `temperature` (K), `pressure` (bar), `thermostat`, `barostat` ('c-rescale',
@@ -4158,6 +4380,9 @@ export function generateMdp(settings = {}) {
   const s = defaultSettings(settings.stage || 'prod', settings);
   const st = STAGES[s.stage];
   const ff = FORCE_FIELDS[s.forceField];
+  const version = gromacsVersion(s.version);
+  const ver = Number(version);
+  const has = (option) => rowInVersion(ROW_BY_NAME.get(option), version);
   const warnings = [];
   const out = [];
   const cg = ff.resolution === 'coarse-grained';
@@ -4167,13 +4392,24 @@ export function generateMdp(settings = {}) {
 
   // Time step and hydrogen mass repartitioning
   let hmr = !!s.hmr && st.dynamics;
+  // Hydrogen mass repartitioning asked for, but this release has no
+  // mass-repartition-factor: the time step line says so.
+  let hmrTooOld = false;
   if (hmr && !ff.hmr) {
     warnings.push(`Hydrogen mass repartitioning does not apply to ${ff.label}: it has no hydrogens to repartition. Ignored.`);
     hmr = false;
+  } else if (hmr && !has('mass-repartition-factor')) {
+    warnings.push(`Hydrogen mass repartitioning needs GROMACS 2024 or newer (mass-repartition-factor); GROMACS ${version}'s grompp does not ` +
+      'know the option and stops on it. The files use the usual time step: for 4 fs with GROMACS ' +
+      `${version}, repartition the hydrogen masses in the topology itself (for example with ParmEd's HMassRepartition) and set the time step to 4 fs.`);
+    hmr = false;
+    hmrTooOld = true;
   }
   const dt = st.dynamics ? (Number(s.dt) > 0 ? Number(s.dt) : (hmr ? 0.004 : ff.dt)) : null;
   if (st.dynamics && !cg && dt > 0.0025 && !hmr) {
-    warnings.push(`dt = ${dt} ps without hydrogen mass repartitioning is too long for an ${ff.resolution} force field: angles involving hydrogen become unstable. Use 0.002 ps, or switch on HMR for 0.004 ps.`);
+    warnings.push(`dt = ${dt} ps without hydrogen mass repartitioning is too long for an ${ff.resolution} force field: angles involving hydrogen become unstable. ` +
+      (has('mass-repartition-factor') ? 'Use 0.002 ps, or switch on HMR for 0.004 ps.'
+        : `Use 0.002 ps, unless the topology's hydrogen masses are already repartitioned (GROMACS ${version} has no mass-repartition-factor).`));
   }
   if (st.dynamics && hmr && dt > 0.004) {
     warnings.push(`dt = ${dt} ps is beyond what hydrogen mass repartitioning is known to allow; the GROMACS manual gives 4 fs with a factor of 3.`);
@@ -4194,7 +4430,7 @@ export function generateMdp(settings = {}) {
   if ((s.stage === 'prod' || s.stage === 'pull') && wanted === undefined) barostat = 'c-rescale';
   let couplingType = ['isotropic', 'semiisotropic', 'anisotropic'].includes(s.couplingType) ? s.couplingType : 'isotropic';
   if (barostat === 'c-rescale' && couplingType === 'anisotropic') {
-    warnings.push('C-rescale does not support anisotropic coupling in GROMACS 2025; Parrinello-Rahman is used instead.');
+    warnings.push(`C-rescale does not support anisotropic coupling in GROMACS ${version}; Parrinello-Rahman is used instead.`);
     barostat = 'parrinello-rahman';
   }
   if (THERMOSTATS[thermostat].deprecated) warnings.push(`${THERMOSTATS[thermostat].label}: ${THERMOSTATS[thermostat].note}`);
@@ -4253,8 +4489,9 @@ export function generateMdp(settings = {}) {
   }
   lines.push(`; ${title}: ${fileBase(s.stage)}.mdp`);
   lines.push(`; ${bits.join(' | ')}`);
-  lines.push(`; Written by the STEMKit MD workflow generator for GROMACS ${MDP_RELEASE}.`);
-  lines.push(`; Every option: ${MDP_MANUAL}`);
+  const release = gromacsVersionInfo(version);
+  lines.push(`; Written by the STEMKit MD workflow generator for GROMACS ${version === DEFAULT_GROMACS_VERSION ? MDP_RELEASE : version}.`);
+  lines.push(`; Every option: ${release.manual}`);
   for (const r of ff.references) lines.push(`; ${r.text}: ${r.url}`);
   for (const n of ff.notes || []) lines.push(`; Note: ${n}`);
   if (ff.id === 'gromos54a7') {
@@ -4283,7 +4520,8 @@ export function generateMdp(settings = {}) {
     put('integrator', 'md', 'leap-frog molecular dynamics');
     const rigid = ff.constraints === 'all-bonds' ? 'all bonds are constrained' : 'bonds to hydrogen are constrained';
     put('dt', real(dt), hmr ? `4 fs, possible because hydrogens are 3x heavier (mass-repartition-factor) and ${rigid}`
-      : cg ? '20 fs, the usual Martini time step' : `2 fs, possible because ${rigid}`);
+      : cg ? '20 fs, the usual Martini time step' : `2 fs, possible because ${rigid}` +
+        (hmrTooOld && dt === ff.dt ? `; no HMR: GROMACS ${version} has no mass-repartition-factor (new in 2024)` : ''));
     put('nsteps', nsteps, `${nsteps} x ${dt} ps = ${formatDuration(nsteps * dt)}`);
     if (hmr) {
       put('mass-repartition-factor', real(3), 'hydrogens become 3x heavier, the mass taken from their bonded atom (GROMACS manual: a factor of 3 ' +
@@ -4317,8 +4555,11 @@ export function generateMdp(settings = {}) {
   put('nstlist', ff.nstlist, cg ? 'Martini: pair list every 20 steps' : 'pair-list update interval; mdrun may raise it, accuracy is kept by the buffer');
   put('pbc', 'xyz', 'periodic in all directions');
   if (st.dynamics && ff.pairList) {
-    put('verlet-buffer-tolerance', real(ff.pairList.verletBufferTolerance), ff.why.pairList);
-    put('verlet-buffer-pressure-tolerance', real(-1), 'not used with a fixed rlist; -1 says so (grompp notes a positive value)');
+    put('verlet-buffer-tolerance', real(ff.pairList.verletBufferTolerance), ff.why.pairList +
+      (has('verlet-buffer-pressure-tolerance') ? '' : `; GROMACS ${version} has no verlet-buffer-pressure-tolerance to switch off (new in 2024)`));
+    if (has('verlet-buffer-pressure-tolerance')) {
+      put('verlet-buffer-pressure-tolerance', real(-1), 'not used with a fixed rlist; -1 says so (grompp notes a positive value)');
+    }
     put('rlist', real(ff.pairList.rlist), `pair-list cut-off (nm): at least ${ff.pairList.rlist} with nstlist = ${ff.nstlist} and ` +
       `${ff.rcoulomb} nm cut-offs, as recommended`);
   } else if (st.dynamics) {
@@ -4484,7 +4725,7 @@ export function generateMdp(settings = {}) {
 
   // What grompp will say about it.
   const context = { posres, forceField: ff.id, system: ff.resolution === 'coarse-grained' ? 'coarse-grained' : 'all-atom' };
-  const { issues } = checkMdp(text, { context });
+  const { issues } = checkMdp(text, { context, version });
   const expected = issues.filter(i => i.source === 'grompp').map(i => ({ severity: i.severity, id: i.id, message: i.message }));
   for (const i of issues.filter(x => x.source !== 'grompp' && x.severity !== 'note')) warnings.push(i.message);
 
@@ -4492,7 +4733,7 @@ export function generateMdp(settings = {}) {
     text,
     fileName: `${fileBase(s.stage)}.mdp`,
     stage: s.stage,
-    settings: { ...s, dt, nsteps, barostat, thermostat, couplingType, tcGroups, hmr, genVel, continuation },
+    settings: { ...s, version, dt, nsteps, barostat, thermostat, couplingType, tcGroups, hmr, genVel, continuation },
     entries: out.filter(x => !x.heading).map(({ name, value, comment, section: sec }) => ({ name, value, comment, section: sec })),
     warnings,
     expected
