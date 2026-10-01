@@ -38,7 +38,18 @@
 \hypersetup{colorlinks=true, linkcolor=blue!55!black, citecolor=blue!55!black,
   urlcolor=blue!55!black}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,calc}
+\usetikzlibrary{arrows.meta,positioning,calc,fit,backgrounds,matrix}
+%% The site's colours: Prussian blue (brand) and slate.
+\definecolor{stkblue}{HTML}{1F5C96}
+\definecolor{stkblue50}{HTML}{F1F6FB}
+\definecolor{stkblue100}{HTML}{E0EBF6}
+\definecolor{stkblue200}{HTML}{C0D6EC}
+\definecolor{stkblue700}{HTML}{1A4B7B}
+\definecolor{stkslate50}{HTML}{F8FAFC}
+\definecolor{stkslate300}{HTML}{CBD5E1}
+\definecolor{stkslate500}{HTML}{64748B}
+\definecolor{stkslate700}{HTML}{334155}
+\definecolor{stkslate900}{HTML}{0F172A}
 %% Code and file names are not hyphenated, so a reader never copies a hyphen
 %% that is not there; a long one gets an explicit \allowbreak instead.
 
@@ -323,40 +334,79 @@ resulting layering and Table~\ref{tab:modules} enumerates the modules.
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}[
-  font=\small,
-  box/.style   = {draw, rounded corners=2pt, align=center, inner sep=5pt,
-                  text width=0.42\textwidth},
-  wide/.style  = {box, text width=0.88\textwidth},
-  lbl/.style   = {font=\footnotesize\itshape, text=black!60},
-  flow/.style  = {-{Stealth[length=2mm]}, thick, black!55},
-  node distance = 7mm and 6mm
+  font=\sffamily\small,
+  host/.style  = {draw=stkslate300, fill=stkslate50, rounded corners=3pt,
+                  line width=0.6pt, align=center, inner sep=6pt,
+                  text width=0.405\textwidth, text=stkslate900,
+                  minimum height=2.15cm, anchor=north},
+  chip/.style  = {draw=stkblue200, fill=white, rounded corners=5pt,
+                  font=\sffamily\scriptsize, text=stkblue700,
+                  inner xsep=3.5pt, inner ysep=2pt},
+  head/.style  = {font=\sffamily\bfseries\small},
+  sub/.style   = {font=\sffamily\footnotesize},
+  flow/.style  = {-{Stealth[length=2.4mm,width=2mm]}, line width=0.9pt,
+                  stkslate500},
+  tag/.style   = {font=\sffamily\scriptsize\itshape, text=stkslate500}
 ]
-\node[box] (browser) {\textbf{Browser host}\\[1pt]
-  \footnotesize 21 static HTML/CSS tool pages\\
-  \footnotesize DOM wiring only; \texttt{FileReader} input\\
-  \footnotesize UMD bundles via \texttt{<script>}};
-\node[box, right=of browser] (node) {\textbf{Node.js host}\\[1pt]
-  \footnotesize analysis scripts, CI\\
-  \footnotesize 4371-test Jest suite; smoke test\\
-  \footnotesize UMD bundles via \texttt{createRequire}};
+% The two hosts.
+\node[host] (browser) at (0,0) {\textbf{Browser}\\[2pt]
+  {\footnotesize\color{stkslate700}21 tool pages, page wiring only\\
+   files read locally, never uploaded\\
+   libraries loaded by \texttt{<script>}}};
+\node[host] (node) at ($(browser.north east)+(7mm,0)+(0.2025\textwidth+6pt,0)$) {\textbf{Node.js}\\[2pt]
+  {\footnotesize\color{stkslate700}analysis scripts and CI\\
+   4371 Jest tests and a smoke test\\
+   libraries loaded by \texttt{createRequire}}};
 
-\node[wide, below=of $(browser.south)!0.5!(node.south)$, yshift=-1mm] (core)
-  {\textbf{\texttt{stemkit-core}}\\[1pt]
-   \footnotesize 42 DOM-free domain modules, aggregated by \texttt{src/core/index.js}};
-\node[wide, below=of core] (inject)
-  {\textbf{Vendor injection layer}\\[1pt]
-   \footnotesize \texttt{registerVendor()} (Node.js) $\cdot$
-   \texttt{registerFromGlobals()} (browser)};
-\node[wide, below=of inject] (vendor)
-  {\textbf{Vendored UMD bundles}\\[1pt]
-   \footnotesize jStat $\cdot$ Papa Parse $\cdot$ regression.js $\cdot$ bibtex-parse-js};
+% The core, in the site's accent colour, with its module families.
+\coordinate (mid) at ($(browser.south)!0.5!(node.south)$);
+\node[head, text=white, below=12mm of mid] (coretitle)
+  {\ttfamily\bfseries stemkit-core};
+\node[sub, text=stkblue100, below=0.3mm of coretitle] (coresub)
+  {42 DOM-free domain modules, the same code in both hosts};
+\matrix (chips) [below=2.2mm of coresub, matrix of nodes, nodes={chip},
+                 column sep=1.4mm]
+  {statistics & curve fitting & structure & units & figures & GROMACS &
+   LAMMPS & PLUMED \\};
+\begin{scope}[on background layer]
+  \node[fit=(coretitle)(coresub)(chips)(browser.west |- coretitle)
+            (node.east |- coretitle),
+        fill=stkblue, rounded corners=4pt, inner xsep=0pt, inner ysep=6pt]
+        (core) {};
+\end{scope}
 
-\draw[flow] (browser.south) -- ++(0,-3mm) -| ([xshift=-8mm]core.north);
-\draw[flow] (node.south)    -- ++(0,-3mm) -| ([xshift=8mm]core.north);
-\draw[flow] (core)   -- (inject);
-\draw[flow] (inject) -- (vendor);
+% The injection layer and the libraries it supplies.
+\node[head, text=stkblue700, below=13mm of chips] (injtitle)
+  {Vendor injection layer};
+\node[sub, text=stkslate700, below=0.3mm of injtitle] (injsub)
+  {\texttt{registerVendor()} in Node.js\enspace$\cdot$\enspace
+   \texttt{registerFromGlobals()} in the browser};
+\begin{scope}[on background layer]
+  \node[fit=(injtitle)(injsub)(browser.west |- injtitle)(node.east |- injtitle),
+        fill=stkblue50, draw=stkblue200, line width=0.6pt, rounded corners=3pt,
+        inner xsep=0pt, inner ysep=5pt] (inject) {};
+\end{scope}
 
-\node[lbl, right=1mm of core.east, anchor=west, text width=0pt] {};
+\node[head, text=stkslate900, below=12mm of injsub] (libtitle)
+  {Vendored libraries (UMD)};
+\node[sub, text=stkslate700, below=0.3mm of libtitle] (libsub)
+  {jStat\enspace$\cdot$\enspace Papa Parse\enspace$\cdot$\enspace
+   regression.js\enspace$\cdot$\enspace bibtex-parse-js};
+\begin{scope}[on background layer]
+  \node[fit=(libtitle)(libsub)(browser.west |- libtitle)(node.east |- libtitle),
+        fill=white, draw=stkslate300, dashed, line width=0.6pt,
+        rounded corners=3pt, inner xsep=0pt, inner ysep=5pt] (vendor) {};
+\end{scope}
+
+% How they connect.
+\draw[flow] (browser.south) -- (browser.south |- core.north)
+  node[tag, midway, right=1mm] {imports};
+\draw[flow] (node.south) -- (node.south |- core.north)
+  node[tag, midway, right=1mm] {imports};
+\draw[flow] (core.south) -- (inject.north)
+  node[tag, midway, right=1mm] {asks for its libraries};
+\draw[flow] (inject.south) -- (vendor.north)
+  node[tag, midway, right=1mm] {supplies};
 \end{tikzpicture}
 \caption{Architecture of STEMKit. Both hosts execute the identical core modules;
 the only environment-specific code is the registration call that supplies the
