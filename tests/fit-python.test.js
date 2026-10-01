@@ -1238,3 +1238,19 @@ describe('grid lines along one axis and fonts of their own', () => {
     }
   }, 60000);
 });
+
+describe('log scales', () => {
+  // matplotlib 3.8 to 3.10 take the limits of error bars drawn on an axis
+  // that is already logarithmic in log units; the script sets the scales
+  // once the data are drawn, so every version gets the same limits.
+  test('are set once the data, the error bars and the residuals are drawn', () => {
+    const code = generateFitScript(CASES.logX());
+    const at = (t) => code.indexOf(t);
+    expect(at('ax.errorbar(')).toBeGreaterThan(0);
+    expect(at("ax.set_xscale('log')")).toBeGreaterThan(at('ax.errorbar('));
+    expect(at("ax.set_yscale('log')")).toBeGreaterThan(at('ax.errorbar('));
+    expect(at("ax.set_yscale('log')")).toBeLessThan(at('# Axes'));
+    const full = generateFitScript(CASES.full());
+    expect(full.indexOf("ax.set_yscale('log')")).toBeGreaterThan(full.indexOf("ax_res.set_ylabel('Residual')"));
+  });
+});
