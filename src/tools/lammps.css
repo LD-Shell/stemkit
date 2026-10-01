@@ -1,0 +1,102 @@
+/*
+ * MD workflow generator: the LAMMPS tab.
+ *
+ * The LAMMPS tab reuses the GROMACS tab's components (src/tools/gromacs.css:
+ * the steps, stage cards, glance list, file tabs, code view, option list and
+ * check view), so this file holds only what LAMMPS has and GROMACS does not:
+ * restraint rows, the data-file summary, editable groups, the route switch,
+ * the reference's syntax blocks and the colours of an input line.
+ */
+
+/* ---------------------------------------------------------------------------
+   An input line: the style name after the command, and the line under the
+   pointer or the keyboard (the code pane is dark in both themes)
+--------------------------------------------------------------------------- */
+.sg-code .tok-st { color: #c4b5fd; }
+.lx-files[data-kind="lammps"] .gx-ln { cursor: pointer; }
+.lx-files[data-kind="lammps"] .gx-ln:hover { background: rgba(146, 184, 221, .1); }
+.lx-foot-note { color: var(--stk-fg-2); }
+.lx-foot-issue { font-weight: 600; }
+
+/* ---------------------------------------------------------------------------
+   Stages: holding a group, and three output intervals in a row
+--------------------------------------------------------------------------- */
+.lx-restrain { display: flex; flex-direction: column; gap: .45rem; }
+.lx-restrain-row { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .5rem; padding-left: 1.5rem; font-size: .75rem; color: var(--stk-fg-3); }
+.lx-restrain-row > .stk-input:first-of-type { flex: 1 1 7rem; min-width: 0; }
+.lx-restrain-row > label { font-weight: 600; }
+.lx-num-s { width: 5.5rem; }
+.lx-unit { white-space: nowrap; }
+.lx-every-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 479.98px) {
+  .lx-every-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lx-restrain-row { padding-left: 0; }
+}
+
+/* ---------------------------------------------------------------------------
+   The data file: the summary, the types and what looks wrong
+--------------------------------------------------------------------------- */
+.lx-types td:nth-child(n+3) { font-variant-numeric: tabular-nums; }
+.lx-types td:first-child, .lx-types td:nth-child(2) { font-family: var(--stk-font-mono); }
+.lx-dim { margin-left: .25rem; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: .6875rem; color: var(--stk-fg-3); }
+.lx-data-notes { display: flex; flex-direction: column; gap: .35rem; }
+.lx-data-notes:empty { display: none; }
+.gx-ndx-sum code { font-family: var(--stk-font-mono); }
+
+/* ---------------------------------------------------------------------------
+   Groups: a suggestion's name and selection can be edited in place
+--------------------------------------------------------------------------- */
+.lx-empty { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem .75rem; padding: .7rem .8rem; border: 1px dashed var(--stk-border-strong); border-radius: var(--stk-radius); font-size: .8125rem; line-height: 1.5; color: var(--stk-fg-2); }
+.lx-empty[hidden] { display: none; }
+.lx-empty p { flex: 1 1 14rem; margin: 0; }
+.gx-g-top input.lx-g-name { flex: 1 1 8rem; width: auto; height: var(--stk-control-h-sm); min-width: 0; max-width: 14rem; font-weight: 700; cursor: text; accent-color: auto; }
+.lx-g-sel { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .45rem; margin-top: .35rem; font-size: .75rem; min-width: 0; }
+.lx-g-sel > code { font-family: var(--stk-font-mono); color: var(--stk-fg-3); white-space: nowrap; }
+.lx-g-sel > .stk-input { flex: 1 1 10rem; min-width: 0; }
+.gx-g.is-off .lx-g-name { text-decoration: line-through; color: var(--stk-fg-3); }
+
+/* ---------------------------------------------------------------------------
+   Job: which input the job runs
+--------------------------------------------------------------------------- */
+.lx-route { width: 100%; }
+.lx-route > button { flex: 1 1 0; }
+
+/* ---------------------------------------------------------------------------
+   Run files: the builder's reason for a line in the Explained view
+--------------------------------------------------------------------------- */
+.lx-xl-note { color: var(--stk-fg-2); }
+.lx-note-tag { display: inline-block; margin-right: .3rem; padding: 0 .35rem; border-radius: var(--stk-radius-sm); background: var(--stk-accent-soft); font-size: .6875rem; font-weight: 650; color: var(--stk-accent-text); }
+.lx-xl-text { margin: .2rem 0 0; }
+.lx-xl-text code { font-family: var(--stk-font-mono); font-size: .75rem; color: var(--stk-fg-2); overflow-wrap: anywhere; white-space: pre-wrap; }
+
+/* ---------------------------------------------------------------------------
+   All commands
+--------------------------------------------------------------------------- */
+.lx-refs .gx-opt.is-used .gx-opt-name { color: var(--stk-accent-text); }
+.lx-refs .gx-opt-top .stk-badge { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+.lx-ref-syntax { margin: 0; padding: .5rem .65rem; overflow-x: auto; border-radius: var(--stk-radius-sm); background: #0b1120; color: #e2e8f0; font-family: var(--stk-font-mono); font-size: .75rem; line-height: 1.55; white-space: pre; }
+.lx-ref-h { margin: .2rem 0 0; font-size: .75rem; font-weight: 650; color: var(--stk-fg-muted); }
+.lx-ref-more { display: flex; justify-content: center; padding: .75rem 0 .25rem; }
+.lx-refs .gx-opt-values code { overflow-wrap: anywhere; }
+
+/* ---------------------------------------------------------------------------
+   Check a file: the build's packages and a data file dropped beside it
+--------------------------------------------------------------------------- */
+.lx-chk-more > summary code { font-family: var(--stk-font-mono); font-size: .92em; }
+.lx-chk-help { min-height: 5rem; font-size: .75rem; white-space: pre; }
+.lx-chk-data { display: flex; flex-direction: column; gap: .4rem; padding: .6rem .75rem; border: 1px solid var(--stk-border); border-radius: var(--stk-radius); background: var(--stk-surface-2); }
+.lx-chk-data[hidden] { display: none; }
+.lx-chk-data p { margin: 0; font-size: .8125rem; line-height: 1.5; color: var(--stk-fg-2); overflow-wrap: anywhere; }
+.lx-chk-data-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem; }
+.lx-chk-data-h i { color: var(--stk-accent-text); margin-right: .2rem; }
+
+/* While the LAMMPS modules load the first time. */
+#lammpsPanel.is-loading .gx-glance-empty { color: var(--stk-fg-muted); }
+#lxTotals:empty { display: none; }
+
+/* Warnings LAMMPS will print that are expected, under a file. */
+.lx-expect { margin-top: .25rem; }
+.lx-expect > summary { cursor: pointer; font-weight: 600; color: var(--stk-fg-2); }
+.lx-expect > summary:focus-visible { outline: 2px solid var(--stk-accent); outline-offset: 1px; border-radius: 2px; }
+.lx-expect ul { margin: .25rem 0 0; padding-left: 1rem; display: flex; flex-direction: column; gap: .2rem; }
+.lx-expect code { color: var(--stk-warn); font-weight: 600; }

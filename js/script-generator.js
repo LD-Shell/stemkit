@@ -35,6 +35,7 @@ import { estimateCoreHours, arrayConcurrency } from '../src/core/slurm.js';
 import { createPlumedBuilder } from './script-generator-plumed.js';
 import { createGromacsTab } from './script-generator-gromacs.js';
 import { gromacsRunBlock, gromacsMdrunFlags, gpuFlagWarnings, gmxBuild, plumedStages } from './script-generator-gromacs-model.js';
+import { createLammpsTab } from './script-generator-lammps.js';
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -389,10 +390,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // =====================================================================
     // LAMMPS script
     // =====================================================================
+    // Two routes, chosen under Job in the LAMMPS tab: the stage inputs built
+    // there (the stage block comes from the workflow module through
+    // lammps.runBlock, which skips finished stages and continues production
+    // from its newest restart), or the user's own input, run as it is. Both
+    // get the scheduler header, the environment and the accelerator's flags.
     function generateLammpsScript() {
         const out = $('slurmOutput');
         if (!out) return;
         const warnings = [];
+        const built = lammps.route() === 'built';
 
         const { header, isArray, scheduler } = buildSchedulerHeader('lammps', warnings);
         let s = header;
@@ -402,8 +409,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (isArray) {
             const baseDir = getStr('jobArrayDir', 'run_');
+            if (built) s += `SUBMIT_DIR="$PWD"\n`;
             s += `SYSTEM_DIR="${baseDir}\${${envVars(scheduler).arrayIndex}}"\n`;
-            s += `cd "\$SYSTEM_DIR" || { echo "Missing directory \$SYSTEM_DIR" >&2; exit 1; }\n\n`;
+            s += `cd "\$SYSTEM_DIR" || { echo "Missing directory \$SYSTEM_DIR" >&2; exit 1; }\n`;
+            const inputs = built ? lammps.inputNames() : [];
+            if (inputs.length) {
+                // One set of inputs for every task; each task's directory
+                // holds its own data file (and its outputs).
+                s += `# The inputs stay in the submission directory; each task copies in those\n`;
+                s += `# it does not have, so a directory can still hold its own version.\n`;
+                s += `for f in ${inputs.join(' ')}; do\n`;
+                s += `    [ -e "$f" ] || cp "$SUBMIT_DIR/$f" .\n`;
+                s += `done\n`;
+            }
+            s += `\n`;
         }
 
         const inFile = getStr('lmpInput', 'in.lammps');
@@ -412,30 +431,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const accel = getStr('lmpAccel', 'none'); // none | gpu | kokkos | intel | omp | opt
         const ompThreads = getInt('lmpCpus', 1); // cpus-per-task = OpenMP threads/rank
 
-        let lmpArgs = `-in ${inFile} -log ${logFile}`;
+        let flags = '';
         let note = '';
 
         switch (accel) {
             case 'gpu':
                 // GPU package: -sf appends /gpu to supported styles; -pk sets GPUs/node.
-                lmpArgs += ` -sf gpu -pk gpu ${gpus > 0 ? gpus : 1}`;
+                flags = `-sf gpu -pk gpu ${gpus > 0 ? gpus : 1}`;
                 note = '# GPU package: -sf gpu appends /gpu to supported styles; -pk gpu N sets GPUs/node.';
                 if (gpus <= 0) warnings.push('GPU package selected but 0 GPUs requested. Set GPUs per node above 0.');
                 break;
             case 'kokkos':
                 // KOKKOS on GPU: typically one MPI rank per GPU.
-                lmpArgs += ` -k on g ${gpus > 0 ? gpus : 1} -sf kk -pk kokkos`;
+                flags = `-k on g ${gpus > 0 ? gpus : 1} -sf kk -pk kokkos`;
                 note = '# KOKKOS (GPU): typically one MPI rank per GPU (-k on g N).';
                 if (gpus <= 0) warnings.push('KOKKOS/GPU selected but 0 GPUs requested. Set GPUs per node above 0, or use the OPENMP package for CPU threading.');
                 break;
             case 'intel':
                 // INTEL package: vectorised CPU (and optional Phi offload).
-                lmpArgs += ` -sf intel -pk intel 0`;
+                flags = `-sf intel -pk intel 0`;
                 note = '# INTEL package: -pk intel 0 = CPU only (use a nonzero value only for Xeon Phi offload). Your input may also need "package intel 0".';
                 break;
             case 'omp':
                 // OPENMP package: hybrid MPI + OpenMP. -pk omp N must match cpus-per-task.
-                lmpArgs += ` -sf omp -pk omp ${ompThreads}`;
+                flags = `-sf omp -pk omp ${ompThreads}`;
                 note = scheduler === 'slurm'
                     ? '# OPENMP package: hybrid MPI x OpenMP. -pk omp N matches --cpus-per-task; benchmark 1/2/4 threads per rank.'
                     : '# OPENMP package: hybrid MPI x OpenMP. -pk omp N matches the threads per rank requested above; benchmark 1/2/4 threads per rank.';
@@ -445,7 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'opt':
                 // OPT package: templated CPU pair-style speedups (5-25%).
-                lmpArgs += ` -sf opt`;
+                flags = `-sf opt`;
                 note = '# OPT package: templated CPU pair styles (typically 5-25% faster). No -pk needed.';
                 break;
             case 'none':
@@ -458,13 +477,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (note) s += note + `\n`;
         if (LAUNCH_NOTE[scheduler]) s += LAUNCH_NOTE[scheduler] + `\n`;
-        s += `${launcher(scheduler, { cpusPerTask: ompThreads })} lmp ${lmpArgs}\n`;
-        s += `echo "LAMMPS run complete. Check the Performance line in ${logFile}."\n`;
+        const launch = launcher(scheduler, { cpusPerTask: ompThreads });
+        if (built) {
+            const lmp = (getStr('lxBinary', 'lmp') || 'lmp').trim() || 'lmp';
+            if (/\s/.test(lmp)) {
+                warnings.push(`The LAMMPS executable name "<code>${escapeHtml(lmp)}</code>" contains a space. Use just the command name (e.g. <code>lmp</code> or <code>lmp_mpi</code>).`);
+            }
+            const block = lammps.runBlock({ lmp, launch, flags });
+            if (block === null) {
+                s += lammps.loading() ? `# (Loading the LAMMPS builder...)\n` : `# (The LAMMPS builder could not be loaded: reload the page.)\n`;
+            } else {
+                const margin = Math.max(0, getInt('lxMargin', 10));
+                if (!s.endsWith('\n\n')) s += `\n`;
+                if (/^TIME_LIMIT=/m.test(block)) {
+                    s += `# TIME_LIMIT below is the wall time (${getStr('jobTime', '')}) less ${margin} minute${margin === 1 ? '' : 's'}: LAMMPS ends\n`;
+                    s += `# the run cleanly before the job is killed and writes a restart file to carry on from.\n\n`;
+                }
+                s += block;
+            }
+        } else {
+            s += `${launch} lmp -in ${inFile} -log ${logFile}${flags ? ` ${flags}` : ''}\n`;
+            s += `echo "LAMMPS run complete. Check the Performance line in ${logFile}."\n`;
+        }
         s += `# Tip: accelerating is not always faster. Benchmark task/thread/GPU\n`;
         s += `#      combinations for YOUR system and styles before production runs.\n`;
 
         renderOutput(out, s);
         setWarnings($('slurmWarnings'), warnings);
+        lammps.setSubmit(s, submitHintHtml());
     }
 
     // =====================================================================
@@ -617,8 +657,8 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleVisibility($('gmxCpuField'),  engine === 'gromacs');
         toggleVisibility($('lmpTaskField'), engine === 'lammps');
         toggleVisibility($('lmpCpuField'),  engine === 'lammps');
-        // GROMACS shows it with the Job view of its set-up.
-        toggleVisibility($('clusterCard'), engine === 'lammps' || (engine === 'gromacs' && gromacs.step() === 'job'));
+        // GROMACS and LAMMPS show it with the Job view of their set-up.
+        toggleVisibility($('clusterCard'), clusterCardShown());
 
         // Topology + GROMACS GPU flags only relevant to GROMACS
         toggleVisibility($('topologyCard'), engine === 'gromacs');
@@ -643,6 +683,13 @@ document.addEventListener('DOMContentLoaded', () => {
             gromacs.enter();
         } else {
             gromacs.leave();
+        }
+        // LAMMPS, too, shows submit.sh among its run files.
+        if (engine === 'lammps') {
+            toggleVisibility($('scriptBox'), false);
+            lammps.enter();
+        } else {
+            lammps.leave();
         }
         syncSchedulerUI();
         if (engine === 'gromacs') generateTopologyHeader();
@@ -866,10 +913,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!manualOverride) applyForcefieldPreset();
             generateTopologyHeader();
         },
-        onViewChange: () => {
-            toggleVisibility($('clusterCard'), currentEngine === 'lammps' ||
-                (currentEngine === 'gromacs' && gromacs.step() === 'job'));
-        },
+        onViewChange: () => toggleVisibility($('clusterCard'), clusterCardShown()),
         schedulerInfo: () => {
             const meta = getScheduler(currentScheduler());
             return { label: meta.label, submit: submitCommandLine() };
@@ -880,6 +924,33 @@ document.addEventListener('DOMContentLoaded', () => {
         // it has built something), so the GROMACS zip can carry them.
         plumedInput: (name) => plumedTab.plumedFiles(name)
     });
+
+    // =====================================================================
+    // LAMMPS tab: the set-up views, the stage inputs, the data file, and
+    // the run files on the right (js/script-generator-lammps.js)
+    // =====================================================================
+    const lammps = createLammpsTab({
+        $, escapeHtml, getStr, getInt, isChecked, highlightLine,
+        showToast: (...a) => showToast(...a),
+        downloadText: (...a) => downloadText(...a),
+        scheduleSave: () => scheduleSave(),
+        regenerate: () => { if (currentEngine === 'lammps') generateSubmitScript(); },
+        onViewChange: () => toggleVisibility($('clusterCard'), clusterCardShown()),
+        schedulerInfo: () => {
+            const meta = getScheduler(currentScheduler());
+            return { label: meta.label, submit: submitCommandLine() };
+        },
+        // The PLUMED tab's input and INCLUDE files, for fix plumed and the zip.
+        plumedInput: (name) => plumedTab.plumedFiles(name)
+    });
+
+    // The cluster card belongs to the Job view of the GROMACS and LAMMPS
+    // set-ups; PLUMED writes an input file, not a job.
+    function clusterCardShown() {
+        if (currentEngine === 'gromacs') return gromacs.step() === 'job';
+        if (currentEngine === 'lammps') return lammps.step() === 'job';
+        return false;
+    }
 
     // =====================================================================
     // Wire up events
@@ -1059,7 +1130,8 @@ document.addEventListener('DOMContentLoaded', () => {
             engine: currentEngine,
             fields,
             plumed: plumedTab.serialise(),
-            gromacs: gromacs.serialise()
+            gromacs: gromacs.serialise(),
+            lammps: lammps.serialise()
         };
     }
 
@@ -1074,6 +1146,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         plumedTab.restore(data.plumed, fields);
         gromacs.restore(data.gromacs, fields);
+        lammps.restore(data.lammps, fields);
 
         manualOverride = isChecked('topAdvancedToggle');
         if (!manualOverride) applyForcefieldPreset();

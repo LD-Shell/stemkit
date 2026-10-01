@@ -81,6 +81,7 @@
     <link rel="stylesheet" href="src/tools/python-panel.css">
     <link rel="stylesheet" href="src/script-generator.css">
     <link rel="stylesheet" href="src/tools/gromacs.css">
+    <link rel="stylesheet" href="src/tools/lammps.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
 
@@ -141,7 +142,7 @@
         <header class="stk-pagehead">
             <div>
                 <h1 class="stk-pagehead-title">MD Workflow Generator</h1>
-                <p class="stk-pagehead-lede">Set up a whole GROMACS run, every <code>.mdp</code> file explained and checked, index groups and the job script, or a LAMMPS job on SLURM, PBS, LSF or Grid Engine, or a PLUMED input for enhanced sampling.</p>
+                <p class="stk-pagehead-lede">Set up a whole GROMACS run, every <code>.mdp</code> file explained and checked, index groups and the job script, or a whole LAMMPS run, every input line explained and checked, for SLURM, PBS, LSF or Grid Engine, or a PLUMED input for enhanced sampling.</p>
                 <ul class="stk-pagehead-meta">
                     <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
                     <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
@@ -176,6 +177,14 @@
                     <button type="button" role="tab" id="gxStepStages" class="stk-tab gx-step" data-gx-step="stages" aria-controls="gxViewStages" aria-selected="false" tabindex="-1"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="gx-step-t"><span>Stages</span><small data-gx-info></small></span></button>
                     <button type="button" role="tab" id="gxStepIndex" class="stk-tab gx-step" data-gx-step="index" aria-controls="gxViewIndex" aria-selected="false" tabindex="-1"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="gx-step-t"><span>Index</span><small data-gx-info></small></span></button>
                     <button type="button" role="tab" id="gxStepJob" class="stk-tab gx-step" data-gx-step="job" aria-controls="gxViewJob" aria-selected="false" tabindex="-1"><span class="stk-stepn" aria-hidden="true"><span>4</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="gx-step-t"><span>Job</span><small data-gx-info></small></span></button>
+                </div>
+
+                <!-- LAMMPS set-up: four views of #lammpsPanel, as for GROMACS -->
+                <div id="lxSteps" class="stk-tabs gx-steps" role="tablist" aria-label="LAMMPS set-up" hidden>
+                    <button type="button" role="tab" id="lxStepSystem" class="stk-tab gx-step" data-lx-step="system" aria-controls="lxViewSystem" aria-selected="true"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="gx-step-t"><span>System</span><small data-lx-info></small></span></button>
+                    <button type="button" role="tab" id="lxStepStages" class="stk-tab gx-step" data-lx-step="stages" aria-controls="lxViewStages" aria-selected="false" tabindex="-1"><span class="stk-stepn" aria-hidden="true"><span>2</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="gx-step-t"><span>Stages</span><small data-lx-info></small></span></button>
+                    <button type="button" role="tab" id="lxStepGroups" class="stk-tab gx-step" data-lx-step="groups" aria-controls="lxViewGroups" aria-selected="false" tabindex="-1"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="gx-step-t"><span>Groups</span><small data-lx-info></small></span></button>
+                    <button type="button" role="tab" id="lxStepJob" class="stk-tab gx-step" data-lx-step="job" aria-controls="lxViewJob" aria-selected="false" tabindex="-1"><span class="stk-stepn" aria-hidden="true"><span>4</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="gx-step-t"><span>Job</span><small data-lx-info></small></span></button>
                 </div>
 
                 <!-- CLUSTER PARAMETERS -->
@@ -1204,36 +1213,671 @@
                 </div>
 
                 <!-- ============ LAMMPS PANEL ============ -->
-                <div id="lammpsPanel" class="sg-panel-group" role="tabpanel" hidden>
-                    <section class="stk-panel" aria-labelledby="lammpsTitle">
-                        <div class="stk-panel-h">
-                            <h2 class="stk-panel-t" id="lammpsTitle"><i class="fa-solid fa-cubes"></i> LAMMPS run</h2>
-                        </div>
-                        <div class="stk-panel-b sg-form">
-                            <div class="sg-grid">
+                <!-- Four views, chosen in #lxSteps above the cluster card:
+                     System (where the atoms come from and the physics every
+                     stage shares), Stages (one card per stage), Groups
+                     (optional, from the data file) and Job (what the script
+                     runs, the accelerator, PLUMED; the cluster card shows
+                     with it). js/script-generator-lammps.js drives them. -->
+                <div id="lammpsPanel" class="sg-panel-group" role="tabpanel" aria-label="LAMMPS" hidden>
+
+                    <!-- ===== 1. System ===== -->
+                    <div id="lxViewSystem" class="gx-view" data-lx-pane="system" role="tabpanel" aria-labelledby="lxStepSystem">
+
+                        <section class="stk-panel" aria-labelledby="lxSourceTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="lxSourceTitle"><i class="fa-solid fa-cubes-stacked" aria-hidden="true"></i> Where the atoms come from</h2>
+                                <span class="sg-panel-tools">
+                                    <button type="button" id="lxDataClear" class="stk-btn stk-btn-sm stk-btn-ghost" hidden><i class="fa-solid fa-xmark" aria-hidden="true"></i> Remove</button>
+                                </span>
+                            </div>
+                            <div class="stk-panel-b sg-form">
                                 <div class="stk-field">
-                                    <label for="lmpInput">Input script <span class="plumed-help" tabindex="0" data-tip="The LAMMPS input deck (e.g. in.run), passed with the -in flag.">?</span></label>
-                                    <input type="text" id="lmpInput" value="in.lammps" class="stk-input stk-mono" placeholder="in.lammps" autocomplete="off" spellcheck="false">
+                                    <label for="lxSource">Start from</label>
+                                    <select id="lxSource" class="stk-select">
+                                        <option value="data" selected>A data file (read_data)</option>
+                                        <option value="lattice">A crystal built in the input (lattice)</option>
+                                        <option value="restart">A restart file of an earlier run (read_restart)</option>
+                                    </select>
+                                    <p class="stk-hint" id="lxSourceHint"></p>
                                 </div>
-                                <div class="stk-field">
-                                    <label for="lmpLog">Log file <span class="plumed-help" tabindex="0" data-tip="Where LAMMPS writes its log (-log). The end of this file reports the performance and timing breakdown used to judge whether acceleration helped.">?</span></label>
-                                    <input type="text" id="lmpLog" value="log.lammps" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                <div id="lxSourceData" class="sg-form">
+                                    <div class="stk-field">
+                                        <label for="lxDataName">Data file name <code class="gx-opt-code">read_data</code></label>
+                                        <input type="text" id="lxDataName" value="system.data" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div id="lxDataDrop" class="stk-drop stk-drop-sm" aria-labelledby="lxDataDropTitle">
+                                        <span class="stk-drop-icon" aria-hidden="true"><i class="fa-solid fa-file-arrow-up"></i></span>
+                                        <h3 id="lxDataDropTitle" class="stk-drop-title">Drop the data file LAMMPS will read</h3>
+                                        <p class="stk-drop-text">Optional. With it, the page knows the atom types, the water and the charge, and the files use them: SHAKE on the right types, groups for restraints, the atom count for the output sizes. The file stays in your browser.</p>
+                                        <div class="stk-drop-actions">
+                                            <button type="button" id="lxDataChoose" class="stk-btn stk-btn-primary stk-btn-sm">Choose file</button>
+                                        </div>
+                                        <p class="stk-drop-formats"><span>data.*</span><span>*.data</span><span>*.lmp</span></p>
+                                        <input type="file" id="lxDataFile" hidden data-nosave>
+                                    </div>
+                                    <div id="lxDataBody" class="sg-form" hidden>
+                                        <p id="lxDataSummary" class="gx-ndx-sum"></p>
+                                        <dl id="lxDataStats" class="sg-summary stk-tnum"></dl>
+                                        <details class="stk-disclosure" id="lxDataTypesBox">
+                                            <summary id="lxDataTypesSum">Atom types</summary>
+                                            <div class="stk-table-wrap">
+                                                <table class="sg-species gx-comp lx-types">
+                                                    <thead><tr><th scope="col">Type</th><th scope="col">Element</th><th scope="col">Mass</th><th scope="col">Atoms</th><th scope="col">Charge (e)</th></tr></thead>
+                                                    <tbody id="lxDataTypes"></tbody>
+                                                </table>
+                                            </div>
+                                        </details>
+                                        <div id="lxDataNotes" class="lx-data-notes"></div>
+                                    </div>
+                                </div>
+                                <div id="lxSourceLattice" class="sg-grid" hidden>
+                                    <div class="stk-field">
+                                        <label for="lxLattice">Lattice <code class="gx-opt-code">lattice</code></label>
+                                        <select id="lxLattice" class="stk-select">
+                                            <option value="fcc" selected>fcc</option>
+                                            <option value="bcc">bcc</option>
+                                            <option value="hcp">hcp</option>
+                                            <option value="sc">sc</option>
+                                            <option value="diamond">diamond</option>
+                                        </select>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lxLatticeA">Lattice constant (<span data-lx-u="distance">&Aring;</span>)</label>
+                                        <input type="number" id="lxLatticeA" value="3.615" min="0" step="any" inputmode="decimal" class="stk-input">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lxLatticeN">Unit cells (x y z)</label>
+                                        <input type="text" id="lxLatticeN" value="10 10 10" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lxElement">Element</label>
+                                        <input type="text" id="lxElement" value="Cu" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                </div>
+                                <div id="lxSourceRestart" class="stk-field" hidden>
+                                    <label for="lxRestartName">Restart file <code class="gx-opt-code">read_restart</code></label>
+                                    <input type="text" id="lxRestartName" value="previous.restart" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                    <p class="stk-hint">A restart file holds the atoms, velocities and box of the run that wrote it, and the styles, but not the fixes, computes or output: the stages here set those again.</p>
                                 </div>
                             </div>
-                            <div id="lmpGpuCard" class="stk-field">
-                                <label for="lmpAccel">Accelerator package <span class="plumed-help" tabindex="0" data-tip="Chooses the LAMMPS accelerator (GPU, KOKKOS, INTEL, OPENMP, OPT) and adds the matching -sf/-pk flags. Acceleration is not always faster; benchmark for your system.">?</span></label>
-                                <select id="lmpAccel" class="stk-select">
-                                    <option value="none">None (plain CPU / MPI)</option>
-                                    <option value="gpu">GPU, CUDA/OpenCL/HIP (-sf gpu -pk gpu N)</option>
-                                    <option value="kokkos">KOKKOS, GPU (-k on g N -sf kk)</option>
-                                    <option value="intel">INTEL, vectorised CPU (-sf intel)</option>
-                                    <option value="omp">OPENMP, hybrid MPI + threads (-sf omp -pk omp N)</option>
-                                    <option value="opt">OPT, templated CPU pair styles (-sf opt)</option>
-                                </select>
-                                <p class="stk-hint">LAMMPS is MPI-parallel. GPU and KOKKOS use GPUs; OPENMP is hybrid (set CPUs per task); INTEL and OPT accelerate CPU-only runs. Acceleration is not always faster: benchmark for your system and styles.</p>
+                        </section>
+
+                        <section class="stk-panel" aria-labelledby="lxFfTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="lxFfTitle"><i class="fa-solid fa-atom" aria-hidden="true"></i> Force field and units</h2>
+                                <span class="stk-badge" id="lxRelease" title="The inputs follow this LAMMPS release">LAMMPS</span>
                             </div>
-                        </div>
-                    </section>
+                            <div class="stk-panel-b sg-form">
+                                <div class="stk-field">
+                                    <label for="lxForceField">Force field</label>
+                                    <select id="lxForceField" class="stk-select"></select>
+                                    <p class="stk-hint" id="lxFfHint"></p>
+                                </div>
+                                <div class="sg-grid lx-ff-grid">
+                                    <div class="stk-field" data-lx-field="potentialFile" hidden>
+                                        <label for="lxPotential">Potential file <code class="gx-opt-code">pair_coeff</code></label>
+                                        <input type="text" id="lxPotential" value="" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field" data-lx-field="elements" hidden>
+                                        <label for="lxElements">Elements, one per atom type</label>
+                                        <input type="text" id="lxElements" value="" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field" data-lx-field="controlFile" hidden>
+                                        <label for="lxControl">ReaxFF control file</label>
+                                        <input type="text" id="lxControl" value="" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field" data-lx-field="qeqTolerance" hidden>
+                                        <label for="lxQeqTol">QEq tolerance</label>
+                                        <input type="text" id="lxQeqTol" value="" inputmode="decimal" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field" data-lx-field="cmapFile" hidden>
+                                        <label for="lxCmap">CMAP file <code class="gx-opt-code">fix cmap</code></label>
+                                        <input type="text" id="lxCmap" value="" class="stk-input stk-mono" placeholder="none" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field" data-lx-field="waterTypes" hidden>
+                                        <label for="lxWaterO">Water oxygen type</label>
+                                        <input type="number" id="lxWaterO" value="" min="1" step="1" inputmode="numeric" class="stk-input" placeholder="from the data file">
+                                    </div>
+                                    <div class="stk-field" data-lx-field="waterTypes" hidden>
+                                        <label for="lxWaterH">Water hydrogen type</label>
+                                        <input type="number" id="lxWaterH" value="" min="1" step="1" inputmode="numeric" class="stk-input" placeholder="from the data file">
+                                    </div>
+                                    <div class="stk-field" data-lx-field="units" hidden>
+                                        <label for="lxCustomUnits">Units <code class="gx-opt-code">units</code></label>
+                                        <select id="lxCustomUnits" class="stk-select">
+                                            <option value="real" selected>real (Å, fs, kcal/mol)</option>
+                                            <option value="metal">metal (Å, ps, eV)</option>
+                                            <option value="lj">lj (reduced)</option>
+                                            <option value="si">si (m, s, J)</option>
+                                            <option value="cgs">cgs (cm, s, erg)</option>
+                                            <option value="electron">electron (Bohr, fs, Hartree)</option>
+                                            <option value="micro">micro (µm, µs, pg)</option>
+                                            <option value="nano">nano (nm, ns, ag)</option>
+                                        </select>
+                                    </div>
+                                    <div class="stk-field" data-lx-field="atomStyle" hidden>
+                                        <label for="lxCustomAtomStyle">Atom style <code class="gx-opt-code">atom_style</code></label>
+                                        <input type="text" id="lxCustomAtomStyle" value="" class="stk-input stk-mono" placeholder="full" autocomplete="off" spellcheck="false">
+                                    </div>
+                                </div>
+                                <div class="stk-field" data-lx-field="lines" hidden>
+                                    <label for="lxCustomLines">Your force-field lines</label>
+                                    <textarea id="lxCustomLines" class="stk-textarea stk-mono" rows="5" spellcheck="false" placeholder="pair_style lj/cut/coul/long 10.0&#10;bond_style harmonic&#10;kspace_style pppm 1.0e-5"></textarea>
+                                    <p class="stk-hint">Style lines (<code>pair_style</code>, <code>bond_style</code>, ...) go before the data file is read; coefficients and the rest go into the shared settings file every stage reads.</p>
+                                </div>
+                                <label class="stk-check" data-lx-field="ljTail" hidden><input type="checkbox" id="lxLjTail"> <span>Long-range tail correction (<code>pair_modify tail yes</code>)</span></label>
+                                <label class="stk-check" data-lx-field="ljShift" hidden><input type="checkbox" id="lxLjShift"> <span>Shift the energy to zero at the cut-off (<code>pair_modify shift yes</code>)</span></label>
+                                <details class="stk-disclosure" data-lx-field="styles" hidden>
+                                    <summary>Bonded styles</summary>
+                                    <div class="sg-grid">
+                                        <div class="stk-field"><label for="lxBondStyle"><code class="gx-opt-code">bond_style</code></label><input type="text" id="lxBondStyle" value="" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false"></div>
+                                        <div class="stk-field"><label for="lxAngleStyle"><code class="gx-opt-code">angle_style</code></label><input type="text" id="lxAngleStyle" value="" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false"></div>
+                                        <div class="stk-field"><label for="lxDihedralStyle"><code class="gx-opt-code">dihedral_style</code></label><input type="text" id="lxDihedralStyle" value="" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false"></div>
+                                        <div class="stk-field"><label for="lxImproperStyle"><code class="gx-opt-code">improper_style</code></label><input type="text" id="lxImproperStyle" value="" class="stk-input stk-input-sm stk-mono" autocomplete="off" spellcheck="false"></div>
+                                    </div>
+                                    <p class="stk-hint lx-pad">Empty fields keep the force field's styles. A data file made for other styles needs its coefficients to match them.</p>
+                                </details>
+                                <details class="stk-disclosure" data-lx-field="extraLines" hidden>
+                                    <summary>Extra lines for the shared settings</summary>
+                                    <div>
+                                        <label for="lxExtraLines" class="sr-only">Extra lines</label>
+                                        <textarea id="lxExtraLines" class="stk-textarea stk-mono" rows="3" spellcheck="false" placeholder="e.g. pair_coeff 1 13 0.1 3.2"></textarea>
+                                        <p class="stk-hint">Added at the end of the shared settings file, so every stage reads them.</p>
+                                    </div>
+                                </details>
+                                <dl id="lxFfValues" class="gx-values"></dl>
+                            </div>
+                        </section>
+
+                        <section class="stk-panel" aria-labelledby="lxCoupleTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="lxCoupleTitle"><i class="fa-solid fa-temperature-half" aria-hidden="true"></i> Temperature and pressure</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="lxTemp">Temperature (<span data-lx-u="temperature">K</span>)</label>
+                                        <input type="number" id="lxTemp" value="300" min="0" step="any" inputmode="decimal" class="stk-input">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lxPressure">Pressure (<span data-lx-u="pressure">atm</span>)</label>
+                                        <input type="number" id="lxPressure" value="1" step="any" inputmode="decimal" class="stk-input">
+                                    </div>
+                                </div>
+                                <div class="stk-field">
+                                    <label for="lxThermostat">Thermostat</label>
+                                    <select id="lxThermostat" class="stk-select"></select>
+                                </div>
+                                <div class="stk-field">
+                                    <label for="lxBarostat">Barostat</label>
+                                    <select id="lxBarostat" class="stk-select"></select>
+                                </div>
+                                <div class="stk-field">
+                                    <label for="lxCouple">Box scaling</label>
+                                    <select id="lxCouple" class="stk-select">
+                                        <option value="iso" selected>Isotropic (iso)</option>
+                                        <option value="aniso">Each axis on its own (aniso)</option>
+                                        <option value="membrane">Membrane: x with y, z alone</option>
+                                        <option value="tri">Every box vector, tilts too (tri)</option>
+                                    </select>
+                                </div>
+                                <div class="sg-grid lx-damp">
+                                    <div class="stk-field">
+                                        <label for="lxTdamp"><code class="gx-opt-code">Tdamp</code> (<span data-lx-u="time">fs</span>)</label>
+                                        <input type="number" id="lxTdamp" value="" min="0" step="any" inputmode="decimal" class="stk-input" placeholder="automatic">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lxPdamp"><code class="gx-opt-code">Pdamp</code> (<span data-lx-u="time">fs</span>)</label>
+                                        <input type="number" id="lxPdamp" value="" min="0" step="any" inputmode="decimal" class="stk-input" placeholder="automatic">
+                                    </div>
+                                    <div class="stk-field" id="lxBulkWrap" hidden>
+                                        <label for="lxBulk">Bulk modulus (<span data-lx-u="pressure">atm</span>)</label>
+                                        <input type="number" id="lxBulk" value="" min="0" step="any" inputmode="decimal" class="stk-input" placeholder="automatic">
+                                    </div>
+                                </div>
+                                <div id="lxCoupleNote" class="gx-note" aria-live="polite"></div>
+                                <dl id="lxCoupleValues" class="gx-values"></dl>
+
+                                <details class="stk-disclosure gx-guide" id="lxGuide">
+                                    <summary><span><i class="fa-solid fa-book-open" aria-hidden="true"></i> Thermostat and barostat guide</span></summary>
+                                    <div id="lxGuideBody"></div>
+                                </details>
+                            </div>
+                        </section>
+
+                        <section class="stk-panel" aria-labelledby="lxDtTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="lxDtTitle"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i> Time step and bonds</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="lxRigid">Rigid bonds <code class="gx-opt-code">fix shake</code></label>
+                                        <select id="lxRigid" class="stk-select">
+                                            <option value="shake" selected>SHAKE: bonds to hydrogen, rigid water</option>
+                                            <option value="rattle">RATTLE: the same, for NVE</option>
+                                            <option value="none">None (flexible)</option>
+                                        </select>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lxDt">Time step (<span data-lx-u="time">fs</span>) <code class="gx-opt-code">timestep</code></label>
+                                        <input type="number" id="lxDt" value="" min="0" step="any" inputmode="decimal" class="stk-input" placeholder="automatic">
+                                    </div>
+                                </div>
+                                <div id="lxDtNote" class="gx-note" aria-live="polite"></div>
+                            </div>
+                        </section>
+
+                        <section class="stk-panel" id="lxCutPanel" aria-labelledby="lxCutTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="lxCutTitle"><i class="fa-solid fa-circle-nodes" aria-hidden="true"></i> Cut-offs and electrostatics</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <div class="sg-grid">
+                                    <div class="stk-field" data-lx-field="inner" hidden>
+                                        <label for="lxFfInner">Switching starts at (<span data-lx-u="distance">&Aring;</span>)</label>
+                                        <input type="number" id="lxFfInner" value="" min="0" step="any" inputmode="decimal" class="stk-input" placeholder="automatic">
+                                    </div>
+                                    <div class="stk-field" data-lx-field="cutoff" hidden>
+                                        <label for="lxCutoff">Pair cut-off (<span data-lx-u="distance">&Aring;</span>)</label>
+                                        <input type="number" id="lxCutoff" value="" min="0" step="any" inputmode="decimal" class="stk-input" placeholder="automatic">
+                                    </div>
+                                    <div class="stk-field" data-lx-field="kspaceAccuracy" hidden>
+                                        <label for="lxKspaceAcc">PPPM accuracy (relative force error)</label>
+                                        <input type="text" id="lxKspaceAcc" value="" class="stk-input stk-mono" inputmode="decimal" placeholder="automatic" autocomplete="off" spellcheck="false">
+                                    </div>
+                                </div>
+                                <div id="lxCutNote" class="gx-note" aria-live="polite"></div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- ===== 2. Stages ===== -->
+                    <div id="lxViewStages" class="gx-view" data-lx-pane="stages" role="tabpanel" aria-labelledby="lxStepStages" hidden>
+
+                        <section class="stk-panel" aria-labelledby="lxGlanceTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="lxGlanceTitle"><i class="fa-solid fa-timeline" aria-hidden="true"></i> The workflow at a glance</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <ol id="lxGlance" class="gx-glance" aria-label="Stages in the order they run"></ol>
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="lxAtoms">Atoms in the system</label>
+                                        <input type="number" id="lxAtoms" value="" min="0" step="1" inputmode="numeric" class="stk-input" placeholder="e.g. 32000">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lxSpeed">Speed (ns/day)</label>
+                                        <input type="number" id="lxSpeed" value="" min="0" step="any" inputmode="decimal" class="stk-input" placeholder="optional">
+                                    </div>
+                                </div>
+                                <p class="stk-hint" id="lxGlanceHint">The atom count gives the output sizes (it is filled in when you load a data file under System); the speed, from the <code>Performance:</code> line at the end of an earlier log, gives the run time.</p>
+                                <dl id="lxTotals" class="sg-summary stk-tnum" aria-live="polite"></dl>
+                            </div>
+                        </section>
+
+                        <section class="stk-panel" aria-labelledby="lxStartTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="lxStartTitle"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Velocities, restraints and output</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="lxVelocities">Starting velocities</label>
+                                        <select id="lxVelocities" class="stk-select">
+                                            <option value="create" selected>New velocities</option>
+                                            <option value="keep">Kept from the file</option>
+                                        </select>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lxSeed">Random seed</label>
+                                        <input type="number" id="lxSeed" value="" min="1" max="899999999" step="1" inputmode="numeric" class="stk-input" placeholder="4928459">
+                                    </div>
+                                </div>
+                                <p class="stk-hint" id="lxVelHint">The first dynamics stage draws them (<code>velocity create</code>); every later stage carries them over in its restart file.</p>
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="lxRestrainGroup">Restrained atoms <code class="gx-opt-code">group</code></label>
+                                        <input type="text" id="lxRestrainGroup" value="" list="lxRestrainList" class="stk-input stk-mono" placeholder="automatic" autocomplete="off" spellcheck="false">
+                                        <datalist id="lxRestrainList"></datalist>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lxRestrainK">Spring constant (<span data-lx-u="spring">kcal/(mol·&Aring;&sup2;)</span>)</label>
+                                        <input type="number" id="lxRestrainK" value="" min="0" step="any" inputmode="decimal" class="stk-input" placeholder="automatic">
+                                    </div>
+                                </div>
+                                <p class="stk-hint" id="lxRestrainHint">Empty: the group <code>solute_heavy</code> when Groups keeps it, else the solute's heavy atoms from the data file. Otherwise a group's name, or what the <a href="https://docs.lammps.org/group.html" target="_blank" rel="noopener" class="sg-link">group</a> command takes after the name, such as <code>type 1:12</code> or <code>molecule 1</code>.</p>
+                                <div class="stk-field">
+                                    <label for="lxDumpFormat">Trajectory <code class="gx-opt-code">dump</code></label>
+                                    <select id="lxDumpFormat" class="stk-select">
+                                        <option value="custom" selected>Text, custom columns (.lammpstrj)</option>
+                                        <option value="atom">Text, atom style (.lammpstrj)</option>
+                                        <option value="dcd">DCD (CHARMM/NAMD binary)</option>
+                                        <option value="xtc">XTC (GROMACS compressed)</option>
+                                        <option value="none">No trajectory</option>
+                                    </select>
+                                </div>
+                                <label class="stk-check"><input type="checkbox" id="lxUnwrap" checked> <span>Unwrapped coordinates (<code>xu yu zu</code>): a molecule that crosses the box edge stays whole</span></label>
+                                <p class="stk-hint" id="lxDumpHint"></p>
+                            </div>
+                        </section>
+
+                        <section class="stk-panel gx-stage" data-lx-stage="min" aria-labelledby="lxStageMinT">
+                            <div class="gx-stage-h">
+                                <button type="button" id="lx_min_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="lxStageMinT"></button>
+                                <div class="gx-stage-id">
+                                    <h3 class="gx-stage-t" id="lxStageMinT">Energy minimisation</h3>
+                                    <span class="gx-stage-sum" data-lx="sum"></span>
+                                </div>
+                                <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost gx-stage-file" data-lx-file="min"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> <span data-lx="fname">in.min</span></button>
+                            </div>
+                            <div class="gx-stage-b sg-form" data-lx="body">
+                                <p class="gx-stage-what">Relieves the overlaps left by building the system, so the first steps of dynamics do not blow up.</p>
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="lx_min_style">Method <code class="gx-opt-code">min_style</code></label>
+                                        <select id="lx_min_style" class="stk-select">
+                                            <option value="cg" selected>Conjugate gradient</option>
+                                            <option value="sd">Steepest descent</option>
+                                            <option value="fire">FIRE</option>
+                                        </select>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lx_min_maxiter">At most (iterations)</label>
+                                        <input type="number" id="lx_min_maxiter" value="5000" min="1" step="1" inputmode="numeric" class="stk-input">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lx_min_etol">Energy tolerance <code class="gx-opt-code">etol</code></label>
+                                        <input type="text" id="lx_min_etol" value="1.0e-4" inputmode="decimal" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lx_min_ftol">Force tolerance <code class="gx-opt-code">ftol</code></label>
+                                        <input type="text" id="lx_min_ftol" value="1.0e-6" inputmode="decimal" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                    </div>
+                                </div>
+                                <p class="stk-hint">It stops when the energy changes by less than <code>etol</code> (relative), when the largest force is below <code>ftol</code> (<span data-lx-u="force">kcal/(mol·&Aring;)</span>), or after the iterations above, whichever comes first.</p>
+                                <label class="stk-check"><input type="checkbox" id="lx_min_boxrelax"> <span>Relax the box too (<code>fix box/relax</code>), for a crystal at zero pressure</span></label>
+                                <label class="stk-check"><input type="checkbox" id="lx_min_restrain"> <span>Hold the restrained atoms (<code>fix spring/self</code>)</span></label>
+                                <div class="gx-stage-notes" data-lx="notes"></div>
+                            </div>
+                        </section>
+
+                        <section class="stk-panel gx-stage" data-lx-stage="nvt" aria-labelledby="lxStageNvtT">
+                            <div class="gx-stage-h">
+                                <button type="button" id="lx_nvt_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="lxStageNvtT"></button>
+                                <div class="gx-stage-id">
+                                    <h3 class="gx-stage-t" id="lxStageNvtT">NVT equilibration</h3>
+                                    <span class="gx-stage-sum" data-lx="sum"></span>
+                                </div>
+                                <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost gx-stage-file" data-lx-file="nvt"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> <span data-lx="fname">in.nvt</span></button>
+                            </div>
+                            <div class="gx-stage-b sg-form" data-lx="body">
+                                <p class="gx-stage-what">Brings the system to the temperature at constant volume; restrained atoms stay near their start while the rest settles.</p>
+                                <div class="stk-field">
+                                    <label for="lx_nvt_len">Length</label>
+                                    <div class="gx-len lx-len">
+                                        <input type="number" id="lx_nvt_len" value="100" min="0" step="any" inputmode="decimal" class="stk-input">
+                                        <select id="lx_nvt_unit" class="stk-select" aria-label="Unit of the length"><option value="fs">fs</option><option value="ps" selected>ps</option><option value="ns">ns</option></select>
+                                    </div>
+                                    <p class="stk-hint" data-lx="steps"></p>
+                                </div>
+                                <label class="stk-check"><input type="checkbox" id="lx_nvt_restrain" checked> <span>Hold the restrained atoms (<code>fix spring/self</code>)</span></label>
+                                <fieldset class="gx-every">
+                                    <legend>Write every (<span data-lx-u="time-out">ps</span>); empty is automatic, 0 writes none</legend>
+                                    <div class="gx-every-grid lx-every-3">
+                                    <div class="stk-field">
+                                        <label for="lx_nvt_thermo">Thermo line</label>
+                                        <input type="number" id="lx_nvt_thermo" value="" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lx_nvt_dump">Coordinates</label>
+                                        <input type="number" id="lx_nvt_dump" value="" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lx_nvt_restart">Restart file</label>
+                                        <input type="number" id="lx_nvt_restart" value="" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    </div>
+                                </fieldset>
+                                <div class="gx-stage-notes" data-lx="notes"></div>
+                            </div>
+                        </section>
+
+                        <section class="stk-panel gx-stage" data-lx-stage="npt" aria-labelledby="lxStageNptT">
+                            <div class="gx-stage-h">
+                                <button type="button" id="lx_npt_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="lxStageNptT"></button>
+                                <div class="gx-stage-id">
+                                    <h3 class="gx-stage-t" id="lxStageNptT">NPT equilibration</h3>
+                                    <span class="gx-stage-sum" data-lx="sum"></span>
+                                </div>
+                                <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost gx-stage-file" data-lx-file="npt"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> <span data-lx="fname">in.npt</span></button>
+                            </div>
+                            <div class="gx-stage-b sg-form" data-lx="body">
+                                <p class="gx-stage-what">Lets the box relax to the pressure, so the density settles, carrying on from the NVT stage.</p>
+                                <div class="stk-field">
+                                    <label for="lx_npt_len">Length</label>
+                                    <div class="gx-len lx-len">
+                                        <input type="number" id="lx_npt_len" value="100" min="0" step="any" inputmode="decimal" class="stk-input">
+                                        <select id="lx_npt_unit" class="stk-select" aria-label="Unit of the length"><option value="fs">fs</option><option value="ps" selected>ps</option><option value="ns">ns</option></select>
+                                    </div>
+                                    <p class="stk-hint" data-lx="steps"></p>
+                                </div>
+                                <label class="stk-check"><input type="checkbox" id="lx_npt_restrain" checked> <span>Hold the restrained atoms (<code>fix spring/self</code>)</span></label>
+                                <fieldset class="gx-every">
+                                    <legend>Write every (<span data-lx-u="time-out">ps</span>); empty is automatic, 0 writes none</legend>
+                                    <div class="gx-every-grid lx-every-3">
+                                    <div class="stk-field">
+                                        <label for="lx_npt_thermo">Thermo line</label>
+                                        <input type="number" id="lx_npt_thermo" value="" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lx_npt_dump">Coordinates</label>
+                                        <input type="number" id="lx_npt_dump" value="" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lx_npt_restart">Restart file</label>
+                                        <input type="number" id="lx_npt_restart" value="" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    </div>
+                                </fieldset>
+                                <div class="gx-stage-notes" data-lx="notes"></div>
+                            </div>
+                        </section>
+
+                        <section class="stk-panel gx-stage" data-lx-stage="prod" aria-labelledby="lxStageProdT">
+                            <div class="gx-stage-h">
+                                <button type="button" id="lx_prod_on" class="stk-switch" role="switch" aria-checked="true" aria-labelledby="lxStageProdT"></button>
+                                <div class="gx-stage-id">
+                                    <h3 class="gx-stage-t" id="lxStageProdT">Production</h3>
+                                    <span class="gx-stage-sum" data-lx="sum"></span>
+                                </div>
+                                <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost gx-stage-file" data-lx-file="prod"><i class="fa-regular fa-file-lines" aria-hidden="true"></i> <span data-lx="fname">in.prod</span></button>
+                            </div>
+                            <div class="gx-stage-b sg-form" data-lx="body">
+                                <p class="gx-stage-what">The run you analyse, with the restraints released, carried on across jobs from its newest restart file.</p>
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="lx_prod_len">Length</label>
+                                        <div class="gx-len">
+                                            <input type="number" id="lx_prod_len" value="100" min="0" step="any" inputmode="decimal" class="stk-input">
+                                            <select id="lx_prod_unit" class="stk-select" aria-label="Unit of the length"><option value="fs">fs</option><option value="ps">ps</option><option value="ns" selected>ns</option></select>
+                                        </div>
+                                        <p class="stk-hint" data-lx="steps"></p>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lx_prod_ens">Ensemble</label>
+                                        <select id="lx_prod_ens" class="stk-select"><option value="NPT" selected>NPT: thermostat and barostat</option><option value="NVT">NVT: fixed box</option><option value="NVE">NVE: no thermostat</option></select>
+                                    </div>
+                                </div>
+                                <label class="stk-check"><input type="checkbox" id="lx_prod_restrain"> <span>Hold the restrained atoms (<code>fix spring/self</code>)</span></label>
+                                <fieldset class="gx-every">
+                                    <legend>Write every (<span data-lx-u="time-out">ps</span>); empty is automatic, 0 writes none</legend>
+                                    <div class="gx-every-grid lx-every-3">
+                                    <div class="stk-field">
+                                        <label for="lx_prod_thermo">Thermo line</label>
+                                        <input type="number" id="lx_prod_thermo" value="" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lx_prod_dump">Coordinates</label>
+                                        <input type="number" id="lx_prod_dump" value="" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lx_prod_restart">Restart file</label>
+                                        <input type="number" id="lx_prod_restart" value="" min="0" step="any" inputmode="decimal" class="stk-input stk-input-sm">
+                                    </div>
+                                    </div>
+                                </fieldset>
+                                <div class="gx-stage-notes" data-lx="notes"></div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- ===== 3. Groups ===== -->
+                    <div id="lxViewGroups" class="gx-view" data-lx-pane="groups" role="tabpanel" aria-labelledby="lxStepGroups" hidden>
+
+                        <section class="stk-panel" aria-labelledby="lxGroupsTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="lxGroupsTitle"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Groups of atoms</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <p class="stk-hint">Groups name sets of atoms: the ones the restraints hold, or any you want for your own analysis. LAMMPS always has <code>all</code>; the groups kept here are <code>group</code> lines in <code>in.settings</code>, so every stage has them, and the restrained atoms under Stages can name one. A group called <code>solute_heavy</code> is what the restraints hold unless you name another. Optional.</p>
+                                <div id="lxGroupsEmpty" class="lx-empty">
+                                    <p>Load the data file under System, and the groups a set-up needs (the solute, the water, the ions) are suggested from its types and molecules.</p>
+                                    <button type="button" class="stk-btn stk-btn-sm" data-lx-go="system"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Load a data file</button>
+                                </div>
+                                <div id="lxGroups" class="gx-groups"></div>
+                            </div>
+                        </section>
+
+                        <section class="stk-panel" aria-labelledby="lxGroupAddTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="lxGroupAddTitle"><i class="fa-solid fa-plus" aria-hidden="true"></i> Make a group</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <div class="sg-grid">
+                                    <div class="stk-field">
+                                        <label for="lxGroupName">Group name</label>
+                                        <input type="text" id="lxGroupName" class="stk-input stk-input-sm stk-mono" placeholder="e.g. protein" autocomplete="off" spellcheck="false" data-nosave>
+                                    </div>
+                                    <div class="stk-field">
+                                        <label for="lxGroupStyle">Atoms by</label>
+                                        <select id="lxGroupStyle" class="stk-select stk-select-sm" data-nosave>
+                                            <option value="type">Atom type</option>
+                                            <option value="molecule">Molecule ID</option>
+                                            <option value="id">Atom ID</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="stk-field">
+                                    <label for="lxGroupValues">Values</label>
+                                    <input type="text" id="lxGroupValues" class="stk-input stk-input-sm stk-mono" placeholder="e.g. 1 2 3, or 1:20" autocomplete="off" spellcheck="false" data-nosave>
+                                    <p class="stk-hint">Numbers separated by spaces; <code>A:B</code> is a range, as the <a href="https://docs.lammps.org/group.html" target="_blank" rel="noopener" class="sg-link">group</a> command reads it.</p>
+                                </div>
+                                <div class="gx-cg-foot">
+                                    <p id="lxGroupPreview" class="gx-cg-preview" aria-live="polite"></p>
+                                    <button type="button" id="lxGroupAdd" class="stk-btn stk-btn-sm stk-btn-primary" disabled><i class="fa-solid fa-plus" aria-hidden="true"></i> Add group</button>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- ===== 4. Job ===== -->
+                    <div id="lxViewJob" class="gx-view" data-lx-pane="job" role="tabpanel" aria-labelledby="lxStepJob" hidden>
+
+                        <section class="stk-panel" aria-labelledby="lammpsTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="lammpsTitle"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i> What the job runs</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <div class="stk-field">
+                                    <span class="stk-label-sm" id="lxRouteLabel">The job runs</span>
+                                    <div class="stk-seg stk-seg-fill lx-route" role="group" aria-labelledby="lxRouteLabel">
+                                        <button type="button" data-lx-route="built" aria-pressed="true">The files built here</button>
+                                        <button type="button" data-lx-route="own" aria-pressed="false">My own input</button>
+                                    </div>
+                                    <input type="hidden" id="lxRoute" value="built">
+                                </div>
+                                <div id="lxRouteBuilt" class="sg-form">
+                                    <div class="sg-grid">
+                                        <div class="stk-field">
+                                            <label for="lxBinary">LAMMPS executable <span class="plumed-help" tabindex="0" data-tip="The LAMMPS command on the cluster: lmp for a CMake build, lmp_mpi or lmp_serial for the older make builds, or a site's own name. Run 'module load lammps' then 'which lmp lmp_mpi' to check.">?</span></label>
+                                            <input type="text" id="lxBinary" value="lmp" list="lxBinaryList" class="stk-input stk-mono" placeholder="lmp" autocomplete="off" spellcheck="false">
+                                            <datalist id="lxBinaryList"><option value="lmp"></option><option value="lmp_mpi"></option><option value="lmp_serial"></option></datalist>
+                                        </div>
+                                        <div class="stk-field">
+                                            <label for="lxMargin">Wall-time margin (min) <span class="plumed-help" tabindex="0" data-tip="Production runs under timer timeout: this many minutes before the wall time LAMMPS ends the run cleanly and writes a restart, so the next submission carries on from it instead of losing everything since the last restart file.">?</span></label>
+                                            <input type="number" id="lxMargin" value="10" min="0" step="1" inputmode="numeric" class="stk-input">
+                                        </div>
+                                    </div>
+                                    <p class="stk-hint" id="lxResumeHint">Every stage runs only while its last restart file is missing, and one that was stopped carries on from its newest restart file: if the job reaches its wall time, submit the same script again. LAMMPS ends each run cleanly the margin above before the wall time (<code>timer timeout</code>), so nothing since the last restart file is lost.</p>
+                                </div>
+                                <div id="lxRouteOwn" class="sg-form" hidden>
+                                    <div class="sg-grid">
+                                        <div class="stk-field">
+                                            <label for="lmpInput">Input script <span class="plumed-help" tabindex="0" data-tip="The LAMMPS input deck (e.g. in.run), passed with the -in flag.">?</span></label>
+                                            <input type="text" id="lmpInput" value="in.lammps" class="stk-input stk-mono" placeholder="in.lammps" autocomplete="off" spellcheck="false">
+                                        </div>
+                                        <div class="stk-field">
+                                            <label for="lmpLog">Log file <span class="plumed-help" tabindex="0" data-tip="Where LAMMPS writes its log (-log). The end of this file reports the performance and timing breakdown used to judge whether acceleration helped.">?</span></label>
+                                            <input type="text" id="lmpLog" value="log.lammps" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                        </div>
+                                    </div>
+                                    <p class="stk-hint">submit.sh runs your input as it is, with the accelerator's flags. Check it under Check a file first.</p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section id="lmpGpuCard" class="stk-panel" aria-labelledby="lxAccelTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="lxAccelTitle"><i class="fa-solid fa-microchip" aria-hidden="true"></i> Accelerator</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <div class="stk-field">
+                                    <label for="lmpAccel">Accelerator package <span class="plumed-help" tabindex="0" data-tip="Chooses the LAMMPS accelerator (GPU, KOKKOS, INTEL, OPENMP, OPT) and adds the matching -sf/-pk flags. Acceleration is not always faster; benchmark for your system.">?</span></label>
+                                    <select id="lmpAccel" class="stk-select">
+                                        <option value="none">None (plain CPU / MPI)</option>
+                                        <option value="gpu">GPU, CUDA/OpenCL/HIP (-sf gpu -pk gpu N)</option>
+                                        <option value="kokkos">KOKKOS, GPU (-k on g N -sf kk)</option>
+                                        <option value="intel">INTEL, vectorised CPU (-sf intel)</option>
+                                        <option value="omp">OPENMP, hybrid MPI + threads (-sf omp -pk omp N)</option>
+                                        <option value="opt">OPT, templated CPU pair styles (-sf opt)</option>
+                                    </select>
+                                    <p class="stk-hint">LAMMPS is MPI-parallel: set the MPI tasks per node in the cluster card. GPU and KOKKOS use GPUs; OPENMP is hybrid (set CPUs per task); INTEL and OPT accelerate CPU-only runs. Acceleration is not always faster: benchmark for your system and styles.</p>
+                                </div>
+                                <div id="lxAccelNote" class="gx-note" aria-live="polite"></div>
+                            </div>
+                        </section>
+
+                        <section class="stk-panel" aria-labelledby="lxPlumedTitle">
+                            <div class="stk-panel-h">
+                                <h2 class="stk-panel-t" id="lxPlumedTitle"><i class="fa-solid fa-wave-square" aria-hidden="true"></i> PLUMED</h2>
+                            </div>
+                            <div class="stk-panel-b sg-form">
+                                <div class="stk-switch-row">
+                                    <span id="lxPlumedLabel">Couple PLUMED (<code>fix plumed</code>)</span>
+                                    <button type="button" id="lxUsePlumed" class="stk-switch" role="switch" aria-checked="false" aria-labelledby="lxPlumedLabel"></button>
+                                </div>
+                                <div id="lxPlumedWrap" class="sg-form" hidden>
+                                    <div class="sg-grid">
+                                        <div class="stk-field">
+                                            <label for="lxPlumedFile">PLUMED input file</label>
+                                            <input type="text" id="lxPlumedFile" value="plumed.dat" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
+                                        </div>
+                                        <div class="stk-field">
+                                            <label for="lxPlumedScope">Apply to</label>
+                                            <select id="lxPlumedScope" class="stk-select">
+                                                <option value="prod" selected>Production only</option>
+                                                <option value="all">Every dynamics stage</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <p class="stk-hint" id="lxPlumedHint">Build the input in the PLUMED tab: it goes into the zip with the files its <code>INCLUDE</code> lines read. LAMMPS needs the PLUMED package (<code>lmp -h</code> lists it), and PLUMED numbers atoms by their LAMMPS atom IDs.</p>
+                                    <div id="lxPlumedNote" class="gx-tc-hint" aria-live="polite"></div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
                 </div>
 
                 <!-- ============ PLUMED PANEL ============ -->
@@ -1691,6 +2335,91 @@
                     </div>
                 </section>
 
+                <!-- LAMMPS: the run files, every command and style, and checking an input -->
+                <div id="lxViews" class="stk-tabs sg-views" role="tablist" aria-label="LAMMPS tools" hidden>
+                    <button type="button" class="stk-tab" role="tab" id="lxViewTabFiles" data-lx-view="files" aria-selected="true" aria-controls="lxFilesBox"><i class="fa-solid fa-folder-open" aria-hidden="true"></i> Run files</button>
+                    <button type="button" class="stk-tab" role="tab" id="lxViewTabRef" data-lx-view="commands" aria-selected="false" aria-controls="lxRefBox" tabindex="-1"><i class="fa-solid fa-book" aria-hidden="true"></i> All commands</button>
+                    <button type="button" class="stk-tab" role="tab" id="lxViewTabCheck" data-lx-view="check" aria-selected="false" aria-controls="lxChkBox" tabindex="-1"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Check a file</button>
+                </div>
+
+                <section id="lxFilesBox" class="stk-panel sg-out gx-files lx-files" role="tabpanel" aria-labelledby="lxViewTabFiles" hidden>
+                    <div class="gx-files-h">
+                        <div id="lxFileTabs" class="gx-ftabs" role="tablist" aria-label="Files"></div>
+                    </div>
+                    <div class="gx-files-bar">
+                        <p id="lxFileWhat" class="gx-file-what"></p>
+                        <div class="sg-out-actions gx-file-actions">
+                            <div class="stk-seg" role="group" aria-label="How to show the file" id="lxModeSeg">
+                                <button type="button" data-lx-mode="code" aria-pressed="true">File</button>
+                                <button type="button" data-lx-mode="explain" aria-pressed="false">Explained</button>
+                            </div>
+                            <button type="button" id="lxCopy" class="stk-btn stk-btn-sm"><i class="fa-regular fa-copy" aria-hidden="true"></i> <span>Copy</span></button>
+                            <button type="button" id="lxDownload" class="stk-btn stk-btn-sm" aria-label="Download this file" title="Download this file"><i class="fa-solid fa-download" aria-hidden="true"></i></button>
+                            <button type="button" id="lxZip" class="stk-btn stk-btn-sm stk-btn-primary" title="submit.sh, every input file and a README in one zip"><i class="fa-solid fa-file-zipper" aria-hidden="true"></i> Download all</button>
+                        </div>
+                    </div>
+                    <div class="sg-out-body stk-scroll gx-code-wrap" id="lxCodeWrap" tabindex="0" role="region" aria-label="File contents; arrow keys choose a line" aria-describedby="lxFoot">
+                        <pre class="sg-code gx-code"><code id="lxCode"></code></pre>
+                    </div>
+                    <div class="gx-explain stk-scroll" id="lxExplain" tabindex="0" role="region" aria-label="The file, line by line" hidden></div>
+                    <div class="sg-out-f gx-foot" id="lxFoot" aria-live="polite"></div>
+                </section>
+
+                <section id="lxRefBox" class="stk-panel sg-out sg-tool" role="tabpanel" aria-labelledby="lxViewTabRef" hidden>
+                    <div class="stk-panel-h sg-out-h">
+                        <h2 class="stk-panel-t" id="lxRefTitle">Every command and style <span class="stk-badge" id="lxRefVersion">LAMMPS</span></h2>
+                        <div class="sg-out-actions">
+                            <a class="stk-btn stk-btn-sm stk-btn-ghost" href="https://docs.lammps.org/Commands_all.html" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> LAMMPS manual</a>
+                        </div>
+                    </div>
+                    <div class="gx-opt-bar">
+                        <label for="lxRefFind" class="sr-only">Find a command or style</label>
+                        <input type="search" id="lxRefFind" class="stk-input stk-input-sm" placeholder="Find: fix nvt, pppm, shake, lj/charmm" autocomplete="off" spellcheck="false" data-nosave>
+                        <label for="lxRefKind" class="sr-only">Kind</label>
+                        <select id="lxRefKind" class="stk-select stk-select-sm" data-nosave><option value="">Every kind</option></select>
+                        <label class="stk-check gx-opt-only"><input type="checkbox" id="lxRefOnly" data-nosave> <span>Only those in the files</span></label>
+                        <span id="lxRefCount" class="gx-opt-count stk-tnum" aria-live="polite"></span>
+                    </div>
+                    <div class="sg-tool-body stk-scroll" id="lxRefScroll">
+                        <div id="lxRefList" class="gx-opts lx-refs"></div>
+                    </div>
+                </section>
+
+                <section id="lxChkBox" class="stk-panel sg-out sg-tool" role="tabpanel" aria-labelledby="lxViewTabCheck" hidden>
+                    <div class="stk-panel-h sg-out-h">
+                        <h2 class="stk-panel-t" id="lxChkTitle">Check a LAMMPS input</h2>
+                        <div class="sg-out-actions">
+                            <button type="button" class="stk-btn stk-btn-sm" id="lxChkOpen"><i class="fa-regular fa-folder-open" aria-hidden="true"></i> Open a file</button>
+                            <input type="file" id="lxChkFile" hidden data-nosave>
+                            <button type="button" class="stk-btn stk-btn-sm" id="lxChkCurrent" title="Check the input file shown under Run files"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> From the builder</button>
+                            <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost" id="lxChkClear"><i class="fa-solid fa-eraser" aria-hidden="true"></i> Clear</button>
+                        </div>
+                    </div>
+                    <div class="sg-tool-body stk-scroll">
+                        <label class="sr-only" for="lxChkText">LAMMPS input to check</label>
+                        <textarea id="lxChkText" class="stk-textarea stk-mono sg-check-text" rows="9" spellcheck="false" autocomplete="off" data-nosave placeholder="Paste a LAMMPS input (in.*) here, or drop it on this box. Drop a data file too, and it is summarised and checked."></textarea>
+                        <details class="stk-disclosure lx-chk-more" id="lxChkMore">
+                            <summary><span id="lxChkMoreLabel">What your LAMMPS has: the packages from <code>lmp -h</code></span></summary>
+                            <div class="sg-form">
+                                <p class="stk-hint">Paste what <code>lmp -h</code> prints on the machine that runs the job. The check then knows which styles your build has, and says so when a line needs a package it lacks. Without it, every package counts as installed.</p>
+                                <label class="sr-only" for="lxChkHelp">Output of lmp -h</label>
+                                <textarea id="lxChkHelp" class="stk-textarea stk-mono lx-chk-help" rows="4" spellcheck="false" autocomplete="off" data-nosave placeholder="Installed packages:&#10;&#10;KSPACE MANYBODY MOLECULE ..."></textarea>
+                                <p id="lxChkPkgs" class="stk-hint" aria-live="polite"></p>
+                            </div>
+                        </details>
+                        <div id="lxChkData" class="lx-chk-data" hidden></div>
+                        <div id="lxChkVerdict" class="gx-verdict" role="status"></div>
+                        <div class="sg-check-bar">
+                            <div class="stk-seg" role="group" aria-label="What to show">
+                                <button type="button" data-lx-chk="issues" aria-pressed="true">Problems</button>
+                                <button type="button" data-lx-chk="explain" aria-pressed="false">Line by line</button>
+                            </div>
+                        </div>
+                        <div id="lxChkIssues"></div>
+                        <div id="lxChkExplain" class="gx-chk-explain" hidden></div>
+                    </div>
+                </section>
+
                 <section id="scriptBox" class="stk-panel sg-out" aria-labelledby="primaryOutputLabel">
                     <div class="stk-panel-h sg-out-h">
                         <h2 class="stk-panel-t"><span class="stk-mono" id="primaryOutputLabel">submit.sh</span> <span class="stk-badge stk-badge-accent" id="schedulerBadge">SLURM</span></h2>
@@ -1871,7 +2600,7 @@
             <div class="stk-wrap">
                 <span class="stk-chip"><i class="fa-solid fa-server"></i> How-to guide</span>
                 <h2 class="stk-h2">How to build a GROMACS workflow or a batch script</h2>
-                <p class="stk-lead">Pick an engine and work through its set-up; the files are written as you type. For GROMACS that is the whole run: a <code>.mdp</code> file for every stage (minimisation, NVT and NPT equilibration, production, and optionally annealing and pulling), each checked the way <code>grompp</code> checks it and explained line by line, the index groups your <code>.mdp</code> files need, and the job script that chains <code>grompp</code> and <code>mdrun</code>, all in one zip. For LAMMPS it writes the job script with the flags of the accelerator package you choose; for PLUMED it composes a <code>plumed.dat</code> from collective variables picked by category. It remembers your settings between visits.</p>
+                <p class="stk-lead">Pick an engine and work through its set-up; the files are written as you type. For GROMACS that is the whole run: a <code>.mdp</code> file for every stage (minimisation, NVT and NPT equilibration, production, and optionally annealing and pulling), each checked the way <code>grompp</code> checks it and explained line by line, the index groups your <code>.mdp</code> files need, and the job script that chains <code>grompp</code> and <code>mdrun</code>, all in one zip. For LAMMPS it is the same: an input for every stage from minimisation to production, explained and checked line by line, groups from your data file, and the job script with the flags of the accelerator package you choose, or a job script for an input you already have; for PLUMED it composes a <code>plumed.dat</code> from collective variables picked by category. It remembers your settings between visits.</p>
                 <div class="stk-grid stk-grid-2">
                     <div class="stk-step"><span class="stk-num">1</span><div><h3>System: the physics every stage shares</h3><p>Choose the force field (AMBER, CHARMM36, GROMOS 54A7, OPLS-AA or Martini 3), which sets the cut-offs, dispersion correction and time step it was parametrised with, and what you simulate: a solute in water, a membrane (semi-isotropic pressure coupling) or a liquid. Then the temperature and pressure, the thermostat and barostat (the guide next to them explains each), the rigid bonds and the time step, with hydrogen mass repartitioning for 4&nbsp;fs.</p></div></div>
                     <div class="stk-step"><span class="stk-num">2</span><div><h3>Stages: what runs, and for how long</h3><p>Switch stages on or off and give each a length in ps or ns, its output intervals, and whether the solute is held by position restraints. Velocities are handled for you: new ones for the first dynamics stage, carried over through the checkpoint after it. The panel at the top shows the workflow at a glance, with the steps, frames and file sizes.</p></div></div>
@@ -1988,7 +2717,41 @@
                 </div>
 
                 <div class="doc-pane" data-doc-pane="lammps">
-                <h2 class="stk-h2">LAMMPS accelerator packages &amp; benchmarking</h2>
+                <h2 class="stk-h2">How the LAMMPS inputs are written</h2>
+                <p class="stk-lead">The LAMMPS tab writes an input for every stage, the two files they share and the job script that runs them in order. Every line that holds a choice carries the reason for it, and a click on a line under Run files (or the Explained view) says what it does in plain words, with its units and a link to its page in the LAMMPS manual. The command and style names, the packages, accelerated variants, syntax skeletons, keywords and defaults come from a table generated from the LAMMPS&nbsp;29&nbsp;Aug&nbsp;2024 source and documentation; the explanations are STEMKit's own words, and the full text is on <a href="https://docs.lammps.org/" target="_blank" rel="noopener" class="sg-link">docs.lammps.org</a>.</p>
+
+                <p class="stk-eqn-label">What each force field sets, from the LAMMPS manual's pages for its styles and the force field's own papers:</p>
+                <div class="stk-table-wrap">
+                <table class="stk-table">
+                    <thead>
+                        <tr><th>Force field</th><th>Units</th><th>Pair style</th><th>Long-range</th><th>Time step</th><th>Rigid bonds</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>CHARMM36</td><td>real</td><td><code>lj/charmmfsw/coul/long</code>, switched 10&ndash;12&nbsp;&Aring;</td><td>PPPM, 10<sup>&minus;6</sup></td><td>2&nbsp;fs</td><td>SHAKE</td></tr>
+                        <tr><td>CHARMM22/27</td><td>real</td><td><code>lj/charmm/coul/long</code>, switched 10&ndash;12&nbsp;&Aring;</td><td>PPPM, 10<sup>&minus;6</sup></td><td>2&nbsp;fs</td><td>SHAKE</td></tr>
+                        <tr><td>AMBER</td><td>real</td><td><code>lj/cut/coul/long</code> 10&nbsp;&Aring;, tail correction</td><td>PPPM, 10<sup>&minus;5</sup></td><td>2&nbsp;fs</td><td>SHAKE</td></tr>
+                        <tr><td>OPLS-AA</td><td>real</td><td><code>lj/cut/coul/long</code> 11&nbsp;&Aring;, geometric mixing</td><td>PPPM, 10<sup>&minus;5</sup></td><td>2&nbsp;fs</td><td>SHAKE</td></tr>
+                        <tr><td>COMPASS / PCFF</td><td>real</td><td><code>lj/class2/coul/long</code> 9.5&nbsp;&Aring;</td><td>PPPM, 10<sup>&minus;5</sup></td><td>1&nbsp;fs</td><td>none</td></tr>
+                        <tr><td>TIP3P, SPC/E water</td><td>real</td><td><code>lj/cut/coul/long</code> 10&nbsp;&Aring;</td><td>PPPM, 10<sup>&minus;5</sup></td><td>2&nbsp;fs</td><td>SHAKE</td></tr>
+                        <tr><td>TIP4P/2005 water</td><td>real</td><td><code>lj/cut/tip4p/long</code> 8.5&nbsp;&Aring;</td><td><code>pppm/tip4p</code>, 10<sup>&minus;5</sup></td><td>2&nbsp;fs</td><td>SHAKE</td></tr>
+                        <tr><td>EAM, EAM alloy, Finnis-Sinclair</td><td>metal</td><td><code>eam</code>, <code>eam/alloy</code>, <code>eam/fs</code> with your potential file</td><td>none</td><td>1&nbsp;fs</td><td>none</td></tr>
+                        <tr><td>Tersoff, Stillinger-Weber</td><td>metal</td><td><code>tersoff</code>, <code>sw</code> with your potential file</td><td>none</td><td>1&nbsp;fs</td><td>none</td></tr>
+                        <tr><td>ReaxFF</td><td>real</td><td><code>reaxff</code>, with <code>fix qeq/reaxff</code></td><td>none</td><td>0.25&nbsp;fs</td><td>none</td></tr>
+                        <tr><td>Lennard-Jones fluid</td><td>lj</td><td><code>lj/cut</code> 2.5&nbsp;&sigma;</td><td>none</td><td>0.005&nbsp;&tau;</td><td>none</td></tr>
+                    </tbody>
+                </table>
+                </div>
+                <ul class="sg-list">
+                    <li><span class="hl">The files.</span> <code>in.system</code> makes the system (units, atom style, the styles, then <code>read_data</code> or a crystal built with <code>lattice</code> and <code>create_atoms</code>); only the first stage reads it. <code>in.settings</code> holds what a restart file does not keep (the long-range solver, neighbour lists, groups, the time step, and the coefficients of pair styles such as <code>eam</code> or <code>reaxff</code> that write no restart data), and every stage reads it. <code>in.min</code>, <code>in.nvt</code>, <code>in.npt</code> and <code>in.prod</code> are the stages, chained by restart files: <code>min.restart</code>, then <code>nvt.restart.&lt;step&gt;</code>, <code>npt.restart.&lt;step&gt;</code> and production's <code>restart.&lt;step&gt;</code>.</li>
+                    <li><span class="hl">Stages.</span> Minimisation (conjugate gradient by default) stops at the energy and force tolerances or the iteration limit. NVT equilibration draws new velocities at the temperature; NPT equilibration lets the density settle; production runs with the restraints released. Lengths in fs, ps or ns (&tau; in lj units) become steps at the time step, and output intervals become <code>thermo</code>, <code>dump</code> and <code>restart</code> intervals. Restrained stages hold the solute's heavy atoms, or the group you name, with <code>fix spring/self</code> at 1000&nbsp;kJ/(mol&middot;nm&sup2;), the strength of GROMACS's <code>posre.itp</code>.</li>
+                    <li><span class="hl">Thermostats and barostats.</span> Nos&eacute;-Hoover chains (<code>fix nvt</code>, <code>fix npt</code>) by default, with <code>Tdamp</code> 100 time steps and <code>Pdamp</code> 1000, as the LAMMPS manual suggests; stochastic velocity rescaling (<code>fix temp/csvr</code>) and Langevin are offered, and Berendsen for equilibration only, since it does not sample the right ensemble. The guide under the thermostat and barostat explains each.</li>
+                    <li><span class="hl">Wall time and restarts.</span> Each stage file takes two variables from <code>submit.sh</code>: <code>rstep</code>, the step of the restart file to carry on from (&minus;1 starts the stage), and <code>time_limit</code>, the wall time LAMMPS may use. <code>timer timeout</code> ends the run cleanly before the job is killed, a restart file is written, and <code>run ... upto</code> finishes the same number of steps when the job is submitted again. <code>submit.sh</code> skips the stages whose last restart file exists, carries on the one that was stopped, and keeps the three newest restart files of each stage.</li>
+                    <li><span class="hl">Checked as LAMMPS reads it.</span> Each input is read the way LAMMPS reads a script: <code>#</code> comments, <code>&amp;</code> at the end of a line, single, double and triple quotes, and <code>$x</code>, <code>${name}</code> and <code>$(formula)</code> substitutions. It is then followed from top to bottom, with each stage read together with the files it includes, and the page reports what LAMMPS would stop on (a style used before the box exists, a coefficient missing for a type, a group or fix that was never defined, a style the build lacks), what it warns about, and what could be better. The tab of every file shows the result, and the warnings LAMMPS will print on purpose (the wall-time stop, for one) are listed with the reason they are fine.</li>
+                    <li><span class="hl">The data file stays in your browser.</span> A data file dropped under System is read as <code>read_data</code> reads it: the header, every section and its line count, the atom style from the <code>Atoms</code> line or its columns. The masses give the elements, the charges and geometry of the water give its model, and the summary gives the net charge and the density. The files then use it: SHAKE on the hydrogen masses and the water's angle type, the solute's heavy atoms for the restraints, the groups under Groups, the atom count for the output sizes.</li>
+                </ul>
+                <p class="stk-where">Zips downloaded from this page were run with LAMMPS&nbsp;29&nbsp;Aug&nbsp;2024 on two MPI ranks, every stage from minimisation to production with a job script that was stopped and submitted again: the solvated peptide of the LAMMPS examples with the CHARMM22/27 settings, and a copper crystal with the <code>Cu_u3.eam</code> embedded-atom potential.</p>
+
+                <h2 class="stk-h2" style="margin-top:2.2rem;">LAMMPS accelerator packages &amp; benchmarking</h2>
                 <p class="stk-lead">LAMMPS ships five accelerator packages, each appending a suffix to any supported style. The tool emits the correct command-line switches for each:</p>
                 <table class="stk-table">
                     <thead>
@@ -2086,6 +2849,10 @@
                     <li>Hopkins, C. W., Le Grand, S., Walker, R. C., &amp; Roitberg, A. E. (2015). Long-time-step molecular dynamics through hydrogen mass repartitioning. <em>J. Chem. Theory Comput.</em>, 11, 1864&ndash;1874.</li>
                     <li>Force-field <code>forcefield.itp</code> files, the <code>[ defaults ]</code> lines used for the table above: <code>amber99sb-ildn.ff</code> and <code>oplsaa.ff</code> as distributed with GROMACS, and the MacKerell lab's GROMACS port of CHARMM36, which is not distributed with GROMACS.</li>
                     <li>LAMMPS documentation. <em>Accelerator packages</em> (GPU, KOKKOS, INTEL, OPENMP, OPT; suffixes <code>gpu/kk/intel/omp/opt</code>) and <em>command-line options</em>. <a href="https://docs.lammps.org/Speed_packages.html" target="_blank" rel="noopener">Speed_packages</a>, <a href="https://docs.lammps.org/Run_options.html" target="_blank" rel="noopener">Run_options</a>.</li>
+                    <li>LAMMPS documentation (29 Aug 2024). <em>Commands</em>, every command and style the LAMMPS tab writes, lists and links to; <em>read_data</em>, <em>read_restart</em> and <em>write_restart</em> (what a restart file keeps), <em>fix nvt/npt/nph</em> (damping times), <em>fix shake</em>, <em>timer</em> (stopping before the wall time) and <em>units</em>. <a href="https://docs.lammps.org/Commands_all.html" target="_blank" rel="noopener">Commands_all</a>, <a href="https://docs.lammps.org/read_data.html" target="_blank" rel="noopener">read_data</a>, <a href="https://docs.lammps.org/read_restart.html" target="_blank" rel="noopener">read_restart</a>, <a href="https://docs.lammps.org/fix_nh.html" target="_blank" rel="noopener">fix_nh</a>, <a href="https://docs.lammps.org/fix_shake.html" target="_blank" rel="noopener">fix_shake</a>, <a href="https://docs.lammps.org/timer.html" target="_blank" rel="noopener">timer</a>, <a href="https://docs.lammps.org/units.html" target="_blank" rel="noopener">units</a>.</li>
+                    <li>Thompson, A. P., et&nbsp;al. (2022). LAMMPS: a flexible simulation tool for particle-based materials modeling at the atomic, meso, and continuum scales. <em>Comp. Phys. Comm.</em>, 271, 108171.</li>
+                    <li>Martyna, G. J., Tobias, D. J., &amp; Klein, M. L. (1994). Constant pressure molecular dynamics algorithms. <em>J. Chem. Phys.</em>, 101, 4177&ndash;4189. (The barostat of <code>fix npt</code>.)</li>
+                    <li>Ryckaert, J.-P., Ciccotti, G., &amp; Berendsen, H. J. C. (1977). Numerical integration of the cartesian equations of motion of a system with constraints: molecular dynamics of <em>n</em>-alkanes. <em>J. Comput. Phys.</em>, 23, 327&ndash;341. (SHAKE.)</li>
                     <li>University of Chicago RCC and NatLab Rockies HPC. <em>LAMMPS on SLURM</em> (OPENMP hybrid <code>-sf omp -pk omp N</code> with <code>srun -n R -c T</code>; INTEL/OPT usage; benchmarking). <a href="https://users.rcc.uchicago.edu/~tszasz/rccdocs/software/applications/lammps/index.html" target="_blank" rel="noopener">RCC</a>, <a href="https://github.com/NatLabRockies/HPC/blob/master/applications/lammps/README.md" target="_blank" rel="noopener">NatLabRockies</a>.</li>
                     <li>SchedMD. <em>Slurm <code>sbatch</code> documentation</em> and <em>Quick Start User Guide</em>. <a href="https://slurm.schedmd.com/sbatch.html" target="_blank" rel="noopener">slurm.schedmd.com/sbatch</a>, <a href="https://slurm.schedmd.com/quickstart.html" target="_blank" rel="noopener">quickstart</a>.</li>
                     <li>Altair Engineering. <em>PBS Professional 2021.1 User's Guide</em> (submitting jobs, <code>select</code> and <code>place</code>, job arrays, environment variables), and the OpenPBS <code>qsub(1B)</code> and <code>pbs_resources(7B)</code> man pages (<code>mpiprocs</code>, <code>ompthreads</code>, <code>place</code>). <a href="https://help.altair.com/2021.1.3/PBS%20Professional/PBSUserGuide2021.1.3.pdf" target="_blank" rel="noopener">PBS Professional User's Guide</a>, <a href="https://github.com/openpbs/openpbs/blob/master/doc/man1/qsub.1B" target="_blank" rel="noopener">qsub.1B</a>, <a href="https://github.com/openpbs/openpbs/blob/master/doc/man1/pbs_resources.7B" target="_blank" rel="noopener">pbs_resources.7B</a>.</li>
@@ -2118,6 +2885,10 @@
                     <details class="stk-faq"><summary>Can I set an option the builder has no field for?</summary><div>Yes, under All options: every <code>.mdp</code> option of GROMACS&nbsp;2025.1, by section, with its default, unit, allowed values and the manual's text. Set a value for one file or for all of them; the file then shows it with a comment, and Reset to generated puts back what the builder writes.</div></details>
                     <details class="stk-faq"><summary>Why does LAMMPS use tasks instead of CPUs per task?</summary><div>LAMMPS parallelises with MPI, so you request <code>--ntasks-per-node</code> (MPI ranks per node), whereas GROMACS <code>mdrun</code> is threaded and uses <code>--cpus-per-task</code>. The one exception is the LAMMPS <strong>OPENMP</strong> package, a hybrid MPI&nbsp;&times;&nbsp;OpenMP scheme that uses both, the tool then sets <code>-pk omp N</code> to match CPUs per task. For GPU or KOKKOS runs, MPI ranks per node usually matches GPUs per node.</div></details>
                     <details class="stk-faq"><summary>Which LAMMPS accelerator should I pick?</summary><div>It depends on your hardware and your input's styles, and there is no universal answer, you must benchmark. GPU/KOKKOS need a GPU; INTEL and OPT speed up CPU-only runs; OPENMP is hybrid and helps on high-core-count nodes. Acceleration is not automatically faster: offloading can leave the CPU idle, and adding cores past the optimum can slow a run down. Read the <code>Performance</code> and timing breakdown LAMMPS prints at the end, and scale up only what measurably helps.</div></details>
+                    <details class="stk-faq"><summary>What files does the LAMMPS tab write?</summary><div>Download all gives <code>submit.sh</code>, an input for every stage switched on (<code>in.min</code>, <code>in.nvt</code>, <code>in.npt</code>, <code>in.prod</code>), <code>in.system</code>, which makes the system and is read by the first stage only, <code>in.settings</code>, which every stage reads because a restart file does not keep what it sets, and a README that says what each file is for and how to run them by hand. With PLUMED coupled, the PLUMED tab's <code>plumed.dat</code> and the files its <code>INCLUDE</code> lines read go in too. Your data file, or the potential file of a metal, goes next to them; <code>submit.sh</code> stops before the first stage if one is missing.</div></details>
+                    <details class="stk-faq"><summary>How does a LAMMPS job carry on after its wall time?</summary><div>LAMMPS is told how much of the wall time it may use (the wall time less the margin under Job), and <code>timer timeout</code> ends the run cleanly before the scheduler kills the job, after a restart file is written. Submit the same <code>submit.sh</code> again: stages whose last restart file exists are skipped, the stopped one reads its newest restart file (<code>-var rstep</code>) and finishes the same number of steps (<code>run ... upto</code>), and its log and trajectory are appended to, with no frame written twice. LAMMPS prints "Wall time limit reached" when that happens; it is expected.</div></details>
+                    <details class="stk-faq"><summary>Can I check a LAMMPS input I already have?</summary><div>Yes: paste, drop or open it under Check a file in the LAMMPS tab. It is read the way LAMMPS reads it (comments, <code>&amp;</code> continuation lines, quotes and <code>$</code> variables) and followed from top to bottom, loops and <code>if</code> included, and you get what LAMMPS would stop on, what it warns about and what could be better, each with its line and a link to the command's page in the manual, then every line explained in plain words with its units. Paste what <code>lmp -h</code> prints on your cluster and the check knows which packages your build has; drop a data file and it is summarised (atoms, types and their elements, water, charge, density) and checked as <code>read_data</code> reads it. From the builder checks the file shown under Run files.</div></details>
+                    <details class="stk-faq"><summary>What does All commands list in the LAMMPS tab?</summary><div>Every command and style of LAMMPS&nbsp;29&nbsp;Aug&nbsp;2024 (pair, bond, angle, dihedral, improper and kspace styles, fixes, computes, dumps, regions, minimisers and the plain commands), searchable by name or by what it does and filtered by kind. Each opens to its syntax, keywords and their units, defaults, the package that provides it and its accelerated variants (<code>/gpu</code>, <code>/kk</code>, <code>/omp</code>, <code>/intel</code>, <code>/opt</code>), with a link to its page on docs.lammps.org. The ones your run files use are marked, with the lines that use them.</div></details>
                     <details class="stk-faq"><summary>How does the PLUMED builder help me?</summary><div>It groups the collective variables by category and, for each one, exposes the exact keywords defined in the PLUMED source, atom lists, switching-function parameters, flags like <code>NOPBC</code> or <code>COMPONENTS</code>, so you get correct <code>plumed.dat</code> syntax without reading the code. You add CVs, label them, pick a bias method (standard, well-tempered or parallel-bias MetaD, OPES, a harmonic or moving restraint, upper or lower walls, or ABMD), and toggle speed options. The output targets PLUMED&nbsp;2.9, 2.10 or 2.11, whichever you pick in the header of the System and setup panel, and its keywords are checked against that release.</div></details>
                     <details class="stk-faq"><summary>What is the difference between standard and well-tempered metadynamics here?</summary><div>Standard MetaD deposits Gaussian hills of fixed height. Well-tempered MetaD scales the hill height down over time using a <code>BIASFACTOR</code> (and <code>TEMP</code>), so the bias converges more smoothly. The builder adds those two keywords when you select the well-tempered variant, and OPES is offered as a modern alternative.</div></details>
                     <details class="stk-faq"><summary>Why does the PLUMED tab warn about grids and <code>CALC_RCT</code>?</summary><div>Metadynamics without a grid re-sums every deposited hill each step, so a long run slows down continuously, storing the bias on a grid keeps the cost flat. And <code>CALC_RCT</code> (on-the-fly c(t) reweighting) only works when the bias is on a grid, so the tool warns if you enable reweighting without it.</div></details>
@@ -2136,6 +2907,7 @@
                 <div class="stk-refs">
                     <a href="https://manual.gromacs.org/2025.1/user-guide/mdp-options.html" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> GROMACS .mdp options</a>
                     <a href="https://manual.gromacs.org/current/reference-manual/topologies/topology-file-formats.html" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> GROMACS topology docs</a>
+                    <a href="https://docs.lammps.org/Commands_all.html" target="_blank" rel="noopener"><i class="fa-solid fa-book"></i> LAMMPS commands</a>
                     <a href="https://slurm.schedmd.com/sbatch.html" target="_blank" rel="noopener"><i class="fa-solid fa-terminal"></i> Slurm sbatch</a>
                     <a href="https://www.ibm.com/docs/en/spectrum-lsf/10.1.0?topic=reference-bsub" target="_blank" rel="noopener"><i class="fa-solid fa-terminal"></i> LSF bsub</a>
                     <a href="https://gridscheduler.sourceforge.net/htmlman/htmlman1/qsub.html" target="_blank" rel="noopener"><i class="fa-solid fa-terminal"></i> Grid Engine qsub</a>
