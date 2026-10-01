@@ -157,6 +157,26 @@ describe('other categories', () => {
     expect(convert(1, 'force', 'gromacs', 'amber')).toBeCloseTo(0.02390057, 7);
   });
 
+  test('every force unit is its energy unit over its length unit', () => {
+    // The force factors once disagreed with the energy and length tables
+    // (eV/A off by 10, Eh/a0 by 25), so each is derived here from the other
+    // two categories: an energy unit per length unit, in kJ/mol per nm.
+    const E = (u) => UNIT_DB.energy.units[u].factor / UNIT_DB.energy.units.kj.factor;
+    const L = (u) => UNIT_DB.length.units[u].factor / UNIT_DB.length.units.nm.factor;
+    const derived = {
+      amber: E('kcal') / L('angstrom'),
+      ev_ang: E('ev') / L('angstrom'),
+      hartree_bohr: E('hartree') / L('bohr')
+    };
+    for (const [unit, factor] of Object.entries(derived)) {
+      expect(relClose(UNIT_DB.force.units[unit].factor, factor, 1e-6)).toBe(true);
+    }
+    // The values people compare: DFT forces against GROMACS, and the atomic
+    // unit of force in newtons (CODATA 2018: 8.2387234983e-8 N).
+    expect(relClose(convert(1, 'force', 'ev_ang', 'gromacs'), 964.8533212331, 1e-9)).toBe(true);
+    expect(relClose(convert(1, 'force', 'hartree_bohr', 'newton'), 8.2387234983e-8, 1e-9)).toBe(true);
+  });
+
   test('spectroscopy and heat capacity categories convert', () => {
     expect(Number.isFinite(convert(1, 'spectroscopy', 'cm1', 'thz'))).toBe(true);
     expect(Number.isFinite(convert(1, 'heatcap', 'j_molk', 'cal_molk'))).toBe(true);

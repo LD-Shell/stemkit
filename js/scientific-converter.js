@@ -8,7 +8,11 @@
  * fills all the others. That is why this reads a whole category from UNIT_DB
  * rather than driving a pair of from/to dropdowns.
  */
-import { UNIT_DB, Units } from '../src/core/index.js';
+// The units module alone: the whole library would load every other module
+// (about 1 MB) for nothing.
+import * as Units from '../src/core/units.js';
+
+const { UNIT_DB } = Units;
 
 document.addEventListener('DOMContentLoaded', () => {
 
