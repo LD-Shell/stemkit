@@ -19,6 +19,10 @@
 %% For including figures, graphicx.sty has been loaded in elsarticle.cls.
 
 \usepackage[T1]{fontenc}
+%% Latin Modern: the Computer Modern design with a bold typewriter face, which
+%% the code listings use for keywords.
+\usepackage{lmodern}
+\usepackage{textcomp}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{booktabs}
@@ -30,11 +34,13 @@
 \usepackage{xcolor}
 \usepackage{listings}
 \usepackage{hyperref}
+%% Links and citations in a dark blue, not hyperref's coloured boxes.
+\hypersetup{colorlinks=true, linkcolor=blue!55!black, citecolor=blue!55!black,
+  urlcolor=blue!55!black}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,calc}
-%% Long \texttt{} strings such as file paths and package names cannot hyphenate
-%% and would otherwise overflow the margin; this permits breaks inside them.
-\usepackage[htt]{hyphenat}
+%% Code and file names are not hyphenated, so a reader never copies a hyphen
+%% that is not there; a long one gets an explicit \allowbreak instead.
 
 %% The template sets flush-left paragraphs; a small vertical skip is added so
 %% that consecutive paragraphs remain distinguishable.
@@ -80,6 +86,9 @@
   framesep=4pt,
   rulecolor=\color{gray!30},
   showstringspaces=false,
+  upquote=true,
+  columns=fullflexible,
+  keepspaces=true,
   xleftmargin=6pt,
   xrightmargin=6pt
 }
@@ -146,7 +155,7 @@ Computational chemistry \sep Molecular dynamics \sep Client-side computation
 
 \begin{table}[H]
 \centering
-\begin{tabular}{|l|p{4.4cm}|p{6.3cm}|}
+\begin{tabular}{|l|>{\raggedright\arraybackslash}p{4.4cm}|>{\raggedright\arraybackslash}p{6.3cm}|}
 \hline
 \textbf{Nr.} & \textbf{Code metadata description} & \textbf{Metadata} \\
 \hline
@@ -592,8 +601,8 @@ validation reference.
 \centering
 \caption{Numerical methods and validation references.}
 \label{tab:methods}
-\small
-\begin{tabular}{@{}p{3.4cm}p{4.7cm}p{4.5cm}@{}}
+\footnotesize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{3.3cm}>{\raggedright\arraybackslash}p{5.0cm}>{\raggedright\arraybackslash}p{4.5cm}@{}}
 \toprule
 \textbf{Quantity} & \textbf{Method} & \textbf{Validated against} \\
 \midrule
@@ -602,7 +611,7 @@ Student / Welch $t$, $p$ &
   \texttt{scipy.stats.ttest\_ind} \\
 One-sample $t$ &
   Regularised incomplete beta $I_x(a,b)$ &
-  \texttt{scipy.stats.ttest\_1samp} \\
+  \texttt{scipy.stats.\allowbreak{}ttest\_1samp} \\
 Welch--Satterthwaite $\nu$ &
   Closed form &
   SciPy, hand calculation \\
