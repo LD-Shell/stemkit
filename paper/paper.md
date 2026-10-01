@@ -13,7 +13,7 @@ author:
     affiliation: Independent Researcher
     email: lanrelangmuir@gmail.com
     corresponding: true
-date: 25 September 2026
+date: 1 October 2026
 keywords:
   - computational chemistry
   - molecular dynamics
@@ -39,9 +39,10 @@ of parsing and numerical routines with no DOM dependency. All computation runs
 inside the user's own browser: the data analysed never leaves it, no account is
 required and nothing is installed, so the tools stay usable for unpublished or
 confidential data. The same modules run under Node.js, so an interactive
-analysis can be captured as a version-pinned script. The 17 domain modules carry
-1284 tests validated against SciPy, NumPy, statsmodels
-and physical invariants rather than against the implementation itself. That
+analysis can be captured as a version-pinned script. The 42 domain modules carry
+3705 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
+GROMACS, PLUMED, LAMMPS and physical invariants rather than against the
+implementation itself. That
 validation exposed four defects that had been altering reported results, among
 them *p*-values floored at zero and the mass of haem iron taken as fluorine's.
 All four are corrected and covered by regression tests.
@@ -55,7 +56,7 @@ reproducibility; data privacy
 
 | Nr | Code metadata description | Metadata |
 | --- | --- | --- |
-| C1 | Current code version | v0.2.1 |
+| C1 | Current code version | v0.3.0 |
 | C2 | Permanent link to code/repository used for this code version | <https://github.com/LD-Shell/stemkit> ; archived on Zenodo under the concept DOI `10.5281/zenodo.21543112`, which resolves to the current release |
 | C3 | Legal code license | MIT License |
 | C4 | Code versioning system used | git |
@@ -143,10 +144,12 @@ structure, a CSV of replicate measurements) and reads the result in the page.
 The file is read through `FileReader`; it is never uploaded. Programmatically,
 the same routines are imported from `stemkit-core` in a Node.js script, which
 is the path taken once an exploratory analysis is to be fixed, version-pinned
-and re-run. The four plotting tools (the XVG visualiser, plot builder, curve
-fitter and plot digitiser) additionally emit a standalone matplotlib script that
-regenerates the figure from the same data, so an interactive result can
-be reproduced offline without the browser.
+and re-run. The seven plotting tools (the XVG visualiser, plot builder, curve
+fitter, plot digitiser, error-bar generator, statistics calculator and outlier
+detector) and the MD workflow generator's PLUMED run analysis additionally emit
+a standalone matplotlib script that regenerates the figure from the same data,
+and the data cleaner a pandas script that repeats its cleaning steps, so an
+interactive result can be reproduced offline without the browser.
 
 Related work is cited where the corresponding functionality is described in
 Section 2: GROMACS [@abraham2015] and LAMMPS [@thompson2022] for the trajectory
@@ -190,8 +193,8 @@ enumerates the modules.
 ```
 ┌───────────────────────────────┐   ┌───────────────────────────────┐
 │        Browser host           │   │         Node.js host          │
-│  21 static HTML/CSS pages     │   │  user analysis scripts        │
-│  DOM wiring only;             │   │  1284-test Jest suite;        │
+│  21 static HTML/CSS tool pages│   │  user analysis scripts        │
+│  DOM wiring only;             │   │  3705-test Jest suite;        │
 │  FileReader input             │   │  smoke test                   │
 │  UMD bundles via <script>     │   │  UMD bundles: createRequire   │
 └───────────────┬───────────────┘   └───────────────┬───────────────┘
@@ -200,7 +203,7 @@ enumerates the modules.
                                   ▼
         ┌─────────────────────────────────────────────────┐
         │                 stemkit-core                    │
-        │  17 DOM-free domain modules, aggregated by      │
+        │  42 DOM-free domain modules, aggregated by      │
         │  src/core/index.js                              │
         └─────────────────────────┬───────────────────────┘
                                   ▼
@@ -221,32 +224,44 @@ modules; the only environment-specific code is the registration call that
 supplies the vendored libraries.
 
 **Table 1.** Modules of `stemkit-core`. Vendored dependencies are supplied by
-injection; modules marked *none* operate without any third-party code.
+injection; modules marked *none* operate without any third-party code. Related
+modules share a row, and a row's tests include those of the page scripts built
+on it (261 in all).
 
 | Module | Domain | Tests | Dependency |
 | --- | --- | ---: | --- |
-| `statistics` | Inferential and descriptive statistics | 164 | jStat |
+| `plumed`, `plumed-syntax`, `plumed-parse`, `plumed-atoms`, `plumed-run` | PLUMED input generation and checking, atom groups, run files | 644 | none |
+| `gromacs-mdp`, `gromacs-ndx` | GROMACS `.mdp` settings and checks, index groups | 597 | none |
+| `expression`, `nonlinear-fit`, `fit-python`, `plot-style` | Typed equations, Levenberg–Marquardt fitting, fit scripts | 380 | none |
+| `lammps-reference`, `lammps-input`, `lammps-data`, `lammps-workflow` | LAMMPS commands, input checks, data files, run inputs | 350 | none |
+| `data-cleaning`, `data-cleaning-python` | Tabular transformation, pandas script | 182 | Papa Parse |
+| `statistics`, `statistics-figure` | Inferential and descriptive statistics | 177 | jStat |
 | `bibtex` | Reference deduplication, sanitising | 140 | bibtex-parse-js |
-| `xvg-parser` | GROMACS/PLUMED trajectory data | 108 | none |
-| `structure` | Molecular geometry, PDB/GRO/XYZ | 100 | none |
+| `xvg-parser` | GROMACS/PLUMED trajectory data | 129 | none |
+| `structure` | Molecular geometry, PDB/GRO/XYZ | 125 | none |
+| `plumed-analysis`, `plumed-analysis-figures` | COLVAR and HILLS analysis, free-energy surfaces | 121 | none |
+| `selection` | Atom selection, spatial queries | 94 | none |
 | `curve-fitting` | Least-squares regression | 81 | regression.js |
+| `error-bars`, `error-bars-figure` | Group summaries, error bars | 74 | jStat |
 | `units` | Physical unit conversion | 73 | none |
-| `plumed` | PLUMED input generation | 72 | none |
-| `selection` | Atom selection, spatial queries | 67 | none |
+| `figure`, `figure-python` | Figure description, matplotlib script | 72 | none |
+| `outliers`, `outliers-figure` | Anomaly detection | 63 | jStat |
 | `slurm` | SLURM job scripts, resource checks | 61 | none |
-| `error-bars` | Group summaries, error bars | 60 | jStat |
 | `latex` | Table generation and escaping | 59 | none |
+| `digitizer` | Figure digitisation | 57 | none |
+| `pdf` | PDF export of figures | 56 | none |
 | `journals` | Whole-title journal abbreviation | 53 | none |
-| `data-cleaning` | Tabular transformation | 51 | Papa Parse |
-| `outliers` | Anomaly detection | 51 | jStat |
 | `scheduler` | Scheduler directives and launchers | 51 | none |
-| `digitizer` | Figure digitisation | 49 | none |
 | `iso4` | ISO 4 word-level abbreviation (LTWA) | 44 | none |
-| **Total** | | **1284** | |
+| `plot-builder` | Plot builder tables and figures | 18 | none |
+| `zip` | Archives of generated files | 4 | none |
+| **Total** | | **3705** | |
 
-Four third-party libraries are vendored within the repository: jStat for
-statistical distributions, Papa Parse for delimited-text parsing, regression.js
-for curve fitting, and bibtex-parse-js for reference parsing. Each is
+Four third-party libraries are vendored within the repository for the core:
+jStat for statistical distributions, Papa Parse for delimited-text parsing,
+regression.js for curve fitting, and bibtex-parse-js for reference parsing. The
+pages also vendor Plotly, KaTeX, 3Dmol.js and MathLive, which the core does not
+use. Each of the four is
 distributed as a Universal Module Definition (UMD) bundle, which detects its
 host at run time and either assigns `module.exports` under CommonJS or attaches
 a global to `window` in a browser. Neither path is reachable from a plain
@@ -271,22 +286,32 @@ under that interpretation the UMD factory takes its browser branch and fails.
 Scoping `"type": "commonjs"` to the dependency directory alone restores correct
 behaviour.
 
-The test suite comprises 1284 tests across the 17 domain modules, with 94.5%
-statement and 97.7% line coverage of `src/core/`. Its governing
+The test suite comprises 3705 tests in 56 suites across the 42 domain modules,
+with 88.3% statement and 92.9% line coverage of `src/core/`. Its governing
 principle is that numerical results are validated against *independent*
 references rather than against the implementation under test, since a test
 written from the same source as the code confirms only internal consistency.
 Reference values were obtained from SciPy [@virtanen2020] for t-tests, ANOVA,
 post-hoc comparisons, correlation, non-parametric tests, quantiles and the
-studentised range distribution; from statsmodels [@seabold2010] for Welch's
+studentised range distribution, and from its `curve_fit` for non-linear fits,
+their standard errors and confidence bands; from statsmodels [@seabold2010] for Welch's
 ANOVA and multiple-comparison correction; from NumPy [@harris2020] for
 regression coefficients and descriptive statistics;
-from `scipy.constants` for every unit conversion factor; and from physical invariants for structural geometry, specifically the
+from `scipy.constants` for every unit conversion factor; from pandas
+[@mckinney2010] for the data cleaner's scripts, whose output is compared with
+the page's cell by cell; from matplotlib [@hunter2007] for box-plot whiskers and
+for the axis limits the generated figure scripts produce; from GROMACS 2025
+[@abraham2015], through `grompp`, `make_ndx` and `select`, for `.mdp` checks,
+index groups and selections; from PLUMED 2.9 to 2.11 [@tribello2014] for the
+generated inputs, and from its `sum_hills` for free-energy surfaces; from LAMMPS
+29 Aug 2024 [@thompson2022] for data files, input checks and the generated
+inputs; and from physical invariants for structural geometry, specifically the
 molecular weight and
 centre of mass of water, the orthonormality of rotation matrices, the
 preservation of interatomic distances under rotation, and round-trip fidelity
 through every supported file format. An end-to-end smoke test additionally
-exercises one representative path through fifteen of the seventeen modules against
+exercises one representative path through 28 of the 43 modules the package
+exposes, the injection layer among them, against
 a real installation, detecting the class of failure that unit tests cannot: a broken
 aggregate export, a misconfigured module type declaration, or a vendored bundle
 that fails to load.
@@ -298,21 +323,22 @@ the numerics grouped by domain.
 
 **Table 2.** The 18 research tools and the core modules behind them. Three
 further pages (Pomodoro timer, decision matrix, kinetics sandbox) are workflow
-aids and are excluded.
+aids and are excluded. The plotting tools also share one plot area, built on
+`figure`, `figure-python`, `plot-style` and `pdf`.
 
 | Tool | Module(s) | Purpose |
 | --- | --- | --- |
 | XVG visualiser | `xvg-parser` | Plot GROMACS/PLUMED series with recovered axis metadata |
 | Structure inspector | none (page script) | Geometry, mass breakdown, atom selection and search by residue or species, simulation box, 3D view |
 | Coordinate manipulator | `structure` | Translate, rotate, re-box; PDB/GRO/XYZ interconversion |
-| MD workflow generator | `slurm`, `scheduler` | Batch scripts for GROMACS and LAMMPS on four schedulers; PLUMED input |
-| Statistics calculator | `statistics` | t-tests, one-way and Welch ANOVA with post-hoc comparisons, correlation, non-parametric tests, assumption checks, test recommendation |
-| Error-bar generator | `error-bars` | Group summaries, error bars, significance annotation |
-| Outlier detector | `outliers` | Tukey fences, modified $Z$-score, Grubbs' test |
-| Curve fitter | `curve-fitting` | Least-squares fits with model-adequacy warnings |
+| MD workflow generator | `slurm`, `scheduler`, `gromacs-mdp`, `gromacs-ndx`, `lammps-reference`, `lammps-input`, `lammps-data`, `lammps-workflow`, `plumed`, `plumed-syntax`, `plumed-parse`, `plumed-atoms`, `plumed-analysis`, `plumed-analysis-figures`, `zip` | GROMACS and LAMMPS inputs written and checked, index groups, batch scripts on four schedulers; PLUMED inputs, checks and run analysis |
+| Statistics calculator | `statistics`, `statistics-figure` | t-tests, one-way and Welch ANOVA with post-hoc comparisons, correlation, non-parametric tests, assumption checks, test recommendation |
+| Error-bar generator | `error-bars`, `error-bars-figure` | Group summaries, error bars, significance annotation |
+| Outlier detector | `outliers`, `outliers-figure` | Tukey fences, modified $Z$-score, Grubbs' test |
+| Curve fitter | `expression`, `nonlinear-fit`, `fit-python`, `plot-style` | Typed equations fitted by Levenberg–Marquardt, with standard errors and confidence bands |
 | Plot digitiser | `digitizer` | Pixel-to-data recovery with log-axis and uncertainty handling |
-| Plot builder | none (page script) | Publication figures at a set print size and resolution, with matplotlib script export |
-| Data cleaner | `data-cleaning` | Missing values, duplicates, filtering and column transforms |
+| Plot builder | `plot-builder`, `figure` | Publication figures at a set print size and resolution, with matplotlib script export |
+| Data cleaner | `data-cleaning`, `data-cleaning-python` | Missing values, duplicates, filtering and column transforms, with a pandas script |
 | Scientific converter | `units` | 64 units in ten categories plus temperature, CODATA-sourced |
 | BibTeX sanitiser | `bibtex` | Field removal, page ranges, braces around capitals in titles |
 | BibTeX deduplicator | `bibtex` | Union-find over normalised DOIs and titles |
@@ -321,11 +347,9 @@ aids and are excluded.
 | Visual LaTeX tables | `latex` | LaTeX and Markdown tables with correct escaping |
 | Equation formatter | `latex` | Formula entry and LaTeX output |
 
-Two tools still compute in their page scripts, the structure inspector and
-the plot builder, as does the MD workflow generator's PLUMED form. The
-`selection` and `plumed` modules are tested extractions of the inspector's
-selection language and of that PLUMED input generation; the pages do not
-call them yet.
+Only the structure inspector still computes in its page script. The
+`selection` module is a tested extraction of its selection language; the page
+does not call it yet.
 
 
 #### 2.2.1 Trajectory and collective-variable data
@@ -375,7 +399,7 @@ implemented here proceeds in five stages.
    its name, the convention for monatomic ions.
 
 Stages 2 and 3 correct defects present in the original implementation
-(Section 2.2.5). The resolution is validated against 40 atom names drawn from
+(Section 2.2.5). The resolution is validated against 25 atom names drawn from
 real structures, covering protein backbone and side-chain atoms, nucleic acid
 atoms, water, monatomic ions and metal centres. On this basis the module
 computes the geometric centroid, the mass-weighted centre of mass, the
@@ -441,6 +465,7 @@ reference.
 | Grubbs $G$ | Inverted $t$ critical value | `scipy.stats.t.ppf` |
 | Modified $Z$-score | Median/MAD, 0.6745 scaling [@iglewicz1993] | `numpy` |
 | Least-squares fitting | Normal equations (regression.js) | `numpy.polyfit` |
+| Non-linear fitting | Levenberg–Marquardt on untransformed data | `scipy.optimize.curve_fit` |
 
 Upper-tail probabilities are computed through the complementary form of the
 incomplete beta and gamma functions rather than as $1 - F(x)$. The two
@@ -488,8 +513,12 @@ the rate constant. Neither value is incorrect,
 since they answer different questions, but the gap matters when a rate constant
 is reported. `fitCurve` therefore exposes a
 `linearised` flag, true for the exponential and power models only, so callers
-may surface the distinction; users requiring publication-grade non-linear fits
-are directed to Levenberg–Marquardt optimisation on untransformed data. A
+may surface the distinction. The curve fitter no longer uses these fits: it fits
+the typed equation by Levenberg–Marquardt on untransformed data (`fitModel` in
+`nonlinear-fit`), matching `scipy.optimize.curve_fit` to better than $10^{-7}$
+in the fitted values and to about $10^{-6}$ in the standard errors and the
+confidence band. The log-space fits remain in `curve-fitting` for the npm
+package. A
 dataset containing points a model cannot transform is refused with a message naming the requirement (exponential needs every $y > 0$,
 power every $x > 0$ and $y > 0$, logarithmic only $x > 0$) rather than having the
 offending points silently dropped.
@@ -787,20 +816,19 @@ results to a third-party service.
 ## 5. Conclusions
 
 STEMKit is a suite of 18 browser-based tools for computational chemistry built on
-a tested, dependency-injected JavaScript core of 17 modules. The architecture
+a tested, dependency-injected JavaScript core of 42 domain modules. The architecture
 addresses three constraints simultaneously that existing tooling addresses only
 in pairs: it requires no installation, transmits no data and remains scriptable.
 
 Both properties are structural rather than contractual: computation occurs
 entirely within the browser, and the modules behind the interface are the ones
-that run under Node.js. The 1284-test suite validates every numerical result
+that run under Node.js. The 3705-test suite validates every numerical result
 against an independent reference, and the four defects that this
 strategy exposed (deflated standardised moments, tail probabilities floored at
 zero, misassigned elements in metalloproteins, and an adjusted moment fed into a
 transform defined on the unadjusted one) are documented, corrected and covered by
 regression tests. Future work will extend format
-coverage in the trajectory and structure modules and replace the two log-space
-fits with a Levenberg–Marquardt implementation on untransformed data.
+coverage in the trajectory and structure modules.
 
 ## Declaration of generative AI use
 
@@ -815,8 +843,11 @@ tool is not an author and bears no responsibility for the content.
 
 ## Acknowledgements
 
-I thank the maintainers of jStat, Papa Parse, regression.js, Plotly, KaTeX and
-3Dmol.js, whose libraries STEMKit builds upon.
+I thank the maintainers of jStat, Papa Parse, regression.js, bibtex-parse-js,
+Plotly, KaTeX, MathLive and 3Dmol.js, whose libraries STEMKit builds upon, and
+the GROMACS, PLUMED and LAMMPS developers, from whose source code and
+documentation the bundled reference tables are generated [@abraham2015;
+@tribello2014; @plumed2019; @thompson2022].
 
 ## Declaration of competing interest
 

@@ -22,6 +22,7 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{booktabs}
+\usepackage{array}
 %% [H] pins the metadata table below its own headings; a plain [!h] is
 %% downgraded to [!ht] and floats above them.
 \usepackage{float}
@@ -119,9 +120,10 @@ of parsing and numerical routines with no DOM dependency. All computation runs
 inside the user's own browser: the data analysed never leaves it, no account is
 required and nothing is installed, so the tools stay usable for unpublished or
 confidential data. The same modules run under Node.js, so an interactive
-analysis can be captured as a version-pinned script. The 17 domain modules carry
-1284 tests validated against SciPy, NumPy, statsmodels
-and physical invariants rather than against the implementation itself. That
+analysis can be captured as a version-pinned script. The 42 domain modules carry
+3705 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
+GROMACS, PLUMED, LAMMPS and physical invariants rather than against the
+implementation itself. That
 validation exposed four defects that had been altering reported results, among
 them $p$-values floored at zero and the mass of haem iron taken as fluorine's.
 All four are corrected and covered by regression tests.
@@ -148,7 +150,7 @@ Computational chemistry \sep Molecular dynamics \sep Client-side computation
 \hline
 \textbf{Nr.} & \textbf{Code metadata description} & \textbf{Metadata} \\
 \hline
-C1 & Current code version & v0.2.1 \\
+C1 & Current code version & v0.3.0 \\
 \hline
 C2 & Permanent link to code/repository used for this code version &
 \url{https://github.com/LD-Shell/stemkit} \newline
@@ -261,11 +263,13 @@ user opens a tool page at \url{https://stemkit.net} (or a local clone), selects
 a local file and reads the result in the page; the file is read through
 \texttt{FileReader} and never uploaded. Programmatically, the same routines are
 imported from \texttt{stemkit-core} in a Node.js script, the path taken once an
-analysis is to be fixed, version-pinned and re-run. The four plotting tools
-(the XVG visualiser, plot builder, curve fitter and plot digitiser)
-additionally emit a standalone matplotlib script that regenerates the figure
-from the same data, so an interactive result can be reproduced offline
-without the browser.
+analysis is to be fixed, version-pinned and re-run. The seven plotting tools
+(the XVG visualiser, plot builder, curve fitter, plot digitiser, error-bar
+generator, statistics calculator and outlier detector) and the MD workflow
+generator's PLUMED run analysis additionally emit a standalone matplotlib script
+that regenerates the figure from the same data, and the data cleaner a pandas
+script that repeats its cleaning steps, so an interactive result can be
+reproduced offline without the browser.
 
 Related work is cited where the corresponding functionality is described in
 Section~\ref{sec:description}: GROMACS~\cite{abraham2015},
@@ -319,17 +323,17 @@ resulting layering and Table~\ref{tab:modules} enumerates the modules.
   node distance = 7mm and 6mm
 ]
 \node[box] (browser) {\textbf{Browser host}\\[1pt]
-  \footnotesize 21 static HTML/CSS pages\\
+  \footnotesize 21 static HTML/CSS tool pages\\
   \footnotesize DOM wiring only; \texttt{FileReader} input\\
   \footnotesize UMD bundles via \texttt{<script>}};
 \node[box, right=of browser] (node) {\textbf{Node.js host}\\[1pt]
   \footnotesize analysis scripts, CI\\
-  \footnotesize 1284-test Jest suite; smoke test\\
+  \footnotesize 3705-test Jest suite; smoke test\\
   \footnotesize UMD bundles via \texttt{createRequire}};
 
 \node[wide, below=of $(browser.south)!0.5!(node.south)$, yshift=-1mm] (core)
   {\textbf{\texttt{stemkit-core}}\\[1pt]
-   \footnotesize 17 DOM-free domain modules, aggregated by \texttt{src/core/index.js}};
+   \footnotesize 42 DOM-free domain modules, aggregated by \texttt{src/core/index.js}};
 \node[wide, below=of core] (inject)
   {\textbf{Vendor injection layer}\\[1pt]
    \footnotesize \texttt{registerVendor()} (Node.js) $\cdot$
@@ -354,38 +358,50 @@ vendored libraries.}
 \begin{table}[htbp]
 \centering
 \caption{Modules of \texttt{stemkit-core}. Vendored dependencies are supplied
-by injection; modules marked \emph{none} operate without any third-party code.}
+by injection; modules marked \emph{none} operate without any third-party code.
+Related modules share a row, and a row's tests include those of the page
+scripts built on it (261 in all).}
 \label{tab:modules}
-\footnotesize
-\begin{tabular}{@{}llrl@{}}
+\scriptsize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{4.4cm}>{\raggedright\arraybackslash}p{5.3cm}rl@{}}
 \toprule
 \textbf{Module} & \textbf{Domain} & \textbf{Tests} & \textbf{Dependency} \\
 \midrule
-\texttt{statistics} & Inferential and descriptive statistics & 164 & jStat \\
+\texttt{plumed}, \texttt{plumed-syntax}, \texttt{plumed-parse}, \texttt{plumed-atoms}, \texttt{plumed-run} & PLUMED input generation and checking, atom groups, run files & 644 & none \\
+\texttt{gromacs-mdp}, \texttt{gromacs-ndx} & GROMACS \texttt{.mdp} settings and checks, index groups & 597 & none \\
+\texttt{expression}, \texttt{nonlinear-fit}, \texttt{fit-python}, \texttt{plot-style} & Typed equations, Levenberg--Marquardt fitting, fit scripts & 380 & none \\
+\texttt{lammps-reference}, \texttt{lammps-input}, \texttt{lammps-data}, \texttt{lammps-workflow} & LAMMPS commands, input checks, data files, run inputs & 350 & none \\
+\texttt{data-cleaning}, \texttt{data-cleaning-python} & Tabular transformation, pandas script & 182 & Papa Parse \\
+\texttt{statistics}, \texttt{statistics-figure} & Inferential and descriptive statistics & 177 & jStat \\
 \texttt{bibtex} & Reference deduplication, sanitising & 140 & bibtex-parse-js \\
-\texttt{xvg-parser} & GROMACS/PLUMED trajectory data & 108 & none \\
-\texttt{structure} & Molecular geometry, PDB/GRO/XYZ & 100 & none \\
+\texttt{xvg-parser} & GROMACS/PLUMED trajectory data & 129 & none \\
+\texttt{structure} & Molecular geometry, PDB/GRO/XYZ & 125 & none \\
+\texttt{plumed-analysis}, \texttt{plumed-analysis-figures} & COLVAR and HILLS analysis, free-energy surfaces & 121 & none \\
+\texttt{selection} & Atom selection, spatial queries & 94 & none \\
 \texttt{curve-fitting} & Least-squares regression & 81 & regression.js \\
+\texttt{error-bars}, \texttt{error-bars-figure} & Group summaries, error bars & 74 & jStat \\
 \texttt{units} & Physical unit conversion & 73 & none \\
-\texttt{plumed} & PLUMED input generation & 72 & none \\
-\texttt{selection} & Atom selection, spatial queries & 67 & none \\
+\texttt{figure}, \texttt{figure-python} & Figure description, matplotlib script & 72 & none \\
+\texttt{outliers}, \texttt{outliers-figure} & Anomaly detection & 63 & jStat \\
 \texttt{slurm} & SLURM job scripts, resource checks & 61 & none \\
-\texttt{error-bars} & Group summaries, error bars & 60 & jStat \\
 \texttt{latex} & Table generation and escaping & 59 & none \\
+\texttt{digitizer} & Figure digitisation & 57 & none \\
+\texttt{pdf} & PDF export of figures & 56 & none \\
 \texttt{journals} & Whole-title journal abbreviation & 53 & none \\
-\texttt{data-cleaning} & Tabular transformation & 51 & Papa Parse \\
-\texttt{outliers} & Anomaly detection & 51 & jStat \\
 \texttt{scheduler} & Scheduler directives and launchers & 51 & none \\
-\texttt{digitizer} & Figure digitisation & 49 & none \\
 \texttt{iso4} & ISO 4 word-level abbreviation (LTWA) & 44 & none \\
+\texttt{plot-builder} & Plot builder tables and figures & 18 & none \\
+\texttt{zip} & Archives of generated files & 4 & none \\
 \midrule
-\textbf{Total} & & \textbf{1284} & \\
+\textbf{Total} & & \textbf{3705} & \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Four third-party libraries are vendored in the repository: jStat, Papa Parse,
-regression.js and bibtex-parse-js. Each ships as a Universal Module Definition
+Four third-party libraries are vendored in the repository for the core: jStat,
+Papa Parse, regression.js and bibtex-parse-js. The pages also vendor Plotly,
+KaTeX, 3Dmol.js and MathLive, which the core does not use. Each of the four
+ships as a Universal Module Definition
 (UMD) bundle, which detects its host at run time and either assigns
 \texttt{module.exports} under CommonJS or attaches a global to \texttt{window}.
 Neither path is reachable from a plain ECMAScript module: a UMD file has no
@@ -404,23 +420,35 @@ been registered.
 
 
 
-The test suite comprises 1284 tests across the 17 domain modules, with 94.5\%
-statement and 97.7\% line coverage of \texttt{src/core/}. Its governing
+The test suite comprises 3705 tests in 56 suites across the 42 domain modules,
+with 88.3\% statement and 92.9\% line coverage of \texttt{src/core/}. Its governing
 principle is that numerical results are validated against \emph{independent}
 references rather than against the implementation under test, since a test
 written from the same source as the code confirms only internal consistency.
 Reference values were obtained from SciPy~\cite{virtanen2020} for t-tests,
 ANOVA, post-hoc comparisons, correlation, non-parametric tests, quantiles and
-the studentised range distribution; from statsmodels~\cite{seabold2010} for
+the studentised range distribution, and from its \texttt{curve\_fit} for
+non-linear fits, their standard errors and confidence bands; from
+statsmodels~\cite{seabold2010} for
 Welch's ANOVA and multiple-comparison correction; from NumPy~\cite{harris2020} for regression coefficients and
 descriptive statistics; from \texttt{scipy.constants} for every unit conversion
-factor; and from physical invariants for structural geometry, specifically
+factor; from pandas~\cite{mckinney2010} for the data cleaner's scripts, whose
+output is compared with the page's cell by cell; from
+matplotlib~\cite{hunter2007} for box-plot whiskers and for the axis limits the
+generated figure scripts produce; from GROMACS 2025~\cite{abraham2015}, through
+\texttt{grompp}, \texttt{make\_ndx} and \texttt{select}, for \texttt{.mdp}
+checks, index groups and selections; from PLUMED 2.9 to
+2.11~\cite{tribello2014} for the generated inputs, and from its
+\texttt{sum\_hills} for free-energy surfaces; from LAMMPS 29 Aug
+2024~\cite{thompson2022} for data files, input checks and the generated inputs;
+and from physical invariants for structural geometry, specifically
 the molecular weight and centre of mass of water, the orthonormality of
 rotation matrices, the preservation of interatomic distances under rotation, and
 round-trip fidelity through every supported file format.
 An end-to-end smoke
-test additionally exercises one representative path through fifteen of the
-seventeen modules against a real installation, detecting the class of failure that
+test additionally exercises one representative path through 28 of the 43 modules
+the package exposes, the injection layer among them, against a real
+installation, detecting the class of failure that
 unit tests cannot: a broken aggregate export, a misconfigured module type
 declaration, or a vendored bundle that fails to load.
 
@@ -434,24 +462,25 @@ below describe the numerics grouped by domain.
 \centering
 \caption{The 18 research tools and the core modules behind them. Three further
 pages (Pomodoro timer, decision matrix, kinetics sandbox) are workflow aids and
-are excluded.}
+are excluded. The plotting tools also share one plot area, built on
+\texttt{figure}, \texttt{figure-python}, \texttt{plot-style} and \texttt{pdf}.}
 \label{tab:tools}
-\footnotesize
-\begin{tabular}{@{}p{3.3cm}p{2.7cm}p{6.6cm}@{}}
+\scriptsize
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.8cm}>{\raggedright\arraybackslash}p{4.1cm}>{\raggedright\arraybackslash}p{5.9cm}@{}}
 \toprule
 \textbf{Tool} & \textbf{Module(s)} & \textbf{Purpose} \\
 \midrule
 XVG visualiser & \texttt{xvg-parser} & Plot GROMACS/PLUMED series with recovered axis metadata \\
 Structure inspector & none (page script) & Geometry, mass breakdown, atom selection and search by residue or species, simulation box, 3D view \\
 Coordinate manipulator & \texttt{structure} & Translate, rotate, re-box; PDB/GRO/XYZ interconversion \\
-MD workflow generator & \texttt{slurm}, \texttt{scheduler} & Batch scripts for GROMACS and LAMMPS on four schedulers; PLUMED input \\
-Statistics calculator & \texttt{statistics} & t-tests, one-way and Welch ANOVA with post-hoc comparisons, correlation, non-parametric tests, assumption checks, test recommendation \\
-Error-bar generator & \texttt{error-bars} & Group summaries, error bars, significance annotation \\
-Outlier detector & \texttt{outliers} & Tukey fences, modified $Z$-score, Grubbs' test \\
-Curve fitter & \texttt{curve-fitting} & Least-squares fits with model-adequacy warnings \\
+MD workflow generator & \texttt{slurm}, \texttt{scheduler}, \texttt{gromacs-mdp}, \texttt{gromacs-ndx}, \texttt{lammps-reference}, \texttt{lammps-input}, \texttt{lammps-data}, \texttt{lammps-workflow}, \texttt{plumed}, \texttt{plumed-syntax}, \texttt{plumed-parse}, \texttt{plumed-atoms}, \texttt{plumed-analysis}, \texttt{plumed-analysis-figures}, \texttt{zip} & GROMACS and LAMMPS inputs written and checked, index groups, batch scripts on four schedulers; PLUMED inputs, checks and run analysis \\
+Statistics calculator & \texttt{statistics}, \texttt{statistics-figure} & t-tests, one-way and Welch ANOVA with post-hoc comparisons, correlation, non-parametric tests, assumption checks, test recommendation \\
+Error-bar generator & \texttt{error-bars}, \texttt{error-bars-figure} & Group summaries, error bars, significance annotation \\
+Outlier detector & \texttt{outliers}, \texttt{outliers-figure} & Tukey fences, modified $Z$-score, Grubbs' test \\
+Curve fitter & \texttt{expression}, \texttt{nonlinear-fit}, \texttt{fit-python}, \texttt{plot-style} & Typed equations fitted by Levenberg--Marquardt, with standard errors and confidence bands \\
 Plot digitiser & \texttt{digitizer} & Pixel-to-data recovery with log-axis and uncertainty handling \\
-Plot builder & none (page script) & Publication figures at a set print size and resolution, with matplotlib script export \\
-Data cleaner & \texttt{data-cleaning} & Missing values, duplicates, filtering and column transforms \\
+Plot builder & \texttt{plot-builder}, \texttt{figure} & Publication figures at a set print size and resolution, with matplotlib script export \\
+Data cleaner & \texttt{data-cleaning}, \texttt{data-cleaning-python} & Missing values, duplicates, filtering and column transforms, with a pandas script \\
 Scientific converter & \texttt{units} & 64 units in ten categories plus temperature, CODATA-sourced \\
 BibTeX sanitiser & \texttt{bibtex} & Field removal, page ranges, braces around capitals in titles \\
 BibTeX deduplicator & \texttt{bibtex} & Union-find over normalised DOIs and titles \\
@@ -463,11 +492,9 @@ Equation formatter & \texttt{latex} & Formula entry and LaTeX output \\
 \end{tabular}
 \end{table}
 
-Two tools still compute in their page scripts, the structure inspector and
-the plot builder, as does the MD workflow generator's PLUMED form. The
-\texttt{selection} and \texttt{plumed} modules are tested extractions of the inspector's
-selection language and of that PLUMED input generation; the pages do not
-call them yet.
+Only the structure inspector still computes in its page script. The
+\texttt{selection} module is a tested extraction of its selection language; the
+page does not call it yet.
 
 \subsubsection{Trajectory and collective-variable data}
 
@@ -519,7 +546,7 @@ resolution implemented here proceeds in five stages.
 \end{enumerate}
 
 Stages 2 and 3 correct defects present in the original implementation
-(Section~\ref{sec:defects}). The resolution is validated against 40 atom names
+(Section~\ref{sec:defects}). The resolution is validated against 25 atom names
 drawn from real structures, covering protein backbone and side-chain atoms,
 nucleic acid atoms, water, monatomic ions and metal centres. On this basis the
 module computes the geometric centroid, the mass-weighted centre of mass, the
@@ -630,6 +657,9 @@ Modified $Z$-score &
 Least-squares fitting &
   Normal equations (regression.js) &
   \texttt{numpy.polyfit} \\
+Non-linear fitting &
+  Levenberg--Marquardt on untransformed data &
+  \texttt{scipy.optimize.\allowbreak{}\mbox{curve\_fit}} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -681,9 +711,13 @@ $\ln 2 = \num{0.693147}$ as the generating value: a difference of
 answer different questions, but the gap matters when a rate constant is
 reported. \texttt{fitCurve} therefore
 exposes a \texttt{linearised} flag, true for the exponential and power models
-only, so callers may surface the distinction; users requiring publication-grade
-non-linear fits are directed to Levenberg--Marquardt optimisation on
-untransformed data. A dataset containing points a model cannot transform is
+only, so callers may surface the distinction. The curve fitter no longer uses
+these fits: it fits the typed equation by Levenberg--Marquardt on untransformed
+data (\texttt{fitModel} in \texttt{nonlinear-fit}), matching
+\texttt{scipy.optimize.curve\_fit} to better than \num{1e-7} in the fitted
+values and to about \num{1e-6} in the standard errors and the confidence band.
+The log-space fits remain in \texttt{curve-fitting} for the npm package. A
+dataset containing points a model cannot transform is
 refused with a message naming the requirement (exponential needs every
 $y > 0$, power every $x > 0$ and $y > 0$, logarithmic only $x > 0$) rather
 than having the offending points silently dropped.
@@ -970,20 +1004,19 @@ third-party service.
 \label{sec:conclusions}
 
 STEMKit is a suite of 18 browser-based tools for computational chemistry built
-on a tested, dependency-injected JavaScript core of 17 modules. The architecture
+on a tested, dependency-injected JavaScript core of 42 domain modules. The architecture
 addresses three constraints simultaneously that existing tooling addresses only
 in pairs: it requires no installation, transmits no data and remains scriptable.
 
 Both properties are structural rather than contractual: computation occurs
 entirely within the browser, and the modules behind the interface are the ones
-that run under Node.js. The 1284-test suite validates every numerical result
+that run under Node.js. The 3705-test suite validates every numerical result
 against an independent reference, and the four defects that this strategy
 exposed (deflated standardised moments, tail probabilities floored
 at zero, misassigned elements in metalloproteins, and an adjusted moment fed
 into a transform defined on the unadjusted one) are documented, corrected and
 covered by regression tests. Future work will extend format
-coverage in the trajectory and structure modules and replace the two log-space
-fits with a Levenberg--Marquardt implementation on untransformed data.
+coverage in the trajectory and structure modules.
 
 % ---------------------------------------------------------------------------
 \section*{Declaration of generative AI use}
@@ -1000,8 +1033,11 @@ content.
 
 \section*{Acknowledgements}
 
-I thank the maintainers of jStat, Papa Parse, regression.js, Plotly, KaTeX and
-3Dmol.js, whose libraries STEMKit builds upon.
+I thank the maintainers of jStat, Papa Parse, regression.js, bibtex-parse-js,
+Plotly, KaTeX, MathLive and 3Dmol.js, whose libraries STEMKit builds upon, and
+the GROMACS, PLUMED and LAMMPS developers, from whose source code and
+documentation the bundled reference tables are
+generated~\cite{abraham2015,tribello2014,plumed2019,thompson2022}.
 
 \section*{Declaration of competing interest}
 
@@ -1170,6 +1206,19 @@ W.~H. Press, S.~A. Teukolsky, W.~T. Vetterling, and B.~P. Flannery,
 \newblock \emph{Numerical Recipes: The Art of Scientific Computing},
 \newblock 3rd ed., Cambridge University Press, Cambridge (2007).
 
+\bibitem{mckinney2010}
+W.~McKinney,
+\newblock Data structures for statistical computing in Python,
+\newblock in: \emph{Proceedings of the 9th Python in Science Conference},
+  2010, pp. 56--61.
+\newblock \url{https://doi.org/10.25080/Majora-92bf1922-00a}
+
+\bibitem{hunter2007}
+J.~D. Hunter,
+\newblock Matplotlib: A 2D graphics environment,
+\newblock \emph{Comput. Sci. Eng.} \textbf{9}(3), 90--95 (2007).
+\newblock \url{https://doi.org/10.1109/MCSE.2007.55}
+
 \bibitem{dagostino1970}
 R.~B. D'Agostino,
 \newblock Transformation to normality of the null distribution of $g_1$,
@@ -1185,8 +1234,15 @@ F.~J. Anscombe and W.~J. Glynn,
 \bibitem{stemkit2026}
 O.~M. Daramola,
 \newblock STEMKit: A client-side toolkit for computational chemistry and
-  scientific data analysis (v0.2.1), Zenodo (2026).
+  scientific data analysis (v0.3.0), Zenodo (2026).
 \newblock \url{https://doi.org/10.5281/zenodo.21543112}
+
+\bibitem{plumed2019}
+The PLUMED consortium,
+\newblock Promoting transparency and reproducibility in enhanced molecular
+  simulations,
+\newblock \emph{Nat. Methods} \textbf{16}(8), 670--673 (2019).
+\newblock \url{https://doi.org/10.1038/s41592-019-0506-8}
 
 \end{thebibliography}
 
