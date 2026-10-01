@@ -43,7 +43,7 @@ Run the tests, from a clone:
 
 ```bash
 npm install
-npm test                        # 3355 tests, 39 modules
+npm test                        # 3695 tests, 43 modules
 node tests/smoke.mjs            # end-to-end against a real install
 ```
 
@@ -51,7 +51,7 @@ node tests/smoke.mjs            # end-to-end against a real install
 
 | Script | Does |
 |---|---|
-| `npm test` | Jest, 3355 tests |
+| `npm test` | Jest, 3695 tests |
 | `npm run test:coverage` | coverage report (see `docs/COVERAGE.md`) |
 | `npm run check:links` | internal and external link check |
 | `npm run check:links:internal` | internal only, no network |
@@ -60,6 +60,10 @@ node tests/smoke.mjs            # end-to-end against a real install
 | `npm run watch:css` | same, on change |
 | `npm run build:sitemap` | regenerate `sitemap.xml` from the pages |
 | `npm run check:sitemap` | fail if `sitemap.xml` is out of date |
+| `npm run check:gromacs`, `check:ndx` | compare the `.mdp` checker and index groups with an installed GROMACS (`GMX_BIN`) |
+| `npm run check:plumed` | compare the PLUMED input reader with installed PLUMED versions (`PLUMED_BINS`) |
+| `npm run check:lammps`, `check:lammps-data`, `check:lammps-workflow` | compare the LAMMPS input checker, data-file reader and workflow builder with an installed LAMMPS (`LMP_BIN`) |
+| `npm run build:lammps-docs` | regenerate the LAMMPS reference tables from a LAMMPS source tree |
 
 ## What is here
 

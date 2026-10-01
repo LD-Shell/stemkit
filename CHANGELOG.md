@@ -137,6 +137,44 @@ earlier version are worth re-checking.
 - Functions, walls, setup lines (`LOAD`, `INCLUDE`, `RESTART`, `FLUSH`) and
   several output files in the generator.
 
+### Added: LAMMPS set-up with every input line explained
+
+- **The LAMMPS tab works like the GROMACS one**: System (a data file, a
+  lattice or a restart; force-field presets for CHARMM36, CHARMM22/27, AMBER,
+  OPLS-AA, class2, TIP3P, SPC/E and TIP4P/2005 water, EAM, Tersoff,
+  Stillinger-Weber, ReaxFF and Lennard-Jones units, or your own lines;
+  thermostat, barostat, time step, SHAKE or RATTLE, cut-offs), Stages
+  (minimise, NVT, NPT, production, with restraints and output), Groups and
+  Job. It writes `in.system`, `in.settings` and one input per stage chained
+  by restart files, `submit.sh` and a README, with a note on every line that
+  has a choice in it, and one zip holds them all. A job stopped by its wall
+  time ends cleanly and carries on from its newest restart when submitted
+  again; PLUMED attaches with `fix plumed`.
+- **A data file is read in the browser**: counts, box, atom types with
+  their elements and charges, the water model and its geometry, the types
+  SHAKE holds, CMAP crossterms, net charge and density, and groups for water,
+  ions and the solute. It agrees with LAMMPS on 1081 of 1081 files and broken
+  copies.
+- **Check an input you already have**: every line explained in the input's
+  own units, with a link to the LAMMPS manual, and the line LAMMPS would stop
+  on. It agrees with LAMMPS 29 Aug 2024 on 806 of 806 example inputs and 479
+  of 479 broken copies, quoting LAMMPS's own message.
+- **Every command and style, searchable**: kind, package, accelerated
+  variants, syntax, keywords and defaults, with a summary in plain words and
+  the manual link. The tables hold facts only (LAMMPS is GPL-2.0).
+- **Run in LAMMPS**: every preset ran through minimise, NVT, NPT and
+  production on 2 MPI ranks, including stopped and continued runs with and
+  without PLUMED.
+- New core modules: `lammps-reference`, `lammps-input`, `lammps-data` and
+  `lammps-workflow`; `npm run check:lammps`, `check:lammps-data` and
+  `check:lammps-workflow` compare them with an installed LAMMPS (`LMP_BIN`).
+
+### Added: continuous integration
+
+- GitHub Actions runs the tests and the smoke test on Node 18, 22 and 24, and
+  the site checks, on every push and pull request. The README shows its
+  status, the npm version and the Zenodo DOI.
+
 ### Changed
 
 - The XVG Visualizer's smoothing is a running mean over N points (the one
