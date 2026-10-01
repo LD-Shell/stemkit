@@ -754,8 +754,21 @@ warnings.forEach(w => console.warn(`[${w.level}] ${w.message}`));
 **Listing 5.** Generating a GROMACS submission script with resource warnings.
 
 The same four steps through the browser produce identical numbers, since they
-call the same functions. The plotting steps also emit a matplotlib script that
-regenerates the figure from the same data.
+call the same functions (Figures 2 and 3). The plotting steps also emit a matplotlib
+script that regenerates the figure from the same data.
+
+![](figures/tools-data.png)
+
+**Figure 2.** Listings 2 and 3 in the browser, with the tool pages' own
+samples: (a) the XVG visualiser plotting an RMSD and radius-of-gyration series;
+(b) the structure inspector with an α-helical peptide.
+
+![](figures/tools-stats-job.png)
+
+**Figure 3.** Listings 4 and 5 in the browser: (a) the statistics calculator
+comparing two groups, with the test the assumption checks pointed to, its effect
+size, a publication summary and the plot; (b) the MD workflow generator's
+GROMACS job step and the submission script it writes.
 
 ## 4. Impact
 
