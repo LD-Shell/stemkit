@@ -55,7 +55,8 @@ node tests/smoke.mjs            # end-to-end against a real install
 | `npm run test:coverage` | coverage report (see `docs/COVERAGE.md`) |
 | `npm run check:links` | internal and external link check |
 | `npm run check:links:internal` | internal only, no network |
-| `npm run check:chrome` | shared header, theme script and tool names agree across pages |
+| `npm run check:chrome` | shared header, theme script, tool names, footer version and CSP agree across pages |
+| `npm run build:csp`, `check:csp` | write or check each page's Content-Security-Policy (run `build:csp` after editing an inline script) |
 | `npm run build:css` | rebuild Tailwind after editing `src/tailwind/input.css` |
 | `npm run watch:css` | same, on change |
 | `npm run build:sitemap` | regenerate `sitemap.xml` from the pages |
@@ -80,7 +81,7 @@ Three further pages are workflow helpers, not research tools, and are not part
 of the scholarly contribution: Pomodoro timer, decision matrix, kinetics
 sandbox.
 
-`stemkit-core` holds the computation: 43 DOM-free domain modules, plus an
+`stemkit-core` holds the computation: 42 DOM-free domain modules, plus an
 aggregate export (`index.js`), a Node entry (`node.js`), a
 dependency-injection layer (`vendor.js`) and the release version
 (`version.js`).

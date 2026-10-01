@@ -39,7 +39,7 @@ of parsing and numerical routines with no DOM dependency. All computation runs
 inside the user's own browser: the data analysed never leaves it, no account is
 required and nothing is installed, so the tools stay usable for unpublished or
 confidential data. The same modules run under Node.js, so an interactive
-analysis can be captured as a version-pinned script. The 43 domain modules carry
+analysis can be captured as a version-pinned script. The 42 domain modules carry
 4371 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
 GROMACS, PLUMED, LAMMPS and physical invariants rather than against the
 implementation itself. That
@@ -203,7 +203,7 @@ enumerates the modules.
                                   ▼
         ┌─────────────────────────────────────────────────┐
         │                 stemkit-core                    │
-        │  43 DOM-free domain modules, aggregated by      │
+        │  42 DOM-free domain modules, aggregated by      │
         │  src/core/index.js                              │
         └─────────────────────────┬───────────────────────┘
                                   ▼
@@ -287,7 +287,7 @@ under that interpretation the UMD factory takes its browser branch and fails.
 Scoping `"type": "commonjs"` to the dependency directory alone restores correct
 behaviour.
 
-The test suite comprises 4371 tests in 57 suites across the 43 domain modules,
+The test suite comprises 4371 tests in 57 suites across the 42 domain modules and the version module,
 with 88.5% statement and 93.0% line coverage of `src/core/`. Its governing
 principle is that numerical results are validated against *independent*
 references rather than against the implementation under test, since a test
@@ -817,7 +817,7 @@ results to a third-party service.
 ## 5. Conclusions
 
 STEMKit is a suite of 18 browser-based tools for computational chemistry built on
-a tested, dependency-injected JavaScript core of 43 domain modules. The architecture
+a tested, dependency-injected JavaScript core of 42 domain modules. The architecture
 addresses three constraints simultaneously that existing tooling addresses only
 in pairs: it requires no installation, transmits no data and remains scriptable.
 
