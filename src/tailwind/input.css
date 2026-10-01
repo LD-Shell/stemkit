@@ -777,6 +777,19 @@ input[type="checkbox"], input[type="radio"], input[type="range"], progress { acc
 .stk-logo-foot, .stk-logo.stk-logo-foot { width: 1.5rem; height: 1.5rem; }
 .stk-logo-foot rect, .dark .stk-logo-foot rect { fill: var(--stk-border-strong); }
 .stk-logo-foot path { stroke: var(--stk-surface); }
+/* The footer credit, written as .mdp lines. Wraps rather than overflowing
+   on the narrowest phones. */
+.stk-credit {
+  margin: 0; text-align: left; white-space: pre-wrap;
+  font-family: var(--stk-font-mono); font-size: clamp(.625rem, 2.9vw, .8125rem); line-height: 1.6;
+  color: #334155;
+}
+.dark .stk-credit { color: #cbd5e1; }
+.stk-credit-c, .stk-credit-k { color: #64748b; }
+.dark .stk-credit-c, .dark .stk-credit-k { color: #94a3b8; }
+.stk-credit a { font-weight: 600; color: inherit; text-decoration: none; transition: color var(--stk-ease); }
+.stk-credit a:hover, .stk-credit a:focus-visible { color: #1f5c96; text-decoration: underline; }
+.dark .stk-credit a:hover, .dark .stk-credit a:focus-visible { color: #92b8dd; }
 .stk-navlink { transition: color var(--stk-ease); }
 .stk-navlink:hover, .stk-navlink.is-current { color: #1f5c96; }
 .dark .stk-navlink:hover, .dark .stk-navlink.is-current { color: #92b8dd; }
