@@ -1,44 +1,42 @@
-%% STEMKit -- SoftwareX (Original Software Publication) manuscript
-%%
-%% Prepared with the SoftwareX article template (elsarticle, numbered
-%% references). Structure follows SoftwareX article template Version 6
-%% (March 2026): frontmatter, code metadata table, and the five mandatory
-%% sections 1-5, followed by Acknowledgements and References.
+%% STEMKit: a client-side toolkit for computational chemistry and scientific
+%% data analysis. Preprint (ChemRxiv).
 %%
 %% Build:  pdflatex preprint   (run twice, for cross-references)
-%%
-%% Copyright 2026 Elsevier Ltd for the template; distributed under the
-%% conditions of the LaTeX Project Public License, version 1.2 or later,
-%% http://www.latex-project.org/lppl.txt
+%% Fonts:  TeX Gyre Pagella (text), TeX Gyre Heros (headings), Latin Modern
+%%         Mono (code), all in a standard TeX Live.
+\documentclass[11pt,a4paper]{article}
 
-\documentclass[preprint,12pt,a4paper]{elsarticle}
-
-%% Use the option review to obtain double line spacing
-%% \documentclass[authoryear,preprint,review,12pt]{elsarticle}
-
-%% For including figures, graphicx.sty has been loaded in elsarticle.cls.
-
+\usepackage[a4paper, top=2.6cm, bottom=2.8cm, left=2.6cm, right=2.6cm,
+  headheight=14pt, headsep=0.8cm]{geometry}
 \usepackage[T1]{fontenc}
-%% Latin Modern: the Computer Modern design with a bold typewriter face, which
-%% the code listings use for keywords.
+%% Latin Modern first, for its typewriter face (bold for code keywords); then
+%% Palatino for text and maths, and Helvetica for headings and captions.
 \usepackage{lmodern}
+\usepackage[sc]{mathpazo}
+\usepackage{tgpagella}
+\usepackage[scale=0.92]{tgheros}
+\linespread{1.06}
 \usepackage{textcomp}
+\usepackage[final]{microtype}
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{array}
-%% [H] pins the metadata table below its own headings; a plain [!h] is
-%% downgraded to [!ht] and floats above them.
 \usepackage{float}
 \usepackage{siunitx}
 \usepackage{xcolor}
 \usepackage{listings}
-\usepackage{hyperref}
-%% Links and citations in a dark blue, not hyperref's coloured boxes.
-\hypersetup{colorlinks=true, linkcolor=blue!55!black, citecolor=blue!55!black,
-  urlcolor=blue!55!black}
+\usepackage{enumitem}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,calc,fit,backgrounds,matrix}
+\usepackage{tcolorbox}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{caption}
+\usepackage{orcidlink}
+\usepackage{hyperref}
+
 %% The site's colours: Prussian blue (brand) and slate.
 \definecolor{stkblue}{HTML}{1F5C96}
 \definecolor{stkblue50}{HTML}{F1F6FB}
@@ -50,19 +48,45 @@
 \definecolor{stkslate500}{HTML}{64748B}
 \definecolor{stkslate700}{HTML}{334155}
 \definecolor{stkslate900}{HTML}{0F172A}
-%% Code and file names are not hyphenated, so a reader never copies a hyphen
-%% that is not there; a long one gets an explicit \allowbreak instead.
 
-%% The template sets flush-left paragraphs; a small vertical skip is added so
-%% that consecutive paragraphs remain distinguishable.
-\setlength{\parindent}{0pt}
-\setlength{\parskip}{6pt}
+\hypersetup{colorlinks=true, linkcolor=stkblue, citecolor=stkblue,
+  urlcolor=stkblue, pdftitle={STEMKit: A client-side toolkit for computational
+  chemistry and scientific data analysis}, pdfauthor={Olanrewaju M. Daramola}}
 
-%% The lineno package adds line numbers. Start line numbering with
-%% \begin{linenumbers}, end it with \end{linenumbers}. Or switch it on for the
-%% whole article with \linenumbers.
-%\usepackage{lineno}
+%% Headings in the sans face; sections in the accent colour.
+\titleformat{\section}{\sffamily\Large\bfseries\color{stkblue}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\sffamily\large\bfseries\color{stkslate900}}{\thesubsection}{0.7em}{}
+\titleformat{\subsubsection}{\sffamily\normalsize\bfseries\color{stkslate700}}{\thesubsubsection}{0.7em}{}
+\titlespacing*{\section}{0pt}{3.2ex plus 1ex minus .3ex}{1.4ex plus .3ex}
+\titlespacing*{\subsection}{0pt}{2.6ex plus .8ex minus .3ex}{1ex plus .2ex}
+\titlespacing*{\subsubsection}{0pt}{2.2ex plus .6ex minus .2ex}{0.8ex plus .2ex}
 
+%% Captions in the sans face, labels in the accent colour.
+\captionsetup{font={small,sf}, labelfont={bf,color=stkblue}, labelsep=period,
+  margin=4pt, skip=6pt}
+
+%% Running heads.
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{stkslate300}\leaders\hrule height \headrulewidth\hfill}}
+\fancyhead[L]{\sffamily\footnotesize\color{stkslate500}STEMKit: a client-side toolkit for computational chemistry}
+\fancyhead[R]{\sffamily\footnotesize\color{stkslate500}Daramola \enspace\textbar\enspace Preprint}
+\fancyfoot[C]{\sffamily\footnotesize\color{stkslate500}\thepage}
+\fancypagestyle{plain}{\fancyhf{}\renewcommand{\headrulewidth}{0pt}%
+  \fancyfoot[C]{\sffamily\footnotesize\color{stkslate500}\thepage}}
+
+%% Program names are never hyphenated.
+\hyphenation{GROMACS LAMMPS PLUMED STEMKit SciPy NumPy}
+%% Let tables and figures share a page with text rather than sit alone.
+\renewcommand{\topfraction}{0.85}
+\renewcommand{\bottomfraction}{0.6}
+\renewcommand{\textfraction}{0.12}
+\renewcommand{\floatpagefraction}{0.8}
+
+\setlength{\parindent}{1.2em}
+\setlength{\parskip}{0pt plus 1pt}
+\setlist{itemsep=2pt, topsep=4pt}
 \sisetup{detect-all}
 
 %% Listing style for the code excerpts.
@@ -104,36 +128,29 @@
   xrightmargin=6pt
 }
 
-%% elsarticle's preprint style prints "Preprint submitted to <journal>" and the
-%% date in the footer of every page. This restores a plain centred page number.
-\makeatletter
-\def\ps@pprintTitle{%
-  \let\@oddhead\@empty
-  \let\@evenhead\@empty
-  \def\@oddfoot{\reset@font\hfil\thepage\hfil}%
-  \let\@evenfoot\@oddfoot}
-\makeatother
-
 \begin{document}
 \renewcommand{\labelenumii}{\arabic{enumi}.\arabic{enumii}}
+\thispagestyle{plain}
 
-\begin{frontmatter}
+%% Title block.
+\begin{flushleft}
+{\sffamily\small\color{stkslate500}Preprint \enspace\textbar\enspace
+  Software \texttt{v0.3.0} \enspace\textbar\enspace 4 October 2026\par}
+\vspace{0.9em}
+{\sffamily\bfseries\LARGE\color{stkslate900}\raggedright STEMKit: A client-side
+toolkit for computational chemistry and scientific data analysis\par}
+\vspace{1.1em}
+{\large Olanrewaju M. Daramola\,\orcidlink{0009-0006-3327-2047}\par}
+\vspace{0.3em}
+{\small\color{stkslate700}Independent Researcher \enspace\textbar\enspace
+  \href{mailto:lanrelangmuir@gmail.com}{lanrelangmuir@gmail.com}\par}
+\end{flushleft}
+\vspace{0.6em}
 
-%% Title, authors and addresses
-
-\title{STEMKit: A client-side toolkit for computational chemistry and
-scientific data analysis}
-
-\author[1]{Olanrewaju M. Daramola\corref{cor1}\fnref{orcid}}
-\ead{lanrelangmuir@gmail.com}
-\cortext[cor1]{Corresponding author.}
-\fntext[orcid]{ORCID:
-\href{https://orcid.org/0009-0006-3327-2047}{0009-0006-3327-2047}}
-
-\address[1]{Independent Researcher}
-
-\begin{abstract}
-%% Text of abstract: ca. 100 words
+\begin{tcolorbox}[colback=stkblue50, colframe=stkblue, boxrule=0pt,
+  leftrule=2.5pt, arc=0pt, left=12pt, right=12pt, top=9pt, bottom=9pt]
+{\sffamily\bfseries\color{stkblue}Abstract}\par\smallskip
+\setlength{\parindent}{0pt}
 STEMKit is a suite of 18 browser-based tools for computational chemistry and
 scientific data analysis, built on \texttt{stemkit-core}, a JavaScript library
 of parsing and numerical routines with no DOM dependency. All computation runs
@@ -147,61 +164,31 @@ implementation itself. That
 validation exposed four defects that had been altering reported results, among
 them $p$-values floored at zero and the mass of haem iron taken as fluorine's.
 All four are corrected and covered by regression tests.
-\end{abstract}
 
-\begin{keyword}
-%% keywords here, in the form: keyword \sep keyword
-Computational chemistry \sep Molecular dynamics \sep Client-side computation
-\sep GROMACS \sep Reproducibility \sep Data privacy
-\end{keyword}
+\smallskip
+{\raggedright{\sffamily\small\bfseries\color{stkslate700}Keywords:}\enspace{\small
+Computational chemistry; Molecular dynamics; Client-side computation;
+GROMACS; LAMMPS; PLUMED; Reproducibility; Data privacy}\par}
+\end{tcolorbox}
 
-\end{frontmatter}
-
-%\linenumbers
-
-% ---------------------------------------------------------------------------
-\section*{Required Metadata}
-
-\section*{Current code version}
-
+\vspace{0.4em}
 \begin{table}[H]
 \centering
-\begin{tabular}{|l|>{\raggedright\arraybackslash}p{4.4cm}|>{\raggedright\arraybackslash}p{6.3cm}|}
-\hline
-\textbf{Nr.} & \textbf{Code metadata description} & \textbf{Metadata} \\
-\hline
-C1 & Current code version & v0.3.0 \\
-\hline
-C2 & Permanent link to code/repository used for this code version &
-\url{https://github.com/LD-Shell/stemkit} \newline
-Archived on Zenodo under the concept DOI \texttt{10.5281/zenodo.21543112},
-which resolves to the current release \\
-\hline
-C3 & Legal code license & MIT License \\
-\hline
-C4 & Code versioning system used & git \\
-\hline
-C5 & Software code languages, tools and services used & JavaScript
-(ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS \\
-\hline
-C6 & Compilation requirements, operating environments and dependencies &
-Browser tools: any current browser supporting ECMAScript modules and the
-\texttt{FileReader} API; no installation and no build step. Library: Node.js
-$\geq 18$; on npm as \texttt{stemkit-core}. No runtime dependencies: jStat,
-Papa Parse, regression.js and bibtex-parse-js are vendored and bundled.
-\texttt{npm install} in a clone adds only the development dependencies (Jest,
-Tailwind CSS) \\
-\hline
-C7 & If available, link to developer documentation/manual &
-\url{https://github.com/LD-Shell/stemkit#readme}; per-module API documentation
-in \texttt{src/core/README.md}; hosted tools at \url{https://stemkit.net} \\
-\hline
-C8 & Support email for questions & lanrelangmuir@gmail.com (issue tracker:
-\url{https://github.com/LD-Shell/stemkit/issues}) \\
-\hline
-\end{tabular}
-\caption{Code metadata (mandatory)}
+\caption{Software availability.}
 \label{tab:metadata}
+\small
+\begin{tabular}{@{}>{\sffamily\bfseries\color{stkslate700}}l>{\raggedright\arraybackslash}p{12.2cm}@{}}
+\toprule
+Version & \texttt{v0.3.0} \\
+Source & \url{https://github.com/LD-Shell/stemkit} \\
+Archive & Zenodo, concept DOI \href{https://doi.org/10.5281/zenodo.21543112}{\texttt{10.5281/zenodo.21543112}}, which resolves to the current release \\
+Licence & MIT \\
+Languages & JavaScript (ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS \\
+Requirements & Browser tools: any current browser with ECMAScript modules and the \texttt{FileReader} API; nothing to install. Library: Node.js $\geq 18$, on npm as \texttt{stemkit-core}, with no runtime dependencies (jStat, Papa Parse, regression.js and bibtex-parse-js are bundled) \\
+Documentation & \url{https://github.com/LD-Shell/stemkit\#readme}; API in \texttt{src/core/README.md}; tools at \url{https://stemkit.net} \\
+Support & \url{https://github.com/LD-Shell/stemkit/issues} \\
+\bottomrule
+\end{tabular}
 \end{table}
 
 % ---------------------------------------------------------------------------
@@ -1004,26 +991,33 @@ warnings.forEach(w => console.warn(`[${w.level}] ${w.message}`));
 \end{lstlisting}
 
 The same four steps through the browser produce identical numbers, since they
-call the same functions (Figures~\ref{fig:tools-data} and~\ref{fig:tools-stats}). The plotting steps also emit a
-matplotlib script that regenerates the figure from the same data.
+call the same functions. The plotting steps also emit a matplotlib script that
+regenerates the figure from the same data. Figures~\ref{fig:tools-data}
+and~\ref{fig:tools-stats} show five of the tools in use.
 
-\begin{figure}[htbp]
+\begin{figure}[p]
 \centering
-\includegraphics[width=\textwidth]{figures/tools-data.png}
-\caption{Listings~\ref{lst:xvg} and~\ref{lst:structure} in the browser, with the
-tool pages' own samples: (a)~the XVG visualiser plotting an RMSD and
-radius-of-gyration series; (b)~the structure inspector with an $\alpha$-helical
-peptide.}
+\includegraphics[width=\textwidth,height=0.84\textheight,keepaspectratio]{figures/tools-analysis.png}
+\caption{Three of the tools, each with its own sample or a public structure.
+(a)~The curve fitter: a damped oscillation typed as an equation and fitted by
+Levenberg--Marquardt, with its 95\% confidence band, the residuals below, and
+each parameter with its standard error and interval. (b)~The PLUMED run
+analysis: the free-energy surface of a two-variable well-tempered
+metadynamics run, summed from its HILLS file as \texttt{plumed sum\_hills}
+sums it. (c)~The structure inspector: haemoglobin (PDB 4HHB) fetched from the
+RCSB, drawn as a cartoon coloured by chain, with its four haem groups.}
 \label{fig:tools-data}
 \end{figure}
 
-\begin{figure}[htbp]
+\begin{figure}[p]
 \centering
-\includegraphics[width=\textwidth]{figures/tools-stats-job.png}
-\caption{Listings~\ref{lst:stats} and~\ref{lst:slurm} in the browser: (a)~the
-statistics calculator comparing two groups, with the test the assumption checks
-pointed to, its effect size, a publication summary and the plot; (b)~the MD
-workflow generator's GROMACS job step and the submission script it writes.}
+\includegraphics[width=\textwidth,height=0.84\textheight,keepaspectratio]{figures/tools-setup.png}
+\caption{Setting up simulations. (a)~GROMACS: the System step and the
+production \texttt{md.mdp}, with the selected line (\texttt{tcoupl}) explained
+beneath the file; a tick on each file's tab means it passes the checker.
+(b)~LAMMPS: a data file read in the browser (the LAMMPS peptide example, 2004
+atoms, its TIP3P water found from the topology) and the NVT input written for
+it, with the selected \texttt{fix nvt} line explained.}
 \label{fig:tools-stats}
 \end{figure}
 
@@ -1101,15 +1095,17 @@ coverage in the trajectory and structure modules.
 % ---------------------------------------------------------------------------
 \section*{Declaration of generative AI use}
 
-Claude (Anthropic) was used in preparing this manuscript (restructuring an
-earlier draft into the present template, correcting reported figures against the
-test suite, drafting and revising prose, and reviewing the numerical claims) and
-in developing the software, including the browser interface and several of the
-statistical routines added in version 0.2.0. Every numerical routine is validated
-against an independent reference as described in Section~\ref{sec:architecture}.
+The author conceived STEMKit and set its scope and design: which tools to
+build, what each must do, the methods they use, and the independent references
+and programs each must agree with. The author also tested the tools and decided
+what was released. Claude (Anthropic), used through Claude Code, assisted with
+the implementation, writing code, tests and documentation to the author's
+specifications, and helped draft and revise this manuscript. Correctness does
+not rest on the model: every numerical routine is tested against an independent
+reference or against the programs themselves (Section~\ref{sec:architecture}),
+those tests run in continuous integration, and the author reviewed the results.
 The author takes full responsibility for the software and for the content of
-this manuscript. The tool is not an author and bears no responsibility for the
-content.
+this manuscript; the tool is not an author.
 
 \section*{Acknowledgements}
 
@@ -1129,7 +1125,9 @@ The author declares no competing financial or non-financial interests.
 %% place of the thebibliography environment below. Note that paper.bib keys the
 %% MDAnalysis entry as michaud-agrawal2011mdanalysis.
 
+{\small
 \begin{thebibliography}{00}
+\setlength{\itemsep}{2pt}
 
 \bibitem{abraham2015}
 M.~J. Abraham, T.~Murtola, R.~Schulz, S.~P\'{a}ll, J.~C. Smith, B.~Hess, and
@@ -1325,10 +1323,7 @@ The PLUMED consortium,
 \newblock \url{https://doi.org/10.1038/s41592-019-0506-8}
 
 \end{thebibliography}
-
-%% The SoftwareX template Version 6 (March 2026) no longer carries the
-%% "Current executable software version" (S1-S8) table that earlier versions
-%% included, so it is omitted here.
+}
 
 \end{document}
 \endinput

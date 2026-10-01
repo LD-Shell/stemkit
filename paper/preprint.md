@@ -1,11 +1,9 @@
 ---
-# SoftwareX (Original Software Publication) manuscript, Markdown source.
-# Structure follows the SoftwareX article template Version 6 (March 2026);
-# preprint.tex in this directory is the elsarticle version of the same text.
+# The preprint (ChemRxiv), Markdown source. preprint.tex in this directory is
+# the typeset version of the same text; paper.md is the short JOSS paper.
 #
-# Convert to the submission .docx with:
-#   pandoc paper.md --bibliography=paper.bib --citeproc \
-#          --csl=elsevier-with-titles.csl -o paper.docx
+# Convert to .docx with:
+#   pandoc preprint.md --bibliography=paper.bib --citeproc -o preprint.docx
 title: "STEMKit: A client-side toolkit for computational chemistry and scientific data analysis"
 author:
   - name: Olanrewaju M. Daramola
@@ -13,7 +11,7 @@ author:
     affiliation: Independent Researcher
     email: lanrelangmuir@gmail.com
     corresponding: true
-date: 1 October 2026
+date: 4 October 2026
 keywords:
   - computational chemistry
   - molecular dynamics
@@ -754,21 +752,29 @@ warnings.forEach(w => console.warn(`[${w.level}] ${w.message}`));
 **Listing 5.** Generating a GROMACS submission script with resource warnings.
 
 The same four steps through the browser produce identical numbers, since they
-call the same functions (Figures 2 and 3). The plotting steps also emit a matplotlib
-script that regenerates the figure from the same data.
+call the same functions. The plotting steps also emit a matplotlib script that
+regenerates the figure from the same data. Figures 2 and 3 show five of the
+tools in use.
 
-![](figures/tools-data.png)
+![](figures/tools-analysis.png)
 
-**Figure 2.** Listings 2 and 3 in the browser, with the tool pages' own
-samples: (a) the XVG visualiser plotting an RMSD and radius-of-gyration series;
-(b) the structure inspector with an α-helical peptide.
+**Figure 2.** Three of the tools, each with its own sample or a public
+structure. (a) The curve fitter: a damped oscillation typed as an equation and
+fitted by Levenberg–Marquardt, with its 95% confidence band, the residuals
+below, and each parameter with its standard error and interval. (b) The PLUMED
+run analysis: the free-energy surface of a two-variable well-tempered
+metadynamics run, summed from its HILLS file as `plumed sum_hills` sums it.
+(c) The structure inspector: haemoglobin (PDB 4HHB) fetched from the RCSB,
+drawn as a cartoon coloured by chain, with its four haem groups.
 
-![](figures/tools-stats-job.png)
+![](figures/tools-setup.png)
 
-**Figure 3.** Listings 4 and 5 in the browser: (a) the statistics calculator
-comparing two groups, with the test the assumption checks pointed to, its effect
-size, a publication summary and the plot; (b) the MD workflow generator's
-GROMACS job step and the submission script it writes.
+**Figure 3.** Setting up simulations. (a) GROMACS: the System step and the
+production `md.mdp`, with the selected line (`tcoupl`) explained beneath the
+file; a tick on each file's tab means it passes the checker. (b) LAMMPS: a data
+file read in the browser (the LAMMPS peptide example, 2004 atoms, its TIP3P
+water found from the topology) and the NVT input written for it, with the
+selected `fix nvt` line explained.
 
 ## 4. Impact
 
@@ -846,14 +852,17 @@ coverage in the trajectory and structure modules.
 
 ## Declaration of generative AI use
 
-Claude (Anthropic) was used in preparing this manuscript (restructuring an
-earlier draft into the present template, correcting reported figures against the
-test suite, drafting and revising prose, and reviewing the numerical claims) and
-in developing the software, including the browser interface and several of the
-statistical routines added in version 0.2.0. Every numerical routine is validated
-against an independent reference as described in Section 2.1. The author takes
-full responsibility for the software and for the content of this manuscript. The
-tool is not an author and bears no responsibility for the content.
+The author conceived STEMKit and set its scope and design: which tools to
+build, what each must do, the methods they use, and the independent references
+and programs each must agree with. The author also tested the tools and decided
+what was released. Claude (Anthropic), used through Claude Code, assisted with
+the implementation, writing code, tests and documentation to the author's
+specifications, and helped draft and revise this manuscript. Correctness does
+not rest on the model: every numerical routine is tested against an independent
+reference or against the programs themselves (Section 2.1), those tests run in
+continuous integration, and the author reviewed the results. The author takes
+full responsibility for the software and for the content of this manuscript;
+the tool is not an author.
 
 ## Acknowledgements
 
@@ -869,6 +878,5 @@ The author declares no competing financial or non-financial interests.
 
 ## References
 
-<!-- Rendered by pandoc --citeproc from paper.bib. SoftwareX numbers references
-     in order of first appearance, so a numeric CSL style (for example
-     elsevier-with-titles.csl) renders in-text citations as [1], [2], ... -->
+<!-- Rendered by pandoc --citeproc from paper.bib, numbered in order of first
+     appearance as in preprint.tex. -->
