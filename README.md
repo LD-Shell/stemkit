@@ -87,6 +87,15 @@ dependency-injection layer (`vendor.js`) and the release version
 (`version.js`).
 API reference in [`src/core/README.md`](src/core/README.md).
 
+## Who it is for
+
+Researchers in computational chemistry and the experimental sciences who need
+a correct answer without installing anything or uploading their data: checking
+a trajectory, comparing replicates, fitting a model, digitising a figure,
+setting up and checking GROMACS, LAMMPS and PLUMED inputs, and preparing
+figures, tables and references. Every tool writes, or is backed by, code that
+repeats its result, so what was done in the browser can be reproduced.
+
 ## Why the computation is a separate library
 
 Client-side tools are good for privacy and bad for reproducibility: a figure
@@ -106,7 +115,15 @@ version-pinnable and testable.
 | [`CHANGELOG.md`](CHANGELOG.md) | changes, including output-affecting fixes |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | contributing, and where code belongs |
 | [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md) | licences of vendored libraries and of the GROMACS, PLUMED and LAMMPS reference data |
-| [`paper/`](paper/) | manuscript, LaTeX and Markdown |
+| [`paper/`](paper/) | the JOSS paper (`paper.md`) and the preprint (`preprint.tex`, `preprint.md`, `preprint.pdf`) |
+
+## Contributing and support
+
+Report a bug or ask a question in the
+[issue tracker](https://github.com/LD-Shell/stemkit/issues). Contributions are
+welcome: [`CONTRIBUTING.md`](CONTRIBUTING.md) explains where code belongs, how
+to run the tests and what a pull request should contain, and
+[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) applies to every space of the project.
 
 ## Citing
 

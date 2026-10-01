@@ -82,7 +82,8 @@ stemkit/
 ├── .github/workflows/      CI: tests on Node 18, 22 and 24, site checks
 ├── abbr/                   ISSN LTWA word list for ISO 4
 ├── docs/                   setup, stylesheets, figures, coverage
-├── paper/                  manuscript, LaTeX and Markdown
+├── paper/                  the JOSS paper (paper.md) and the preprint
+│                           (preprint.tex, preprint.md, preprint.pdf)
 ├── css/, assets/, sound/   fonts (Inter and Font Awesome are vendored),
 │                           icons, sample files, audio
 └── package.json            stemkit-core

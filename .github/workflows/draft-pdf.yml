@@ -1,0 +1,33 @@
+name: JOSS draft PDF
+
+# Builds paper/paper.md with the Journal of Open Source Software's own pipeline
+# and attaches the PDF to the run (Actions -> this run -> Artifacts).
+on:
+  push:
+    paths:
+      - paper/paper.md
+      - paper/paper.bib
+      - paper/figures/**
+      - .github/workflows/draft-pdf.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  paper:
+    name: Paper draft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build draft PDF
+        uses: openjournals/openjournals-draft-action@master
+        with:
+          journal: joss
+          paper-path: paper/paper.md
+      - name: Upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: paper
+          path: paper/paper.pdf
+          archive: false
