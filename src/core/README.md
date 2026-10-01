@@ -74,12 +74,15 @@ registerFromGlobals();
 Modules marked none under Needs below work without registration.
 
 Every module is also exported whole, as a namespace (`Stats`, `LammpsInput`,
-`GromacsMdp` and so on, 43 in all) and by path (`stemkit-core/lammps-input`).
+`GromacsMdp` and so on, 44 in all) and by path (`stemkit-core/lammps-input`).
 Names too general to export flat, or used by two modules, are reached that way:
 `LammpsInput.parseInput`, `CurveFitting.generateMatplotlibCode`, and
 `DataCleaning.columnStats` (population SD; the flat `columnStats` is
 xvg-parser's sample SD). A path import skips `node.js`, so it registers
 nothing: import `stemkit-core` first, or call `registerVendor`.
+
+`STEMKIT_VERSION` and `RELEASE_DATE` (also `Version`) name the release a
+script ran with, for a methods section or a log line.
 
 ## Modules
 
@@ -259,7 +262,7 @@ npm test                # full suite
 npm run test:coverage   # with coverage
 ```
 
-The suite comprises 3705 tests across all 42 domain modules (`src/core` also holds the aggregate
+The suite comprises 4371 tests across all 43 domain modules (`src/core` also holds the aggregate
 export, the Node entry and the injection layer, which carry no domain logic). Numerical results are validated against
 independent references rather than against the implementation itself:
 
@@ -275,7 +278,7 @@ independent references rather than against the implementation itself:
 - **SciPy 1.11.4** `curve_fit` and `scipy.stats.t`, nonlinear fits (weighted,
   with absolute sigma, with a fixed parameter), their standard errors and
   confidence bands, and t quantiles; the generated Python scripts are run and
-  their figures inspected with **matplotlib 3.6.3**
+  their figures inspected with **matplotlib 3.6.3 and 3.11.2** (both in CI)
 - **PLUMED 2.9, 2.10 and 2.11**, every generated input parsed by the real
   program; hill sums checked against `plumed sum_hills`
 - **GROMACS 2025**, index files written by `gmx make_ndx` and selections by

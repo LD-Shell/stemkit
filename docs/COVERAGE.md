@@ -4,7 +4,7 @@
 npm run test:coverage
 ```
 
-Roughly 88% of statements and 93% of lines across `src/core/`. Some suites run
+Roughly 89% of statements and 93% of lines across `src/core/`. Some suites run
 only when Python, PLUMED, LAMMPS or GROMACS is installed, so the figure moves a
 little between machines.
 
@@ -18,7 +18,7 @@ instruments it, but nothing in it executes as a *statement*, so the counter stay
 at zero no matter how heavily the exports are used.
 
 The barrel is still checked, by `tests/smoke.mjs`, which imports the package by
-name, as a user's script does, and calls into 28 of the 43 modules through it; a
+name, as a user's script does, and calls into 28 of the 44 modules through it; a
 missing export fails the import itself:
 
 ```bash
@@ -51,8 +51,6 @@ Real gaps, unlike the two files above, are genuinely untested code:
   branches, 80% of functions. Its agreement with LAMMPS is tested separately,
   by `npm run check:lammps` against an installed LAMMPS.
 - `lammps-data.js`: about 83% of statements, 76% of branches.
-- `gromacs-mdp.js`: about 84% of statements, 76% of branches.
-- `iso4.js`: about 88% of statements, 80% of branches, 90% of functions.
+- `gromacs-mdp.js`: about 85% of statements, 78% of branches.
 
-`iso4.js` is also one of the 15 modules `smoke.mjs` does not call into;
-`docs/SETUP.md` lists them.
+Sixteen modules have no case in `smoke.mjs`; `docs/SETUP.md` lists them.

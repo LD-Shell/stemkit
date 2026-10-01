@@ -86,6 +86,12 @@ continuous integration.
   `tools/build-gromacs-mdp.mjs`) and `gromacs-ndx`; `npm run check:gromacs`
   and `npm run check:ndx` compare them with an installed GROMACS.
 
+- **The GROMACS version you run**: 2025, 2024, 2023 or 2022. The `.mdp`
+  files leave out options that release does not read, and the checker applies
+  its options, defaults and checks. Every preset passes `grompp` 2022.6,
+  2023.5, 2024.6 and 2025.0; Martini 3 and hydrogen mass repartitioning used
+  to write options that arrived in 2024, so grompp 2023 stopped on them.
+
 ### Added: one plot area and one Python script on every plotting page
 
 - **The same plot area everywhere**: the Curve Fitter, PLUMED "Analyse a
@@ -195,7 +201,10 @@ continuous integration.
 - GitHub Actions runs the tests and the smoke test on Node 18, 22 and 24, and
   the site checks, on every push to main and every pull request. The README
   shows its status, the npm version and the Zenodo DOI. The smoke test now
-  reaches 28 of the 43 modules.
+  reaches 28 of the 44 modules.
+- A second job installs Python and runs the tests that check the scripts with
+  matplotlib, twice: on current releases, and on matplotlib 3.6.3 with Ubuntu
+  24.04's numpy, scipy and pandas.
 
 ### Added: smaller pieces
 
@@ -204,6 +213,12 @@ continuous integration.
   replaces the Dark preset.
 - New core module `zip`: uncompressed zip archives of text files, used by the
   MD Workflow Generator's "Download all".
+- **The version on every page**: the footer names the release and its date
+  and links to this changelog; `src/core/version.js` exports the same.
+- **A Content-Security-Policy on every page**, so the browser itself refuses
+  anything from another host; inline scripts are allowed by hash only. The
+  only exceptions are the DOI registration agencies DOI to BibTeX asks and the
+  RCSB PDB the Structure Inspector fetches from.
 
 ### Changed
 
@@ -221,6 +236,14 @@ continuous integration.
   own and is left out of the zip so it cannot overwrite a real `topol.top`.
 - The PLUMED sample hills file is the two-variable run (`assets/samples/plumed/HILLS`).
 - The footer carries a new credit line, written as `.mdp` lines.
+- The Statistics Calculator says, with references, that choosing a test from
+  a normality test on the same data is contested, and the suggestion links to
+  how it is made.
+- The Journal Abbreviator marks results from the ISO 4 rules apart from the
+  built-in list, so you know which to check.
+- The unit converter loads its own module only, not the whole library.
+- `robots.txt` no longer hides the stylesheets and scripts from search engines,
+  and the home page's canonical address is the site's root.
 - `[output]` **`parsePDB` reads the first model of a multi-model PDB**, as
   GROMACS and PLUMED do, and says how many it skipped (`modelCount`,
   `warnings`); pass `{ models: 'all' }` for the old behaviour. It keeps
@@ -299,6 +322,33 @@ it was fixed, each with a regression test.
 
 ### Fixed: output
 
+- `[output]` **Force conversions.** eV/Å was off by a factor of 10 and
+  Hartree/Bohr by about 25: 1 eV/Å gave 96.5 kJ mol⁻¹ nm⁻¹ instead of 964.9,
+  and 1 Eₕ/a₀ gave 3.35×10⁻⁹ N instead of 8.24×10⁻⁸. The other units were
+  right. A test now derives every force unit from the energy and length
+  tables.
+- `[output]` **Small-sample rank tests.** Mann–Whitney and Wilcoxon used only
+  the normal approximation, so complete separation of triplicates gave
+  p = .0495 where the exact test cannot go below .10. They now follow SciPy's
+  defaults: exact p for Mann–Whitney without ties when a group has 8 or fewer
+  values, and for Wilcoxon without ties or zeros up to 50 pairs; an exact
+  permutation test for Wilcoxon with ties or zeros up to 13 pairs; and the
+  normal approximation otherwise, now with the tie correction to Wilcoxon's
+  variance. The result says which was used, and the Python script asks SciPy
+  for the same. Far-tail p-values (below about 1e-5) of the normal
+  approximation are now accurate.
+- `[output]` **Figure scripts on current matplotlib.** On matplotlib 3.8 and
+  later a shared log x axis with data at or below 0 started lower than the
+  preview showed (0.007 instead of 0.21 in one case), and on 3.8 to 3.10 error
+  bars on a log axis set wrong limits. The scripts now give the same axis
+  limits on every matplotlib from 3.6 to 3.11, and the preview follows 3.11's
+  ticks and legend placement.
+- **ISO 4 abbreviations.** The rules dropped section letters ("Journal of
+  Physics A" → "J. Phys.") and misread hyphenated LTWA patterns ("Phase
+  Transitions" → "-ph. Transitions"). They now agree with the built-in list on
+  169 of 184 titles (150 before), never produce a malformed word, and the 15
+  differences left are ones where the official abbreviation departs from
+  ISO 4.
 - `[output]` **The Data Cleaner's rounding** used `toFixed`, so 2.675 became
   2.67; it now rounds the number as written (2.68), half away from zero or to
   even as you choose. Its filters no longer treat a missing cell as 0, the log

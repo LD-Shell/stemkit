@@ -26,14 +26,14 @@ console shows a CORS error. Serve over HTTP.
 
 ```bash
 npm install
-npm test               # 3705 tests, 43 modules
+npm test               # 4371 tests, 44 modules
 npm run test:coverage  # see docs/COVERAGE.md
 node tests/smoke.mjs   # end-to-end against a real install
 ```
 
 The smoke test catches what unit tests cannot: a broken aggregate export, a
 mis-scoped `type` field, a vendored bundle that fails to load. It calls into 28
-of the 43 modules; `iso4`, `journals`, `pdf`, `zip`, `lammps-reference`, the
+of the 44 modules; `iso4`, `journals`, `pdf`, `zip`, `version`, `lammps-reference`, the
 per-page figure modules and the PLUMED modules beyond `plumed` have no case yet.
 
 Node 18 or later. CI (`.github/workflows/ci.yml`) runs `npm test` and the smoke
@@ -49,7 +49,7 @@ stemkit/
 ├── *.html                  18 research tools, 3 workflow utilities,
 │                           plus index, privacy and 404
 ├── src/
-│   ├── core/               the library, no DOM: 43 modules (vendor.js, the
+│   ├── core/               the library, no DOM: 44 modules (vendor.js, the
 │   │                       DI boundary, is one), index.js (barrel), node.js
 │   │                       (Node entry), and the tables the GROMACS, PLUMED
 │   │                       and LAMMPS modules read (eight files and
@@ -107,6 +107,18 @@ npm publish
 Bump `version` in `package.json` first; npm never accepts the same version twice.
 `npm publish` runs `npm test` and the smoke test first (`prepublishOnly`).
 
+The release also shows on the site: every page's footer ends
+`; version = v0.3.0 (2026-10-01)`, linked to the changelog. Bump
+`STEMKIT_VERSION` and `RELEASE_DATE` in `src/core/version.js`, then the footers:
+
+```bash
+sed -i 's|>v0\.3\.0</a> (2026-10-01)</pre>|>v0.3.1</a> (2026-11-02)</pre>|' *.html
+```
+
+`tests/version.test.js` fails until `src/core/version.js` agrees with
+`package.json`, `CITATION.cff` and a `## vX.Y.Z — date` heading in
+`CHANGELOG.md`; `npm run check:chrome` fails until every footer does.
+
 ## Gotchas
 
 **`js/dependencies/package.json`** sets `"type": "commonjs"`, with a comment
@@ -133,6 +145,17 @@ ever renders in a system font, the build was not run after that file changed.
 The only requests to other hosts are the two the privacy page names, made when
 a person asks: DOI to BibTeX asks doi.org, and the Structure Inspector fetches a
 PDB entry from RCSB.
+
+**Every page carries a Content-Security-Policy `<meta>`** that makes the
+browser hold to that: scripts, styles, fonts and requests from the site itself,
+plus doi.org and the registration agencies it redirects to on DOI to BibTeX,
+and RCSB on the Structure Inspector. `tools/build-csp.mjs` writes it, page by
+page. Inline scripts are allowed by hash, so **after editing an inline
+`<script>`** (the theme script in every `<head>`, the home page search, the 404
+suggestions, the MD Workflow Generator's doc tabs) **run `npm run build:csp`**,
+or the browser refuses the edited script; `npm run check:chrome` fails until
+then. A new library that needs `eval`, a worker or another host gets it in the
+`EXTRA` table there, for its page only.
 
 ## Conversion state
 

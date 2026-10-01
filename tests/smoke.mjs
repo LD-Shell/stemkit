@@ -10,7 +10,7 @@
  *   node tests/smoke.mjs
  *
  * Prints one OK line per module checked, then a summary count. It reaches 28
- * of the 43 modules; `iso4`, `journals`, `pdf`, `zip`, `lammps-reference`, the
+ * of the 44 modules; `iso4`, `journals`, `pdf`, `zip`, `version`, `lammps-reference`, the
  * per-page figure modules and the PLUMED modules beyond `plumed` have no case
  * yet.
  */
