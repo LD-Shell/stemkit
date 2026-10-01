@@ -9,8 +9,8 @@
  *
  *   node tests/smoke.mjs
  *
- * Prints one OK line per module checked, then a summary count. It reaches 24
- * of the 39 modules; `iso4`, `journals`, `pdf`, `zip`, the per-page figure
+ * Prints one OK line per module checked, then a summary count. It reaches 28
+ * of the 43 modules; `iso4`, `journals`, `pdf`, `zip`, the per-page figure
  * modules and the PLUMED modules beyond `plumed` have no case yet.
  */
 
@@ -32,7 +32,8 @@ import {
   generatePlumedInput,
   selectAtoms, SpatialGrid,
   generateWorkflow, checkMdp, GromacsMdp, readGromacsStructure, defaultGroups, writeNdx,
-  normaliseFigure, figureScript, generateCleaningScript
+  normaliseFigure, figureScript, generateCleaningScript,
+  defaultLammpsState, buildLammpsWorkflow, lammpsRunBlock, LammpsInput, LammpsData
 } from 'stemkit-core';
 
 let ok = 0;
@@ -151,6 +152,22 @@ check('gromacs: .mdp and index', () => {
   const groups = defaultGroups(readGromacsStructure(gro, 'water.gro'));
   assert(groups.map(g => g.name).join() === 'System,Water,SOL', 'default groups differ from make_ndx');
   assert(writeNdx(groups).startsWith('[ System ]'), 'index file not written');
+});
+
+check('lammps: workflow, check and data file', () => {
+  const wf = buildLammpsWorkflow(defaultLammpsState('charmm'));
+  const files = Object.fromEntries(wf.files.filter(f => f.kind === 'lammps').map(f => [f.name, f.text]));
+  assert(files['in.nvt'] && files['in.nvt'].includes('fix'), 'stage inputs not written');
+  const chain = LammpsInput.checkChain(wf.stages.map(st => ({ name: st.file, text: files[st.file] })),
+    { files, vars: { rstep: '-1', time_limit: 'off' } });
+  const errors = chain.flatMap(r => r.issues.filter(i => i.severity === 'error'));
+  assert(errors.length === 0, `the built inputs would stop LAMMPS: ${errors.map(e => e.message).join('; ')}`);
+  assert(lammpsRunBlock(wf, { lmp: 'lmp' }).includes('in.prod'), 'run block misses production');
+  const data = 'water\n\n3 atoms\n2 bonds\n1 angles\n2 atom types\n1 bond types\n1 angle types\n\n' +
+    '0 10 xlo xhi\n0 10 ylo yhi\n0 10 zlo zhi\n\nMasses\n\n1 15.9994\n2 1.008\n\nAtoms # full\n\n' +
+    '1 1 1 -0.834 5 5 5\n2 1 2 0.417 5.9572 5 5\n3 1 2 0.417 4.76 5.927 5\n\nBonds\n\n1 1 1 2\n2 1 1 3\n\nAngles\n\n1 1 2 1 3\n';
+  const sum = LammpsData.summariseData(LammpsData.parseDataFile(data), { units: 'real' });
+  assert(sum.natoms === 3 && sum.water && sum.water.model === 'TIP3P', `water not recognised: ${JSON.stringify(sum.water)}`);
 });
 
 check('figures and scripts', () => {

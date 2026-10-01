@@ -26,7 +26,8 @@
  *
  * Modules that need no third-party code, `xvg-parser`, `structure`, `slurm`,
  * `scheduler`, `digitizer`, `latex`, `units`, `expression`, `nonlinear-fit`,
- * `fit-python`, `plot-style`, `pdf`, `zip`, `gromacs-mdp`, `gromacs-ndx`, work
+ * `fit-python`, `plot-style`, `pdf`, `zip`, `gromacs-mdp`, `gromacs-ndx` and the
+ * `lammps-*` modules, work
  * without any registration at all.
  *
  * ## Name collisions
@@ -93,6 +94,10 @@ export * as StatisticsFigure from './statistics-figure.js';
 export * as OutliersFigure from './outliers-figure.js';
 export * as PlumedAnalysisFigures from './plumed-analysis-figures.js';
 export * as PlotBuilder from './plot-builder.js';
+export * as LammpsReference from './lammps-reference.js';
+export * as LammpsInput from './lammps-input.js';
+export * as LammpsData from './lammps-data.js';
+export * as LammpsWorkflow from './lammps-workflow.js';
 
 /* ------------------------------------------------------------------ *
  * Flat exports | collision-free modules
@@ -138,6 +143,15 @@ export { outlierFigure, outlierScript } from './outliers-figure.js';
 export {
   parseMdp, checkMdp, explainMdp, generateMdp, generateWorkflow, mdpDocUrl, optionInfo, loadMdpDocs
 } from './gromacs-mdp.js';
+
+// LAMMPS: the workflow builder flat; reading, checking and explaining inputs
+// (parseInput, checkInput, checkChain, explainInput...) and data files
+// (parseDataFile, summariseData...) stay under LammpsInput and LammpsData,
+// whose names are too general to claim flat.
+export {
+  defaultLammpsState, buildLammpsWorkflow, lammpsRunBlock, lammpsReadme
+} from './lammps-workflow.js';
+export { lammpsDocUrl } from './lammps-reference.js';
 
 // GROMACS index groups. Curated, since names such as parseNdx are specific
 // but orGroups or customGroup would read ambiguously beside other modules.

@@ -105,6 +105,10 @@ Modules needing no registration: `xvg-parser`, `structure`, `selection`,
 | `zip` | Uncompressed zip archives of text files | none |
 | `gromacs-mdp` | Every GROMACS 2025.1 `.mdp` option with its manual text and link; reading, checking as grompp does, explaining and writing `.mdp` files | none |
 | `gromacs-ndx` | GROMACS index groups: `make_ndx` defaults, custom groups, tc-grps checks | none |
+| `lammps-reference` | Every LAMMPS 29 Aug 2024 command and style: kind, package, accelerated variants, syntax, keywords, defaults, a one-line summary and the manual link; the unit styles | none |
+| `lammps-input` | Reading LAMMPS inputs as LAMMPS parses them; checking them as LAMMPS runs them (also a chain of stages through restart files); explaining every line in the input's units | none |
+| `lammps-data` | Reading LAMMPS data files: counts, box, types, charges, water model, SHAKE types, suggested groups | none |
+| `lammps-workflow` | A whole LAMMPS run: force-field presets, minimise/NVT/NPT/production inputs chained by restart files, the job block that continues after a wall-time stop, README | none |
 | `selection` | Atom selection language, spatial neighbour queries | none |
 | `units` | 64 units in 10 categories, plus temperature; CODATA 2018 / SI 2019 | none |
 | `data-cleaning` | Tabular cleaning, deduplication, imputation, profiling | Papa Parse |
@@ -246,7 +250,7 @@ npm test                # full suite
 npm run test:coverage   # with coverage
 ```
 
-The suite comprises 3355 tests across all 39 domain modules (`src/core` also holds the aggregate
+The suite comprises 3695 tests across all 43 domain modules (`src/core` also holds the aggregate
 export, the Node entry and the injection layer, which carry no domain logic). Numerical results are validated against
 independent references rather than against the implementation itself:
 
