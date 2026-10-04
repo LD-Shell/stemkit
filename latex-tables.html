@@ -214,7 +214,7 @@
 
                 <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 flex flex-col lg:h-2/5 min-h-[220px] lg:min-h-[200px]">
                     <h2 class="stk-ptitle mb-3 shrink-0">Preview</h2>
-                    <div class="flex-grow min-h-0 overflow-auto custom-scroll bg-slate-50 dark:bg-slate-950 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
+                    <div class="flex-grow min-h-0 overflow-auto custom-scroll bg-slate-50 dark:bg-slate-950 rounded-xl p-4 border border-slate-100 dark:border-slate-800" tabindex="0" role="region" aria-label="Preview of the table">
                         <div id="previewEmpty" class="lt-empty">
                             <p class="lt-empty-title">Your table will be previewed here</p>
                             <p class="lt-empty-text">It shows the lines and alignment chosen in step 2, as LaTeX will draw them.</p>
@@ -236,7 +236,7 @@
                             <button type="button" id="btnCopyCode" class="stk-btn stk-btn-sm stk-btn-primary" disabled><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy LaTeX</button>
                         </div>
                     </div>
-                    <div class="flex-grow min-h-0 overflow-auto custom-scroll">
+                    <div class="flex-grow min-h-0 overflow-auto custom-scroll" tabindex="0" role="region" aria-label="LaTeX source">
                         <div id="latexEmpty" class="lt-empty lt-empty-code">
                             <p class="lt-empty-title">The LaTeX for your table will appear here</p>
                             <p class="lt-empty-text">A complete table environment with your caption and label, the reserved characters in your cells escaped, and the \usepackage lines it needs as comments at the top.</p>

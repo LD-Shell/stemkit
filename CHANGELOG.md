@@ -42,6 +42,25 @@ earlier version are worth re-checking.
   the output buffer and the editconf command can be scrolled from the
   keyboard.
 
+### Changed: accessibility
+
+Every page was checked with axe against WCAG 2.2 A and AA, in both themes.
+
+- **Links** in the reference lists and credit lines are underlined, so they
+  are not told from the text around them by colour alone.
+- **Scrolling regions** take keyboard focus: the LaTeX table preview and
+  source, the Outlier Detector's table, and the Coordinate Manipulator's
+  output buffer and command.
+- **Plot Digitizer.** A series is picked with a radio button of its own in
+  each row; the row, which holds the colour and name fields, was itself the
+  control. The arrow keys move between series.
+- **Targets of 24 px** for the Plot Digitizer's colour swatches and the
+  Scientific Converter's copy buttons.
+- **Error Bar Generator.** The equations on the page no longer carry
+  `aria-pressed`, which the chart's buttons had passed on to them.
+- The notes in two reference lists are at the list's full contrast, and the
+  icon named in the Scientific Converter's text is announced as an image.
+
 ### Fixed: output
 
 - `[output]` **Visual LaTeX Tables, labels.** A label with an underscore, such

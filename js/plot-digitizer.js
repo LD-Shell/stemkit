@@ -439,17 +439,37 @@ document.addEventListener('DOMContentLoaded', () => {
     renderViewport();
   });
 
-  /** One row per series: pick it, recolour it, rename it, see its count. */
-  function renderDatasetUI() {
+  /**
+   * One row per series: pick it, recolour it, rename it, see its count.
+   *
+   * The row holds two fields, so the row itself cannot be the control that
+   * picks it. The pick is a radio button of its own, first in the row and out
+   * of sight; a click anywhere else on the row still picks the series, and
+   * the arrow keys move between series as they do in any radio group.
+   */
+  function renderDatasetUI(focusPick = false) {
     datasetList.innerHTML = '';
 
     state.datasets.forEach(ds => {
       const active = ds.id === state.activeDatasetId;
       const row = document.createElement('div');
       row.className = 'pd-series' + (active ? ' is-active' : '');
-      row.setAttribute('role', 'radio');
-      row.setAttribute('aria-checked', String(active));
-      row.tabIndex = active ? 0 : -1;
+
+      const select = (viaPick) => {
+        state.activeDatasetId = ds.id;
+        renderDatasetUI(viaPick === true);
+        updateModeStatus();
+        renderViewport();
+      };
+
+      const pick = document.createElement('input');
+      pick.type = 'radio';
+      pick.name = 'pdSeries';
+      pick.className = 'pd-series-pick';
+      pick.checked = active;
+      pick.setAttribute('aria-label', `Add points to ${ds.name}`);
+      pick.addEventListener('click', e => e.stopPropagation());
+      pick.addEventListener('change', () => select(true));
 
       const colour = document.createElement('input');
       colour.type = 'color';
@@ -465,26 +485,29 @@ document.addEventListener('DOMContentLoaded', () => {
       name.className = 'pd-series-name';
       name.setAttribute('aria-label', 'Series name');
       name.addEventListener('click', e => e.stopPropagation());
-      name.addEventListener('input', e => { ds.name = e.target.value; updateModeStatus(); scheduleResult(); });
+      name.addEventListener('input', e => {
+        ds.name = e.target.value;
+        pick.setAttribute('aria-label', `Add points to ${ds.name}`);
+        colour.setAttribute('aria-label', `Colour of ${ds.name}`);
+        updateModeStatus();
+        scheduleResult();
+      });
 
       const count = document.createElement('span');
       count.className = 'pd-series-count';
       count.textContent = `${ds.points.length} pt${ds.points.length === 1 ? '' : 's'}`;
 
-      row.append(colour, name, count);
-      const select = () => {
-        state.activeDatasetId = ds.id;
-        renderDatasetUI();
-        updateModeStatus();
-        renderViewport();
-      };
-      row.addEventListener('click', select);
-      row.addEventListener('keydown', e => {
-        if (e.target !== row) return;
-        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); select(); }
-      });
+      row.append(pick, colour, name, count);
+      row.addEventListener('click', () => select(false));
       datasetList.appendChild(row);
     });
+
+    // The rows are rebuilt on every change: a pick made from the keyboard
+    // keeps the keyboard where it was.
+    if (focusPick) {
+      const current = datasetList.querySelector('.pd-series.is-active .pd-series-pick');
+      if (current) current.focus();
+    }
 
     const total = state.datasets.reduce((n, ds) => n + ds.points.length, 0);
     const withPoints = state.datasets.filter(ds => ds.points.length).length;

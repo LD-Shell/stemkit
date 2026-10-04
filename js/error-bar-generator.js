@@ -54,7 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const pointsToggle = document.getElementById('ebPoints');
   const compareSelect = document.getElementById('ebCompare');
   const labelsOpt = document.getElementById('ebLabelsOpt');
-  const segButtons = (attr) => Array.from(document.querySelectorAll(`[${attr}]`));
+  // Buttons only: the display equations on the page carry data-display too.
+  const segButtons = (attr) => Array.from(document.querySelectorAll(`button[${attr}]`));
   const errButtons = segButtons('data-errmode');
   const displayButtons = segButtons('data-display');
   const labelButtons = segButtons('data-labels');

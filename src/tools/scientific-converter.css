@@ -152,3 +152,6 @@
   .doc-tab { font-size: .78rem; padding: .4rem .7rem; }
   .stk-section code { white-space: normal; word-break: break-word; }
 }
+
+/* The copy button inside each value box: an icon, on a target of 24 px. */
+.copy-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5rem; min-height: 1.5rem; }

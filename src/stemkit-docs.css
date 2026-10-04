@@ -70,8 +70,9 @@
 .stk-refs-h { font-weight:700; font-size:1rem; margin-top:1.9rem; margin-bottom:.5rem; }
 .stk-refs-list { font-size:.875rem; color:var(--stk-fg-muted); line-height:1.75; padding-left:1.2rem; }
 .stk-refs-list li { margin-bottom:.45rem; }
-.stk-refs-list a { color:var(--stk-accent-text); text-decoration:none; }
-.stk-refs-list a:hover { text-decoration:underline; }
+/* Underlined: in a block of muted text a link must not be told apart by colour alone. */
+.stk-refs-list a, .stk-credit a { color:var(--stk-accent-text); text-decoration:underline; text-underline-offset:2px; }
+.stk-refs-list a:hover, .stk-credit a:hover { text-decoration-thickness:2px; }
 
 /* Inline code inside documentation prose. The pink treatment marks a literal
    the reader might type; the note variant keeps to the note's amber. */
