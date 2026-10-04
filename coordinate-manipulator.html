@@ -72,11 +72,14 @@
 
 
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"HowTo","name":"Coordinate Manipulator","totalTime":"PT2M","tool":{"@type":"HowToTool","name":"Coordinate Manipulator"},"step":[{"@type":"HowToStep","position":1,"name":"Load a structure","text":"Drag & drop (or click to browse) a .pdb, .gro or .xyz file, or load a sample. Parsing starts automatically."},{"@type":"HowToStep","position":2,"name":"Inspect the system","text":"Read off the atom count, geometric centre and bounding box, all shown in the file’s native units (Å for PDB/XYZ, nm for GRO)."},{"@type":"HowToStep","position":3,"name":"Transform","text":"Enter a translation vector and click Translate, enter angles and click Rotate, or press Centre on origin to move the geometric centre or the centre of mass to (0, 0, 0)."},{"@type":"HowToStep","position":4,"name":"Export","text":"Choose an output format and click Download. Coordinates are converted to the correct units for the target format automatically."}]}
+{"@context":"https://schema.org","@type":"HowTo","name":"Coordinate Manipulator","totalTime":"PT2M","tool":{"@type":"HowToTool","name":"Coordinate Manipulator"},"step":[{"@type":"HowToStep","position":1,"name":"Load a structure","text":"Drag & drop (or click to browse) a .pdb, .gro or .xyz file, or load a sample. Parsing starts automatically."},{"@type":"HowToStep","position":2,"name":"Inspect the system","text":"Read off the atom count, geometric centre and bounding box, all shown in the file’s native units (Å for PDB/XYZ, nm for GRO)."},{"@type":"HowToStep","position":3,"name":"Transform","text":"Enter a translation vector and click Translate. For a rotation, type the angles or set the view to Turn molecule and drag it, then click Rotate. Centre on origin moves the geometric centre or the centre of mass to (0, 0, 0)."},{"@type":"HowToStep","position":4,"name":"Export","text":"Choose an output format and click Download. Coordinates are converted to the correct units for the target format automatically."}]}
 </script>
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="css/dependencies/katex.min.css">
+    <script defer src="js/dependencies/katex.min.js"></script>
+    <link rel="stylesheet" href="src/tools/python-panel.css">
     <link rel="stylesheet" href="src/tools/coordinate-manipulator.css">
 <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Which units does each format use?", "acceptedAnswer": {"@type": "Answer", "text": "PDB and XYZ are in \u00e5ngstr\u00f6m; GROMACS .gro is in nanometres (1 nm = 10 \u00c5). When you export to a different format, coordinates are converted automatically, and every input label shows the unit currently in use."}}, {"@type": "Question", "name": "What is the difference between geometric centre and centre of mass?", "acceptedAnswer": {"@type": "Answer", "text": "The geometric centre is the plain arithmetic mean of the coordinates \u2014 every atom counts equally. The centre of mass weights each atom by its standard atomic weight, so it sits closer to the heavy atoms. Use centre of mass when setting up a simulation; the two can differ by several \u00e5ngstr\u00f6m in an asymmetric molecule."}}, {"@type": "Question", "name": "Which atomic weights are used?", "acceptedAnswer": {"@type": "Answer", "text": "IUPAC standard atomic weights covering hydrogen through the common heavy elements. An atom whose element cannot be identified contributes no mass, and the tool names the unrecognised symbols, so a mass-weighted result is never silently wrong."}}, {"@type": "Question", "name": "How does the tool know CA is calcium and not an alpha carbon?", "acceptedAnswer": {"@type": "Answer", "text": "It checks the PDB element column first, which is authoritative when present. Failing that it reads the atom name, using the residue name to break ties: CA inside a residue named CA is calcium, while CA in ALA is the alpha carbon."}}, {"@type": "Question", "name": "In what order are rotations applied?", "acceptedAnswer": {"@type": "Answer", "text": "Intrinsic Z-Y-X \u2014 yaw about Z, then pitch about Y, then roll about X, equivalent to R = Rz\u00b7Ry\u00b7Rx acting on a column vector. Because rotations do not commute, apply one axis at a time if you need an exact orientation."}}, {"@type": "Question", "name": "Does rotation or translation distort my molecule?", "acceptedAnswer": {"@type": "Answer", "text": "No. Both are rigid-body operations: every internal distance and angle is preserved exactly. Only the position and orientation of the structure as a whole change."}}, {"@type": "Question", "name": "Can I set my own simulation box?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The Simulation box panel lets you type Lx, Ly and Lz in nanometres, or press Fit to molecule to derive them from the bounding box with a padding percentage. If the source file carried a box \u2014 a .gro box line or a PDB CRYST1 record \u2014 it is loaded as the starting point. The tool warns you when the box is smaller than the molecule."}}, {"@type": "Question", "name": "Why does the preview stop after 5,000 atoms?", "acceptedAnswer": {"@type": "Answer", "text": "Drawing a large system's full text into the page would slow the browser. For a structure of more than 5,000 atoms the preview shows the first 5,000; press Show all to draw the rest. Download and Copy always give you the complete file, however large."}}, {"@type": "Question", "name": "Are velocities preserved in GRO files?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. If the input .gro carries velocity columns they are kept, rotated along with the coordinates, and written back out. Velocities are direction vectors, so translating the structure correctly leaves them unchanged."}}, {"@type": "Question", "name": "Can I convert a GRO file to PDB?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Load the .gro and choose PDB (or XYZ) as the output format; the tool converts nm to \u00c5 during export and writes the box as a CRYST1 record."}}, {"@type": "Question", "name": "Is my structure file uploaded anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. Files are read and processed entirely in your browser and are never transmitted to a server."}}]}
@@ -251,21 +254,22 @@
                         <span class="stk-badge">degrees</span>
                     </div>
                     <div class="stk-panel-b cm-form">
-                        <p class="stk-hint">Applied as intrinsic Z&#8209;Y&#8209;X (yaw, then pitch, then roll) about the pivot below. Rigid rotation, bond lengths and angles are preserved.</p>
+                        <p class="stk-hint">Type the angles, or set the view to <strong>Turn molecule</strong> and drag it. The view shows the turn at once; the coordinates change when you press <strong>Rotate</strong>.</p>
                         <div class="cm-xyz">
                             <div class="stk-field">
                                 <label for="rotX">x (&deg;)</label>
-                                <input type="number" id="rotX" value="0" step="5" min="-360" max="360" class="stk-input stk-mono stk-tnum">
+                                <input type="number" id="rotX" value="0" step="any" min="-360" max="360" class="stk-input stk-mono stk-tnum">
                             </div>
                             <div class="stk-field">
                                 <label for="rotY">y (&deg;)</label>
-                                <input type="number" id="rotY" value="0" step="5" min="-360" max="360" class="stk-input stk-mono stk-tnum">
+                                <input type="number" id="rotY" value="0" step="any" min="-360" max="360" class="stk-input stk-mono stk-tnum">
                             </div>
                             <div class="stk-field">
                                 <label for="rotZ">z (&deg;)</label>
-                                <input type="number" id="rotZ" value="0" step="5" min="-360" max="360" class="stk-input stk-mono stk-tnum">
+                                <input type="number" id="rotZ" value="0" step="any" min="-360" max="360" class="stk-input stk-mono stk-tnum">
                             </div>
                         </div>
+                        <p class="stk-hint">Turned about x, then y, then z, each about the fixed axis: <code>R = Rz&middot;Ry&middot;Rx</code>, the order <code>gmx editconf -rotate</code> uses. Arrow keys step 5&deg;, with Shift 1&deg;.</p>
                         <div class="stk-field">
                             <label for="rotPivot">Rotate about</label>
                             <select id="rotPivot" class="stk-select">
@@ -274,7 +278,31 @@
                                 <option value="origin">Origin (0, 0, 0)</option>
                             </select>
                         </div>
+                        <div id="rotAlign" class="cm-align" role="group" aria-labelledby="rotAlignLabel" hidden>
+                            <span id="rotAlignLabel" class="stk-label-sm">Lay the long axis along</span>
+                            <div class="cm-align-btns">
+                                <button type="button" class="stk-btn stk-btn-sm" data-align="x" data-needs-structure disabled>x</button>
+                                <button type="button" class="stk-btn stk-btn-sm" data-align="y" data-needs-structure disabled>y</button>
+                                <button type="button" class="stk-btn stk-btn-sm" data-align="z" data-needs-structure disabled>z</button>
+                            </div>
+                        </div>
+                        <div class="cm-rot-out" aria-live="off">
+                            <div class="cm-code-h">
+                                <span class="stk-label-sm">Rotation matrix <span class="cm-rot-sym">R</span></span>
+                                <button type="button" id="btnCopyMatrix" class="stk-btn stk-btn-sm stk-btn-ghost" data-needs-structure disabled><i class="fa-regular fa-copy"></i>Copy</button>
+                            </div>
+                            <div id="rotMatrix" class="cm-matrix stk-mono stk-tnum" role="group" aria-label="Rotation matrix, row by row"></div>
+                            <p id="rotTurn" class="stk-hint cm-rot-turn"></p>
+                            <table id="rotTilt" class="cm-tilt stk-tnum" hidden>
+                                <thead><tr><th scope="col" id="rotTiltLabel">Long axis, angle to</th><th scope="col">x</th><th scope="col">y</th><th scope="col">z</th></tr></thead>
+                                <tbody>
+                                    <tr><th scope="row">now</th><td id="tiltNowX"></td><td id="tiltNowY"></td><td id="tiltNowZ"></td></tr>
+                                    <tr id="tiltAfterRow"><th scope="row">after</th><td id="tiltAfterX"></td><td id="tiltAfterY"></td><td id="tiltAfterZ"></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                         <div class="cm-actions">
+                            <button type="button" id="btnResetRot" class="stk-btn" data-needs-structure disabled>Reset</button>
                             <button type="button" id="btnApplyRot" class="stk-btn stk-btn-primary" data-needs-structure disabled>Rotate</button>
                         </div>
                     </div>
@@ -340,10 +368,15 @@
                             <span class="stk-label-sm">Equivalent <code>gmx editconf</code> command</span>
                             <button type="button" id="btnCopyEditconf" class="stk-btn stk-btn-sm stk-btn-ghost" data-needs-structure disabled><i class="fa-regular fa-copy"></i>Copy</button>
                         </div>
-                        <pre class="stk-code"><code id="editconfOut">Load a structure to see the equivalent command.</code></pre>
+                        <pre class="stk-code" tabindex="0" aria-label="Equivalent gmx editconf command"><code id="editconfOut">Load a structure to see the equivalent command.</code></pre>
                         <div id="editconfNotes" class="stk-callout stk-callout-warn" role="status" hidden>
                             <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
                             <ul id="editconfNotesList" class="cm-notes"></ul>
+                        </div>
+                        <p class="stk-hint">Every step is also written out as equations and as a Python script, under the workspace.</p>
+                        <div class="cm-actions">
+                            <button type="button" id="btnShowMaths" class="stk-btn stk-btn-sm" data-needs-structure disabled><i class="fa-solid fa-square-root-variable" aria-hidden="true"></i>The maths</button>
+                            <button type="button" id="btnShowPython" class="stk-btn stk-btn-sm" data-needs-structure disabled><i class="fa-brands fa-python" aria-hidden="true"></i>Python script</button>
                         </div>
                     </div>
                 </section>
@@ -354,6 +387,11 @@
             <div class="cm-viewer">
                 <div class="cm-stage">
                     <div id="viewerCanvas" class="absolute inset-0 w-full h-full cursor-move" role="img" aria-label="3D view of the structure"></div>
+                    <canvas id="viewerOverlay" class="cm-overlay" aria-hidden="true"></canvas>
+                    <div id="viewerHud" class="cm-hud stk-tnum" aria-hidden="true" hidden>
+                        <p id="hudPending" hidden><span class="cm-hud-k">Not applied</span><span id="hudPendingText"></span></p>
+                        <p id="hudTilt" hidden><span id="hudTiltLabel" class="cm-hud-k">Long axis to</span><span id="hudTiltText"></span></p>
+                    </div>
                     <p id="viewerFallback" class="cm-fallback" role="status" hidden></p>
                     <p id="viewerNote" class="cm-viewer-note stk-tnum" role="status"></p>
                 </div>
@@ -368,10 +406,15 @@
                     </select>
                     <span class="stk-toolbar-sep" aria-hidden="true"></span>
                     <button type="button" id="btnViewerReset" class="stk-btn stk-btn-icon" aria-label="Recentre the view" title="Recentre the view"><i class="fa-solid fa-arrows-to-dot"></i></button>
+                    <span class="stk-toolbar-sep" aria-hidden="true"></span>
+                    <div class="stk-seg cm-drag" role="group" aria-label="What dragging in the view turns">
+                        <button type="button" id="dragView" aria-pressed="true" title="Dragging turns the view: the molecule, the box and the axes together"><span class="cm-drag-verb">Turn </span>view</button>
+                        <button type="button" id="dragMolecule" aria-pressed="false" title="Dragging turns the molecule: the box and the axes stay where they are"><span class="cm-drag-verb">Turn </span>molecule</button>
+                    </div>
                 </div>
             </div>
 
-            <div id="viewSplit" class="cm-split" role="separator" aria-orientation="horizontal" aria-controls="previewPanel" aria-label="Resize the output buffer. Arrow keys adjust, double-click resets." title="Drag to resize, double-click to reset" tabindex="0"></div>
+            <div id="viewSplit" class="cm-split" role="separator" aria-orientation="horizontal" aria-controls="previewPanel" aria-label="Resize the output buffer. Arrow keys adjust, double-click resets." aria-valuemin="100" aria-valuenow="240" title="Drag to resize, double-click to reset" tabindex="0"></div>
 
             <!-- OUTPUT BUFFER -->
             <div id="previewPanel" class="stk-panel cm-preview" aria-label="Output buffer">
@@ -387,11 +430,37 @@
                         <button type="button" id="btnCopyBuffer" class="stk-btn stk-btn-sm" data-needs-structure disabled><i class="fa-regular fa-copy"></i>Copy</button>
                     </div>
                 </div>
-                <div class="cm-preview-body stk-scroll">
+                <div class="cm-preview-body stk-scroll" tabindex="0" role="region" aria-label="Output buffer">
                     <pre class="cm-code"><code id="coordOutput" class="select-all"></code></pre>
                 </div>
             </div>
 
+        </section>
+
+        <!-- WHAT WAS DONE: the steps, as equations and as Python -->
+        <section id="cmRecord" class="cm-record" aria-labelledby="cmRecordTitle" hidden>
+            <div class="stk-panel cm-steps">
+                <div class="stk-panel-h">
+                    <h2 id="cmRecordTitle" class="stk-panel-t"><i class="fa-solid fa-list-ol" aria-hidden="true"></i>What was done</h2>
+                    <span id="cmStepCount" class="stk-badge stk-tnum"></span>
+                </div>
+                <div class="stk-panel-b">
+                    <p id="cmStepsEmpty" class="stk-hint">Nothing yet. Translate, rotate or centre the structure, and each step is listed here, then written out below as equations and as a Python script that repeats it.</p>
+                    <ol id="cmStepList" class="cm-step-list" hidden></ol>
+                </div>
+            </div>
+            <div class="cm-record-grid">
+                <div id="cmMaths" class="stk-panel cm-maths" aria-labelledby="cmMathsTitle">
+                    <div class="stk-panel-h">
+                        <h2 id="cmMathsTitle" class="stk-panel-t"><i class="fa-solid fa-square-root-variable" aria-hidden="true"></i>The maths</h2>
+                        <button type="button" id="btnCopyLatex" class="stk-btn stk-btn-sm" disabled><i class="fa-regular fa-copy" aria-hidden="true"></i>Copy LaTeX</button>
+                    </div>
+                    <div id="cmMathsBody" class="stk-panel-b cm-maths-body">
+                        <p class="stk-hint">The matrix or vector of each step, and the one transform they add up to, appear here.</p>
+                    </div>
+                </div>
+                <div id="cmPython" class="cm-python"></div>
+            </div>
         </section>
     </main>
 
@@ -401,7 +470,7 @@
             <h2 class="stk-h2">How to translate and convert molecular coordinates</h2>
             <p class="stk-lead">Shift a structure by a vector, centre it on the origin, or convert between PDB, GRO and XYZ (with correct unit handling) without installing anything.</p>
             <div class="stk-grid stk-grid-3">
-                <div class="stk-step"><span class="stk-num">1</span><div><h3>Load a structure</h3><p>Drag &amp; drop (or click to browse) a <code>.pdb</code>, <code>.gro</code> or <code>.xyz</code> file. Parsing starts automatically.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Inspect the system</h3><p>Read off the atom count, geometric centre and bounding box, all shown in the file’s native units (Å for PDB/XYZ, nm for GRO).</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Transform</h3><p>Apply a translation vector, rotate about any axis in degrees, or press <strong>Centre on origin</strong> to move either the geometric centre or the true centre of mass to (0,&nbsp;0,&nbsp;0).</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Export</h3><p>Choose an output format and click <strong>Download</strong>. Coordinates are converted to the correct units for the target format automatically.</p></div></div>
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Load a structure</h3><p>Drag &amp; drop (or click to browse) a <code>.pdb</code>, <code>.gro</code> or <code>.xyz</code> file. Parsing starts automatically.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Inspect the system</h3><p>Read off the atom count, geometric centre and bounding box, all shown in the file’s native units (Å for PDB/XYZ, nm for GRO).</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Transform</h3><p>Apply a translation vector, or press <strong>Centre on origin</strong> to move either the geometric centre or the true centre of mass to (0,&nbsp;0,&nbsp;0). For a rotation, type the angles or set the view to <strong>Turn molecule</strong> and drag it, then press <strong>Rotate</strong>.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Export</h3><p>Choose an output format and click <strong>Download</strong>. Coordinates are converted to the correct units for the target format automatically.</p></div></div>
             </div>
         </div>
     </section>
@@ -424,6 +493,14 @@
                     <p>Translation adds a constant vector to every atom. Rotation applies an orthogonal matrix about a pivot you choose. Both are <em>rigid</em>: all bond lengths and angles are preserved, verified here to within floating-point precision. Velocities in a <code>.gro</code> file are rotated with the structure but never translated, since a velocity is a direction rather than a position.</p>
                 </div>
                 <div class="stk-card">
+                    <h3>Turning it by hand</h3>
+                    <p>Set the view to <strong>Turn molecule</strong> and drag: the molecule turns while the cell and the axes stay where they are, and the three angles follow. The panel shows the rotation matrix, the single turn about one axis it amounts to, and the angle between the molecule&rsquo;s long axis (or the normal of a flat one) and x, y and z, now and after the turn. Nothing is applied until you press <strong>Rotate</strong>, and a dragged rotation is kept to a tenth of a degree, so the angles shown are exactly the rotation applied.</p>
+                </div>
+                <div class="stk-card">
+                    <h3>Every step, written down</h3>
+                    <p>Each rotation, translation and centring is recorded in order. Under the workspace the steps appear as equations, with the matrix or vector each one used and the one transform <span class="stk-tex">\mathbf{r}' = M\,\mathbf{r} + \mathbf{d}</span> they add up to, and as a Python script that repeats them: on your file with MDAnalysis, or on any array of coordinates with NumPy alone.</p>
+                </div>
+                <div class="stk-card">
                     <h3>Big files stay responsive</h3>
                     <p>Painting a solvated system into the page would mean laying out millions of lines of text, which locks the tab. The preview therefore formats and shows the first 5,000 atoms of a larger structure, with <strong>Show all</strong> to draw the rest, while <strong>Download</strong> and <strong>Copy</strong> always produce the complete file. A 200,000-atom system redraws its preview in about 25&nbsp;ms.</p>
                 </div>
@@ -431,7 +508,7 @@
 
             <div class="stk-note" style="margin-top:1rem;">
                 <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>
-                <div><strong>On rotation order.</strong> Angles are applied as intrinsic Z&#8209;Y&#8209;X (yaw, then pitch, then roll) matching <code>R = Rz(&gamma;)&middot;Ry(&beta;)&middot;Rx(&alpha;)</code>. Rotations do not commute, so 90&deg; about X then 90&deg; about Y differs from the reverse order. For a precise orientation, apply one axis at a time.</div>
+                <div><strong>On rotation order.</strong> The three angles are applied as a turn about x, then y, then z, each about the fixed axis: <code>R = Rz(&gamma;)&middot;Ry(&beta;)&middot;Rx(&alpha;)</code>, which is the same as intrinsic Z&#8209;Y&#8209;X and is what <code>gmx editconf -rotate</code> does. Rotations do not commute, so 90&deg; about x then 90&deg; about y differs from the reverse order, and several rotations do not add angle by angle: the editconf command and the equations give the one rotation they add up to.</div>
             </div>
 
         </div>

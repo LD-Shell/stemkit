@@ -173,6 +173,55 @@
 .cm-mass td { color: var(--stk-fg-2); }
 .cm-mass tfoot td { font-weight: 700; color: var(--stk-fg); border-bottom: 0; }
 
+/* Rotation: the matrix as a 3 x 3 block of figures between brackets, the
+   turn it amounts to, and where the shape's axis points now and after. */
+.cm-align { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+.cm-align-btns { display: flex; gap: 0.35rem; }
+.cm-align-btns .stk-btn { min-width: 2.25rem; font-family: var(--stk-font-mono); }
+.cm-rot-out { display: flex; flex-direction: column; gap: 0.4rem; }
+.cm-rot-out .cm-code-h { margin-top: 0; }
+.cm-rot-sym { font-style: italic; font-weight: 700; }
+.cm-matrix {
+    position: relative;
+    align-self: flex-start;
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    gap: 0.2rem 1rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--stk-fg);
+    text-align: right;
+    border-left: 2px solid var(--stk-border-strong);
+    border-right: 2px solid var(--stk-border-strong);
+    border-radius: 6px;
+}
+.cm-rot-turn { margin: 0; }
+.cm-tilt { width: 100%; border-collapse: collapse; font-size: 0.75rem; line-height: 1.4; }
+.cm-tilt th, .cm-tilt td { padding: 0.25rem 0 0.25rem 0.6rem; text-align: right; border-bottom: 1px solid var(--stk-border); white-space: nowrap; }
+.cm-tilt th:first-child { padding-left: 0; text-align: left; }
+.cm-tilt thead th { font-weight: 600; color: var(--stk-fg-muted); }
+.cm-tilt tbody th { font-weight: 500; color: var(--stk-fg-3); }
+.cm-tilt td { font-family: var(--stk-font-mono); color: var(--stk-fg); }
+.cm-tilt tbody tr:last-child th, .cm-tilt tbody tr:last-child td { border-bottom: 0; }
+
+/* What was done ---------------------------------------------------------------
+   Under the workspace: the list of steps, then the equations and the shared
+   Python panel (src/tools/python-panel.css) side by side on a wide screen. */
+.cm-record { display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; scroll-margin-top: 6rem; }
+.cm-record[hidden] { display: none; }
+.cm-record-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; align-items: start; }
+@media (min-width: 1280px) { .cm-record-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.cm-maths, .cm-python { scroll-margin-top: 6rem; min-width: 0; }
+.cm-step-list { margin: 0; padding-left: 1.4rem; list-style: decimal; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.875rem; color: var(--stk-fg-2); font-variant-numeric: tabular-nums; }
+.cm-maths-body { display: flex; flex-direction: column; gap: 1.1rem; }
+.cm-eq { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.cm-eq h3 { margin: 0; font-size: 0.8125rem; font-weight: 700; color: var(--stk-fg); }
+.cm-eq + .cm-eq { padding-top: 1rem; border-top: 1px solid var(--stk-border); }
+.cm-eq-tex { overflow-x: auto; overflow-y: hidden; padding: 0.25rem 0; color: var(--stk-fg); font-size: 0.9375rem; }
+.cm-eq-tex .katex-display { margin: 0.35rem 0; text-align: left; }
+.cm-eq-tex .katex-display > .katex { text-align: left; }
+.cm-eq-src { font-family: var(--stk-font-mono); font-size: 0.75rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+
 /* Viewer ----------------------------------------------------------------------
    The toolbar sits under the canvas on a phone, where floating it would cover
    the molecule, and floats over the top-left corner from the tablet size up. */
@@ -211,6 +260,59 @@
         overflow: visible;
     }
     .cm-toolbar .stk-toolbar-sep { display: block; }
+}
+
+/* The frame (cell, axes, the shape's own axis) is painted on a canvas over
+   the WebGL one; it never takes the pointer. */
+.cm-overlay { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 15; pointer-events: none; }
+
+/* While dragging turns the molecule the stage says so: an accent edge, and a
+   hand for a cursor. */
+.cm-stage.is-turning::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 16;
+    border: 2px solid var(--stk-accent);
+    border-radius: inherit;
+    pointer-events: none;
+}
+.cm-stage.is-turning #viewerCanvas { cursor: grab; }
+.cm-stage.is-turning #viewerCanvas:active { cursor: grabbing; }
+
+/* The rotation that is waiting, and where the shape's axis points, read
+   without looking away from the molecule. */
+.cm-hud {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 20;
+    max-width: calc(100% - 24px);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.4rem 0.65rem;
+    border-radius: var(--stk-radius);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--stk-overlay);
+    color: var(--stk-overlay-fg);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.5;
+    pointer-events: none;
+}
+.cm-hud p { margin: 0; display: flex; gap: 0.75rem; justify-content: space-between; white-space: pre; }
+.cm-hud-k { font-weight: 500; opacity: 0.8; }
+@media (max-width: 639.98px) { .cm-hud { top: 8px; right: 8px; font-size: 0.6875rem; } }
+
+.cm-drag { flex: 0 0 auto; }
+.cm-drag > button { white-space: nowrap; }
+/* On a phone the toolbar is one row under the view: the icon buttons keep
+   their size and the two choices lose their verb. */
+.cm-toolbar > .stk-btn-icon { flex: 0 0 auto; }
+@media (max-width: 479.98px) {
+    .cm-drag-verb { display: none; }
+    .cm-drag > button { text-transform: capitalize; }
 }
 
 /* Truncation notice over the bottom-left corner, only present when the view

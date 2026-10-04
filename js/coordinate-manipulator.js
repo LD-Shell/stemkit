@@ -2,7 +2,8 @@
  * Coordinate Manipulator | UI layer.
  *
  * Structure parsing, geometry, rotations, unit handling, box calculation, and
- * output formatting live in stemkit-core; this file handles DOM wiring only.
+ * output formatting live in stemkit-core, with the record of the steps as
+ * equations and as Python; this file handles DOM wiring and the view.
  *
  * The element-inference correction in the core changes results here: heme iron
  * (`FE` in `HEM`), selenomethionine selenium, and numeric-prefixed hydrogens
@@ -20,6 +21,22 @@ import {
   boundingBox,
   radiusOfGyration,
   rotateAtoms,
+  rotationMatrix,
+  IDENTITY_ROTATION,
+  multiplyRotations,
+  transposeRotation,
+  rotateVector,
+  eulerFromMatrix,
+  quaternionFromMatrix,
+  matrixFromQuaternion,
+  axisAngleFromMatrix,
+  rotationBetween,
+  shapeAxis,
+  axisTilt,
+  netTransform,
+  describeStep,
+  transformScript,
+  transformLatex,
   translateAtoms,
   centreAtoms,
   formatStructure,
@@ -29,6 +46,7 @@ import {
   unitFactor,
   MIN_BOX_NM
 } from '../src/core/structure.js';
+import { createPythonPanel } from './python-panel.js';
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -45,6 +63,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // `gmx editconf` command can be written out. Tracked as a net effect
     // rather than a history: editconf takes one -translate and one -rotate.
     applied: { tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: 0, centre: null, order: [], pivots: [] },
+    // Every step that changed the coordinates, in order, as stemkit-core
+    // describes one (see netTransform): the source of the equations, the
+    // Python script and the one rotation of the editconf command.
+    steps: [],
     // Bumped whenever the coordinates change, so the preview cache knows to
     // rebuild without having to compare the atom list itself.
     revision: 0
@@ -52,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const resetApplied = () => {
     state.applied = { tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: 0, centre: null, order: [], pivots: [] };
+    state.steps = [];
   };
 
   // --- 2. Bindings ---
@@ -125,6 +148,39 @@ document.addEventListener('DOMContentLoaded', () => {
   const boxPad = $('boxPad');
 
   const btnRotate = $('btnApplyRot');
+  const btnResetRot = $('btnResetRot');
+  const btnCopyMatrix = $('btnCopyMatrix');
+  const rotAlign = $('rotAlign');
+  const rotAlignLabel = $('rotAlignLabel');
+  const rotMatrix = $('rotMatrix');
+  const rotTurn = $('rotTurn');
+  const rotTilt = $('rotTilt');
+  const rotTiltLabel = $('rotTiltLabel');
+  const tiltNowX = $('tiltNowX');
+  const tiltNowY = $('tiltNowY');
+  const tiltNowZ = $('tiltNowZ');
+  const tiltAfterRow = $('tiltAfterRow');
+  const tiltAfterX = $('tiltAfterX');
+  const tiltAfterY = $('tiltAfterY');
+  const tiltAfterZ = $('tiltAfterZ');
+  const viewerOverlay = $('viewerOverlay');
+  const viewerHud = $('viewerHud');
+  const hudPending = $('hudPending');
+  const hudPendingText = $('hudPendingText');
+  const hudTilt = $('hudTilt');
+  const hudTiltLabel = $('hudTiltLabel');
+  const hudTiltText = $('hudTiltText');
+  const dragView = $('dragView');
+  const dragMolecule = $('dragMolecule');
+  const recordSection = $('cmRecord');
+  const recordCount = $('cmStepCount');
+  const recordEmpty = $('cmStepsEmpty');
+  const recordList = $('cmStepList');
+  const mathsBody = $('cmMathsBody');
+  const btnCopyLatex = $('btnCopyLatex');
+  const recordPython = $('cmPython');
+  const btnShowMaths = $('btnShowMaths');
+  const btnShowPython = $('btnShowPython');
   const btnTranslate = $('btnApplyTrans');
   const btnCentre = $('btnCenterSys');
   const centerMode = $('centerMode');
@@ -319,6 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
       workspace.scrollIntoView({ block: 'start' });
     }
     setStructureLoaded(true);
+    resetTurn();
 
     seedBoxInputs();
     updateSystemStats();
@@ -326,6 +383,8 @@ document.addEventListener('DOMContentLoaded', () => {
     renderOutput();
     renderEditconf();
     renderViewer();
+    updateTurnReadout();
+    renderRecord();
 
     if (state.unknownElements.length) {
       showToast(
@@ -511,33 +570,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnRotate) btnRotate.addEventListener('click', () => {
     if (!requireStructure()) return;
-    const dx = Number(rotX.value) || 0;
-    const dy = Number(rotY.value) || 0;
-    const dz = Number(rotZ.value) || 0;
+    const { x: dx, y: dy, z: dz } = fieldAngles();
+    if (!dx && !dy && !dz) {
+      showToast('No rotation to apply yet. Type an angle, or choose Turn molecule and drag it.', 'info');
+      return;
+    }
 
     // Rotate about the pivot chosen under "Rotate about": the geometric
     // centre (the default, so the structure does not swing away), the centre
     // of mass, or the origin. Velocities rotate with the frame but are not
     // translated.
-    const pivotMode = rotPivot && ['mass', 'origin'].includes(rotPivot.value) ? rotPivot.value : 'geometric';
-    const pivot = pivotMode === 'origin' ? { x: 0, y: 0, z: 0 }
-      : pivotMode === 'mass' ? centreOfMass(state.atoms)
-        : geometricCentre(state.atoms);
+    const pivotName = pivotMode();
+    const pivot = pivotPoint(pivotName);
     pushUndo('rotation');
     state.atoms = rotateAtoms(state.atoms, dx, dy, dz, pivot);
     state.revision++;
     state.applied.rx += dx; state.applied.ry += dy; state.applied.rz += dz;
     state.applied.order.push('rotate');
     if (!state.applied.pivots) state.applied.pivots = [];
-    state.applied.pivots.push(pivotMode);
-    afterTransform(`Rotated by (${dx}°, ${dy}°, ${dz}°).`);
+    state.applied.pivots.push(pivotName);
+    state.steps.push({ type: 'rotate', angles: { x: dx, y: dy, z: dz }, pivot: pivotName, centre: pivot });
+    // The rotation is in the coordinates now, so nothing is left waiting. A
+    // turn about a centre leaves the structure where it was, so the view
+    // keeps its place and zoom.
+    resetTurn();
+    afterTransform(`Rotated by (${dx}°, ${dy}°, ${dz}°).`, { keepView: pivotName !== 'origin' });
 
     // The cell is not rotated with the contents, and it defines the lattice.
     // For an isolated molecule that is harmless; for a periodic system it
     // means the images no longer tile as they did, so the rotated coordinates
     // are only safe as a starting geometry to re-solvate, not as a drop-in
     // replacement for the original frame.
-    if ((dx || dy || dz) && state.box && state.box.length >= 3) {
+    if (state.box && state.box.length >= 3) {
       showToast(
         'The cell was not rotated with the contents. For a periodic system, ' +
         're-solvate or rebuild the box before running from these coordinates.',
@@ -551,11 +615,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const dx = Number(transX.value) || 0;
     const dy = Number(transY.value) || 0;
     const dz = Number(transZ.value) || 0;
+    if (!dx && !dy && !dz) {
+      showToast('No distance to move by yet. Type one first.', 'info');
+      return;
+    }
     pushUndo('translation');
     state.atoms = translateAtoms(state.atoms, dx, dy, dz);
     state.revision++;
     state.applied.tx += dx; state.applied.ty += dy; state.applied.tz += dz;
     state.applied.order.push('translate');
+    state.steps.push({ type: 'translate', vector: { x: dx, y: dy, z: dz } });
     afterTransform(`Translated by (${dx}, ${dy}, ${dz}).`);
   });
 
@@ -564,11 +633,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnCentre) btnCentre.addEventListener('click', () => {
     if (!requireStructure()) return;
     const mode = centerMode && centerMode.value === 'mass' ? 'mass' : 'geometric';
+    const was = mode === 'mass' ? centreOfMass(state.atoms) : geometricCentre(state.atoms);
     pushUndo('centring');
     state.atoms = centreAtoms(state.atoms, mode);
     state.revision++;
     state.applied.centre = mode;
     state.applied.order.push('centre');
+    state.steps.push({ type: 'centre', mode, centre: { x: was.x, y: was.y, z: was.z } });
     afterTransform(mode === 'mass'
       ? 'Centred on the centre of mass.'
       : 'Centred on the geometric centroid.');
@@ -583,12 +654,14 @@ document.addEventListener('DOMContentLoaded', () => {
     afterTransform('Restored the original coordinates.');
   });
 
-  function afterTransform(message) {
+  function afterTransform(message, { keepView = false } = {}) {
     updateSystemStats();
     renderEditconf();
     if (!state.boxEdited) seedBoxInputs();
     renderOutput();
-    renderViewer();
+    renderViewer({ keepView });
+    updateTurnReadout();
+    renderRecord();
     showToast(message, 'success');
   }
 
@@ -626,6 +699,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateExportInfo();
     renderOutput();
     renderEditconf();
+    renderPython();
   });
 
   function renderOutput() {
@@ -718,6 +792,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnDownload) btnDownload.addEventListener('click', () => {
     if (!requireStructure()) return;
+    warnIfTurnWaiting();
     const format = exportFormat ? exportFormat.value : 'pdb';
     const fileName = `${exportBaseName()}.${format}`;
     const blob = new Blob([fullOutput()], { type: 'text/plain;charset=utf-8;' });
@@ -756,7 +831,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  copyButton(btnCopy, () => (requireStructure() ? fullOutput() : null),
+  copyButton(btnCopy, () => {
+    if (!requireStructure()) return null;
+    warnIfTurnWaiting();
+    return fullOutput();
+  },
     'Clipboard access denied. Select the text and copy it by hand.');
 
   // --- 8. Utilities ---
@@ -842,8 +921,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const isDark = () => document.documentElement.classList.contains('dark');
   const viewerBackground = () => (isDark() ? '#0f172a' : '#f1f5f9');
 
-  /** Rebuild the model from the current coordinates. */
-  function renderViewer() {
+  /**
+   * Rebuild the model from the current coordinates.
+   *
+   * The view is refitted to the structure unless `keepView` asks for the
+   * place and zoom it has. Either way it keeps its orientation, and shows
+   * whatever rotation is waiting.
+   */
+  function renderViewer({ keepView = false } = {}) {
     if (!viewerCanvas || viewerFailed || !state.atoms.length) return;
 
     if (!window.$3Dmol) {
@@ -865,6 +950,7 @@ document.addEventListener('DOMContentLoaded', () => {
         viewer = window.$3Dmol.createViewer(viewerCanvas, {
           backgroundColor: viewerBackground()
         });
+        if (viewer) viewer.setViewChangeCallback(onViewChange);
       }
       if (!viewer) throw new Error('viewer unavailable');
 
@@ -881,12 +967,15 @@ document.addEventListener('DOMContentLoaded', () => {
         title: state.title
       });
 
-      viewer.clear();
-      viewer.addModel(pdb, 'pdb');
-      viewer.setStyle({}, styleSpec());
-      drawBox();
-      viewer.zoomTo();
-      viewer.render();
+      const kept = keepView ? viewer.getView() : null;
+      settle(() => {
+        viewer.clear();
+        viewer.addModel(pdb, 'pdb');
+        viewer.setStyle({}, styleSpec());
+        if (kept) viewer.setView(kept); else viewer.zoomTo();
+      });
+      if (!kept) centreViewOnPivot();
+      showTurnInView();
 
       if (viewerNote) {
         viewerNote.textContent = state.atoms.length > VIEW_LIMIT
@@ -902,13 +991,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  /** Redraw the cell outline alone, leaving the model and the camera as
-   *  they are. */
+  /** The cell changed: redraw its outline, and the script that writes it. */
   function refreshBox() {
-    if (!viewer || viewerFailed) return;
-    viewer.removeAllShapes();
-    drawBox();
-    viewer.render();
+    paintOverlay();
+    renderPython();
   }
 
   if (viewerStyle) viewerStyle.addEventListener('change', () => {
@@ -920,6 +1006,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnViewerReset) btnViewerReset.addEventListener('click', () => {
     if (!viewer || viewerFailed) return;
     viewer.zoomTo();
+    centreViewOnPivot();
     viewer.render();
   });
 
@@ -1041,65 +1128,546 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', syncViewer);
   }
 
+  /* --- Turning the molecule --------------------------------------------------
+   * The three angle fields hold one rotation that is waiting, R. The view
+   * shows it at once; the coordinates take it when Rotate is pressed.
+   *
+   * The scene holds the atoms where the file has them. How it sits on screen
+   * is the product lab·R: `lab` is how the fixed frame (the box, the axes)
+   * sits on screen, R how the molecule is turned within that frame. The frame
+   * itself is drawn turned back by R about the pivot, so it keeps its place
+   * while the molecule turns. Dragging changes the product, and the choice on
+   * the toolbar says which factor takes the change: the frame (Turn view) or
+   * the rotation (Turn molecule).
+   */
+  const turn = { lab: IDENTITY_ROTATION.slice(), pending: IDENTITY_ROTATION.slice(), mode: 'view', settling: false };
+
+  const pivotMode = () => (rotPivot && ['mass', 'origin'].includes(rotPivot.value) ? rotPivot.value : 'geometric');
+
+  // The pivot and the shape axis are asked for on every frame of a drag, so
+  // each is worked out once per set of coordinates.
+  let pivotCache = { key: null, point: null };
+  function pivotPoint(mode = pivotMode()) {
+    const key = `${state.revision}:${mode}`;
+    if (pivotCache.key !== key) {
+      const c = mode === 'origin' ? { x: 0, y: 0, z: 0 }
+        : mode === 'mass' ? centreOfMass(state.atoms) : geometricCentre(state.atoms);
+      pivotCache = { key, point: { x: c.x, y: c.y, z: c.z } };
+    }
+    return pivotCache.point;
+  }
+
+  let shapeCache = { revision: -1, shape: null };
+  function currentShape() {
+    if (shapeCache.revision !== state.revision) {
+      shapeCache = { revision: state.revision, shape: state.atoms.length ? shapeAxis(state.atoms) : null };
+    }
+    return shapeCache.shape;
+  }
+
+  const fieldAngles = () => ({
+    x: rotX ? Number(rotX.value) || 0 : 0,
+    y: rotY ? Number(rotY.value) || 0 : 0,
+    z: rotZ ? Number(rotZ.value) || 0 : 0
+  });
+  const turnWaiting = () => { const a = fieldAngles(); return Boolean(a.x || a.y || a.z); };
+  const sameRotation = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-6);
+
+  function setAngleFields(angles, decimals) {
+    const show = v => {
+      const s = (Number(v) || 0).toFixed(decimals);
+      return /^-0\.?0*$/.test(s) ? s.slice(1) : s;
+    };
+    if (rotX) rotX.value = show(angles.x);
+    if (rotY) rotY.value = show(angles.y);
+    if (rotZ) rotZ.value = show(angles.z);
+  }
+
+  /** The fields changed: take the rotation from them and show it. */
+  function turnChanged() {
+    const a = fieldAngles();
+    turn.pending = rotationMatrix(a.x, a.y, a.z);
+    showTurnInView();
+    updateTurnReadout();
+  }
+
+  /** Point the scene so the frame stays put and the molecule shows the turn. */
+  function showTurnInView() {
+    if (!viewer || viewerFailed) { paintOverlay(); return; }
+    const q = quaternionFromMatrix(multiplyRotations(turn.lab, turn.pending));
+    const v = viewer.getView();
+    settle(() => {
+      viewer.setView([v[0], v[1], v[2], v[3], q[0], q[1], q[2], q[3]]);
+      viewer.render();
+    });
+    paintOverlay();
+  }
+
   /**
-   * Outline the simulation cell.
+   * Put the centre of the view on the pivot, so the scene turns on screen
+   * about the point the coordinates will turn about: the picture of a waiting
+   * rotation is then the picture after it is applied, and the frame does not
+   * move. The origin is the exception: it may be far from the structure, so
+   * the view stays on the structure and the frame is seen to swing instead.
+   */
+  function centreViewOnPivot() {
+    if (!viewer || viewerFailed || !state.atoms.length) return;
+    const mode = pivotMode();
+    if (mode === 'origin') return;
+    const c = pivotPoint(mode);
+    const k = unitFactor(state.unit, 'A');
+    const v = viewer.getView();
+    settle(() => {
+      viewer.setView([-c.x * k, -c.y * k, -c.z * k, v[3], v[4], v[5], v[6], v[7]]);
+      viewer.render();
+    });
+    paintOverlay();
+  }
+
+  /** Run changes the page makes to the scene itself, which are not drags. */
+  function settle(change) {
+    turn.settling = true;
+    try { change(); } finally { turn.settling = false; }
+  }
+
+  /**
+   * Called by 3Dmol whenever the scene is redrawn. If the scene has been
+   * turned by hand, the change goes to the frame or to the rotation.
    *
-   * Drawn from the cell vectors rather than left to 3Dmol's unit-cell helper,
-   * because the cell may be triclinic: a rhombic dodecahedron is a
-   * parallelepiped, not a cuboid, and drawing it as a box would misrepresent
-   * where the periodic images actually sit.
+   * A dragged rotation is kept to a tenth of a degree, so that the angles on
+   * show are the rotation that is applied, recorded and written to the
+   * script, not a rounding of it.
+   */
+  function onViewChange(v) {
+    if (!turn.settling && v && v.length >= 8 && state.atoms.length) {
+      const seen = matrixFromQuaternion([v[4], v[5], v[6], v[7]]);
+      if (!sameRotation(seen, multiplyRotations(turn.lab, turn.pending))) {
+        if (turn.mode === 'molecule') {
+          setAngleFields(eulerFromMatrix(multiplyRotations(transposeRotation(turn.lab), seen)), 1);
+          const a = fieldAngles();
+          turn.pending = rotationMatrix(a.x, a.y, a.z);
+          updateTurnReadout();
+        } else {
+          turn.lab = multiplyRotations(seen, transposeRotation(turn.pending));
+        }
+      }
+    }
+    paintOverlay();
+  }
+
+  function setDragMode(mode) {
+    turn.mode = mode === 'molecule' ? 'molecule' : 'view';
+    if (dragView) dragView.setAttribute('aria-pressed', String(turn.mode === 'view'));
+    if (dragMolecule) dragMolecule.setAttribute('aria-pressed', String(turn.mode === 'molecule'));
+    if (viewerCanvas && viewerCanvas.parentElement) {
+      viewerCanvas.parentElement.classList.toggle('is-turning', turn.mode === 'molecule');
+    }
+    paintOverlay();
+  }
+  if (dragView) dragView.addEventListener('click', () => setDragMode('view'));
+  if (dragMolecule) dragMolecule.addEventListener('click', () => setDragMode('molecule'));
+
+  function resetTurn() {
+    setAngleFields({ x: 0, y: 0, z: 0 }, 0);
+    turn.pending = IDENTITY_ROTATION.slice();
+  }
+
+  // Arrow keys step by 5 degrees, by 1 with Shift: coarse enough to get
+  // somewhere, fine enough to finish. Typing takes any value.
+  [rotX, rotY, rotZ].forEach(input => {
+    if (!input) return;
+    input.addEventListener('input', turnChanged);
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      const step = (e.shiftKey ? 1 : 5) * (e.key === 'ArrowUp' ? 1 : -1);
+      const next = Math.max(-360, Math.min(360, (Number(input.value) || 0) + step));
+      input.value = String(Number(next.toFixed(2)));
+      turnChanged();
+    });
+  });
+  if (rotPivot) rotPivot.addEventListener('change', () => centreViewOnPivot());
+  if (btnResetRot) btnResetRot.addEventListener('click', () => { resetTurn(); turnChanged(); });
+
+  /* The shape's own axis, laid along a coordinate axis: the smallest turn
+   * that does it. A line has two ends, so the nearer end is taken. Kept to a
+   * hundredth of a degree, which leaves the axis within that of the target. */
+  const AXES = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
+  document.querySelectorAll('[data-align]').forEach(btn => btn.addEventListener('click', () => {
+    const shape = currentShape();
+    const e = AXES[btn.dataset.align];
+    if (!shape || !e) return;
+    const a = shape.axis;
+    const towards = a[0] * e[0] + a[1] * e[1] + a[2] * e[2] >= 0 ? e : e.map(c => -c);
+    setAngleFields(eulerFromMatrix(rotationBetween(a, towards)), 2);
+    turnChanged();
+  }));
+
+  const SHAPE_LABEL = { long: 'Long axis', normal: 'Plane normal' };
+  const minus = s => String(s).replace(/^-/, '−');
+  const deg = (v, d = 1) => `${minus((Number(v) || 0).toFixed(d).replace(/^-0\.?0*$/, m => m.slice(1)))}°`;
+
+  /** Everything that describes the waiting rotation, in the panel and over the view. */
+  function updateTurnReadout() {
+    const waiting = turnWaiting();
+    const r = turn.pending;
+
+    if (rotMatrix) {
+      rotMatrix.replaceChildren(...r.map(v => {
+        const cell = document.createElement('span');
+        const s = v.toFixed(4);
+        cell.textContent = minus(/^-0\.0+$/.test(s) ? s.slice(1) : s);
+        return cell;
+      }));
+    }
+    if (rotTurn) {
+      const one = axisAngleFromMatrix(r);
+      rotTurn.textContent = waiting && one.angle > 1e-9
+        ? `One turn of ${deg(one.angle)} about the axis (${one.axis.map(c => minus(c.toFixed(3))).join(', ')}).`
+        : 'No rotation waiting: R is the identity.';
+    }
+    if (btnResetRot) btnResetRot.disabled = !waiting || !state.atoms.length;
+
+    const shape = currentShape();
+    const label = shape ? SHAPE_LABEL[shape.kind] : '';
+    if (rotAlign) rotAlign.hidden = !shape;
+    if (rotAlignLabel && shape) rotAlignLabel.textContent = `Lay the ${label.toLowerCase()} along`;
+    if (rotTilt) rotTilt.hidden = !shape;
+    let after = null;
+    if (shape) {
+      const now = axisTilt(shape.axis);
+      after = axisTilt(rotateVector(r, shape.axis));
+      if (rotTiltLabel) rotTiltLabel.textContent = `${label}, angle to`;
+      const put = (el, v) => { if (el) el.textContent = deg(v); };
+      put(tiltNowX, now.x); put(tiltNowY, now.y); put(tiltNowZ, now.z);
+      put(tiltAfterX, after.x); put(tiltAfterY, after.y); put(tiltAfterZ, after.z);
+      if (tiltAfterRow) tiltAfterRow.hidden = !waiting;
+    }
+
+    if (viewerHud) {
+      const a = fieldAngles();
+      if (hudPending) hudPending.hidden = !waiting;
+      if (hudPendingText) hudPendingText.textContent = `x ${deg(a.x)}  y ${deg(a.y)}  z ${deg(a.z)}`;
+      if (hudTilt) hudTilt.hidden = !shape;
+      if (shape && hudTiltLabel) hudTiltLabel.textContent = `${label} to`;
+      if (shape && hudTiltText) hudTiltText.textContent = `x ${deg(after.x)}  y ${deg(after.y)}  z ${deg(after.z)}`;
+      viewerHud.hidden = !state.atoms.length || (!waiting && !shape);
+    }
+  }
+
+  copyButton(btnCopyMatrix, () => {
+    const r = turn.pending;
+    return [0, 1, 2].map(i => [0, 1, 2].map(j => r[i * 3 + j].toFixed(8)).join('  ')).join('\n');
+  }, 'Could not copy the matrix. Select the numbers and copy them by hand.');
+
+  /** A rotation shown but not applied is not in the file: say so once, at the point of taking the file. */
+  function warnIfTurnWaiting() {
+    if (!turnWaiting()) return;
+    showToast('The rotation shown in the view has not been applied, so it is not in this file. Press Rotate to apply it.', 'warn');
+  }
+
+  /* --- The frame, drawn over the view -----------------------------------------
+   * The cell, the coordinate axes and the shape's own axis are drawn in screen
+   * space on a 2D canvas over the WebGL one and re-projected on every redraw,
+   * as the Structure Inspector draws its box: lines of a constant width with a
+   * halo in the background colour, so they read over atoms and on either
+   * theme, and heavier towards the viewer, which tells front from back.
    *
-   * GROMACS places the cell origin at (0, 0, 0), so the outline is drawn from
-   * there. If the structure has been translated away from the origin it will
-   * sit outside the outline, which is worth seeing rather than hiding.
+   * The cell is drawn from its vectors rather than as a cuboid, because it may
+   * be triclinic. GROMACS places its origin at (0, 0, 0), so that is where it
+   * is drawn: a structure moved away from the origin sits outside it, which
+   * is worth seeing rather than hiding.
    */
   const boxShown = () => !showBox || showBox.getAttribute('aria-pressed') !== 'false';
 
-  function drawBox() {
-    if (!viewer || !boxShown()) return;
-
+  /** The eight corners of the cell in ångström, or null without a usable one. */
+  function boxCorners() {
     const box = currentBox();
-    if (!box || box.length < 3 || !box.every(Number.isFinite)) return;
-
-    // The model is fed to 3Dmol in angstrom; the cell store is nm.
-    const S = 10;
+    if (!box || box.length < 3 || !box.every(Number.isFinite)) return null;
+    const S = 10;   // the cell is kept in nm, the scene is in ångström
     const v = state.boxVectors && state.boxVectors.length >= 9
       ? state.boxVectors
       : [box[0], box[1], box[2], 0, 0, 0, 0, 0, 0];
-
     // GROMACS order: v1x v2y v3z v1y v1z v2x v2z v3x v3y
     const a = [v[0] * S, v[3] * S, v[4] * S];
     const b = [v[5] * S, v[1] * S, v[6] * S];
     const c = [v[7] * S, v[8] * S, v[2] * S];
+    const at = (i, j, k) => [i * a[0] + j * b[0] + k * c[0], i * a[1] + j * b[1] + k * c[1], i * a[2] + j * b[2] + k * c[2]];
+    return [at(0, 0, 0), at(1, 0, 0), at(0, 1, 0), at(0, 0, 1), at(1, 1, 0), at(1, 0, 1), at(0, 1, 1), at(1, 1, 1)];
+  }
+  const BOX_EDGES = [[0, 1], [0, 2], [0, 3], [1, 4], [1, 5], [2, 4], [2, 6], [3, 5], [3, 6], [4, 7], [5, 7], [6, 7]];
 
-    const corner = (i, j, k) => ({
-      x: i * a[0] + j * b[0] + k * c[0],
-      y: i * a[1] + j * b[1] + k * c[1],
-      z: i * a[2] + j * b[2] + k * c[2]
-    });
+  function paintOverlay() {
+    const cv = viewerOverlay;
+    if (!cv || !viewerCanvas) return;
+    const w = viewerCanvas.clientWidth;
+    const h = viewerCanvas.clientHeight;
+    const pr = window.devicePixelRatio || 1;
+    if (cv.width !== Math.round(w * pr) || cv.height !== Math.round(h * pr)) {
+      cv.width = Math.round(w * pr);
+      cv.height = Math.round(h * pr);
+    }
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    if (!viewer || viewerFailed || !state.atoms.length) return;
+    const gl = viewerCanvas.querySelector('canvas');
+    if (!gl) return;
 
-    const edges = [
-      [[0,0,0],[1,0,0]], [[0,0,0],[0,1,0]], [[0,0,0],[0,0,1]],
-      [[1,0,0],[1,1,0]], [[1,0,0],[1,0,1]],
-      [[0,1,0],[1,1,0]], [[0,1,0],[0,1,1]],
-      [[0,0,1],[1,0,1]], [[0,0,1],[0,1,1]],
-      [[1,1,0],[1,1,1]], [[1,0,1],[1,1,1]], [[0,1,1],[1,1,1]]
-    ];
+    const rect = gl.getBoundingClientRect();
+    const ox = rect.left + window.pageXOffset;
+    const oy = rect.top + window.pageYOffset;
+    const project = points => viewer.modelToScreen(points.map(p => ({ x: p[0], y: p[1], z: p[2] })))
+      .map(s => ({ x: (s.x - ox) * pr, y: (s.y - oy) * pr }));
+    // Depth towards the camera, from the scene's world matrix.
+    let m = null;
+    try { m = viewer.modelGroup.matrixWorld.elements; } catch (e) { m = null; }
+    const depth = p => (m ? m[2] * p[0] + m[6] * p[1] + m[10] * p[2] + m[14] : 0);
+
+    // The frame as the scene has to hold it: turned back by the waiting
+    // rotation about the pivot.
+    const toA = unitFactor(state.unit, 'A');
+    const c = pivotPoint();
+    const pivot = [c.x * toA, c.y * toA, c.z * toA];
+    const back = transposeRotation(turn.pending);
+    const frame = p => {
+      const d = rotateVector(back, [p[0] - pivot[0], p[1] - pivot[1], p[2] - pivot[2]]);
+      return [pivot[0] + d[0], pivot[1] + d[1], pivot[2] + d[2]];
+    };
 
     const dark = isDark();
-    for (const [p1, p2] of edges) {
-      viewer.addLine({
-        start: corner(...p1),
-        end: corner(...p2),
-        color: dark ? '#64748b' : '#94a3b8',
-        dashed: true
+    const halo = dark ? 'rgba(2, 6, 23, 0.8)' : 'rgba(255, 255, 255, 0.85)';
+    const stroke = (x1, y1, x2, y2, colour, width, alpha = 1) => {
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.strokeStyle = halo;
+      ctx.lineWidth = width + 2.5 * pr;
+      ctx.stroke();
+      ctx.strokeStyle = colour;
+      ctx.lineWidth = width;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    };
+    const label = (text, x, y, colour, size = 11) => {
+      ctx.font = `700 ${size * pr}px Inter, system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = halo;
+      ctx.lineWidth = 3 * pr;
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = colour;
+      ctx.fillText(text, x, y);
+    };
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // The cell: far edges first, so near ones are drawn over them.
+    const corners = boxShown() ? boxCorners() : null;
+    if (corners) {
+      const P = corners.map(frame);
+      const S = project(P);
+      if (S.every(s => Number.isFinite(s.x) && Number.isFinite(s.y))) {
+        const D = P.map(depth);
+        const dMin = Math.min(...D);
+        const dMax = Math.max(...D);
+        const near = (i, j) => (dMax - dMin > 1e-6 ? ((D[i] + D[j]) / 2 - dMin) / (dMax - dMin) : 1);
+        const colour = dark ? '#92b8dd' : '#1f5c96';
+        BOX_EDGES.map(([i, j]) => ({ i, j, t: near(i, j) })).sort((p, q) => p.t - q.t).forEach(({ i, j, t }) => {
+          stroke(S[i].x, S[i].y, S[j].x, S[j].y, colour, 2.5 * pr * (0.6 + 0.4 * t), 0.55 + 0.45 * t);
+        });
+      }
+    }
+
+    // The shape's own axis runs through the molecule and turns with it.
+    const shape = currentShape();
+    if (shape) {
+      const g = [shape.centre.x * toA, shape.centre.y * toA, shape.centre.z * toA];
+      const half = shape.halfLength * toA * 1.15;
+      const ends = [-1, 1].map(s => [g[0] + s * half * shape.axis[0], g[1] + s * half * shape.axis[1], g[2] + s * half * shape.axis[2]]);
+      const E = project(ends);
+      if (E.every(s => Number.isFinite(s.x) && Number.isFinite(s.y))) {
+        const colour = dark ? '#fbbf24' : '#b45309';
+        ctx.setLineDash([6 * pr, 5 * pr]);
+        stroke(E[0].x, E[0].y, E[1].x, E[1].y, colour, 1.75 * pr);
+        ctx.setLineDash([]);
+        const top = E[0].y < E[1].y ? E[0] : E[1];
+        label(SHAPE_LABEL[shape.kind].toLowerCase(), top.x, top.y - 9 * pr, colour);
+      }
+    }
+
+    // Where the molecule turns about, while it is being turned.
+    if (turn.mode === 'molecule' || turnWaiting()) {
+      const [s] = project([pivot]);
+      if (Number.isFinite(s.x) && Number.isFinite(s.y)) {
+        const colour = dark ? '#e2e8f0' : '#0f2236';
+        const r = 5 * pr;
+        stroke(s.x - r, s.y, s.x + r, s.y, colour, 1.5 * pr);
+        stroke(s.x, s.y - r, s.x, s.y + r, colour, 1.5 * pr);
+      }
+    }
+
+    // The coordinate axes, in the corner: which way x, y and z point on screen.
+    const L = 5;
+    const tips = project([pivot, ...[AXES.x, AXES.y, AXES.z].map(e => frame([pivot[0] + L * e[0], pivot[1] + L * e[1], pivot[2] + L * e[2]]))]);
+    if (tips.every(s => Number.isFinite(s.x) && Number.isFinite(s.y))) {
+      const arms = [1, 2, 3].map(k => ({ x: tips[k].x - tips[0].x, y: tips[k].y - tips[0].y }));
+      // Three orthogonal arms of one length, seen from anywhere, have squared
+      // screen lengths that add up to twice the square of that length.
+      const unit = Math.sqrt(arms.reduce((sum, a) => sum + a.x * a.x + a.y * a.y, 0) / 2) || 1;
+      const size = 40 * pr;
+      const cx = cv.width - 66 * pr;
+      const cy = cv.height - 66 * pr;
+      const colours = dark ? ['#f87171', '#4ade80', '#60a5fa'] : ['#dc2626', '#15803d', '#1d4ed8'];
+      const d0 = depth(pivot);
+      ['x', 'y', 'z'].map((name, k) => {
+        const e = AXES[name];
+        const tip = frame([pivot[0] + L * e[0], pivot[1] + L * e[1], pivot[2] + L * e[2]]);
+        return { name, colour: colours[k], dx: arms[k].x / unit * size, dy: arms[k].y / unit * size, toward: depth(tip) - d0 };
+      }).sort((p, q) => p.toward - q.toward).forEach(a => {
+        const alpha = a.toward < 0 ? 0.6 : 1;
+        stroke(cx, cy, cx + a.dx, cy + a.dy, a.colour, 2.75 * pr, alpha);
+        const len = Math.hypot(a.dx, a.dy);
+        // An arm seen end-on has no direction on screen: its name sits beside the hub.
+        const ux = len > 4 * pr ? a.dx / len : 0.7;
+        const uy = len > 4 * pr ? a.dy / len : 0.7;
+        ctx.globalAlpha = alpha;
+        label(a.name, cx + a.dx + ux * 11 * pr, cy + a.dy + uy * 11 * pr, a.colour, 13);
+        ctx.globalAlpha = 1;
       });
     }
+    ctx.restore();
   }
 
   if (showBox) showBox.addEventListener('click', () => {
     showBox.setAttribute('aria-pressed', String(!boxShown()));
-    refreshBox();
+    paintOverlay();
+  });
+
+  /* --- What was done ----------------------------------------------------------
+   * Every step that changed the coordinates is kept, in order, with the point
+   * it turned about or moved. From that list come the equations and the
+   * Python script under the workspace, and the one rotation the editconf
+   * command needs.
+   */
+  let pyPanel = null;
+  let pyVariant = 'mdanalysis';
+  let mathsLatex = '';
+
+  /** The cell as the script writes it: lengths in nm, with the angles of a triclinic one. */
+  function scriptBox() {
+    const format = exportFormat ? exportFormat.value : 'pdb';
+    if (format === 'xyz') return null;
+    if (state.boxVectors && isTriclinic(state.boxVectors)) {
+      const ang = anglesFromBoxVectors(state.boxVectors);
+      return { lengths: [ang.a, ang.b, ang.c], angles: [ang.alpha, ang.beta, ang.gamma] };
+    }
+    const box = currentBox();
+    return box && box.length >= 3 && box.every(v => Number.isFinite(v) && v > 0) ? { lengths: box.slice(0, 3) } : null;
+  }
+
+  function renderPython() {
+    if (!recordPython) return;
+    if (!pyPanel) {
+      pyPanel = createPythonPanel(recordPython, {
+        title: 'Python script',
+        filename: 'steps.py',
+        variants: [{ id: 'mdanalysis', label: 'Whole script' }, { id: 'numpy', label: 'NumPy function' }],
+        onVariantChange: (id) => { pyVariant = id; renderPython(); },
+        empty: '# Load a structure and the script that repeats your steps appears here.'
+      });
+    }
+    if (!state.atoms.length) { pyPanel.setCode(''); return; }
+    const format = exportFormat ? exportFormat.value : 'pdb';
+    const input = state.fileName || `input.${state.format || 'pdb'}`;
+    const output = `${exportBaseName()}.${format}`;
+    pyPanel.setFilename(`${exportBaseName()}_steps.py`);
+    pyPanel.setCode(transformScript(state.steps, {
+      variant: pyVariant,
+      unit: state.unit,
+      input,
+      output,
+      velocities: state.atoms.some(a => a.vx !== null && a.vx !== undefined),
+      box: scriptBox()
+    }));
+    const esc = t => String(t).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    pyPanel.setNote(pyVariant === 'numpy'
+      ? `Needs numpy only. Call <code>transform(x)</code> with an (N, 3) array in ${state.unit === 'nm' ? 'nm' : 'Å'}, the unit of <code>${esc(input)}</code>, read however you like.`
+      : `Runs with Python 3, numpy and MDAnalysis: <code>python ${esc(exportBaseName())}_steps.py</code>. It reads <code>${esc(input)}</code> from the same folder and writes <code>${esc(output)}</code>.`);
+  }
+
+  function renderMaths() {
+    if (!mathsBody) return;
+    const { blocks, latex } = transformLatex(state.steps, { unit: state.unit });
+    mathsLatex = latex;
+    if (btnCopyLatex) btnCopyLatex.disabled = !latex;
+    if (!blocks.length) {
+      const hint = document.createElement('p');
+      hint.className = 'stk-hint';
+      hint.textContent = 'The matrix or vector of each step, and the one transform they add up to, appear here.';
+      mathsBody.replaceChildren(hint);
+      return;
+    }
+    mathsBody.replaceChildren(...blocks.map(block => {
+      const part = document.createElement('section');
+      part.className = 'cm-eq';
+      const heading = document.createElement('h3');
+      heading.textContent = block.heading;
+      const eq = document.createElement('div');
+      eq.className = 'cm-eq-tex stk-scroll';
+      // Without KaTeX the TeX source is shown, which is still readable.
+      let typeset = false;
+      if (window.katex) {
+        try {
+          window.katex.render(block.tex, eq, { displayMode: true, throwOnError: false, output: 'htmlAndMathml' });
+          typeset = true;
+        } catch (e) { typeset = false; }
+      }
+      if (!typeset) { eq.textContent = block.tex; eq.classList.add('cm-eq-src'); }
+      eq.setAttribute('role', 'group');
+      eq.setAttribute('aria-label', `Equations: ${block.heading}`);
+      part.append(heading, eq);
+      if (block.note) {
+        const note = document.createElement('p');
+        note.className = 'stk-hint';
+        note.textContent = block.note;
+        part.append(note);
+      }
+      return part;
+    }));
+    // An equation wider than the panel scrolls sideways, and so has to be
+    // reachable from the keyboard.
+    mathsBody.querySelectorAll('.cm-eq-tex').forEach(eq => {
+      if (eq.scrollWidth > eq.clientWidth + 1) eq.tabIndex = 0;
+    });
+  }
+
+  function renderRecord() {
+    if (recordSection) recordSection.hidden = !state.atoms.length;
+    const n = state.steps.length;
+    if (recordCount) recordCount.textContent = n === 1 ? '1 step' : `${n} steps`;
+    if (recordEmpty) recordEmpty.hidden = n > 0;
+    if (recordList) {
+      recordList.hidden = n === 0;
+      recordList.replaceChildren(...state.steps.map(step => {
+        const li = document.createElement('li');
+        li.textContent = `${describeStep(step, state.unit)}.`;
+        return li;
+      }));
+    }
+    renderMaths();
+    renderPython();
+  }
+
+  copyButton(btnCopyLatex, () => mathsLatex || null, 'Could not copy the LaTeX. Select the equations and copy them by hand.');
+  if (btnShowMaths) btnShowMaths.addEventListener('click', () => {
+    const el = $('cmMaths');
+    if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  });
+  if (btnShowPython) btnShowPython.addEventListener('click', () => {
+    if (recordPython) recordPython.scrollIntoView({ block: 'start', behavior: 'smooth' });
   });
 
   /* --- Equivalent gmx editconf command --------------------------------------
@@ -1174,8 +1742,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    if (a.rx || a.ry || a.rz) {
-      parts.push(`-rotate ${a.rx} ${a.ry} ${a.rz}`);
+    // Rotations do not add angle by angle, so the angles written are those
+    // of the one rotation the steps add up to, in editconf's own order (a
+    // turn about x, then y, then z).
+    const turns = state.steps.filter(step => step.type === 'rotate');
+    const net = eulerFromMatrix(netTransform(turns).matrix);
+    const angle = v => String(Number(v.toFixed(4)));
+    if (turns.length && [net.x, net.y, net.z].some(v => Math.abs(v) > 5e-5)) {
+      parts.push(`-rotate ${angle(net.x)} ${angle(net.y)} ${angle(net.z)}`);
+      if (turns.length > 1) {
+        notes.push(`${turns.length} rotations were applied; -rotate gives the one rotation they add up to.`);
+      }
       // Only a rotation about a centre, not about the origin, displaces the
       // structure relative to editconf.
       const offOrigin = (a.pivots || ['geometric']).filter(p => p !== 'origin');
@@ -1267,6 +1844,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (fileNameInput) fileNameInput.addEventListener('input', () => {
     updateExportInfo();
     renderEditconf();
+    renderPython();
   });
 
   if (btnShowAll) btnShowAll.addEventListener('click', () => {
@@ -1321,6 +1899,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // record of that has to travel with the coordinates or the command
       // would describe a state that no longer exists.
       applied: JSON.parse(JSON.stringify(state.applied)),
+      steps: JSON.parse(JSON.stringify(state.steps)),
       box: state.box ? state.box.slice() : null,
       boxVectors: state.boxVectors ? state.boxVectors.slice() : null,
       boxEdited: state.boxEdited
@@ -1355,6 +1934,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     state.applied = snap.applied;
+    state.steps = snap.steps || [];
     state.box = snap.box;
     state.boxVectors = snap.boxVectors;
     state.boxEdited = snap.boxEdited;
@@ -1365,6 +1945,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!state.boxEdited) seedBoxInputs();
     renderOutput();
     renderViewer();
+    updateTurnReadout();
+    renderRecord();
     updateUndoButton();
   }
 
@@ -1440,10 +2022,14 @@ document.addEventListener('DOMContentLoaded', () => {
     previewCache = { signature: null, text: '' };
     previewToken++;
     setBusy('format', null);
+    resetTurn();
     if (viewer && !viewerFailed) {
       viewer.clear();
       viewer.render();
     }
+    paintOverlay();
+    updateTurnReadout();
+    renderRecord();
     if (outputArea) outputArea.textContent = '';
     setStructureLoaded(false);
     if (workspace) workspace.hidden = true;
