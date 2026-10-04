@@ -815,8 +815,11 @@
                     if (!cmp) continue;
                     const scale = ['x', 'y', 'z'].includes(key) ? unitMult : 1;
                     if (cmp.kind === 'range') {
-                        spatial.push({ field: key, op: '>=', val: cmp.lo * scale, negate });
-                        spatial.push({ field: key, op: '<=', val: cmp.hi * scale, negate });
+                        // One condition, so that not: inverts the range as a
+                        // whole. As two conditions, each inverted, it asked
+                        // for a value below the low end and above the high
+                        // end at once, and matched nothing.
+                        spatial.push({ field: key, op: 'range', lo: cmp.lo * scale, hi: cmp.hi * scale, negate });
                     } else {
                         spatial.push({ field: key, op: cmp.op, val: cmp.val * scale, negate });
                     }
@@ -856,6 +859,7 @@
                     if (v === undefined || v === null) return false;
                     let ok;
                     switch (c.op) {
+                        case 'range': ok = v >= c.lo && v <= c.hi; break;
                         case '>=': ok = v >= c.val; break;
                         case '<=': ok = v <= c.val; break;
                         case '>':  ok = v > c.val;  break;
@@ -2000,10 +2004,13 @@
             }
             const build = () => {
                 try {
-                    this.surfaceID = this.viewer.addSurface(this.surfType(), {
+                    // 3Dmol returns a Promise that carries the surface's id;
+                    // removeSurface needs the id itself, or the surface stays.
+                    const made = this.viewer.addSurface(this.surfType(), {
                         opacity: parseFloat(this.el.surfaceOpacity.value),
                         ...this.surfColorSpec()
                     }, target);
+                    this.surfaceID = (made && typeof made === 'object' && 'surfid' in made) ? made.surfid : made;
                     this.viewer.render();
                 } catch (err) {
                     console.error(err);
