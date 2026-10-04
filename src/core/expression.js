@@ -1142,6 +1142,10 @@ export function symbolsOf(ast) {
  * as z = a*x + b*y + c, and a family x1, x2, … is taken whole. A lone x0 is
  * not a family: it is the usual name for an offset or a centre, as in
  * x = A*exp(-t/tau) + x0, where the variable is t.
+ *
+ * Whole words are tried before single letters: `time` or `conc` can only be
+ * the variable, while a lone `c` or `s` is as often an offset or a scale, as
+ * in signal = A*exp(-time/tau) + c.
  */
 const INDEPENDENT_GUESSES = [
   'x', 't', 'T', 'V', 'r', 'z', 's', 'q', 'c', 'conc', 'time', 'temp',
@@ -1162,7 +1166,9 @@ function guessIndependent(names) {
   const family = names.filter(n => /^x_?\d+$/.test(n));
   const loneOffset = family.length === 1 && /^x_?0$/.test(family[0]);
   if (family.length && !loneOffset) return family;
-  for (const g of INDEPENDENT_GUESSES) if (present.has(g)) return [g];
+  const isWord = g => /^[A-Za-z]{2,}$/.test(g);
+  for (const g of INDEPENDENT_GUESSES) if (isWord(g) && present.has(g)) return [g];
+  for (const g of INDEPENDENT_GUESSES) if (!isWord(g) && present.has(g)) return [g];
   return [];
 }
 

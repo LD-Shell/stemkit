@@ -8,7 +8,7 @@
 import { describe, test, expect } from '@jest/globals';
 import {
   PRESETS, ROW_NUMBER, parseTable, columnIdentifier, mapColumns, presetEquation,
-  substitute, highlightPython, roundToError, fmt
+  substitute, highlightPython, roundToError, fmt, resolveRoles
 } from '../js/curve-fitter.js';
 import { parseEquation, classify, toText } from '../src/core/expression.js';
 
@@ -88,6 +88,36 @@ describe('mapColumns', () => {
     expect(m.columns.t).toBe(ROW_NUMBER);
     expect(m.columns.y).toBe(2);
     expect(m.sigma).toBeNull();
+  });
+});
+
+describe('resolveRoles', () => {
+  const cols = names => names.map(name => ({ name, label: name, values: [1, 2, 3] }));
+
+  test('a guessed name that is not a column gives way to one that is', () => {
+    const hill = resolveRoles(parseEquation('v = Vmax*S^n/(K^n + S^n)'), cols(['S', 'v']));
+    expect(hill.independent).toEqual(['S']);
+    expect(hill.parameters).toEqual(['Vmax', 'n', 'K']);
+    const line = resolveRoles(parseEquation('y = a*d + c'), cols(['d', 'y']));
+    expect(line.independent).toEqual(['d']);
+  });
+
+  test('a whole word is the variable before a single letter', () => {
+    const r = resolveRoles(parseEquation('signal = A*exp(-time/tau) + c'), cols(['time', 'signal']));
+    expect(r.independent).toEqual(['time']);
+    expect(r.parameters).toEqual(['A', 'tau', 'c']);
+  });
+
+  test('a guess that is a column stays, and an uncertainty column is not a variable', () => {
+    const r = resolveRoles(parseEquation('y = A*exp(-(x - mu)^2/(2*sigma^2))'), cols(['x', 'y', 'sigma']));
+    expect(r.independent).toEqual(['x']);
+    expect(r.parameters).toEqual(['A', 'mu', 'sigma']);
+  });
+
+  test('f(x) = names the variable, whatever the columns are called', () => {
+    const r = resolveRoles(parseEquation('y(c) = a*c + d'), cols(['d', 'y']));
+    expect(r.independent).toEqual(['c']);
+    expect(r.guessed).toBe(false);
   });
 });
 

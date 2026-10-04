@@ -414,6 +414,17 @@ export function resolveRoles(eq, columns, roles = {}, asParameters = []) {
   let independent = base.independent.filter(n => names.includes(n) || (eq.arguments || []).includes(n));
   let guessed = true;
   if (eq.arguments && eq.arguments.length) guessed = false;
+  // A guess is only a guess: when the guessed name is not a column of the
+  // data but another name in the equation is, that column is the variable
+  // (v = Vmax*S^n/(K^n + S^n) with columns S and v varies in S, not in n).
+  // A column of uncertainties does not count: sigma is also a width.
+  if (guessed && independent.length) {
+    const dataNames = new Set(columns.filter(c => !looksLikeSigma(c)).map(c => c.name));
+    if (!independent.some(n => dataNames.has(n))) {
+      const fromData = names.filter(n => dataNames.has(n));
+      if (fromData.length) independent = fromData;
+    }
+  }
   if (!independent.length) {
     const colNames = new Set(columns.map(c => c.name));
     independent = names.filter(n => colNames.has(n));

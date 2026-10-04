@@ -287,7 +287,9 @@ describe('classify', () => {
     ['y = a*x1 + b*x2', ['x1', 'x2'], ['a', 'b']],
     ['y = a0 + a1*x0 + a2*x1', ['x0', 'x1'], ['a0', 'a1', 'a2']],
     ['x = A*exp(-t/tau)*cos(w*t) + x0', ['t'], ['A', 'tau', 'w', 'x0']],
-    ['y = m*u + q', ['q'], ['m', 'u']]
+    ['y = m*u + q', ['q'], ['m', 'u']],
+    ['signal = A*exp(-time/tau) + c', ['time'], ['A', 'tau', 'c']],
+    ['A = e0*conc*s + c', ['conc'], ['e0', 's', 'c']]
   ])('%s', (text, independent, parameters) => {
     const r = classify(eq(text));
     expect(r.independent).toEqual(independent);
