@@ -38,7 +38,7 @@ inside the user's own browser: the data analysed never leaves it, no account is
 required and nothing is installed, so the tools stay usable for unpublished or
 confidential data. The same modules run under Node.js, so an interactive
 analysis can be captured as a version-pinned script. The 42 domain modules carry
-4371 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
+4407 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
 GROMACS, PLUMED, LAMMPS and physical invariants rather than against the
 implementation itself. That
 validation exposed four defects that had been altering reported results, among
@@ -192,7 +192,7 @@ enumerates the modules.
 ┌───────────────────────────────┐   ┌───────────────────────────────┐
 │        Browser host           │   │         Node.js host          │
 │  21 static HTML/CSS tool pages│   │  user analysis scripts        │
-│  DOM wiring only;             │   │  4371-test Jest suite;        │
+│  DOM wiring only;             │   │  4407-test Jest suite;        │
 │  FileReader input             │   │  smoke test                   │
 │  UMD bundles via <script>     │   │  UMD bundles: createRequire   │
 └───────────────┬───────────────┘   └───────────────┬───────────────┘
@@ -224,19 +224,19 @@ supplies the vendored libraries.
 **Table 1.** Modules of `stemkit-core`. Vendored dependencies are supplied by
 injection; modules marked *none* operate without any third-party code. Related
 modules share a row, and a row's tests include those of the page scripts built
-on it (261 in all).
+on it (265 in all).
 
 | Module | Domain | Tests | Dependency |
 | --- | --- | ---: | --- |
 | `gromacs-mdp`, `gromacs-ndx` | GROMACS `.mdp` settings and checks, index groups | 1168 | none |
 | `plumed`, `plumed-syntax`, `plumed-parse`, `plumed-atoms`, `plumed-run` | PLUMED input generation and checking, atom groups, run files | 644 | none |
-| `expression`, `nonlinear-fit`, `fit-python`, `plot-style` | Typed equations, Levenberg–Marquardt fitting, fit scripts | 381 | none |
+| `expression`, `nonlinear-fit`, `fit-python`, `plot-style` | Typed equations, Levenberg–Marquardt fitting, fit scripts | 387 | none |
 | `lammps-reference`, `lammps-input`, `lammps-data`, `lammps-workflow` | LAMMPS commands, input checks, data files, run inputs | 350 | none |
 | `statistics`, `statistics-figure` | Inferential and descriptive statistics | 188 | jStat |
 | `data-cleaning`, `data-cleaning-python` | Tabular transformation, pandas script | 182 | Papa Parse |
-| `bibtex` | Reference deduplication, sanitising | 140 | bibtex-parse-js |
+| `structure` | Molecular geometry, PDB/GRO/XYZ, rigid transforms and their scripts | 151 | none |
+| `bibtex` | Reference deduplication, sanitising | 142 | bibtex-parse-js |
 | `xvg-parser` | GROMACS/PLUMED trajectory data | 129 | none |
-| `structure` | Molecular geometry, PDB/GRO/XYZ | 125 | none |
 | `plumed-analysis`, `plumed-analysis-figures` | COLVAR and HILLS analysis, free-energy surfaces | 121 | none |
 | `iso4` | ISO 4 word-level abbreviation (LTWA) | 119 | none |
 | `selection` | Atom selection, spatial queries | 94 | none |
@@ -246,7 +246,7 @@ on it (261 in all).
 | `figure`, `figure-python` | Figure description, matplotlib script | 74 | none |
 | `outliers`, `outliers-figure` | Anomaly detection | 63 | jStat |
 | `slurm` | SLURM job scripts, resource checks | 61 | none |
-| `latex` | Table generation and escaping | 59 | none |
+| `latex` | Table generation and escaping | 61 | none |
 | `digitizer` | Figure digitisation | 57 | none |
 | `pdf` | PDF export of figures | 56 | none |
 | `journals` | Whole-title journal abbreviation | 53 | none |
@@ -254,7 +254,7 @@ on it (261 in all).
 | `plot-builder` | Plot builder tables and figures | 18 | none |
 | `version` | Release version and date | 5 | none |
 | `zip` | Archives of generated files | 4 | none |
-| **Total** | | **4371** | |
+| **Total** | | **4407** | |
 
 Four third-party libraries are vendored within the repository for the core:
 jStat for statistical distributions, Papa Parse for delimited-text parsing,
@@ -285,7 +285,7 @@ under that interpretation the UMD factory takes its browser branch and fails.
 Scoping `"type": "commonjs"` to the dependency directory alone restores correct
 behaviour.
 
-The test suite comprises 4371 tests in 57 suites across the 42 domain modules and the version module,
+The test suite comprises 4407 tests in 57 suites across the 42 domain modules and the version module,
 with 88.5% statement and 93.0% line coverage of `src/core/`. Its governing
 principle is that numerical results are validated against *independent*
 references rather than against the implementation under test, since a test
@@ -329,7 +329,7 @@ aids and are excluded. The plotting tools also share one plot area, built on
 | --- | --- | --- |
 | XVG visualiser | `xvg-parser` | Plot GROMACS/PLUMED series with recovered axis metadata |
 | Structure inspector | none (page script) | Geometry, mass breakdown, atom selection and search by residue or species, simulation box, 3D view |
-| Coordinate manipulator | `structure` | Translate, rotate, re-box; PDB/GRO/XYZ interconversion |
+| Coordinate manipulator | `structure` | Translate, rotate by angles or by hand, re-box; PDB/GRO/XYZ interconversion; the steps as equations and a Python script |
 | MD workflow generator | `slurm`, `scheduler`, `gromacs-mdp`, `gromacs-ndx`, `lammps-reference`, `lammps-input`, `lammps-data`, `lammps-workflow`, `plumed`, `plumed-syntax`, `plumed-parse`, `plumed-atoms`, `plumed-analysis`, `plumed-analysis-figures`, `zip` | GROMACS and LAMMPS inputs written and checked, index groups, batch scripts on four schedulers; PLUMED inputs, checks and run analysis |
 | Statistics calculator | `statistics`, `statistics-figure` | t-tests, one-way and Welch ANOVA with post-hoc comparisons, correlation, non-parametric tests, assumption checks, test recommendation |
 | Error-bar generator | `error-bars`, `error-bars-figure` | Group summaries, error bars, significance annotation |
@@ -412,7 +412,15 @@ R_g = \sqrt{\frac{\sum_i m_i \left| \mathbf{r}_i - \mathbf{R} \right|^2}
 $$
 
 together with rigid-body rotation about an arbitrary pivot using intrinsic
-$Z$–$Y$–$X$ Euler angles. Velocities present in a `.gro` file rotate with the
+$Z$–$Y$–$X$ Euler angles. A rotation is also held as its matrix, as the single turn about one axis that it
+amounts to, and as the orientation of a three-dimensional view, so the
+coordinate manipulator lets a structure be turned by hand against a fixed cell
+and reports the angle between its principal axis and each coordinate axis
+before the turn is applied. Every step is recorded, and from that record the
+module writes each step's equation, the one transform
+$\mathbf{r}' = M\mathbf{r} + \mathbf{d}$ the steps compose to, and a Python
+script that repeats them; the script is run in the tests and must return the
+page's coordinates. Velocities present in a `.gro` file rotate with the
 frame but are never translated, so a round trip through rotation and export
 preserves the kinetic state.
 
@@ -842,7 +850,7 @@ in pairs: it requires no installation, transmits no data and remains scriptable.
 
 Both properties are structural rather than contractual: computation occurs
 entirely within the browser, and the modules behind the interface are the ones
-that run under Node.js. The 4371-test suite validates every numerical result
+that run under Node.js. The 4407-test suite validates every numerical result
 against an independent reference, and the four defects that this
 strategy exposed (deflated standardised moments, tail probabilities floored at
 zero, misassigned elements in metalloproteins, and an adjusted moment fed into a
