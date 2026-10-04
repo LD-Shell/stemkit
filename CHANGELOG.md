@@ -5,6 +5,29 @@ Notable changes to STEMKit and `stemkit-core`.
 `[output]` marks a change that alters a reported number. Figures produced with an
 earlier version are worth re-checking.
 
+## Unreleased
+
+### Fixed: output
+
+- `[output]` **Visual LaTeX Tables, labels.** A label with an underscore, such
+  as the page's own example `tab:my_table`, was escaped like text
+  (`tab:my\_table`), which stops LaTeX with "Missing \endcsname inserted". The
+  key is now written as typed.
+- `[output]` **BibTeX Deduplicator, emphasised words.** Titles that differed
+  only in a word inside `\emph{…}`, `\textit{…}` and the like were reported as
+  duplicates: the command took the word with it once the braces were gone.
+- `[output]` **BibTeX Sanitizer, commands with capitals.** `\LaTeX` in a title
+  became `\{LaTeX}`, which prints a stray brace. It is now `{\LaTeX}`.
+- `[output]` **Curve Fitter, which name is the variable.** In
+  `signal = A*exp(-time/tau) + c` the offset `c` was taken for the variable.
+  Whole words now come before single letters, and a guessed name that is not a
+  data column gives way to one that is, so the Hill model on the
+  Michaelis–Menten sample varies in `S` and no longer asks for a column `n`.
+- **Structure Inspector.** `not:` on a range (`not:z:20-25`) matched nothing;
+  it now selects everything outside the range. `Toggle surface` could not
+  remove a surface, and changing its type, opacity or colour drew another on
+  top; the surface is now replaced.
+
 ## v0.3.0 — 2026-10-01
 
 Whole MD runs set up and checked: GROMACS and LAMMPS inputs with every line
