@@ -853,10 +853,24 @@ export function rotationMatrix(degX, degY, degZ) {
  * @returns {object[]} Rotated atoms.
  */
 export function rotateAtoms(atoms, degX, degY, degZ, pivot) {
+  return rotateAtomsByMatrix(atoms, rotationMatrix(degX, degY, degZ), pivot);
+}
+
+/**
+ * Rotate atoms about a pivot by a rotation matrix.
+ *
+ * Velocities are vectors and rotate with the frame, but are never translated.
+ * Returns new atom objects; the input array is not modified.
+ *
+ * @param {object[]} atoms
+ * @param {number[]} r - Row-major 3x3 rotation, as rotationMatrix returns it.
+ * @param {{x:number, y:number, z:number}} [pivot] - The origin when omitted.
+ * @returns {object[]} Rotated atoms.
+ */
+export function rotateAtomsByMatrix(atoms, r, pivot) {
   if (!Array.isArray(atoms)) return [];
   const p = pivot || { x: 0, y: 0, z: 0 };
-  const [r00, r01, r02, r10, r11, r12, r20, r21, r22] =
-    rotationMatrix(degX, degY, degZ);
+  const [r00, r01, r02, r10, r11, r12, r20, r21, r22] = r;
 
   return atoms.map(a => {
     const dx = a.x - p.x;
@@ -875,6 +889,614 @@ export function rotateAtoms(atoms, degX, degY, degZ, pivot) {
     }
     return out;
   });
+}
+
+/* ------------------------------------------------------------------ *
+ * Rotations as matrices
+ *
+ * A rotation is a flat, row-major array of nine numbers, as rotationMatrix
+ * returns it. These turn one into the three angles of the same convention,
+ * into the single turn about one axis that it amounts to, and into the
+ * quaternion a 3D view takes, and back.
+ * ------------------------------------------------------------------ */
+
+const RAD2DEG = 180 / Math.PI;
+const clampUnit = v => Math.max(-1, Math.min(1, v));
+const tidy = v => (Math.abs(v) < 1e-12 ? 0 : v);
+
+/** The rotation that changes nothing. */
+export const IDENTITY_ROTATION = Object.freeze([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+
+/**
+ * The product a·b: the rotation b followed by the rotation a.
+ *
+ * @param {number[]} a
+ * @param {number[]} b
+ * @returns {number[]}
+ */
+export function multiplyRotations(a, b) {
+  const out = new Array(9);
+  for (let i = 0; i < 3; i++) {
+    for (let j = 0; j < 3; j++) {
+      out[i * 3 + j] = a[i * 3] * b[j] + a[i * 3 + 1] * b[3 + j] + a[i * 3 + 2] * b[6 + j];
+    }
+  }
+  return out;
+}
+
+/**
+ * The transpose of a rotation, which is its inverse.
+ *
+ * @param {number[]} r
+ * @returns {number[]}
+ */
+export function transposeRotation(r) {
+  return [r[0], r[3], r[6], r[1], r[4], r[7], r[2], r[5], r[8]];
+}
+
+/**
+ * Apply a rotation to one vector.
+ *
+ * @param {number[]} r
+ * @param {number[]} v - [x, y, z]
+ * @returns {number[]}
+ */
+export function rotateVector(r, v) {
+  return [
+    r[0] * v[0] + r[1] * v[1] + r[2] * v[2],
+    r[3] * v[0] + r[4] * v[1] + r[5] * v[2],
+    r[6] * v[0] + r[7] * v[1] + r[8] * v[2]
+  ];
+}
+
+/**
+ * The angles (x, y, z) for which rotationMatrix gives this rotation,
+ * R = Rz(z) Ry(y) Rx(x).
+ *
+ * y comes out between -90 and 90 degrees. At y = ±90 the first and last turns
+ * are about the same line and only their sum (or difference) is fixed; the
+ * whole of it is then given to z, and x is zero.
+ *
+ * @param {number[]} r
+ * @returns {{x:number, y:number, z:number}} Degrees.
+ */
+export function eulerFromMatrix(r) {
+  // r[7] and r[8] are cos(y) sin(x) and cos(y) cos(x), so their length is
+  // cos(y): with -sin(y) in r[6] that gives y without the loss of asin near
+  // ±90, and while cos(y) is not lost to rounding they still give x.
+  const cy = Math.hypot(r[7], r[8]);
+  const y = Math.atan2(-r[6], cy);
+  let x;
+  let z;
+  if (cy > 1e-9) {
+    x = Math.atan2(r[7], r[8]);
+    z = Math.atan2(r[3], r[0]);
+  } else {
+    x = 0;
+    z = Math.atan2(-r[1], r[4]);
+  }
+  return { x: tidy(x * RAD2DEG), y: tidy(y * RAD2DEG), z: tidy(z * RAD2DEG) };
+}
+
+/**
+ * The unit quaternion [x, y, z, w] of a rotation.
+ *
+ * @param {number[]} r
+ * @returns {number[]}
+ */
+export function quaternionFromMatrix(r) {
+  const [m00, m01, m02, m10, m11, m12, m20, m21, m22] = r;
+  const trace = m00 + m11 + m22;
+  let x;
+  let y;
+  let z;
+  let w;
+  // The branch with the largest divisor, so none is taken near zero.
+  if (trace > 0) {
+    const s = 2 * Math.sqrt(trace + 1);
+    w = s / 4; x = (m21 - m12) / s; y = (m02 - m20) / s; z = (m10 - m01) / s;
+  } else if (m00 > m11 && m00 > m22) {
+    const s = 2 * Math.sqrt(1 + m00 - m11 - m22);
+    w = (m21 - m12) / s; x = s / 4; y = (m01 + m10) / s; z = (m02 + m20) / s;
+  } else if (m11 > m22) {
+    const s = 2 * Math.sqrt(1 + m11 - m00 - m22);
+    w = (m02 - m20) / s; x = (m01 + m10) / s; y = s / 4; z = (m12 + m21) / s;
+  } else {
+    const s = 2 * Math.sqrt(1 + m22 - m00 - m11);
+    w = (m10 - m01) / s; x = (m02 + m20) / s; y = (m12 + m21) / s; z = s / 4;
+  }
+  const n = Math.hypot(x, y, z, w) || 1;
+  return [x / n, y / n, z / n, w / n];
+}
+
+/**
+ * The rotation of a quaternion [x, y, z, w]; it need not be normalised.
+ *
+ * @param {number[]} q
+ * @returns {number[]}
+ */
+export function matrixFromQuaternion(q) {
+  const n = Math.hypot(q[0], q[1], q[2], q[3]) || 1;
+  const x = q[0] / n;
+  const y = q[1] / n;
+  const z = q[2] / n;
+  const w = q[3] / n;
+  return [
+    1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w),
+    2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w),
+    2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)
+  ];
+}
+
+/**
+ * A rotation as one turn about one axis (Euler's rotation theorem).
+ *
+ * @param {number[]} r
+ * @returns {{angle:number, axis:number[]}} The angle in degrees, 0 to 180,
+ *          and the unit axis; (0, 0, 1) for the identity.
+ */
+export function axisAngleFromMatrix(r) {
+  let [x, y, z, w] = quaternionFromMatrix(r);
+  if (w < 0) { x = -x; y = -y; z = -z; w = -w; }
+  const n = Math.hypot(x, y, z);
+  if (n < 1e-12) return { angle: 0, axis: [0, 0, 1] };
+  return { angle: 2 * Math.atan2(n, w) * RAD2DEG, axis: [tidy(x / n), tidy(y / n), tidy(z / n)] };
+}
+
+/**
+ * The smallest rotation that turns the direction u onto the direction v.
+ *
+ * Opposite directions are half a turn apart about any line across them; the
+ * one across the lab axis least aligned with u is taken, so the answer is
+ * always the same.
+ *
+ * @param {number[]} u
+ * @param {number[]} v
+ * @returns {number[]}
+ */
+export function rotationBetween(u, v) {
+  const nu = Math.hypot(u[0], u[1], u[2]);
+  const nv = Math.hypot(v[0], v[1], v[2]);
+  if (!(nu > 0) || !(nv > 0)) return IDENTITY_ROTATION.slice();
+  const a = [u[0] / nu, u[1] / nu, u[2] / nu];
+  const b = [v[0] / nv, v[1] / nv, v[2] / nv];
+  const c = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  if (c > 1 - 1e-12) return IDENTITY_ROTATION.slice();
+  if (c < -1 + 1e-12) {
+    const k = Math.abs(a[0]) <= Math.abs(a[1]) && Math.abs(a[0]) <= Math.abs(a[2]) ? 0
+      : Math.abs(a[1]) <= Math.abs(a[2]) ? 1 : 2;
+    const e = [0, 0, 0];
+    e[k] = 1;
+    const p = [a[1] * e[2] - a[2] * e[1], a[2] * e[0] - a[0] * e[2], a[0] * e[1] - a[1] * e[0]];
+    const np = Math.hypot(p[0], p[1], p[2]);
+    const [px, py, pz] = [p[0] / np, p[1] / np, p[2] / np];
+    return [
+      2 * px * px - 1, 2 * px * py, 2 * px * pz,
+      2 * py * px, 2 * py * py - 1, 2 * py * pz,
+      2 * pz * px, 2 * pz * py, 2 * pz * pz - 1
+    ];
+  }
+  // Rodrigues: R = I + K + K^2 / (1 + c), K the cross-product matrix of a x b.
+  const kx = a[1] * b[2] - a[2] * b[1];
+  const ky = a[2] * b[0] - a[0] * b[2];
+  const kz = a[0] * b[1] - a[1] * b[0];
+  const f = 1 / (1 + c);
+  return [
+    1 - f * (ky * ky + kz * kz), -kz + f * kx * ky, ky + f * kx * kz,
+    kz + f * kx * ky, 1 - f * (kx * kx + kz * kz), -kx + f * ky * kz,
+    -ky + f * kx * kz, kx + f * ky * kz, 1 - f * (kx * kx + ky * ky)
+  ];
+}
+
+/* Eigenvalues and eigenvectors of a symmetric 3x3 matrix, by Jacobi
+ * rotations: largest eigenvalue first, each vector with its largest
+ * component positive so the same shape always gives the same axes. */
+function symmetricEigen3(m) {
+  const a = [[m[0], m[1], m[2]], [m[3], m[4], m[5]], [m[6], m[7], m[8]]];
+  const v = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  for (let sweep = 0; sweep < 64; sweep++) {
+    const off = Math.abs(a[0][1]) + Math.abs(a[0][2]) + Math.abs(a[1][2]);
+    const diag = Math.abs(a[0][0]) + Math.abs(a[1][1]) + Math.abs(a[2][2]);
+    if (off <= 1e-15 * diag) break;
+    for (const [p, q] of [[0, 1], [0, 2], [1, 2]]) {
+      if (a[p][q] === 0) continue;
+      const theta = (a[q][q] - a[p][p]) / (2 * a[p][q]);
+      const t = (theta >= 0 ? 1 : -1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
+      const c = 1 / Math.sqrt(t * t + 1);
+      const s = t * c;
+      for (let k = 0; k < 3; k++) {
+        const akp = a[k][p];
+        const akq = a[k][q];
+        a[k][p] = c * akp - s * akq;
+        a[k][q] = s * akp + c * akq;
+      }
+      for (let k = 0; k < 3; k++) {
+        const apk = a[p][k];
+        const aqk = a[q][k];
+        a[p][k] = c * apk - s * aqk;
+        a[q][k] = s * apk + c * aqk;
+      }
+      for (let k = 0; k < 3; k++) {
+        const vkp = v[k][p];
+        const vkq = v[k][q];
+        v[k][p] = c * vkp - s * vkq;
+        v[k][q] = s * vkp + c * vkq;
+      }
+    }
+  }
+  const pairs = [0, 1, 2].map(i => {
+    let vec = [v[0][i], v[1][i], v[2][i]];
+    const n = Math.hypot(vec[0], vec[1], vec[2]) || 1;
+    vec = vec.map(c => c / n);
+    const big = vec.reduce((best, c, k) => (Math.abs(c) > Math.abs(vec[best]) ? k : best), 0);
+    if (vec[big] < 0) vec = vec.map(c => -c);
+    return { value: a[i][i], vector: vec.map(tidy) };
+  }).sort((p, q) => q.value - p.value);
+  return { values: pairs.map(p => Math.max(0, p.value)), vectors: pairs.map(p => p.vector) };
+}
+
+/**
+ * The principal axes of a structure: the directions along which the atoms
+ * spread most, next and least, from the covariance of the positions about
+ * the geometric centre (every atom counts equally).
+ *
+ * @param {object[]} atoms
+ * @returns {{centre:{x:number,y:number,z:number}, variances:number[], axes:number[][]}|null}
+ *          Variances in the squared length unit of the coordinates, largest
+ *          first, each with its unit axis; null for fewer than two atoms.
+ */
+export function principalAxes(atoms) {
+  if (!Array.isArray(atoms) || atoms.length < 2) return null;
+  const c = geometricCentre(atoms);
+  let xx = 0;
+  let xy = 0;
+  let xz = 0;
+  let yy = 0;
+  let yz = 0;
+  let zz = 0;
+  for (const a of atoms) {
+    const dx = a.x - c.x;
+    const dy = a.y - c.y;
+    const dz = a.z - c.z;
+    xx += dx * dx; xy += dx * dy; xz += dx * dz;
+    yy += dy * dy; yz += dy * dz; zz += dz * dz;
+  }
+  const n = atoms.length;
+  const eig = symmetricEigen3([xx / n, xy / n, xz / n, xy / n, yy / n, yz / n, xz / n, yz / n, zz / n]);
+  return { centre: c, variances: eig.values, axes: eig.vectors };
+}
+
+/**
+ * The one axis a structure's shape singles out, if it has one: the long axis
+ * of something rod-like (a helix, a chain), or the normal of something flat
+ * (a ring, a sheet). A shape that is neither, or too even to say, has none.
+ *
+ * The test is on the variances along the principal axes, v1 >= v2 >= v3:
+ * rod-like when v1 stands at least a tenth above v2, flat when v3 stands at
+ * least a tenth of v1 below v2.
+ *
+ * @param {object[]} atoms
+ * @returns {{kind:'long'|'normal', axis:number[], centre:object, halfLength:number}|null}
+ *          halfLength is twice the standard deviation along the longest
+ *          axis, a length to draw the axis at.
+ */
+export function shapeAxis(atoms) {
+  const p = principalAxes(atoms);
+  if (!p) return null;
+  const [v1, v2, v3] = p.variances;
+  if (!(v1 > 0)) return null;
+  const halfLength = 2 * Math.sqrt(v1);
+  if ((v1 - v2) / v1 >= 0.1) return { kind: 'long', axis: p.axes[0], centre: p.centre, halfLength };
+  if ((v2 - v3) / v1 >= 0.1) return { kind: 'normal', axis: p.axes[2], centre: p.centre, halfLength };
+  return null;
+}
+
+/**
+ * The angles between a line and the three coordinate axes.
+ *
+ * A line has no direction, so each angle is between 0 and 90 degrees.
+ *
+ * @param {number[]} axis
+ * @returns {{x:number, y:number, z:number}} Degrees.
+ */
+export function axisTilt(axis) {
+  const n = Math.hypot(axis[0], axis[1], axis[2]);
+  if (!(n > 0)) return { x: NaN, y: NaN, z: NaN };
+  const tilt = c => Math.acos(clampUnit(Math.abs(c) / n)) * RAD2DEG;
+  return { x: tilt(axis[0]), y: tilt(axis[1]), z: tilt(axis[2]) };
+}
+
+/* ------------------------------------------------------------------ *
+ * A record of what was done, and the same steps as a script and as maths
+ *
+ * A step is one of
+ *   { type: 'rotate', angles: {x, y, z}, pivot: 'geometric'|'mass'|'origin', centre: {x, y, z} }
+ *   { type: 'translate', vector: {x, y, z} }
+ *   { type: 'centre', mode: 'geometric'|'mass', centre: {x, y, z} }
+ * with angles in degrees and lengths in the unit of the source file. `centre`
+ * is the point the step turned about or moved to the origin, as it was when
+ * the step was applied.
+ * ------------------------------------------------------------------ */
+
+const xyz = p => [p.x, p.y, p.z];
+
+/**
+ * The whole list of steps as one rigid transform, r' = M r + d.
+ *
+ * @param {object[]} steps
+ * @returns {{matrix:number[], offset:number[]}}
+ */
+export function netTransform(steps) {
+  let m = IDENTITY_ROTATION.slice();
+  let d = [0, 0, 0];
+  for (const step of Array.isArray(steps) ? steps : []) {
+    if (step.type === 'rotate') {
+      const r = rotationMatrix(step.angles.x, step.angles.y, step.angles.z);
+      const c = xyz(step.centre);
+      const rc = rotateVector(r, c);
+      const rd = rotateVector(r, d);
+      m = multiplyRotations(r, m);
+      d = [rd[0] + c[0] - rc[0], rd[1] + c[1] - rc[1], rd[2] + c[2] - rc[2]];
+    } else if (step.type === 'translate') {
+      const t = xyz(step.vector);
+      d = [d[0] + t[0], d[1] + t[1], d[2] + t[2]];
+    } else if (step.type === 'centre') {
+      const c = xyz(step.centre);
+      d = [d[0] - c[0], d[1] - c[1], d[2] - c[2]];
+    }
+  }
+  return { matrix: m, offset: d };
+}
+
+const PIVOT_NAME = { geometric: 'the geometric centre', mass: 'the centre of mass', origin: 'the origin' };
+const UNIT_NAME = { A: 'Å', nm: 'nm' };
+
+/* A number as Python reads it, without the noise of binary fractions. */
+function pyNumber(v) {
+  const n = Number(Number(v).toPrecision(12));
+  if (!Number.isFinite(n)) return "float('nan')";
+  const s = String(Object.is(n, -0) ? 0 : n);
+  return /[.e]/.test(s) ? s : `${s}.0`;
+}
+const pyVector = p => `[${xyz(p).map(pyNumber).join(', ')}]`;
+const pyString = s => `'${String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' ')}'`;
+const plain = v => String(Number(Number(v).toPrecision(10)));
+const triple = p => `(${xyz(p).map(plain).join(', ')})`;
+
+/** One line that says what a step did. */
+export function describeStep(step, unit = 'A') {
+  const u = UNIT_NAME[unit] || unit;
+  if (step.type === 'rotate') {
+    return `Rotate by ${triple(step.angles)} degrees about ${PIVOT_NAME[step.pivot] || PIVOT_NAME.geometric}`;
+  }
+  if (step.type === 'translate') return `Translate by ${triple(step.vector)} ${u}`;
+  if (step.type === 'centre') return `Move ${PIVOT_NAME[step.mode] || PIVOT_NAME.geometric} to the origin`;
+  return '';
+}
+
+const PY_ROTATION = [
+  'def rotation(ax, ay, az):',
+  '    """R = Rz(az) Ry(ay) Rx(ax), angles in degrees:',
+  '    a turn about x, then y, then z, each about the fixed axis."""',
+  '    ax, ay, az = np.radians([ax, ay, az])',
+  '    cx, sx = np.cos(ax), np.sin(ax)',
+  '    cy, sy = np.cos(ay), np.sin(ay)',
+  '    cz, sz = np.cos(az), np.sin(az)',
+  '    Rx = np.array([[1, 0, 0], [0, cx, -sx], [0, sx, cx]])',
+  '    Ry = np.array([[cy, 0, sy], [0, 1, 0], [-sy, 0, cy]])',
+  '    Rz = np.array([[cz, -sz, 0], [sz, cz, 0], [0, 0, 1]])',
+  '    return Rz @ Ry @ Rx'
+];
+
+/**
+ * The steps as a Python script.
+ *
+ * `variant: 'mdanalysis'` is a whole script: it reads the file with
+ * MDAnalysis, applies the steps and writes the result. MDAnalysis works in
+ * ångström whatever the file uses, so lengths from a nanometre source are
+ * converted. `variant: 'numpy'` is a function of an (N, 3) array in the unit
+ * of the source file, for use with any reader.
+ *
+ * @param {object[]} steps
+ * @param {object} [options]
+ * @param {'mdanalysis'|'numpy'} [options.variant='mdanalysis']
+ * @param {'A'|'nm'} [options.unit='A'] - Unit of the source file.
+ * @param {string} [options.input='input.pdb']
+ * @param {string} [options.output='output.pdb']
+ * @param {boolean} [options.velocities=false] - The source carries velocities.
+ * @param {{lengths:number[], angles?:number[]}|null} [options.box] - The cell to
+ *        write, lengths in nm, angles (alpha, beta, gamma) in degrees.
+ * @returns {string}
+ */
+export function transformScript(steps, options = {}) {
+  const list = Array.isArray(steps) ? steps : [];
+  const numpy = options.variant === 'numpy';
+  const unit = options.unit === 'nm' ? 'nm' : 'A';
+  const input = options.input || 'input.pdb';
+  const output = options.output || 'output.pdb';
+  const vel = Boolean(options.velocities);
+  const hasRotation = list.some(s => s.type === 'rotate');
+  const needsMass = list.some(s => (s.type === 'rotate' && s.pivot === 'mass') || (s.type === 'centre' && s.mode === 'mass'));
+  // In the whole script the coordinates are in ångström; in the function they
+  // are in the unit of the source file.
+  const toScript = (!numpy && unit === 'nm') ? 10 : 1;
+  const lengthUnit = numpy ? UNIT_NAME[unit] : 'Å';
+  const pad = numpy ? '    ' : '';
+  const masses = numpy ? 'masses' : 'u.atoms.masses';
+
+  const L = [];
+  L.push('"""The steps applied in STEMKit\'s Coordinate Manipulator, in order.');
+  L.push('https://stemkit.net/coordinate-manipulator.html');
+  L.push('');
+  if (numpy) {
+    L.push(`transform(x) takes an (N, 3) array of coordinates in ${UNIT_NAME[unit]},`);
+    L.push(`the unit of ${input}, and returns the new coordinates.`);
+    L.push('Needs numpy.');
+  } else {
+    L.push(`Reads ${input} and writes ${output}.`);
+    L.push('Needs numpy and MDAnalysis (pip install MDAnalysis).');
+  }
+  L.push('"""');
+  L.push('import numpy as np');
+  if (!numpy) L.push('import MDAnalysis as mda');
+  if (hasRotation) L.push('', '', ...PY_ROTATION);
+  L.push('', '');
+
+  if (numpy) {
+    L.push('def transform(x, masses=None):');
+    L.push('    x = np.array(x, dtype=float)');
+    if (needsMass) {
+      L.push('    if masses is None:');
+      L.push("        raise ValueError('a step uses the centre of mass: pass the atomic masses')");
+    }
+  } else {
+    L.push(`u = mda.Universe(${pyString(input)})`);
+    L.push('x = u.atoms.positions.astype(float)  # MDAnalysis works in ångström');
+    if (vel) L.push('v = u.atoms.velocities.astype(float)');
+  }
+
+  if (!list.length) L.push('', `${pad}# No step has been applied yet.`);
+
+  const short = p => `(${xyz(p).map(v => String(Number(Number(v).toFixed(4)))).join(', ')})`;
+  const massNote = (centre) => (numpy ? [] : [
+    `${pad}# MDAnalysis guesses the masses from the atom names. The page uses`,
+    `${pad}# standard atomic weights by element, and found this centre at`,
+    `${pad}# ${short(centre)} ${UNIT_NAME[unit]}.`
+  ]);
+
+  list.forEach((step, i) => {
+    L.push('', `${pad}# ${i + 1}. ${describeStep(step, unit)}`);
+    if (step.type === 'rotate') {
+      L.push(`${pad}R = rotation(${xyz(step.angles).map(pyNumber).join(', ')})`);
+      if (step.pivot === 'origin') {
+        L.push(`${pad}x = x @ R.T`);
+      } else {
+        if (step.pivot === 'mass') {
+          L.push(...massNote(step.centre));
+          L.push(`${pad}c = np.average(x, axis=0, weights=${masses})`);
+        } else {
+          L.push(`${pad}c = x.mean(axis=0)`);
+        }
+        L.push(`${pad}x = (x - c) @ R.T + c`);
+      }
+      if (numpy) L.push(`${pad}# velocities, if you carry any, turn the same way: v @ R.T`);
+      else if (vel) L.push('v = v @ R.T');
+    } else if (step.type === 'translate') {
+      if (toScript !== 1) {
+        L.push(`${pad}# nm on the page, ångström here`);
+        L.push(`${pad}x += ${toScript} * np.array(${pyVector(step.vector)})`);
+      } else {
+        L.push(`${pad}x += np.array(${pyVector(step.vector)})`);
+      }
+    } else if (step.type === 'centre') {
+      if (step.mode === 'mass') {
+        L.push(...massNote(step.centre));
+        L.push(`${pad}x -= np.average(x, axis=0, weights=${masses})`);
+      } else {
+        L.push(`${pad}x -= x.mean(axis=0)`);
+      }
+    }
+  });
+
+  L.push('');
+  if (numpy) {
+    L.push('    return x');
+  } else {
+    L.push('u.atoms.positions = x');
+    if (vel) L.push('u.atoms.velocities = v');
+    const box = options.box;
+    if (box && Array.isArray(box.lengths) && box.lengths.length >= 3 && box.lengths.every(v => Number.isFinite(v) && v > 0)) {
+      const ang = Array.isArray(box.angles) && box.angles.length >= 3 ? box.angles : [90, 90, 90];
+      const dims = [...box.lengths.slice(0, 3).map(v => v * 10), ...ang.slice(0, 3)].map(pyNumber).join(', ');
+      L.push('# The cell: lengths in ångström, then the angles.');
+      L.push(`u.dimensions = [${dims}]`);
+    }
+    L.push(`u.atoms.write(${pyString(output)})`);
+  }
+  return `${L.join('\n')}\n`;
+}
+
+/* TeX pieces. */
+const texNumber = (v, digits) => {
+  const s = Number(v).toFixed(digits);
+  return /^-0\.?0*$/.test(s) ? s.slice(1) : s;
+};
+const texAngle = v => `${plain(v)}^\\circ`;
+const texMatrix = (m, digits = 4) => `\\begin{pmatrix} ${[0, 1, 2].map(i => [0, 1, 2].map(j => texNumber(m[i * 3 + j], digits)).join(' & ')).join(' \\\\ ')} \\end{pmatrix}`;
+const texVector = (v, digits) => `\\begin{pmatrix} ${v.map(c => texNumber(c, digits)).join(' \\\\ ')} \\end{pmatrix}`;
+const TEX_UNIT = { A: '\\text{\\AA}', nm: '\\text{nm}' };
+const TEX_CENTRE = {
+  geometric: '\\frac{1}{N}\\sum_i \\mathbf{r}_i',
+  mass: '\\frac{\\sum_i m_i\\,\\mathbf{r}_i}{\\sum_i m_i}'
+};
+
+/**
+ * The steps as equations: each step with the matrix or vector it used, and
+ * the one transform they add up to.
+ *
+ * @param {object[]} steps
+ * @param {{unit?: 'A'|'nm'}} [options]
+ * @returns {{blocks: {heading:string, tex:string, note?:string}[], latex:string}}
+ *          `blocks` for typesetting one at a time; `latex` the same as a
+ *          fragment for a document that loads amsmath.
+ */
+export function transformLatex(steps, options = {}) {
+  const list = Array.isArray(steps) ? steps : [];
+  const unit = options.unit === 'nm' ? 'nm' : 'A';
+  const u = TEX_UNIT[unit];
+  const digits = unit === 'nm' ? 4 : 3;
+  const blocks = [];
+  const aligned = rows => `\\begin{aligned} ${rows.join(' \\\\[4pt] ')} \\end{aligned}`;
+
+  if (list.some(s => s.type === 'rotate')) {
+    blocks.push({
+      heading: 'How the three angles make one rotation',
+      tex: aligned([
+        'R(\\alpha, \\beta, \\gamma) &= R_z(\\gamma)\\,R_y(\\beta)\\,R_x(\\alpha)',
+        'R_x(\\alpha) &= \\begin{pmatrix} 1 & 0 & 0 \\\\ 0 & \\cos\\alpha & -\\sin\\alpha \\\\ 0 & \\sin\\alpha & \\cos\\alpha \\end{pmatrix}',
+        'R_y(\\beta) &= \\begin{pmatrix} \\cos\\beta & 0 & \\sin\\beta \\\\ 0 & 1 & 0 \\\\ -\\sin\\beta & 0 & \\cos\\beta \\end{pmatrix}',
+        'R_z(\\gamma) &= \\begin{pmatrix} \\cos\\gamma & -\\sin\\gamma & 0 \\\\ \\sin\\gamma & \\cos\\gamma & 0 \\\\ 0 & 0 & 1 \\end{pmatrix}'
+      ]),
+      note: 'The rightmost matrix acts first: a turn of α about x, then β about y, then γ about z, each about the fixed axis.'
+    });
+  }
+
+  list.forEach((step, i) => {
+    const heading = `Step ${i + 1}. ${describeStep(step, unit)}`;
+    if (step.type === 'rotate') {
+      const r = rotationMatrix(step.angles.x, step.angles.y, step.angles.z);
+      const rows = [
+        step.pivot === 'origin' ? "\\mathbf{r}' &= R\\,\\mathbf{r}" : "\\mathbf{r}' &= \\mathbf{c} + R\\,(\\mathbf{r} - \\mathbf{c})",
+        `R &= R_z(${texAngle(step.angles.z)})\\,R_y(${texAngle(step.angles.y)})\\,R_x(${texAngle(step.angles.x)}) = ${texMatrix(r)}`
+      ];
+      if (step.pivot !== 'origin') {
+        rows.push(`\\mathbf{c} &= ${TEX_CENTRE[step.pivot] || TEX_CENTRE.geometric} = ${texVector(xyz(step.centre), digits)}\\,${u}`);
+      }
+      blocks.push({ heading, tex: aligned(rows) });
+    } else if (step.type === 'translate') {
+      blocks.push({ heading, tex: aligned(["\\mathbf{r}' &= \\mathbf{r} + \\mathbf{t}", `\\mathbf{t} &= ${texVector(xyz(step.vector), digits)}\\,${u}`]) });
+    } else if (step.type === 'centre') {
+      blocks.push({ heading, tex: aligned(["\\mathbf{r}' &= \\mathbf{r} - \\mathbf{c}", `\\mathbf{c} &= ${TEX_CENTRE[step.mode] || TEX_CENTRE.geometric} = ${texVector(xyz(step.centre), digits)}\\,${u}`]) });
+    }
+  });
+
+  if (list.length) {
+    const net = netTransform(list);
+    const turn = axisAngleFromMatrix(net.matrix);
+    const e = eulerFromMatrix(net.matrix);
+    const one = v => plain(Number(v.toFixed(2)));
+    blocks.push({
+      heading: list.length > 1 ? `All ${list.length} steps as one` : 'The step as one transform',
+      tex: aligned(["\\mathbf{r}' &= M\\,\\mathbf{r} + \\mathbf{d}", `M &= ${texMatrix(net.matrix)}`, `\\mathbf{d} &= ${texVector(net.offset, digits)}\\,${u}`]),
+      note: turn.angle < 1e-9
+        ? 'M is the identity: the structure was moved but not turned.'
+        : `M is one turn of ${one(turn.angle)}° about the axis (${turn.axis.map(c => texNumber(c, 3)).join(', ')}), ` +
+          `the same as the angles x ${one(e.x)}°, y ${one(e.y)}°, z ${one(e.z)}°.`
+    });
+  }
+
+  const latex = blocks.map(b => `% ${b.heading}\n\\[\n${b.tex}\n\\]${b.note ? `\n% ${b.note}` : ''}`).join('\n\n');
+  return { blocks, latex: latex ? `${latex}\n` : '' };
 }
 
 /**

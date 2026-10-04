@@ -1,4 +1,9 @@
 import { describe, test, expect } from '@jest/globals';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   boxVectorsFromAngles, anglesFromBoxVectors, isTriclinic,
   ATOMIC_WEIGHTS, DEFAULT_MASS, MIN_BOX_NM,
@@ -6,6 +11,9 @@ import {
   parsePDB, parseGRO, parseXYZ, parseStructure,
   geometricCentre, centreOfMass, boundingBox, radiusOfGyration,
   rotationMatrix, rotateAtoms, translateAtoms, centreAtoms, scaleAtoms,
+  rotateAtomsByMatrix, IDENTITY_ROTATION, multiplyRotations, transposeRotation, rotateVector,
+  eulerFromMatrix, quaternionFromMatrix, matrixFromQuaternion, axisAngleFromMatrix, rotationBetween,
+  principalAxes, shapeAxis, axisTilt, netTransform, describeStep, transformScript, transformLatex,
   unitFactor, targetUnit, computeBoxFromBounds, boxFitsStructure,
   padStr, formatXYZ, formatPDB, formatGRO, formatStructure,
   structureStats
@@ -915,6 +923,387 @@ describe('atomic weights follow CIAAW 2024', () => {
     expect(ATOMIC_WEIGHTS.Tc).toBe(98);
     for (const sym of ['Pm', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Np', 'Pu']) {
       expect(ATOMIC_WEIGHTS[sym]).toBeUndefined();
+    }
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Rotations as matrices
+ * ------------------------------------------------------------------ */
+
+const worst = (a, b) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
+// The same sequence every run.
+const sequence = (seed) => { let s = seed; return () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648; };
+
+describe('rotations as matrices', () => {
+  test('a product applies the right-hand rotation first', () => {
+    const aboutX = rotationMatrix(90, 0, 0);
+    const aboutZ = rotationMatrix(0, 0, 90);
+    expect(worst(multiplyRotations(aboutZ, aboutX), rotationMatrix(90, 0, 90))).toBeLessThan(1e-12);
+    // x then z takes the y axis to z; z then x takes it to minus x.
+    expect(worst(rotateVector(multiplyRotations(aboutZ, aboutX), [0, 1, 0]), [0, 0, 1])).toBeLessThan(1e-12);
+    expect(worst(rotateVector(multiplyRotations(aboutX, aboutZ), [0, 1, 0]), [-1, 0, 0])).toBeLessThan(1e-12);
+  });
+
+  test('the transpose undoes a rotation', () => {
+    const r = rotationMatrix(17, -64, 123);
+    expect(worst(multiplyRotations(r, transposeRotation(r)), IDENTITY_ROTATION)).toBeLessThan(1e-12);
+  });
+
+  test('eulerFromMatrix gives back the angles that made the matrix', () => {
+    const e = eulerFromMatrix(rotationMatrix(10, -32.5, 45));
+    expect(e.x).toBeCloseTo(10, 9);
+    expect(e.y).toBeCloseTo(-32.5, 9);
+    expect(e.z).toBeCloseTo(45, 9);
+    expect(eulerFromMatrix(IDENTITY_ROTATION)).toEqual({ x: 0, y: 0, z: 0 });
+  });
+
+  test('its angles rebuild any rotation, y within -90 to 90', () => {
+    const rnd = sequence(7);
+    for (let k = 0; k < 4000; k++) {
+      const r = rotationMatrix(rnd() * 720 - 360, rnd() * 720 - 360, rnd() * 720 - 360);
+      const e = eulerFromMatrix(r);
+      expect(Math.abs(e.y)).toBeLessThanOrEqual(90 + 1e-9);
+      expect(worst(rotationMatrix(e.x, e.y, e.z), r)).toBeLessThan(1e-9);
+    }
+  });
+
+  test('at y = ±90 the whole of the free angle goes to z', () => {
+    for (const y of [90, -90]) {
+      const r = rotationMatrix(25, y, 70);
+      const e = eulerFromMatrix(r);
+      expect(e.x).toBe(0);
+      expect(e.y).toBeCloseTo(y, 9);
+      expect(worst(rotationMatrix(e.x, e.y, e.z), r)).toBeLessThan(1e-9);
+    }
+  });
+
+  test('a quaternion and its matrix go back and forth, half turns included', () => {
+    const rnd = sequence(11);
+    const cases = [[180, 0, 0], [0, 180, 0], [0, 0, 180], [180, 0, 180], [0, 0, 0]];
+    for (let k = 0; k < 2000; k++) cases.push([rnd() * 360 - 180, rnd() * 180 - 90, rnd() * 360 - 180]);
+    for (const c of cases) {
+      const r = rotationMatrix(...c);
+      const q = quaternionFromMatrix(r);
+      expect(Math.hypot(...q)).toBeCloseTo(1, 12);
+      expect(worst(matrixFromQuaternion(q), r)).toBeLessThan(1e-12);
+    }
+    // A quaternion need not arrive normalised.
+    expect(worst(matrixFromQuaternion([0, 0, 2, 2]), rotationMatrix(0, 0, 90))).toBeLessThan(1e-12);
+  });
+
+  test('axisAngleFromMatrix names the one turn a rotation is', () => {
+    const z = axisAngleFromMatrix(rotationMatrix(0, 0, 90));
+    expect(z.angle).toBeCloseTo(90, 9);
+    expect(worst(z.axis, [0, 0, 1])).toBeLessThan(1e-12);
+    const back = axisAngleFromMatrix(rotationMatrix(0, 0, -90));
+    expect(back.angle).toBeCloseTo(90, 9);
+    expect(worst(back.axis, [0, 0, -1])).toBeLessThan(1e-12);
+    const half = axisAngleFromMatrix(rotationMatrix(180, 0, 0));
+    expect(half.angle).toBeCloseTo(180, 9);
+    expect(Math.abs(half.axis[0])).toBeCloseTo(1, 9);
+    expect(axisAngleFromMatrix(IDENTITY_ROTATION)).toEqual({ angle: 0, axis: [0, 0, 1] });
+    // x then y by a quarter turn each is a third of a turn about the diagonal.
+    const third = axisAngleFromMatrix(rotationMatrix(90, 90, 0));
+    expect(third.angle).toBeCloseTo(120, 9);
+    expect(worst(third.axis, [1, 1, -1].map(c => c / Math.sqrt(3)))).toBeLessThan(1e-9);
+  });
+
+  test('rotationBetween turns one direction onto another by the smallest turn', () => {
+    const rnd = sequence(3);
+    for (let k = 0; k < 2000; k++) {
+      const u = [rnd() - 0.5, rnd() - 0.5, rnd() - 0.5];
+      const v = [rnd() - 0.5, rnd() - 0.5, rnd() - 0.5];
+      const r = rotationBetween(u, v);
+      const nu = Math.hypot(...u);
+      const nv = Math.hypot(...v);
+      expect(worst(rotateVector(r, u).map(c => c / nu), v.map(c => c / nv))).toBeLessThan(1e-9);
+      expect(worst(multiplyRotations(r, transposeRotation(r)), IDENTITY_ROTATION)).toBeLessThan(1e-9);
+      const between = Math.acos(Math.max(-1, Math.min(1, (u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) / (nu * nv)))) * 180 / Math.PI;
+      expect(axisAngleFromMatrix(r).angle).toBeCloseTo(between, 6);
+    }
+  });
+
+  test('rotationBetween handles the same direction and the opposite one', () => {
+    expect(rotationBetween([0, 0, 2], [0, 0, 5])).toEqual([...IDENTITY_ROTATION]);
+    for (const u of [[0, 0, 1], [1, 0, 0], [0.3, -0.2, 0.9]]) {
+      const r = rotationBetween(u, u.map(c => -c));
+      expect(worst(rotateVector(r, u), u.map(c => -c))).toBeLessThan(1e-12);
+      expect(worst(multiplyRotations(r, transposeRotation(r)), IDENTITY_ROTATION)).toBeLessThan(1e-12);
+      expect(axisAngleFromMatrix(r).angle).toBeCloseTo(180, 9);
+    }
+    expect(rotationBetween([0, 0, 0], [1, 0, 0])).toEqual([...IDENTITY_ROTATION]);
+  });
+
+  test('rotateAtomsByMatrix is rotateAtoms with the matrix given', () => {
+    const atoms = [{ x: 1, y: 2, z: 3, vx: 0.1, vy: 0.2, vz: 0.3 }, { x: -4, y: 0.5, z: 2 }];
+    const pivot = { x: 1, y: 1, z: 1 };
+    expect(rotateAtomsByMatrix(atoms, rotationMatrix(12, 34, 56), pivot)).toEqual(rotateAtoms(atoms, 12, 34, 56, pivot));
+    expect(rotateAtomsByMatrix(null, IDENTITY_ROTATION)).toEqual([]);
+  });
+});
+
+describe('the axis of a shape', () => {
+  const rod = (d) => {
+    const n = Math.hypot(...d);
+    const atoms = [];
+    for (let i = -10; i <= 10; i++) {
+      atoms.push({ x: 5 + i * d[0] / n + 0.01 * Math.sin(i), y: -2 + i * d[1] / n + 0.01 * Math.cos(3 * i), z: 1 + i * d[2] / n });
+    }
+    return atoms;
+  };
+  const ring = () => [0, 1, 2, 3, 4, 5].map(i => ({ x: 4 + Math.cos(i * Math.PI / 3), y: Math.sin(i * Math.PI / 3), z: -2 }));
+
+  test('principalAxes finds the line a rod lies along', () => {
+    const p = principalAxes(rod([1, 2, 2]));
+    expect(worst(p.axes[0], [1 / 3, 2 / 3, 2 / 3])).toBeLessThan(1e-3);
+    expect(p.variances[0]).toBeGreaterThan(30);
+    expect(p.variances[1]).toBeLessThan(1e-3);
+    expect(p.centre.x).toBeCloseTo(5, 2);
+    // The three axes are at right angles.
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    expect(dot(p.axes[0], p.axes[1])).toBeCloseTo(0, 9);
+    expect(dot(p.axes[0], p.axes[2])).toBeCloseTo(0, 9);
+    expect(dot(p.axes[1], p.axes[2])).toBeCloseTo(0, 9);
+  });
+
+  test('an axis is reported the same way whichever end is first', () => {
+    const line = d => [-2, -1, 0, 1, 2].map(i => ({ x: i * d[0], y: i * d[1], z: i * d[2] }));
+    const one = principalAxes(line([1, 2, 2])).axes[0];
+    expect(worst(one, [1 / 3, 2 / 3, 2 / 3])).toBeLessThan(1e-12);
+    expect(worst(principalAxes(line([-1, -2, -2])).axes[0], one)).toBeLessThan(1e-12);
+    expect(worst(principalAxes(line([1, 2, 2]).reverse()).axes[0], one)).toBeLessThan(1e-12);
+  });
+
+  test('shapeAxis is the long axis of a rod, the normal of a ring, nothing for a cube', () => {
+    const long = shapeAxis(rod([0, 0, 1]));
+    expect(long.kind).toBe('long');
+    expect(worst(long.axis, [0, 0, 1])).toBeLessThan(1e-3);
+    expect(long.halfLength).toBeCloseTo(2 * Math.sqrt(principalAxes(rod([0, 0, 1])).variances[0]), 12);
+    const flat = shapeAxis(ring());
+    expect(flat.kind).toBe('normal');
+    expect(worst(flat.axis, [0, 0, 1])).toBeLessThan(1e-12);
+    const cube = [-1, 1].flatMap(x => [-1, 1].flatMap(y => [-1, 1].map(z => ({ x, y, z }))));
+    expect(shapeAxis(cube)).toBeNull();
+    expect(shapeAxis([{ x: 1, y: 2, z: 3 }])).toBeNull();
+    expect(shapeAxis([{ x: 1, y: 2, z: 3 }, { x: 1, y: 2, z: 3 }])).toBeNull();
+    expect(principalAxes([])).toBeNull();
+  });
+
+  test('axisTilt is the angle to each coordinate axis, never more than 90', () => {
+    expect(axisTilt([0, 0, 1])).toEqual({ x: 90, y: 90, z: 0 });
+    expect(axisTilt([0, 0, -3]).z).toBe(0);
+    const t = axisTilt([1, 1, 0]);
+    expect(t.x).toBeCloseTo(45, 9);
+    expect(t.y).toBeCloseTo(45, 9);
+    expect(t.z).toBeCloseTo(90, 9);
+    expect(axisTilt([0, 0, 0]).x).toBeNaN();
+  });
+
+  test('turning a rod by rotationBetween lays it along the axis asked for', () => {
+    const atoms = rod([1, 2, 2]);
+    const shape = shapeAxis(atoms);
+    const e = eulerFromMatrix(rotationBetween(shape.axis, [0, 0, 1]));
+    const turned = rotateAtoms(atoms, e.x, e.y, e.z, shape.centre);
+    expect(axisTilt(shapeAxis(turned).axis).z).toBeLessThan(1e-6);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The record of the steps, as one transform, as Python and as TeX
+ * ------------------------------------------------------------------ */
+
+const HELIX = readFileSync(fileURLToPath(new URL('../assets/samples/helix-ala15.pdb', import.meta.url)), 'utf8');
+
+/* Apply steps the way the page does, recording each one. */
+function applySteps(start, plan) {
+  let atoms = start.map(a => ({ ...a }));
+  const steps = [];
+  for (const [type, ...args] of plan) {
+    if (type === 'rotate') {
+      const [x, y, z, pivot] = args;
+      const c = pivot === 'origin' ? { x: 0, y: 0, z: 0 } : pivot === 'mass' ? centreOfMass(atoms) : geometricCentre(atoms);
+      steps.push({ type, angles: { x, y, z }, pivot, centre: { x: c.x, y: c.y, z: c.z } });
+      atoms = rotateAtoms(atoms, x, y, z, c);
+    } else if (type === 'translate') {
+      const [x, y, z] = args;
+      steps.push({ type, vector: { x, y, z } });
+      atoms = translateAtoms(atoms, x, y, z);
+    } else {
+      const [mode] = args;
+      const c = mode === 'mass' ? centreOfMass(atoms) : geometricCentre(atoms);
+      steps.push({ type, mode, centre: { x: c.x, y: c.y, z: c.z } });
+      atoms = centreAtoms(atoms, mode);
+    }
+  }
+  return { atoms, steps };
+}
+
+const PLAN = [
+  ['rotate', 10, -32.5, 45, 'geometric'],
+  ['translate', 1.25, 0, -3],
+  ['rotate', 0, 90, 12, 'origin'],
+  ['centre', 'geometric'],
+  ['rotate', 77.7, 5, -120, 'geometric'],
+  ['translate', 0.1, 0.2, 0.3]
+];
+
+describe('the record of the steps', () => {
+  const start = parseStructure(HELIX, 'helix-ala15.pdb').atoms;
+
+  test('netTransform is the steps applied one after another', () => {
+    const { atoms, steps } = applySteps(start, [...PLAN, ['rotate', 3, 4, 5, 'mass'], ['centre', 'mass']]);
+    const net = netTransform(steps);
+    start.forEach((a, i) => {
+      const p = rotateVector(net.matrix, [a.x, a.y, a.z]).map((c, k) => c + net.offset[k]);
+      expect(worst(p, [atoms[i].x, atoms[i].y, atoms[i].z])).toBeLessThan(1e-11);
+    });
+    expect(netTransform([])).toEqual({ matrix: [...IDENTITY_ROTATION], offset: [0, 0, 0] });
+    expect(netTransform(null).offset).toEqual([0, 0, 0]);
+  });
+
+  test('two rotations do not add angle by angle, and the net one says so', () => {
+    const { steps } = applySteps(start, [['rotate', 90, 0, 0, 'origin'], ['rotate', 0, 90, 0, 'origin']]);
+    const e = eulerFromMatrix(netTransform(steps).matrix);
+    expect(worst(rotationMatrix(e.x, e.y, e.z), multiplyRotations(rotationMatrix(0, 90, 0), rotationMatrix(90, 0, 0)))).toBeLessThan(1e-9);
+    expect(worst(rotationMatrix(e.x, e.y, e.z), rotationMatrix(90, 90, 0))).toBeLessThan(1e-9);
+    // The other order is a different rotation.
+    const other = multiplyRotations(rotationMatrix(90, 0, 0), rotationMatrix(0, 90, 0));
+    expect(worst(other, rotationMatrix(90, 90, 0))).toBeGreaterThan(0.5);
+  });
+
+  test('describeStep says what each step did', () => {
+    const { steps } = applySteps(start, [['rotate', 10, 0, -45.5, 'mass'], ['translate', 1, 0, -2.5], ['centre', 'geometric']]);
+    expect(describeStep(steps[0], 'A')).toBe('Rotate by (10, 0, -45.5) degrees about the centre of mass');
+    expect(describeStep(steps[1], 'nm')).toBe('Translate by (1, 0, -2.5) nm');
+    expect(describeStep(steps[1], 'A')).toBe('Translate by (1, 0, -2.5) Å');
+    expect(describeStep(steps[2], 'A')).toBe('Move the geometric centre to the origin');
+  });
+
+  test('the whole script reads, repeats every step in order and writes', () => {
+    const { steps } = applySteps(start, [['rotate', 10, 0, 45, 'geometric'], ['translate', 1, 0, 0], ['centre', 'mass'], ['rotate', 0, 30, 0, 'origin']]);
+    const py = transformScript(steps, { input: "it's.pdb", output: 'out.gro', unit: 'A', box: { lengths: [2, 3, 4] } });
+    expect(py).toContain("u = mda.Universe('it\\'s.pdb')");
+    expect(py).toContain('R = rotation(10.0, 0.0, 45.0)');
+    expect(py).toContain('c = x.mean(axis=0)\nx = (x - c) @ R.T + c');
+    expect(py).toContain('x += np.array([1.0, 0.0, 0.0])');
+    expect(py).toContain('x -= np.average(x, axis=0, weights=u.atoms.masses)');
+    expect(py).toContain('R = rotation(0.0, 30.0, 0.0)\nx = x @ R.T');
+    expect(py).toContain('u.dimensions = [20.0, 30.0, 40.0, 90.0, 90.0, 90.0]');
+    expect(py).toContain("u.atoms.write('out.gro')");
+    expect(py).not.toContain('velocities');
+    const order = ['# 1. Rotate', '# 2. Translate', '# 3. Move the centre of mass', '# 4. Rotate'].map(t => py.indexOf(t));
+    expect(order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1]))).toBe(true);
+    for (const line of py.split('\n')) expect(line.length).toBeLessThanOrEqual(79);
+  });
+
+  test('a nanometre source is converted for MDAnalysis, which works in ångström', () => {
+    const steps = [{ type: 'translate', vector: { x: 0.1, y: 0, z: -0.25 } }];
+    expect(transformScript(steps, { unit: 'nm' })).toContain('x += 10 * np.array([0.1, 0.0, -0.25])');
+    expect(transformScript(steps, { unit: 'nm', variant: 'numpy' })).toContain('    x += np.array([0.1, 0.0, -0.25])');
+    expect(transformScript(steps, { unit: 'A' })).toContain('x += np.array([0.1, 0.0, -0.25])');
+  });
+
+  test('velocities turn with each rotation, a triclinic cell keeps its angles, no step is said', () => {
+    const steps = [{ type: 'rotate', angles: { x: 0, y: 0, z: 90 }, pivot: 'origin', centre: { x: 0, y: 0, z: 0 } }];
+    const py = transformScript(steps, { velocities: true, box: { lengths: [3, 3, 3], angles: [60, 60, 90] } });
+    expect(py).toContain('v = u.atoms.velocities.astype(float)');
+    expect(py).toContain('x = x @ R.T\nv = v @ R.T');
+    expect(py).toContain('u.atoms.velocities = v');
+    expect(py).toContain('u.dimensions = [30.0, 30.0, 30.0, 60.0, 60.0, 90.0]');
+    const none = transformScript([], {});
+    expect(none).toContain('# No step has been applied yet.');
+    expect(none).not.toContain('def rotation');
+    expect(none).not.toContain('u.dimensions');
+  });
+
+  test('the function form needs the masses only when a step uses them', () => {
+    const { steps } = applySteps(start, [['rotate', 10, 0, 45, 'mass']]);
+    const fn = transformScript(steps, { variant: 'numpy' });
+    expect(fn).toContain('def transform(x, masses=None):');
+    expect(fn).toContain("raise ValueError('a step uses the centre of mass: pass the atomic masses')");
+    expect(fn).toContain('    c = np.average(x, axis=0, weights=masses)');
+    expect(fn).not.toContain('MDAnalysis');
+    expect(transformScript(applySteps(start, [['centre', 'geometric']]).steps, { variant: 'numpy' })).not.toContain('raise');
+  });
+
+  test('the equations give each step its matrix or vector, then the one transform', () => {
+    const { steps } = applySteps(start, [['rotate', 0, 0, 90, 'geometric'], ['translate', 1, 2, 3]]);
+    const { blocks, latex } = transformLatex(steps, { unit: 'A' });
+    expect(blocks.map(b => b.heading)).toEqual([
+      'How the three angles make one rotation',
+      'Step 1. Rotate by (0, 0, 90) degrees about the geometric centre',
+      'Step 2. Translate by (1, 2, 3) Å',
+      'All 2 steps as one'
+    ]);
+    expect(blocks[1].tex).toContain('R_z(90^\\circ)\\,R_y(0^\\circ)\\,R_x(0^\\circ) = \\begin{pmatrix} 0.0000 & -1.0000 & 0.0000 \\\\ 1.0000 & 0.0000 & 0.0000 \\\\ 0.0000 & 0.0000 & 1.0000 \\end{pmatrix}');
+    expect(blocks[1].tex).toContain("\\mathbf{r}' &= \\mathbf{c} + R\\,(\\mathbf{r} - \\mathbf{c})");
+    expect(blocks[2].tex).toContain('\\mathbf{t} &= \\begin{pmatrix} 1.000 \\\\ 2.000 \\\\ 3.000 \\end{pmatrix}\\,\\text{\\AA}');
+    expect(blocks[3].note).toBe('M is one turn of 90° about the axis (0.000, 0.000, 1.000), the same as the angles x 0°, y 0°, z 90°.');
+    expect(latex.match(/^\\\[$/gm)).toHaveLength(4);
+    expect(latex).toContain('% Step 2. Translate by (1, 2, 3) Å');
+  });
+
+  test('a turn about the origin has no centre, a move alone no rotation, nothing no equation', () => {
+    const origin = transformLatex([{ type: 'rotate', angles: { x: 5, y: 0, z: 0 }, pivot: 'origin', centre: { x: 0, y: 0, z: 0 } }]);
+    expect(origin.blocks[1].tex).toContain("\\mathbf{r}' &= R\\,\\mathbf{r}");
+    expect(origin.blocks[1].tex).not.toContain('\\mathbf{c}');
+    const move = transformLatex([{ type: 'translate', vector: { x: 0.1, y: 0, z: 0 } }], { unit: 'nm' });
+    expect(move.blocks.map(b => b.heading)).toEqual(['Step 1. Translate by (0.1, 0, 0) nm', 'The step as one transform']);
+    expect(move.blocks[0].tex).toContain('0.1000 \\\\ 0.0000 \\\\ 0.0000 \\end{pmatrix}\\,\\text{nm}');
+    expect(move.blocks[1].note).toBe('M is the identity: the structure was moved but not turned.');
+    expect(transformLatex([])).toEqual({ blocks: [], latex: '' });
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * The scripts give the page's coordinates: run them
+ * ------------------------------------------------------------------ */
+
+const PYTHON_BIN = process.env.STEMKIT_PYTHON || 'python3';
+const canImport = (modules) => {
+  try {
+    return spawnSync(PYTHON_BIN, ['-c', `import ${modules}`], { encoding: 'utf8', timeout: 60000 }).status === 0;
+  } catch {
+    return false;
+  }
+};
+const withNumpy = canImport('numpy') ? test : test.skip;
+const withMDAnalysis = canImport('numpy, MDAnalysis') ? test : test.skip;
+
+describe('the scripts repeat the steps', () => {
+  const start = parseStructure(HELIX, 'helix-ala15.pdb').atoms;
+  const run = (dir, code) => {
+    const r = spawnSync(PYTHON_BIN, ['-W', 'ignore', '-c', code], { cwd: dir, encoding: 'utf8', timeout: 120000 });
+    if (r.status !== 0) throw new Error(r.stderr || r.stdout);
+    return JSON.parse(r.stdout);
+  };
+
+  withNumpy('the NumPy function gives the page\'s coordinates', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'stemkit-steps-'));
+    try {
+      const { atoms, steps } = applySteps(start, [...PLAN, ['rotate', 3, 4, 5, 'mass'], ['centre', 'mass']]);
+      writeFileSync(join(dir, 'fn.py'), transformScript(steps, { variant: 'numpy', unit: 'A', input: 'helix-ala15.pdb' }));
+      writeFileSync(join(dir, 'in.json'), JSON.stringify({ x: start.map(a => [a.x, a.y, a.z]), m: start.map(a => atomicMass(a)) }));
+      const got = run(dir, 'import json, runpy\nd = json.load(open("in.json"))\nprint(json.dumps(runpy.run_path("fn.py")["transform"](d["x"], d["m"]).tolist()))');
+      got.forEach((p, i) => expect(worst(p, [atoms[i].x, atoms[i].y, atoms[i].z])).toBeLessThan(1e-9));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  withMDAnalysis('the whole script reads the file, repeats the steps and writes the page\'s coordinates', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'stemkit-steps-'));
+    try {
+      const { atoms, steps } = applySteps(start, PLAN);
+      writeFileSync(join(dir, 'helix-ala15.pdb'), HELIX);
+      writeFileSync(join(dir, 'steps.py'), transformScript(steps, { unit: 'A', input: 'helix-ala15.pdb', output: 'out.pdb', box: { lengths: [3, 4, 5] } }));
+      const got = run(dir, 'import json, runpy, MDAnalysis as mda\nrunpy.run_path("steps.py")\nu = mda.Universe("out.pdb")\nprint(json.dumps({"x": u.atoms.positions.tolist(), "cell": u.dimensions.tolist()}))');
+      // A PDB file keeps three decimals.
+      got.x.forEach((p, i) => expect(worst(p, [atoms[i].x, atoms[i].y, atoms[i].z])).toBeLessThan(6e-4));
+      expect(worst(got.cell, [30, 40, 50, 90, 90, 90])).toBeLessThan(1e-3);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });
