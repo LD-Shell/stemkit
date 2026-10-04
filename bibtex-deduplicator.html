@@ -243,7 +243,7 @@
             <div class="stk-grid stk-grid-2">
                 <div class="stk-card">
                     <h3>Two kinds of match</h3>
-                    <p>A <strong>DOI</strong> is a globally unique identifier, so two entries sharing one (after lower-casing and stripping any <code>doi.org</code> prefix) are treated as the same work. Entries are <em>also</em> grouped when their <strong>normalized titles</strong> match, lower-cased, with LaTeX braces, commands, math and punctuation removed. This catches duplicates where one copy is missing its DOI, a common result of merging databases.</p>
+                    <p>A <strong>DOI</strong> is a globally unique identifier, so two entries sharing one (after lower-casing and stripping any <code>doi.org</code> prefix) are treated as the same work. Entries are <em>also</em> grouped when their <strong>normalized titles</strong> match once case, braces, accents, formatting commands and punctuation are set aside. Every word, number and formula still counts, so two titles that differ only in <code>\ce{NaCl}</code> and <code>\ce{KCl}</code> stay apart. This catches duplicates where one copy is missing its DOI, a common result of merging databases.</p>
                 </div>
                 <div class="stk-card">
                     <h3>Transitive grouping &amp; privacy</h3>

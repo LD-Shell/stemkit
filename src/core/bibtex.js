@@ -42,35 +42,78 @@ export function normaliseDoi(raw) {
 /**
  * Normalise a title for comparison.
  *
- * Removes inline maths and LaTeX commands, then grouping braces, punctuation,
- * and redundant whitespace. This lets `{The} Structure of DNA` and
- * `The structure of DNA.` compare equal, which is the common case when the
- * same work is exported from two different databases.
+ * Two exports of the same work differ in case, in grouping braces, in
+ * punctuation and in how the title is marked up; those are removed. Nothing
+ * that could tell two works apart is: every word, every number and the
+ * content of every formula stays, so that `Solubility of \ce{NaCl}` and
+ * `Solubility of \ce{KCl}` do not compare equal.
  *
- * Order matters: commands are stripped *before* braces, but the command regex
- * deliberately does not consume a following brace group. Removing `\emph{...}`
- * wholesale would delete the title text it wraps, so `\emph{Important} work`
- * must normalise to `important work`, not `work`.
+ * What happens to a command depends on what it is:
  *
- * A parser that drops grouping braces (the bibtexParse the Deduplicator page
- * uses does) hands over `\emphImportant work`, with the command glued to its
- * argument. The formatting commands are therefore removed by name first, so
- * that the word after them survives; otherwise two titles that differ only in
- * the emphasised word would compare equal.
+ *   - a command that wraps text (`\emph{...}`, `\ce{...}`, `\textsubscript{...}`,
+ *     an accent such as `\v{c}`) is removed and its argument kept;
+ *   - a font switch (`\bf`, `\itshape`) and a punctuation or spacing command
+ *     (`\textendash`, `\ldots`) are removed;
+ *   - a letter or a Greek letter written as a command becomes that letter
+ *     (`\ss`, `\alpha`), so it matches the same title typed in Unicode;
+ *   - any other command stands for text of its own (`\LaTeX`, `\TeX`), and
+ *     its name is kept as a word.
+ *
+ * Accents are folded, whether typed as `\"o` or as `ö`, and letters of every
+ * script count as letters, so a title that is not in Latin script is compared
+ * by its words and not by whatever digits it happens to contain.
+ *
+ * A parser that drops grouping braces (the bibtexParse bundle does) hands
+ * over `\emphImportant work`, with the command glued to its argument. The
+ * formatting commands are therefore removed by name first, so that the word
+ * after them survives. For any other command the end of the name can no
+ * longer be told, and the name and its argument are kept together as one
+ * word. `findDuplicates` avoids the question by reading titles from the
+ * source, where the braces are still in place.
  *
  * @param {string} raw
  * @returns {string}
  */
-const TEXT_COMMANDS = /\\(?:textnormal|textit|textbf|textsc|textsl|textsf|texttt|textrm|textup|emph|mbox|mathrm|mathit|mathbf|mathsf|mathtt|mathcal)\s*/g;
+const TEXT_COMMANDS = /\\(?:textnormal|textit|textbf|textsc|textsl|textsf|texttt|textrm|textup|textmd|textsubscript|textsuperscript|emph|underline|mbox|mathrm|mathit|mathbf|mathsf|mathtt|mathcal|mathbb|boldsymbol|ensuremath|nocasechange)\s*/g;
+
+const FONT_SWITCHES = /\\(?:bfseries|itshape|scshape|slshape|upshape|rmfamily|sffamily|ttfamily|mdseries|normalfont|bf|it|em|sc|sl|rm|sf|tt)(?![a-z])\s*/g;
+
+const PUNCTUATION_COMMANDS = /\\(?:textendash|textemdash|textellipsis|ldots|dots|textquoteleft|textquoteright|textquotedblleft|textquotedblright|textquotedbl|textquotesingle|textbackslash|textasciitilde|textasciicircum|textunderscore|textbar|textbullet|textperiodcentered|textregistered|texttrademark|textcopyright|textdegree|slash|quad|qquad|newline|linebreak|noindent|protect|relax)(?![a-z])/g;
+
+// Letters that LaTeX writes as commands. TeX skips the space after one.
+const LETTERS = { ss: 'ß', ae: 'æ', oe: 'œ', aa: 'å', o: 'ø', l: 'ł', i: 'i', j: 'j', dh: 'ð', th: 'þ', dj: 'đ', ng: 'ŋ' };
+const LETTER_NAMES = /\\(ss|ae|oe|aa|dh|th|dj|ng|o|l|i|j)(?![a-z])\s*/g;
+
+// The title is lower-cased first, so `\Delta` arrives here as `\delta`,
+// which is what the capital letter itself lower-cases to. As after any
+// command, the space that follows belongs to the command: `$\Delta G$` is ΔG.
+const GREEK = {
+  alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', varepsilon: 'ε',
+  zeta: 'ζ', eta: 'η', theta: 'θ', vartheta: 'θ', iota: 'ι', kappa: 'κ',
+  lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π', varpi: 'π', rho: 'ρ',
+  varrho: 'ρ', sigma: 'σ', varsigma: 'σ', tau: 'τ', upsilon: 'υ', phi: 'φ',
+  varphi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω', textmu: 'μ'
+};
+const GREEK_NAMES = new RegExp(`\\\\(${Object.keys(GREEK).sort((a, b) => b.length - a.length).join('|')})(?![a-z])\\s*`, 'g');
 
 export function normaliseTitle(raw) {
   return String(raw || '')
     .toLowerCase()
-    .replace(/\$[^$]*\$/g, ' ')     // inline maths
-    .replace(TEXT_COMMANDS, ' ')    // formatting commands, even glued to their argument
-    .replace(/\\[a-z]+\s*/gi, ' ')  // commands, keeping any braced argument
-    .replace(/[{}]/g, '')           // grouping braces
-    .replace(/[^\w\s]/g, ' ')       // punctuation
+    .replace(/\\\\/g, ' ')                        // a line break
+    .replace(/\\[`'^"~=.]/g, '')                  // accents: \"o, \'{e}
+    .replace(/\\[cvuhkrdbt]\s+(?=\p{L})/gu, '')   // accents written `\c c`
+    .replace(/\\[-/]/g, '')                       // discretionary hyphen, italic correction
+    .replace(TEXT_COMMANDS, '')                   // formatting, even glued to its argument
+    .replace(FONT_SWITCHES, '')
+    .replace(PUNCTUATION_COMMANDS, ' ')
+    .replace(LETTER_NAMES, (m, name) => LETTERS[name])
+    .replace(GREEK_NAMES, (m, name) => GREEK[name])
+    .replace(/\\[a-z]+\*?(?:\[[^\]]*\])?(?=\{[^}])/g, '')  // a command around text: keep the text
+    .replace(/\\([a-z]+)/g, '$1')                 // a command that is text: keep its name
+    .replace(/[{}$^_]/g, '')                      // grouping, and the marks of maths
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')                       // accents typed as characters
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')            // punctuation
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -451,7 +494,10 @@ export function parseBibtex(text) {
 
     const entry = (parsed || [])[0];
     if (!entry || !entry.entryTags || !entry.citationKey) continue;
-    ORIGIN.set(entry, { doc, start: block.start, end: block.end, stamp: stampOf(entry) });
+    ORIGIN.set(entry, {
+      doc, start: block.start, open: block.open, end: block.end, closed: block.closed,
+      stamp: stampOf(entry)
+    });
     doc.entries.push(entry);
   }
 
@@ -478,10 +524,34 @@ export function getField(tags, name) {
 }
 
 /**
+ * The title of an entry as it is written in the source, grouping braces
+ * included, when the entry is unchanged since `parseBibtex` read it.
+ *
+ * The parsed value has lost its inner braces, and with them the place where
+ * a command ends and its argument begins. A title built from a macro or a
+ * `#` concatenation, an edited entry and an entry that was not parsed here
+ * all fall back to the parsed value.
+ */
+function titleInSource(entry) {
+  const parsed = getField((entry && entry.entryTags) || {}, 'title');
+  const origin = originOf(entry);
+  if (!origin) return parsed;
+
+  let written = null;
+  for (const f of readEntry(origin.doc.text, origin).fields) {
+    if (f.name.toLowerCase() === 'title') written = f;
+  }
+  if (!written || written.parts.length !== 1 || written.parts[0].kind === 'bare') return parsed;
+  return written.parts[0].text;
+}
+
+/**
  * Group entries into duplicate sets.
  *
  * Two entries are linked when they share a normalised DOI or a normalised
- * title; groups are the connected components of that relation.
+ * title; groups are the connected components of that relation. Titles are
+ * compared as written in the source where that is known (see
+ * `titleInSource`).
  *
  * @param {object[]} entries
  * @returns {{groups:Array<{members:Array<{originalIndex:number, data:object}>}>,
@@ -516,7 +586,7 @@ export function findDuplicates(entries) {
   list.forEach((entry, i) => {
     const tags = entry.entryTags || {};
     const doi = normaliseDoi(getField(tags, 'doi'));
-    const title = normaliseTitle(getField(tags, 'title'));
+    const title = normaliseTitle(titleInSource(entry));
 
     if (doi) {
       if (doiOwner.has(doi)) union(doiOwner.get(doi), i);
@@ -741,36 +811,149 @@ export function stripOuterBraces(value) {
  *     are common in chemistry and are missed entirely by a rule that requires
  *     the first letter to be uppercase.
  *
- * Words already inside braces are left untouched, so the function is
- * idempotent and safe to apply to a partly-cleaned library.
+ * Text already inside braces is left untouched, at any depth, so the function
+ * is idempotent and safe to apply to a partly-cleaned library. Braces are
+ * counted as BibTeX counts them: `\{` and `\}` are braces too.
  *
- * A capitalised word that is the name of a command (`\LaTeX`, `\TeX`) is
- * braced together with its backslash, `{\LaTeX}`: bracing the name alone
- * gives `\{LaTeX}`, which prints a stray brace.
+ * A command with a capital in its name (`\LaTeX`, `\SI`, `\Delta`) would be
+ * lowercased with the rest of the title and stop being the command it was.
+ * It is braced together with its backslash and with the arguments that
+ * follow it directly: `{\LaTeX}`, `{\SI{5}{\nano\metre}}`. Bracing the name
+ * alone gives `\{LaTeX}`, which prints a stray brace, and bracing the command
+ * without its arguments, `{\SI}{5}{\nano\metre}`, takes them away from it.
+ * BibTeX keeps the commands inside such a group but still lowercases its
+ * plain text, so when an argument holds a word that needs protecting the
+ * group is doubled: `{{\textbf{DNA}}}`.
+ *
+ * A formula with a capital in it is braced whole, `{$\Delta G$}`: a symbol
+ * is one letter, which no word rule would catch, and `$g$` is not `$G$`.
+ *
+ * The letters written as commands (`\AA`, `\O`, `\L`, ...) are left as they
+ * are: BibTeX lowercases them to `\aa`, `\o`, `\l` exactly as it lowercases
+ * any other capital, and a brace after `\AA` would split the word it is in.
  *
  * @param {string} title
  * @returns {string}
  */
+const PROTECTED_WORD = /^(?:[A-Z]{2,}[A-Za-z0-9]*|[A-Z][a-z0-9]*[A-Z][A-Za-z0-9]*|[a-z][A-Z][A-Za-z0-9]*)$/;
+const LETTER_COMMANDS = new Set(['AA', 'AE', 'OE', 'O', 'L', 'SS', 'DH', 'TH', 'DJ', 'NG']);
+const COMMAND_NAME = /[A-Za-z]+/y;
+const WORD_RUN = /\w+/y;
+
+/**
+ * Index just past the arguments written directly after a command: any number
+ * of `[...]` and `{...}` groups with no space before them, and a `*` when a
+ * group follows it. An argument that is never closed ends the list.
+ */
+function argumentsEnd(s, from) {
+  let j = from;
+  if (s[j] === '*' && (s[j + 1] === '{' || s[j + 1] === '[')) j++;
+  let end = from;
+  while (s[j] === '{' || s[j] === '[') {
+    const square = s[j] === '[';
+    let depth = 0;
+    let k = j;
+    for (; k < s.length; k++) {
+      if (s[k] === '{') depth++;
+      else if (s[k] === '}') { if (--depth < 0 || (depth === 0 && !square)) break; }
+      else if (s[k] === ']' && square && depth === 0) break;
+    }
+    if (k >= s.length || depth !== 0) break;
+    j = end = k + 1;
+  }
+  return end;
+}
+
+/**
+ * Index of the last character of the formula opened by the `$` or `$$` at
+ * `open`, or -1 when it is never closed. `\$` is a dollar sign, not a
+ * delimiter, and a `$` inside braces belongs to the group it is in. A `$$`
+ * with no `$$` after it is read as two single dollars.
+ */
+function mathEnd(s, open) {
+  const closeOf = (display) => {
+    let depth = 0;
+    for (let k = open + (display ? 2 : 1); k < s.length; k++) {
+      const c = s[k];
+      if (c === '\\') k++;
+      else if (c === '{') depth++;
+      else if (c === '}') { if (--depth < 0) return -1; }
+      else if (c === '$' && depth === 0) {
+        if (!display) return k;
+        if (s[k + 1] === '$') return k + 1;
+      }
+    }
+    return -1;
+  };
+  const display = s[open + 1] === '$' ? closeOf(true) : -1;
+  return display >= 0 ? display : closeOf(false);
+}
+
+/** Whether text holds a word that `protectCapitals` would brace. */
+function hasProtectedWord(text) {
+  return text.replace(/\\[A-Za-z]+/g, ' ').split(/\W+/).some(w => PROTECTED_WORD.test(w));
+}
+
 export function protectCapitals(title) {
   const s = String(title || '');
   if (!s) return '';
 
-  // Split on existing brace groups so their contents are never re-processed.
-  const parts = s.split(/(\{[^{}]*\})/);
-  return parts.map(part => {
-    if (part.startsWith('{')) return part;
-    return part.replace(
-      /\\?\b([A-Z]{2,}[A-Za-z0-9]*|[A-Z][a-z0-9]*[A-Z][A-Za-z0-9]*|[a-z][A-Z][A-Za-z0-9]*)\b/g,
-      (match, word, offset, str) => {
-        if (match[0] !== '\\') return `{${word}}`;
-        // A backslash right before the word starts a command, unless it is
-        // the second half of a `\\` line break.
-        let k = offset;
-        while (k > 0 && str[k - 1] === '\\') k--;
-        return (offset - k) % 2 === 0 ? `{\\${word}}` : `\\{${word}}`;
+  let out = '';
+  let depth = 0;
+  let i = 0;
+  while (i < s.length) {
+    const c = s[i];
+
+    if (c === '\\') {
+      COMMAND_NAME.lastIndex = i + 1;
+      const named = COMMAND_NAME.exec(s);
+      if (!named) {
+        // A control symbol (`\\`, `\&`, `\'`) is two characters. An escaped
+        // brace is left for the next turn, to be counted.
+        const next = s[i + 1];
+        const symbol = next === undefined || next === '{' || next === '}' ? c : c + next;
+        out += symbol;
+        i += symbol.length;
+        continue;
       }
-    );
-  }).join('');
+      const name = named[0];
+      const nameEnd = i + 1 + name.length;
+      if (depth > 0 || !/[A-Z]/.test(name) || LETTER_COMMANDS.has(name)) {
+        out += s.slice(i, nameEnd);
+        i = nameEnd;
+        continue;
+      }
+      const end = argumentsEnd(s, nameEnd);
+      const whole = s.slice(i, end);
+      out += hasProtectedWord(s.slice(nameEnd, end)) ? `{{${whole}}}` : `{${whole}}`;
+      i = end;
+      continue;
+    }
+
+    if (c === '{') { depth++; out += c; i++; continue; }
+    if (c === '}') { if (depth > 0) depth--; out += c; i++; continue; }
+
+    if (c === '$' && depth === 0) {
+      const close = mathEnd(s, i);
+      if (close > i) {
+        const maths = s.slice(i, close + 1);
+        out += /[A-Z]/.test(maths) ? `{${maths}}` : maths;
+        i = close + 1;
+        continue;
+      }
+    }
+
+    WORD_RUN.lastIndex = i;
+    const run = WORD_RUN.exec(s);
+    if (run) {
+      out += depth === 0 && PROTECTED_WORD.test(run[0]) ? `{${run[0]}}` : run[0];
+      i += run[0].length;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
 }
 
 /**

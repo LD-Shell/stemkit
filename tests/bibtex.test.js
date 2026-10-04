@@ -62,8 +62,8 @@ describe('normaliseTitle', () => {
     expect(normaliseTitle('The  structure of DNA.')).toBe('the structure of dna');
   });
 
-  test('removes inline maths', () => {
-    expect(normaliseTitle('Energy $E=mc^2$ study')).toBe('energy study');
+  test('keeps what a formula says, without its marks', () => {
+    expect(normaliseTitle('Energy $E=mc^2$ study')).toBe('energy e mc2 study');
   });
 
   test('removes a LaTeX command but keeps its braced argument', () => {
