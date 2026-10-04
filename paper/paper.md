@@ -103,7 +103,7 @@ the programs themselves:
 
 Reference data are generated from the programs' own sources rather than typed
 by hand: the GROMACS option tables, the PLUMED keyword tables and the LAMMPS
-command reference. The 4407 tests run in continuous integration on three
+command reference. The 4434 tests run in continuous integration on three
 Node.js versions and with Python installed, so the scripts are checked too. A
 Content-Security-Policy on every page lets the browser itself refuse any
 request except the two that users make explicitly: a DOI lookup and a

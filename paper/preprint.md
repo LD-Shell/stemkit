@@ -38,7 +38,7 @@ inside the user's own browser: the data analysed never leaves it, no account is
 required and nothing is installed, so the tools stay usable for unpublished or
 confidential data. The same modules run under Node.js, so an interactive
 analysis can be captured as a version-pinned script. The 42 domain modules carry
-4407 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
+4434 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
 GROMACS, PLUMED, LAMMPS and physical invariants rather than against the
 implementation itself. That
 validation exposed four defects that had been altering reported results, among
@@ -192,7 +192,7 @@ enumerates the modules.
 ┌───────────────────────────────┐   ┌───────────────────────────────┐
 │        Browser host           │   │         Node.js host          │
 │  21 static HTML/CSS tool pages│   │  user analysis scripts        │
-│  DOM wiring only;             │   │  4407-test Jest suite;        │
+│  DOM wiring only;             │   │  4434-test Jest suite;        │
 │  FileReader input             │   │  smoke test                   │
 │  UMD bundles via <script>     │   │  UMD bundles: createRequire   │
 └───────────────┬───────────────┘   └───────────────┬───────────────┘
@@ -235,7 +235,7 @@ on it (265 in all).
 | `statistics`, `statistics-figure` | Inferential and descriptive statistics | 188 | jStat |
 | `data-cleaning`, `data-cleaning-python` | Tabular transformation, pandas script | 182 | Papa Parse |
 | `structure` | Molecular geometry, PDB/GRO/XYZ, rigid transforms and their scripts | 151 | none |
-| `bibtex` | Reference deduplication, sanitising | 142 | bibtex-parse-js |
+| `bibtex` | Reference deduplication, sanitising | 169 | bibtex-parse-js |
 | `xvg-parser` | GROMACS/PLUMED trajectory data | 129 | none |
 | `plumed-analysis`, `plumed-analysis-figures` | COLVAR and HILLS analysis, free-energy surfaces | 121 | none |
 | `iso4` | ISO 4 word-level abbreviation (LTWA) | 119 | none |
@@ -254,7 +254,7 @@ on it (265 in all).
 | `plot-builder` | Plot builder tables and figures | 18 | none |
 | `version` | Release version and date | 5 | none |
 | `zip` | Archives of generated files | 4 | none |
-| **Total** | | **4407** | |
+| **Total** | | **4434** | |
 
 Four third-party libraries are vendored within the repository for the core:
 jStat for statistical distributions, Papa Parse for delimited-text parsing,
@@ -285,7 +285,7 @@ under that interpretation the UMD factory takes its browser branch and fails.
 Scoping `"type": "commonjs"` to the dependency directory alone restores correct
 behaviour.
 
-The test suite comprises 4407 tests in 57 suites across the 42 domain modules and the version module,
+The test suite comprises 4434 tests in 58 suites across the 42 domain modules and the version module,
 with 88.5% statement and 93.0% line coverage of `src/core/`. Its governing
 principle is that numerical results are validated against *independent*
 references rather than against the implementation under test, since a test
@@ -850,7 +850,7 @@ in pairs: it requires no installation, transmits no data and remains scriptable.
 
 Both properties are structural rather than contractual: computation occurs
 entirely within the browser, and the modules behind the interface are the ones
-that run under Node.js. The 4407-test suite validates every numerical result
+that run under Node.js. The 4434-test suite validates every numerical result
 against an independent reference, and the four defects that this
 strategy exposed (deflated standardised moments, tail probabilities floored at
 zero, misassigned elements in metalloproteins, and an adjusted moment fed into a

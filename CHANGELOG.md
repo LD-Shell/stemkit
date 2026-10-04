@@ -70,8 +70,25 @@ Every page was checked with axe against WCAG 2.2 A and AA, in both themes.
 - `[output]` **BibTeX Deduplicator, emphasised words.** Titles that differed
   only in a word inside `\emph{…}`, `\textit{…}` and the like were reported as
   duplicates: the command took the word with it once the braces were gone.
+- `[output]` **BibTeX Deduplicator, commands and formulae in titles.** The
+  same happened with any other command, so `\ce{NaCl}` and `\ce{KCl}` made two
+  titles one, as did titles that differed only in a formula, and titles in a
+  script other than Latin that shared their digits. Titles are now compared as
+  they are written in the file: a command around text is dropped and its text
+  kept, a command that is text (`\LaTeX`) keeps its name, a formula keeps what
+  it says, and letters of every script count. Accents are folded, so
+  `Schr\"odinger` and `Schrödinger` are the same word, and `$\alpha$` matches
+  `α`.
 - `[output]` **BibTeX Sanitizer, commands with capitals.** `\LaTeX` in a title
   became `\{LaTeX}`, which prints a stray brace. It is now `{\LaTeX}`.
+- `[output]` **BibTeX Sanitizer, commands with arguments, and formulae.**
+  `\SI{5}{\nano\metre}` became `{\SI}{5}{\nano\metre}`, which does not
+  compile. A command with a capital in its name is now braced together with
+  its arguments, `{\SI{5}{\nano\metre}}`, and a formula with a capital is
+  braced whole, `{$\Delta G$}`, where `$T$` used to be left to be lowercased.
+  Text inside braces is left alone at any depth, and the letters `\AA`, `\O`
+  and `\L` are no longer braced, which split the word they were in. The
+  result is checked against BibTeX itself in the tests.
 - `[output]` **Curve Fitter, which name is the variable.** In
   `signal = A*exp(-time/tau) + c` the offset `c` was taken for the variable.
   Whole words now come before single letters, and a guessed name that is not a

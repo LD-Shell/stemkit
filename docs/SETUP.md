@@ -26,7 +26,7 @@ console shows a CORS error. Serve over HTTP.
 
 ```bash
 npm install
-npm test               # 4407 tests, 44 modules
+npm test               # 4434 tests, 44 modules
 npm run test:coverage  # see docs/COVERAGE.md
 node tests/smoke.mjs   # end-to-end against a real install
 ```
@@ -39,8 +39,8 @@ per-page figure modules and the PLUMED modules beyond `plumed` have no case yet.
 Node 18 or later. CI (`.github/workflows/ci.yml`) runs `npm test` and the smoke
 test on Node 18, 22 and 24, then `npm run check:chrome`, `check:links:internal`
 and `check:sitemap`. Some suites also run the real programs when they are
-installed (Python, `plumed`, and LAMMPS and GROMACS through `LMP_BIN` and
-`GMX_BIN`); without them those tests are skipped.
+installed (Python, BibTeX, `plumed`, and LAMMPS and GROMACS through `LMP_BIN`
+and `GMX_BIN`); without them those tests are skipped.
 
 ## Layout
 

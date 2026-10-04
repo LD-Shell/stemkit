@@ -61,8 +61,8 @@ formula inside a click handler, it will be asked to move.
     npm run check:sitemap          every page is in sitemap.xml
 
 CI runs all but the coverage report on every pull request, with the tests on
-Node 18, 22 and 24. Some tests run the real programs (Python, PLUMED, LAMMPS
-through `LMP_BIN`, GROMACS through `GMX_BIN`) and are skipped where those are
+Node 18, 22 and 24. Some tests run the real programs (Python, BibTeX, PLUMED,
+LAMMPS through `LMP_BIN`, GROMACS through `GMX_BIN`) and are skipped where those are
 not installed.
 
 New behaviour in the core needs a test. Fixing a bug means adding the test that
