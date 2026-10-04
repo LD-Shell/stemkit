@@ -2,7 +2,7 @@ import { describe, test, expect } from '@jest/globals';
 import {
   escapeLatex, parseTableData, detectDelimiter, splitLine,
   buildColumnSpec, generateLatexTable, generateMarkdownTable,
-  padMatrix, transposeMatrix, formatCell,
+  padMatrix, transposeMatrix, formatCell, latexLabelKey,
   generateMatrix, stripZeroWidth
 } from '../src/core/latex.js';
 
@@ -170,6 +170,19 @@ describe('generateLatexTable', () => {
     const t = generateLatexTable(MATRIX, { caption: 'My table', label: 'tab:x' });
     expect(t).toContain('\\caption{My table}');
     expect(t).toContain('\\label{tab:x}');
+  });
+
+  test('writes the label key as typed: a key is not typeset text', () => {
+    const t = generateLatexTable(MATRIX, { caption: 'Band gaps (50%)', label: 'tab:my_table' });
+    expect(t).toContain('\\label{tab:my_table}');
+    expect(t).toContain('\\caption{Band gaps (50\\%)}');
+  });
+
+  test('drops the characters a label key cannot hold', () => {
+    expect(latexLabelKey(' tab:a_b ')).toBe('tab:a_b');
+    expect(latexLabelKey('tab:{50%}~#\\x')).toBe('tab:50x');
+    expect(latexLabelKey(null)).toBe('');
+    expect(generateLatexTable(MATRIX, { label: '{}' })).not.toContain('\\label');
   });
 
   test('omits caption and label when absent', () => {

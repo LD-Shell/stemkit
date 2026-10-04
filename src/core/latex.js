@@ -43,6 +43,23 @@ export function escapeLatex(text) {
 }
 
 /**
+ * A `\label` key as LaTeX reads it.
+ *
+ * A key is not typeset: it is written to the `.aux` file and looked up by
+ * name, so it must not be escaped the way cell text is. Escaping it (turning
+ * `tab:my_table` into `tab:my\_table`) stops the run with
+ * "Missing \endcsname inserted". The key is kept as typed, less the few
+ * characters that cannot be part of one: `\ { } % # ~`.
+ *
+ * @param {*} label
+ * @returns {string}
+ */
+export function latexLabelKey(label) {
+  if (label === null || label === undefined) return '';
+  return String(label).replace(/[\\{}%#~]/g, '').trim();
+}
+
+/**
  * Parse delimited text into a matrix of cells.
  *
  * Handles quoted fields containing the delimiter, and the Excel convention of
@@ -178,7 +195,8 @@ export function generateLatexTable(matrix, options = {}) {
 
   out += `\\begin{${environment}}[htbp]\n\\centering\n`;
   if (caption) out += `\\caption{${escapeLatex(caption)}}\n`;
-  if (label) out += `\\label{${escapeLatex(label)}}\n`;
+  const key = latexLabelKey(label);
+  if (key) out += `\\label{${key}}\n`;
   out += `\\begin{tabular}{${colSpec}}\n`;
 
   const topRule = style === 'booktabs' ? '\\toprule\n'
