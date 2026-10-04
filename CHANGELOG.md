@@ -7,6 +7,41 @@ earlier version are worth re-checking.
 
 ## Unreleased
 
+### Added: turning a structure by hand in the Coordinate Manipulator
+
+- **Turn molecule.** The view takes a choice of what dragging turns: the view,
+  as before, or the molecule, with the cell and the axes staying where they
+  are. The three angle fields follow the drag and the view follows the
+  fields, so a rotation is seen before it is applied; **Rotate** applies it
+  and **Reset** drops it. A dragged rotation is kept to a tenth of a degree,
+  so the angles shown are the rotation applied.
+- **What the rotation is.** The panel shows the rotation matrix, the single
+  turn about one axis it amounts to, and the angle between the structure's
+  long axis (or the normal of a flat one) and x, y and z, now and after the
+  turn. **Lay the long axis along** x, y or z sets the smallest rotation that
+  does it.
+- **Every step as equations and as Python.** Rotations, translations and
+  centrings are recorded in order. Under the workspace they are written out
+  as equations, each with its matrix or vector and then the one transform
+  `r' = M r + d` they add up to, with the LaTeX to copy, and as a script that
+  repeats them: on the file with MDAnalysis, or on any array with NumPy. Both
+  scripts are run in the tests against the page's own coordinates.
+- **The cell and the axes are drawn over the view**, as the Structure
+  Inspector draws its box: lines of a constant width, heavier towards the
+  viewer, with the x, y and z axes in the corner and the structure's own axis
+  through it.
+
+### Changed
+
+- `[output]` **Coordinate Manipulator, `gmx editconf -rotate`.** After several
+  rotations the command added the angles axis by axis, which is not the
+  rotation that was applied. It now gives the angles of the one rotation the
+  steps add up to.
+- **Coordinate Manipulator.** The angle fields return to zero once a rotation
+  is applied, **Rotate** and **Translate** do nothing with nothing typed, and
+  the output buffer and the editconf command can be scrolled from the
+  keyboard.
+
 ### Fixed: output
 
 - `[output]` **Visual LaTeX Tables, labels.** A label with an underscore, such
