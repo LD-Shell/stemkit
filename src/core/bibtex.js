@@ -52,13 +52,22 @@ export function normaliseDoi(raw) {
  * wholesale would delete the title text it wraps, so `\emph{Important} work`
  * must normalise to `important work`, not `work`.
  *
+ * A parser that drops grouping braces (the bibtexParse the Deduplicator page
+ * uses does) hands over `\emphImportant work`, with the command glued to its
+ * argument. The formatting commands are therefore removed by name first, so
+ * that the word after them survives; otherwise two titles that differ only in
+ * the emphasised word would compare equal.
+ *
  * @param {string} raw
  * @returns {string}
  */
+const TEXT_COMMANDS = /\\(?:textnormal|textit|textbf|textsc|textsl|textsf|texttt|textrm|textup|emph|mbox|mathrm|mathit|mathbf|mathsf|mathtt|mathcal)\s*/g;
+
 export function normaliseTitle(raw) {
   return String(raw || '')
     .toLowerCase()
     .replace(/\$[^$]*\$/g, ' ')     // inline maths
+    .replace(TEXT_COMMANDS, ' ')    // formatting commands, even glued to their argument
     .replace(/\\[a-z]+\s*/gi, ' ')  // commands, keeping any braced argument
     .replace(/[{}]/g, '')           // grouping braces
     .replace(/[^\w\s]/g, ' ')       // punctuation
@@ -735,6 +744,10 @@ export function stripOuterBraces(value) {
  * Words already inside braces are left untouched, so the function is
  * idempotent and safe to apply to a partly-cleaned library.
  *
+ * A capitalised word that is the name of a command (`\LaTeX`, `\TeX`) is
+ * braced together with its backslash, `{\LaTeX}`: bracing the name alone
+ * gives `\{LaTeX}`, which prints a stray brace.
+ *
  * @param {string} title
  * @returns {string}
  */
@@ -747,8 +760,15 @@ export function protectCapitals(title) {
   return parts.map(part => {
     if (part.startsWith('{')) return part;
     return part.replace(
-      /\b([A-Z]{2,}[A-Za-z0-9]*|[A-Z][a-z0-9]*[A-Z][A-Za-z0-9]*|[a-z][A-Z][A-Za-z0-9]*)\b/g,
-      '{$1}'
+      /\\?\b([A-Z]{2,}[A-Za-z0-9]*|[A-Z][a-z0-9]*[A-Z][A-Za-z0-9]*|[a-z][A-Z][A-Za-z0-9]*)\b/g,
+      (match, word, offset, str) => {
+        if (match[0] !== '\\') return `{${word}}`;
+        // A backslash right before the word starts a command, unless it is
+        // the second half of a `\\` line break.
+        let k = offset;
+        while (k > 0 && str[k - 1] === '\\') k--;
+        return (offset - k) % 2 === 0 ? `{\\${word}}` : `\\{${word}}`;
+      }
     );
   }).join('');
 }

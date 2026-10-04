@@ -72,6 +72,15 @@ describe('normaliseTitle', () => {
     expect(normaliseTitle('\\textbf{Protein} folding')).toBe('protein folding');
   });
 
+  test('keeps the word after a formatting command glued to it', () => {
+    // What a parser that drops grouping braces makes of \emph{cats}.
+    expect(normaliseTitle('Notes on \\emphcats at night')).toBe('notes on cats at night');
+    expect(normaliseTitle('Notes on \\emph{cats} at night')).toBe('notes on cats at night');
+    expect(normaliseTitle('Notes on \\emphdogs at night'))
+      .not.toBe(normaliseTitle('Notes on \\emphcats at night'));
+    expect(normaliseTitle('\\textbfProtein folding')).toBe('protein folding');
+  });
+
   test('makes differently formatted titles compare equal', () => {
     expect(normaliseTitle('{The} structure of DNA.'))
       .toBe(normaliseTitle('The Structure of DNA'));
@@ -483,6 +492,15 @@ describe('sanitising helpers', () => {
 
   test('protectCapitals leaves ordinary title case alone', () => {
     expect(protectCapitals('The Structure of Water')).toBe('The Structure of Water');
+  });
+
+  test('protectCapitals braces a capitalised command with its backslash', () => {
+    expect(protectCapitals('Typesetting with \\LaTeX and \\TeX')).toBe('Typesetting with {\\LaTeX} and {\\TeX}');
+    expect(protectCapitals('{\\LaTeX} for NMR')).toBe('{\\LaTeX} for {NMR}');
+    const once = protectCapitals('\\LaTeX in DNA research');
+    expect(protectCapitals(once)).toBe(once);
+    // After a line break the backslash is not the word's.
+    expect(protectCapitals('First\\\\DNA')).toBe('First\\\\{DNA}');
   });
 
   test('protectCapitals does not double-protect existing braces', () => {
