@@ -26,7 +26,7 @@ console shows a CORS error. Serve over HTTP.
 
 ```bash
 npm install
-npm test               # 4371 tests, 44 modules
+npm test               # 4407 tests, 44 modules
 npm run test:coverage  # see docs/COVERAGE.md
 node tests/smoke.mjs   # end-to-end against a real install
 ```

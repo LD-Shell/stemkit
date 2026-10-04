@@ -100,7 +100,7 @@ script ran with, for a methods section or a log line.
 | `plot-builder` | The Plot Builder's CSV reading (as Python's `csv` and `float()` read it) and its figure | none |
 | `figure-python` | The matplotlib script that draws a figure description, reading the data from the user's files or embedding it | none |
 | `pdf` | A PDF writer: vector pages from SVG, or a JPEG page | none |
-| `structure` | PDB/GRO/XYZ parsing, centre of mass, R<sub>g</sub>, rotations, format conversion | none |
+| `structure` | PDB/GRO/XYZ parsing, centre of mass, R<sub>g</sub>, principal axes, rotations (as angles, a matrix, or one turn about an axis), the steps applied as equations and as a Python script, format conversion | none |
 | `slurm` | SLURM batch-script generation for GROMACS and LAMMPS | none |
 | `scheduler` | Directive headers, environment variables and launchers for SLURM, PBS Pro / OpenPBS, LSF and Grid Engine | none |
 | `plumed` | PLUMED input generation, version gating, CV validation | none |
@@ -262,7 +262,7 @@ npm test                # full suite
 npm run test:coverage   # with coverage
 ```
 
-The suite comprises 4371 tests across the 42 domain modules and `version` (`src/core` also holds the aggregate
+The suite comprises 4407 tests across the 42 domain modules and `version` (`src/core` also holds the aggregate
 export, the Node entry and the injection layer, which carry no domain logic). Numerical results are validated against
 independent references rather than against the implementation itself:
 
@@ -287,6 +287,9 @@ independent references rather than against the implementation itself:
 - **LAMMPS 29 Aug 2024**, `read_data` on every data file of the LAMMPS
   examples, every style `lmp -h` lists, the checker's verdict on every example
   input and on broken copies, and the workflow's inputs run stage by stage
+- **NumPy** and **MDAnalysis**, the scripts that repeat a structure's
+  rotations, translations and centrings, run and compared with the page's
+  coordinates
 - **pandas**, the cleaning scripts run and their output compared with the
   page's, cell by cell
 - **`scipy.constants`**, every CODATA conversion factor

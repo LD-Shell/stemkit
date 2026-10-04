@@ -31,7 +31,9 @@ jobs:
   python:
     # With numpy, scipy, matplotlib and pandas installed, npm test also runs
     # the scripts the pages write (figures, fits, data cleaning, PLUMED
-    # analysis) and checks what matplotlib draws against the preview. The
+    # analysis, coordinate steps) and checks what matplotlib draws against the
+    # preview. MDAnalysis, on the current releases, runs the coordinate script
+    # that reads and writes a structure file. The
     # tests that need GROMACS, LAMMPS or PLUMED still skip: none is installed.
     name: Tests with Python (matplotlib ${{ matrix.matplotlib }})
     runs-on: ubuntu-latest
@@ -42,7 +44,7 @@ jobs:
           # The current releases: the preview follows the newest matplotlib.
           - python: '3.13'
             matplotlib: latest
-            packages: numpy scipy matplotlib pandas
+            packages: numpy scipy matplotlib pandas MDAnalysis
           # The oldest the scripts support, as Ubuntu 24.04 ships it.
           - python: '3.11'
             matplotlib: '3.6.3'
