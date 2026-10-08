@@ -8,6 +8,7 @@ Which file a rule belongs in depends on who owns it.
 | `src/tailwind/input.css` | you | Yes. Tokens, base rules, shared `.stk-*` components, page chrome. |
 | `src/stemkit-docs.css` | you | Yes. The "How to use" and FAQ furniture. |
 | `src/home.css` | you | Yes. The footer directory every page shows, and the home page (`hm-*`). |
+| `src/tutorial-video.css` | you | Yes. The video tutorial card (`.stk-tut*`) that `js/tutorial-video.js` builds, on the pages with a video. |
 | `src/tools/figure.css`, `python-panel.css` | you | Yes. The shared plot area and Python panel (`docs/FIGURES.md`). |
 | `src/tools/<tool>.css` | you | Yes. One tool only. |
 | `src/script-generator.css` | you | Yes. The MD workflow generator, with `src/tools/gromacs.css` and `src/tools/lammps.css` for its tabs. |

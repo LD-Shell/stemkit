@@ -43,7 +43,7 @@ Run the tests, from a clone:
 
 ```bash
 npm install
-npm test                        # 4434 tests, 44 modules
+npm test                        # 4440 tests, 44 modules
 node tests/smoke.mjs            # end-to-end against a real install
 ```
 
@@ -51,7 +51,7 @@ node tests/smoke.mjs            # end-to-end against a real install
 
 | Script | Does |
 |---|---|
-| `npm test` | Jest, 4434 tests |
+| `npm test` | Jest, 4440 tests |
 | `npm run test:coverage` | coverage report (see `docs/COVERAGE.md`) |
 | `npm run check:links` | internal and external link check |
 | `npm run check:links:internal` | internal only, no network |
@@ -80,6 +80,11 @@ node tests/smoke.mjs            # end-to-end against a real install
 Three further pages are workflow helpers, not research tools, and are not part
 of the scholarly contribution: Pomodoro timer, decision matrix, kinetics
 sandbox.
+
+Fifteen tools have a narrated video tutorial, shown on the tool's page
+and collected in the
+[STEMKit Tutorials playlist](https://www.youtube.com/playlist?list=PLAqgfbqFf32M) on YouTube. The player
+loads from YouTube only when play is pressed.
 
 `stemkit-core` holds the computation: 42 DOM-free domain modules, plus an
 aggregate export (`index.js`), a Node entry (`node.js`), a

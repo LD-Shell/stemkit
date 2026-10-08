@@ -95,7 +95,7 @@ script ran with, for a methods section or a log line.
 | `expression` | Parsing typed equations (`y = A*exp(-t/tau) + y0`) into a syntax tree: variables and parameters sorted, exact derivatives, LaTeX and text, with no `eval` | none |
 | `nonlinear-fit` | Levenberg–Marquardt fitting of any typed equation, with automatic starting values, bounds, fixed parameters, weights, standard errors, confidence intervals and bands; matches `scipy.optimize.curve_fit` | none |
 | `fit-python` | The Python script (SciPy `curve_fit` and matplotlib) that repeats a fit and draws its figure | none |
-| `plot-style` | One description of a fitted plot's look, shared by the browser preview and the matplotlib script | none |
+| `plot-style` | One description of a fitted plot's look, shared by the browser preview and the matplotlib script; `bandVisibility` says whether a switched-on confidence band can be seen, and why not | none |
 | `figure` | One description of a figure (panels, lines, points, error bars, bars, histograms, box plots, heatmaps, contours, brackets), shared by the browser preview and the script | none |
 | `plot-builder` | The Plot Builder's CSV reading (as Python's `csv` and `float()` read it) and its figure | none |
 | `figure-python` | The matplotlib script that draws a figure description, reading the data from the user's files or embedding it | none |
@@ -262,7 +262,7 @@ npm test                # full suite
 npm run test:coverage   # with coverage
 ```
 
-The suite comprises 4434 tests across the 42 domain modules and `version` (`src/core` also holds the aggregate
+The suite comprises 4440 tests across the 42 domain modules and `version` (`src/core` also holds the aggregate
 export, the Node entry and the injection layer, which carry no domain logic). Numerical results are validated against
 independent references rather than against the implementation itself:
 
@@ -332,6 +332,28 @@ bands, the size of the forward-difference error. The Student's t quantiles
 behind the intervals keep full precision at any number of degrees of
 freedom: the plain difference of two log-gammas they need is already off by
 about 1e-9 at two million.
+
+**A band that cannot be seen.** A confidence band can be switched on and still
+show nothing, for two reasons `bandVisibility(model, style, fit)` (in
+`plot-style`) tells apart. If two parameters cannot be told apart (`y = a*b*x`)
+the covariance is undetermined and `fit.band` is NaN wherever the curve depends
+on them, though a point where every gradient vanishes (x = 0 here) still comes
+out finite, with zero width; that is `undetermined`. If the fit is so tight
+that the band is thinner than the fit line at its widest, the line covers it;
+that is `hidden`, judged from the figure's height (the main panel taken as
+matplotlib's default 77% of it, less the residual panel) and the line's width
+in points, so a band at the threshold may show a sliver either way. Each comes
+with the sentence the Curve Fitter shows under its plot:
+
+```js
+import { fitModel, bandVisibility, defaultPlotStyle } from 'stemkit-core';
+
+const fit = fitModel({ expression: 'y = a*b*x', columns: { x }, y });
+const style = { ...defaultPlotStyle(), band: { ...defaultPlotStyle().band, show: true } };
+const b = fit.band(grid);
+bandVisibility({ y, curve: { y: grid.map(fit.predict) }, band: b }, style, fit);
+// { status: 'undetermined', message: 'Band not drawn: the parameters are not independent, ...' }
+```
 
 One caveat is inherited rather than fixed: `regression.js` fits the
 exponential and power models by **linearisation**, minimising error in log

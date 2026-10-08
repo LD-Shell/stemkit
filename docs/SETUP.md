@@ -26,7 +26,7 @@ console shows a CORS error. Serve over HTTP.
 
 ```bash
 npm install
-npm test               # 4434 tests, 44 modules
+npm test               # 4440 tests, 44 modules
 npm run test:coverage  # see docs/COVERAGE.md
 node tests/smoke.mjs   # end-to-end against a real install
 ```
@@ -61,6 +61,7 @@ stemkit/
 │   │                       python-panel.css, fit-plot.css), and the
 │   │                       GROMACS and LAMMPS tabs (gromacs.css, lammps.css)
 │   ├── stemkit-docs.css    shared documentation furniture
+│   ├── tutorial-video.css  the video tutorial card (js/tutorial-video.js)
 │   ├── output.css          generated Tailwind. Do not hand-edit.
 │   ├── home.css            the footer directory on every page, and the
 │   │                       landing page (hm-*)
@@ -69,6 +70,8 @@ stemkit/
 │   ├── site.js             shared chrome on every page: theme toggle, menu,
 │   │                       the tool finder, next steps, and the tool catalogue
 │   ├── *.js                one script per tool, the page's DOM wiring
+│   ├── tutorial-video.js   the video tutorial card in each "How to use"
+│   │                       section, and the list of videos
 │   ├── figure-plot.js      the shared plot area, style panel and export
 │   │   python-panel.js     (docs/FIGURES.md); the shared Python panel
 │   ├── script-generator-*  the MD workflow generator's GROMACS, PLUMED,
@@ -85,7 +88,8 @@ stemkit/
 ├── paper/                  the JOSS paper (paper.md) and the preprint
 │                           (preprint.tex, preprint.md, preprint.pdf)
 ├── css/, assets/, sound/   fonts (Inter and Font Awesome are vendored),
-│                           icons, sample files, audio
+│                           icons, sample files, audio; assets/tutorials/
+│                           holds the video thumbnails
 └── package.json            stemkit-core
 ```
 
@@ -143,14 +147,25 @@ furniture in `src/stemkit-docs.css`, and anything for one page in
 **No page loads a stylesheet, font or script from another host.** Inter lives
 in `css/fonts/inter/` and is declared in `src/tailwind/input.css`; if a page
 ever renders in a system font, the build was not run after that file changed.
-The only requests to other hosts are the two the privacy page names, made when
-a person asks: DOI to BibTeX asks doi.org, and the Structure Inspector fetches a
-PDB entry from RCSB.
+The only requests to other hosts are the three the privacy page names, made when
+a person asks: DOI to BibTeX asks doi.org, the Structure Inspector fetches a
+PDB entry from RCSB, and a tutorial video loads YouTube's player
+(`youtube-nocookie.com`) once play is pressed. The video thumbnails are copies
+in `assets/tutorials/`, so a page with a video contacts YouTube only on play.
+
+**A new tutorial video** needs its ID and title in `js/tutorial-video.js`, its
+thumbnail as `assets/tutorials/<page>.webp` (640 x 360, from the video's
+`maxresdefault.jpg`), and `<section id="tutorial" class="stk-tut-slot"
+data-tutorial="<page>">` after the lead paragraph of the page's "How to use"
+section, with a "Watch the tutorial" link to `#tutorial` in its page head. Then
+run `npm run build:csp`, which allows the player's frame on any page carrying
+`data-tutorial`.
 
 **Every page carries a Content-Security-Policy `<meta>`** that makes the
 browser hold to that: scripts, styles, fonts and requests from the site itself,
 plus doi.org and the registration agencies it redirects to on DOI to BibTeX,
-and RCSB on the Structure Inspector. `tools/build-csp.mjs` writes it, page by
+RCSB on the Structure Inspector, and a frame from `youtube-nocookie.com` on the
+pages with a tutorial video. `tools/build-csp.mjs` writes it, page by
 page. Inline scripts are allowed by hash, so **after editing an inline
 `<script>`** (the theme script in every `<head>`, the home page search, the 404
 suggestions, the MD Workflow Generator's doc tabs) **run `npm run build:csp`**,

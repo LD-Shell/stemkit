@@ -31,6 +31,28 @@ earlier version are worth re-checking.
   viewer, with the x, y and z axes in the corner and the structure's own axis
   through it.
 
+### Added: video tutorials
+
+- **Fifteen tools show a narrated video tutorial** in their "How to use"
+  section (the Statistics Calculator, which has none, under its heading), with
+  a **Watch the tutorial** link at the top of the page; the home page shows the
+  tour. The videos are collected in the
+  [STEMKit Tutorials playlist](https://www.youtube.com/playlist?list=PLAqgfbqFf32M).
+- **Nothing is fetched from YouTube until play is pressed.** The thumbnails are
+  served from the site (`assets/tutorials/`); the player comes from
+  `youtube-nocookie.com`, opens inline with captions off, and keeps a link to
+  the video on youtube.com. `tools/build-csp.mjs` allows the player's frame on
+  the pages with a video, and no others. The privacy page says so.
+
+### Added: why a confidence band cannot be seen
+
+- **Curve Fitter.** With **Confidence band** switched on and nothing to see, a
+  note under the plot now says why: the parameters are not independent (as in
+  `y = a*b*x`), so the band cannot be worked out, or the band is thinner than
+  the fit line and hidden behind it.
+- **`stemkit-core`: `bandVisibility(model, style, fit)`** in `plot-style` makes
+  the same call, with the same sentence, for a script.
+
 ### Changed
 
 - `[output]` **Coordinate Manipulator, `gmx editconf -rotate`.** After several

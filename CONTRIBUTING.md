@@ -111,6 +111,10 @@ link in the footer of every page; `npm run check:chrome` fails until the three
 agree and the header matches the other pages. Then run `npm run build:sitemap`;
 CI's `check:sitemap` fails while a page is missing from `sitemap.xml`.
 
+A tool with a video tutorial shows it in its "How to use" section. The steps
+for adding one (the list in `js/tutorial-video.js`, the thumbnail, the mount
+and `npm run build:csp`) are in `docs/SETUP.md`.
+
 ## Pull requests
 
 Keep them focused; a reviewer can assess one change well and five changes
