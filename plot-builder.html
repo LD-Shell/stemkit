@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     
     <title>Publication Plot Builder | CSV to PDF, SVG &amp; Python | STEMKit</title>
     <meta name="title" content="Publication Plot Builder | CSV to PDF, SVG &amp; Python | STEMKit">
@@ -72,6 +72,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="src/tools/figure.css">
     <link rel="stylesheet" href="src/tools/python-panel.css">
     <link rel="stylesheet" href="src/tools/plot-builder.css">
@@ -141,7 +142,8 @@
                         <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser; your files stay on this machine</li>
                         <li><i class="fa-brands fa-python" aria-hidden="true"></i> The script reads your CSV files by column name</li>
                         <li><a href="#sizes"><i class="fa-solid fa-ruler-combined" aria-hidden="true"></i> How sizes work</a></li>
-                    </ul>
+                        <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
+                </ul>
                 </div>
                 <div class="stk-pagehead-actions">
                     <button type="button" id="pbExample" class="stk-btn stk-btn-sm"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load an example</button>
@@ -233,6 +235,7 @@
             <span class="stk-chip"><i class="fa-solid fa-circle-play"></i> Guide</span>
             <h2 class="stk-h2">How to build a figure</h2>
             <p class="stk-lead">Combine columns from one or more CSV files in one figure, style it while the preview redraws, then save it as PDF, PNG or SVG, or copy the matplotlib script that draws the same figure from your files.</p>
+                <section id="tutorial" class="stk-tut-slot" data-tutorial="plot-builder"></section>
             <div class="stk-grid stk-grid-2" style="margin-top:1.5rem;">
                 <div class="stk-step"><span class="stk-num">1</span><div><h3>Add data</h3><p>Drop one or more CSV, TSV or text files with a header row on the <strong>Data</strong> tab, or click <strong>Load an example</strong>. A cell that is blank or not a number is left out: a line breaks there, as it does in matplotlib.</p></div></div>
                 <div class="stk-step"><span class="stk-num">2</span><div><h3>Set up the series</h3><p>On the <strong>Series</strong> tab each series plots one column against another, from any loaded file, as a line, points, both, or a shaded band between two columns. Pick error columns for error bars, and put a series in a second panel to share the x axis with a quantity of another scale.</p></div></div>
@@ -331,8 +334,7 @@
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                     <span class="text-sm">&copy; 2026</span>
                 </div>
-                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">built-by    </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell" target="_blank" rel="noopener">Olanrewaju M. Daramola</a> + Claude
-<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
+                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">ensemble    </span><span class="stk-mdp-credit-c">= </span>NVT (nights, very tired)
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">version     </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md" target="_blank" rel="noopener">v0.3.0</a> (2026-10-01)</pre>
                 <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
@@ -346,6 +348,7 @@
     </div>
 
     <script src="js/site.js"></script>
+    <script defer src="js/tutorial-video.js"></script>
     <script type="module" src="js/plot-builder.js"></script>
 </body>
 </html>

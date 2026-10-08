@@ -1,0 +1,39 @@
+/* Tutorial video card (js/tutorial-video.js). Colours use the --stk-* tokens. */
+.stk-tut { display:flex; gap:1.5rem; align-items:center; margin:1.5rem 0 0; padding:1rem; background:var(--stk-surface); border:1px solid var(--stk-border); border-radius:var(--stk-radius-xl); box-shadow:var(--stk-shadow-sm); transition:border-color .15s ease, box-shadow .15s ease; }
+.stk-tut:not(.is-playing):hover { border-color:var(--stk-border-strong); box-shadow:0 4px 14px rgba(15,23,42,.07); }
+.stk-tut-thumb { position:relative; flex:0 0 auto; width:272px; aspect-ratio:16/9; padding:0; border:0; border-radius:var(--stk-radius-lg); overflow:hidden; background:#0f172a; cursor:pointer; box-shadow:0 0 0 1px rgba(15,23,42,.12); }
+.stk-tut-thumb img { display:block; width:100%; height:100%; object-fit:cover; transition:transform .3s ease; }
+.stk-tut-thumb::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(15,23,42,0) 55%, rgba(15,23,42,.28)); pointer-events:none; }
+.stk-tut-thumb:hover img { transform:scale(1.035); }
+.stk-tut-thumb:focus-visible, .stk-tut-link:focus-visible { outline:2px solid var(--stk-accent); outline-offset:2px; }
+.stk-tut-play { position:absolute; z-index:1; right:.6rem; bottom:.6rem; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; padding-left:2px; background:rgba(15,23,42,.78); color:#fff; box-shadow:0 0 0 1.5px rgba(255,255,255,.85); transition:background .15s ease, transform .15s ease; }
+.stk-tut-thumb:hover .stk-tut-play { background:var(--stk-accent); transform:scale(1.08); }
+.stk-tut-text { flex:1 1 auto; min-width:0; }
+.stk-tut-kicker { display:block; font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--stk-accent-text); }
+.stk-tut-title { margin:.3rem 0 .35rem; font-size:1.15rem; line-height:1.35; font-weight:650; letter-spacing:-.01em; color:var(--stk-fg); }
+.stk-tut-desc { margin:0; font-size:.9rem; line-height:1.5; color:var(--stk-fg-muted); }
+.stk-tut-link { flex:0 0 auto; display:inline-flex; align-items:center; gap:.45rem; padding:.55rem .95rem; font-size:.85rem; font-weight:600; color:var(--stk-accent-text); background:var(--stk-accent-soft); border:1px solid var(--stk-accent-soft-border); border-radius:var(--stk-radius); text-decoration:none; transition:background .15s ease, color .15s ease; white-space:nowrap; }
+.stk-tut-link:hover { background:var(--stk-accent); border-color:var(--stk-accent); color:var(--stk-accent-fg); }
+.stk-tut.is-playing { display:block; padding:.5rem; }
+.stk-tut.is-playing .stk-tut-text { display:none; }
+.stk-tut.is-playing .stk-tut-link { margin:.6rem .4rem .2rem auto; width:max-content; display:flex; padding:.3rem .65rem; font-size:.8rem; }
+.stk-tut-frame { position:relative; width:100%; max-width:960px; margin:0 auto; aspect-ratio:16/9; border-radius:var(--stk-radius-lg); overflow:hidden; background:#000; }
+.stk-tut-frame iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
+@media (max-width:900px) {
+    .stk-tut { flex-wrap:wrap; }
+    .stk-tut-text { flex-basis:calc(100% - 272px - 1.5rem); }
+    .stk-tut-link { margin-left:calc(272px + 1.5rem); }
+}
+@media (max-width:640px) {
+    .stk-tut { flex-direction:column; align-items:stretch; gap:.85rem; }
+    .stk-tut-thumb { width:100%; }
+    .stk-tut-text { flex-basis:auto; }
+    .stk-tut-link { margin-left:0; justify-content:center; }
+}
+/* Homepage: line the trailer card up with the tool directory below it. */
+.hm-tut-wrap { max-width:80rem; margin:0 auto; padding:2rem 1.5rem 0; }
+.hm-tut-wrap .stk-tut { margin:0; }
+@media (min-width:1024px) { .hm-tut-wrap { padding:2.5rem 2rem 0; } }
+/* Inside a "How to use" section: sits between the intro and the steps. */
+.stk-tut-slot { scroll-margin-top:6rem; }
+.stk-section .stk-tut { margin:1.5rem 0 1.75rem; }

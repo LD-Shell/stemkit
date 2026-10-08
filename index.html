@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-H7j13t9cG57A6Vy86oX+3nDdJHSRu7XYqlRnDTg3sEI=' 'sha256-1zVV8bHxZsJDQqLjd39EBj5ho6Hn4To9f6I8WBatrOk='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-H7j13t9cG57A6Vy86oX+3nDdJHSRu7XYqlRnDTg3sEI=' 'sha256-1zVV8bHxZsJDQqLjd39EBj5ho6Hn4To9f6I8WBatrOk='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     <title>STEMKit: Free Browser Tools for Data, Simulation &amp; Writing</title>
     <meta name="description" content="18 free research tools for scientists: digitize plots, run statistics, fit curves, build figures, view molecules and tidy BibTeX. Runs in your browser, no sign-up.">
     <meta name="keywords" content="plot digitizer, curve fitting, statistics calculator, t-test ANOVA online, error bar generator, unit converter, GROMACS xvg viewer, molecular structure viewer, LaTeX equation editor, DOI to BibTeX, free science tools, in-browser data analysis">
@@ -45,6 +45,7 @@
 
     <link rel="stylesheet" href="css/all.min.css">
     <link rel="stylesheet" href="src/home.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="src/output.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
@@ -131,6 +132,8 @@
                 </aside>
             </div>
         </section>
+
+        <div class="hm-tut-wrap"><section data-tutorial="trailer"></section></div>
 
         <div class="hm-dir">
             <div id="noResults" class="hm-empty" hidden>
@@ -572,8 +575,7 @@ console.log(`${removed} duplicate(s) removed, ${kept.length} kept`);</code></pre
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                     <span class="text-sm">&copy; 2026</span>
                 </div>
-                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">built-by    </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell" target="_blank" rel="noopener">Olanrewaju M. Daramola</a> + Claude
-<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
+                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">ensemble    </span><span class="stk-mdp-credit-c">= </span>NVT (nights, very tired)
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">version     </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md" target="_blank" rel="noopener">v0.3.0</a> (2026-10-01)</pre>
                 <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
@@ -587,6 +589,7 @@ console.log(`${removed} duplicate(s) removed, ${kept.length} kept`);</code></pre
 
 
     <script src="js/site.js"></script>
+    <script defer src="js/tutorial-video.js"></script>
     <script>
         // Home page search. Matching comes from the shared catalogue in
         // js/site.js, so this box and the header's Find a tool agree.

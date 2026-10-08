@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     
     <title>Plot Digitizer | Extract Data from Graphs | STEMKit</title>
     <meta name="title" content="Plot Digitizer | Extract Data from Graphs | STEMKit">
@@ -83,6 +83,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="src/tools/figure.css">
     <link rel="stylesheet" href="src/tools/python-panel.css">
     <link rel="stylesheet" href="src/tools/plot-digitizer.css">
@@ -151,7 +152,8 @@
                     <ul class="stk-pagehead-meta">
                         <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
                         <li><a href="#method"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Method and accuracy</a></li>
-                    </ul>
+                        <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
+                </ul>
                 </div>
             </header>
 
@@ -295,6 +297,7 @@
                 <span class="stk-chip"><i class="fa-solid fa-crosshairs"></i> How-to guide</span>
                 <h2 class="stk-h2">How to extract data from a published plot</h2>
                 <p class="stk-lead">Upload a figure, tell the tool where two known values sit on each axis, then trace the curve. You get a CSV of real coordinates plus a ready-to-run Matplotlib script.</p>
+                <section id="tutorial" class="stk-tut-slot" data-tutorial="plot-digitizer"></section>
                 <div class="stk-grid stk-grid-2">
                     <div class="stk-step"><span class="stk-num">1</span><div><h3>Upload the figure</h3><p>Drop in a PNG, JPG or WebP image of the plot, or press <strong>Load a sample</strong> to practise on a drawn one. Use the highest resolution you can find: a screenshot of a PDF at full zoom beats a thumbnail, because every pixel of the original is a pixel of precision you keep.</p></div></div>
                     <div class="stk-step"><span class="stk-num">2</span><div><h3>Calibrate both axes</h3><p>Press <strong>Set X1</strong>, click that position on the image, and type the value it represents. Repeat for <strong>X2</strong>, <strong>Y1</strong> and <strong>Y2</strong>. Pick two points that are <em>far apart</em> on each axis, usually the first and last labelled gridline. Tick <strong>Log X axis</strong> or <strong>Log Y axis</strong> if an axis is logarithmic. Each button shows a tick once its point is set.</p></div></div>
@@ -417,8 +420,7 @@
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                     <span class="text-sm">&copy; 2026</span>
                 </div>
-                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">built-by    </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell" target="_blank" rel="noopener">Olanrewaju M. Daramola</a> + Claude
-<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
+                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">ensemble    </span><span class="stk-mdp-credit-c">= </span>NVT (nights, very tired)
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">version     </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md" target="_blank" rel="noopener">v0.3.0</a> (2026-10-01)</pre>
                 <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
@@ -432,6 +434,7 @@
     </div>
 
     <script src="js/site.js"></script>
+    <script defer src="js/tutorial-video.js"></script>
     <script type="module" src="js/plot-digitizer.js"></script>
     <div id="toastContainer" class="fixed bottom-6 right-6 z-[70] flex flex-col gap-3" role="status" aria-live="polite"></div>
 </body>

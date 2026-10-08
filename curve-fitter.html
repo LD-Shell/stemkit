@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     
     <title>Curve Fitter: Fit Any Equation to Your Data | STEMKit</title>
     <meta name="title" content="Curve Fitter: Fit Any Equation to Your Data | STEMKit">
@@ -82,6 +82,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="src/tools/figure.css">
     <link rel="stylesheet" href="src/tools/curve-fitter.css">
 </head>
@@ -150,6 +151,7 @@
                     <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser; your data stays on this machine</li>
                     <li><i class="fa-solid fa-equals" aria-hidden="true"></i> Numbers match <span class="cf-mono">scipy.optimize.curve_fit</span></li>
                     <li><a href="#method"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Method and equations</a></li>
+                    <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
                 </ul>
             </div>
             <div class="stk-pagehead-actions">
@@ -389,6 +391,7 @@
             <span class="stk-chip"><i class="fa-solid fa-wave-square"></i> How-to guide</span>
             <h2 class="stk-h2">How to fit an equation to your data</h2>
             <p class="stk-lead">Paste the data, type the equation, and read the parameters; the plot and the Python script follow every change. Nothing leaves your browser.</p>
+            <section id="tutorial" class="stk-tut-slot" data-tutorial="curve-fitter"></section>
             <div class="stk-grid stk-grid-2">
                 <div class="stk-step"><span class="stk-num">1</span><div><h3>Add your data</h3><p>Paste columns of numbers, drop a file anywhere on the fitter or open one (.csv, .tsv, .txt, .dat). Tabs, commas, semicolons and spaces all work; with semicolons, tabs or spaces a decimal comma such as <code>1,5</code> is read as 1.5. A first row of names, such as <code>Time (s)</code>, names the columns (<code>time</code>).</p></div></div>
                 <div class="stk-step"><span class="stk-num">2</span><div><h3>Type the equation</h3><p>Write it in your own names, such as <code>y = A*exp(-t/tau) + y0</code>, or start from a preset. The page shows how it read the equation and points at any mistake. Check that each variable reads the right column, and add starting values, bounds or fixed values if you need them.</p></div></div>
@@ -514,8 +517,7 @@
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                     <span class="text-sm">&copy; 2026</span>
                 </div>
-                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">built-by    </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell" target="_blank" rel="noopener">Olanrewaju M. Daramola</a> + Claude
-<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
+                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">ensemble    </span><span class="stk-mdp-credit-c">= </span>NVT (nights, very tired)
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">version     </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md" target="_blank" rel="noopener">v0.3.0</a> (2026-10-01)</pre>
                 <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
@@ -528,6 +530,7 @@
     </footer>
 
     <script src="js/site.js"></script>
+    <script defer src="js/tutorial-video.js"></script>
     <script type="module" src="js/curve-fitter.js"></script>
 
 </body>

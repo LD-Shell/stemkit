@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     
     <title>Outlier Detector | Z-Score, IQR &amp; Modified Z | STEMKit</title>
     <meta name="title" content="Outlier Detector | Z-Score, IQR &amp; Modified Z | STEMKit">
@@ -83,6 +83,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="src/tools/figure.css">
     <link rel="stylesheet" href="src/tools/python-panel.css">
     <link rel="stylesheet" href="src/tools/outlier-detector.css">
@@ -151,6 +152,7 @@
                 <ul class="stk-pagehead-meta">
                     <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
                     <li><a href="#method"><i class="fa-solid fa-book-open" aria-hidden="true"></i> Method and equations</a></li>
+                    <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
                 </ul>
             </div>
         </header>
@@ -281,6 +283,7 @@
             <span class="stk-chip"><i class="fa-solid fa-magnifying-glass-chart"></i> How-to guide</span>
             <h2 class="stk-h2">How to detect outliers in your data</h2>
             <p class="stk-lead">Upload a CSV, pick a column and a detection rule, and flag anomalous values, then export either the cleaned data or just the anomalies.</p>
+                <section id="tutorial" class="stk-tut-slot" data-tutorial="outlier-detector"></section>
             <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Load your data</h3><p>Drag in a .csv/.tsv/.txt file, or press <strong>Choose file</strong>. Or press <strong>Load a sample</strong> to try fifteen measurements with two planted outliers.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Pick a column &amp; method</h3><p>Choose the numeric column and one of Z-Score, IQR, or the robust Modified Z-Score.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Set the threshold</h3><p>Adjust the multiplier; the hint explains what the current setting flags. Defaults follow standard practice.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Find and download</h3><p>Press <strong>Find outliers</strong> to mark them on the chart, with the lines the rule draws, and in the table. Changing the column, rule or threshold afterwards updates the result. Then download the data without the outliers, or the outliers alone; save the chart as <strong>PDF</strong>, <strong>PNG</strong> or <strong>SVG</strong> (press <strong>Style</strong> to set its look); or copy the <strong>Python script</strong>, which reads your file, flags the same rows with numpy and draws the same chart with matplotlib.</p></div></div></div>
         </div>
     </section>
@@ -381,8 +384,7 @@
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                     <span class="text-sm">&copy; 2026</span>
                 </div>
-                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">built-by    </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell" target="_blank" rel="noopener">Olanrewaju M. Daramola</a> + Claude
-<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
+                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">ensemble    </span><span class="stk-mdp-credit-c">= </span>NVT (nights, very tired)
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">version     </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md" target="_blank" rel="noopener">v0.3.0</a> (2026-10-01)</pre>
                 <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
@@ -395,6 +397,7 @@
     </footer>
 
     <script src="js/site.js"></script>
+    <script defer src="js/tutorial-video.js"></script>
     <script type="module" src="js/outlier-detector.js"></script>
 </body>
 </html>

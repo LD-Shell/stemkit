@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     
     <title>Journal Abbreviator | CASSI Formatter | STEMKit</title>
     <meta name="title" content="Journal Abbreviator | CASSI Formatter | STEMKit">
@@ -79,6 +79,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="src/tools/journal-abbreviator.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
@@ -144,6 +145,7 @@
                 <ul class="stk-pagehead-meta">
                     <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
                     <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
+                    <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
                 </ul>
             </div>
             <div class="stk-pagehead-actions">
@@ -220,6 +222,7 @@
             <span class="stk-chip"><i class="fa-solid fa-spell-check"></i> How-to guide</span>
             <h2 class="stk-h2">How to abbreviate journal names</h2>
             <p class="stk-lead">Paste a reference list or BibTeX and the tool swaps recognised full journal titles for their standard abbreviations, live as you type.</p>
+                <section id="tutorial" class="stk-tut-slot" data-tutorial="journal-abbreviator"></section>
             <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Paste your references</h3><p>Paste a reference list or the contents of a .bib file into step 1, or press <strong>Load example</strong>.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Read the output</h3><p>Titles in the built-in list are replaced as you type and filled in blue. Titles abbreviated word by word by ISO&nbsp;4 rules get a dashed underline and an <strong>ISO&nbsp;4</strong> tag: check those against the journal's own site, because a registered abbreviation can differ from the rules. A journal-like title that neither can abbreviate is marked in amber, so nothing slips through unnoticed.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Add your own rules</h3><p>Open <strong>Your own abbreviations</strong> and add <code>Full Name = Abbrev.</code> lines for niche journals. They are saved in your browser and win over the built-in list.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Copy the result</h3><p><strong>Copy</strong> puts the abbreviated list on the clipboard.</p></div></div></div></div>
         </div>
     </section>
@@ -296,8 +299,7 @@
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                     <span class="text-sm">&copy; 2026</span>
                 </div>
-                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">built-by    </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell" target="_blank" rel="noopener">Olanrewaju M. Daramola</a> + Claude
-<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
+                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">ensemble    </span><span class="stk-mdp-credit-c">= </span>NVT (nights, very tired)
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">version     </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md" target="_blank" rel="noopener">v0.3.0</a> (2026-10-01)</pre>
                 <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
@@ -310,6 +312,7 @@
     </footer>
 
     <script src="js/site.js"></script>
+    <script defer src="js/tutorial-video.js"></script>
     <script src="js/journal-data.js"></script>
     <script type="module" src="js/journal-abbreviator.js"></script>
 </body>

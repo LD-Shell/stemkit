@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     
     <title>Scientific Unit Converter: Hartree, eV, Dipole | STEMKit</title>
     <meta name="title" content="Scientific Unit Converter: Hartree, eV, Dipole | STEMKit">
@@ -73,6 +73,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="src/tools/scientific-converter.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
@@ -138,6 +139,7 @@
                 <ul class="stk-pagehead-meta">
                     <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
                     <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
+                    <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
                 </ul>
             </div>
         </header>
@@ -190,6 +192,7 @@
                 <span class="stk-chip"><i class="fa-solid fa-right-left"></i> How-to guide</span>
                 <h2 class="stk-h2">How to convert a value</h2>
                 <p class="stk-lead">Every unit of the chosen quantity is on screen at once, so one entry gives you all of its equivalents, each computed from a single reference constant.</p>
+                <section id="tutorial" class="stk-tut-slot" data-tutorial="scientific-converter"></section>
                 <div class="stk-grid stk-grid-3">
                     <div class="stk-step"><span class="stk-num">1</span><div><h3>Pick a quantity</h3><p>Energy, length, time, force, pressure, dipole moment, charge, polarizability, spectroscopy, temperature, or heat capacity and entropy.</p></div></div>
                     <div class="stk-step"><span class="stk-num">2</span><div><h3>Type into any field</h3><p>Every other field updates as you type. Standard and exponential notation both work (<code>1.5e-3</code>), and grouping commas are ignored. In Spectroscopy, edit one field at a time: wavelength is the reciprocal of the others.</p></div></div>
@@ -359,8 +362,7 @@
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                     <span class="text-sm">&copy; 2026</span>
                 </div>
-                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">built-by    </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell" target="_blank" rel="noopener">Olanrewaju M. Daramola</a> + Claude
-<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
+                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">ensemble    </span><span class="stk-mdp-credit-c">= </span>NVT (nights, very tired)
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">version     </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md" target="_blank" rel="noopener">v0.3.0</a> (2026-10-01)</pre>
                 <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
@@ -373,6 +375,7 @@
     </footer>
 
     <script src="js/site.js"></script>
+    <script defer src="js/tutorial-video.js"></script>
     <script type="module" src="js/scientific-converter.js"></script>
 </body>
 </html>

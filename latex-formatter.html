@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     
     <title>LaTeX Equation Formatter & Visual Editor | STEMKit</title>
     <meta name="title" content="LaTeX Equation Formatter & Visual Editor | STEMKit">
@@ -78,6 +78,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="src/tools/latex-formatter.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
@@ -143,6 +144,7 @@
                 <ul class="stk-pagehead-meta">
                     <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
                     <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
+                    <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
                 </ul>
             </div>
             <div class="stk-pagehead-actions">
@@ -233,6 +235,7 @@
             <span class="stk-chip"><i class="fa-solid fa-square-root-variable" aria-hidden="true"></i> How-to guide</span>
             <h2 class="stk-h2">How to write and check an equation</h2>
             <p class="stk-lead">Build the equation in whichever form suits you, see it typeset as you go, and take the LaTeX to your manuscript.</p>
+                <section id="tutorial" class="stk-tut-slot" data-tutorial="latex-formatter"></section>
             <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Write the equation</h3><p>Type in the <strong>Visual editor</strong>, where <code>\alpha</code>, <code>\frac</code>, <code>^</code> and <code>_</code> work as in LaTeX, or type and paste in <strong>LaTeX source</strong>. The two stay in step with each other.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Check the preview</h3><p>The <strong>Preview</strong> typesets the source as you type. If it cannot, it names the first problem, such as a missing brace or an unknown command.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Add a matrix</h3><p>Choose the rows, columns and brackets under <strong>Insert a matrix</strong> and press <strong>Add the matrix to the equation</strong>. It goes on the end, after an equals sign (or on its own if the equation is empty), with placeholder entries <code>x_{11}</code>, <code>x_{12}</code>, &hellip; to replace.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Copy the LaTeX</h3><p><strong>Copy LaTeX</strong> copies the source without the invisible placeholder characters the visual editor adds. Paste it inside an <code>equation</code> or <code>align</code> environment.</p></div></div></div>
             <div class="stk-note" style="margin-top:1rem;"><i class="fa-solid fa-circle-info" style="margin-top:.15rem;" aria-hidden="true"></i><div>The preview uses KaTeX, which covers most of amsmath. It does not know the macros in your own preamble, so a <code>\newcommand</code> of yours shows as an error here and still compiles in your document.</div></div>
             <div class="stk-refs"><a href="https://katex.org/docs/supported.html" target="_blank" rel="noopener"><i class="fa-solid fa-list" aria-hidden="true"></i> Commands KaTeX supports</a><a href="https://www.overleaf.com/learn/latex/Mathematical_expressions" target="_blank" rel="noopener"><i class="fa-solid fa-book" aria-hidden="true"></i> Overleaf: mathematical expressions</a></div>
@@ -294,8 +297,7 @@
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                     <span class="text-sm">&copy; 2026</span>
                 </div>
-                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">built-by    </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell" target="_blank" rel="noopener">Olanrewaju M. Daramola</a> + Claude
-<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
+                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">ensemble    </span><span class="stk-mdp-credit-c">= </span>NVT (nights, very tired)
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">version     </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md" target="_blank" rel="noopener">v0.3.0</a> (2026-10-01)</pre>
                 <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
@@ -308,6 +310,7 @@
     </footer>
 
     <script src="js/site.js"></script>
+    <script defer src="js/tutorial-video.js"></script>
     <script type="module" src="js/latex-formatter.js"></script>
 </body>
 </html>

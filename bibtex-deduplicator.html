@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     
     <title>BibTeX Deduplicator | Clean Citation Libraries | STEMKit</title>
     <meta name="title" content="BibTeX Deduplicator | Clean Citation Libraries | STEMKit">
@@ -83,6 +83,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="src/tools/bibtex-deduplicator.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
@@ -148,6 +149,7 @@
                 <ul class="stk-pagehead-meta">
                     <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
                     <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
+                    <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
                 </ul>
             </div>
             <div class="stk-pagehead-actions">
@@ -232,6 +234,7 @@
             <span class="stk-chip"><i class="fa-solid fa-list-check"></i> How-to guide</span>
             <h2 class="stk-h2">How to de-duplicate a BibTeX library</h2>
             <p class="stk-lead">Merging reference libraries almost always creates duplicate citations. Here is the fastest way to find and remove them without uploading your research data.</p>
+                <section id="tutorial" class="stk-tut-slot" data-tutorial="bibtex-deduplicator"></section>
             <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Add your library</h3><p>Paste BibTeX entries into step 1, or press <strong>Upload .bib</strong> to load a file. Merged exports from Zotero, Mendeley or EndNote are the usual source of duplicates. <strong>Load example</strong> gives you five entries to try.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Scan for duplicates</h3><p>Press <strong>Scan for duplicates</strong>. Entries that share a DOI, or whose titles match once case, braces and punctuation are ignored, are put in one group.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Keep one of each</h3><p>In each group, click the entry to keep. <strong>Keep the most complete in each</strong> picks, in every group, the entry with a DOI and the most fields filled in.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Download the clean file</h3><p>When every group has an entry kept, press <strong>Download cleaned .bib</strong>. The file is your library with the other entries taken out: the order, the kept entries and any <code>@string</code>, <code>@comment</code> or <code>@preamble</code> blocks are as they were.</p></div></div></div>
         </div>
     </section>
@@ -322,8 +325,7 @@
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                     <span class="text-sm">&copy; 2026</span>
                 </div>
-                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">built-by    </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell" target="_blank" rel="noopener">Olanrewaju M. Daramola</a> + Claude
-<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
+                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">ensemble    </span><span class="stk-mdp-credit-c">= </span>NVT (nights, very tired)
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">version     </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md" target="_blank" rel="noopener">v0.3.0</a> (2026-10-01)</pre>
                 <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
@@ -336,5 +338,6 @@
     </footer>
 
     <script src="js/site.js"></script>
+    <script defer src="js/tutorial-video.js"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://doi.org https://api.crossref.org https://data.crosscite.org https://data.medra.org https://ra.publications.europa.eu https://data.doi.or.kr; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://doi.org https://api.crossref.org https://data.crosscite.org https://data.medra.org https://ra.publications.europa.eu https://data.doi.or.kr; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     
     <title>DOI to BibTeX | Citation Generator | STEMKit</title>
     <meta name="title" content="DOI to BibTeX | Citation Generator | STEMKit">
@@ -79,6 +79,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="src/tools/doi-fetcher.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
@@ -146,6 +147,7 @@
                 <ul class="stk-pagehead-meta">
                     <li><i class="fa-solid fa-globe" aria-hidden="true"></i> Looks up DOIs at doi.org</li>
                     <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
+                    <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
                 </ul>
             </div>
             <div class="stk-pagehead-actions">
@@ -256,6 +258,7 @@
             <span class="stk-chip"><i class="fa-solid fa-barcode"></i> How-to guide</span>
             <h2 class="stk-h2">How to turn DOIs into BibTeX</h2>
             <p class="stk-lead">Paste one DOI or hundreds and the tool looks each one up at doi.org, adding a BibTeX entry for it to a bibliography you can copy or save as a .bib file.</p>
+                <section id="tutorial" class="stk-tut-slot" data-tutorial="doi-fetcher"></section>
             <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Paste your DOIs</h3><p>One per line, or separated by commas, semicolons or spaces. Bare DOIs and doi.org links both work. A repeated DOI, or one already in the bibliography, is skipped. <strong>Load example</strong> adds three to try.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Check the separator</h3><p><strong>Auto-detect</strong> handles most lists. If it splits yours wrongly, pick New line, Comma, Semicolon or Space.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Fetch</h3><p>Press <strong>Fetch BibTeX</strong>. Entries arrive one at a time with a progress bar; any that fail are listed with the reason, and <strong>Retry failed</strong> tries them again.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Choose fields and save</h3><p>Untick the fields you do not want in step 2, then <strong>Copy</strong> the bibliography or <strong>Save .bib</strong> to download <code>references.bib</code>.</p></div></div></div></div>
         </div>
     </section>
@@ -335,8 +338,7 @@
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                     <span class="text-sm">&copy; 2026</span>
                 </div>
-                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">built-by    </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell" target="_blank" rel="noopener">Olanrewaju M. Daramola</a> + Claude
-<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
+                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">ensemble    </span><span class="stk-mdp-credit-c">= </span>NVT (nights, very tired)
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">version     </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md" target="_blank" rel="noopener">v0.3.0</a> (2026-10-01)</pre>
                 <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
@@ -350,6 +352,7 @@
 
     <!-- ════════ SCRIPTS ════════ -->
     <script src="js/site.js"></script>
+    <script defer src="js/tutorial-video.js"></script>
     <script type="module" src="js/doi-fetcher.js"></script>
 </body>
 </html>

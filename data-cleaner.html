@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     
     <title>Data Cleaner: CSV Cleaning Recipe and pandas Script | STEMKit</title>
     <meta name="title" content="Data Cleaner: CSV Cleaning Recipe and pandas Script | STEMKit">
@@ -82,6 +82,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="src/tools/python-panel.css">
     <link rel="stylesheet" href="src/tools/data-cleaner.css">
 </head>
@@ -149,6 +150,7 @@
                     <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser; your data stay on this machine</li>
                     <li><i class="fa-brands fa-python" aria-hidden="true"></i> The pandas script matches the download cell for cell</li>
                     <li><a href="#method"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How each step works</a></li>
+                    <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
                 </ul>
             </div>
         </header>
@@ -302,6 +304,7 @@
             <span class="stk-chip"><i class="fa-solid fa-broom"></i> How-to guide</span>
             <h2 class="stk-h2">How to clean a table and keep the recipe</h2>
             <p class="stk-lead">Load a file, add the steps it needs, and take away the cleaned CSV, the recipe and a pandas script that repeats it, without opening Python, R or a spreadsheet.</p>
+                <section id="tutorial" class="stk-tut-slot" data-tutorial="data-cleaner"></section>
             <div class="stk-grid stk-grid-2">
                 <div class="stk-step"><span class="stk-num">1</span><div><h3>Load your file</h3><p>Drag a <code>.csv</code>, <code>.tsv</code>, <code>.txt</code> or <code>.dat</code> file onto the drop zone, or press <strong>Choose file</strong>. The delimiter, a decimal comma and the header row are found for you; change them above the table if the guess is wrong. <strong>Load a sample</strong> gives you a small file with gaps, a repeated row, stray spaces and a note in a number column to practise on.</p></div></div>
                 <div class="stk-step"><span class="stk-num">2</span><div><h3>Add steps</h3><p>Pick an action, choose the columns and press <strong>Add step</strong>; the line under the button tells you what it will do before you add it. <strong>Suggested for this table</strong> offers one-click fixes for what the page spots, such as repeated rows or text with spaces around it. Click a column name in the table to use it in the step.</p></div></div>
@@ -417,8 +420,7 @@
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                     <span class="text-sm">&copy; 2026</span>
                 </div>
-                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">built-by    </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell" target="_blank" rel="noopener">Olanrewaju M. Daramola</a> + Claude
-<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
+                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">ensemble    </span><span class="stk-mdp-credit-c">= </span>NVT (nights, very tired)
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">version     </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md" target="_blank" rel="noopener">v0.3.0</a> (2026-10-01)</pre>
                 <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
@@ -432,6 +434,7 @@
 
 
     <script src="js/site.js"></script>
+    <script defer src="js/tutorial-video.js"></script>
     <script type="module" src="js/data-cleaner.js"></script>
 </body>
 </html>

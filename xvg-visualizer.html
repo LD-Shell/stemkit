@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     
     <title>XVG & CSV Visualizer | Interactive Plots | STEMKit</title>
     <meta name="title" content="XVG & CSV Visualizer | Interactive Plots | STEMKit">
@@ -71,6 +71,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="src/tools/figure.css">
     <link rel="stylesheet" href="src/tools/python-panel.css">
     <link rel="stylesheet" href="src/tools/xvg-visualizer.css">
@@ -139,7 +140,8 @@
                     <ul class="stk-pagehead-meta">
                         <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
                         <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
-                    </ul>
+                        <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
+                </ul>
                 </div>
             </header>
         </div>
@@ -254,6 +256,7 @@
         <span class="stk-chip"><i class="fa-solid fa-circle-play"></i> Guide</span>
         <h2 class="stk-h2">How to visualize your data</h2>
         <p class="stk-lead">Drop a GROMACS <code>.xvg</code> (or any whitespace or CSV table of numbers) and plot any of its columns. The page reads the file's own labels, so the axes and legends come out labelled.</p>
+                <section id="tutorial" class="stk-tut-slot" data-tutorial="xvg-visualizer"></section>
         <div class="stk-grid stk-grid-2" style="margin-top:1.5rem;">
             <div class="stk-step"><span class="stk-num">1</span><div><h3>Load a file</h3><p>Drag &amp; drop or select a <code>.xvg</code>, <code>.csv</code>, <code>.txt</code> or <code>.dat</code> file, or press <strong>Load a sample</strong> to try a synthetic RMSD and radius-of-gyration trace. Everything is parsed in your browser.</p></div></div>
             <div class="stk-step"><span class="stk-num">2</span><div><h3>Pick columns</h3><p>Choose which column is the x axis, then tick any number of series to overlay. A series on a very different scale goes in a <strong>Lower panel</strong> under the others, sharing the x axis. Legends and axis titles come from the file's <code>@</code> lines, or a CSV's header row, when present; GROMACS's sub- and superscripts and Greek letters are set as they print.</p></div></div>
@@ -338,8 +341,7 @@
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                     <span class="text-sm">&copy; 2026</span>
                 </div>
-                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">built-by    </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell" target="_blank" rel="noopener">Olanrewaju M. Daramola</a> + Claude
-<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
+                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">ensemble    </span><span class="stk-mdp-credit-c">= </span>NVT (nights, very tired)
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">version     </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md" target="_blank" rel="noopener">v0.3.0</a> (2026-10-01)</pre>
                 <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
@@ -352,6 +354,7 @@
     </footer>
 
     <script src="js/site.js"></script>
+    <script defer src="js/tutorial-video.js"></script>
     <script type="module" src="js/xvg-visualizer.js"></script>
 </body>
 </html>

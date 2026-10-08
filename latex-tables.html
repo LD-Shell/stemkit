@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     
     <title>Visual LaTeX Table Generator | STEMKit</title>
     <meta name="title" content="Visual LaTeX Table Generator | STEMKit">
@@ -79,6 +79,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="src/tools/latex-tables.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300">
@@ -144,6 +145,7 @@
                 <ul class="stk-pagehead-meta">
                     <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
                     <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
+                    <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
                 </ul>
             </div>
             <div class="stk-pagehead-actions">
@@ -253,6 +255,7 @@
             <span class="stk-chip"><i class="fa-solid fa-table"></i> How-to guide</span>
             <h2 class="stk-h2">How to turn a data table into LaTeX</h2>
             <p class="stk-lead">Paste rows from Excel, Numbers or a CSV file and get a LaTeX table ready for a paper, with a live preview.</p>
+                <section id="tutorial" class="stk-tut-slot" data-tutorial="latex-tables"></section>
             <div class="stk-grid stk-grid-2"><div class="stk-step"><span class="stk-num">1</span><div><h3>Paste your table</h3><p>Copy cells in Excel, Numbers or Google Sheets and paste them into step 1, or paste CSV. The first row becomes the header. <strong>Load example</strong> shows the format.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Choose the options</h3><p>Pick an environment (table, table* or sidewaystable), the lines (booktabs, rules only, or a full grid) and the column alignment. The preview follows.</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Add a caption and label</h3><p>Optionally set a caption and a label, such as <code>tab:gaps</code>, to refer to the table with <code>\ref</code>.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Copy or download</h3><p><strong>Copy LaTeX</strong> puts the source on the clipboard, <strong>Download .tex</strong> saves it as <code>table.tex</code>, and <strong>Copy as Markdown</strong> gives the same table for a README or notebook.</p></div></div></div>
         </div>
     </section>
@@ -329,8 +332,7 @@
                     <span class="font-bold text-slate-700 dark:text-slate-300">STEMKit</span>
                     <span class="text-sm">&copy; 2026</span>
                 </div>
-                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">built-by    </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell" target="_blank" rel="noopener">Olanrewaju M. Daramola</a> + Claude
-<span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
+                <pre class="stk-mdp-credit"><span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">integrator  </span><span class="stk-mdp-credit-c">= </span>caffeine
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">ensemble    </span><span class="stk-mdp-credit-c">= </span>NVT (nights, very tired)
 <span class="stk-mdp-credit-c">; </span><span class="stk-mdp-credit-k">version     </span><span class="stk-mdp-credit-c">= </span><a href="https://github.com/LD-Shell/stemkit/blob/main/CHANGELOG.md" target="_blank" rel="noopener">v0.3.0</a> (2026-10-01)</pre>
                 <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm font-medium">
@@ -343,6 +345,7 @@
     </footer>
 
     <script src="js/site.js"></script>
+    <script defer src="js/tutorial-video.js"></script>
     <script type="module" src="js/latex-tables.js"></script>
 </body>
 </html>

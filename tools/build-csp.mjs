@@ -4,8 +4,10 @@
  *
  * The privacy page promises that nothing loads from another host, and that
  * the only requests to one are DOI to BibTeX asking doi.org (which passes the
- * lookup to the agency that registered the DOI) and the Structure Inspector
- * fetching a PDB entry from RCSB. Each page carries a
+ * lookup to the agency that registered the DOI), the Structure Inspector
+ * fetching a PDB entry from RCSB, and a tutorial video's player, which comes
+ * from youtube-nocookie.com once the visitor presses play (the thumbnails are
+ * served from the site). Each page carries a
  * <meta http-equiv="Content-Security-Policy"> right after its viewport tag, so
  * the browser enforces that promise rather than taking it on trust.
  *
@@ -76,9 +78,17 @@ const EXTRA = {
   }
 };
 
+/**
+ * A page with a tutorial video (js/tutorial-video.js mounts it on any element
+ * carrying data-tutorial) may frame YouTube's privacy-enhanced player. The
+ * frame is only created when the visitor presses play.
+ */
+export const VIDEO_FRAME_HOSTS = ['https://www.youtube-nocookie.com'];
+const hasTutorialVideo = html => /\sdata-tutorial="[^"]+"/.test(html);
+
 const ORDER = [
   'default-src', 'script-src', 'style-src', 'img-src', 'font-src', 'connect-src',
-  'media-src', 'worker-src', 'object-src', 'base-uri', 'form-action'
+  'media-src', 'frame-src', 'worker-src', 'object-src', 'base-uri', 'form-action'
 ];
 
 export const CSP_META = /<meta http-equiv="Content-Security-Policy" content="([^"]*)">/;
@@ -96,6 +106,7 @@ const hashOf = text => `'sha256-${crypto.createHash('sha256').update(text, 'utf8
 export function policyFor(page, html) {
   const d = Object.fromEntries(Object.entries(BASE).map(([k, v]) => [k, [...v]]));
   for (const [k, v] of Object.entries(EXTRA[page] || {})) d[k] = [...(d[k] || []), ...v];
+  if (hasTutorialVideo(html)) d['frame-src'] = [...(d['frame-src'] || []), ...VIDEO_FRAME_HOSTS];
   d['script-src'].push(...new Set(inlineScripts(html).map(hashOf)));
   return ORDER.filter(k => d[k]).map(k => `${k} ${d[k].join(' ')}`).join('; ');
 }
