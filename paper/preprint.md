@@ -38,7 +38,7 @@ inside the user's own browser: the data analysed never leaves it, no account is
 required and nothing is installed, so the tools stay usable for unpublished or
 confidential data. The same modules run under Node.js, so an interactive
 analysis can be captured as a version-pinned script. The 42 domain modules carry
-4434 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
+4440 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
 GROMACS, PLUMED, LAMMPS and physical invariants rather than against the
 implementation itself. That
 validation exposed four defects that had been altering reported results, among
@@ -60,7 +60,7 @@ reproducibility; data privacy
 | C4 | Code versioning system used | git |
 | C5 | Software code languages, tools and services used | JavaScript (ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS |
 | C6 | Compilation requirements, operating environments and dependencies | Browser tools: any current browser supporting ECMAScript modules and the `FileReader` API; no installation and no build step. Library: Node.js ≥ 18; on npm as `stemkit-core`. No runtime dependencies: jStat, Papa Parse, regression.js and bibtex-parse-js are vendored and bundled. `npm install` in a clone adds only the development dependencies (Jest, Tailwind CSS) |
-| C7 | If available, link to developer documentation/manual | <https://github.com/LD-Shell/stemkit#readme>; per-module API documentation in `src/core/README.md`; hosted tools at <https://stemkit.net> |
+| C7 | If available, link to developer documentation/manual | <https://github.com/LD-Shell/stemkit#readme>; per-module API documentation in `src/core/README.md`; hosted tools at <https://stemkit.net>; narrated video tutorials for 15 tools at <https://www.youtube.com/playlist?list=PLAqgfbqFf32M> |
 | C8 | Support email for questions | lanrelangmuir@gmail.com (issue tracker: <https://github.com/LD-Shell/stemkit/issues>) |
 
 ## 1. Motivation and significance
@@ -192,7 +192,7 @@ enumerates the modules.
 ┌───────────────────────────────┐   ┌───────────────────────────────┐
 │        Browser host           │   │         Node.js host          │
 │  21 static HTML/CSS tool pages│   │  user analysis scripts        │
-│  DOM wiring only;             │   │  4434-test Jest suite;        │
+│  DOM wiring only;             │   │  4440-test Jest suite;        │
 │  FileReader input             │   │  smoke test                   │
 │  UMD bundles via <script>     │   │  UMD bundles: createRequire   │
 └───────────────┬───────────────┘   └───────────────┬───────────────┘
@@ -230,7 +230,7 @@ on it (265 in all).
 | --- | --- | ---: | --- |
 | `gromacs-mdp`, `gromacs-ndx` | GROMACS `.mdp` settings and checks, index groups | 1168 | none |
 | `plumed`, `plumed-syntax`, `plumed-parse`, `plumed-atoms`, `plumed-run` | PLUMED input generation and checking, atom groups, run files | 644 | none |
-| `expression`, `nonlinear-fit`, `fit-python`, `plot-style` | Typed equations, Levenberg–Marquardt fitting, fit scripts | 387 | none |
+| `expression`, `nonlinear-fit`, `fit-python`, `plot-style` | Typed equations, Levenberg–Marquardt fitting, fit scripts | 393 | none |
 | `lammps-reference`, `lammps-input`, `lammps-data`, `lammps-workflow` | LAMMPS commands, input checks, data files, run inputs | 350 | none |
 | `statistics`, `statistics-figure` | Inferential and descriptive statistics | 188 | jStat |
 | `data-cleaning`, `data-cleaning-python` | Tabular transformation, pandas script | 182 | Papa Parse |
@@ -254,7 +254,7 @@ on it (265 in all).
 | `plot-builder` | Plot builder tables and figures | 18 | none |
 | `version` | Release version and date | 5 | none |
 | `zip` | Archives of generated files | 4 | none |
-| **Total** | | **4434** | |
+| **Total** | | **4440** | |
 
 Four third-party libraries are vendored within the repository for the core:
 jStat for statistical distributions, Papa Parse for delimited-text parsing,
@@ -285,7 +285,7 @@ under that interpretation the UMD factory takes its browser branch and fails.
 Scoping `"type": "commonjs"` to the dependency directory alone restores correct
 behaviour.
 
-The test suite comprises 4434 tests in 58 suites across the 42 domain modules and the version module,
+The test suite comprises 4440 tests in 58 suites across the 42 domain modules and the version module,
 with 88.5% statement and 93.0% line coverage of `src/core/`. Its governing
 principle is that numerical results are validated against *independent*
 references rather than against the implementation under test, since a test
@@ -826,7 +826,9 @@ replicate difference survives an assumption check, becomes an operation
 performed at the moment the question arises rather than one deferred until an
 environment is available. The tools are also usable in teaching and in shared
 computing environments where installation is not an option, since a URL is the
-only prerequisite.
+only prerequisite. Fifteen of the tools have a narrated, captioned video
+tutorial that works through the tool step by step on an example; each is shown on its tool's page and the set is collected in a
+YouTube playlist (<https://www.youtube.com/playlist?list=PLAqgfbqFf32M>).
 
 STEMKit is released under the MIT licence, hosted at <https://stemkit.net>,
 developed in the open at <https://github.com/LD-Shell/stemkit> and archived on
@@ -850,7 +852,7 @@ in pairs: it requires no installation, transmits no data and remains scriptable.
 
 Both properties are structural rather than contractual: computation occurs
 entirely within the browser, and the modules behind the interface are the ones
-that run under Node.js. The 4434-test suite validates every numerical result
+that run under Node.js. The 4440-test suite validates every numerical result
 against an independent reference, and the four defects that this
 strategy exposed (deflated standardised moments, tail probabilities floored at
 zero, misassigned elements in metalloproteins, and an adjusted moment fed into a
