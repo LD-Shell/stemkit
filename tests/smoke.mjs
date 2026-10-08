@@ -24,7 +24,7 @@ import {
   convert,
   parseBibtex, deduplicateAuto,
   fitCurve,
-  parseEquation, classify, fitModel, generateFitScript, defaultPlotStyle,
+  parseEquation, classify, fitModel, generateFitScript, defaultPlotStyle, bandVisibility,
   detectModifiedZScore,
   summariseGroup,
   toDataCoordinates,
@@ -141,6 +141,11 @@ check('equation fitting', () => {
     parameters: parameters.map(name => ({ name })), data: { columns: { t }, y }, style: defaultPlotStyle(), fit: f
   });
   assert(py.includes('curve_fit'), 'no curve_fit in the script');
+  // Data without noise: the band is thinner than the line, and says so.
+  const b = f.band(t);
+  const style = { ...defaultPlotStyle(), band: { ...defaultPlotStyle().band, show: true } };
+  const seen = bandVisibility({ y, curve: { y: t.map(f.predict) }, band: b }, style, f);
+  assert(seen.status === 'hidden' && seen.message.startsWith('Band is narrower'), `band visibility: ${seen.status}`);
 });
 
 check('gromacs: .mdp and index', () => {

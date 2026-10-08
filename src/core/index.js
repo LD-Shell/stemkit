@@ -127,7 +127,7 @@ export * from './selection.js';
 export { parseEquation, parseExpression, classify, toLatex } from './expression.js';
 export { fitModel, studentTQuantile } from './nonlinear-fit.js';
 export { generateFitScript } from './fit-python.js';
-export { defaultPlotStyle, normalisePlotStyle } from './plot-style.js';
+export { bandVisibility, defaultPlotStyle, normalisePlotStyle } from './plot-style.js';
 export { pdfFromSvg, pdfFromJpeg } from './pdf.js';
 export { buildZip } from './zip.js';
 export { generateCleaningScript } from './data-cleaning-python.js';

@@ -208,3 +208,74 @@ export function normalisePlotStyle(style = {}) {
     }
   };
 }
+
+/** How much of the figure height the main panel takes: matplotlib's default subplot, 0.11 to 0.88. */
+const MAIN_PANEL_SHARE = 0.77;
+
+/**
+ * Whether the confidence band a fit plot asks for can be seen, and if not, why.
+ *
+ * The band is drawn whenever it can be, but two cases leave it switched on
+ * with nothing to see:
+ *
+ *   - `undetermined`: the parameters' covariance could not be worked out
+ *     (two of them cannot be told apart, as in `y = a*b*x`), so the band is
+ *     NaN wherever the curve depends on them. A point where every gradient is
+ *     zero (x = 0 there) still comes out finite, with zero width, and draws
+ *     nothing on its own.
+ *   - `hidden`: even at its widest the band is thinner than the fit line, so
+ *     the line covers it. The panel height is estimated from the figure's
+ *     height (the main panel's share of it, less the residual panel's), so a
+ *     band right at the threshold may show a sliver either way. Not judged on
+ *     a log y axis.
+ *
+ * `off` means no band is asked for or none applies (several independent
+ * variables, no fit yet); `shown` means it is drawn and wider than the line.
+ *
+ * @param {{y?: ArrayLike<number>, curve?: {y: ArrayLike<number>}, band?: {lower: ArrayLike<number>, upper: ArrayLike<number>}, multivariate?: object}|null} model
+ *   what the plot draws, as fit-plot's figure takes it
+ * @param {object} style  a plot style (normalised here)
+ * @param {{covariance?: number[][]}|null} [fit]  the fit, for its covariance
+ * @returns {{status: 'off'|'shown'|'undetermined'|'hidden', message: string}}
+ */
+export function bandVisibility(model, style, fit = null) {
+  const s = normalisePlotStyle(style);
+  const off = { status: 'off', message: '' };
+  if (!s.band.show || !model || model.multivariate || !model.band || !model.curve) return off;
+  const lower = Array.from(model.band.lower || []);
+  const upper = Array.from(model.band.upper || []);
+  if (!lower.length) return off;
+  const finite = [];
+  for (let i = 0; i < lower.length; i++) {
+    if (Number.isFinite(lower[i]) && Number.isFinite(upper[i])) finite.push(i);
+  }
+  const cov = fit && fit.covariance;
+  const covBad = Array.isArray(cov) && cov.some(row => Array.from(row).some(v => !Number.isFinite(v)));
+  if (!finite.length || (covBad && finite.length < lower.length)) {
+    return {
+      status: 'undetermined',
+      message: 'Band not drawn: the parameters are not independent, so their uncertainties, and the band, cannot be worked out.'
+    };
+  }
+  const shown = { status: 'shown', message: '' };
+  if (s.yScale === 'log') return shown;
+  let widest = 0;
+  let lo = Infinity;
+  let hi = -Infinity;
+  const take = v => { if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; } };
+  for (const i of finite) { widest = Math.max(widest, upper[i] - lower[i]); take(lower[i]); take(upper[i]); }
+  Array.from(model.y || []).forEach(take);
+  Array.from(model.curve.y || []).forEach(take);
+  if (Number.isFinite(s.yLim[0])) lo = s.yLim[0];
+  if (Number.isFinite(s.yLim[1])) hi = s.yLim[1];
+  const range = hi - lo;
+  if (!(range > 0)) return shown;
+  const share = s.residuals.show ? 1 / (1 + s.residuals.heightRatio) : 1;
+  const panelPt = s.height * 72 * MAIN_PANEL_SHARE * share;
+  if ((widest / range) * panelPt >= s.fit.width) return shown;
+  const pct = String(Number((s.band.level * 100).toPrecision(4)));
+  return {
+    status: 'hidden',
+    message: `Band is narrower than the line: the ${pct}% band is hidden behind the fitted curve because the fit is very tight.`
+  };
+}

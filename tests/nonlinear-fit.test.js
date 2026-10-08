@@ -4,6 +4,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { normalQuantile, studentTCdf, studentTQuantile, fitModel } from '../src/core/nonlinear-fit.js';
+import { bandVisibility, defaultPlotStyle } from '../src/core/plot-style.js';
 
 /* ------------------------------------------------------------------ *
  * Synthetic data
@@ -992,5 +993,92 @@ describe('fitModel with awkward input', () => {
     expect(fit.ok).toBe(true);
     expect(fit.parameters.map(p => p.name)).toEqual(['a', 'b']);
     expect(fit.warnings).toContain("'b' was not in the parameter list, so it is fitted as a parameter.");
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Whether a switched-on band can be seen (core/plot-style)
+ * ------------------------------------------------------------------ */
+
+describe('bandVisibility', () => {
+  /* What the Curve Fitter's plot draws for a one-variable fit. */
+  const plotted = (fit, x, y, style) => {
+    const grid = linspace(Math.min(...x), Math.max(...x), 200);
+    const b = fit.band(grid, style.band.level);
+    return { x, y, curve: { x: grid, y: grid.map(v => fit.predict(v)) }, band: { x: grid, lower: Array.from(b.lower), upper: Array.from(b.upper) } };
+  };
+  const withBand = (extra = {}) => {
+    const s = defaultPlotStyle();
+    return { ...s, ...extra, band: { ...s.band, show: true, ...(extra.band || {}) } };
+  };
+  const x = linspace(0, 7, 8);
+  const noisy = [1.3, 2.6, 5.5, 6.4, 9.6, 10.1, 13.7, 14.2];
+
+  test('a band wider than the line is shown, with no note', () => {
+    const style = withBand();
+    const fit = fitModel({ expression: 'y = a*x + b', columns: { x }, y: noisy });
+    expect(bandVisibility(plotted(fit, x, noisy, style), style, fit)).toEqual({ status: 'shown', message: '' });
+  });
+
+  test('parameters that cannot be told apart leave the band undetermined, though x = 0 comes out finite', () => {
+    const style = withBand();
+    const y = [0.02, 2.01, 3.98, 6.03, 7.99, 10.02, 11.98, 14.01];
+    const fit = fitModel({ expression: 'y = a*b*x', columns: { x }, y, parameters: [{ name: 'a', value: 1 }, { name: 'b', value: 1 }] });
+    expect(fit.ok).toBe(true);
+    const model = plotted(fit, x, y, style);
+    // Every gradient is zero at x = 0, so that one point is finite, with zero width.
+    expect(model.band.lower[0]).toBe(model.band.upper[0]);
+    expect(model.band.lower.slice(1).every(v => Number.isNaN(v))).toBe(true);
+    const v = bandVisibility(model, style, fit);
+    expect(v.status).toBe('undetermined');
+    expect(v.message).toBe('Band not drawn: the parameters are not independent, so their uncertainties, and the band, cannot be worked out.');
+  });
+
+  test('a band thinner than the fit line is reported as hidden, at its level', () => {
+    const style = withBand({ band: { level: 0.99 } });
+    const y = x.map(v => 2 * v + 1 + (v % 2 ? 1e-4 : -1e-4));
+    const fit = fitModel({ expression: 'y = a*x + b', columns: { x }, y });
+    const v = bandVisibility(plotted(fit, x, y, style), style, fit);
+    expect(v.status).toBe('hidden');
+    expect(v.message).toBe('Band is narrower than the line: the 99% band is hidden behind the fitted curve because the fit is very tight.');
+    expect(bandVisibility(plotted(fit, x, y, style), { ...style, yScale: 'log' }, fit).status).toBe('shown');
+  });
+
+  test('the threshold is the fit line\'s width, in points on the main panel', () => {
+    const style = withBand();
+    const y = x.map(v => 2 * v + 1 + (v % 2 ? 0.02 : -0.02));
+    const fit = fitModel({ expression: 'y = a*x + b', columns: { x }, y });
+    const model = plotted(fit, x, y, style);
+    const widths = model.band.upper.map((u, i) => u - model.band.lower[i]);
+    const all = [...model.band.lower, ...model.band.upper, ...y, ...model.curve.y];
+    const bandPt = (Math.max(...widths) / (Math.max(...all) - Math.min(...all))) * style.height * 72 * 0.77;
+    expect(bandPt).toBeGreaterThan(0.2);
+    expect(bandPt).toBeLessThan(6);
+    const line = w => ({ ...style, fit: { ...style.fit, width: w } });
+    expect(bandVisibility(model, line(bandPt * 1.2), fit).status).toBe('hidden');
+    expect(bandVisibility(model, line(bandPt * 0.8), fit).status).toBe('shown');
+    // A residual panel shrinks the main one, and the band with it.
+    const resid = { ...line(bandPt * 0.8), residuals: { show: true, heightRatio: 0.5 } };
+    expect(bandVisibility(model, resid, fit).status).toBe('hidden');
+  });
+
+  test('a narrow y range from fixed limits makes the same band visible', () => {
+    const style = withBand();
+    const y = x.map(v => 2 * v + 1 + (v % 2 ? 1e-4 : -1e-4));
+    const fit = fitModel({ expression: 'y = a*x + b', columns: { x }, y });
+    const model = plotted(fit, x, y, style);
+    expect(bandVisibility(model, style, fit).status).toBe('hidden');
+    const zoomed = { ...style, yLim: [0.999, 1.001] };
+    expect(bandVisibility(model, zoomed, fit).status).toBe('shown');
+  });
+
+  test('no band asked for, none to draw, or several variables: off', () => {
+    const fit = fitModel({ expression: 'y = a*x + b', columns: { x }, y: noisy });
+    const style = withBand();
+    const model = plotted(fit, x, noisy, style);
+    expect(bandVisibility(model, defaultPlotStyle(), fit)).toEqual({ status: 'off', message: '' });
+    expect(bandVisibility({ ...model, band: undefined }, style, fit).status).toBe('off');
+    expect(bandVisibility({ ...model, multivariate: { observed: noisy, predicted: noisy } }, style, fit).status).toBe('off');
+    expect(bandVisibility(null, style, fit).status).toBe('off');
   });
 });

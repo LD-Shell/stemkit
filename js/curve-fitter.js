@@ -32,7 +32,7 @@ import {
 } from '../src/core/expression.js';
 import { fitModel } from '../src/core/nonlinear-fit.js';
 import { generateFitScript } from '../src/core/fit-python.js';
-import { defaultPlotStyle, normalisePlotStyle } from '../src/core/plot-style.js';
+import { bandVisibility, defaultPlotStyle, normalisePlotStyle } from '../src/core/plot-style.js';
 
 /* ------------------------------------------------------------------ *
  * Reading a pasted or uploaded table
@@ -2621,6 +2621,19 @@ function startPage() {
     const model = plotModel();
     const info = await plotArea.update(model ? fitPlot.fitFigure(model, state.style) : null);
     ui.plotDrawn.hidden = !(info && state.fit && state.fit.ok);
+    showBandNote(model);
+  }
+
+  /* Why a band that is switched on cannot be seen, if it cannot (core/plot-style's bandVisibility). */
+  function showBandNote(model) {
+    const text = bandVisibility(model, state.style, state.fit && state.fit.ok ? state.fit : null).message;
+    ui.plotNotes.textContent = '';
+    if (text) {
+      const para = document.createElement('p');
+      para.textContent = text;
+      ui.plotNotes.appendChild(para);
+    }
+    ui.plotNotes.hidden = !text;
   }
 
   function exported(r, err, format) {
