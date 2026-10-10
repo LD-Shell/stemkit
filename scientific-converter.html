@@ -167,7 +167,7 @@
                 <div class="sc-card-head">
                     <div class="min-w-0">
                         <h2 id="scCardTitle" class="stk-ptitle">Energy</h2>
-                        <p class="sc-card-hint">Type a value in any field and the others fill in. Exponents work too, as in <code>1.5e-3</code>.</p>
+                        <p class="sc-card-hint">Type a value in any field and the others fill in. Use a point for decimals; exponents work too, as in <code>1.5e-3</code>.</p>
                     </div>
                     <div class="sc-card-actions">
                         <button type="button" id="btnExample" class="stk-btn stk-btn-sm stk-btn-soft"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span id="btnExampleText">Try 1 hartree</span></button>
@@ -181,7 +181,7 @@
 
                 <div class="sc-source">
                     <i class="fa-solid fa-book-bookmark" aria-hidden="true"></i>
-                    <p>Factors are the 2018 CODATA recommended values and the exact SI (2019) definitions. Hover a unit&rsquo;s <i class="fa-solid fa-circle-info" role="img" aria-label="information"></i> for its definition and source, or read the <a href="#method">method and references</a>.</p>
+                    <p>Factors are computed from the exact SI (2019) constants and the 2018 CODATA recommended values. Each unit&rsquo;s <i class="fa-solid fa-circle-info" role="img" aria-label="information"></i> button gives its definition and source, and the <a href="#method">method and references</a> give the rest.</p>
                 </div>
             </section>
         </div>
@@ -195,7 +195,7 @@
                 <section id="tutorial" class="stk-tut-slot" data-tutorial="scientific-converter"></section>
                 <div class="stk-grid stk-grid-3">
                     <div class="stk-step"><span class="stk-num">1</span><div><h3>Pick a quantity</h3><p>Energy, length, time, force, pressure, dipole moment, charge, polarizability, spectroscopy, temperature, or heat capacity and entropy.</p></div></div>
-                    <div class="stk-step"><span class="stk-num">2</span><div><h3>Type into any field</h3><p>Every other field updates as you type. Standard and exponential notation both work (<code>1.5e-3</code>), and grouping commas are ignored. In Spectroscopy, edit one field at a time: wavelength is the reciprocal of the others.</p></div></div>
+                    <div class="stk-step"><span class="stk-num">2</span><div><h3>Type into any field</h3><p>Every other field updates as you type. Standard and exponential notation both work (<code>1.5e-3</code>). Decimals take a point; commas are read only as thousands separators, and only where they can be nothing else (<code>1,234,567</code> or <code>1,234.5</code>), so <code>1,5</code> is refused rather than guessed. In Spectroscopy, wavelength is the reciprocal of the others, so raising it lowers them.</p></div></div>
                     <div class="stk-step"><span class="stk-num">3</span><div><h3>Copy what you need</h3><p>Each field has a copy button. Results switch to exponential notation above 10<sup>7</sup> and below 10<sup>-4</sup>, and otherwise keep up to eight decimal places.</p></div></div>
                 </div>
             </div>
@@ -254,7 +254,7 @@
                     <p class="stk-eqn-label">The relations (h and c are exact SI constants):</p>
                     <div class="stk-math"><span class="stk-tex" data-display>E = h\nu = hc\tilde{\nu} \qquad \lambda = 1/\tilde{\nu} = c/\nu</span><span class="stk-tex" data-display>1\ \mathrm{cm^{-1}} \equiv 29.9792458\ \mathrm{GHz} \equiv 0.1239842\ \mathrm{meV} \equiv 1/\lambda\,[\mathrm{cm}]</span></div>
                     <p class="stk-where">
-                        Because <span class="hl">wavelength</span> is inversely proportional to the others, the matrix inverts correctly only when you type into a single field, the tool normalises to a base wavenumber and reciprocates for &lambda;. Constants used: <span class="hl">c = 299&nbsp;792&nbsp;458 m/s</span> and <span class="hl">h = 6.626&nbsp;070&nbsp;15&times;10<sup>-34</sup> J&middot;s</span>, both exact since 2019. The <span class="hl">cm<sup>-1</sup>&harr;eV</span> factor, 1.239842&times;10<sup>-4</sup>, is the reciprocal of 8065.54 cm<sup>-1</sup>/eV.
+                        Because <span class="hl">wavelength</span> is inversely proportional to the others, the tool normalises to a base wavenumber and takes the reciprocal for &lambda;, whichever field you type into. Constants used: <span class="hl">c = 299&nbsp;792&nbsp;458 m/s</span> and <span class="hl">h = 6.626&nbsp;070&nbsp;15&times;10<sup>-34</sup> J&middot;s</span>, both exact since 2019. The <span class="hl">cm<sup>-1</sup>&harr;eV</span> factor, 1.239842&times;10<sup>-4</sup>, is the reciprocal of 8065.54 cm<sup>-1</sup>/eV.
                     </p>
                 </div>
 
@@ -297,9 +297,9 @@
                 <div style="margin-top:1rem;">
                     <details class="stk-faq"><summary>Which calorie does the kcal/mol use?</summary><div>The thermochemical calorie, 1&nbsp;cal&nbsp;=&nbsp;4.184&nbsp;J exactly. This is the definition used by the AMBER and CHARMM force fields, so energies convert consistently with those programs. It is <em>not</em> the 15&deg;C calorie (4.1855&nbsp;J) or the international-table calorie (4.1868&nbsp;J).</div></details>
                     <details class="stk-faq"><summary>Why is the Hartree the base unit for energy?</summary><div>Because it is the natural unit that quantum-chemistry codes report, and its SI value is one of the most precisely known conversions (fixed through the Rydberg constant, E<sub>h</sub>&nbsp;=&nbsp;2R<sub>&infin;</sub>hc). Anchoring on it keeps the whole energy matrix internally consistent to the full CODATA precision.</div></details>
-                    <details class="stk-faq"><summary>Why does the wavelength field behave differently in Spectroscopy?</summary><div>Wavenumber, frequency and photon energy are all directly proportional to each other, but wavelength is their reciprocal (&lambda;&nbsp;=&nbsp;1/&nu;&#771;). The tool normalises everything to a base wavenumber and inverts for wavelength, which is exact as long as you type into one field at a time.</div></details>
+                    <details class="stk-faq"><summary>Why does the wavelength field behave differently in Spectroscopy?</summary><div>Wavenumber, frequency and photon energy are all directly proportional to each other, but wavelength is their reciprocal (&lambda;&nbsp;=&nbsp;1/&nu;&#771;). The tool normalises everything to a base wavenumber and inverts for wavelength, so typing a longer wavelength gives a smaller wavenumber, frequency and energy, and typing into any of those gives the wavelength back. A wavelength of zero has no wavenumber, so the other fields stay empty.</div></details>
                     <details class="stk-faq"><summary>Why can't temperature use a single multiplication factor?</summary><div>Celsius and Fahrenheit are offset (affine) scales, not ratio scales, 0&nbsp;&deg;C is not zero energy. The converter therefore routes temperature through kelvin with explicit T&nbsp;=&nbsp;K&nbsp;&minus;&nbsp;273.15 and T&nbsp;=&nbsp;(K&minus;273.15)&times;9/5&plus;32 formulas. The k<sub>B</sub>T rows convert the thermal energy at that temperature.</div></details>
-                    <details class="stk-faq"><summary>How precise are these numbers?</summary><div>They are the 2018 CODATA recommended values and exact SI (2019) definitions, carried to the digits shown in each tooltip. Since the 2019 redefinition, c, h, e, k<sub>B</sub> and N<sub>A</sub> are exact, so any conversion depending only on those (e.g. eV&harr;J, charge, bar&harr;Pa) is exact; those depending on measured constants (Bohr radius, Hartree) inherit CODATA's relative uncertainty of order 10<sup>-10</sup>.</div></details>
+                    <details class="stk-faq"><summary>How precise are these numbers?</summary><div>Each factor is computed in double precision from the exact SI (2019) constants and the 2018 CODATA recommended values of the Bohr radius and the Hartree energy; none is typed in rounded, so the tables agree with each other to the last digit shown. Since the 2019 redefinition, c, h, e, k<sub>B</sub> and N<sub>A</sub> are exact, so any conversion depending only on those (e.g. eV&harr;J, charge, bar&harr;Pa) is exact; those depending on measured constants (Bohr radius, Hartree) inherit CODATA's relative uncertainty of order 10<sup>-10</sup>.</div></details>
                     <details class="stk-faq"><summary>Is a.u. of polarizability the same as the &Aring;<sup>3</sup> I see in tables?</summary><div>Not numerically. Molecular polarizabilities are usually tabulated as a <em>volume</em> in &Aring;<sup>3</sup> (Gaussian-CGS convention), whereas QM codes print the atomic-unit value. The conversion is &alpha;[&Aring;<sup>3</sup>]&nbsp;=&nbsp;&alpha;[a.u.]&times;0.148185. Both are provided so you can move between a calculation and a reference table.</div></details>
                     <details class="stk-faq"><summary>Is my data sent anywhere?</summary><div>No. Every calculation runs locally in your browser using JavaScript. Nothing you enter is transmitted or stored.</div></details>
                 </div>

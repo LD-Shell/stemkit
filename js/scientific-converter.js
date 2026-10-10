@@ -14,7 +14,103 @@ import * as Units from '../src/core/units.js';
 
 const { UNIT_DB } = Units;
 
-document.addEventListener('DOMContentLoaded', () => {
+/* --- Reading and writing numbers ---
+   Pure, so the tests can import them; the page below is the only caller. */
+
+const SIGN = '[+\\-\u2212]?';
+const EXPONENT = `(?:[eE]${SIGN}\\d+)?`;
+const PLAIN = new RegExp(`^${SIGN}(?:\\d+\\.?\\d*|\\.\\d+)${EXPONENT}$`);
+const GROUPED = new RegExp(`^${SIGN}[1-9]\\d{0,2}(?:,\\d{3})+(?:\\.\\d*)?${EXPONENT}$`);
+
+/**
+ * Read a typed number, or say why it is not one.
+ *
+ * A result is only ever shown for the number the person meant, so anything
+ * that could be read two ways is refused rather than guessed. The rule:
+ *
+ *  1. White space around the text is ignored. Nothing at all is `empty`,
+ *     which is not an error.
+ *  2. A number is an optional sign (+, - or the typographic minus), digits
+ *     with at most one decimal point and a digit on at least one side of it
+ *     (`5`, `5.`, `.5`, `0.5`), and optionally an exponent: e or E, an
+ *     optional sign and at least one digit (`-2e-3`, `1.5E3`).
+ *  3. Commas are thousands separators, and only where they can be nothing
+ *     else: the whole part is a group of one to three digits, not starting
+ *     with 0, then groups of exactly three, and either there are two or more
+ *     commas (`1,234,567`) or a decimal point follows (`1,234.5`).
+ *  4. Everything else is refused. One comma and no point (`1,5`, `1,500`)
+ *     may be a decimal comma or a thousands separator: reason `comma`, with
+ *     the two readings to choose from. Other misplaced commas are `comma`
+ *     too. `0x10`, `Infinity`, `NaN`, `1e`, `1 000`, `1.2.3` and a lone sign
+ *     or point are `format`.
+ *  5. A number a double cannot hold is refused as `range`: one that
+ *     overflows (`1e999`), or one that is not zero but would be stored as
+ *     zero (`1e-999`).
+ *
+ * @param {string} text
+ * @returns {{ok: true, value: number} | {ok: false, reason: 'empty'|'comma'|'format'|'range', readings?: string[]}}
+ */
+export function parseInput(text) {
+  const typed = String(text).trim();
+  if (typed === '') return { ok: false, reason: 'empty' };
+
+  let digits;
+  if (PLAIN.test(typed)) digits = typed;
+  else if (GROUPED.test(typed) && (typed.includes('.') || typed.split(',').length > 2)) digits = typed.replace(/,/g, '');
+  else if (typed.includes(',')) {
+    const lone = /^([+\-\u2212]?)(\d+),(\d+)$/.exec(typed);
+    if (!lone) return { ok: false, reason: 'comma' };
+    const [, sign, whole, rest] = lone;
+    return { ok: false, reason: 'comma', readings: [`${sign}${whole}.${rest}`, sign + `${whole}${rest}`.replace(/^0+(?=\d)/, '')] };
+  } else return { ok: false, reason: 'format' };
+
+  const value = Number(digits.replace(/\u2212/g, '-'));
+  const mantissa = digits.split(/[eE]/)[0];
+  if (!Number.isFinite(value) || (value === 0 && /[1-9]/.test(mantissa))) return { ok: false, reason: 'range' };
+  return { ok: true, value };
+}
+
+/**
+ * What to tell the person about text {@link parseInput} refused: one short
+ * sentence saying how to type the number. Empty when there is nothing to say.
+ *
+ * @param {ReturnType<typeof parseInput>} parsed
+ * @returns {string}
+ */
+export function inputMessage(parsed) {
+  if (parsed.ok || parsed.reason === 'empty') return '';
+  if (parsed.reason === 'comma') {
+    return parsed.readings
+      ? `A comma here could mean ${parsed.readings[0]} or ${parsed.readings[1]}. Type the one you mean.`
+      : 'Commas only work between groups of three digits, as in 1,234,567 or 1,234.5.';
+  }
+  if (parsed.reason === 'range') return 'This number is too large or too small to convert.';
+  return 'Type a number such as 1234.5 or 1.5e-3.';
+}
+
+/**
+ * Format a converted value for display.
+ *
+ * The core `formatValue` works in significant figures, which is right for a
+ * general-purpose helper but drops meaningful digits from the large,
+ * high-precision constants this tool exists to show (e.g. a hartree is
+ * 219474.6313632 cm^-1, not 219474.63). So the matrix keeps the original
+ * tool's rule: exponential only at the extremes, otherwise up to eight
+ * decimal places with trailing zeros trimmed. Zero is a result like any
+ * other (273.15 K is 0 degC); only a value with no finite answer is blank.
+ *
+ * @param {number} value
+ * @returns {string}
+ */
+export function formatResult(value) {
+  if (!Number.isFinite(value)) return '';
+  if (value === 0) return '0';
+  const mag = Math.abs(value);
+  if (mag > 1e7 || mag < 1e-4) return value.toExponential(6);
+  return parseFloat(value.toFixed(8)).toString();
+}
+
+if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', () => {
 
   /* --- 1. Interface bindings --- */
   const matrixGrid = document.getElementById('matrixGrid');
@@ -46,6 +142,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // "kcal / mol (kcal/mol)" says the same thing twice; show it once.
   const squash = t => String(t).replace(/\s+/g, '');
   const unitLabel = u => (squash(u.name) === squash(u.symbol) ? sym(u) : `${label(u)} (${sym(u)})`);
+  // The same in plain text, for the names of a unit's buttons: three fields
+  // are called "Energy" in spectroscopy, and the symbol tells them apart.
+  const unitText = u => (squash(u.name) === squash(u.symbol) ? u.symbol : `${u.name} (${u.symbol})`);
 
   const firstUnit = catData => Object.entries(catData.units)[0];
 
@@ -77,35 +176,40 @@ document.addEventListener('DOMContentLoaded', () => {
       btnExampleText.innerHTML = `Try ${exampleFor(categoryKey)} ${sym(unit)}`;
     }
 
+    closeNote();
     matrixGrid.innerHTML = '';
     Object.entries(catData.units).forEach(([unitKey, unitData]) => {
       const wrapper = document.createElement('div');
       wrapper.className = 'flex flex-col gap-1.5 relative';
 
       const refLine = unitData.ref
-        ? `<div class="mt-2 pt-2 border-t border-slate-600/60 text-xs text-slate-300 flex items-start gap-1.5"><i class="fa-solid fa-book-bookmark mt-[3px]"></i><span>${unitData.ref}</span></div>`
+        ? `<div class="mt-2 pt-2 border-t border-slate-600/60 text-xs text-slate-300 flex items-start gap-1.5"><i class="fa-solid fa-book-bookmark mt-[3px]" aria-hidden="true"></i><span>${unitData.ref}</span></div>`
         : '';
 
-      // The name and symbol are one span: the label is a flex row, and bare
-      // text beside <sub>/<sup> would become separate items with the gap
-      // between them ("E h", "cm -1").
+      // The note is a tooltip on a button of its own, beside the label rather
+      // than inside it: a label names its field and nothing else, and a
+      // button can be reached by keyboard and by touch. The button points at
+      // the note with aria-describedby, so a screen reader reads it there.
       wrapper.innerHTML = `
-                <div class="flex justify-between items-center">
-                    <label for="val_${unitKey}" class="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                <div class="sc-field-head">
+                    <label for="val_${unitKey}" class="text-sm font-bold text-slate-700 dark:text-slate-300">
                         <span class="sc-unit">${unitLabel(unitData)}</span>
-                        <span class="info-trigger">
-                            <i class="fa-solid fa-circle-info info-icon text-xs"></i>
-                            <div class="tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-80 max-w-[80vw] p-4 bg-slate-800 text-white text-sm rounded-xl shadow-2xl z-50 font-normal leading-relaxed text-left">
+                    </label>
+                    <div class="info-trigger">
+                        <button type="button" class="info-btn" aria-label="About ${unitText(unitData)}" aria-describedby="tip_${unitKey}"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>
+                        <div class="sc-tip" id="tip_${unitKey}" role="tooltip">
+                            <div class="p-4 bg-slate-800 text-white text-sm rounded-xl shadow-2xl font-normal leading-relaxed text-left">
                                 ${unitData.desc || ''}
                                 ${refLine}
                             </div>
-                        </span>
-                    </label>
+                        </div>
+                    </div>
                 </div>
                 <div class="relative flex items-center">
                     <input type="text" inputmode="decimal" id="val_${unitKey}" data-unit="${unitKey}" class="unit-input w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 pr-12 text-slate-900 dark:text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors" placeholder="0.0" autocomplete="off" spellcheck="false">
-                    <button type="button" class="copy-btn absolute right-3 text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-300 transition-colors" data-target="val_${unitKey}" title="Copy value" aria-label="Copy the ${unitData.name} value"><i class="fa-regular fa-copy"></i></button>
+                    <button type="button" class="copy-btn absolute right-3 text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-300 transition-colors" data-target="val_${unitKey}" title="Copy value" aria-label="Copy the ${unitText(unitData)} value"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
                 </div>
+                <p class="stk-error sc-field-msg" id="err_${unitKey}" aria-live="polite"></p>
             `;
       matrixGrid.appendChild(wrapper);
     });
@@ -115,17 +219,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* --- 3. Input handling --- */
 
-  /** Trim grouping commas; reject partial entries such as "-" or ".". */
-  function parseInput(valStr) {
-    const cleanStr = valStr.replace(/,/g, '').trim();
-    if (cleanStr === '' || cleanStr === '-' || cleanStr === '.') return null;
-    const num = Number(cleanStr);
-    return Number.isNaN(num) ? null : num;
-  }
+  const fields = () => matrixGrid.querySelectorAll('.unit-input');
 
   /** Fill every field except the one being typed into. */
   function executeConversion(sourceValue, sourceUnitKey) {
-    document.querySelectorAll('.unit-input').forEach(input => {
+    fields().forEach(input => {
       const targetKey = input.getAttribute('data-unit');
       if (targetKey === sourceUnitKey) return;
 
@@ -134,44 +232,112 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  /** Empty every field but the one given (or all of them). */
+  function clearOthers(source) {
+    fields().forEach(input => { if (input !== source) input.value = ''; });
+  }
+
   /**
-   * Format a converted value for display.
-   *
-   * The core `formatValue` works in significant figures, which is right for a
-   * general-purpose helper but drops meaningful digits from the large,
-   * high-precision constants this tool exists to show (e.g. a hartree is
-   * 219474.6313632 cm^-1, not 219474.63). So the matrix keeps the original
-   * tool's rule: exponential only at the extremes, otherwise up to eight
-   * decimal places with trailing zeros trimmed.
+   * Say what is wrong with a field, or that nothing is. The message sits
+   * under the field and is tied to it, so it is read with the field; only
+   * the field being typed into can be wrong, so every other one is reset.
    */
-  function formatResult(value) {
-    if (value === 0 || !Number.isFinite(value)) return '';
-    const mag = Math.abs(value);
-    if (mag > 1e7 || mag < 1e-4) return value.toExponential(6);
-    return parseFloat(value.toFixed(8)).toString();
+  function markInvalid(source, message) {
+    fields().forEach(input => {
+      const note = document.getElementById(`err_${input.getAttribute('data-unit')}`);
+      const bad = input === source && message !== '';
+      if (bad) {
+        input.setAttribute('aria-invalid', 'true');
+        input.setAttribute('aria-describedby', note.id);
+        note.innerHTML = '<i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span></span>';
+        note.lastChild.textContent = message;
+      } else {
+        input.removeAttribute('aria-invalid');
+        input.removeAttribute('aria-describedby');
+        note.textContent = '';
+      }
+    });
   }
 
   /** Mark the field the other numbers were computed from. */
   function markSource(input) {
-    document.querySelectorAll('.unit-input').forEach(inp => inp.classList.toggle('is-source', inp === input));
+    fields().forEach(inp => inp.classList.toggle('is-source', inp === input));
   }
 
-  function bindMatrixEvents() {
-    const inputs = document.querySelectorAll('.unit-input');
+  /* --- Unit notes ---
+     One note is open at a time. Pointing at a unit's button or reaching it
+     with the keyboard opens its note for as long as the pointer or the focus
+     stays; pressing the button keeps it open, which is how touch gets it,
+     and pressing again, Escape, or a press anywhere else closes it. */
+  let openNote = null;
+  let noteTimer = 0;
 
-    inputs.forEach(input => {
-      input.addEventListener('input', (e) => {
-        const rawVal = e.target.value;
-        const parsedValue = parseInput(rawVal);
-        markSource(e.target);
+  function closeNote() {
+    clearTimeout(noteTimer);
+    if (openNote) openNote.removeAttribute('data-open');
+    openNote = null;
+  }
 
-        if (parsedValue !== null) {
-          executeConversion(parsedValue, e.target.getAttribute('data-unit'));
-        } else if (rawVal.trim() === '') {
-          inputs.forEach(inp => { if (inp !== e.target) inp.value = ''; });
-        }
+  function showNote(trigger, how) {
+    clearTimeout(noteTimer);
+    if (openNote && openNote !== trigger) closeNote();
+    openNote = trigger;
+    trigger.setAttribute('data-open', how);
+  }
+
+  function bindNotes() {
+    matrixGrid.querySelectorAll('.info-trigger').forEach(trigger => {
+      const button = trigger.querySelector('.info-btn');
+      const opened = () => trigger.getAttribute('data-open');
+
+      trigger.addEventListener('mouseenter', () => {
+        if (opened()) clearTimeout(noteTimer);
+        else showNote(trigger, 'hover');
+      });
+      // A moment's grace, so the pointer can cross from the button to the
+      // note without the note closing under it.
+      trigger.addEventListener('mouseleave', () => {
+        if (opened() !== 'hover') return;
+        noteTimer = setTimeout(() => { if (opened() === 'hover') closeNote(); }, 150);
+      });
+      button.addEventListener('focus', () => {
+        if (!opened() && button.matches(':focus-visible')) showNote(trigger, 'focus');
+      });
+      // Focus moving on closes the note. A press on the note itself (to
+      // select its text) also takes focus from the button, to nowhere, and
+      // must not close a note that was pressed open.
+      button.addEventListener('blur', (e) => {
+        if (opened() === 'focus' || (opened() === 'pinned' && e.relatedTarget)) closeNote();
+      });
+      button.addEventListener('click', () => {
+        if (opened() === 'hover' || !opened()) showNote(trigger, 'pinned');
+        else closeNote();
       });
     });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && openNote) closeNote();
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (openNote && !openNote.contains(e.target)) closeNote();
+  });
+
+  function bindMatrixEvents() {
+    fields().forEach(input => {
+      input.addEventListener('input', (e) => {
+        const parsed = parseInput(e.target.value);
+        markSource(e.target);
+        markInvalid(e.target, inputMessage(parsed));
+
+        // Text that is not a number leaves nothing to show: the other fields
+        // would otherwise keep the results of whatever was typed before it.
+        if (parsed.ok) executeConversion(parsed.value, e.target.getAttribute('data-unit'));
+        else clearOthers(e.target);
+      });
+    });
+
+    bindNotes();
 
     document.querySelectorAll('.copy-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -215,10 +381,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (btnReset) btnReset.addEventListener('click', () => {
-    document.querySelectorAll('.unit-input').forEach(input => {
-      input.value = '';
-      input.classList.remove('is-source');
-    });
+    clearOthers(null);
+    markSource(null);
+    markInvalid(null, '');
   });
 
   if (btnExample) btnExample.addEventListener('click', () => {

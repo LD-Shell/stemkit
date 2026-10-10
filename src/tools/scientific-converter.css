@@ -1,7 +1,7 @@
 /*
  * scientific-converter -- tool-specific styles.
  *
- * The quantity tabs, the converter card and the unit tooltips. Colours are
+ * The quantity tabs, the converter card and the unit notes. Colours are
  * the tokens from src/tailwind/input.css, so the dark theme needs no twin
  * rules. Shared documentation styles live in src/stemkit-docs.css.
  */
@@ -102,6 +102,12 @@
 /* The field that was typed into, so the source of the numbers is clear. */
 .unit-input.is-source { border-color: var(--stk-accent); background-color: var(--stk-accent-soft); }
 
+/* Text in it that is not a number, and the sentence under it saying so. */
+.unit-input[aria-invalid="true"] { border-color: var(--stk-danger); background-color: var(--stk-danger-soft); }
+.unit-input[aria-invalid="true"]:focus { box-shadow: 0 0 0 3px var(--stk-danger-soft); }
+.sc-field-msg { display: flex; gap: 0.4rem; align-items: baseline; margin: 0; font-weight: 500; }
+.sc-field-msg:empty { display: none; }
+
 .sc-source {
   display: flex;
   gap: 0.6rem;
@@ -116,12 +122,42 @@
 .sc-source a { color: var(--stk-accent-text); font-weight: 600; text-decoration: none; }
 .sc-source a:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-/* Unit tooltips ------------------------------------------------------------------ */
-.info-trigger { position: relative; display: inline-flex; }
-.info-trigger .info-icon { color: var(--stk-fg-muted); transition: color var(--stk-ease); cursor: help; }
-.info-trigger:hover .info-icon { color: var(--stk-accent-text); }
-.info-trigger .tooltip { visibility: hidden; opacity: 0; transition: opacity 0.2s ease, visibility 0.2s ease; }
-.info-trigger:hover .tooltip { visibility: visible; opacity: 1; }
+/* Unit notes ---------------------------------------------------------------------
+   Each unit's definition and source, on a button beside its label. The script
+   sets data-open on the wrapper while the note is showing: pointed at, reached
+   with the keyboard, or pressed open. The note is as wide as its field, or
+   20rem, and sits above it, so it cannot run off a narrow screen; its lower
+   padding fills the gap down to the button, for a pointer on its way up. */
+.sc-field-head { display: flex; align-items: center; gap: 0.25rem; min-height: 1.5rem; }
+.info-trigger { display: inline-flex; }
+.info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: var(--stk-fg-muted);
+  cursor: help;
+  transition: color var(--stk-ease);
+}
+.info-btn:hover,
+.info-trigger[data-open] .info-btn { color: var(--stk-accent-text); }
+.info-btn:focus-visible { outline: 2px solid var(--stk-accent); outline-offset: 1px; }
+.sc-tip {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% - 0.25rem);
+  z-index: 50;
+  width: min(20rem, 100%);
+  padding-bottom: 0.5rem;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+.info-trigger[data-open] .sc-tip { visibility: visible; opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .sc-tip { transition: none; } }
 
 /* Documentation tabs (method and references) ------------------------------------ */
 .hl { color: var(--stk-accent-text); font-weight: 600; }
