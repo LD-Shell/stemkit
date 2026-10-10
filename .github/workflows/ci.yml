@@ -76,7 +76,11 @@ jobs:
     name: Site checks
     runs-on: ubuntu-latest
     steps:
+      # The whole history: the sitemap's dates are those of each page's last
+      # commit, and check:sitemap compares them.
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: 24
