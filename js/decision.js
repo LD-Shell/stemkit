@@ -27,6 +27,8 @@ const resultsContainer = $('results-container');
 // Score/weight bounds (kept in sync with the input min/max attributes)
 const WEIGHT_MIN = 1, WEIGHT_MAX = 5;
 const SCORE_MIN  = 1, SCORE_MAX  = 10;
+// What a new field holds, and what a field left blank counts as.
+const WEIGHT_DEFAULT = 3, SCORE_DEFAULT = 5;
 
 let parsedOptions  = [];
 let parsedCriteria = [];
@@ -107,7 +109,7 @@ function buildTableUI() {
             <th scope="col">
                 <span class="dm-crit">${esc(crit)}</span>
                 <label class="dm-weight">Weight
-                    <input type="number" min="${WEIGHT_MIN}" max="${WEIGHT_MAX}" value="3" inputmode="numeric"
+                    <input type="number" min="${WEIGHT_MIN}" max="${WEIGHT_MAX}" value="${WEIGHT_DEFAULT}" inputmode="numeric"
                            class="dm-num crit-weight" data-crit-idx="${ci}" aria-label="Weight of ${esc(crit)}, ${WEIGHT_MIN} to ${WEIGHT_MAX}">
                 </label>
             </th>`;
@@ -120,7 +122,7 @@ function buildTableUI() {
         parsedCriteria.forEach((crit, ci) => {
             html += `
                 <td>
-                    <input type="number" min="${SCORE_MIN}" max="${SCORE_MAX}" value="5" inputmode="numeric"
+                    <input type="number" min="${SCORE_MIN}" max="${SCORE_MAX}" value="${SCORE_DEFAULT}" inputmode="numeric"
                            class="dm-num opt-rating" data-opt-idx="${oi}" data-crit-idx="${ci}"
                            aria-label="Score of ${esc(opt)} on ${esc(crit)}, ${SCORE_MIN} to ${SCORE_MAX}">
                 </td>`;
@@ -134,18 +136,20 @@ function buildTableUI() {
 
 // --- 3. Calculation ---
 /**
- * Read the matrix and rank the options. With writeBack, out-of-range entries
- * are corrected in the fields so the visitor sees what was used; while they
- * are still typing, the fields are left alone.
+ * Read the matrix and rank the options. A field left blank counts as the
+ * value it started with (weight 3, score 5), and a number outside the range
+ * as the nearest end of it. With writeBack, such entries are corrected in the
+ * fields so the visitor sees what was used; while they are still typing, the
+ * fields are left alone.
  */
 function rank({ writeBack }) {
     if (!parsedCriteria.length || !parsedOptions.length) return;
 
-    const weights = new Array(parsedCriteria.length).fill(WEIGHT_MIN);
+    const weights = new Array(parsedCriteria.length).fill(WEIGHT_DEFAULT);
     document.querySelectorAll('.crit-weight').forEach(inp => {
         const ci = Number(inp.dataset.critIdx);
         let w = parseFloat(inp.value);
-        if (!isFinite(w)) w = WEIGHT_MIN;
+        if (!isFinite(w)) w = WEIGHT_DEFAULT;
         w = clamp(w, WEIGHT_MIN, WEIGHT_MAX);
         if (writeBack) inp.value = w;
         weights[ci] = w;
@@ -157,7 +161,7 @@ function rank({ writeBack }) {
         const oi = Number(inp.dataset.optIdx);
         const ci = Number(inp.dataset.critIdx);
         let r = parseFloat(inp.value);
-        if (!isFinite(r)) r = SCORE_MIN;
+        if (!isFinite(r)) r = SCORE_DEFAULT;
         r = clamp(r, SCORE_MIN, SCORE_MAX);
         if (writeBack) inp.value = r;
         totals[oi] += r * weights[ci];
