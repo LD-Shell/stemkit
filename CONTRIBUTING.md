@@ -58,7 +58,7 @@ formula inside a click handler, it will be asked to move.
     node tests/smoke.mjs           the package, imported by name
     npm run check:chrome           header, catalogue and footer agree
     npm run check:links:internal   no broken links between pages
-    npm run check:sitemap          every page is in sitemap.xml
+    npm run check:sitemap          every page is in sitemap.xml, dated by its last commit
 
 CI runs all but the coverage report on every pull request, with the tests on
 Node 18, 22 and 24. Some tests run the real programs (Python, BibTeX, PLUMED,
@@ -109,7 +109,9 @@ the one catalogue of tools, with each tool's name, description, search terms
 and next steps. A new tool needs an entry there, a card on the home page and a
 link in the footer of every page; `npm run check:chrome` fails until the three
 agree and the header matches the other pages. Then run `npm run build:sitemap`;
-CI's `check:sitemap` fails while a page is missing from `sitemap.xml`.
+CI's `check:sitemap` fails while a page is missing from `sitemap.xml`, or
+listed there with a date older than its last commit, so run it again after
+changing a page.
 
 A tool with a video tutorial shows it in its "How to use" section. The steps
 for adding one (the list in `js/tutorial-video.js`, the thumbnail, the mount

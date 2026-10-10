@@ -4,7 +4,7 @@
 npm run test:coverage
 ```
 
-Roughly 89% of statements and 93% of lines across `src/core/`. Some suites run
+Roughly 89% of statements and 94% of lines across `src/core/`. Some suites run
 only when Python, PLUMED, LAMMPS or GROMACS is installed, so the figure moves a
 little between machines.
 

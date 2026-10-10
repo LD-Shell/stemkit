@@ -262,7 +262,7 @@ npm test                # full suite
 npm run test:coverage   # with coverage
 ```
 
-The suite comprises 4599 tests across the 42 domain modules and `version` (`src/core` also holds the aggregate
+The suite comprises 4979 tests across the 42 domain modules and `version` (`src/core` also holds the aggregate
 export, the Node entry and the injection layer, which carry no domain logic). Numerical results are validated against
 independent references rather than against the implementation itself:
 
@@ -334,16 +334,19 @@ freedom: the plain difference of two log-gammas they need is already off by
 about 1e-9 at two million.
 
 **A band that cannot be seen.** A confidence band can be switched on and still
-show nothing, for two reasons `bandVisibility(model, style, fit)` (in
+show nothing, for two reasons `bandVisibility(model, style, fit, plot)` (in
 `plot-style`) tells apart. If two parameters cannot be told apart (`y = a*b*x`)
 the covariance is undetermined and `fit.band` is NaN wherever the curve depends
 on them, though a point where every gradient vanishes (x = 0 here) still comes
 out finite, with zero width; that is `undetermined`. If the fit is so tight
-that the band is thinner than the fit line at its widest, the line covers it;
-that is `hidden`, judged from the figure's height (the main panel taken as
-matplotlib's default 77% of it, less the residual panel) and the line's width
-in points, so a band at the threshold may show a sliver either way. Each comes
-with the sentence the Curve Fitter shows under its plot:
+that the band nowhere reaches past the fit line drawn over it, the line covers
+it; that is `hidden`, measured across the curve against the line's width in
+points. How large the band comes out depends on the panel it is drawn in: a
+page that has drawn the plot passes it as `plot` (`{ width, height }` of the
+axes in points, `xView` and `yView` their limits), as the Curve Fitter does;
+without it the panel is worked out from the style as matplotlib's layout
+leaves it, and a band right at the threshold may show a sliver either way.
+Each comes with the sentence the Curve Fitter shows under its plot:
 
 ```js
 import { fitModel, bandVisibility, defaultPlotStyle } from 'stemkit-core';

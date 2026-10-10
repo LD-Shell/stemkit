@@ -43,7 +43,7 @@ Run the tests, from a clone:
 
 ```bash
 npm install
-npm test                        # 4599 tests, 44 modules
+npm test                        # 4979 tests, 44 modules
 node tests/smoke.mjs            # end-to-end against a real install
 ```
 
@@ -51,7 +51,7 @@ node tests/smoke.mjs            # end-to-end against a real install
 
 | Script | Does |
 |---|---|
-| `npm test` | Jest, 4599 tests |
+| `npm test` | Jest, 4979 tests |
 | `npm run test:coverage` | coverage report (see `docs/COVERAGE.md`) |
 | `npm run check:links` | internal and external link check |
 | `npm run check:links:internal` | internal only, no network |
@@ -60,7 +60,7 @@ node tests/smoke.mjs            # end-to-end against a real install
 | `npm run build:css` | rebuild Tailwind after editing `src/tailwind/input.css` |
 | `npm run watch:css` | same, on change |
 | `npm run build:sitemap` | regenerate `sitemap.xml` from the pages |
-| `npm run check:sitemap` | fail if `sitemap.xml` is out of date |
+| `npm run check:sitemap` | fail if `sitemap.xml` misses a page or dates one before its last commit |
 | `npm run check:gromacs`, `check:ndx` | compare the `.mdp` checker and index groups with an installed GROMACS (`GMX_BIN`) |
 | `npm run check:plumed` | compare the PLUMED input reader with installed PLUMED versions (`PLUMED_BINS`) |
 | `npm run check:lammps`, `check:lammps-data`, `check:lammps-workflow` | compare the LAMMPS input checker, data-file reader and workflow builder with an installed LAMMPS (`LMP_BIN`) |

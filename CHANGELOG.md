@@ -157,6 +157,138 @@ earlier version are worth re-checking.
   `builderLayout` and `builderPanels`, and an example may bring a `layout`
   and a `style`.
 
+### Fixed: output
+
+- `[output]` **MD Workflow Generator, LAMMPS check.** `round()` of a negative
+  half went away from zero (`round(-2.5)` gave -3; LAMMPS gives -2), and
+  `$(...)` could print `-0` where LAMMPS prints `0`. The checker follows
+  LAMMPS's own arithmetic.
+- `[output]` **MD Workflow Generator, job arrays.** A list such as
+  `1-5,10-15%2` was counted as five tasks with no limit, and `10-1` and
+  `1-10:0` were accepted. Arrays are read as sbatch reads them: values and
+  ranges separated by commas, a step after a colon, one `%` limit at the end,
+  each index counted once; what sbatch refuses is refused, with the reason.
+- `[output]` **MD Workflow Generator, wall time.** `2-12`, `1-12:30`, `120:00`
+  and `100:00:00`, all of which sbatch takes, were replaced by 24:00:00. Every
+  form sbatch documents is read. A field outside its usual range (99:99:99) is
+  accepted, as Slurm accepts it, with a warning that says what it adds up to.
+- `[output]` **MD Workflow Generator, memory.** A value that is not a size
+  went into `--mem` unchecked, and a bare number meant megabytes for SLURM and
+  nothing for PBS, LSF and Grid Engine. One reader serves all four schedulers:
+  a bare number is megabytes everywhere and is written with its unit.
+- `[output]` **Scientific Converter, constants.** The length table used the
+  1986 Bohr radius while the force table used the 2018 one, and the atomic
+  pressure, 1/R, dipole and polarizability factors were rounded. Every factor
+  is now worked out from the exact SI constants and the CODATA 2018 Bohr
+  radius and Hartree energy, so the tables cannot disagree: 1 nm is
+  18.89726125 a0 (was 18.89725989) and 1 Eh/a0³ is 2.942102e+8 bar (was
+  2.942105e+8). Each factor is checked against `scipy.constants`.
+- `[output]` **Scientific Converter, typed numbers.** "1,5" was read as 15,
+  and "0x10" and "Infinity" were taken as numbers. Commas now count only as
+  thousands separators where they cannot be anything else (`1,234.5`,
+  `1,234,567`); anything ambiguous or not a decimal number is refused with a
+  note beside the field, and the other fields are cleared, not left showing
+  the last result. A result of exactly 0 is shown as 0; it left its field
+  blank, so 273.15 K gave no Celsius value.
+- `[output]` **`stemkit-core`, `convert`.** A value converted to its own unit
+  comes back exactly (7.5 kJ/mol gave 7.499999999999999), and exact ratios
+  come out exact.
+- `[output]` **Statistics Calculator, values all alike.** Six values of 0.1
+  have no spread, but their mean is not 0.1 in binary and the sums took the
+  rounding for data: two such groups gave *t* = -1.2e16 and *p* = 3e-82. The
+  variance of equal values is now exactly zero, the independent t-test says
+  the statistic is undefined when neither group varies, and pairs that differ
+  by the same amount as written (0.2 against 0.1, 0.3 against 0.2) count as a
+  constant difference.
+- `[output]` **Outlier Detector, constant columns.** A column of one repeated
+  value such as 0.1 was scored from the same rounding and given a Grubbs
+  statistic. It is reported as having no spread. When the MAD or the
+  interquartile range is zero the flags are those the method defines, and the
+  page and the script now say what they mean.
+- `[output]` **Error Bar Generator, significance level.** Brackets and
+  highlighted pairs used 0.05 at every confidence level; they use 1 minus the
+  level chosen. The stars keep their thresholds of 0.05, 0.01 and 0.001.
+- `[output]` **Error Bar Generator, cells left as text.** `+5` and `1e16`
+  were dropped without a word; they are read. A decimal comma (`6,1`), a
+  number too large to hold (`1e400`) and other text are counted and shown
+  under the data. Two groups of equal values were compared from rounding
+  noise; such a pair is no longer tested, and is named.
+- `[output]` **Error Bar Generator, p-values.** 0.0099 was printed as
+  "p = 0.010" beside `**`, which means below 0.01. A p-value is given the
+  digits it needs not to round onto a threshold.
+- `[output]` **Curve Fitter, confidence band note.** The note that the band is
+  hidden behind the fit line assumed a plot area 0.77 of the figure's height,
+  so it could appear while a sliver of the band showed. It uses the panel as
+  drawn and measures the band across the curve.
+- **Curve Fitter, a fit that runs away.** Fitting `A*exp(-x/tau)` to rising
+  data reported tau = 3e12 as an ordinary converged fit. The page and
+  `fitModel` now say that a parameter has run away, or that the curve follows
+  the data no better than their mean, and what to try. Fits that behave are
+  unchanged in every digit.
+- `[output]` **XVG Visualizer, files of several data sets.** Sets separated by
+  `&` were joined into one line, and the legend of `s1` named a column of the
+  first set. Each set is a series under its own legend, numbered as Grace
+  numbers them, in the plot and in the script.
+- `[output]` **XVG Visualizer, labels and numbers.** `\"` cut a label short
+  and `\#{110000}` stopped the page; both are read as Grace reads them. A row
+  holding `0x10` was plotted as 16; it is skipped and counted, as
+  `numpy.loadtxt` would refuse it. With the data hidden under a running mean,
+  the limit on data written into the script was not applied.
+- `[output]` **BibTeX Deduplicator, the same title under different DOIs.** Two
+  entries titled "Editorial", each with its own DOI, were reported as
+  duplicates. Entries whose DOIs differ are not grouped, and a title that two
+  or more DOIs share links nothing; those entries are listed under the groups
+  as look-alikes. A `doi` field that does not hold a DOI counts as none.
+- `[output]` **BibTeX tools, ways of writing a DOI.** `doi:10.…`,
+  `www.doi.org`, `dx.doi.org` and links without `https://`, with or without a
+  query string, now match the bare DOI.
+- **BibTeX Deduplicator.** A scan that fails clears the results of the one
+  before and says what failed. Editing the text after a scan marks the results
+  as out of date and switches the download off until the library is scanned
+  again; the download used to write the library as it was at the scan.
+- **DOI to BibTeX.** DOIs in brackets, in quotes, at the end of a sentence
+  and in `www.doi.org` links are found. A request that takes longer than 20 s
+  is given up with a message, a "too many requests" reply is waited out and
+  tried twice more before the batch stops, and a reply that is a web page or
+  empty is reported as a failure. The messages name the host that answered.
+- `[output]` **Decision Matrix, ties.** Options with equal totals were
+  numbered 1 and 2, in an order that followed rounding. They share a rank
+  (1, 1, 3), stay in the order entered and are marked as tied; totals show
+  two decimals. **Rank the options** names the entries it corrected to the
+  range, and a screen reader hears one sentence with the result, not the
+  whole card at every keystroke.
+### Changed: accessibility
+
+- **Method tabs** on the Scientific Converter, the Statistics Calculator and
+  the MD Workflow Generator, and the generator's engine tabs, follow the ARIA
+  tabs pattern: one tab stop, the arrow keys, Home and End, each panel named
+  by its tab.
+- **Scientific Converter.** The definition and source of each unit were shown
+  on hover only; they are on a button that works from the keyboard and by
+  touch.
+- **Upload CSV** on the Error Bar Generator and the Statistics Calculator can
+  be reached and opened from the keyboard.
+
+### Changed: tooling
+
+- **Sitemap.** `lastmod` is the date of each page's last commit; it was the
+  file's modification time, which stamps a fresh clone with today's date and
+  left July dates on pages changed since. `npm run check:sitemap` fails when a
+  date is older than its page's last commit.
+- **`npm run check:chrome`** fails for a page that is neither in the catalogue
+  nor in its list of pages that are not tools, and for a tool page whose
+  title, description or JSON-LD name is another tool's.
+- **CI** also runs the tests on Python 3.15 with the current numpy, scipy,
+  matplotlib and pandas.
+- **`stemkit-core`:** `slurm` gains `parseArraySpec`, `parseWallTime`,
+  `resolveWallTime`, `resolveMemory` and `slurmMemory`; `units` gains
+  `CONSTANTS`; `bibtex` gains `isDoi`, `doiUrl` and `looksLikeBibtex`,
+  `parseDoiList` returns `skipped` and `findDuplicates` returns `lookAlikes`;
+  `error-bars` gains `readCell`, and `computeGroups` returns what it could
+  not read; `xvg-parser` returns each set as a block; `bandVisibility` takes
+  the panel as drawn as a fourth argument; `fitModel` warns of a parameter
+  that has run away; `detectOutliers` returns `degenerate` and a `warning`.
+
 ## v0.4.0 — 2026-10-10
 
 Turning a structure by hand in the Coordinate Manipulator, video tutorials on
