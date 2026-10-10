@@ -162,9 +162,9 @@
         <!-- Engine selector -->
         <div class="sg-strip">
             <div class="stk-seg sg-engines" role="tablist" aria-label="Engine">
-                <button type="button" role="tab" data-engine-tab="gromacs" aria-selected="true" aria-controls="gromacsPanel"><i class="fa-solid fa-atom"></i> GROMACS</button>
-                <button type="button" role="tab" data-engine-tab="lammps" aria-selected="false" aria-controls="lammpsPanel"><i class="fa-solid fa-cubes"></i> LAMMPS</button>
-                <button type="button" role="tab" data-engine-tab="plumed" aria-selected="false" aria-controls="plumedPanel"><i class="fa-solid fa-wave-square"></i> PLUMED</button>
+                <button type="button" role="tab" id="engineTabGromacs" data-engine-tab="gromacs" aria-selected="true" aria-controls="gromacsPanel"><i class="fa-solid fa-atom" aria-hidden="true"></i> GROMACS</button>
+                <button type="button" role="tab" id="engineTabLammps" data-engine-tab="lammps" aria-selected="false" aria-controls="lammpsPanel" tabindex="-1"><i class="fa-solid fa-cubes" aria-hidden="true"></i> LAMMPS</button>
+                <button type="button" role="tab" id="engineTabPlumed" data-engine-tab="plumed" aria-selected="false" aria-controls="plumedPanel" tabindex="-1"><i class="fa-solid fa-wave-square" aria-hidden="true"></i> PLUMED</button>
             </div>
         </div>
 
@@ -308,7 +308,7 @@
                      stage), Index groups (index.ndx from a structure) and Job
                      (input files, GPU offload, PLUMED; the cluster card shows
                      with it). js/script-generator-gromacs.js drives them. -->
-                <div id="gromacsPanel" class="sg-panel-group" role="tabpanel" aria-label="GROMACS">
+                <div id="gromacsPanel" class="sg-panel-group" role="tabpanel" aria-labelledby="engineTabGromacs">
 
                     <!-- ===== 1. System ===== -->
                     <div id="gxViewSystem" class="gx-view" data-gx-pane="system" role="tabpanel" aria-labelledby="gxStepSystem">
@@ -1230,7 +1230,7 @@
                      (optional, from the data file) and Job (what the script
                      runs, the accelerator, PLUMED; the cluster card shows
                      with it). js/script-generator-lammps.js drives them. -->
-                <div id="lammpsPanel" class="sg-panel-group" role="tabpanel" aria-label="LAMMPS" hidden>
+                <div id="lammpsPanel" class="sg-panel-group" role="tabpanel" aria-labelledby="engineTabLammps" hidden>
 
                     <!-- ===== 1. System ===== -->
                     <div id="lxViewSystem" class="gx-view" data-lx-pane="system" role="tabpanel" aria-labelledby="lxStepSystem">
@@ -1892,7 +1892,7 @@
                 </div>
 
                 <!-- ============ PLUMED PANEL ============ -->
-                <div id="plumedPanel" class="sg-panel-group" role="tabpanel" hidden>
+                <div id="plumedPanel" class="sg-panel-group" role="tabpanel" aria-labelledby="engineTabPlumed" hidden>
 
                     <div id="plumedWarnings" class="stk-callout stk-callout-warn" role="status" hidden></div>
 
@@ -2646,14 +2646,14 @@
                 <h2 class="stk-h2">Method &amp; references, by engine</h2>
                 <p class="stk-lead">The parameters and best practices below are grouped by tool. Switch tabs to see the details relevant to your workflow.</p>
 
-                <div class="doc-tabs" role="tablist">
-                    <button type="button" class="doc-tab active" data-doc-tab="gromacs" role="tab" aria-selected="true"><i class="fa-solid fa-atom"></i> GROMACS</button>
-                    <button type="button" class="doc-tab" data-doc-tab="lammps" role="tab" aria-selected="false"><i class="fa-solid fa-cubes"></i> LAMMPS</button>
-                    <button type="button" class="doc-tab" data-doc-tab="plumed" role="tab" aria-selected="false"><i class="fa-solid fa-wave-square"></i> PLUMED</button>
-                    <button type="button" class="doc-tab" data-doc-tab="general" role="tab" aria-selected="false"><i class="fa-solid fa-server"></i> Schedulers</button>
+                <div class="doc-tabs" role="tablist" aria-label="Method">
+                    <button type="button" class="doc-tab active" id="doc-tab-gromacs" data-doc-tab="gromacs" role="tab" aria-selected="true" aria-controls="doc-pane-gromacs"><i class="fa-solid fa-atom" aria-hidden="true"></i> GROMACS</button>
+                    <button type="button" class="doc-tab" id="doc-tab-lammps" data-doc-tab="lammps" role="tab" aria-selected="false" aria-controls="doc-pane-lammps" tabindex="-1"><i class="fa-solid fa-cubes" aria-hidden="true"></i> LAMMPS</button>
+                    <button type="button" class="doc-tab" id="doc-tab-plumed" data-doc-tab="plumed" role="tab" aria-selected="false" aria-controls="doc-pane-plumed" tabindex="-1"><i class="fa-solid fa-wave-square" aria-hidden="true"></i> PLUMED</button>
+                    <button type="button" class="doc-tab" id="doc-tab-general" data-doc-tab="general" role="tab" aria-selected="false" aria-controls="doc-pane-general" tabindex="-1"><i class="fa-solid fa-server" aria-hidden="true"></i> Schedulers</button>
                 </div>
 
-                <div class="doc-pane active" data-doc-pane="gromacs">
+                <div class="doc-pane active" id="doc-pane-gromacs" data-doc-pane="gromacs" role="tabpanel" aria-labelledby="doc-tab-gromacs">
                 <h2 class="stk-h2">How the .mdp files are written</h2>
                 <p class="stk-lead">Each <code>.mdp</code> file is complete and commented: every line says what it does, and the Explained view and the pointer over a line give the manual's meaning with a link to the option in the GROMACS&nbsp;2025.1 manual. The option names, kinds, defaults and allowed values come from a table generated from the GROMACS&nbsp;2025.1 source, grompp's own reader (<code>readir.cpp</code>) and the manual page (<code>mdp-options.rst</code>).</p>
 
@@ -2727,7 +2727,7 @@
 
                 </div>
 
-                <div class="doc-pane" data-doc-pane="lammps">
+                <div class="doc-pane" id="doc-pane-lammps" data-doc-pane="lammps" role="tabpanel" aria-labelledby="doc-tab-lammps">
                 <h2 class="stk-h2">How the LAMMPS inputs are written</h2>
                 <p class="stk-lead">The LAMMPS tab writes an input for every stage, the two files they share and the job script that runs them in order. Every line that holds a choice carries the reason for it, and a click on a line under Run files (or the Explained view) says what it does in plain words, with its units and a link to its page in the LAMMPS manual. The command and style names, the packages, accelerated variants, syntax skeletons, keywords and defaults come from a table generated from the LAMMPS&nbsp;29&nbsp;Aug&nbsp;2024 source and documentation; the explanations are STEMKit's own words, and the full text is on <a href="https://docs.lammps.org/" target="_blank" rel="noopener" class="sg-link">docs.lammps.org</a>.</p>
 
@@ -2783,7 +2783,7 @@
 
                 </div>
 
-                <div class="doc-pane" data-doc-pane="plumed">
+                <div class="doc-pane" id="doc-pane-plumed" data-doc-pane="plumed" role="tabpanel" aria-labelledby="doc-tab-plumed">
                 <h2 class="stk-h2">PLUMED collective variables &amp; enhanced sampling</h2>
                 <p class="stk-lead">The PLUMED tab builds a <code>plumed.dat</code> file for PLUMED&nbsp;2.9, 2.10 or 2.11, chosen in the header of the System and setup panel, and checks its keywords, defaults and modules against that release. An action the chosen release lacks stays in the CV list but is marked (&ldquo;needs PLUMED &ge; 2.10&rdquo;, or &ldquo;not in PLUMED 2.10&rdquo;) and cannot be added; where the chosen release has a replacement, the page names it. Collective variables are grouped by category and each exposes the exact keywords from the PLUMED source, so you get correct syntax without reading the code. Add one or more CVs, give them labels, then choose a bias method.</p>
                 <p class="stk-where">
@@ -2811,7 +2811,7 @@
 
                 </div>
 
-                <div class="doc-pane" data-doc-pane="general">
+                <div class="doc-pane" id="doc-pane-general" data-doc-pane="general" role="tabpanel" aria-labelledby="doc-tab-general">
                 <h2 class="stk-h2">The scheduler side</h2>
                 <p class="stk-lead">The batch script follows widely published cluster best-practice guides, whichever scheduler is selected.</p>
                 <ul class="sg-list">

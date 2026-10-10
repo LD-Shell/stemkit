@@ -208,15 +208,15 @@
                 <h2 class="stk-h2">How the factors are defined, and where they come from</h2>
                 <p class="stk-lead">Every conversion in this tool reduces to a single reference constant per category. The numbers are not rounded conveniences, they are the <strong>2018 CODATA recommended values</strong> and the <strong>exact SI (2019) definitions</strong>. Pick a domain below for the exact relations and the primary source of each constant.</p>
 
-                <div class="doc-tabs" role="tablist">
-                    <button type="button" class="doc-tab active" data-doc-tab="energy" role="tab" aria-selected="true"><i class="fa-solid fa-bolt"></i> Energy</button>
-                    <button type="button" class="doc-tab" data-doc-tab="atomic" role="tab" aria-selected="false"><i class="fa-solid fa-atom"></i> Atomic units</button>
-                    <button type="button" class="doc-tab" data-doc-tab="spectro" role="tab" aria-selected="false"><i class="fa-solid fa-wave-square"></i> Spectroscopy</button>
-                    <button type="button" class="doc-tab" data-doc-tab="thermo" role="tab" aria-selected="false"><i class="fa-solid fa-temperature-half"></i> Thermo</button>
+                <div class="doc-tabs" role="tablist" aria-label="Method">
+                    <button type="button" class="doc-tab active" id="doc-tab-energy" data-doc-tab="energy" role="tab" aria-selected="true" aria-controls="doc-pane-energy"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Energy</button>
+                    <button type="button" class="doc-tab" id="doc-tab-atomic" data-doc-tab="atomic" role="tab" aria-selected="false" aria-controls="doc-pane-atomic" tabindex="-1"><i class="fa-solid fa-atom" aria-hidden="true"></i> Atomic units</button>
+                    <button type="button" class="doc-tab" id="doc-tab-spectro" data-doc-tab="spectro" role="tab" aria-selected="false" aria-controls="doc-pane-spectro" tabindex="-1"><i class="fa-solid fa-wave-square" aria-hidden="true"></i> Spectroscopy</button>
+                    <button type="button" class="doc-tab" id="doc-tab-thermo" data-doc-tab="thermo" role="tab" aria-selected="false" aria-controls="doc-pane-thermo" tabindex="-1"><i class="fa-solid fa-temperature-half" aria-hidden="true"></i> Thermo</button>
                 </div>
 
                 <!-- ENERGY PANE -->
-                <div class="doc-pane active" data-doc-pane="energy">
+                <div class="doc-pane active" id="doc-pane-energy" data-doc-pane="energy" role="tabpanel" aria-labelledby="doc-tab-energy">
                     <h2 class="stk-h2">Energy: the Hartree as the anchor</h2>
                     <p class="stk-lead">All energy units are expressed relative to the Hartree, E<sub>h</sub>, the atomic unit of energy. Its SI value is fixed by the Rydberg constant through E<sub>h</sub> = 2R<sub>&infin;</sub>hc.</p>
                     <p class="stk-eqn-label">The defining chain:</p>
@@ -237,7 +237,7 @@
                 </div>
 
                 <!-- ATOMIC UNITS PANE -->
-                <div class="doc-pane" data-doc-pane="atomic">
+                <div class="doc-pane" id="doc-pane-atomic" data-doc-pane="atomic" role="tabpanel" aria-labelledby="doc-tab-atomic">
                     <h2 class="stk-h2">Atomic units: length, force, dipole, charge, polarizability</h2>
                     <p class="stk-lead">Quantum-chemistry codes (Gaussian, ORCA, Psi4, Quantum ESPRESSO) work internally in atomic units, where <span class="hl">&hbar; = m<sub>e</sub> = e = 1</span> and 4&pi;&epsilon;<sub>0</sub> = 1. Converting their output to lab units needs the CODATA values below.</p>
                     <p class="stk-eqn-label">The atomic units used here:</p>
@@ -248,7 +248,7 @@
                 </div>
 
                 <!-- SPECTROSCOPY PANE -->
-                <div class="doc-pane" data-doc-pane="spectro">
+                <div class="doc-pane" id="doc-pane-spectro" data-doc-pane="spectro" role="tabpanel" aria-labelledby="doc-tab-spectro">
                     <h2 class="stk-h2">Spectroscopy: one photon, four ways to write it</h2>
                     <p class="stk-lead">Wavenumber, frequency, photon energy and wavelength all describe the same excitation. Three of them scale linearly; wavelength is the reciprocal.</p>
                     <p class="stk-eqn-label">The relations (h and c are exact SI constants):</p>
@@ -259,7 +259,7 @@
                 </div>
 
                 <!-- THERMO PANE -->
-                <div class="doc-pane" data-doc-pane="thermo">
+                <div class="doc-pane" id="doc-pane-thermo" data-doc-pane="thermo" role="tabpanel" aria-labelledby="doc-tab-thermo">
                     <h2 class="stk-h2">Temperature, k<sub>B</sub>T, and molar entropy</h2>
                     <p class="stk-lead">Temperature conversions include the two offset scales (Celsius, Fahrenheit) and the thermal-energy equivalents k<sub>B</sub>T that appear constantly in statistical mechanics and free-energy work.</p>
                     <p class="stk-eqn-label">Offset scales are affine, not multiplicative:</p>

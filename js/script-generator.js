@@ -639,12 +639,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Engine tab switching
     // =====================================================================
     const OUTPUT_FILE = { gromacs: 'submit.sh', lammps: 'submit.sh', plumed: 'plumed.dat' };
+    const engineTabs = Array.from(document.querySelectorAll('[data-engine-tab]'));
 
     function switchEngine(engine) {
         currentEngine = engine;
 
-        document.querySelectorAll('[data-engine-tab]').forEach(btn => {
-            btn.setAttribute('aria-selected', btn.getAttribute('data-engine-tab') === engine ? 'true' : 'false');
+        // Only the selected tab is in the tab order; the arrow keys reach the others.
+        engineTabs.forEach(btn => {
+            const on = btn.getAttribute('data-engine-tab') === engine;
+            btn.setAttribute('aria-selected', on ? 'true' : 'false');
+            btn.tabIndex = on ? 0 : -1;
         });
 
         // Panels visible per engine
@@ -962,9 +966,57 @@ document.addEventListener('DOMContentLoaded', () => {
     // =====================================================================
     // Wire up events
     // =====================================================================
-    // Engine tabs
-    document.querySelectorAll('[data-engine-tab]').forEach(btn => {
+    // Engine tabs: a click selects, and so do the arrow keys, Home and End,
+    // as in the ARIA tabs pattern and the rows of tabs inside each engine.
+    engineTabs.forEach((btn, i) => {
         btn.addEventListener('click', () => switchEngine(btn.getAttribute('data-engine-tab')));
+        btn.addEventListener('keydown', (e) => {
+            if (e.altKey || e.ctrlKey || e.metaKey) return;
+            const last = engineTabs.length - 1;
+            const to = { ArrowRight: i === last ? 0 : i + 1, ArrowLeft: i === 0 ? last : i - 1, Home: 0, End: last }[e.key];
+            if (to === undefined) return;
+            e.preventDefault();
+            switchEngine(engineTabs[to].getAttribute('data-engine-tab'));
+            engineTabs[to].focus();
+        });
+    });
+
+    // The method tabs follow the ARIA tabs pattern: the selected tab carries
+    // aria-selected, only it is in the tab order, and the arrow keys, Home and
+    // End move between tabs, selecting as they go. Each pane is named by its
+    // tab, and a pane with nothing in it to focus is a tab stop itself, so the
+    // keyboard reaches its text.
+    const FOCUSABLE = 'a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])';
+    const docTabs = Array.from(document.querySelectorAll('.doc-tab'));
+    const docPanes = Array.from(document.querySelectorAll('.doc-pane'));
+    function selectDocTab(tab, focus) {
+        const key = tab.getAttribute('data-doc-tab');
+        docTabs.forEach(x => {
+            const on = x === tab;
+            x.classList.toggle('active', on);
+            x.setAttribute('aria-selected', on ? 'true' : 'false');
+            x.tabIndex = on ? 0 : -1;
+        });
+        docPanes.forEach(pane => {
+            const on = pane.getAttribute('data-doc-pane') === key;
+            pane.classList.toggle('active', on);
+        });
+        if (focus) tab.focus();
+    }
+    docPanes.forEach(pane => {
+        if (pane.querySelector(FOCUSABLE)) pane.removeAttribute('tabindex');
+        else pane.tabIndex = 0;
+    });
+    docTabs.forEach((tab, i) => {
+        tab.addEventListener('click', () => selectDocTab(tab, false));
+        tab.addEventListener('keydown', (e) => {
+            if (e.altKey || e.ctrlKey || e.metaKey) return;
+            const last = docTabs.length - 1;
+            const to = { ArrowRight: i === last ? 0 : i + 1, ArrowLeft: i === 0 ? last : i - 1, Home: 0, End: last }[e.key];
+            if (to === undefined) return;
+            e.preventDefault();
+            selectDocTab(docTabs[to], true);
+        });
     });
 
     // Switches toggle themselves and then announce a change, so the same

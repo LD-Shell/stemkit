@@ -1518,10 +1518,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // The method tabs follow the ARIA tabs pattern: the selected tab carries
-  // aria-selected (which is also what the stylesheet highlights, so the two
-  // cannot disagree), only it is in the tab order, and the arrow keys, Home
-  // and End move between tabs.
+  // aria-selected, only it is in the tab order, and the arrow keys, Home and
+  // End move between tabs, selecting as they go. Each pane is named by its
+  // tab, and a pane with nothing in it to focus is a tab stop itself, so the
+  // keyboard reaches its text.
+  const FOCUSABLE = 'a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])';
   const docTabs = Array.from(document.querySelectorAll('.doc-tab'));
+  const docPanes = Array.from(document.querySelectorAll('.doc-pane'));
   function selectDocTab(tab, focus) {
     const key = tab.getAttribute('data-doc-tab');
     docTabs.forEach(x => {
@@ -1530,13 +1533,20 @@ document.addEventListener('DOMContentLoaded', () => {
       x.setAttribute('aria-selected', on ? 'true' : 'false');
       x.tabIndex = on ? 0 : -1;
     });
-    document.querySelectorAll('.doc-pane').forEach(pane =>
-      pane.classList.toggle('active', pane.getAttribute('data-doc-pane') === key));
+    docPanes.forEach(pane => {
+      const on = pane.getAttribute('data-doc-pane') === key;
+      pane.classList.toggle('active', on);
+    });
     if (focus) tab.focus();
   }
+  docPanes.forEach(pane => {
+    if (pane.querySelector(FOCUSABLE)) pane.removeAttribute('tabindex');
+    else pane.tabIndex = 0;
+  });
   docTabs.forEach((tab, i) => {
     tab.addEventListener('click', () => selectDocTab(tab, false));
     tab.addEventListener('keydown', (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
       const last = docTabs.length - 1;
       const to = { ArrowRight: i === last ? 0 : i + 1, ArrowLeft: i === 0 ? last : i - 1, Home: 0, End: last }[e.key];
       if (to === undefined) return;

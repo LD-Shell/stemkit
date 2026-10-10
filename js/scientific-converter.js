@@ -415,18 +415,42 @@ if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded
   }
 
   /* --- 5. Documentation tabs (Method & References) --- */
-  document.querySelectorAll('.doc-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      const key = tab.getAttribute('data-doc-tab');
-      document.querySelectorAll('.doc-tab').forEach(t => {
-        t.classList.toggle('active', t === tab);
-        t.setAttribute('aria-selected', String(t === tab));
-      });
-      document.querySelectorAll('.doc-pane').forEach(p => {
-        const on = p.getAttribute('data-doc-pane') === key;
-        p.classList.toggle('active', on);
-        p.classList.toggle('doc-enter', on);
-      });
+  // The method tabs follow the ARIA tabs pattern: the selected tab carries
+  // aria-selected, only it is in the tab order, and the arrow keys, Home and
+  // End move between tabs, selecting as they go. Each pane is named by its
+  // tab, and a pane with nothing in it to focus is a tab stop itself, so the
+  // keyboard reaches its text.
+  const FOCUSABLE = 'a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])';
+  const docTabs = Array.from(document.querySelectorAll('.doc-tab'));
+  const docPanes = Array.from(document.querySelectorAll('.doc-pane'));
+  function selectDocTab(tab, focus) {
+    const key = tab.getAttribute('data-doc-tab');
+    docTabs.forEach(x => {
+      const on = x === tab;
+      x.classList.toggle('active', on);
+      x.setAttribute('aria-selected', on ? 'true' : 'false');
+      x.tabIndex = on ? 0 : -1;
+    });
+    docPanes.forEach(pane => {
+      const on = pane.getAttribute('data-doc-pane') === key;
+      pane.classList.toggle('active', on);
+      pane.classList.toggle('doc-enter', on);
+    });
+    if (focus) tab.focus();
+  }
+  docPanes.forEach(pane => {
+    if (pane.querySelector(FOCUSABLE)) pane.removeAttribute('tabindex');
+    else pane.tabIndex = 0;
+  });
+  docTabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => selectDocTab(tab, false));
+    tab.addEventListener('keydown', (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      const last = docTabs.length - 1;
+      const to = { ArrowRight: i === last ? 0 : i + 1, ArrowLeft: i === 0 ? last : i - 1, Home: 0, End: last }[e.key];
+      if (to === undefined) return;
+      e.preventDefault();
+      selectDocTab(docTabs[to], true);
     });
   });
 
