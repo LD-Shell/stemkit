@@ -23,8 +23,13 @@
  *   LMP_BIN=/path/to/lmp [LMP_PLUMED_BIN=/path/to/lmp-with-plumed] [LMP_NP=2] \
  *     [LMP_WORK=/tmp/dir] node tools/check-lammps-workflow.mjs [case ...]
  *
- * The LAMMPS source tree (examples and potentials) is read from ./lammps or
- * LAMMPS_SRC. Runs are short (a few hundred steps per stage) and niced.
+ * LMP_BIN is a LAMMPS executable, 29 Aug 2024 or later. The LAMMPS source
+ * tree (examples and potentials) is read from ./lammps or LAMMPS_SRC. Runs
+ * are short (a few hundred steps per stage) and niced.
+ *
+ * Exits 0 when every case passes, or when LMP_BIN is unset (nothing to
+ * check); 1 when a case fails; 2 when LMP_BIN is set but there is no LAMMPS
+ * source tree to take the systems from.
  */
 
 import { spawn, spawnSync } from 'node:child_process';
@@ -46,8 +51,8 @@ const WORK = process.env.LMP_WORK || path.join(os.tmpdir(), 'stemkit-lammps-work
 const only = process.argv.slice(2);
 
 if (!LMP) {
-  console.error('Set LMP_BIN to a LAMMPS executable (29 Aug 2024 or later).');
-  process.exit(2);
+  console.log('LMP_BIN is not set; nothing to check.');
+  process.exit(0);
 }
 if (!fs.existsSync(path.join(LAMMPS, 'examples'))) {
   console.error(`No LAMMPS source tree at ${LAMMPS}: set LAMMPS_SRC.`);

@@ -24,6 +24,14 @@
  *   7. every page carries the Content-Security-Policy that tools/build-csp.mjs
  *      writes, before any script or stylesheet, with the hash of each inline
  *      script it runs (after editing one: npm run build:csp)
+ *   8. every page at the root is a tool in the catalogue or is listed in
+ *      NOT_TOOLS below, so a page copied from another and never finished is
+ *      not passed over because nothing knows of it
+ *   9. each tool page's <head> is its own: the <title> names the tool, the
+ *      JSON-LD WebApplication is called "STEMKit <name>", the canonical,
+ *      og:url, twitter:url and JSON-LD addresses are the page's own, and no
+ *      two pages share a <title> or a meta description. A copied page fails
+ *      here until its head is rewritten.
  *
  * No dependencies beyond tools/build-csp.mjs.
  *
@@ -42,6 +50,18 @@ const text = html => html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace
 
 const WIDE = new Set(['plot-builder.html', 'plot-digitizer.html']);
 const OVERLAY = new Set(['sandbox.html']);
+const ORIGIN = 'https://stemkit.net';
+
+/**
+ * The pages that are not tools, and what each is. Every other page at the
+ * root must be a tool in the js/site.js catalogue; a new page that is
+ * neither goes here, with its reason.
+ */
+const NOT_TOOLS = new Map([
+  ['index.html', 'the home page: the cards that lead to the tools'],
+  ['privacy.html', 'the privacy policy and the terms of use'],
+  ['404.html', 'what the host serves for an address that does not exist'],
+]);
 
 const pages = fs.readdirSync(ROOT).filter(f => f.endsWith('.html')).sort();
 const problems = [];
@@ -66,6 +86,42 @@ for (const [, from, to] of site.matchAll(/\{\s*id:\s*'([^']+)'[\s\S]*?next:\s*\[
     if (!byId.has(id)) fail('js/site.js', `${from} lists unknown next step "${id}"`);
   }
 }
+
+for (const t of tools) if (!pages.includes(`${t.id}.html`)) fail('js/site.js', `catalogue lists ${t.id}, but there is no ${t.id}.html`);
+for (const page of NOT_TOOLS.keys()) {
+  if (!pages.includes(page)) fail('tools/check-chrome.mjs', `NOT_TOOLS lists ${page}, which does not exist`);
+  if (byId.has(page.replace(/\.html$/, ''))) fail('tools/check-chrome.mjs', `NOT_TOOLS lists ${page}, which is a tool in the catalogue`);
+}
+
+// ---- the <head> of a page ---------------------------------------------------
+const attr = (head, re) => { const m = head.match(re); return m ? text(m[1]) : null; };
+const wordsOf = s => s.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+/**
+ * Whether a title names a tool: the words of the name, in order, give or
+ * take a plural and with other words between them ("Visual LaTeX Table
+ * Generator" names Visual LaTeX Tables, "XVG & CSV Visualizer" XVG Visualizer).
+ */
+function namesTool(title, name) {
+  const have = wordsOf(title);
+  let from = 0;
+  for (const w of wordsOf(name)) {
+    const at = have.findIndex((h, i) => i >= from && (h === w || `${h}s` === w || h === `${w}s`));
+    if (at < 0) return false;
+    from = at + 1;
+  }
+  return true;
+}
+/** The JSON-LD blocks of a page, parsed; one that is not JSON is a problem. */
+function jsonLd(page, html) {
+  const out = [];
+  for (const [, body] of html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
+    try { out.push(JSON.parse(body)); } catch (e) { fail(page, `a JSON-LD block is not valid JSON (${e.message})`); }
+  }
+  return out;
+}
+const titles = new Map();        // <title> -> the pages that have it
+const descriptions = new Map();  // meta description -> the pages that have it
+const note = (map, key, page) => map.set(key, [...(map.get(key) || []), page]);
 
 // ---- per page --------------------------------------------------------------
 const navOf = html => (html.match(/<nav\b[\s\S]*?<\/nav>/) || [''])[0];
@@ -101,6 +157,37 @@ for (const page of pages) {
   const h1s = [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/g)].map(m => text(m[1]));
   const tool = byId.get(page.replace(/\.html$/, ''));
   if (tool && (h1s.length !== 1 || h1s[0] !== tool.name)) fail(page, `<h1> is ${JSON.stringify(h1s)}, catalogue says "${tool.name}"`);
+  if (!tool && !NOT_TOOLS.has(page)) {
+    fail(page, 'is neither a tool in the js/site.js catalogue nor listed in NOT_TOOLS (tools/check-chrome.mjs): add the tool to the catalogue, or the page to that list with what it is');
+  }
+
+  // Whose head this is. A page copied from another keeps that page's title,
+  // description and addresses until someone rewrites them.
+  const title = attr(head, /<title>([\s\S]*?)<\/title>/);
+  const description = attr(head, /<meta name="description" content="([^"]*)"/);
+  if (!title) fail(page, 'no <title>');
+  else note(titles, title, page);
+  if (!description) fail(page, 'no meta description');
+  else note(descriptions, description, page);
+  const blocks = jsonLd(page, html);
+  if (tool) {
+    const own = `${ORIGIN}/${page}`;
+    if (title && !namesTool(title, tool.name)) fail(page, `<title> is "${title}", which does not name "${tool.name}"`);
+    const apps = blocks.filter(b => b && b['@type'] === 'WebApplication');
+    if (apps.length !== 1) fail(page, `has ${apps.length} JSON-LD WebApplication blocks, not one`);
+    for (const app of apps) {
+      if (app.name !== `STEMKit ${tool.name}`) fail(page, `JSON-LD WebApplication is named "${app.name}", catalogue says "STEMKit ${tool.name}"`);
+      if (app.url !== own) fail(page, `JSON-LD WebApplication url is ${app.url}, not ${own}`);
+    }
+    for (const [what, re] of [
+      ['canonical link', /<link rel="canonical" href="([^"]*)"/],
+      ['og:url', /<meta property="og:url" content="([^"]*)"/],
+      ['twitter:url', /<meta name="twitter:url" content="([^"]*)"/],
+    ]) {
+      const url = attr(head, re);
+      if (url !== own) fail(page, `${what} is ${url ?? 'missing'}, not ${own}`);
+    }
+  }
 
   for (const p of cspProblems(page, html)) fail(page, p);
 
@@ -129,6 +216,13 @@ for (const page of pages) {
   }
 }
 
+// A title or a description two pages share belongs to one of them at most.
+for (const [what, map] of [['<title>', titles], ['meta description', descriptions]]) {
+  for (const [value, sharing] of map) {
+    if (sharing.length > 1) fail(sharing[0], `has the same ${what} as ${sharing.slice(1).join(', ')}: "${value}"`);
+  }
+}
+
 // ---- home page cards -------------------------------------------------------
 const home = read('index.html');
 const cards = [...home.matchAll(/<section[^>]*data-category="([a-z]+)"[\s\S]*?<\/section>/g)]
@@ -148,6 +242,6 @@ if (problems.length) {
   console.log(`\n${problems.length} problem${problems.length === 1 ? '' : 's'}:`);
   for (const p of problems) console.log('  ' + p);
 } else {
-  console.log(`\n${pages.length} pages, ${tools.length} tools: header, theme, names, cards, footer v${VERSION} and CSP agree.`);
+  console.log(`\n${pages.length} pages, ${tools.length} tools: header, theme, names, heads, cards, footer v${VERSION} and CSP agree.`);
 }
 process.exit(problems.length ? 1 : 0);

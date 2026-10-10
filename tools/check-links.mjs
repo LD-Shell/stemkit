@@ -2,7 +2,7 @@
 /**
  * Link checker for the STEMKit site.
  *
- * Checks three things across every .html file in the project root:
+ * Checks four things across every .html file in the project root:
  *
  *   1. internal file targets  , href="plot-builder.html"
  *   2. same-page anchors      , href="#references"
