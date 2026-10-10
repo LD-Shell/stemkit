@@ -8,19 +8,42 @@
  * meanings (sizes in inches and points, tick objects, legend positions, the
  * export settings), and adds what a figure of any kind needs:
  *
- *   - one or more panels stacked vertically, sharing the x axis, each with its
- *     own y axis and a height ratio;
- *   - categorical x (named groups at 0, 1, 2 … for bars and boxes);
+ *   - one or more panels: stacked vertically, sharing the x axis, each with
+ *     its own y axis and a height ratio; or laid on a grid of rows and
+ *     columns (`layout`), each in the next free cell or the cells it names,
+ *     with the x axes shared by column or by all and the y axes by row or by
+ *     all (`sharex`, `sharey`), the gap between them set in points
+ *     (`panelGap`), lettered (a), (b) … (`panelLabels`); a panel may also be
+ *     an inset drawn inside another (`inset`), with a box and two lines on
+ *     its parent that show the region it enlarges;
+ *   - a second y axis on the right of a panel and a second x axis on its top,
+ *     each with its own label, scale, limits, ticks and colour, for series
+ *     whose `yAxis` is 'right' or `xAxis` is 'top' (matplotlib's twinx and
+ *     twiny): two quantities in different units against one x, say;
+ *   - categorical x (named groups at 0, 1, 2 … for bars and boxes), and, for
+ *     bars lying flat, a panel's categorical y (`yCategories`);
  *   - series of these kinds, drawn in the order given:
  *       line       a line through (x, y), optionally with markers or as steps
  *       scatter    markers at (x, y)
  *       errorbar   markers with x and/or y error bars, with caps
  *       band       the area between lower and upper over x
- *       bar        bars on categories or at x, grouped side by side, with
- *                  y error bars
- *       histogram  counts of raw values in bins, or counts already binned
- *       box        box and whiskers for groups of values, with fliers,
- *                  jittered points and the mean with its confidence interval
+ *       bar        bars on categories or at x, upright or lying flat
+ *                  (`orientation: 'h'`: positions in y, lengths in x), grouped
+ *                  side by side or stacked on each other (`stack`: 'stack',
+ *                  or 'percent' for shares of 100), each on a base of its
+ *                  own if need be (`bottom`), with error bars; or the means
+ *                  of groups of replicate rows with their SD, SEM or t
+ *                  interval (`replicates`), each value drawn over its bar
+ *       histogram  counts of raw values in bins (a number of them, their
+ *                  edges, or one of numpy's rules), as counts, density,
+ *                  fraction or percent, added up if asked; or counts
+ *                  already binned
+ *       box        box and whiskers for groups of values (whiskers by IQR or
+ *                  by percentiles, a notch), with fliers, jittered points
+ *                  and the mean with its confidence interval
+ *       violin     the kernel density of groups of values, as matplotlib's
+ *                  violinplot estimates it, with a box, quartile lines or a
+ *                  median line inside, and jittered points
  *       heatmap    a z grid coloured through a colormap, with a colour bar
  *       contour    lines or filled bands at levels of a z grid, colour bar
  *       hline, vline, axline   reference lines (horizontal, vertical, through
@@ -35,8 +58,14 @@
  * complete one, as normalisePlotStyle does for a style: unknown values fall
  * back to the defaults, numbers are kept in range, and the numbers each kind
  * needs are worked out once here (the bins of a histogram, the quartiles of a
- * box, the offsets of grouped bars) so that the preview and the script draw
- * the same thing.
+ * box, the density of a violin, the offsets of grouped bars, the bases of
+ * stacked ones, the means of replicates) so that the preview and the script
+ * draw the same thing.
+ *
+ * A bar's `width` is in the units of the axis its positions are on, as
+ * matplotlib's is: 0.8 of a place on named positions, and as wide as the
+ * page likes on numbers (bars 5 apart may be 4 wide). `spacing`, on the
+ * normalised series, is the smallest gap between its positions.
  *
  * A data field is an array of numbers, or { values, name?, source?, column?,
  * py? }: `values` is what the preview draws; the rest tells the script where
@@ -55,13 +84,31 @@ import {
 import { studentTQuantile } from './nonlinear-fit.js';
 
 export const SERIES_KINDS = Object.freeze([
-  'line', 'scatter', 'errorbar', 'band', 'bar', 'histogram', 'box',
+  'line', 'scatter', 'errorbar', 'band', 'bar', 'histogram', 'box', 'violin',
   'heatmap', 'contour', 'hline', 'vline', 'axline', 'text', 'bracket'
 ]);
+/** How the bar series of a panel that share positions stand: side by side, stacked, or stacked to 100%. */
+export const STACK_MODES = Object.freeze(['none', 'stack', 'percent']);
 export const HISTOGRAM_TYPES = Object.freeze(['stepfilled', 'step', 'bar']);
 export const STEP_MODES = Object.freeze(['pre', 'mid', 'post']);
 export const TEXT_ALIGN = Object.freeze(['left', 'center', 'right']);
 export const TEXT_VALIGN = Object.freeze(['baseline', 'bottom', 'center', 'top']);
+/* The kinds that may stand on a panel's second axes (top x, right y); images,
+   contours and box plots stay on the first. */
+export const SECONDARY_KINDS = Object.freeze(['line', 'scatter', 'errorbar', 'band', 'bar', 'histogram',
+  'hline', 'vline', 'axline', 'text', 'bracket']);
+export const X_AXES = Object.freeze(['bottom', 'top']);
+export const Y_AXES = Object.freeze(['left', 'right']);
+/** Which panels share their x axis (those of a column, or all) and their y axis (those of a row, or all). */
+export const SHARE_X = Object.freeze(['none', 'col', 'all']);
+export const SHARE_Y = Object.freeze(['none', 'row', 'all']);
+/** How panels are lettered, and where the letter stands: inside the top left corner or outside it. */
+export const PANEL_LABEL_STYLES = Object.freeze(['(a)', 'a', 'a)', 'A', '(A)']);
+export const PANEL_LABEL_POSITIONS = Object.freeze(['inside', 'outside']);
+/** The largest grid, and the most panels (insets included) a figure holds. */
+export const MAX_ROWS = 12;
+export const MAX_COLS = 6;
+export const MAX_PANELS = 24;
 
 /**
  * The default colours, in the order series take them. Checked for
@@ -245,13 +292,87 @@ function percentile(sorted, p) {
 }
 
 /**
+ * numpy's sum of doubles, bit for bit: pairwise in blocks of 8192 values
+ * (the ufunc buffer), each block halved down to runs of at most 128 that are
+ * added eight at a time. The mean and standard deviation numpy's bin rules
+ * use are built on it.
+ */
+export function numpySum(a) {
+  const block = (lo, n) => {
+    if (n < 8) {
+      let r = 0;
+      for (let i = lo; i < lo + n; i++) r += a[i];
+      return r;
+    }
+    if (n <= 128) {
+      const r = [a[lo], a[lo + 1], a[lo + 2], a[lo + 3], a[lo + 4], a[lo + 5], a[lo + 6], a[lo + 7]];
+      let i = 8;
+      for (; i < n - (n % 8); i += 8) for (let j = 0; j < 8; j++) r[j] += a[lo + i + j];
+      let res = ((r[0] + r[1]) + (r[2] + r[3])) + ((r[4] + r[5]) + (r[6] + r[7]));
+      for (; i < n; i++) res += a[lo + i];
+      return res;
+    }
+    let half = Math.floor(n / 2);
+    half -= half % 8;
+    return block(lo, half) + block(lo + half, n - half);
+  };
+  const n = a.length;
+  if (n <= 8192) return block(0, n);
+  let total = block(0, 8192);
+  for (let lo = 8192; lo < n; lo += 8192) total += block(lo, Math.min(8192, n - lo));
+  return total;
+}
+
+/* numpy.mean and numpy.std (ddof given) of finite values, as numpy adds them up. */
+function numpyMean(a) {
+  return numpySum(a) / a.length;
+}
+function numpyStd(a, ddof = 0) {
+  const mean = numpyMean(a);
+  const sq = new Array(a.length);
+  for (let i = 0; i < a.length; i++) { const d = a[i] - mean; sq[i] = d * d; }
+  return Math.sqrt(numpySum(sq) / (a.length - ddof));
+}
+
+/** The whisker rules a box plot offers: a multiple of the IQR, or a pair of percentiles. */
+export const WHISKER_RULES = Object.freeze([
+  Object.freeze({ value: 1.5, label: '1.5 × IQR' }),
+  Object.freeze({ value: Object.freeze([0, 100]), label: 'Smallest to largest' }),
+  Object.freeze({ value: Object.freeze([5, 95]), label: '5th to 95th percentile' }),
+  Object.freeze({ value: Object.freeze([10, 90]), label: '10th to 90th percentile' }),
+  Object.freeze({ value: Object.freeze([25, 75]), label: 'None (the box alone)' })
+]);
+
+/*
+ * A whisker rule as matplotlib's `whis` takes it: a number of IQRs beyond
+ * the box, or [low, high] percentiles. Text is read too ('1.5', '5,95',
+ * 'range' for the smallest to the largest value), as a select gives it.
+ */
+function whiskerRule(v, fallback = 1.5) {
+  let w = v;
+  if (typeof w === 'string') {
+    const t = w.trim().toLowerCase();
+    if (t === 'range' || t === 'minmax') return [0, 100];
+    w = /[,\s-]/.test(t.replace(/^-/, '')) ? t.split(/[,\s-]+/).filter(Boolean).map(Number) : Number(t);
+  }
+  if (Array.isArray(w) || ArrayBuffer.isView(w)) {
+    const lo = Number(w[0]); const hi = Number(w[1]);
+    if (w.length === 2 && Number.isFinite(lo) && Number.isFinite(hi) && lo >= 0 && hi <= 100 && lo <= hi) return [lo, hi];
+    return fallback;
+  }
+  return num(w, 0, 100, fallback);
+}
+
+/**
  * The statistics matplotlib's boxplot draws (cbook.boxplot_stats), plus the
  * mean and its t-based confidence interval.
  *
  * @param {number[]} values - NaN are left out
- * @param {{whis?: number, level?: number}} [options]
+ * @param {{whis?: number|number[], level?: number}} [options] - `whis`: the whiskers reach the
+ *   last value within that many IQRs of the box, or, as [low, high], within those percentiles
  * @returns {{n: number, q1: number, med: number, q3: number, whislo: number, whishi: number,
- *   fliers: number[], mean: number, ciLow: number, ciHigh: number}|null}
+ *   fliers: number[], mean: number, ciLow: number, ciHigh: number, notchLow: number, notchHigh: number}|null}
+ *   notchLow and notchHigh are the ends of a notch: the median ± 1.57 IQR / √n
  */
 export function boxStats(values, { whis = 1.5, level = 0.95 } = {}) {
   const x = Array.from(values || [], toNum).filter(Number.isFinite);
@@ -259,7 +380,9 @@ export function boxStats(values, { whis = 1.5, level = 0.95 } = {}) {
   const s = x.slice().sort((a, b) => a - b);
   const q1 = percentile(s, 0.25); const med = percentile(s, 0.5); const q3 = percentile(s, 0.75);
   const iqr = q3 - q1;
-  const loval = q1 - whis * iqr; const hival = q3 + whis * iqr;
+  const pair = Array.isArray(whis);
+  const loval = pair ? percentile(s, whis[0] / 100) : q1 - whis * iqr;
+  const hival = pair ? percentile(s, whis[1] / 100) : q3 + whis * iqr;
   const hiIn = s.filter((v) => v <= hival);
   const loIn = s.filter((v) => v >= loval);
   const whishi = !hiIn.length || maxOf(hiIn) < q3 ? q3 : maxOf(hiIn);
@@ -275,10 +398,12 @@ export function boxStats(values, { whis = 1.5, level = 0.95 } = {}) {
     const sd = Math.sqrt(ss / (n - 1));
     half = studentTQuantile((1 + level) / 2, n - 1) * sd / Math.sqrt(n);
   }
+  const notch = 1.57 * iqr / Math.sqrt(n);
   return {
     n, q1, med, q3, whislo, whishi,
     fliers: x.filter((v) => v < whislo || v > whishi),
-    mean, ciLow: mean - half, ciHigh: mean + half
+    mean, ciLow: mean - half, ciHigh: mean + half,
+    notchLow: med - notch, notchHigh: med + notch
   };
 }
 
@@ -293,11 +418,111 @@ export function linspace(start, stop, num) {
   return out;
 }
 
+/** numpy's rules for the number of bins (numpy.histogram_bin_edges), by name. */
+export const BIN_RULES = Object.freeze(['auto', 'fd', 'sturges', 'sqrt', 'scott', 'rice', 'doane']);
+
+/*
+ * The bin width a rule gives finite values `a` (0: one bin), as numpy's
+ * _hist_bin_* functions work it out: the same sums, in the same order.
+ */
+function binWidth(rule, a) {
+  const n = a.length;
+  const ptp = maxOf(a) - minOf(a);
+  const fd = () => {
+    const s = a.slice().sort((p, q) => p - q);
+    return 2.0 * (percentile(s, 0.75) - percentile(s, 0.25)) * n ** (-1.0 / 3.0);
+  };
+  const sturges = () => ptp / (Math.log2(n) + 1.0);
+  switch (rule) {
+    case 'sqrt': return ptp / Math.sqrt(n);
+    case 'sturges': return sturges();
+    case 'rice': return ptp / (2.0 * n ** (1.0 / 3));
+    case 'scott': return (24.0 * Math.PI ** 0.5 / n) ** (1.0 / 3.0) * numpyStd(a);
+    case 'doane': {
+      if (n <= 2) return 0;
+      const sg1 = Math.sqrt(6.0 * (n - 2) / ((n + 1.0) * (n + 3)));
+      const sigma = numpyStd(a);
+      if (!(sigma > 0)) return 0;
+      const mean = numpyMean(a);
+      const g1 = numpyMean(a.map((v) => ((v - mean) / sigma) ** 3));
+      return ptp / (1.0 + Math.log2(n) + Math.log2(1.0 + Math.abs(g1) / sg1));
+    }
+    case 'fd': return fd();
+    default: {   // auto: the narrower of Freedman-Diaconis and Sturges
+      const w = fd();
+      return w ? Math.min(w, sturges()) : sturges();
+    }
+  }
+}
+
+/* The equal bins numpy makes of finite values: a count, or a rule's. */
+function uniformBins(a, bins) {
+  let lo = a.length ? minOf(a) : 0;
+  let hi = a.length ? maxOf(a) : 1;
+  if (lo === hi) { lo -= 0.5; hi += 0.5; }
+  let n;
+  if (typeof bins === 'string') {
+    n = 1;
+    if (a.length) {
+      const width = binWidth(bins, a);
+      if (width) n = Math.ceil((hi - lo) / width);
+    }
+    if (!(n >= 1)) n = 1;
+  } else {
+    n = Math.max(1, Math.round(Number(bins) || 10));
+  }
+  return { lo, hi, n };
+}
+
+/**
+ * numpy.histogram_bin_edges: the edges of `bins` equal bins between the
+ * smallest and largest finite value (±0.5 when they are equal), the bins of
+ * one of numpy's rules (BIN_RULES), or the edges given.
+ *
+ * @param {number[]} values
+ * @param {number|string|number[]} [bins=10]
+ * @returns {number[]}
+ */
+export function histogramBinEdges(values, bins = 10) {
+  if (Array.isArray(bins) || ArrayBuffer.isView(bins)) return Array.from(bins, Number).filter(Number.isFinite);
+  const u = uniformBins(Array.from(values || [], toNum).filter(Number.isFinite), bins);
+  return linspace(u.lo, u.hi, u.n + 1);
+}
+
+/** How a histogram's bars are scaled. */
+export const HISTOGRAM_NORMS = Object.freeze(['counts', 'density', 'fraction', 'percent']);
+
+/**
+ * A histogram's heights from its counts: the counts, the density (so that
+ * the area is 1), the fraction or the percentage in each bin; and, when
+ * cumulative, the running total (of the fraction for a density, as
+ * matplotlib's hist(cumulative=True) has it).
+ *
+ * @param {number[]} counts
+ * @param {number[]} edges
+ * @param {{normalise?: string, cumulative?: boolean}} [options]
+ * @returns {number[]}
+ */
+export function histogramHeights(counts, edges, { normalise = 'counts', cumulative = false } = {}) {
+  let total = 0;
+  for (const c of counts) total += c;
+  let h;
+  if (normalise === 'density') h = counts.map((c, i) => c / (total * (edges[i + 1] - edges[i])));
+  else if (normalise === 'fraction') h = counts.map((c) => c / total);
+  else if (normalise === 'percent') h = counts.map((c) => 100 * c / total);
+  else h = counts.slice();
+  if (!cumulative) return h;
+  if (normalise === 'density') h = h.map((v, i) => v * (edges[i + 1] - edges[i]));
+  let run = 0;
+  return h.map((v) => (run += v));
+}
+
 /**
  * numpy.histogram: counts of the finite values in bins, [e_i, e_i+1) and the
  * last bin closed. `bins` is a number of equal bins between the smallest and
- * largest value (numpy's rule, including ±0.5 when they are equal) or the
- * edges themselves.
+ * largest value (numpy's rule, including ±0.5 when they are equal), the name
+ * of one of numpy's rules for that number (BIN_RULES), or the edges
+ * themselves.
  *
  * @returns {{counts: number[], edges: number[]}}
  */
@@ -308,12 +533,8 @@ export function histogram(values, bins = 10, { density = false } = {}) {
   if (Array.isArray(bins) || ArrayBuffer.isView(bins)) {
     edges = Array.from(bins, Number).filter(Number.isFinite);
   } else {
-    const n = Math.max(1, Math.round(Number(bins) || 10));
-    let lo = a.length ? minOf(a) : 0;
-    let hi = a.length ? maxOf(a) : 1;
-    if (lo === hi) { lo -= 0.5; hi += 0.5; }
-    edges = linspace(lo, hi, n + 1);
-    uniform = { lo, hi, n };
+    uniform = uniformBins(a, bins);
+    edges = linspace(uniform.lo, uniform.hi, uniform.n + 1);
   }
   const nb = Math.max(0, edges.length - 1);
   const counts = new Array(nb).fill(0);
@@ -351,17 +572,123 @@ export function jitterOffsets(n, spread) {
   return Array.from({ length: n }, (_, k) => (((k * 0.6180339887498949) % 1) - 0.5) * spread);
 }
 
+/** The bandwidth rules of a violin's kernel density estimate. */
+export const KDE_BANDWIDTHS = Object.freeze(['scott', 'silverman']);
+/** How the widths of a series' violins compare: each as wide as `width`, or all of one area. */
+export const VIOLIN_SCALES = Object.freeze(['width', 'area']);
+/** What is drawn inside a violin. */
+export const VIOLIN_INNER = Object.freeze(['box', 'quartiles', 'median', 'none']);
+/** The number of points a violin's outline is drawn through, matplotlib's own. */
+export const VIOLIN_POINTS = 100;
+
+/**
+ * The bandwidth of a Gaussian kernel density estimate of one variable, as
+ * scipy.stats.gaussian_kde and matplotlib's violinplot set it: the sample
+ * standard deviation times Scott's factor n^(-1/5) or Silverman's
+ * (3n/4)^(-1/5). 0 for fewer than two values or values all alike.
+ *
+ * @param {number[]} values - finite numbers
+ * @param {'scott'|'silverman'} [method='scott']
+ * @returns {number}
+ */
+export function kdeBandwidth(values, method = 'scott') {
+  const n = values.length;
+  if (n < 2) return 0;
+  const factor = method === 'silverman' ? (n * 3 / 4) ** (-1 / 5) : n ** (-1 / 5);
+  const bw = factor * numpyStd(values, 1);
+  return Number.isFinite(bw) ? bw : 0;
+}
+
+/**
+ * The Gaussian kernel density estimate of `values` at the points `at`:
+ * the mean of normal densities of standard deviation `bw` centred on each
+ * value (scipy.stats.gaussian_kde(values, bw_method)(at)).
+ *
+ * @param {number[]} values - finite numbers
+ * @param {number[]} at
+ * @param {number|'scott'|'silverman'} [bw='scott'] - the bandwidth, or the rule that sets it
+ * @returns {number[]}
+ */
+export function gaussianKde(values, at, bw = 'scott') {
+  const h = typeof bw === 'number' ? bw : kdeBandwidth(values, bw);
+  const n = values.length;
+  const terms = new Float64Array(n);
+  const norm = n * h * Math.sqrt(2 * Math.PI);
+  return Array.from(at, (c) => {
+    for (let i = 0; i < n; i++) { const z = (c - values[i]) / h; terms[i] = Math.exp(-0.5 * (z * z)); }
+    return numpySum(terms) / norm;
+  });
+}
+
+/**
+ * What a violin draws: the density of the values along VIOLIN_POINTS evenly
+ * spaced coordinates from the smallest value to the largest (matplotlib's
+ * violinplot), or `cut` bandwidths beyond each. Values all alike (or one
+ * value) have no density: the violin is a line at that value, as
+ * matplotlib draws it (`flat`).
+ *
+ * @param {number[]} values - NaN are left out
+ * @param {{bandwidth?: 'scott'|'silverman', cut?: number}} [options]
+ * @returns {{n: number, min: number, max: number, bw: number, flat: boolean, coords: number[],
+ *   density: number[], peak: number}|null} null when there are no values
+ */
+export function violinStats(values, { bandwidth = 'scott', cut = 0 } = {}) {
+  const x = Array.from(values || [], toNum).filter(Number.isFinite);
+  const n = x.length;
+  if (!n) return null;
+  const min = minOf(x); const max = maxOf(x);
+  const bw = min === max ? 0 : kdeBandwidth(x, bandwidth);
+  if (!(bw > 0)) {
+    return { n, min, max, bw: 0, flat: true, coords: linspace(min, max, VIOLIN_POINTS), density: new Array(VIOLIN_POINTS).fill(1), peak: 1 };
+  }
+  const coords = linspace(min - cut * bw, max + cut * bw, VIOLIN_POINTS);
+  const density = gaussianKde(x, coords, bw);
+  return { n, min, max, bw, flat: false, coords, density, peak: maxOf(density) };
+}
+
+/**
+ * The mean of each group of replicates and its error: the standard
+ * deviation (n − 1), the standard error of the mean, or the half-width of
+ * the t-based confidence interval at `level`. A group of one value has no
+ * error (NaN); an empty group no mean.
+ *
+ * @param {number[][]} groups - finite numbers
+ * @param {{error?: 'sd'|'sem'|'ci'|'none', level?: number}} [options]
+ * @returns {{n: number[], mean: number[], sd: number[], err: number[]}}
+ */
+export function groupMeans(groups, { error = 'sd', level = 0.95 } = {}) {
+  const n = groups.map((g) => g.length);
+  const mean = groups.map((g) => (g.length ? numpyMean(g) : NaN));
+  const sd = groups.map((g) => (g.length > 1 ? numpyStd(g, 1) : NaN));
+  const err = sd.map((s, k) => {
+    if (error === 'sd') return s;
+    if (error === 'sem') return s / Math.sqrt(Math.max(n[k], 1));
+    if (error === 'ci') return n[k] > 1 ? studentTQuantile((1 + level) / 2, n[k] - 1) * s / Math.sqrt(n[k]) : NaN;
+    return NaN;
+  });
+  return { n, mean, sd, err };
+}
+
+/** The errors a bar of means can show. */
+export const REPLICATE_ERRORS = Object.freeze(['sd', 'sem', 'ci', 'none']);
+
 /* ------------------------------------------------------------------ *
  * Defaults
  * ------------------------------------------------------------------ */
 
 /* The look of the whole figure: plot-style's own fields and defaults. */
 const FIGURE_LOOK = ['width', 'height', 'dpi', 'fontFamily', 'fontSize', 'title', 'background', 'foreground',
-  'legend', 'grid', 'spines', 'export', 'colormap', 'xLabel', 'xScale', 'xLim', 'xTicks', 'sizeUnit', 'titleSize', 'tickSize'];
-const PANEL_LOOK = ['yLabel', 'yScale', 'yLim', 'yTicks', 'ratio', 'legend'];
-const SERIES_LOOK = ['show', 'label', 'legend', 'color', 'alpha', 'lineWidth', 'lineStyle', 'marker', 'size', 'edgeColor',
+  'legend', 'grid', 'spines', 'export', 'colormap', 'xLabel', 'xScale', 'xLim', 'xTicks', 'sizeUnit', 'titleSize', 'tickSize',
+  'panelGap', 'panelLabels'];
+const PANEL_LOOK = ['yLabel', 'yScale', 'yLim', 'yTicks', 'ratio', 'legend',
+  'y2Label', 'y2Scale', 'y2Lim', 'y2Ticks', 'y2Color', 'x2Label', 'x2Scale', 'x2Lim', 'x2Ticks', 'x2Color',
+  'xLabel', 'xScale', 'xLim', 'xTicks', 'letter'];
+/* The part of `layout` that is look: the widths of the columns and the heights of the rows. */
+const LAYOUT_LOOK = ['widthRatios', 'heightRatios'];
+const SERIES_LOOK = ['show', 'label', 'legend', 'xAxis', 'yAxis', 'color', 'alpha', 'lineWidth', 'lineStyle', 'marker', 'size', 'edgeColor',
   'edgeWidth', 'errorWidth', 'capSize', 'width', 'histtype', 'colormap', 'vmin', 'vmax', 'levels', 'colorbar', 'colors',
-  'filled', 'points', 'pointSize', 'mean', 'fliers', 'fontSize', 'step', 'faceAlpha', 'medianColor'];
+  'filled', 'points', 'pointSize', 'mean', 'fliers', 'fontSize', 'step', 'faceAlpha', 'medianColor',
+  'whis', 'level', 'notch', 'inner', 'bandwidth', 'cut', 'scale'];
 
 /** A figure with nothing in it: one empty panel and plot-style's look. */
 export function defaultFigure() {
@@ -375,14 +702,57 @@ export function defaultFigure() {
     export: { ...s.export, filename: 'figure' },
     colormap: 'viridis',
     xLabel: '', xScale: 'linear', xLim: [null, null], xTicks: s.xTicks, xCategories: null,
+    layout: { rows: 1, cols: 1, widthRatios: [1], heightRatios: [1] },
+    sharex: 'all', sharey: 'none',
+    panelGap: { h: null, w: null },
+    panelLabels: defaultPanelLabels(),
     panels: [defaultPanel()]
   };
 }
 
+function defaultPanelLabels() {
+  return { show: false, style: '(a)', start: 1, position: 'inside', fontSize: null, bold: true };
+}
+
 function defaultPanel() {
   const s = defaultPlotStyle();
-  return { id: 'main', name: '', ratio: 1, yLabel: '', yScale: 'linear', yLim: [null, null], yTicks: s.yTicks, legend: { show: null, position: null, order: [] }, series: [] };
+  return {
+    id: 'main', name: '', ratio: 1, yLabel: '', yScale: 'linear', yLim: [null, null], yTicks: s.yTicks, yCategories: null,
+    legend: { show: null, position: null, order: [] },
+    y2Label: '', y2Scale: 'linear', y2Lim: [null, null], y2Ticks: s.yTicks, y2Color: null,
+    x2Label: '', x2Scale: 'linear', x2Lim: [null, null], x2Ticks: s.xTicks, x2Color: null,
+    xLabel: '', xScale: 'linear', xLim: [null, null], xTicks: s.xTicks, xCategories: null,
+    row: 0, col: 0, rowSpan: 1, colSpan: 1, inset: null, letter: null,
+    shareX: 0, shareY: 0, xOuter: true, yOuter: true,
+    series: []
+  };
 }
+
+/**
+ * Whether a panel draws its second x axis (on top, 'x2') or y axis (on the
+ * right, 'y2'): some series it shows stands on it.
+ */
+export function hasAxis(panel, which) {
+  const key = which === 'x2' ? 'xAxis' : 'yAxis';
+  const side = which === 'x2' ? 'top' : 'right';
+  return !!panel && Array.isArray(panel.series) && panel.series.some((q) => q && q.show && q[key] === side);
+}
+
+/*
+ * The ticks of a second axis: its own, with the look (direction, length,
+ * width, minor ticks) of the first axis it stands opposite unless set.
+ * Marks on the far side make no sense for it: they are off.
+ */
+function secondTicks(t, first) {
+  const src = obj(t);
+  const n = normaliseTicks({ ...src, minor: src.minor === undefined || src.minor === null ? first.minor : src.minor }, { ...first, mode: 'auto' });
+  n.mirror = false;
+  return n;
+}
+
+/* A second axis' colour: a colour, null for the figure's foreground, or
+   'auto': the colour of the one series on that axis (none when several). */
+const axisColour = (v) => (v === 'auto' ? 'auto' : colour(v, null));
 
 function normaliseTicks(t, d) {
   const src = obj(t);
@@ -431,6 +801,8 @@ function normaliseSeries(src, ctx, index) {
     show: bool(s.show, true),
     label: text(s.label, ''),
     legend: bool(s.legend, true),
+    xAxis: SECONDARY_KINDS.includes(kind) ? pick(s.xAxis, X_AXES, 'bottom') : 'bottom',
+    yAxis: SECONDARY_KINDS.includes(kind) ? pick(s.yAxis, Y_AXES, 'left') : 'left',
     color: colour(s.color, auto),
     alpha: num(s.alpha, 0, 1, 1),
     zorder: optNum(s.zorder)
@@ -484,20 +856,38 @@ function normaliseSeries(src, ctx, index) {
       break;
     }
     case 'bar': {
-      let x = field('x');
-      const y = field('y') || [];
-      if (!x) x = y.map((_, i) => i);
-      out = { ...base, x, y, yerr: null, width: num(s.width, 0.05, 1, 0.8), bottom: num(s.bottom, -1e300, 1e300, 0),
+      // Vertical bars stand at x and rise by y; horizontal ones lie at y and
+      // reach x, with their errors along x (matplotlib's bar and barh).
+      const horizontal = s.orientation === 'h' || s.orientation === 'horizontal';
+      const pk = horizontal ? 'y' : 'x'; const vk = horizontal ? 'x' : 'y'; const ek = horizontal ? 'xerr' : 'yerr';
+      const rep = replicatesOf(s.replicates);
+      if (rep && rep.ref) refs.replicates = rep.ref;
+      let pos = field(pk);
+      const val = rep ? rep.stats.mean : field(vk) || [];
+      if (!pos) pos = val.map((_, i) => i);
+      // The base the bars stand on: one number, or one for each bar.
+      const base0 = s.bottom !== null && typeof s.bottom === 'object' ? dataField(s.bottom) : null;
+      if (base0 && base0.ref) refs.bottom = base0.ref;
+      out = { ...base, x: horizontal ? val : pos, y: horizontal ? pos : val, yerr: null, width: num(s.width, 1e-300, 1e300, 0.8),
+        bottom: base0 ? (base0.values || []) : num(s.bottom, -1e300, 1e300, 0),
         edgeColor: colour(s.edgeColor, base.color), edgeWidth: num(s.edgeWidth, 0, 10, 0),
         errorWidth: num(s.errorWidth, 0.1, 10, 1), capSize: num(s.capSize, 0, 20, 3),
-        errorColor: colour(s.errorColor, ctx.foreground), group: bool(s.group, true), offset: 0, barWidth: 0 };
-      const e = s.yerr;
-      if (Array.isArray(e) && e.length === 2 && (Array.isArray(e[0]) || (e[0] && typeof e[0] === 'object'))) {
-        out.yerr = [dataField(e[0]).values || [], dataField(e[1]).values || []];
+        errorColor: colour(s.errorColor, ctx.foreground), group: bool(s.group, true), offset: 0, barWidth: 0,
+        orientation: horizontal ? 'h' : 'v', stack: pick(s.stack === true ? 'stack' : s.stack, STACK_MODES, 'none'), stacked: 'none',
+        spacing: positionSpacing(pos) };
+      if (horizontal) { out.xerr = null; out.xAxis = 'bottom'; out.yAxis = 'left'; }
+      const e = s[ek];
+      if (rep) {
+        out[ek] = rep.error === 'none' ? null : [rep.stats.err, rep.stats.err];
+        Object.assign(out, { replicates: rep, points: bool(s.points, false), pointSize: num(s.pointSize, 0, 30, 3),
+          jitter: num(s.jitter, 0, 1, 0.5), marker: marker('o'), pointColor: colour(s.pointColor, ctx.foreground) });
+        if (out.marker === 'none') out.marker = 'o';
+      } else if (Array.isArray(e) && e.length === 2 && (Array.isArray(e[0]) || (e[0] && typeof e[0] === 'object'))) {
+        out[ek] = [dataField(e[0]).values || [], dataField(e[1]).values || []];
       } else if (e !== undefined && e !== null) {
         const f = dataField(e);
-        if (f.ref) refs.yerr = f.ref;
-        out.yerr = f.values ? [f.values, f.values] : null;
+        if (f.ref) refs[ek] = f.ref;
+        out[ek] = f.values ? [f.values, f.values] : null;
       }
       break;
     }
@@ -505,12 +895,18 @@ function normaliseSeries(src, ctx, index) {
       const values = field('values');
       const counts = field('counts');
       const givenEdges = Array.isArray(s.edges) ? s.edges.map(Number) : null;
-      const bins = Array.isArray(s.bins) ? s.bins.map(Number) : Math.round(num(s.bins, 1, 10000, 10));
-      const density = !!s.density;
+      const bins = Array.isArray(s.bins) ? s.bins.map(Number)
+        : BIN_RULES.includes(s.bins) ? s.bins : Math.round(num(s.bins, 1, 10000, 10));
+      // Counts, or scaled: `density: true` is the older way to say 'density'.
+      const normalise = pick(s.normalise ?? s.normalize, HISTOGRAM_NORMS, s.density ? 'density' : 'counts');
+      const density = normalise === 'density';
+      const cumulative = !!s.cumulative && !!values;
       let h;
-      if (values) h = histogram(values, givenEdges || bins, { density });
-      else h = { counts: counts || [], edges: givenEdges || [] };
-      out = { ...base, values: values || null, bins, density, counts: h.counts, edges: h.edges,
+      if (values) {
+        h = histogram(values, givenEdges || bins);
+        h = { counts: histogramHeights(h.counts, h.edges, { normalise, cumulative }), edges: h.edges };
+      } else h = { counts: counts || [], edges: givenEdges || [] };
+      out = { ...base, values: values || null, bins, density, normalise: values ? normalise : 'counts', cumulative, counts: h.counts, edges: h.edges,
         histtype: pick(s.histtype, HISTOGRAM_TYPES, 'stepfilled'),
         alpha: num(s.alpha, 0, 1, s.histtype === 'step' ? 1 : 0.6),
         edgeColor: colour(s.edgeColor, base.color), edgeWidth: num(s.edgeWidth, 0, 10, s.histtype === 'step' ? 1.5 : 0),
@@ -520,7 +916,7 @@ function normaliseSeries(src, ctx, index) {
     }
     case 'box': {
       const groups = Array.isArray(s.groups) ? s.groups : [];
-      const whis = num(s.whis, 0, 100, 1.5);
+      const whis = whiskerRule(s.whis);
       const level = num(s.level, 0.5, 0.999, 0.95);
       const gs = groups.map((g, i) => {
         const gg = Array.isArray(g) || ArrayBuffer.isView(g) ? { values: g } : obj(g);
@@ -530,8 +926,37 @@ function normaliseSeries(src, ctx, index) {
       out = { ...base, groups: gs, whis, level, width: num(s.width, 0.05, 1, 0.5), faceAlpha: num(s.faceAlpha, 0, 1, 0.25),
         lineWidth: num(s.lineWidth, 0, 10, 1), medianColor: colour(s.medianColor, ctx.foreground), fliers: bool(s.fliers, true),
         points: bool(s.points, false), pointSize: num(s.pointSize, 0, 30, 4), jitter: num(s.jitter, 0, 1, 0.3),
-        mean: bool(s.mean, false), meanOffset: num(s.meanOffset, -1, 1, 0), marker: marker('o'), legend: false };
+        mean: bool(s.mean, false), meanOffset: num(s.meanOffset, -1, 1, 0), marker: marker('o'), legend: false,
+        notch: bool(s.notch, false) };
       if (out.points && s.fliers === undefined) out.fliers = false;
+      break;
+    }
+    case 'violin': {
+      const groups = Array.isArray(s.groups) ? s.groups : [];
+      const bandwidth = pick(s.bandwidth, KDE_BANDWIDTHS, 'scott');
+      const cut = num(s.cut, 0, 10, 0);
+      const gs = groups.map((g, i) => {
+        const gg = Array.isArray(g) || ArrayBuffer.isView(g) ? { values: g } : obj(g);
+        const f = dataField(gg.values);
+        const values = (f.values || []).filter(Number.isFinite);
+        return { position: optNum(gg.position) ?? i, values, ref: f.ref || gg.ref || null,
+          stats: boxStats(values), kde: violinStats(values, { bandwidth, cut }), half: [] };
+      });
+      const m = marker('o');
+      out = { ...base, groups: gs, bandwidth, cut, scale: pick(s.scale, VIOLIN_SCALES, 'width'), inner: pick(s.inner, VIOLIN_INNER, 'box'),
+        width: num(s.width, 0.05, 1, 0.8), faceAlpha: num(s.faceAlpha, 0, 1, 0.35), lineWidth: num(s.lineWidth, 0, 10, 1),
+        edgeColor: colour(s.edgeColor, base.color), medianColor: colour(s.medianColor, ctx.foreground),
+        points: bool(s.points, false), pointSize: num(s.pointSize, 0, 30, 3), jitter: num(s.jitter, 0, 1, 0.3),
+        marker: m === 'none' ? 'o' : m, legend: false };
+      // Half the width of each violin along its coordinates: each as wide as
+      // `width` at its widest, or all to one scale (equal areas), the
+      // widest as wide as `width`. A flat one (values all alike) is a line.
+      const peak = maxOf(gs.filter((g) => g.kde && !g.kde.flat).map((g) => g.kde.peak), 0);
+      for (const g of gs) {
+        if (!g.kde) continue;
+        g.kde.top = g.kde.flat ? 1 : out.scale === 'area' ? peak : g.kde.peak;
+        g.half = g.kde.density.map((d) => 0.5 * out.width * d / g.kde.top);
+      }
       break;
     }
     case 'heatmap': {
@@ -592,25 +1017,152 @@ function normaliseSeries(src, ctx, index) {
   return out;
 }
 
-/* Side-by-side offsets of the bar series that share positions in a panel. */
-function groupBars(series) {
-  const bars = series.filter((s) => s.kind === 'bar' && s.group && s.show);
-  const n = bars.length;
-  bars.forEach((b, i) => {
-    b.barWidth = b.width / Math.max(1, n);
-    b.offset = n > 1 ? (i - (n - 1) / 2) * b.barWidth : 0;
-  });
-  series.filter((s) => s.kind === 'bar' && (!s.group || !s.show)).forEach((b) => { b.barWidth = b.width; b.offset = 0; });
+/* The smallest gap between two different positions, 1 when there is none:
+   what a bar's width is a share of. */
+function positionSpacing(pos) {
+  const p = [...new Set(pos.filter(Number.isFinite))].sort((a, b) => a - b);
+  let gap = Infinity;
+  for (let i = 1; i < p.length; i++) if (p[i] - p[i - 1] < gap) gap = p[i] - p[i - 1];
+  return Number.isFinite(gap) && gap > 0 ? gap : 1;
 }
 
-/* A bracket's height, when not given: 2.5% of the span of the panel's data. */
+/*
+ * The replicates a bar series is the means of: `values` (a data field, one
+ * for each row) and `codes`, the group of each row (0, 1, 2 …; anything
+ * else: no group). `names` may name the groups, and so say how many there are.
+ */
+function replicatesOf(src) {
+  if (!src || typeof src !== 'object') return null;
+  const f = dataField(src.values);
+  if (!f.values) return null;
+  const codes = Array.from(src.codes || [], (c) => (Number.isInteger(c) && c >= 0 ? c : -1));
+  const names = Array.isArray(src.names) ? src.names.map((n) => text(n, String(n))) : [];
+  const count = Math.max(names.length, maxOf(codes, -1) + 1);
+  const groups = Array.from({ length: count }, () => []);
+  const n = Math.min(codes.length, f.values.length);
+  for (let i = 0; i < n; i++) if (codes[i] >= 0 && Number.isFinite(f.values[i])) groups[codes[i]].push(f.values[i]);
+  const error = pick(src.error, REPLICATE_ERRORS, 'sd');
+  const level = num(src.level, 0.5, 0.999, 0.95);
+  return { values: f.values, ref: f.ref, codes, names, groups, error, level, stats: groupMeans(groups, { error, level }) };
+}
+
+/** A bar series' positions and lengths: x and y, or y and x when it is horizontal. */
+export function barData(q) {
+  const h = q.orientation === 'h';
+  return { horizontal: h, positions: h ? q.y : q.x, values: h ? q.x : q.y, errors: (h ? q.xerr : q.yerr) || null };
+}
+
+/* Side-by-side offsets of the bar series that share positions in a panel:
+   those on the same pair of axes that run the same way. Stacked series
+   stand on each other in one place of the row. */
+function groupBars(series) {
+  const pairs = new Map();
+  for (const s of series) {
+    const k = s.kind === 'bar' && s.orientation === 'h' ? 'h' : `${s.xAxis}/${s.yAxis}`;
+    if (!pairs.has(k)) pairs.set(k, []);
+    pairs.get(k).push(s);
+  }
+  for (const list of pairs.values()) groupBarsOn(list);
+}
+
+function groupBarsOn(series) {
+  const all = series.filter((s) => s.kind === 'bar');
+  const stack = all.filter((s) => s.show && s.stack !== 'none');
+  const stacked = new Set(stack);
+  // The places side by side: each grouped series, and the stack as one.
+  const places = all.filter((s) => s.show && (stacked.has(s) ? s === stack[0] : s.group));
+  const n = places.length;
+  const flip = all.length && all[0].orientation === 'h' ? -1 : 1;   // the first series on top
+  places.forEach((b, i) => {
+    b.barWidth = b.width / Math.max(1, n);
+    b.offset = n > 1 ? flip * (i - (n - 1) / 2) * b.barWidth : 0;
+  });
+  all.filter((s) => !places.includes(s)).forEach((b) => {
+    if (stacked.has(b)) { b.barWidth = stack[0].barWidth; b.offset = stack[0].offset; } else { b.barWidth = b.width; b.offset = 0; }
+  });
+  const mode = stack.length ? stack[0].stack : 'none';
+  for (const b of all) layBar(b, stacked.has(b) ? mode : 'none');
+  if (stack.length) stackBars(stack, mode);
+}
+
+/* What a bar series draws when it is not stacked: its values, from its own base. */
+function layBar(b, mode) {
+  const { values, errors } = barData(b);
+  b.stacked = mode;
+  b.heights = values;
+  b.bottoms = Array.isArray(b.bottom) ? values.map((_, i) => b.bottom[i] ?? NaN) : values.map(() => b.bottom);
+  b.errs = errors;
+}
+
+/*
+ * Stacked bars: at each position the series stand on each other in the
+ * order given, those above zero upwards and those below zero downwards, from
+ * zero. In 'percent' every value is its share of the sum of the sizes at its
+ * position, so each position spans 100. An error bar stands at the end of
+ * its bar, scaled with it. A value that is not a number takes no room. The
+ * script adds up the same numbers in the same order.
+ */
+function stackBars(stack, mode) {
+  const index = new Map();
+  for (const b of stack) for (const p of barData(b).positions) if (!index.has(p)) index.set(p, index.size);
+  const up = new Array(index.size).fill(0); const down = new Array(index.size).fill(0);
+  const total = new Array(index.size).fill(0);
+  if (mode === 'percent') {
+    for (const b of stack) {
+      const { positions, values } = barData(b);
+      positions.forEach((p, i) => { if (Number.isFinite(values[i])) total[index.get(p)] += Math.abs(values[i]); });
+    }
+  }
+  for (const b of stack) {
+    const { positions, values, errors } = barData(b);
+    const k = positions.map((p) => index.get(p));
+    const share = (v, i) => (mode === 'percent' ? 100 * v / total[k[i]] : v);
+    b.heights = values.map(share);
+    b.errs = errors && mode === 'percent' ? [errors[0].map(share), errors[1].map(share)] : errors;
+    b.bottoms = b.heights.map((v, i) => (v < 0 ? down[k[i]] : up[k[i]]));
+    b.heights.forEach((v, i) => { if (v > 0) up[k[i]] += v; else if (v < 0) down[k[i]] += v; });
+  }
+}
+
+/**
+ * The order of a panel's legend: the order set, or, when bars are stacked
+ * upwards, the series as they are with the stacked ones turned round, so
+ * that the legend reads from the top of the stack down as the bars do.
+ *
+ * @param {object} panel - a normalised panel
+ * @returns {string[]} series ids; [] for the order the series are given in
+ */
+export function legendOrder(panel) {
+  if (panel.legend.order.length) return panel.legend.order;
+  const stack = panel.series.filter((q) => q.kind === 'bar' && q.show && q.stacked !== 'none' && q.orientation !== 'h');
+  if (stack.length < 2) return [];
+  const turned = new Map();
+  for (const key of new Set(stack.map((q) => `${q.xAxis}/${q.yAxis}`))) {
+    const members = stack.filter((q) => `${q.xAxis}/${q.yAxis}` === key);
+    members.forEach((q, i) => turned.set(q, members[members.length - 1 - i]));
+  }
+  return panel.series.map((q) => (turned.get(q) || q).id);
+}
+
+/* A bracket's height, when not given: 2.5% of the span of the data on its y
+   axis (the panel's left or right). */
 function bracketHeights(series) {
+  for (const side of Y_AXES) bracketHeightsOn(series.filter((s) => s.yAxis === side));
+}
+
+function bracketHeightsOn(series) {
   if (!series.some((s) => s.kind === 'bracket' && s.height === null)) return;
   let lo = 0; let hi = -Infinity;
   const see = (v) => { if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; } };
   for (const s of series) {
-    if (s.kind === 'bar') s.y.forEach((v, i) => { see(v + s.bottom); if (s.yerr) see(v + s.bottom + (s.yerr[1][i] || 0)); });
-    else if (s.kind === 'box') {
+    if (s.kind === 'bar' && s.orientation === 'h') s.y.forEach((v) => { see(v + s.offset - s.barWidth / 2); see(v + s.offset + s.barWidth / 2); });
+    else if (s.kind === 'bar') s.heights.forEach((v, i) => { see(v + s.bottoms[i]); if (s.errs) see(v + s.bottoms[i] + (s.errs[1][i] || 0)); });
+    else if (s.kind === 'violin') {
+      s.groups.forEach((g) => {
+        if (!g.kde) return;
+        see(g.kde.coords[0]); see(g.kde.coords[g.kde.coords.length - 1]);
+      });
+    } else if (s.kind === 'box') {
       s.groups.forEach((g) => {
         if (!g.stats) return;
         see(g.stats.whislo); see(g.stats.whishi);
@@ -622,6 +1174,188 @@ function bracketHeights(series) {
   }
   const span = hi > -Infinity ? hi - lo : 1;
   series.filter((s) => s.kind === 'bracket' && s.height === null).forEach((s) => { s.height = 0.025 * (span || 1); });
+}
+
+/* ------------------------------------------------------------------ *
+ * Panels on a grid, shared axes, letters and insets
+ * ------------------------------------------------------------------ */
+
+const wholeNum = (v, lo, hi, fallback) => {
+  const n = Number(v);
+  if (v === null || v === undefined || v === '' || typeof v === 'boolean' || !Number.isFinite(n)) return fallback;
+  return Math.min(hi, Math.max(lo, Math.round(n)));
+};
+const isInset = (p) => !!p && !!p.inset && typeof p.inset === 'object' && !Array.isArray(p.inset);
+
+/*
+ * The cells of every panel that is not an inset. A panel that names its
+ * `row` and `col` (from 0) takes those cells, over `rowSpan` rows and
+ * `colSpan` columns, unless another already has them; the others go to the
+ * next free cell, row by row, in the order given. The grid has the columns
+ * asked for and as many rows as the panels need.
+ */
+function placePanels(sources, insets, layout) {
+  const cols = wholeNum(layout.cols, 1, MAX_COLS, 1);
+  const taken = new Set();
+  const free = (r, c, rs, cs) => {
+    if (c + cs > cols || r + rs > MAX_ROWS) return false;
+    for (let i = r; i < r + rs; i++) for (let j = c; j < c + cs; j++) if (taken.has(`${i},${j}`)) return false;
+    return true;
+  };
+  const take = (cell) => {
+    for (let i = cell.row; i < cell.row + cell.rowSpan; i++) for (let j = cell.col; j < cell.col + cell.colSpan; j++) taken.add(`${i},${j}`);
+    return cell;
+  };
+  const cells = sources.map(() => null);
+  const spans = sources.map((p) => ({ rowSpan: wholeNum(p.rowSpan, 1, MAX_ROWS, 1), colSpan: wholeNum(p.colSpan, 1, cols, 1) }));
+  // The panels that name their cells first, then the rest in the gaps.
+  sources.forEach((p, i) => {
+    if (insets[i]) return;
+    const row = wholeNum(p.row, 0, MAX_ROWS - 1, null); const col = wholeNum(p.col, 0, cols - 1, null);
+    if (row === null || col === null) return;
+    const cs = Math.min(spans[i].colSpan, cols - col); const rs = Math.min(spans[i].rowSpan, MAX_ROWS - row);
+    if (free(row, col, rs, cs)) cells[i] = take({ row, col, rowSpan: rs, colSpan: cs });
+  });
+  sources.forEach((p, i) => {
+    if (insets[i] || cells[i]) return;
+    const { rowSpan, colSpan } = spans[i];
+    for (let r = 0; r < MAX_ROWS && !cells[i]; r++) {
+      for (let c = 0; c < cols && !cells[i]; c++) if (free(r, c, Math.min(rowSpan, MAX_ROWS - r), colSpan)) cells[i] = take({ row: r, col: c, rowSpan: Math.min(rowSpan, MAX_ROWS - r), colSpan });
+    }
+  });
+  const needed = Math.max(1, ...cells.map((c) => (c ? c.row + c.rowSpan : 0)));
+  return { cols, rows: Math.max(needed, wholeNum(layout.rows, 1, MAX_ROWS, 1)), cells };
+}
+
+/* Letters as a spreadsheet counts its columns: a … z, aa, ab … */
+function letterOf(n) {
+  let s = '';
+  for (let k = Math.max(1, Math.round(n)); k > 0; k = Math.floor((k - 1) / 26)) s = String.fromCharCode(97 + ((k - 1) % 26)) + s;
+  return s;
+}
+
+function normalisePanelLabels(v) {
+  const d = defaultPanelLabels();
+  if (v === true) return { ...d, show: true };
+  const src = obj(v);
+  // The first letter: a letter ('c'), or its place in the alphabet (3).
+  let start = d.start;
+  if (typeof src.start === 'string' && /^[a-z]+$/i.test(src.start.trim())) {
+    start = [...src.start.trim().toLowerCase()].reduce((a, ch) => a * 26 + (ch.charCodeAt(0) - 96), 0);
+  } else start = wholeNum(src.start, 1, 18278, d.start);
+  return {
+    show: bool(src.show, d.show),
+    style: pick(src.style, PANEL_LABEL_STYLES, d.style),
+    start: Math.min(18278, Math.max(1, start)),
+    position: pick(src.position, PANEL_LABEL_POSITIONS, d.position),
+    fontSize: optionalSize(src.fontSize),
+    bold: bool(src.bold, d.bold)
+  };
+}
+
+/**
+ * The letter each panel of a normalised figure is marked with, '' for none:
+ * (a), (b) … in reading order (row by row; insets have none), or the
+ * panel's own `letter` text. Empty when the figure's `panelLabels` are off.
+ *
+ * @param {object} figure - a normalised figure
+ * @returns {string[]} one text for each panel, in the order of `figure.panels`
+ */
+export function panelLetters(figure) {
+  const L = figure.panelLabels;
+  const out = figure.panels.map(() => '');
+  if (!L || !L.show) return out;
+  const order = figure.panels.map((p, i) => i).filter((i) => !figure.panels[i].inset)
+    .sort((a, b) => figure.panels[a].row - figure.panels[b].row || figure.panels[a].col - figure.panels[b].col);
+  order.forEach((i, k) => {
+    const l = letterOf(L.start + k);
+    const upper = L.style === 'A' || L.style === '(A)';
+    const t = upper ? l.toUpperCase() : l;
+    out[i] = L.style === 'a' || L.style === 'A' ? t : L.style === 'a)' ? `${t})` : `(${t})`;
+  });
+  figure.panels.forEach((p, i) => { if (typeof p.letter === 'string') out[i] = p.letter; });
+  return out;
+}
+
+/**
+ * Whether a normalised figure is the plain stack it has always been: one
+ * column, every panel one row high, in order from the top, all sharing x
+ * and none sharing y, no inset. Both renderers lay such a figure out as
+ * they always have.
+ */
+export function isStack(figure) {
+  return figure.layout.cols === 1 && figure.sharex === 'all' && figure.sharey === 'none'
+    && figure.panels.every((p, i) => !p.inset && p.row === i && p.rowSpan === 1);
+}
+
+/** The panel a figure's title stands over when it has one column: the top one. */
+export function titledPanel(figure) {
+  let at = -1;
+  figure.panels.forEach((p, i) => { if (!p.inset && (at < 0 || p.row < figure.panels[at].row)) at = i; });
+  return Math.max(0, at);
+}
+
+/**
+ * The constrained-layout settings a figure's `panelGap` stands for. A gap
+ * of g points between the decorations of two panels is matplotlib's pad on
+ * each side of every panel (h_pad, w_pad: g / 2, at most the usual 3 pt) or,
+ * past 6 pt, the space shared by the rows or columns (hspace, wspace: the
+ * gap times their number, as a share of the figure). The figure's own edge
+ * keeps its 3 pt: `rect` takes up what a smaller pad gives away.
+ *
+ * @param {object} figure - a normalised figure
+ * @returns {{h: object|null, w: object|null}} for each direction, null for
+ *   matplotlib's own, or { pad (points), space (share of the figure), inset (points) }
+ */
+export function layoutPads(figure) {
+  const one = (g, n, inches) => {
+    if (g === null) return null;
+    const pad = Math.min(g / 2, 3);
+    return { pad, space: g > 6 ? (g * n) / (inches * 72) : 0, inset: 3 - pad };
+  };
+  return {
+    h: one(figure.panelGap.h, figure.layout.rows, figure.height),
+    w: one(figure.panelGap.w, figure.layout.cols, figure.width)
+  };
+}
+
+/**
+ * The edges panels share: with a gap of 0 between rows, a panel and the one
+ * under it (in the same columns) meet in one line when nothing has to stand
+ * between them: the upper one shows no x tick labels (its x axis is
+ * shared), the lower one has no top axis, no letter outside and no title.
+ * Likewise side by side with a gap of 0 between columns: the right one
+ * shows no y tick labels, the left one has no right axis, no colour bar and
+ * no legend beside it. On a shared edge the line is drawn once, tick marks
+ * that would point across it are left out, and so are the tick labels that
+ * would reach across it.
+ *
+ * @param {object} figure - a normalised figure
+ * @returns {({top: boolean, bottom: boolean, left: boolean, right: boolean}|null)[]} for each
+ *   panel, the sides it shares; null when it shares none
+ */
+export function panelEdges(figure) {
+  const f = figure;
+  const out = f.panels.map(() => null);
+  const zeroH = f.panelGap.h === 0; const zeroW = f.panelGap.w === 0;
+  if (!zeroH && !zeroW) return out;
+  const letters = panelLetters(f);
+  const outside = (i) => f.panelLabels.position === 'outside' && letters[i] !== '';
+  const titled = f.title && f.layout.cols === 1 ? titledPanel(f) : -1;
+  const bar = (p) => p.series.some((q) => q.show && (q.kind === 'heatmap' || (q.kind === 'contour' && q.filled)) && q.colorbar && q.colorbar.show);
+  const beside = (p) => (p.legend.show === null ? f.legend.show : p.legend.show) && (p.legend.position || f.legend.position) === 'outside right';
+  const mark = (i, side) => { out[i] = { ...(out[i] || { top: false, bottom: false, left: false, right: false }), [side]: true }; };
+  f.panels.forEach((a, i) => {
+    if (a.inset) return;
+    f.panels.forEach((b, j) => {
+      if (b.inset || i === j) return;
+      if (zeroH && a.col === b.col && a.colSpan === b.colSpan && a.row + a.rowSpan === b.row
+        && !a.xOuter && !hasAxis(b, 'x2') && !outside(j) && titled !== j) { mark(i, 'bottom'); mark(j, 'top'); }
+      if (zeroW && a.row === b.row && a.rowSpan === b.rowSpan && a.col + a.colSpan === b.col
+        && !b.yOuter && !hasAxis(a, 'y2') && !bar(a) && !beside(a) && !outside(j)) { mark(i, 'right'); mark(j, 'left'); }
+    });
+  });
+  return out;
 }
 
 /* ------------------------------------------------------------------ *
@@ -689,31 +1423,107 @@ export function normaliseFigure(fig = {}) {
     xLim: limit(s.xLim),
     xTicks: normaliseTicks(s.xTicks, d.xTicks),
     xCategories: Array.isArray(s.xCategories) && s.xCategories.length ? s.xCategories.map((c) => text(c, String(c))) : null,
+    layout: null,
+    sharex: 'all',
+    sharey: 'none',
+    panelGap: (() => {
+      // One number is the gap both ways; null leaves matplotlib's own.
+      const g = typeof s.panelGap === 'number' ? { h: s.panelGap, w: s.panelGap } : obj(s.panelGap);
+      const gap = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Math.min(144, Math.max(0, Number(v))));
+      return { h: gap(g.h), w: gap(g.w) };
+    })(),
+    panelLabels: normalisePanelLabels(s.panelLabels),
     panels: []
   };
   if (out.xCategories) out.xScale = 'linear';
   const ctx = { background, foreground, fontSize, tickSize: out.tickSize ?? Math.max(1, fontSize - 1), colormap: out.colormap, cycle: 0 };
-  const panels = Array.isArray(s.panels) && s.panels.length ? s.panels : [{}];
+  const panels = (Array.isArray(s.panels) && s.panels.length ? s.panels : [{}]).slice(0, MAX_PANELS).map(obj);
+  const panelId = (pi) => text(panels[pi].id, '') || (pi === 0 ? 'main' : `panel${pi + 1}`);
+  // Insets: panels drawn inside another, which must be a panel of the grid.
+  const insets = panels.map(isInset);
+  if (insets.every(Boolean)) insets[0] = false;
+  const firstOnGrid = insets.indexOf(false);
+  const parentOf = panels.map((p, pi) => {
+    if (!insets[pi]) return -1;
+    const want = p.inset.parent;
+    let at = Number.isInteger(want) ? want : panels.findIndex((_, k) => panelId(k) === want);
+    if (!(at >= 0 && at < panels.length) || insets[at] || at === pi) at = firstOnGrid;
+    return at;
+  });
+  const place = placePanels(panels, insets, obj(s.layout));
+  out.sharex = pick(s.sharex === true ? 'all' : s.sharex === false ? 'none' : s.sharex, SHARE_X, place.cols === 1 ? 'all' : 'none');
+  out.sharey = pick(s.sharey === true ? 'all' : s.sharey === false ? 'none' : s.sharey, SHARE_Y, 'none');
+  const xTicksSource = obj(s.xTicks);
   const ids = new Set();
-  out.panels = panels.slice(0, 8).map((p, pi) => {
-    const src = obj(p);
+  out.panels = panels.map((src, pi) => {
     const dp = defaultPanel();
     const lg = obj(src.legend);
+    const inset = insets[pi];
+    const cell = place.cells[pi];
+    const own = (v) => v !== undefined && v !== null;
+    // The x axis: the panel's own, each field falling back to the figure's
+    // (an inset has no label unless it is given one).
+    const xCategories = Array.isArray(src.xCategories) && src.xCategories.length ? src.xCategories.map((c) => text(c, String(c)))
+      : (inset || src.xCategories === false ? null : out.xCategories);
     const panel = {
-      id: text(src.id, '') || (pi === 0 ? 'main' : `panel${pi + 1}`),
+      id: panelId(pi),
       name: text(src.name, ''),
       ratio: num(src.ratio, 0.05, 20, 1),
       yLabel: text(src.yLabel, dp.yLabel),
       yScale: pick(src.yScale, ['linear', 'log'], dp.yScale),
       yLim: limit(src.yLim),
       yTicks: normaliseTicks(src.yTicks, dp.yTicks),
+      yCategories: Array.isArray(src.yCategories) && src.yCategories.length ? src.yCategories.map((c) => text(c, String(c))) : null,
+      xLabel: own(src.xLabel) ? text(src.xLabel, '') : (inset ? '' : out.xLabel),
+      xScale: pick(src.xScale, ['linear', 'log'], out.xScale),
+      xLim: own(src.xLim) ? limit(src.xLim) : out.xLim.slice(),
+      xTicks: own(src.xTicks) ? normaliseTicks({ ...xTicksSource, ...obj(src.xTicks) }, d.xTicks) : normaliseTicks(xTicksSource, d.xTicks),
+      xCategories,
+      row: cell ? cell.row : null,
+      col: cell ? cell.col : null,
+      rowSpan: cell ? cell.rowSpan : null,
+      colSpan: cell ? cell.colSpan : null,
+      inset: inset ? {
+        parent: panelId(parentOf[pi]),
+        parentIndex: parentOf[pi],
+        x: num(src.inset.x, 0, 0.95, 0.55),
+        y: num(src.inset.y, 0, 0.95, 0.55),
+        w: num(src.inset.w, 0.05, 1, 0.4),
+        h: num(src.inset.h, 0.05, 1, 0.4),
+        zoom: !!src.inset.zoom
+      } : null,
+      letter: typeof src.letter === 'string' ? src.letter : null,
+      shareX: pi,
+      shareY: pi,
+      xOuter: true,
+      yOuter: true,
       legend: {
-        show: lg.show === undefined || lg.show === null ? null : !!lg.show,
+        // An inset shows a legend only when it asks for one.
+        show: lg.show === undefined || lg.show === null ? (inset ? false : null) : !!lg.show,
         position: pick(lg.position, LEGEND_POSITIONS, null),
         order: Array.isArray(lg.order) ? lg.order.map(String) : []
       },
+      y2Label: text(src.y2Label, dp.y2Label),
+      y2Scale: pick(src.y2Scale, ['linear', 'log'], dp.y2Scale),
+      y2Lim: limit(src.y2Lim),
+      y2Ticks: null,
+      y2Color: axisColour(src.y2Color),
+      x2Label: text(src.x2Label, dp.x2Label),
+      x2Scale: pick(src.x2Scale, ['linear', 'log'], dp.x2Scale),
+      x2Lim: limit(src.x2Lim),
+      x2Ticks: null,
+      x2Color: axisColour(src.x2Color),
       series: []
     };
+    if (panel.yCategories) panel.yScale = 'linear';
+    if (panel.xCategories) panel.xScale = 'linear';
+    if (panel.inset) {
+      // An inset stays inside its parent.
+      panel.inset.w = Math.min(panel.inset.w, 1 - panel.inset.x);
+      panel.inset.h = Math.min(panel.inset.h, 1 - panel.inset.y);
+    }
+    panel.y2Ticks = secondTicks(src.y2Ticks, panel.yTicks);
+    panel.x2Ticks = secondTicks(src.x2Ticks, panel.xTicks);
     panel.series = (Array.isArray(src.series) ? src.series : []).map((q, i) => {
       const n = normaliseSeries(q, ctx, i);
       let id = n.id;
@@ -724,8 +1534,58 @@ export function normaliseFigure(fig = {}) {
     });
     groupBars(panel.series);
     bracketHeights(panel.series);
+    // 'auto': the colour of the one series shown on that axis.
+    for (const [key, side, field] of [['y2Color', 'right', 'yAxis'], ['x2Color', 'top', 'xAxis']]) {
+      if (panel[key] !== 'auto') continue;
+      const on = panel.series.filter((q) => q.show && q[field] === side);
+      panel[key] = on.length === 1 ? on[0].color : null;
+    }
     return panel;
   });
+
+  /* The grid: its columns' widths and its rows' heights. In one column the
+     heights are the panels' own ratios, as they have always been. */
+  const L = obj(s.layout);
+  const ratio = (v) => num(v, 0.05, 20, 1);
+  const given = (list, k) => (Array.isArray(list) ? ratio(list[k]) : 1);
+  out.layout = {
+    rows: place.rows,
+    cols: place.cols,
+    widthRatios: Array.from({ length: place.cols }, (_, c) => given(L.widthRatios, c)),
+    heightRatios: Array.from({ length: place.rows }, (_, r) => {
+      const single = place.cols === 1 ? out.panels.find((p) => !p.inset && p.row === r && p.rowSpan === 1) : null;
+      return single ? single.ratio : given(L.heightRatios, r);
+    })
+  };
+
+  /* Shared axes. The panels of a group take the scale, limits, ticks and
+     categories of the first of them in reading order, and only the outer
+     ones (nothing of the group below, or to the left) label the axis. */
+  const onGrid = out.panels.map((p, i) => i).filter((i) => !out.panels[i].inset)
+    .sort((a, b) => out.panels[a].row - out.panels[b].row || out.panels[a].col - out.panels[b].col);
+  const share = (mode, keyOf, lead, fields, outer, hides) => {
+    if (mode === 'none') return;
+    const groups = new Map();
+    for (const i of onGrid) {
+      const key = mode === 'all' ? 'all' : keyOf(out.panels[i]);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(i);
+    }
+    for (const members of groups.values()) {
+      const first = out.panels[members[0]];
+      for (const i of members) {
+        const p = out.panels[i];
+        p[lead] = members[0];
+        if (i !== members[0]) for (const k of fields) p[k] = clone(first[k]);
+        p[outer] = !members.some((j) => j !== i && hides(out.panels[j], p));
+      }
+    }
+  };
+  const overlap = (a0, an, b0, bn) => a0 < b0 + bn && b0 < a0 + an;
+  share(out.sharex, (p) => `${p.col}/${p.colSpan}`, 'shareX', ['xScale', 'xLim', 'xTicks', 'xCategories'], 'xOuter',
+    (other, p) => other.row >= p.row + p.rowSpan && overlap(other.col, other.colSpan, p.col, p.colSpan));
+  share(out.sharey, (p) => `${p.row}/${p.rowSpan}`, 'shareY', ['yScale', 'yLim', 'yTicks', 'yCategories'], 'yOuter',
+    (other, p) => other.col + other.colSpan <= p.col && overlap(other.row, other.rowSpan, p.row, p.rowSpan));
   return out;
 }
 
@@ -749,7 +1609,9 @@ function mergeLook(base, over) {
  * partial and holds the look only:
  *
  *   { width, height, …, xLabel, xLim, xTicks, …,     the figure (FIGURE_LOOK)
- *     panels: [{ yLabel, yScale, yLim, yTicks, ratio, legend }],   by index
+ *     layout: { widthRatios, heightRatios },          the grid's columns and rows
+ *     panels: [{ yLabel, yScale, yLim, yTicks, ratio, legend,
+ *                y2…, x2…, xLabel, xScale, xLim, xTicks, letter }],   by index
  *     series: { <id>: { color, label, lineWidth, … } } }           by id
  *
  * Fields the style does not name keep the page's values, so a page can change
@@ -804,6 +1666,15 @@ export function applyStyle(figure, style) {
   const f = lookCopy(figure);
   const s = obj(style);
   for (const k of FIGURE_LOOK) if (s[k] !== undefined) f[k] = mergeLook(f[k], s[k]);
+  // The widths of the columns and the heights of the rows, one by one: an
+  // entry the style leaves out (null) keeps the page's.
+  const grid = obj(s.layout);
+  for (const k of LAYOUT_LOOK) {
+    if (!Array.isArray(grid[k])) continue;
+    const base = Array.isArray(obj(f.layout)[k]) ? f.layout[k] : [];
+    const n = Math.max(base.length, grid[k].length);
+    f.layout = { ...obj(f.layout), [k]: Array.from({ length: n }, (_, i) => (grid[k][i] === null || grid[k][i] === undefined ? base[i] ?? 1 : grid[k][i])) };
+  }
   const panels = Array.isArray(f.panels) && f.panels.length ? f.panels : [{}];
   f.panels = panels;
   if (Array.isArray(s.panels)) {
@@ -848,8 +1719,12 @@ export function lookOnly(figure) {
       series: (Array.isArray(p && p.series) ? p.series : []).map((q) => {
         if (!q || typeof q !== 'object') return q;
         const qc = { ...q };
-        for (const k of DATA_FIELDS) if (qc[k] !== undefined && qc[k] !== null) qc[k] = k === 'z' ? [] : [];
+        // A bar keeps its positions: its width is shown as a share of their spacing.
+        const kept = q.kind === 'bar' ? (q.orientation === 'h' || q.orientation === 'horizontal' ? 'y' : 'x') : null;
+        for (const k of DATA_FIELDS) if (k !== kept && qc[k] !== undefined && qc[k] !== null) qc[k] = k === 'z' ? [] : [];
         if (Array.isArray(qc.groups)) qc.groups = [];
+        if (qc.bottom !== null && typeof qc.bottom === 'object') qc.bottom = 0;
+        if (qc.replicates && typeof qc.replicates === 'object') qc.replicates = { ...qc.replicates, values: [], codes: [] };
         return qc;
       })
     }));
@@ -986,7 +1861,7 @@ function recolourSeries(style, figure, dark) {
 }
 
 /** Keys of the look, for the style panel and for checking a stored style. */
-export const LOOK_KEYS = Object.freeze({ figure: FIGURE_LOOK, panel: PANEL_LOOK, series: SERIES_LOOK });
+export const LOOK_KEYS = Object.freeze({ figure: FIGURE_LOOK, panel: PANEL_LOOK, series: SERIES_LOOK, layout: LAYOUT_LOOK });
 
 /**
  * A stored style with anything that is not look left out (so an old or
@@ -996,6 +1871,11 @@ export function cleanStyle(style) {
   const s = obj(style);
   const out = {};
   for (const k of FIGURE_LOOK) if (s[k] !== undefined) out[k] = clone(s[k]);
+  if (s.layout && typeof s.layout === 'object') {
+    const grid = {};
+    for (const k of LAYOUT_LOOK) if (Array.isArray(s.layout[k])) grid[k] = clone(s.layout[k]);
+    if (Object.keys(grid).length) out.layout = grid;
+  }
   if (Array.isArray(s.panels)) {
     out.panels = s.panels.map((p) => {
       const o = {};

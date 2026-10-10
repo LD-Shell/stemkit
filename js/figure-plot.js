@@ -20,9 +20,19 @@
  *   - layout: constrained layout's pads around the drawing, the axis label,
  *     tick label and title pads, the panels at their height ratios, and the
  *     colour bars placed and sized as Figure.colorbar and constrained layout
- *     place them (5% of the panel's width away, 1/20 as wide as tall);
+ *     place them (5% of the panel's width away, 1/20 as wide as tall); for
+ *     panels on a grid, a margin each side of every column and row from the
+ *     decorations of the panels there, the margins inside a panel that
+ *     spans cells made alike, the gap between panels as the description
+ *     sets it, panel letters counted where they stand outside, a figure
+ *     title over the grid, and insets inside their parents, taking no room;
+ *   - shared axes: one range for the panels that share an axis, tick labels
+ *     and axis labels on the outer ones, and, where panels share an edge, the
+ *     tick labels the script hides because they would reach across it;
  *   - contour levels (MaxNLocator over the data, trimmed as ContourSet does),
- *     colormap lookups value for value, box-plot statistics, histogram bins;
+ *     colormap lookups value for value, box-plot statistics, histogram bins
+ *     (numpy's rules included), a violin's kernel density, the bases of
+ *     stacked bars;
  *   - the "best" legend position, by matplotlib's own overlap count.
  *
  * Where matplotlib has changed these rules, the preview follows the newest
@@ -70,7 +80,9 @@ import { pdfFromSvg, pdfFromJpeg } from '../src/core/pdf.js';
 import { EXPORT_FORMATS, textSizes } from '../src/core/plot-style.js';
 import {
   normaliseFigure, applyStyle, cleanStyle, lookOnly, colormapColors, colormapIndex, jitterOffsets, COLORMAPS, LOOK_KEYS,
-  unitsPerInch, formatSize, luminance, withBackground, backgroundChoice
+  unitsPerInch, formatSize, luminance, withBackground, backgroundChoice, hasAxis, SECONDARY_KINDS,
+  barData, legendOrder, gaussianKde, WHISKER_RULES, panelLetters, panelEdges, titledPanel, layoutPads,
+  PANEL_LABEL_STYLES, isStack
 } from '../src/core/figure.js';
 import { figureScript, pyStr } from '../src/core/figure-python.js';
 
@@ -1318,6 +1330,32 @@ function heatmapRange(s) {
 }
 
 /*
+ * What is drawn inside one violin, as lines (and one dot) in data units:
+ * 'box', a line between the last values within 1.5 × IQR of the quartiles, a
+ * thick one between the quartiles and a dot at the median; 'quartiles', the
+ * median and, dashed, the quartiles across the violin; 'median', the median
+ * alone. `width` is in multiples of the series' line width (at least 0.5 pt).
+ * A violin that is a line (values all alike) has nothing inside.
+ */
+function violinMarks(q, g) {
+  if (!g.kde || !g.stats || q.inner === 'none' || g.kde.flat) return [];
+  const p = g.position; const st = g.stats;
+  if (q.inner === 'box') {
+    return [
+      { x: [p, p], y: [st.whislo, st.whishi], width: 1, style: 'solid' },
+      { x: [p, p], y: [st.q1, st.q3], width: 4, style: 'solid' },
+      { x: [p], y: [st.med], dot: 3 }
+    ];
+  }
+  const marks = q.inner === 'quartiles' ? [[st.q1, 'dashed'], [st.med, 'solid'], [st.q3, 'dashed']] : [[st.med, 'solid']];
+  const density = gaussianKde(g.values, marks.map((m) => m[0]), g.kde.bw);
+  return marks.map(([v, style], i) => {
+    const r = 0.5 * q.width * density[i] / g.kde.top;
+    return { x: [p - r, p + r], y: [v, v], width: 1, style };
+  });
+}
+
+/*
  * The data limits and sticky edges a series adds, as its matplotlib artist
  * does: `x` and `y` are lists of arrays, `sx` and `sy` sticky values.
  */
@@ -1345,11 +1383,31 @@ function seriesExtent(s) {
       e.x.push(s.x); e.y.push(s.lower, s.upper);
       break;
     case 'bar': {
+      // Across the bars (x for upright ones) and along them, from each bar's
+      // base, where the axis stops.
       const half = s.barWidth / 2;
-      e.x.push(s.x.map((v) => v + s.offset - half), s.x.map((v) => v + s.offset + half));
-      e.y.push(s.y.map(() => s.bottom), s.y.map((v) => v + s.bottom));
-      if (s.yerr) e.y.push(s.y.map((v, i) => v + s.bottom - (s.yerr[0][i] ?? NaN)), s.y.map((v, i) => v + s.bottom + (s.yerr[1][i] ?? NaN)));
-      e.sy.push(s.bottom);
+      const { horizontal, positions } = barData(s);
+      const across = horizontal ? e.y : e.x; const along = horizontal ? e.x : e.y;
+      const tops = s.heights.map((v, i) => v + s.bottoms[i]);
+      // A bar with no number for its length is not drawn and takes no room
+      // (its error bar still counts for where it stands).
+      const whole = tops.every((v, i) => Number.isFinite(v) && Number.isFinite(positions[i]));
+      const drawn = whole ? positions : positions.filter((v, i) => Number.isFinite(tops[i]) && Number.isFinite(v));
+      across.push(drawn.map((v) => v + s.offset - half), drawn.map((v) => v + s.offset + half));
+      along.push(whole ? s.bottoms : s.bottoms.filter((v, i) => Number.isFinite(tops[i]) && Number.isFinite(positions[i])), tops);
+      if (s.errs) {
+        if (!whole) across.push(positions.map((v) => v + s.offset));
+        along.push(tops.map((v, i) => v - (s.errs[0][i] ?? NaN)), tops.map((v, i) => v + (s.errs[1][i] ?? NaN)));
+      }
+      const sticky = horizontal ? e.sx : e.sy;
+      if (Array.isArray(s.bottom) || s.stacked !== 'none') append(sticky, s.bottoms); else sticky.push(s.bottom);
+      if (s.points && s.replicates) {
+        s.replicates.groups.forEach((g, k) => {
+          if (!Number.isFinite(positions[k])) return;
+          across.push(jitterOffsets(g.length, s.jitter * s.barWidth).map((o) => positions[k] + s.offset + o));
+          along.push(g);
+        });
+      }
       break;
     }
     case 'histogram':
@@ -1363,7 +1421,8 @@ function seriesExtent(s) {
       for (const g of s.groups) {
         if (!g.stats) continue;
         const p = g.position; const st = g.stats;
-        e.x.push([p - cw / 2, p + cw / 2, p - s.width / 2, p + s.width / 2]);
+        // The caps and the median line: a notched box's median is as wide as the caps.
+        e.x.push(s.notch ? [p - cw / 2, p + cw / 2] : [p - cw / 2, p + cw / 2, p - s.width / 2, p + s.width / 2]);
         e.y.push([st.whislo, st.whishi, st.q1, st.q3]);
         if (s.fliers) e.y.push(st.fliers);
         if (s.points) { e.x.push(jitterOffsets(g.values.length, s.jitter * s.width).map((o) => p + o)); e.y.push(g.values); }
@@ -1378,6 +1437,16 @@ function seriesExtent(s) {
       }
       break;
     }
+    case 'violin':
+      for (const g of s.groups) {
+        if (!g.kde) continue;
+        const p = g.position;
+        e.x.push(g.half.map((w) => p - w), g.half.map((w) => p + w));
+        e.y.push(g.kde.coords);
+        if (s.points) { e.x.push(jitterOffsets(g.values.length, s.jitter * s.width).map((o) => p + o)); e.y.push(g.values); }
+        for (const m of violinMarks(s, g)) { e.x.push(m.x); e.y.push(m.y); }
+      }
+      break;
     case 'heatmap': {
       const ex = cellEdges(finite(s.x)); const ey = cellEdges(finite(s.y));
       if (ex.length && ey.length) {
@@ -1456,100 +1525,214 @@ function placeText(html, size, family, { x, y, ha = 'left', rot = 0 }, mathPad =
   return { html, size, x, y, ha, rot, m, box, lbox: box };
 }
 
-/* The ticks of the shared x axis: the categories, when there are any. */
+/* The ticks of a panel's x axis: the categories, when there are any. */
 function xTickSpec(s) {
   if (!s.xCategories) return s.xTicks;
   return { ...s.xTicks, mode: 'list', values: s.xCategories.map((_, i) => i), labels: s.xCategories.slice(), minor: false, format: '' };
 }
 
+/* Where a panel letter stands, in points from the top left corner of its
+   axes (the script's annotate offsets): inside, half a font size in and
+   down; outside, ending 3 pt left of the corner and 6 pt above it. */
+const PANEL_LETTER = { inside: 0.5, outside: [-3, 6] };
+
 /*
  * One panel dressed for a trial position `box`: its ticks for that size, and
  * the tick labels, offset texts, axis labels and title where matplotlib puts
  * them, with the spines' boxes (tick marks included) that constrained layout
- * and the tight bounding box count.
+ * and the tight bounding box count. `hidden` names the tick labels left out
+ * because they would reach across an edge two panels share (see
+ * crossingLabels).
  */
-function dressAxes(P, pn, box) {
+function dressAxes(P, pn, box, hidden = null) {
   const { family } = P;
   const aw = box.r - box.l;
   const ah = box.b - box.t;
-  const xv = P.xView;
+  const xv = pn.xView;
   const yv = pn.yView;
   const ylog = pn.yLog;
-  const x0 = tscale(P.xLog, xv[0]); const xs = aw / (tscale(P.xLog, xv[1]) - x0);
+  const xlog = pn.xLog;
+  const x0 = tscale(xlog, xv[0]); const xs = aw / (tscale(xlog, xv[1]) - x0);
   const y0 = tscale(ylog, yv[0]); const ys = ah / (tscale(ylog, yv[1]) - y0);
-  const X = (v) => box.l + (tscale(P.xLog, v) - x0) * xs;
+  const X = (v) => box.l + (tscale(xlog, v) - x0) * xs;
   const Y = (v) => box.b - (tscale(ylog, v) - y0) * ys;
   const tickPt = P.tickPt;
   // Axis.get_tick_space: the axis length over 3 (x) or 2 (y) label heights.
-  const xt = axisTicks({ view: xv, log: P.xLog, ticks: P.xTicks, tickSpace: Math.floor(aw / PX_PER_PT / (3 * tickPt)), minorLocated: P.xMinor });
-  const yt = axisTicks({ view: yv, log: ylog, ticks: pn.yTicks, tickSpace: Math.floor(ah / PX_PER_PT / (2 * tickPt)), minorLocated: pn.yMinor });
-  const mx = P.xMarks; const my = pn.yMarks;
+  const xSpace = Math.floor(aw / PX_PER_PT / (3 * tickPt));
+  const ySpace = Math.floor(ah / PX_PER_PT / (2 * tickPt));
+  const xt = axisTicks({ view: xv, log: xlog, ticks: pn.xTicks, tickSpace: xSpace, minorLocated: pn.xMinor });
+  const yt = axisTicks({ view: yv, log: ylog, ticks: pn.yTicks, tickSpace: ySpace, minorLocated: pn.yMinor });
+  const mx = pn.xMarks; const my = pn.yMarks;
   const items = [];
+  const gone = (axis, v) => !!hidden && hidden.has(`${pn.index}:${axis}:${v}`);
+  // Where two panels share an edge, tick marks that would point out of a
+  // panel across it are not drawn.
+  const edge = pn.edge || NO_EDGES;
+  const off = {
+    bottom: edge.bottom && mx.major.dir !== 'in', top: edge.top && mx.major.dir !== 'in',
+    left: edge.left && my.major.dir !== 'in', right: edge.right && my.major.dir !== 'in'
+  };
+  // The second axes: the top x and the right y, each with its own scale.
+  const x2 = pn.x2; const y2 = pn.y2;
+  const scaleOf = (a, from, len, flip) => {
+    const a0 = tscale(a.log, a.view[0]); const k = len / (tscale(a.log, a.view[1]) - a0);
+    return flip ? (v) => from - (tscale(a.log, v) - a0) * k : (v) => from + (tscale(a.log, v) - a0) * k;
+  };
+  const X2 = x2 ? scaleOf(x2, box.l, aw, false) : null;
+  const Y2 = y2 ? scaleOf(y2, box.b, ah, true) : null;
+  const x2t = x2 ? axisTicks({ view: x2.view, log: x2.log, ticks: x2.ticks, tickSpace: xSpace, minorLocated: x2.minor }) : null;
+  const y2t = y2 ? axisTicks({ view: y2.view, log: y2.log, ticks: y2.ticks, tickSpace: ySpace, minorLocated: y2.minor }) : null;
+  // The first axes' marks on the far side give way to a second axis there.
+  const xMirror = pn.xTicks.mirror && !x2 && !off.top;
+  const yMirror = pn.yTicks.mirror && !y2 && !off.right;
 
   // How far the drawn tick marks reach out of and into the axes.
   const reach = (t, m, dir) => Math.max(
     t.major.length ? px(m.major.len) * dir[m.major.dir] : 0,
     t.minor.length ? px(m.minor.len) * dir[m.minor.dir] : 0);
-  const outX = reach(xt, mx, DIR_OUT); const inX = reach(xt, mx, DIR_IN);
-  const outY = reach(yt, my, DIR_OUT); const inY = reach(yt, my, DIR_IN);
+  const outX = off.bottom ? 0 : reach(xt, mx, DIR_OUT); const inX = off.bottom ? 0 : reach(xt, mx, DIR_IN);
+  const outY = off.left ? 0 : reach(yt, my, DIR_OUT); const inY = off.left ? 0 : reach(yt, my, DIR_IN);
+  // The far sides' mirrored marks, which a shared edge may have taken away.
+  const farX = reach(xt, mx, DIR_OUT); const farY = reach(yt, my, DIR_OUT); const farInY = reach(yt, my, DIR_IN);
+  const outX2 = x2 ? reach(x2t, x2.marks, DIR_OUT) : 0; const inX2 = x2 ? reach(x2t, x2.marks, DIR_IN) : 0;
+  const outY2 = y2 ? reach(y2t, y2.marks, DIR_OUT) : 0; const inY2 = y2 ? reach(y2t, y2.marks, DIR_IN) : 0;
 
   const pad = (math) => (math ? P.mathPad : 0);
   const measure = (html, size, math) => mathTextBox(textBox(html, size, family), pad(math));
   const xLabels = [];
-  if (pn.bottom) {
+  if (pn.xOuter) {
     const each = [...xt.major.map((t) => [t, mx.major]), ...xt.minor.map((t) => [t, mx.minor])];
     for (const [t, mk] of each) {
-      if (!t.text) continue;
+      if (!t.text || gone('x', t.v)) continue;
       const m = measure(t.text, P.tickPx, t.math);
       if (!(m.width > 0)) continue;
       const it = placeText(t.text, P.tickPx, family, { x: X(t.v), y: box.b + px(mk.pad) + m.ascent, ha: 'center' }, pad(t.math));
+      it.tick = { axis: 'x', v: t.v };
       items.push(it); xLabels.push(it);
     }
   }
   const yLabels = [];
-  for (const [t, mk] of [...yt.major.map((t) => [t, my.major]), ...yt.minor.map((t) => [t, my.minor])]) {
-    if (!t.text) continue;
+  for (const [t, mk] of pn.yOuter ? [...yt.major.map((t) => [t, my.major]), ...yt.minor.map((t) => [t, my.minor])] : []) {
+    if (!t.text || gone('y', t.v)) continue;
     const m = measure(t.text, P.tickPx, t.math);
     if (!(m.width > 0)) continue;
     // va='center_baseline': halfway between baseline and ascent at the tick.
     const it = placeText(t.text, P.tickPx, family, { x: box.l - px(mk.pad), y: Y(t.v) + m.ascent / 2, ha: 'right' }, pad(t.math));
+    it.tick = { axis: 'y', v: t.v };
     items.push(it); yLabels.push(it);
   }
 
-  const spines = [
-    { l: box.l, r: box.r, t: box.b - inX, b: box.b + outX },
-    { l: box.l - outY, r: box.l + inY, t: box.t, b: box.b }
-  ];
-  if (P.s.spines.top) spines.push(P.xTicks.mirror ? { l: box.l, r: box.r, t: box.t - outX, b: box.t + outX } : { l: box.l, r: box.r, t: box.t, b: box.t });
-  if (P.s.spines.right) spines.push(pn.yTicks.mirror ? { l: box.r - inY, r: box.r + outY, t: box.t, b: box.b } : { l: box.r, r: box.r, t: box.t, b: box.b });
+  // The second axes' tick labels: above the top (va='bottom'), right of the
+  // right side (ha='left'), in the axis' colour.
+  const x2Labels = [];
+  if (x2) {
+    for (const [t, mk] of [...x2t.major.map((t) => [t, x2.marks.major]), ...x2t.minor.map((t) => [t, x2.marks.minor])]) {
+      if (!t.text || gone('x2', t.v)) continue;
+      const m = measure(t.text, P.tickPx, t.math);
+      if (!(m.width > 0)) continue;
+      const it = placeText(t.text, P.tickPx, family, { x: X2(t.v), y: box.t - px(mk.pad) - m.descent, ha: 'center' }, pad(t.math));
+      it.color = x2.color;
+      it.tick = { axis: 'x2', v: t.v };
+      items.push(it); x2Labels.push(it);
+    }
+  }
+  const y2Labels = [];
+  if (y2) {
+    for (const [t, mk] of [...y2t.major.map((t) => [t, y2.marks.major]), ...y2t.minor.map((t) => [t, y2.marks.minor])]) {
+      if (!t.text || gone('y2', t.v)) continue;
+      const m = measure(t.text, P.tickPx, t.math);
+      if (!(m.width > 0)) continue;
+      const it = placeText(t.text, P.tickPx, family, { x: box.r + px(mk.pad), y: Y2(t.v) + m.ascent / 2, ha: 'left' }, pad(t.math));
+      it.color = y2.color;
+      it.tick = { axis: 'y2', v: t.v };
+      items.push(it); y2Labels.push(it);
+    }
+  }
 
-  if (pn.bottom && xt.offset) {
+  // The frame lines, with the reach of their tick marks. On an edge shared
+  // with the panel below (or to the right) that panel draws the line.
+  const spines = [];
+  if (!edge.bottom) spines.push({ l: box.l, r: box.r, t: box.b - inX, b: box.b + outX });
+  spines.push({ l: box.l - outY, r: box.l + inY, t: box.t, b: box.b });
+  if (x2) spines.push({ l: box.l, r: box.r, t: box.t - outX2, b: box.t + inX2 });
+  else if (P.s.spines.top || edge.top) spines.push(xMirror ? { l: box.l, r: box.r, t: box.t - farX, b: box.t + farX } : { l: box.l, r: box.r, t: box.t, b: box.t });
+  if (y2) spines.push({ l: box.r - inY2, r: box.r + outY2, t: box.t, b: box.b });
+  else if (P.s.spines.right && !edge.right) spines.push(yMirror ? { l: box.r - farInY, r: box.r + farY, t: box.t, b: box.b } : { l: box.r, r: box.r, t: box.t, b: box.b });
+
+  if (pn.xOuter && xt.offset) {
     const m = measure(xt.offset, P.tickPx, xt.offsetMath);
     const top = (xLabels.length ? Math.max(...xLabels.map((i) => i.box.b)) : box.b) + px(RC.offsetPad);
     items.push(placeText(xt.offset, P.tickPx, family, { x: box.r, y: top + m.ascent, ha: 'right' }, pad(xt.offsetMath)));
   }
   let yOffset = null;
-  if (yt.offset) {
+  if (pn.yOuter && yt.offset) {
     yOffset = placeText(yt.offset, P.tickPx, family, { x: box.l, y: box.t - px(RC.offsetPad), ha: 'left' }, pad(yt.offsetMath));
     items.push(yOffset);
   }
+  // The second axes' offset texts: the right y axis' above its top right
+  // corner; the top x axis' above its tick labels (va='bottom').
+  let y2Offset = null;
+  if (y2 && y2t.offset) {
+    y2Offset = placeText(y2t.offset, P.tickPx, family, { x: box.r, y: box.t - px(RC.offsetPad), ha: 'right' }, pad(y2t.offsetMath));
+    y2Offset.color = y2.color;
+    items.push(y2Offset);
+  }
+  const x2Deco = [];
+  if (x2 && x2t.offset) {
+    const m = measure(x2t.offset, P.tickPx, x2t.offsetMath);
+    const top = (x2Labels.length ? Math.min(...x2Labels.map((i) => i.box.t)) : box.t) - px(RC.offsetPad);
+    const it = placeText(x2t.offset, P.tickPx, family, { x: box.r, y: top - m.descent, ha: 'right' }, pad(x2t.offsetMath));
+    it.color = x2.color;
+    items.push(it); x2Deco.push(it);
+  }
   // Axis labels: clear of the tick labels and of the tick marks, by labelpad.
   // Constrained layout counts only their depth, not their length.
-  if (pn.bottom && P.xLabel) {
-    const m = measure(P.xLabel, P.labelPx, P.math.xLabel);
+  if (pn.xOuter && pn.xLabel) {
+    const m = measure(pn.xLabel, P.labelPx, pn.xMath);
     const top = Math.max(box.b + outX, ...xLabels.map((i) => i.box.b)) + px(RC.labelpad);
-    const it = placeText(P.xLabel, P.labelPx, family, { x: (box.l + box.r) / 2, y: top + m.ascent, ha: 'center' }, pad(P.math.xLabel));
+    const it = placeText(pn.xLabel, P.labelPx, family, { x: (box.l + box.r) / 2, y: top + m.ascent, ha: 'center' }, pad(pn.xMath));
     it.lbox = { ...it.box, l: it.x - 0.5, r: it.x + 0.5 };
     items.push(it);
   }
-  if (pn.yLabel) {
+  if (pn.yOuter && pn.yLabel) {
     const m = measure(pn.yLabel, P.labelPx, pn.yMath);
     const right = Math.min(box.l - outY, ...yLabels.map((i) => i.box.l)) - px(RC.labelpad);
     const it = placeText(pn.yLabel, P.labelPx, family, { x: right - m.descent, y: (box.t + box.b) / 2, ha: 'center', rot: 90 }, pad(pn.yMath));
     it.lbox = { ...it.box, t: it.y - 0.5, b: it.y + 0.5 };
     items.push(it);
   }
-  if (pn.top && P.title) {
+  // The right axis' label reads upward as the left one does, its top
+  // (va='top') clear of the tick labels; the top axis' stands on its
+  // baseline above them.
+  if (y2 && y2.label) {
+    const m = measure(y2.label, P.labelPx, y2.math);
+    const left = Math.max(box.r + outY2, ...y2Labels.map((i) => i.box.r)) + px(RC.labelpad);
+    const it = placeText(y2.label, P.labelPx, family, { x: left + m.ascent, y: (box.t + box.b) / 2, ha: 'center', rot: 90 }, pad(y2.math));
+    it.lbox = { ...it.box, t: it.y - 0.5, b: it.y + 0.5 };
+    it.color = y2.color;
+    items.push(it);
+  }
+  if (x2 && x2.label) {
+    const top = Math.min(box.t - outX2, ...x2Labels.map((i) => i.box.t)) - px(RC.labelpad);
+    const it = placeText(x2.label, P.labelPx, family, { x: (box.l + box.r) / 2, y: top, ha: 'center' }, pad(x2.math));
+    it.lbox = { ...it.box, l: it.x - 0.5, r: it.x + 0.5 };
+    it.color = x2.color;
+    items.push(it); x2Deco.push(it);
+  }
+  if (pn.titled && P.title && (x2 || y2)) {
+    // Axes._update_title_position: above the top axis' labels when there is
+    // one, and above an offset text the title would run into.
+    let it = placeText(P.title, P.titlePx, family, { x: (box.l + box.r) / 2, y: box.t - px(RC.titlepad), ha: 'center' }, pad(P.math.title));
+    const deco = [...x2Labels, ...x2Deco];
+    let top = deco.length ? Math.min(box.t, ...deco.map((i) => i.box.t)) : box.t;
+    for (const o of [yOffset, y2Offset]) if (o && overlaps(o.box, it.box)) top = Math.min(top, o.box.t);
+    if (it.box.b > top) {
+      it = placeText(P.title, P.titlePx, family, { x: it.x, y: top - px(RC.titlepad), ha: 'center' }, pad(P.math.title));
+      if (it.box.b > top) it = placeText(P.title, P.titlePx, family, { x: it.x, y: top - it.m.descent, ha: 'center' }, pad(P.math.title));
+    }
+    it.lbox = { ...it.box, l: it.x - 0.5, r: it.x + 0.5 };
+    items.push(it);
+  } else if (pn.titled && P.title) {
     let it = placeText(P.title, P.titlePx, family, { x: (box.l + box.r) / 2, y: box.t - px(RC.titlepad), ha: 'center' }, pad(P.math.title));
     // The title moves up when it would run into the y offset text.
     if (yOffset && overlaps(yOffset.box, it.box)) {
@@ -1563,7 +1746,7 @@ function dressAxes(P, pn, box) {
   for (const t of pn.texts) {
     const at = t.coords === 'axes'
       ? { x: box.l + t.x * aw, y: box.b - t.y * ah }
-      : { x: X(t.x), y: Y(t.y) };
+      : { x: (t.xAxis === 'top' && X2 ? X2 : X)(t.x), y: (t.yAxis === 'right' && Y2 ? Y2 : Y)(t.y) };
     if (!Number.isFinite(at.x) || !Number.isFinite(at.y)) continue;
     const m = measure(t.html, t.size, t.math);
     let base = at.y;
@@ -1581,7 +1764,103 @@ function dressAxes(P, pn, box) {
     it.note = t;
     items.push(it);
   }
-  return { pn, box, X, Y, xt, yt, items, spines };
+  // The panel's letter: annotate() at the top left corner of the axes, a
+  // few points in (va='top') or out (ha='right', va='bottom').
+  if (pn.letter) {
+    const L = pn.letter;
+    const m = measure(L.html, L.size, L.math);
+    const it = L.outside
+      ? placeText(L.html, L.size, family, { x: box.l + px(PANEL_LETTER.outside[0]), y: box.t - px(PANEL_LETTER.outside[1]) - m.descent, ha: 'right' }, pad(L.math))
+      : placeText(L.html, L.size, family, { x: box.l + L.size * PANEL_LETTER.inside, y: box.t + L.size * PANEL_LETTER.inside + m.ascent, ha: 'left' }, pad(L.math));
+    it.letter = true;
+    items.push(it);
+  }
+  return { pn, box, X, Y, X2, Y2, xt, yt, x2t, y2t, items, spines, xMirror, yMirror, off,
+    xView: pn.xView, xLog: pn.xLog, yView: pn.yView, yLog: pn.yLog };
+}
+
+const NO_EDGES = Object.freeze({ top: false, bottom: false, left: false, right: false });
+
+/*
+ * The tick labels that reach across an edge two panels share, as the
+ * script finds them after a first layout: a y label past the top or the
+ * bottom of its panel there, an x label past its left or right. Such a
+ * label is not drawn, and takes no room, so the panels stay edge to edge.
+ */
+function crossingLabels(dressed) {
+  const out = new Set();
+  for (const d of dressed) {
+    const e = d.pn.edge;
+    if (!e) continue;
+    for (const it of d.items) {
+      if (!it.tick) continue;
+      const along = it.tick.axis === 'y' || it.tick.axis === 'y2';
+      const crosses = along
+        ? (e.top && it.box.t < d.box.t) || (e.bottom && it.box.b > d.box.b)
+        : (e.left && it.box.l < d.box.l) || (e.right && it.box.r > d.box.r);
+      if (crosses) out.add(`${d.pn.index}:${it.tick.axis}:${it.tick.v}`);
+    }
+  }
+  return out;
+}
+
+/*
+ * A dressed panel as the axes of one pair of its axes see it: the x and y
+ * scales, views and pixel mappings of the bottom or top x and the left or
+ * right y, and only the notes drawn on those axes.
+ */
+function axesView(d, xAxis, yAxis) {
+  const top = xAxis === 'top' && !!d.pn.x2; const right = yAxis === 'right' && !!d.pn.y2;
+  if (!top && !right) return d;
+  return {
+    ...d, X: top ? d.X2 : d.X, Y: right ? d.Y2 : d.Y,
+    xView: top ? d.pn.x2.view : d.xView, xLog: top ? d.pn.x2.log : d.xLog,
+    yView: right ? d.pn.y2.view : d.yView, yLog: right ? d.pn.y2.log : d.yLog,
+    items: d.items.filter((it) => !it.note || ((it.note.xAxis === 'top') === top && (it.note.yAxis === 'right') === right))
+  };
+}
+
+/* Which of a panel's axes a series is drawn on, in the order the script
+   makes them (later ones drawn over earlier ones): 0 the panel's own, 1 the
+   right, 2 the top, 3 the top and right. */
+const axesRank = (q, pn) => (q.yAxis === 'right' && pn.y2 ? 1 : 0) + (q.xAxis === 'top' && pn.x2 ? 2 : 0);
+
+/*
+ * Values of one axes' scale as values of another's at the same pixel: what
+ * a series on a second axis is drawn with on the panel's own Plotly axes.
+ * Values a log scale cannot show go 1000 decades down, as tscale has them.
+ */
+function rescale(fromView, fromLog, toView, toLog) {
+  if (fromLog === toLog && fromView[0] === toView[0] && fromView[1] === toView[1]) return null;
+  const f0 = tscale(fromLog, fromView[0]); const fk = tscale(fromLog, fromView[1]) - f0;
+  const t0 = tscale(toLog, toView[0]); const tk = tscale(toLog, toView[1]) - t0;
+  return (v) => {
+    if (v === null || v === undefined || !Number.isFinite(v)) return v;
+    const u = t0 + ((tscale(fromLog, v) - f0) / fk) * tk;
+    return toLog ? 10 ** Math.max(-300, Math.min(300, u)) : u;
+  };
+}
+
+/* Plotly traces drawn in one axes' values moved onto the panel's own axes. */
+function remapTraces(traces, from, to) {
+  const mx = rescale(from.xView, from.xLog, to.xView, to.xLog);
+  const my = rescale(from.yView, from.yLog, to.yView, to.yLog);
+  if (!mx && !my) return traces;
+  const err = (e, vs, m) => {
+    if (!e || !m) return e;
+    const at = vs.map(m);
+    const hi = vs.map((v, i) => m(v + e.array[i]));
+    const lo = vs.map((v, i) => m(v - e.arrayminus[i]));
+    return { ...e, array: at.map((v, i) => hi[i] - v), arrayminus: at.map((v, i) => v - lo[i]) };
+  };
+  return traces.map((t) => {
+    const out = { ...t };
+    if (out.error_y) out.error_y = err(out.error_y, t.y, my);
+    if (out.error_x) out.error_x = err(out.error_x, t.x, mx);
+    if (mx && Array.isArray(t.x)) out.x = t.x.map(mx);
+    if (my && Array.isArray(t.y)) out.y = t.y.map(my);
+    return out;
+  });
 }
 
 /*
@@ -1668,32 +1947,80 @@ function colorbarBox(l, t, w, h) {
   return { l, r: l + bw, t: top, b: top + bh, space: { l, t, w, h } };
 }
 
-/* The initial axes positions of plt.subplots (figure.subplot.* rcParams),
-   where constrained layout starts from; a colour bar takes the right fifth
-   of its panel, as Figure.colorbar's make_axes does. */
+/* The initial axes positions of plt.subplots and of a GridSpec
+   (figure.subplot.* rcParams), where constrained layout starts from: the
+   cells at their width and height ratios, a fifth of a cell apart; a colour
+   bar takes the right fifth of its panel, as Figure.colorbar's make_axes
+   does. An inset takes its share of its parent. */
 function initialBoxes(P) {
   const { W, H } = P;
+  const { rows, cols, widthRatios, heightRatios } = P.layout;
   const l = 0.125 * W; const r = 0.9 * W; const top = 0.12 * H; const bottom = 0.89 * H;
-  const n = P.panels.length;
-  const ratios = P.panels.map((p) => p.ratio);
-  const cell = (bottom - top) / (n + 0.2 * (n - 1));
-  const norm = (cell * n) / ratios.reduce((a, b) => a + b, 0);
-  let y = top;
+  const spans = (from, to, n, ratios) => {
+    const cell = (to - from) / (n + 0.2 * (n - 1));
+    const norm = (cell * n) / ratios.reduce((a, b) => a + b, 0);
+    let at = from;
+    return ratios.map((q) => { const s = [at, at + norm * q]; at += norm * q + 0.2 * cell; return s; });
+  };
+  const xs = spans(l, r, cols, widthRatios);
+  const ys = spans(top, bottom, rows, heightRatios);
   const boxes = []; const cbs = [];
-  P.panels.forEach((pn, i) => {
-    const h = norm * ratios[i];
-    const b = { l, r, t: y, b: y + h };
+  P.panels.forEach((pn) => {
+    if (pn.inset) { boxes.push(null); cbs.push(null); return; }
+    const c = pn.cell;
+    const b = { l: xs[c.col][0], r: xs[c.col + c.colSpan - 1][1], t: ys[c.row][0], b: ys[c.row + c.rowSpan - 1][1] };
     if (pn.colorbar) {
-      const w = r - l;
-      boxes.push({ ...b, r: l + 0.8 * w });
-      cbs.push(colorbarBox(l + 0.85 * w, y, 0.15 * w, h));
+      const w = b.r - b.l;
+      boxes.push({ ...b, r: b.l + 0.8 * w });
+      cbs.push(colorbarBox(b.l + 0.85 * w, b.t, 0.15 * w, b.b - b.t));
     } else {
       boxes.push(b);
       cbs.push(null);
     }
-    y += h + 0.2 * cell;
   });
-  return { boxes, cbs };
+  return { boxes: withInsets(P, boxes), cbs };
+}
+
+/* An inset's box: its share of its parent's axes, x and y from the lower
+   left corner (Axes.inset_axes). */
+function withInsets(P, boxes) {
+  return boxes.map((b, i) => {
+    const at = P.panels[i].inset;
+    if (!at) return b;
+    const p = boxes[at.parentIndex];
+    const w = p.r - p.l; const h = p.b - p.t;
+    const l = p.l + at.x * w; const bottom = p.b - at.y * h;
+    return { l, r: l + at.w * w, t: bottom - at.h * h, b: bottom };
+  });
+}
+
+/* Where a panel's legend stands: beside the axes, at the place asked for, or
+   at the "best" one; null without a legend. */
+function placeLegend(P, d) {
+  const pn = d.pn;
+  if (!pn.legend) return null;
+  const pos = pn.legendPos;
+  if (pos === 'outside right') return { loc: pos, box: outsideLegend(pn, d.box) };
+  if (pos === 'best') {
+    // The legend stands on the axes made last, and "best" weighs only what
+    // is drawn on those axes, as matplotlib's does.
+    const rank = Math.max(0, ...pn.series.map((q) => axesRank(q, pn)));
+    const on = pn.series.filter((q) => axesRank(q, pn) === rank);
+    const v = rank ? axesView(d, rank >= 2 ? 'top' : 'bottom', rank % 2 ? 'right' : 'left') : d;
+    return bestLegend(pn.legend, d.box, P.legendPx, legendObstacles(v, on));
+  }
+  return { loc: pos, box: anchoredLegend(pos, pn.legend, d.box, P.legendPx) };
+}
+
+/* A legend inside its axes that is larger than them sticks out, and
+   constrained layout makes room for it as for any decoration: its box
+   then, or null when it fits (or stands beside the axes, or is an inset's). */
+function overflowingLegend(P, d) {
+  const pn = d.pn;
+  if (!pn.legend || pn.inset || pn.legendPos === 'outside right') return null;
+  const inset = 2 * RC.legend.borderaxespad * P.legendPx;
+  if (pn.legend.width <= d.box.r - d.box.l - inset && pn.legend.height <= d.box.b - d.box.t - inset) return null;
+  return placeLegend(P, d).box;
 }
 
 /* The legend box beside the axes for "outside right": its upper left corner
@@ -1705,56 +2032,96 @@ function outsideLegend(pn, box) {
 }
 
 /*
- * One pass of constrained layout: the margin each side of each panel needs
- * for its decorations, plus w_pad/h_pad (3 pt) and the colour bars, then the
- * panels that fill what is left at their height ratios. Returns null when the
- * axes would collapse, as matplotlib then leaves them where they were.
+ * One pass of constrained layout. Each column has a margin on its left and
+ * on its right, each row above and below it: the most any panel that starts
+ * or ends there needs for its decorations, plus the pad (w_pad, h_pad: 3 pt,
+ * or the space shared between the columns or rows when that is more) and,
+ * on the right, the colour bars. The margins inside a panel that spans
+ * several cells are made alike (match_submerged_margins). What is left is
+ * shared by the columns at their width ratios and the rows at their height
+ * ratios, and a panel takes the inside of the cells it spans. Insets take
+ * no room. Returns null when the axes would collapse, as matplotlib then
+ * leaves them where they were.
  */
-function solveLayout(P, dressed, bars, cbPad) {
+function solveLayout(P, dressed, bars, cbPads) {
   const { W, H } = P;
-  const pad = px(RC.layoutPad);
-  const n = dressed.length;
-  // Between the panels: hspace (2% of the figure) shared by the rows, when
-  // that is more than h_pad.
-  const between = Math.max(pad, (0.02 / 2 / n) * H);
-  let L = 0; let R = 0; let RCB = pad;
-  const rows = dressed.map((d, i) => {
-    const extra = [outsideLegend(d.pn, d.box)];
-    const e = union([d.box, ...d.items.map((it) => it.lbox), ...d.spines.filter(solid), ...extra]);
-    L = Math.max(L, d.box.l - e.l);
-    R = Math.max(R, e.r - d.box.r);
+  const { rows, cols, widthRatios, heightRatios } = P.layout;
+  const zeros = (n) => Array.from({ length: n }, () => 0);
+  const m = { left: zeros(cols), leftcb: zeros(cols), right: zeros(cols), rightcb: zeros(cols),
+    top: zeros(rows), topcb: zeros(rows), bottom: zeros(rows), bottomcb: zeros(rows) };
+  const atLeast = (key, k, v) => { if (v > m[key][k]) m[key][k] = v; };
+  const pad = P.pad; const space = P.space;
+  dressed.forEach((d, i) => {
+    if (d.pn.inset) return;
+    const c = d.pn.cell;
+    const c1 = c.col + c.colSpan - 1; const r1 = c.row + c.rowSpan - 1;
+    const e = union([d.box, ...d.items.map((it) => it.lbox), ...d.spines.filter(solid), outsideLegend(d.pn, d.box), overflowingLegend(P, d)]);
     let top = d.box.t - e.t; let bottom = e.b - d.box.b;
+    let rightcb = space.w > pad.w && c1 < cols - 1 ? space.w : pad.w;
     const cb = bars[i];
     if (cb) {
-      const c = union([cb.box, ...cb.items.map((it) => it.lbox), ...cb.spines]);
-      RCB = Math.max(RCB, pad + (c.r - c.l) + cbPad);
+      const box = union([cb.box, ...cb.items.map((it) => it.lbox), ...cb.spines]);
+      rightcb += (box.r - box.l) + cbPads[i];
       // A colour bar taller than its panel's drawing widens the margins.
-      top = Math.max(top, d.box.t - c.t);
-      bottom = Math.max(bottom, c.b - d.box.b);
+      top = Math.max(top, d.box.t - box.t);
+      bottom = Math.max(bottom, box.b - d.box.b);
     }
-    return { top: top + (i === 0 ? pad : between), bottom: bottom + (i === n - 1 ? pad : between) };
+    atLeast('left', c.col, d.box.l - e.l);
+    atLeast('leftcb', c.col, space.w > pad.w && c.col > 0 ? space.w : pad.w);
+    atLeast('right', c1, e.r - d.box.r);
+    atLeast('rightcb', c1, rightcb);
+    atLeast('top', c.row, top);
+    atLeast('topcb', c.row, space.h > pad.h && c.row > 0 ? space.h : pad.h);
+    atLeast('bottom', r1, bottom);
+    atLeast('bottomcb', r1, space.h > pad.h && r1 < rows - 1 ? space.h : pad.h);
   });
-  L += pad;
-  const avail = H - rows.reduce((a, r) => a + r.top + r.bottom, 0);
-  const ratios = P.panels.map((p) => p.ratio);
-  if (!(avail > 0) || !(W - L - R - RCB > 0)) return null;
-  const unit = avail / ratios.reduce((a, b) => a + b, 0);
-  let y = 0;
-  const boxes = rows.map((r, i) => {
-    y += r.top;
-    const t = y;
-    y += unit * ratios[i];
-    const b = y;
-    y += r.bottom;
-    return { l: L, r: W - R - RCB, t, b };
+  // The margins that lie inside a panel spanning several columns or rows:
+  // all of them as wide as the widest, so that panels spanning alike are
+  // alike. matplotlib goes through its axes one by one, the panels in
+  // reading order and then their twins, and each one that spans adds the
+  // pad to those margins once more; so does this.
+  const reading = dressed.filter((d) => !d.pn.inset).sort((a, b) => a.pn.cell.row - b.pn.cell.row || a.pn.cell.col - b.pn.cell.col);
+  const everyAxes = [...reading.map((d) => d.pn.cell), ...dressed.filter((d) => !d.pn.inset).flatMap((d) => Array.from({ length: d.pn.twins }, () => d.pn.cell))];
+  const submerged = (span0, span, lo, locb, hi, hicb) => {
+    const wide = everyAxes.filter((c) => c[span] > 1);
+    if (!wide.length) return;
+    const inner = (c, a, acb, from, to) => { let v = 0; for (let k = c[span0] + from; k < c[span0] + c[span] + to; k++) v = Math.max(v, m[a][k] + m[acb][k]); return v; };
+    for (const c of wide) {
+      let before = inner(c, lo, locb, 1, 0); let after = inner(c, hi, hicb, 0, -1);
+      for (const o of wide) { before = Math.max(before, inner(o, lo, locb, 1, 0)); after = Math.max(after, inner(o, hi, hicb, 0, -1)); }
+      for (let k = c[span0] + 1; k < c[span0] + c[span]; k++) atLeast(lo, k, before);
+      for (let k = c[span0]; k < c[span0] + c[span] - 1; k++) atLeast(hi, k, after);
+    }
+  };
+  submerged('col', 'colSpan', 'left', 'leftcb', 'right', 'rightcb');
+  submerged('row', 'rowSpan', 'top', 'topcb', 'bottom', 'bottomcb');
+
+  const sum = (a) => a.reduce((x, y) => x + y, 0);
+  const R = P.rect;
+  const head = P.suptitle ? P.suptitle.height + 2 * pad.h : 0;
+  const availW = W - R.l - R.r - sum(m.left) - sum(m.leftcb) - sum(m.right) - sum(m.rightcb);
+  const availH = H - R.t - R.b - head - sum(m.top) - sum(m.topcb) - sum(m.bottom) - sum(m.bottomcb);
+  if (!(availW > 0) || !(availH > 0)) return null;
+  const unitW = availW / sum(widthRatios); const unitH = availH / sum(heightRatios);
+  const colL = []; const colR = []; const rowT = []; const rowB = [];
+  let x = R.l;
+  for (let k = 0; k < cols; k++) { x += m.leftcb[k] + m.left[k]; colL.push(x); x += unitW * widthRatios[k]; colR.push(x); x += m.right[k] + m.rightcb[k]; }
+  let y = R.t + head;
+  for (let k = 0; k < rows; k++) { y += m.topcb[k] + m.top[k]; rowT.push(y); y += unitH * heightRatios[k]; rowB.push(y); y += m.bottom[k] + m.bottomcb[k]; }
+  const boxes = dressed.map((d) => {
+    if (d.pn.inset) return null;
+    const c = d.pn.cell;
+    return { l: colL[c.col], r: colR[c.col + c.colSpan - 1], t: rowT[c.row], b: rowB[c.row + c.rowSpan - 1] };
   });
-  // The colour bars: right of the decorations, by 5% of the panel's width.
+  // The colour bars: right of the decorations of their panel's column, by
+  // 5% of the panel's width.
   const cbs = boxes.map((b, i) => {
-    if (!P.panels[i].colorbar) return null;
+    if (!b || !P.panels[i].colorbar) return null;
+    const c1 = P.panels[i].cell.col + P.panels[i].cell.colSpan - 1;
     const w = b.r - b.l;
-    return colorbarBox(W - RCB + 0.05 * w, b.t, 0.15 * w, b.b - b.t);
+    return colorbarBox(colR[c1] + m.right[c1] + 0.05 * w, b.t, 0.15 * w, b.b - b.t);
   });
-  return { boxes, cbs, innerWidth: boxes.length ? boxes[0].r - boxes[0].l : 0 };
+  return { boxes: withInsets(P, boxes), cbs, widths: boxes.map((b) => (b ? b.r - b.l : 0)) };
 }
 
 /* ------------------------------------------------------------------ *
@@ -1900,11 +2267,23 @@ function legendObstacles(d, series) {
         break;
       case 'bar': {
         const h = s.barWidth / 2;
-        s.x.forEach((x, i) => { if (Number.isFinite(x) && Number.isFinite(s.y[i])) rect(x + s.offset - h, x + s.offset + h, s.bottom, s.bottom + s.y[i]); });
-        if (s.yerr && s.capSize > 0) {
-          const xs = s.x.map((v) => v + s.offset);
-          line(xs, s.y.map((v, i) => v + s.bottom - s.yerr[0][i]));
-          line(xs, s.y.map((v, i) => v + s.bottom + s.yerr[1][i]));
+        const { horizontal, positions } = barData(s);
+        const tops = s.heights.map((v, i) => v + s.bottoms[i]);
+        positions.forEach((x, i) => {
+          if (!Number.isFinite(x) || !Number.isFinite(s.heights[i])) return;
+          if (horizontal) rect(s.bottoms[i], tops[i], x + s.offset - h, x + s.offset + h);
+          else rect(x + s.offset - h, x + s.offset + h, s.bottoms[i], tops[i]);
+        });
+        if (s.errs && s.capSize > 0) {
+          const at = positions.map((v) => v + s.offset);
+          const low = tops.map((v, i) => v - s.errs[0][i]); const high = tops.map((v, i) => v + s.errs[1][i]);
+          if (horizontal) { line(low, at); line(high, at); } else { line(at, low); line(at, high); }
+        }
+        if (s.points && s.replicates) {
+          s.replicates.groups.forEach((g, k) => {
+            const along = jitterOffsets(g.length, s.jitter * s.barWidth).map((o) => positions[k] + s.offset + o);
+            if (horizontal) line(g, along); else line(along, g);
+          });
         }
         break;
       }
@@ -1949,11 +2328,33 @@ function legendObstacles(d, series) {
           line([p, p], [st.q1, st.whislo]); line([p, p], [st.q3, st.whishi]);
           line([p - cw, p + cw], [st.whislo, st.whislo]); line([p - cw, p + cw], [st.whishi, st.whishi]);
           // The box, a closed path: its first corner three times.
-          line([p - w, p + w, p + w, p - w, p - w, p - w], [st.q1, st.q1, st.q3, st.q3, st.q1, st.q1]);
-          line([p - w, p + w], [st.med, st.med]);
+          if (s.notch) {
+            line([p - w, p + w, p + w, p + cw, p + w, p + w, p - w, p - w, p - cw, p - w, p - w, p - w],
+              [st.q1, st.q1, st.notchLow, st.med, st.notchHigh, st.q3, st.q3, st.notchHigh, st.med, st.notchLow, st.q1, st.q1]);
+            line([p - cw, p + cw], [st.med, st.med]);
+          } else {
+            line([p - w, p + w, p + w, p - w, p - w, p - w], [st.q1, st.q1, st.q3, st.q3, st.q1, st.q1]);
+            line([p - w, p + w], [st.med, st.med]);
+          }
           if (s.fliers) line(st.fliers.map(() => p), st.fliers);
           if (s.points) line(jitterOffsets(g.values.length, s.jitter * s.width).map((o) => p + o), g.values);
           if (s.mean) line([p + s.meanOffset], [st.mean]);
+        }
+        break;
+      case 'violin':
+        for (const g of s.groups) {
+          if (!g.kde) continue;
+          // fill_betweenx's polygon: the first right-hand point, the left side
+          // along the coordinates, the right side back, and the first again.
+          const p = g.position; const c = g.kde.coords; const n = c.length;
+          const xs = [p + g.half[0]]; const ys = [c[0]];
+          for (let k = 0; k < n; k++) { xs.push(p - g.half[k]); ys.push(c[k]); }
+          xs.push(p + g.half[n - 1]); ys.push(c[n - 1]);
+          for (let k = n - 1; k >= 0; k--) { xs.push(p + g.half[k]); ys.push(c[k]); }
+          xs.push(p + g.half[0]); ys.push(c[0]);
+          line(xs, ys);
+          if (s.points) line(jitterOffsets(g.values.length, s.jitter * s.width).map((o) => p + o), g.values);
+          for (const m of violinMarks(s, g)) line(m.x, m.y);
         }
         break;
       case 'hline': { const y = d.Y(s.y); lines.push({ xs: [box.l, box.r], ys: [y, y] }); break; }
@@ -1971,7 +2372,7 @@ function legendObstacles(d, series) {
 /* Where an axline meets the edges of the view, in data units: straight in
    scale units (log units on a log axis), as matplotlib's _AxLine draws it. */
 function axlineSegment(s, d) {
-  const xl = d.pn.P.xLog; const yl = d.pn.yLog;
+  const xl = d.xLog; const yl = d.yLog;
   const f = (log, v) => (log ? Math.log10(v) : v);
   const g = (log, v) => (log ? 10 ** v : v);
   const [a, b] = s.points;
@@ -1982,7 +2383,7 @@ function axlineSegment(s, d) {
     const x1 = f(xl, b[0]); const y1 = f(yl, b[1]);
     if (x1 === x0 && y1 === y0) return null;
     if (x1 === x0) {
-      const v = d.pn.yView;
+      const v = d.yView;
       return [[a[0], v[0]], [a[0], v[1]]];
     }
     slope = (y1 - y0) / (x1 - x0);
@@ -1990,8 +2391,8 @@ function axlineSegment(s, d) {
     slope = s.slope;
     if (!Number.isFinite(slope)) return null;
   }
-  const xv = d.pn.P.xView.map((v) => f(xl, v));
-  const yv = d.pn.yView.map((v) => f(yl, v));
+  const xv = d.xView.map((v) => f(xl, v));
+  const yv = d.yView.map((v) => f(yl, v));
   // The line across the whole view, then clipped to it (as the axes clip it).
   const pts = [];
   for (const X of xv) { const Y = y0 + slope * (X - x0); if (Y >= Math.min(...yv) - 1e-12 && Y <= Math.max(...yv) + 1e-12) pts.push([X, Y]); }
@@ -2022,6 +2423,41 @@ function markerOutline(symbol, cx, cy, r) {
 
 /* A spine outline for the sides drawn, left and bottom always. Open ends
    reach half the line width further, as matplotlib's projecting caps do. */
+/* The frame lines of the sides named, each a line of its own with its ends
+   projecting by half its width (matplotlib's spines, cap style projecting). */
+function spineSides(box, sides, half) {
+  if (sides.left && sides.bottom) {
+    return [spinePath(box, sides.top, sides.right, half)];
+  }
+  const out = [];
+  if (sides.left) out.push({ pts: [[box.l, box.t - half], [box.l, box.b + half]] });
+  if (sides.bottom) out.push({ pts: [[box.l - half, box.b], [box.r + half, box.b]] });
+  if (sides.top) out.push({ pts: [[box.l - half, box.t], [box.r + half, box.t]] });
+  if (sides.right) out.push({ pts: [[box.r, box.t - half], [box.r, box.b + half]] });
+  return out;
+}
+
+/* A rectangle's outline inside a clip box: the whole of it, or the parts of
+   its sides that lie inside. */
+function clipBox(r, clip) {
+  if (r.l >= clip.l && r.r <= clip.r && r.t >= clip.t && r.b <= clip.b) return [{ pts: [[r.l, r.b], [r.r, r.b], [r.r, r.t], [r.l, r.t]], closed: true }];
+  const sides = [[[r.l, r.b], [r.r, r.b]], [[r.r, r.b], [r.r, r.t]], [[r.r, r.t], [r.l, r.t]], [[r.l, r.t], [r.l, r.b]]];
+  const out = sides.map(([a, b]) => clipSegment(a, b, clip)).filter(Boolean).map((pts) => ({ pts }));
+  return out.length ? out : null;
+}
+
+/* The part of the segment a-b inside a box (Liang and Barsky), or null. */
+function clipSegment(a, b, box) {
+  let t0 = 0; let t1 = 1;
+  const dx = b[0] - a[0]; const dy = b[1] - a[1];
+  for (const [p, q] of [[-dx, a[0] - box.l], [dx, box.r - a[0]], [-dy, a[1] - box.t], [dy, box.b - a[1]]]) {
+    if (p === 0) { if (q < 0) return null; continue; }
+    const t = q / p;
+    if (p < 0) { if (t > t1) return null; if (t > t0) t0 = t; } else { if (t < t0) return null; if (t < t1) t1 = t; }
+  }
+  return [[a[0] + t0 * dx, a[1] + t0 * dy], [a[0] + t1 * dx, a[1] + t1 * dy]];
+}
+
 function spinePath(box, top, right, half) {
   const TL = [box.l, box.t]; const BL = [box.l, box.b]; const BR = [box.r, box.b]; const TR = [box.r, box.t];
   if (top && right) return { pts: [TL, BL, BR, TR], closed: true };
@@ -2220,7 +2656,13 @@ function finiteRuns(n, keep, ...arrays) {
  *   tight: boolean, legend: string|null, legends: (string|null)[], axes: {l: number, t: number, r: number, b: number}[],
  *   colorbars: ({l: number, t: number, r: number, b: number}|null)[], notes: string[]}}}
  *   `legend` is the location the first legend took (what "best" chose); `axes` are
- *   the panels' boxes on the page in px
+ *   the panels' boxes on the page in px, insets included. For the layout, `info` also
+ *   has `grid` ({rows, cols}), `cells` (each panel's cells; null for an inset), `insets`
+ *   (the index of an inset's parent; -1 for a panel of the grid), `share` (the panels whose
+ *   x and y axes each one follows, and whether it labels them), `plotly` (each panel's
+ *   Plotly axes), `letters` (each panel's letter and its box), `edges` (the sides a panel
+ *   shares with a neighbour), `hiddenLabels` (the tick labels left out at such sides) and
+ *   `title` (the box of a grid's title)
  */
 export function buildFigure(figure, options = {}) {
   const s = options.normalised ? figure : normaliseFigure(figure);
@@ -2228,31 +2670,53 @@ export function buildFigure(figure, options = {}) {
   const notes = [];
   const unknownTex = [];
   const html = (t) => textToHtml(t, unknownTex);
-  const xLog = s.xScale === 'log';
   const texts = [s.title, s.xLabel, ...(s.xCategories || []), ...s.xTicks.labels];
+  // The title stands over the top panel of one column, over the whole of a
+  // grid; the panels' letters, and the edges they share.
+  const titled = s.layout.cols === 1 ? titledPanel(s) : -1;
+  const letters = panelLetters(s);
+  const edges = panelEdges(s);
+  const letterPx = px(s.panelLabels.fontSize ?? s.fontSize);
 
   /* Panels: what each draws, its limits, legend entries and colour bar */
-  const xArrays = []; const xSticky = [];
   const panels = s.panels.map((p, i) => {
     const yLog = p.yScale === 'log';
+    const xLog = p.xScale === 'log';
     const series = p.series.filter((q) => q.show);
-    series.forEach((q) => { if (q.kind === 'box') q.managed = !!s.xCategories; });
+    series.forEach((q) => { if (q.kind === 'box') q.managed = !!p.xCategories; });
+    const xArrays = []; const xSticky = [];
     const yArrays = []; const ySticky = [];
+    // Series on the second axes: the top x and the right y have limits of their own.
+    const x2Arrays = []; const x2Sticky = []; const y2Arrays = []; const y2Sticky = [];
     for (const q of series) {
       const e = seriesExtent(q);
-      xArrays.push(...e.x); xSticky.push(...e.sx);
-      yArrays.push(...e.y); ySticky.push(...e.sy);
+      if (q.xAxis === 'top') { x2Arrays.push(...e.x); x2Sticky.push(...e.sx); } else { xArrays.push(...e.x); xSticky.push(...e.sx); }
+      if (q.yAxis === 'right') { y2Arrays.push(...e.y); y2Sticky.push(...e.sy); } else { yArrays.push(...e.y); ySticky.push(...e.sy); }
     }
-    texts.push(p.yLabel, ...p.yTicks.labels);
+    texts.push(p.yLabel, ...p.yTicks.labels, ...(p.yCategories || []), p.xLabel, ...(p.xCategories || []), ...p.xTicks.labels, letters[i]);
+    const xTicks = xTickSpec(p);
+    // A y axis that names groups (horizontal bars): a tick for each.
+    const yTicks = p.yCategories
+      ? { ...p.yTicks, mode: 'list', values: p.yCategories.map((_, k) => k), labels: p.yCategories.slice(), minor: false, format: '' }
+      : p.yTicks;
+    const second = (k, arrays, sticky) => {
+      if (!hasAxis(p, k)) return null;
+      const T = p[`${k}Ticks`];
+      const label = p[`${k}Label`];
+      texts.push(label, ...T.labels);
+      return { log: p[`${k}Scale`] === 'log', lim: p[`${k}Lim`], ticks: T, marks: tickMarks(T), minor: T.minor,
+        label: html(label), math: isMathText(label), color: p[`${k}Color`] || s.foreground, arrays, sticky };
+    };
     // The legend: labelled series, in the order asked for.
     const labelled = series.filter((q) => LEGEND_KINDS.has(q.kind) && q.legend && q.label);
-    const rank = (q) => { const k = p.legend.order.indexOf(q.id); return k < 0 ? p.legend.order.length + labelled.indexOf(q) : k; };
+    const order = legendOrder(p);
+    const rank = (q) => { const k = order.indexOf(q.id); return k < 0 ? order.length + labelled.indexOf(q) : k; };
     const entries = labelled.slice().sort((a, b) => rank(a) - rank(b))
       .map((q) => ({ series: q, html: html(q.label), math: isMathText(q.label) }));
     texts.push(...labelled.map((q) => q.label));
     // The colour bar: the first image or filled contour that asks for one.
     let colorbar = null;
-    const cbSeries = series.find((q) => (q.kind === 'heatmap' || (q.kind === 'contour' && q.filled)) && q.colorbar.show);
+    const cbSeries = p.inset ? null : series.find((q) => (q.kind === 'heatmap' || (q.kind === 'contour' && q.filled)) && q.colorbar.show);
     if (cbSeries) {
       const lut = colormapColors(cbSeries.colormap);
       if (cbSeries.kind === 'heatmap') {
@@ -2279,41 +2743,84 @@ export function buildFigure(figure, options = {}) {
     const notesOn = [];
     for (const q of series) {
       if (q.kind === 'text' && q.text) {
-        notesOn.push({ html: html(q.text), math: isMathText(q.text), size: px(q.fontSize), x: q.x, y: q.y, coords: q.coords, ha: q.ha, va: q.va, rot: q.rotation, color: q.color });
+        notesOn.push({ html: html(q.text), math: isMathText(q.text), size: px(q.fontSize), x: q.x, y: q.y, coords: q.coords, ha: q.ha, va: q.va, rot: q.rotation, color: q.color, xAxis: q.xAxis, yAxis: q.yAxis });
         texts.push(q.text);
       } else if (q.kind === 'bracket' && q.text) {
-        notesOn.push({ html: html(q.text), math: isMathText(q.text), size: px(q.fontSize), x: (q.x1 + q.x2) / 2, y: q.y + q.height, coords: 'data', ha: 'center', va: 'bottom', rot: 0, color: q.color });
+        notesOn.push({ html: html(q.text), math: isMathText(q.text), size: px(q.fontSize), x: (q.x1 + q.x2) / 2, y: q.y + q.height, coords: 'data', ha: 'center', va: 'bottom', rot: 0, color: q.color, xAxis: q.xAxis, yAxis: q.yAxis });
         texts.push(q.text);
       }
     }
-    const minorLocated = p.yTicks.minor || (s.grid.show && s.grid.minor && s.grid.axis !== 'x');
+    const minorLocated = !p.yCategories && (p.yTicks.minor || (s.grid.show && s.grid.minor && s.grid.axis !== 'x'));
+    const xMinor = xTicks.minor || (s.grid.show && s.grid.minor && s.grid.axis !== 'y' && !p.xCategories);
     return {
       index: i, id: p.id, ratio: p.ratio, series, yLog, yArrays, ySticky, yLim: p.yLim,
-      yTicks: p.yTicks, yMarks: tickMarks(p.yTicks), yMinor: minorLocated,
-      yLabel: html(p.yLabel), yMath: isMathText(p.yLabel), top: i === 0, bottom: i === s.panels.length - 1,
+      yTicks, yMarks: tickMarks(yTicks), yMinor: minorLocated,
+      yLabel: html(p.yLabel), yMath: isMathText(p.yLabel),
+      xLog, xArrays, xSticky, xLim: p.xLim, xTicks, xMarks: tickMarks(xTicks), xMinor,
+      xLabel: html(p.xLabel), xMath: isMathText(p.xLabel),
+      // The first panel holds the legend's title; the top one of a column the figure's.
+      top: i === 0, titled: i === titled, xOuter: p.xOuter, yOuter: p.yOuter, shareX: p.shareX, shareY: p.shareY,
+      cell: p.inset ? null : { row: p.row, col: p.col, rowSpan: p.rowSpan, colSpan: p.colSpan },
+      inset: p.inset, edge: edges[i],
+      letter: letters[i] ? { html: s.panelLabels.bold ? `<b>${html(letters[i])}</b>` : html(letters[i]), math: isMathText(letters[i]),
+        size: letterPx, outside: s.panelLabels.position === 'outside' } : null,
       entries, legendShow: p.legend.show === null ? s.legend.show : p.legend.show,
-      legendPos: p.legend.position || s.legend.position, colorbar, texts: notesOn
+      legendPos: p.legend.position || s.legend.position, colorbar, texts: notesOn,
+      x2: second('x2', x2Arrays, x2Sticky), y2: second('y2', y2Arrays, y2Sticky),
+      // How many more axes the script makes for it: the right, the top, and one for series on both.
+      twins: (hasAxis(p, 'y2') ? 1 : 0) + (hasAxis(p, 'x2') ? 1 : 0) + (series.some((q) => q.xAxis === 'top' && q.yAxis === 'right') ? 1 : 0)
     };
   });
 
-  /* Limits: autoscaled over everything drawn, the x axis shared by all panels */
-  const xView = viewLimits(xLog ? logDataLimits(xArrays) : dataLimits(xArrays, false), s.xLim, xLog, xSticky);
-  for (const pn of panels) pn.yView = viewLimits(pn.yLog ? logDataLimits(pn.yArrays) : dataLimits(pn.yArrays, false), pn.yLim, pn.yLog, pn.ySticky);
+  /* Limits: autoscaled over everything drawn on an axis, by all the panels
+     that share it (matplotlib's shared axes: one range for the group) */
+  const shared = (lead, view, log, lim, arrays, sticky) => {
+    const groups = new Map();
+    for (const pn of panels) {
+      if (!groups.has(pn[lead])) groups.set(pn[lead], []);
+      groups.get(pn[lead]).push(pn);
+    }
+    for (const members of groups.values()) {
+      const first = members[0];
+      const all = members.length > 1 ? members.flatMap((pn) => pn[arrays]) : first[arrays];
+      const held = members.length > 1 ? members.flatMap((pn) => pn[sticky]) : first[sticky];
+      const v = viewLimits(first[log] ? logDataLimits(all) : dataLimits(all, false), first[lim], first[log], held);
+      for (const pn of members) pn[view] = v;
+    }
+  };
+  shared('shareX', 'xView', 'xLog', 'xLim', 'xArrays', 'xSticky');
+  shared('shareY', 'yView', 'yLog', 'yLim', 'yArrays', 'ySticky');
+  for (const pn of panels) {
+    for (const a of [pn.x2, pn.y2]) if (a) a.view = viewLimits(a.log ? logDataLimits(a.arrays) : dataLimits(a.arrays, false), a.lim, a.log, a.sticky);
+  }
 
-  const xTicks = xTickSpec(s);
+  // The pads of constrained layout, as the gap between the panels sets them.
+  const W = s.width * PX_PER_IN; const H = s.height * PX_PER_IN;
+  const pads = layoutPads(s);
   const P = {
-    s, family, W: s.width * PX_PER_IN, H: s.height * PX_PER_IN,
-    xView, xLog, xTicks,
-    xMinor: xTicks.minor || (s.grid.show && s.grid.minor && s.grid.axis !== 'y' && !s.xCategories),
-    xMarks: tickMarks(xTicks),
+    s, family, W, H,
+    layout: s.layout,
+    pad: { w: px(pads.w ? pads.w.pad : RC.layoutPad), h: px(pads.h ? pads.h.pad : RC.layoutPad) },
+    // wspace and hspace (2% of the figure by default), as the room each side of a panel.
+    space: { w: ((pads.w ? pads.w.space : 0.02) / 2 / s.layout.cols) * W, h: ((pads.h ? pads.h.space : 0.02) / 2 / s.layout.rows) * H },
+    rect: { l: px(pads.w ? pads.w.inset : 0), r: px(pads.w ? pads.w.inset : 0), t: px(pads.h ? pads.h.inset : 0), b: px(pads.h ? pads.h.inset : 0) },
     tickPt: textSizes(s).tick, tickPx: px(textSizes(s).tick), labelPx: px(s.fontSize), titlePx: px(textSizes(s).title), legendPx: px(s.legend.fontSize),
-    xLabel: html(s.xLabel), title: html(s.title),
-    math: { xLabel: isMathText(s.xLabel), title: isMathText(s.title) },
+    title: html(s.title),
+    math: { title: isMathText(s.title) },
     // mathtext pads its box by device pixels of the renderer: the PNG's
     // dpi, or 72 for the vector formats.
     mathPad: 2 * PX_PER_IN / (s.export.format === 'png' ? s.dpi : 72),
+    suptitle: null,
     panels
   };
+  // Over a grid the title is the figure's (suptitle): centred on the page,
+  // its top one pad below the page's, the panels starting two pads under it.
+  if (titled < 0 && P.title) {
+    const mathPad = P.math.title ? P.mathPad : 0;
+    const m = mathTextBox(textBox(P.title, P.titlePx, family), mathPad);
+    const it = placeText(P.title, P.titlePx, family, { x: W / 2, y: P.pad.h + m.ascent, ha: 'center' }, mathPad);
+    P.suptitle = { item: it, height: m.ascent + m.descent };
+  }
   for (const pn of panels) {
     pn.P = P;
     const title = s.legend.title && pn.top ? { html: html(s.legend.title), math: isMathText(s.legend.title) } : null;
@@ -2321,41 +2828,45 @@ export function buildFigure(figure, options = {}) {
   }
   if (s.legend.title) texts.push(s.legend.title);
 
-  /* Layout: two passes of constrained layout, then the drawing's own ticks */
+  /* Layout: two passes of constrained layout, then the drawing's own ticks.
+     Where panels share an edge the script lays the figure out once, hides
+     the tick labels that reach across such an edge, and lays it out again. */
   let { boxes, cbs } = initialBoxes(P);
-  let cbPad = 0;
-  for (let pass = 0; pass < 2; pass++) {
-    const dressed = panels.map((pn, i) => dressAxes(P, pn, boxes[i]));
-    const bars = panels.map((pn, i) => (pn.colorbar ? dressColorbar(P, pn.colorbar, cbs[i]) : null));
-    const next = solveLayout(P, dressed, bars, cbPad);
-    if (!next) {
-      notes.push('At this size the labels and ticks leave no room for the axes, so matplotlib keeps its default layout, as the preview does. Make the figure larger or the text smaller.');
-      break;
+  const lay = (hidden) => {
+    let cbPads = panels.map(() => 0);
+    for (let pass = 0; pass < 2; pass++) {
+      const dressed = panels.map((pn, i) => dressAxes(P, pn, boxes[i], hidden));
+      const bars = panels.map((pn, i) => (pn.colorbar ? dressColorbar(P, pn.colorbar, cbs[i]) : null));
+      const next = solveLayout(P, dressed, bars, cbPads);
+      if (!next) return false;
+      ({ boxes, cbs } = next);
+      cbPads = next.widths.map((w) => 0.05 * w);
     }
-    ({ boxes, cbs } = next);
-    cbPad = 0.05 * next.innerWidth;
+    return true;
+  };
+  let hidden = null;
+  if (!lay(null)) {
+    notes.push('At this size the labels and ticks leave no room for the axes, so matplotlib keeps its default layout, as the preview does. Make the figure larger or the text smaller.');
+  } else if (edges.some(Boolean)) {
+    hidden = crossingLabels(panels.map((pn, i) => dressAxes(P, pn, boxes[i])));
+    lay(hidden);
   }
-  const dressed = panels.map((pn, i) => dressAxes(P, pn, boxes[i]));
+  const dressed = panels.map((pn, i) => dressAxes(P, pn, boxes[i], hidden));
   const bars = panels.map((pn, i) => (pn.colorbar ? dressColorbar(P, pn.colorbar, cbs[i]) : null));
 
   /* Legends */
-  const legends = dressed.map((d) => {
-    const pn = d.pn;
-    if (!pn.legend) return null;
-    const pos = pn.legendPos;
-    if (pos === 'outside right') return { loc: pos, box: outsideLegend(pn, d.box) };
-    if (pos === 'best') return bestLegend(pn.legend, d.box, P.legendPx, legendObstacles(d, pn.series));
-    return { loc: pos, box: anchoredLegend(pos, pn.legend, d.box, P.legendPx) };
-  });
+  const legends = dressed.map((d) => placeLegend(P, d));
 
   /* The saved page: the figure, or with bbox_inches='tight' what is drawn plus 0.1 in */
   const tight = options.tight ?? s.export.tight;
   let ox = 0; let oy = 0; let Wout = P.W; let Hout = P.H;
   if (tight) {
+    // Insets are left out of the layout (set_in_layout(False)), and so of the tight page.
     const full = union([
-      ...dressed.flatMap((d) => [d.box, ...d.items.map((it) => it.box), ...d.spines.filter(solid)]),
+      ...dressed.flatMap((d) => (d.pn.inset ? [] : [d.box, ...d.items.map((it) => it.box), ...d.spines.filter(solid)])),
       ...bars.flatMap((b) => (b ? [b.box, ...b.items.map((it) => it.box), ...b.spines] : [])),
-      ...legends.map((l) => l && l.box)
+      ...legends.map((l, i) => (l && !panels[i].inset ? l.box : null)),
+      P.suptitle ? P.suptitle.item.box : null
     ]);
     const pad = RC.tightPad * PX_PER_IN;
     ox = pad - full.l; oy = pad - full.t;
@@ -2370,6 +2881,36 @@ export function buildFigure(figure, options = {}) {
   const shape = (list, polys, line, extra = {}) => {
     if (polys.length) list.push({ type: 'path', xref: 'paper', yref: 'paper', path: path(polys), line, fillcolor: 'rgba(0,0,0,0)', ...extra });
   };
+  // Plotly draws its subplots in the order of their axes: the panels of the
+  // grid take the first, the insets the last, so that an inset lies over its
+  // parent whatever their order in the description.
+  const drawOrder = [...panels.filter((pn) => !pn.inset), ...panels.filter((pn) => pn.inset)].map((pn) => pn.index);
+  const slotOf = new Map(drawOrder.map((i, k) => [i, k]));
+  const refOf = (i, k) => axisRef(slotOf.get(i), k);
+  // What lies under a panel's series (its grid, the cells of a heatmap in a
+  // vector export): a shape under every trace or, for an inset, a shape on
+  // the inset's own axes, which Plotly draws over the panels before it. Its
+  // path is then in the axes' data units.
+  const under = (d, polys, props) => {
+    if (!polys.length) return;
+    if (!d.pn.inset) { below.push({ type: 'path', xref: 'paper', yref: 'paper', layer: 'below', path: path(polys), ...props }); return; }
+    const w = d.box.r - d.box.l; const h = d.box.b - d.box.t;
+    const span = (v, log) => { const a = tscale(log, v[0]); return [a, tscale(log, v[1]) - a]; };
+    const [xa, xk] = span(d.xView, d.xLog); const [ya, yk] = span(d.yView, d.yLog);
+    const ux = (x) => { const u = xa + ((x - d.box.l) / w) * xk; return d.xLog ? 10 ** u : u; };
+    const uy = (y) => { const u = ya + ((d.box.b - y) / h) * yk; return d.yLog ? 10 ** u : u; };
+    const g = (v) => String(Number(v.toPrecision(12)));
+    const text = polys.map(({ pts, closed }) => 'M' + pts.map(([x, y]) => `${g(ux(x))},${g(uy(y))}`).join('L') + (closed ? 'Z' : '')).join('');
+    below.push({ type: 'path', xref: refOf(d.pn.index, 'x'), yref: refOf(d.pn.index, 'y'), layer: 'below', path: text, ...props });
+  };
+  const clear = 'rgba(0,0,0,0)';
+  // An inset's own background covers what its parent draws there (a
+  // transparent page has none: savefig(transparent=True) clears every axes).
+  if (!options.transparent) {
+    for (const d of dressed) {
+      if (d.pn.inset) under(d, [{ pts: [[d.box.l, d.box.b], [d.box.r, d.box.b], [d.box.r, d.box.t], [d.box.l, d.box.t]], closed: true }], { fillcolor: s.background, line: { width: 0, color: clear } });
+    }
+  }
 
   /* Grid: below everything, as set_axisbelow(True) has it */
   if (s.grid.show) {
@@ -2382,8 +2923,8 @@ export function buildFigure(figure, options = {}) {
     ];
     const minorWidth = round(s.grid.width / 2);
     for (const d of dressed) {
-      shape(below, lines(d, d.xt.major, d.yt.major), { color: colour, width: px(s.grid.width), dash: plotlyDash(s.grid.style, s.grid.width) }, { layer: 'below' });
-      if (s.grid.minor) shape(below, lines(d, d.xt.minor, d.yt.minor), { color: colour, width: px(minorWidth), dash: plotlyDash(s.grid.style, minorWidth) }, { layer: 'below' });
+      under(d, lines(d, d.xt.major, d.yt.major), { line: { color: colour, width: px(s.grid.width), dash: plotlyDash(s.grid.style, s.grid.width) }, fillcolor: clear });
+      if (s.grid.minor) under(d, lines(d, d.xt.minor, d.yt.minor), { line: { color: colour, width: px(minorWidth), dash: plotlyDash(s.grid.style, minorWidth) }, fillcolor: clear });
     }
   }
 
@@ -2433,34 +2974,77 @@ export function buildFigure(figure, options = {}) {
           }
         });
         for (const [key, polys] of groups) {
-          below.push({ type: 'path', xref: 'paper', yref: 'paper', layer: 'below', path: path(polys), fillcolor: rgba(lut[Number(key.split(':')[0])], q.alpha), line: { width: 0, color: 'rgba(0,0,0,0)' } });
+          under(d, polys, { fillcolor: rgba(lut[Number(key.split(':')[0])], q.alpha), line: { width: 0, color: 'rgba(0,0,0,0)' } });
         }
       }
     }
   }
 
+  /* What an inset enlarges: the box of its limits on its parent and two
+     lines to the inset's corners, as indicate_inset_zoom draws them (half
+     transparent, 1 pt), clipped to the parent's axes. */
+  for (const d of dressed) {
+    if (!d.pn.inset || !d.pn.inset.zoom) continue;
+    const parent = dressed[d.pn.inset.parentIndex];
+    const pb = parent.box;
+    const r = { l: parent.X(d.xView[0]), r: parent.X(d.xView[1]), b: parent.Y(d.yView[0]), t: parent.Y(d.yView[1]) };
+    if (![r.l, r.r, r.t, r.b].every(Number.isFinite)) continue;
+    // Which two of the four corners are joined: matplotlib's choice, so that
+    // neither line crosses the box (x0, x1: the box's left and right edges
+    // left of the inset's; y0, y1: its lower and upper edges below the inset's).
+    const x0 = r.l < d.box.l; const x1 = r.r < d.box.r; const y0 = r.b > d.box.b; const y1 = r.t > d.box.t;
+    const corners = [
+      [x0 !== y0, [d.box.l, d.box.b], [r.l, r.b]], [x0 === y1, [d.box.l, d.box.t], [r.l, r.t]],
+      [x1 === y0, [d.box.r, d.box.b], [r.r, r.b]], [x1 !== y1, [d.box.r, d.box.t], [r.r, r.t]]
+    ];
+    const polys = [];
+    const inside = clipBox({ l: Math.min(r.l, r.r), r: Math.max(r.l, r.r), t: Math.min(r.t, r.b), b: Math.max(r.t, r.b) }, pb);
+    if (inside) polys.push(...inside);
+    for (const [on, a, b] of corners) {
+      const seg = on ? clipSegment(a, b, pb) : null;
+      if (seg) polys.push({ pts: seg });
+    }
+    shape(above, polys, { color: rgba(fg, 0.5), width: px(1) }, { layer: 'above' });
+  }
+
   /* Frame and tick marks */
   for (const d of dressed) {
+    const { x2, y2 } = d.pn;
+    const half = px(s.spines.width) / 2;
+    const e = d.pn.edge;
     if (s.spines.width > 0) {
-      shape(above, [spinePath(d.box, s.spines.top, s.spines.right, px(s.spines.width) / 2)], { color: fg, width: px(s.spines.width) }, { layer: 'above' });
+      // On an edge two panels share, the lower (or right-hand) one draws the line.
+      const frame = e
+        ? spineSides(d.box, { left: true, bottom: !e.bottom, top: (s.spines.top || e.top) && !x2, right: s.spines.right && !y2 && !e.right }, half)
+        : [spinePath(d.box, s.spines.top && !x2, s.spines.right && !y2, half)];
+      shape(above, frame, { color: fg, width: px(s.spines.width) }, { layer: 'above' });
+      // A second axis' frame line, in its colour, its ends projecting.
+      if (y2) shape(above, [{ pts: [[d.box.r, d.box.b + half], [d.box.r, d.box.t - half]] }], { color: y2.color, width: px(s.spines.width) }, { layer: 'above' });
+      if (x2) shape(above, [{ pts: [[d.box.l - half, d.box.t], [d.box.r + half, d.box.t]] }], { color: x2.color, width: px(s.spines.width) }, { layer: 'above' });
     }
-    for (const [axis, T, marks] of [['x', P.xTicks, P.xMarks], ['y', d.pn.yTicks, d.pn.yMarks]]) {
-      for (const [list, mk] of [[d[`${axis}t`].major, marks.major], [d[`${axis}t`].minor, marks.minor]]) {
+    const sides = [['x', d.xt, d.pn.xMarks, d.xMirror, d.X, fg], ['y', d.yt, d.pn.yMarks, d.yMirror, d.Y, fg]];
+    if (x2) sides.push(['x2', d.x2t, x2.marks, false, d.X2, x2.color]);
+    if (y2) sides.push(['y2', d.y2t, y2.marks, false, d.Y2, y2.color]);
+    for (const [axis, ticks, marks, mirror, at, colour] of sides) {
+      for (const [list, mk] of [[ticks.major, marks.major], [ticks.minor, marks.minor]]) {
         if (!(mk.len > 0 && mk.width > 0) || !list.length) continue;
         const L = px(mk.len); const o = L * DIR_OUT[mk.dir]; const i = L * DIR_IN[mk.dir];
         const segs = [];
         for (const t of list) {
+          const v = at(t.v);
           if (axis === 'x') {
-            const x = d.X(t.v);
-            segs.push({ pts: [[x, d.box.b - i], [x, d.box.b + o]] });
-            if (T.mirror) segs.push({ pts: [[x, d.box.t + i], [x, d.box.t - o]] });
+            if (!d.off.bottom) segs.push({ pts: [[v, d.box.b - i], [v, d.box.b + o]] });
+            if (mirror) segs.push({ pts: [[v, d.box.t + i], [v, d.box.t - o]] });
+          } else if (axis === 'y') {
+            if (!d.off.left) segs.push({ pts: [[d.box.l + i, v], [d.box.l - o, v]] });
+            if (mirror) segs.push({ pts: [[d.box.r - i, v], [d.box.r + o, v]] });
+          } else if (axis === 'x2') {
+            segs.push({ pts: [[v, d.box.t + i], [v, d.box.t - o]] });
           } else {
-            const y = d.Y(t.v);
-            segs.push({ pts: [[d.box.l + i, y], [d.box.l - o, y]] });
-            if (T.mirror) segs.push({ pts: [[d.box.r - i, y], [d.box.r + o, y]] });
+            segs.push({ pts: [[d.box.r - i, v], [d.box.r + o, v]] });
           }
         }
-        shape(above, segs, { color: fg, width: px(mk.width) }, { layer: 'above' });
+        shape(above, segs, { color: colour, width: px(mk.width) }, { layer: 'above' });
       }
     }
   }
@@ -2518,7 +3102,8 @@ export function buildFigure(figure, options = {}) {
       font: { family: FONT_STACKS[family], size, color }, captureevents: false
     });
   };
-  dressed.forEach((d) => d.items.forEach((it) => annotate(it, it.size, it.note ? it.note.color : fg)));
+  dressed.forEach((d) => d.items.forEach((it) => annotate(it, it.size, it.note ? it.note.color : it.color || fg)));
+  if (P.suptitle) annotate(P.suptitle.item);
   bars.forEach((b) => { if (b) b.items.forEach((it) => annotate(it)); });
 
   /* Legends: frame, handles and labels, above everything */
@@ -2569,8 +3154,18 @@ export function buildFigure(figure, options = {}) {
   /* Traces, panel by panel, in the order given */
   const data = [];
   dressed.forEach((d, i) => {
-    const xa = axisRef(i, 'x'); const ya = axisRef(i, 'y');
-    for (const q of d.pn.series) data.push(...seriesTraces(q, d, xa, ya, P, options));
+    const xa = refOf(i, 'x'); const ya = refOf(i, 'y');
+    // The panel's own axes first, then each second axes over them, as the
+    // script's twins are drawn; their series in their own scales, moved onto
+    // the panel's Plotly axes.
+    for (let rank = 0; rank < 4; rank++) {
+      for (const q of d.pn.series) {
+        if (axesRank(q, d.pn) !== rank) continue;
+        if (!rank) { data.push(...seriesTraces(q, d, xa, ya, P, options)); continue; }
+        const v = axesView(d, q.xAxis, q.yAxis);
+        data.push(...remapTraces(seriesTraces(q, v, xa, ya, P, options), v, d));
+      }
+    }
   });
 
   /* Axes: only their scale, range and place; Plotly draws none of their parts */
@@ -2586,10 +3181,11 @@ export function buildFigure(figure, options = {}) {
     shapes: [...below, ...above],
     annotations
   };
-  dressed.forEach((d, i) => {
+  drawOrder.forEach((i, k) => {
+    const d = dressed[i];
     const r = d.box;
-    layout[i === 0 ? 'xaxis' : `xaxis${i + 1}`] = axis([fx(r.l), fx(r.r)], xView, xLog, axisRef(i, 'y'));
-    layout[i === 0 ? 'yaxis' : `yaxis${i + 1}`] = axis([fy(r.b), fy(r.t)], d.pn.yView, d.pn.yLog, axisRef(i, 'x'));
+    layout[k === 0 ? 'xaxis' : `xaxis${k + 1}`] = axis([fx(r.l), fx(r.r)], d.xView, d.xLog, axisRef(k, 'y'));
+    layout[k === 0 ? 'yaxis' : `yaxis${k + 1}`] = axis([fy(r.b), fy(r.t)], d.yView, d.yLog, axisRef(k, 'x'));
   });
   // The shapes and annotations above leave the layout's key order as the
   // single-panel figure has always had it.
@@ -2603,13 +3199,13 @@ export function buildFigure(figure, options = {}) {
   for (const d of dressed) notes.push(...d.xt.notes, ...d.yt.notes), unknownTex.push(...d.xt.tex, ...d.yt.tex);
   notes.push(...texNotes(texts, unknownTex));
   const allSeries = panels.flatMap((pn) => pn.series);
-  if (allSeries.some((q) => ['scatter', 'errorbar', 'line', 'box'].includes(q.kind) && (q.marker === '^' || q.marker === 'v'))) {
+  if (allSeries.some((q) => ['scatter', 'errorbar', 'line', 'box', 'violin'].includes(q.kind) && (q.marker === '^' || q.marker === 'v'))) {
     notes.push('Plotly\'s triangles are a little wider and flatter than matplotlib\'s; the preview matches their area.');
   }
   if (allSeries.some((q) => q.kind === 'contour' && q.z.some((row) => row.some((v) => !Number.isFinite(v))))) {
     notes.push('Where the grid has gaps, the preview trims the contours a little differently from matplotlib.');
   }
-  if (xLog && allSeries.some((q) => q.kind === 'heatmap')) {
+  if (panels.some((pn) => pn.xLog && pn.series.some((q) => q.kind === 'heatmap'))) {
     notes.push('On a log x axis the preview places heatmap cells approximately; the saved figure places them as matplotlib does.');
   }
 
@@ -2626,12 +3222,39 @@ export function buildFigure(figure, options = {}) {
       // formatters give them (labels as Plotly HTML; '' for none).
       ticks: dressed.map((d) => {
         const pick = (t) => ({ major: t.major.map(({ v, text }) => ({ v, text })), minor: t.minor.map(({ v, text }) => ({ v, text })) });
-        return { x: pick(d.xt), y: pick(d.yt) };
+        const out = { x: pick(d.xt), y: pick(d.yt) };
+        if (d.x2t) out.x2 = pick(d.x2t);
+        if (d.y2t) out.y2 = pick(d.y2t);
+        return out;
       }),
+      // Each panel's axes: the view and scale of the bottom x and left y
+      // (the Plotly axes), and of the top x and right y when it has them.
+      views: dressed.map((d) => ({
+        x: { view: d.xView.slice(), log: d.xLog }, y: { view: d.yView.slice(), log: d.yLog },
+        x2: d.pn.x2 ? { view: d.pn.x2.view.slice(), log: d.pn.x2.log } : null,
+        y2: d.pn.y2 ? { view: d.pn.y2.view.slice(), log: d.pn.y2.log } : null
+      })),
       legendBox: legends.find(Boolean) ? (({ l, t, r, b }) => ({ l: l + ox, t: t + oy, r: r + ox, b: b + oy }))(legends.find(Boolean).box) : null,
       // Each legend's box and the span of its entries, on the page in px.
       legendLayouts: layouts.map((g) => (g ? { box: { l: g.box.l + ox, t: g.box.t + oy, r: g.box.r + ox, b: g.box.b + oy }, entries: { l: g.entries.l + ox, r: g.entries.r + ox } } : null)),
       colorbars: bars.map((b) => (b ? { l: b.box.l + ox, t: b.box.t + oy, r: b.box.r + ox, b: b.box.b + oy } : null)),
+      // The grid, and for each panel: its cells (null for an inset), the
+      // panel it is an inset of (-1 for none), the panels whose x and y axes
+      // it follows (itself when it shares none), whether it labels those
+      // axes, its Plotly axes, its letter, the sides it shares with a
+      // neighbour, and the tick labels left out at such a side.
+      grid: { rows: s.layout.rows, cols: s.layout.cols },
+      cells: panels.map((pn) => (pn.cell ? { ...pn.cell } : null)),
+      insets: panels.map((pn) => (pn.inset ? pn.inset.parentIndex : -1)),
+      share: panels.map((pn) => ({ x: pn.shareX, y: pn.shareY, xLabels: pn.xOuter, yLabels: pn.yOuter })),
+      plotly: panels.map((pn) => ({ x: refOf(pn.index, 'x'), y: refOf(pn.index, 'y') })),
+      letters: dressed.map((d) => {
+        const it = d.items.find((x) => x.letter);
+        return it ? { text: letters[d.pn.index], l: it.box.l + ox, t: it.box.t + oy, r: it.box.r + ox, b: it.box.b + oy } : null;
+      }),
+      edges: panels.map((pn) => (pn.edge ? { ...pn.edge } : null)),
+      hiddenLabels: hidden ? [...hidden].map((k) => { const [panel, axis, v] = k.split(':'); return { panel: Number(panel), axis, v: Number(v) }; }) : [],
+      title: P.suptitle ? (({ l, t, r, b }) => ({ l: l + ox, t: t + oy, r: r + ox, b: b + oy }))(P.suptitle.item.box) : null,
       notes: [...new Set(notes)]
     }
   };
@@ -2639,11 +3262,12 @@ export function buildFigure(figure, options = {}) {
 
 /*
  * One series as Plotly traces on its panel's axes (xa, ya), in the drawing
- * order matplotlib gives the artists the script makes for it.
+ * order matplotlib gives the artists the script makes for it. `d` is the
+ * panel as the series' own axes see it (axesView): its scales, views and
+ * pixel mappings.
  */
 function seriesTraces(q, d, xa, ya, P, options) {
   const out = [];
-  const pn = d.pn;
   const base = { xaxis: xa, yaxis: ya, hoverinfo: 'skip', showlegend: false };
   const lineTrace = (x, y, line, extra = {}) => ({ type: 'scatter', mode: 'lines', x, y, xaxis: xa, yaxis: ya, line, hoverinfo: 'skip', showlegend: false, ...extra });
   const lineOf = (color, width, style, alpha = 1) => ({ color: alpha === 1 ? color : rgba(color, alpha), width: px(width), dash: plotlyDash(style, width) });
@@ -2654,7 +3278,7 @@ function seriesTraces(q, d, xa, ya, P, options) {
   const pick = (arr, keep) => (keep ? keep.map((i) => arr[i]) : arr);
   switch (q.kind) {
     case 'line': {
-      const t = thinLine(q.x, q.y, widthPx, P.xView, P.xLog);
+      const t = thinLine(q.x, q.y, widthPx, d.xView, d.xLog);
       const tr = lineTrace(t.x, t.y, lineOf(q.color, q.lineWidth, q.lineStyle, q.alpha));
       if (q.step) tr.line.shape = { pre: 'vh', mid: 'hvh', post: 'hv' }[q.step];
       if (!(q.lineWidth > 0) || q.lineStyle === 'none') tr.line.width = 0;
@@ -2678,7 +3302,7 @@ function seriesTraces(q, d, xa, ya, P, options) {
       const joined = q.kind === 'errorbar' && q.lineStyle !== 'none';
       // A long joined series: its line thinned as any line is, the points once per pixel.
       if (keep && joined) {
-        const t = thinLine(q.x, q.y, widthPx, P.xView, P.xLog);
+        const t = thinLine(q.x, q.y, widthPx, d.xView, d.xLog);
         out.push(lineTrace(t.x, t.y, lineOf(q.color, q.lineWidth, q.lineStyle, q.alpha)));
       }
       const xs = pick(q.x, keep); const ys = pick(q.y, keep);
@@ -2687,8 +3311,8 @@ function seriesTraces(q, d, xa, ya, P, options) {
       if (q.kind === 'errorbar') {
         const opts = { color: rgba(q.color, q.alpha), width: q.errorWidth, cap: q.capSize };
         const sub = (e) => (e && keep ? [pick(e[0], keep), pick(e[1], keep)] : e);
-        if (q.yerr) t.error_y = errorBars(ys, sub(q.yerr), { ...opts, log: pn.yLog, view: pn.yView });
-        if (q.xerr) t.error_x = errorBars(xs, sub(q.xerr), { ...opts, log: P.xLog, view: P.xView });
+        if (q.yerr) t.error_y = errorBars(ys, sub(q.yerr), { ...opts, log: d.yLog, view: d.yView });
+        if (q.xerr) t.error_x = errorBars(xs, sub(q.xerr), { ...opts, log: d.xLog, view: d.xView });
         if (joined && !keep) {
           t.mode = 'lines+markers';
           t.line = lineOf(q.color, q.lineWidth, q.lineStyle, q.alpha);
@@ -2699,7 +3323,7 @@ function seriesTraces(q, d, xa, ya, P, options) {
     }
     case 'band': {
       const n = Math.min(q.x.length, q.lower.length, q.upper.length);
-      const runs = finiteRuns(n, (i) => !P.xLog || q.x[i] > 0, q.x, q.lower, q.upper);
+      const runs = finiteRuns(n, (i) => !d.xLog || q.x[i] > 0, q.x, q.lower, q.upper);
       const x = []; const y = [];
       runs.forEach((r, k) => {
         if (k) { x.push(null); y.push(null); }
@@ -2714,13 +3338,32 @@ function seriesTraces(q, d, xa, ya, P, options) {
     }
     case 'bar': {
       const h = q.barWidth / 2;
-      const r = rects(q.x.map((x, i) => [x + q.offset - h, x + q.offset + h, q.bottom, q.bottom + q.y[i]]));
+      const { horizontal, positions } = barData(q);
+      const tops = q.heights.map((v, i) => v + q.bottoms[i]);
+      const r = rects(positions.map((x, i) => (horizontal
+        ? [q.bottoms[i], tops[i], x + q.offset - h, x + q.offset + h]
+        : [x + q.offset - h, x + q.offset + h, q.bottoms[i], tops[i]])));
       const line = q.edgeWidth > 0 ? { width: px(q.edgeWidth), color: rgba(q.edgeColor, q.alpha) } : { width: 0, color: 'rgba(0,0,0,0)' };
       out.push({ ...lineTrace(r.x, r.y, line), fill: 'toself', fillcolor: rgba(q.color, q.alpha) });
-      if (q.yerr) {
-        const ys = q.y.map((v) => v + q.bottom);
-        out.push({ type: 'scatter', mode: 'markers', x: q.x.map((v) => v + q.offset), y: ys, ...base, cliponaxis: true, marker: { size: 0, opacity: 0 },
-          error_y: errorBars(ys, q.yerr, { color: q.errorColor, width: q.errorWidth, cap: q.capSize, log: pn.yLog, view: pn.yView }) });
+      const at = positions.map((v) => v + q.offset);
+      if (q.errs) {
+        const opts = { color: q.errorColor, width: q.errorWidth, cap: q.capSize };
+        const t = { type: 'scatter', mode: 'markers', x: horizontal ? tops : at, y: horizontal ? at : tops, ...base, cliponaxis: true, marker: { size: 0, opacity: 0 } };
+        if (horizontal) t.error_x = errorBars(tops, q.errs, { ...opts, log: d.xLog, view: d.xView });
+        else t.error_y = errorBars(tops, q.errs, { ...opts, log: d.yLog, view: d.yView });
+        out.push(t);
+      }
+      if (q.points && q.replicates) {
+        // The replicates over their bar, spread as a box plot's points are.
+        const across = []; const along = [];
+        q.replicates.groups.forEach((g, k) => {
+          if (!Number.isFinite(at[k])) return;
+          jitterOffsets(g.length, q.jitter * q.barWidth).forEach((o, i) => { across.push(at[k] + o); along.push(g[i]); });
+        });
+        const [xs, ys] = horizontal ? [along, across] : [across, along];
+        const keep = thinMarkers(xs, ys, d, { scale: markerScale, sizePt: q.pointSize, budget: markerBudget });
+        out.push({ type: 'scatter', mode: 'markers', x: pick(xs, keep), y: pick(ys, keep), ...base, cliponaxis: true,
+          marker: plotlyMarker(q.marker, q.pointSize, q.pointColor, q.pointColor, 0, 0.6) });
       }
       break;
     }
@@ -2748,7 +3391,20 @@ function seriesTraces(q, d, xa, ya, P, options) {
     case 'box': {
       const w = q.width / 2; const cw = q.width / 4;
       const groups = q.groups.filter((g) => g.stats);
-      const boxes = rects(groups.map((g) => [g.position - w, g.position + w, g.stats.q1, g.stats.q3]));
+      let boxes;
+      if (q.notch) {
+        // matplotlib's notched box: in to a quarter of the width at the
+        // median, from the ends of the notch (the median ± 1.57 IQR / √n).
+        boxes = { x: [], y: [] };
+        for (const g of groups) {
+          const p = g.position; const st = g.stats;
+          if (boxes.x.length) { boxes.x.push(null); boxes.y.push(null); }
+          boxes.x.push(p - w, p + w, p + w, p + cw, p + w, p + w, p - w, p - w, p - cw, p - w, p - w);
+          boxes.y.push(st.q1, st.q1, st.notchLow, st.med, st.notchHigh, st.q3, st.q3, st.notchHigh, st.med, st.notchLow, st.q1);
+        }
+      } else {
+        boxes = rects(groups.map((g) => [g.position - w, g.position + w, g.stats.q1, g.stats.q3]));
+      }
       out.push({ ...lineTrace(boxes.x, boxes.y, { width: px(q.lineWidth), color: q.color }), fill: 'toself', fillcolor: rgba(q.color, q.faceAlpha) });
       const wx = []; const wy = [];
       for (const g of groups) {
@@ -2758,7 +3414,8 @@ function seriesTraces(q, d, xa, ya, P, options) {
       }
       out.push(lineTrace(wx, wy, { width: px(q.lineWidth), color: q.color }));
       const mx = []; const my = [];
-      for (const g of groups) { mx.push(g.position - w, g.position + w, null); my.push(g.stats.med, g.stats.med, null); }
+      const mw = q.notch ? cw : w;
+      for (const g of groups) { mx.push(g.position - mw, g.position + mw, null); my.push(g.stats.med, g.stats.med, null); }
       out.push(lineTrace(mx, my, { width: px(q.lineWidth), color: q.medianColor }));
       if (q.fliers) {
         const fxs = groups.flatMap((g) => g.stats.fliers.map(() => g.position));
@@ -2782,8 +3439,46 @@ function seriesTraces(q, d, xa, ya, P, options) {
           marker: plotlyMarker('D', q.pointSize + 1, P.s.background, P.s.foreground, 1, 1) };
         const lo = ms.map((g) => (Number.isFinite(g.stats.ciLow) ? g.stats.mean - g.stats.ciLow : 0));
         const hi = ms.map((g) => (Number.isFinite(g.stats.ciHigh) ? g.stats.ciHigh - g.stats.mean : 0));
-        t.error_y = errorBars(t.y, [lo, hi], { color: P.s.foreground, width: q.lineWidth, cap: 0, log: pn.yLog, view: pn.yView });
+        t.error_y = errorBars(t.y, [lo, hi], { color: P.s.foreground, width: q.lineWidth, cap: 0, log: d.yLog, view: d.yView });
         out.push(t);
+      }
+      break;
+    }
+    case 'violin': {
+      const groups = q.groups.filter((g) => g.kde);
+      // Each violin's outline: down the left side, back up the right.
+      const bx = []; const by = [];
+      for (const g of groups) {
+        const p = g.position; const c = g.kde.coords; const n = c.length;
+        if (bx.length) { bx.push(null); by.push(null); }
+        for (let k = 0; k < n; k++) { bx.push(p - g.half[k]); by.push(c[k]); }
+        for (let k = n - 1; k >= 0; k--) { bx.push(p + g.half[k]); by.push(c[k]); }
+        bx.push(p - g.half[0]); by.push(c[0]);
+      }
+      const edge = q.lineWidth > 0 ? { width: px(q.lineWidth), color: q.edgeColor } : { width: 0, color: 'rgba(0,0,0,0)' };
+      out.push({ ...lineTrace(bx, by, edge), fill: 'toself', fillcolor: rgba(q.color, q.faceAlpha) });
+      if (q.points) {
+        const pxs = groups.flatMap((g) => jitterOffsets(g.values.length, q.jitter * q.width).map((o) => g.position + o));
+        const pys = groups.flatMap((g) => g.values);
+        const keep = thinMarkers(pxs, pys, d, { scale: markerScale, sizePt: q.pointSize, budget: markerBudget });
+        out.push({ type: 'scatter', mode: 'markers', x: pick(pxs, keep), y: pick(pys, keep), ...base, cliponaxis: true, marker: plotlyMarker(q.marker, q.pointSize, q.color, q.color, 0, 0.6) });
+      }
+      // What stands inside: lines of each width and style as one trace, then the dots.
+      const lw = Math.max(0.5, q.lineWidth);
+      const marks = groups.flatMap((g) => violinMarks(q, g));
+      const kinds = new Map();
+      for (const m of marks) {
+        if (m.dot) continue;
+        const key = `${m.width}/${m.style}`;
+        if (!kinds.has(key)) kinds.set(key, { m, x: [], y: [] });
+        const k = kinds.get(key);
+        k.x.push(...m.x, null); k.y.push(...m.y, null);
+      }
+      for (const k of kinds.values()) out.push(lineTrace(k.x, k.y, lineOf(q.medianColor, k.m.width * lw, k.m.style)));
+      const dots = marks.filter((m) => m.dot);
+      if (dots.length) {
+        out.push({ type: 'scatter', mode: 'markers', x: dots.map((m) => m.x[0]), y: dots.map((m) => m.y[0]), ...base, cliponaxis: true,
+          marker: plotlyMarker('o', dots[0].dot * lw, P.s.background, P.s.background, 0, 1) });
       }
       break;
     }
@@ -2833,10 +3528,10 @@ function seriesTraces(q, d, xa, ya, P, options) {
       break;
     }
     case 'hline':
-      out.push(lineTrace(P.xView.slice(), [q.y, q.y], lineOf(q.color, q.lineWidth, q.lineStyle, q.alpha)));
+      out.push(lineTrace(d.xView.slice(), [q.y, q.y], lineOf(q.color, q.lineWidth, q.lineStyle, q.alpha)));
       break;
     case 'vline':
-      out.push(lineTrace([q.x, q.x], pn.yView.slice(), lineOf(q.color, q.lineWidth, q.lineStyle, q.alpha)));
+      out.push(lineTrace([q.x, q.x], d.yView.slice(), lineOf(q.color, q.lineWidth, q.lineStyle, q.alpha)));
       break;
     case 'axline': {
       const seg = axlineSegment(q, d);
@@ -3295,7 +3990,7 @@ const BG_GLYPH = '<svg viewBox="0 0 40 26" focusable="false"><path class="fp-bg-
   + '<circle class="fp-bg-dot" cx="22" cy="7.6" r="1.7"/><circle class="fp-bg-dot" cx="29.5" cy="13" r="1.7"/></svg>';
 const HISTTYPE_NAMES = [['stepfilled', 'Filled'], ['step', 'Outline'], ['bar', 'Bars']];
 const KIND_NAMES = { line: 'Line', scatter: 'Points', errorbar: 'Points with error bars', band: 'Band', bar: 'Bars', histogram: 'Histogram',
-  box: 'Box plot', heatmap: 'Heatmap', contour: 'Contours', hline: 'Horizontal line', vline: 'Vertical line', axline: 'Line', text: 'Text', bracket: 'Bracket' };
+  box: 'Box plot', violin: 'Violin plot', heatmap: 'Heatmap', contour: 'Contours', hline: 'Horizontal line', vline: 'Vertical line', axline: 'Line', text: 'Text', bracket: 'Bracket' };
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const getPath = (o, path) => path.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
@@ -3304,15 +3999,19 @@ function setPath(o, path, v) {
   const last = keys.pop();
   keys.reduce((a, k) => a[k], o)[last] = v;
 }
-/* Set a path, making the objects and arrays on the way (arrays copied from
-   `like`, so that setting one end of a limit keeps the other). */
+/* Set a path, making the objects and arrays on the way. An array of values
+   is copied from `like`, so that setting one end of a limit keeps the other;
+   an array of objects (the panels) starts empty, so that only the field set
+   is kept and the rest stays the page's. */
 function putPath(o, path, v, like) {
   const keys = path.split('.');
   const last = keys.pop();
   let cur = o; let ref = like;
   for (const k of keys) {
     ref = ref == null ? ref : ref[k];
-    if (cur[k] == null || typeof cur[k] !== 'object') cur[k] = Array.isArray(ref) ? clone(ref) : (/^\d+$/.test(k) ? {} : {});
+    if (cur[k] == null || typeof cur[k] !== 'object') {
+      cur[k] = !Array.isArray(ref) ? {} : ref.some((x) => x && typeof x === 'object') ? [] : clone(ref);
+    }
     cur = cur[k];
   }
   cur[last] = v;
@@ -3433,8 +4132,9 @@ export function stylePanelKit(bind) {
       el('label', { class: 'stk-check', for: input.id }, input, el('span', { text: label })), hintEl(hid, hint));
   }
   /* A colour: `pick(value)` in place of committing it to `path` (for a
-     colour whose change changes others too). */
-  function colour(path, label, { pick } = {}) {
+     colour whose change changes others too); `fallback()` the colour shown
+     while the value is null. */
+  function colour(path, label, { pick, fallback } = {}) {
     const id = idOf(path);
     const picker = el('input', { type: 'color', class: 'fp-swatch', id: `${id}-picker`, 'aria-label': `${label}, colour picker` });
     const code = el('input', { type: 'text', class: 'stk-input stk-input-sm stk-mono', id, maxlength: '7', spellcheck: 'false', autocomplete: 'off', 'aria-label': `${label}, hex code` });
@@ -3448,7 +4148,7 @@ export function stylePanelKit(bind) {
     });
     listen(code, 'change', () => { code.classList.remove('is-invalid'); show(); });
     const show = () => {
-      const v = hex6(read(path));
+      const v = hex6(read(path) || (fallback ? fallback() : ''));
       picker.value = v;
       if (document.activeElement !== code) code.value = v;
     };
@@ -3456,11 +4156,14 @@ export function stylePanelKit(bind) {
     return el('div', { class: 'stk-field fp-field', 'data-path': path },
       el('label', { for: id, text: label }), el('div', { class: 'fp-colour' }, picker, code));
   }
-  function range(path, label, { min, max, step, format = (v) => v.toFixed(2), span } = {}) {
+  function range(path, label, { min, max, step, format = (v) => v.toFixed(2), span, scale = 1 } = {}) {
     const input = el('input', { type: 'range', class: 'stk-range', id: idOf(path), min, max, step });
     const out = el('output', { for: input.id, class: 'fp-range-value' });
-    listen(input, 'input', () => { out.textContent = format(Number(input.value)); commit(path, Number(input.value)); });
-    controls.push({ show: () => { const v = Number(read(path)); input.value = Number.isFinite(v) ? v : ''; out.textContent = Number.isFinite(v) ? format(v) : ''; } });
+    // The slider may show the value in another measure (a bar's width as a
+    // share of the spacing of the bars): `scale`, a number or a function.
+    const k = () => (typeof scale === 'function' ? scale() : scale);
+    listen(input, 'input', () => { out.textContent = format(Number(input.value)); commit(path, Number(input.value) / k()); });
+    controls.push({ show: () => { const v = Number(read(path)) * k(); input.value = Number.isFinite(v) ? v : ''; out.textContent = Number.isFinite(v) ? format(v) : ''; } });
     return el('div', { class: `stk-field fp-field${span ? ' fp-span' : ''}`, 'data-path': path },
       el('label', { for: input.id, text: label }), el('div', { class: 'fp-range' }, input, out));
   }
@@ -3579,8 +4282,19 @@ export function stylePanelKit(bind) {
    * ('x', 'y', or a panel's key) and the paths are `${base}Scale`,
    * `${base}Lim` and `${base}Ticks`.
    */
-  function axisFields(k, base, { far = k === 'x' ? 'top' : 'right', categorical = false } = {}) {
+  function axisFields(k, base, { far = k === 'x' ? 'top' : 'right', categorical = false, colourPath = null } = {}) {
     const T = `${base}Ticks`;
+    // A second axis (top or right) has a colour of its own and no marks on a far side.
+    const second = !!colourPath;
+    let colourField = null;
+    if (second) {
+      const reset = el('button', { type: 'button', class: 'fp-link', text: 'Use the text colour' });
+      listen(reset, 'click', () => commit(colourPath, null));
+      controls.push({ show: () => { reset.hidden = !read(colourPath); } });
+      colourField = el('div', { class: 'fp-span' },
+        colour(colourPath, 'Axis colour', { fallback: () => read('foreground') }),
+        el('p', { class: 'stk-hint fp-hint' }, 'The frame line, tick marks and labels of this axis. ', reset));
+    }
     const lists = (which) => {
       const path = `${T}.${which}`;
       const input = el('input', { class: 'stk-input stk-input-sm', type: 'text', id: idOf(path), spellcheck: 'false', autocomplete: 'off',
@@ -3638,7 +4352,8 @@ export function stylePanelKit(bind) {
         categorical ? null : segmented(`${base}Scale`, 'Scale', [['linear', 'Linear'], ['log', 'Logarithmic']]),
         number(`${base}Lim.0`, 'Minimum', { nullable: true, placeholder: 'Auto' }),
         number(`${base}Lim.1`, 'Maximum', { nullable: true, placeholder: 'Auto' }),
-        el('p', { class: 'stk-hint fp-hint fp-span', text: categorical ? 'The groups sit at 0, 1, 2 …; leave empty for matplotlib\'s choice.' : 'Leave empty for matplotlib\'s choice.' })
+        el('p', { class: 'stk-hint fp-hint fp-span', text: categorical ? 'The groups sit at 0, 1, 2 …; leave empty for matplotlib\'s choice.' : 'Leave empty for matplotlib\'s choice.' }),
+        colourField
       ),
       sub('Ticks'),
       grid(
@@ -3654,7 +4369,7 @@ export function stylePanelKit(bind) {
       ),
       checks(
         categorical ? null : check(`${T}.minor`, 'Minor ticks'),
-        check(`${T}.mirror`, `Marks on the ${far} too`)
+        second ? null : check(`${T}.mirror`, `Marks on the ${far} too`)
       )
     );
     const showModes = () => {
@@ -3667,9 +4382,22 @@ export function stylePanelKit(bind) {
     return panel;
   }
 
-  /* Tabs choosing one axis at a time: [{key, label, panel}] */
+  /* Tabs choosing one axis at a time: [{key, label, panel}]. Past five
+     axes (a grid of panels) they are a list to choose from instead. */
   function axisTabs(tabs) {
     let shown = tabs[0].key;
+    if (tabs.length > 5) {
+      const pick = el('select', { class: 'stk-select stk-select-sm', id: `${prefix}-axis-pick` }, tabs.map((t) => el('option', { value: t.key, text: t.label })));
+      tabs.forEach((t) => {
+        t.panel.id = `${prefix}-axis-${t.key}`;
+        t.panel.setAttribute('role', 'group');
+        t.panel.setAttribute('aria-label', t.label);
+      });
+      const show = () => { pick.value = shown; tabs.forEach((t) => { t.panel.hidden = t.key !== shown; }); };
+      listen(pick, 'change', () => { shown = pick.value; show(); });
+      controls.push({ show });
+      return [el('div', { class: 'fp-grid' }, field('axis', 'Axis', pick, { span: true })), ...tabs.map((t) => t.panel)];
+    }
     const list = el('div', { class: 'stk-seg stk-seg-fill fp-axis-switch', role: 'tablist', 'aria-label': 'Axis' },
       tabs.map((t) => el('button', { type: 'button', role: 'tab', id: `${prefix}-tab-${t.key}`, 'data-axis': t.key, 'aria-selected': String(t.key === shown), 'aria-controls': `${prefix}-axis-${t.key}`, text: t.label })));
     tabs.forEach((t) => {
@@ -3829,14 +4557,28 @@ export function stylePanelKit(bind) {
   };
 }
 
-/* The fields of a series, by kind. */
-function seriesFields(kit, q, path) {
+const WHISKER_NAMES = WHISKER_RULES.map((r) => [String(r.value), r.label]);
+const LEVEL_NAMES = [['0.9', '90%'], ['0.95', '95%'], ['0.99', '99%']];
+const INNER_NAMES = [['box', 'Box and median'], ['quartiles', 'Quartile lines'], ['median', 'Median line'], ['none', 'Nothing']];
+const BANDWIDTH_NAMES = [['scott', 'Scott'], ['silverman', 'Silverman']];
+const VIOLIN_SCALE_NAMES = [['width', 'Each the same width'], ['area', 'All the same area']];
+
+/* The fields of a series, by kind. `now()` gives the series as the figure
+   has it at the moment (its data may have changed since the fields were made). */
+function seriesFields(kit, q, path, now = () => q) {
   const { number, text, select, check, colour, range, grid, checks } = kit;
   const p = (k) => `${path}.${k}`;
   const out = [];
   const topChecks = [check(p('show'), 'Show')];
   if (LEGEND_KINDS.has(q.kind)) topChecks.push(check(p('legend'), 'In the legend'));
   out.push(checks(...topChecks));
+  // Which axes it is drawn against: the panel's own, or a second x on top
+  // and a second y on the right, each with a scale of its own.
+  // (Bars lying flat stay on the panel's own axes.)
+  if (SECONDARY_KINDS.includes(q.kind) && !(q.kind === 'bar' && q.orientation === 'h')) {
+    out.push(grid(kit.segmented(p('xAxis'), 'X axis', [['bottom', 'Bottom'], ['top', 'Top']]),
+      kit.segmented(p('yAxis'), 'Y axis', [['left', 'Left'], ['right', 'Right']])));
+  }
   const f = [];
   if (LEGEND_KINDS.has(q.kind)) f.push(text(p('label'), 'Legend label', { placeholder: 'None: not in the legend' }));
   switch (q.kind) {
@@ -3864,8 +4606,13 @@ function seriesFields(kit, q, path) {
       break;
     case 'bar':
       f.push(colour(p('color'), 'Fill'), colour(p('edgeColor'), 'Edge'), number(p('edgeWidth'), 'Edge width', { min: 0, max: 10, step: 0.1, unit: 'pt' }),
-        range(p('alpha'), 'Opacity', { min: 0, max: 1, step: 0.05 }), range(p('width'), 'Bar width', { min: 0.1, max: 1, step: 0.05 }),
+        // The width as a share of the gap between neighbouring bars (the width itself where they are 1 apart).
+        range(p('alpha'), 'Opacity', { min: 0, max: 1, step: 0.05 }), range(p('width'), 'Bar width', { min: 0.1, max: 1, step: 0.05, scale: () => 1 / (now().spacing || 1) }),
         number(p('capSize'), 'Cap size', { min: 0, max: 20, step: 0.5, unit: 'pt' }));
+      if (q.replicates) {
+        f.push(number(p('pointSize'), 'Point size', { min: 0, max: 30, step: 0.5, unit: 'pt' }));
+        out.push(checks(check(p('points'), 'Each value as a point')));
+      }
       break;
     case 'histogram':
       f.push(select(p('histtype'), 'Drawn as', HISTTYPE_NAMES), colour(p('color'), 'Fill'), colour(p('edgeColor'), 'Edge'),
@@ -3874,8 +4621,21 @@ function seriesFields(kit, q, path) {
     case 'box':
       f.push(colour(p('color'), 'Colour'), colour(p('medianColor'), 'Median'), range(p('faceAlpha'), 'Fill opacity', { min: 0, max: 1, step: 0.05 }),
         number(p('lineWidth'), 'Line width', { min: 0, max: 10, step: 0.1, unit: 'pt' }), range(p('width'), 'Box width', { min: 0.1, max: 1, step: 0.05 }),
+        number(p('pointSize'), 'Point size', { min: 0, max: 30, step: 0.5, unit: 'pt' }),
+        select(p('whis'), 'Whiskers reach', WHISKER_NAMES, { hint: 'The last value within 1.5 × IQR of the box, or within the percentiles named; values beyond are outliers.' }),
+        select(p('level'), 'Interval of the mean', LEVEL_NAMES));
+      out.push(checks(check(p('points'), 'Points'), check(p('mean'), 'Mean and interval'), check(p('fliers'), 'Outliers'),
+        check(p('notch'), 'Notch at the median')));
+      break;
+    case 'violin':
+      f.push(colour(p('color'), 'Fill'), colour(p('edgeColor'), 'Edge'), colour(p('medianColor'), 'Marks inside'),
+        range(p('faceAlpha'), 'Fill opacity', { min: 0, max: 1, step: 0.05 }),
+        number(p('lineWidth'), 'Line width', { min: 0, max: 10, step: 0.1, unit: 'pt' }), range(p('width'), 'Violin width', { min: 0.1, max: 1, step: 0.05 }),
+        select(p('inner'), 'Inside', INNER_NAMES), select(p('scale'), 'Widths', VIOLIN_SCALE_NAMES),
+        select(p('bandwidth'), 'Smoothing rule', BANDWIDTH_NAMES),
+        number(p('cut'), 'Extend past the data', { min: 0, max: 10, step: 0.5, unit: 'kernel widths', hint: '0 ends each violin at its smallest and largest value.' }),
         number(p('pointSize'), 'Point size', { min: 0, max: 30, step: 0.5, unit: 'pt' }));
-      out.push(checks(check(p('points'), 'Points'), check(p('mean'), 'Mean and interval'), check(p('fliers'), 'Outliers')));
+      out.push(checks(check(p('points'), 'Points')));
       break;
     case 'heatmap': case 'contour':
       f.push(select(p('colormap'), 'Colour map', COLORMAPS.map((c) => [c, c])));
@@ -3902,6 +4662,7 @@ function seriesFields(kit, q, path) {
 function lookOfFigure(f, keyOf = (id) => id) {
   const look = {};
   for (const k of LOOK_KEYS.figure) look[k] = clone(f[k]);
+  look.layout = { widthRatios: f.layout.widthRatios.slice(), heightRatios: f.layout.heightRatios.slice() };
   look.panels = f.panels.map((p) => {
     const o = {};
     for (const k of LOOK_KEYS.panel) o[k] = clone(p[k]);
@@ -3972,11 +4733,12 @@ export function createFigureStylePanel(host, figure, style, onChange, options = 
   // Series are addressed in the panel's paths by a key of their own (s0, s1 …):
   // a page's id may hold dots or spaces, which a dotted path cannot.
   let keys = new Map(); let ids = new Map();
+  let current = new Map();   // each series as the figure has it now
   const keyOf = (id) => keys.get(id);
   const resolve = () => {
     const f = normaliseFigure(applyStyle(lookOnly(desc), overrides));
-    keys = new Map(); ids = new Map();
-    f.panels.flatMap((p) => p.series).forEach((q, i) => { keys.set(q.id, `s${i}`); ids.set(`s${i}`, q.id); });
+    keys = new Map(); ids = new Map(); current = new Map();
+    f.panels.flatMap((p) => p.series).forEach((q, i) => { keys.set(q.id, `s${i}`); ids.set(`s${i}`, q.id); current.set(q.id, q); });
     look = lookOfFigure(f, keyOf);
     return f;
   };
@@ -3988,7 +4750,10 @@ export function createFigureStylePanel(host, figure, style, onChange, options = 
       const o = seriesOpt(q);
       return o === false ? false : o ? { fields: o.fields, key: o.key } : null;
     });
-    return JSON.stringify([lookShape(desc), opts]);
+    // The second axes the person's style puts series on have fields of their own.
+    const styled = normaliseFigure(applyStyle(lookOnly(desc), overrides));
+    const second = styled.panels.map((p) => [onSecond(p, 'xAxis', 'top'), onSecond(p, 'yAxis', 'right')]);
+    return JSON.stringify(second.some((a) => a[0] || a[1]) ? [lookShape(desc), opts, second] : [lookShape(desc), opts]);
   };
   let builtShape = '';
   let batching = false;
@@ -4031,6 +4796,7 @@ export function createFigureStylePanel(host, figure, style, onChange, options = 
   kit.setRoot(root);
 
   let seriesShown = null;
+  let labelsShown = null;   // the panel whose labels are shown, when they are chosen from a list
   let pickSeries = () => false;
   let seriesNames = () => {};
   function build() {
@@ -4047,20 +4813,77 @@ export function createFigureStylePanel(host, figure, style, onChange, options = 
     const all = f.panels.flatMap((p) => p.series.map((q) => ({ q, p, o: seriesOpt(q) }))).filter((a) => a.o !== false);
     const offered = new Set(all.map((a) => a.q.id));
     // Title and labels: the figure's, each panel's y label, each colour bar's.
-    const labelFields = [text('title', 'Title', { placeholder: 'None' }), text('xLabel', 'x-axis label')];
-    f.panels.forEach((p) => {
-      const i = f.panels.indexOf(p);
-      if (!fixed.has(p.id)) labelFields.push(text(`panels.${i}.yLabel`, free.length > 1 ? `y-axis label, ${panelName(p)}` : 'y-axis label'));
-      p.series.filter((q) => offered.has(q.id) && q.colorbar && q.colorbar.show !== undefined && (q.kind === 'heatmap' || q.filled)).forEach((q) => {
-        labelFields.push(text(`series.${keyOf(q.id)}.colorbar.label`, f.panels.length > 1 ? `Colour bar label, ${panelName(p)}` : 'Colour bar label'));
+    // A plain stack has one x axis, the figure's; on a grid, and for an
+    // inset, each panel that labels its x axis has a label of its own.
+    const stack = isStack(f);
+    const labelFields = [text('title', 'Title', { placeholder: 'None' })];
+    if (stack) labelFields.push(text('xLabel', 'x-axis label'));
+    // A panel's own letter, in place of the one it takes in turn; left empty, it takes that one.
+    const auto = panelLetters({ ...f, panelLabels: { ...f.panelLabels, show: true }, panels: f.panels.map((p) => ({ ...p, letter: null })) });
+    const ownLetter = (i) => {
+      const path = `panels.${i}.letter`;
+      const input = h('input', { class: 'stk-input stk-input-sm', type: 'text', id: kit.idOf(path), placeholder: auto[i] || 'None', spellcheck: 'false', autocomplete: 'off' });
+      const put = () => bind.commit(path, input.value.trim() === '' ? null : input.value);
+      kit.listen(input, 'input', () => kit.later(path, put));
+      kit.listen(input, 'change', () => { clearTimeout(kit.timers.get(path)); kit.timers.delete(path); put(); });
+      const node = kit.field(path, f.panels.length > 1 ? `Letter, ${panelName(f.panels[i])}` : 'Letter', input, { span: true });
+      kit.controls.push({ show: () => {
+        node.hidden = !bind.read('panelLabels.show');
+        if (!(document.activeElement === input && kit.timers.has(path))) input.value = bind.read(path) ?? '';
+      } });
+      return node;
+    };
+    const perPanel = f.panels.map((p, i) => {
+      const own = [];
+      if (fixed.has(p.id)) return own;
+      if (!stack && p.xOuter) own.push(text(`panels.${i}.xLabel`, f.panels.length > 1 ? `x-axis label, ${panelName(p)}` : 'x-axis label'));
+      if (p.yOuter) own.push(text(`panels.${i}.yLabel`, free.length > 1 ? `y-axis label, ${panelName(p)}` : 'y-axis label'));
+      if (onSecond(p, 'yAxis', 'right')) own.push(text(`panels.${i}.y2Label`, free.length > 1 ? `Right y-axis label, ${panelName(p)}` : 'Right y-axis label'));
+      if (onSecond(p, 'xAxis', 'top')) own.push(text(`panels.${i}.x2Label`, free.length > 1 ? `Top x-axis label, ${panelName(p)}` : 'Top x-axis label'));
+      p.series.filter((q) => offered.has(q.id) && q.colorbar && q.colorbar.show !== undefined && (q.kind === 'heatmap' || q.filled) && !p.inset).forEach((q) => {
+        own.push(text(`series.${keyOf(q.id)}.colorbar.label`, f.panels.length > 1 ? `Colour bar label, ${panelName(p)}` : 'Colour bar label'));
       });
+      if (f.panels.length > 1) own.push(ownLetter(i));
+      return own;
     });
-    labelFields.push(h('p', { class: 'stk-hint fp-hint fp-span', text: 'Put maths between $ signs, as matplotlib does: $\\tau$ / ms, $x^2$, $E_a$.' }));
+    const mathsHint = h('p', { class: 'stk-hint fp-hint fp-span', text: 'Put maths between $ signs, as matplotlib does: $\\tau$ / ms, $x^2$, $E_a$.' });
+    // Up to four panels show their labels one after another; more, one panel at a time.
+    let labelBody;
+    if (f.panels.length <= 4) labelBody = [grid(...labelFields, ...perPanel.flat(), mathsHint)];
+    else {
+      const withFields = f.panels.map((p, i) => i).filter((i) => perPanel[i].length);
+      if (!withFields.includes(labelsShown)) labelsShown = withFields.length ? withFields[0] : null;
+      const choose = h('select', { class: 'stk-select stk-select-sm', id: `${kit.prefix}-label-panel` }, withFields.map((i) => h('option', { value: String(i), text: panelName(f.panels[i]) })));
+      const blocks = withFields.map((i) => { const node = grid(...perPanel[i]); node.dataset.panel = String(i); return node; });
+      const showLabels = () => { choose.value = String(labelsShown); blocks.forEach((n) => { n.hidden = n.dataset.panel !== String(labelsShown); }); };
+      kit.listen(choose, 'change', () => { labelsShown = Number(choose.value); showLabels(); });
+      kit.controls.push({ show: showLabels });
+      labelBody = [grid(...labelFields, withFields.length ? kit.field('label-panel', 'Labels of', choose, { span: true }) : null), ...blocks, grid(mathsHint)];
+    }
     // Axes: x, then a y for each panel the person sets.
-    const tabs = [{ key: 'x', label: 'x axis', panel: kit.axisFields('x', 'x', { categorical: !!f.xCategories }) }];
+    // Shared axes are set once, on the first panel of those that share them.
+    const tabs = [];
+    const axisName = (k, p, i) => {
+      const mode = k === 'x' ? f.sharex : f.sharey;
+      if (p.inset || mode === 'none') return `${k}, ${p.name || i + 1}`;
+      if (mode === 'all') return `${k} axis`;
+      return k === 'x' ? `x, column ${p.col + 1}` : `y, row ${p.row + 1}`;
+    };
+    if (stack) tabs.push({ key: 'x', label: 'x axis', panel: kit.axisFields('x', 'x', { categorical: !!f.xCategories }) });
+    else {
+      f.panels.forEach((p, i) => {
+        if (p.shareX === i && !fixed.has(p.id)) tabs.push({ key: `x${i}`, label: f.panels.length > 1 ? axisName('x', p, i) : 'x axis', panel: kit.axisFields(`x${i}`, `panels.${i}.x`, { far: 'top', categorical: !!p.xCategories }) });
+      });
+    }
     free.forEach((p) => {
       const i = f.panels.indexOf(p);
-      tabs.push({ key: `y${i}`, label: free.length > 1 ? `y, ${p.name || i + 1}` : 'y axis', panel: kit.axisFields(`y${i}`, `panels.${i}.y`, { far: 'right' }) });
+      if (p.shareY === i) tabs.push({ key: `y${i}`, label: free.length > 1 ? (stack ? `y, ${p.name || i + 1}` : axisName('y', p, i)) : 'y axis', panel: kit.axisFields(`y${i}`, `panels.${i}.y`, { far: 'right', categorical: !!p.yCategories }) });
+      if (onSecond(p, 'yAxis', 'right')) {
+        tabs.push({ key: `y2${i}`, label: free.length > 1 ? `Right y, ${p.name || i + 1}` : 'Right y', panel: kit.axisFields(`y2${i}`, `panels.${i}.y2`, { colourPath: `panels.${i}.y2Color` }) });
+      }
+      if (onSecond(p, 'xAxis', 'top')) {
+        tabs.push({ key: `x2${i}`, label: free.length > 1 ? `Top x, ${p.name || i + 1}` : 'Top x', panel: kit.axisFields(`x2${i}`, `panels.${i}.x2`, { colourPath: `panels.${i}.x2Color` }) });
+      }
     });
     const named = (q, o) => (o && o.name) || q.label || (q.kind === 'text' || q.kind === 'bracket' ? `${KIND_NAMES[q.kind]}: ${q.text}` : KIND_NAMES[q.kind]);
     const listName = (q, o, p) => (f.panels.length > 1 && !(o && o.name) ? `${named(q, o)} (${panelName(p)})` : named(q, o));
@@ -4076,7 +4899,7 @@ export function createFigureStylePanel(host, figure, style, onChange, options = 
     }
     const sections = all.map(({ q, o }) => {
       const path = `series.${keyOf(q.id)}`;
-      const node = h('div', { class: 'fp-series', 'data-series': q.id }, seriesFields(kit, q, path));
+      const node = h('div', { class: 'fp-series', 'data-series': q.id }, seriesFields(kit, q, path, () => current.get(q.id) || q));
       if (o && Array.isArray(o.fields)) {
         const keep = new Set(o.fields);
         node.querySelectorAll('[data-path]').forEach((n) => { if (!keep.has(n.dataset.path.slice(path.length + 1))) n.remove(); });
@@ -4117,17 +4940,47 @@ export function createFigureStylePanel(host, figure, style, onChange, options = 
     };
     seriesBody.push(...sections);
     const legendExtra = [text('legend.title', 'Title', { placeholder: 'None' }), number('legend.columns', 'Columns', { min: 1, max: 10, step: 1 })];
+    // The panels' sizes: each one's height in a column; on a grid the
+    // heights of the rows and the widths of the columns.
+    const percent = { min: 0.2, max: 3, step: 0.05, format: (v) => `${Math.round(v * 100)}%` };
+    const sizes = [];
+    if (f.layout.cols > 1) {
+      if (f.layout.rows > 1) for (let r = 0; r < f.layout.rows; r++) sizes.push(kit.range(`layout.heightRatios.${r}`, `Height, row ${r + 1}`, percent));
+      for (let c = 0; c < f.layout.cols; c++) sizes.push(kit.range(`layout.widthRatios.${c}`, `Width, column ${c + 1}`, percent));
+    } else if (free.filter((p) => !p.inset).length > 1) {
+      free.filter((p) => !p.inset).forEach((p) => sizes.push(kit.range(`panels.${f.panels.indexOf(p)}.ratio`, `Height, ${panelName(p)}`, percent)));
+    }
+    // Letters: how they read and where they stand (a panel's own text is with its labels).
+    const letterFields = grid(
+      select('panelLabels.style', 'Letters', PANEL_LABEL_STYLES.map((v) => [v, v])),
+      select('panelLabels.position', 'Place', [['inside', 'Inside, top left'], ['outside', 'Outside, top left']]),
+      number('panelLabels.start', 'Start at', { min: 1, max: 26, step: 1, hint: '1 for a, 2 for b …' }),
+      number('panelLabels.fontSize', 'Size', { min: 4, max: 60, step: 0.5, unit: 'pt', nullable: true, placeholder: 'As the labels' }),
+      h('p', { class: 'stk-hint fp-hint fp-span', text: 'A panel may have a text of its own in place of its letter: under Title and labels.' })
+    );
+    const letterChecks = checks(check('panelLabels.bold', 'Bold letters'));
+    letterFields.append(letterChecks);
+    kit.controls.push({ show: () => { letterFields.hidden = !bind.read('panelLabels.show'); } });
     const own = typeof options.groups === 'function' ? (options.groups(kit) || []) : [];
     const seriesTitle = options.seriesTitle || (all.length > 1 ? 'Series' : all.length ? named(all[0].q, all[0].o) : '');
     root.append(...[
       kit.background(),
       top.node,
       common.figure({ units: true, textSizes: true, sizes: FIGURE_SIZE_PRESETS }),
-      group('text', 'Title and labels', grid(...labelFields)),
+      group('text', 'Title and labels', ...labelBody),
       group('axes', 'Axes and ticks', ...kit.axisTabs(tabs)),
       all.length ? group('series', seriesTitle, ...seriesBody) : null,
       ...own,
-      free.length > 1 ? group('panels', 'Panels', grid(...free.map((p) => kit.range(`panels.${f.panels.indexOf(p)}.ratio`, `Height, ${panelName(p)}`, { min: 0.2, max: 3, step: 0.05, format: (v) => `${Math.round(v * 100)}%` })))) : null,
+      sizes.length ? group('panels', 'Panels', grid(...sizes)) : null,
+      f.panels.length > 1 ? group('layout', 'Gaps and letters',
+        grid(
+          number('panelGap.h', 'Gap between rows', { min: 0, max: 144, step: 1, unit: 'pt', nullable: true, placeholder: 'Auto' }),
+          f.layout.cols > 1 ? number('panelGap.w', 'Gap between columns', { min: 0, max: 144, step: 1, unit: 'pt', nullable: true, placeholder: 'Auto' }) : null,
+          h('p', { class: 'stk-hint fp-hint fp-span', text: 'The space between the panels, besides what their tick labels need; empty for matplotlib\'s own (6 pt). At 0, panels that share an axis share an edge.' })
+        ),
+        checks(check('panelLabels.show', 'Letter the panels')),
+        letterFields
+      ) : null,
       common.legend(legendExtra),
       common.grid({ axis: true }),
       common.frame(),
@@ -4186,6 +5039,8 @@ export function createFigureStylePanel(host, figure, style, onChange, options = 
     const n = Object.keys(look.series).length;
     sums.series = n > 1 ? `${n} series` : '';
     sums.panels = `${look.panels.length} panels`;
+    const gaps = [look.panelGap.h, look.panelGap.w].filter((v) => v !== null && v !== undefined);
+    sums.layout = [gaps.length ? `gap ${gaps.map(fmtNum).join(' × ')} pt` : '', look.panelLabels.show ? 'lettered' : ''].filter(Boolean).join(', ');
     if (typeof options.summaries === 'function') options.summaries(sums);
     for (const [k, node] of Object.entries(kit.summaries)) node.textContent = sums[k] || '';
   });
@@ -4238,11 +5093,17 @@ export function createFigureStylePanel(host, figure, style, onChange, options = 
   };
 }
 
+/* Whether some series of a panel, shown or not, stands on a second axis. */
+const onSecond = (p, key, side) => p.series.some((q) => q[key] === side);
+
 /* What the panel's fields depend on: the panels, and each series' id and kind
    (a label, which the person may be typing, only renames it in the list). */
 function lookShape(desc) {
   const f = normaliseFigure(lookOnly(desc));
-  return { cat: !!f.xCategories, panels: f.panels.map((p) => ({ id: p.id, name: p.name, series: p.series.map((q) => [q.id, q.kind, q.filled, q.text, !!(q.colorbar && q.colorbar.show !== undefined)]) })) };
+  return { cat: !!f.xCategories, grid: [f.layout.rows, f.layout.cols, f.sharex, f.sharey],
+    panels: f.panels.map((p) => ({ id: p.id, name: p.name, cat: !!p.yCategories, xcat: !!p.xCategories,
+    at: p.inset ? ['inset', p.inset.parentIndex] : [p.row, p.col, p.rowSpan, p.colSpan],
+    series: p.series.map((q) => [q.id, q.kind, q.filled, q.text, !!(q.colorbar && q.colorbar.show !== undefined), !!q.replicates, q.orientation]) })) };
 }
 
 /* ------------------------------------------------------------------ *
