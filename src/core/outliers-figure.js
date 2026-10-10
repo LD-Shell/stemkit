@@ -46,7 +46,8 @@ export function outlierLines(values, method, threshold) {
     const mean = x.reduce((s, v) => s + v, 0) / n;
     let ss = 0;
     for (const v of x) ss += (v - mean) * (v - mean);
-    const sd = n > 1 ? Math.sqrt(ss / (n - 1)) : 0;
+    // Equal values have no spread, whatever rounding leaves in the sum of squares.
+    const sd = n > 1 && x.some((v) => v !== x[0]) ? Math.sqrt(ss / (n - 1)) : 0;
     return { lower: mean - k * sd, upper: mean + k * sd, centre: mean, centreName: 'Mean', ruleName: `Mean ± ${short(k)} SD` };
   }
   if (method === 'modzscore') {
@@ -186,9 +187,10 @@ export function outlierScript(figure, spec = {}) {
   P.push('');
   if (method === 'zscore') {
     P.push('# Z-scores against the mean and the sample SD (n - 1); a value is flagged when');
-    P.push('# |z| is above the threshold. No spread, no outliers.');
+    P.push('# |z| is above the threshold. No spread, no outliers: equal values are told by');
+    P.push('# their range, since their computed SD can be rounding noise instead of 0.');
     P.push('centre = value.mean()');
-    P.push('sd = value.std(ddof=1) if len(value) > 1 else 0.0');
+    P.push('sd = value.std(ddof=1) if np.ptp(value) > 0 else 0.0');
     P.push('scores = (value - centre) / sd if sd > 0 else np.zeros(len(value))');
     P.push('lower, upper = centre - THRESHOLD * sd, centre + THRESHOLD * sd');
   } else if (method === 'modzscore') {
@@ -217,10 +219,22 @@ export function outlierScript(figure, spec = {}) {
   P.push("print(f'{flagged.sum()} of {len(value)} values flagged:')");
   P.push('for r, v in zip(row[flagged], value[flagged]):');
   P.push("    print(f'  row {r}: {v:g}')");
+  if (method === 'zscore') {
+    P.push('if sd == 0:');
+    P.push("    print('Every value is the same, so the SD is 0 and no value can be flagged.')");
+  } else if (method === 'modzscore') {
+    P.push('if mad == 0:');
+    P.push("    print('More than half the values are equal, so the MAD is 0: the mean absolute deviation',");
+    P.push("          'stands in, and a value can be flagged however little it differs from the rest.')");
+  } else {
+    P.push('if iqr == 0:');
+    P.push("    print('The middle half of the values are equal, so the IQR is 0 and both fences sit on',");
+    P.push("          'that value: every value that differs from it is flagged.')");
+  }
   P.push('');
   P.push("# Grubbs' test of the most extreme value (normal data, alpha = 0.05).");
   P.push('n = len(value)');
-  P.push('if n >= 3 and value.std(ddof=1) > 0:');
+  P.push('if n >= 3 and np.ptp(value) > 0:');
   P.push('    deviations = np.abs(value - value.mean())');
   P.push('    G = deviations.max() / value.std(ddof=1)');
   P.push('    t_crit = stats.t.ppf(0.05 / (2 * n), n - 2)');

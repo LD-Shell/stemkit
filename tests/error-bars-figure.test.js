@@ -14,7 +14,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { computeGroups, pairwiseComparisons } from '../src/core/error-bars.js';
 import {
-  errorBarFigure, errorBarScript, errorBarBrackets, significanceLabel, ERROR_BAR_BRACKET_SPACING
+  errorBarFigure, errorBarScript, errorBarBrackets, significanceLabel, significanceLevel, pValueText,
+  ERROR_BAR_BRACKET_SPACING
 } from '../src/core/error-bars-figure.js';
 import { normaliseFigure, applyStyle } from '../src/core/figure.js';
 import { buildFigure } from '../js/figure-plot.js';
@@ -32,14 +33,22 @@ const INSPECT = String.raw`
 
 # --- test only: report what was computed and drawn ---
 import json as _json
+import warnings as _warnings
 fig.canvas.draw()
 _b = globals().get('brackets', [])
+# SciPy's own Welch test of each pair, to hold the script's t and p against (it warns of
+# lost precision when a group's values are all equal).
+with _warnings.catch_warnings():
+    _warnings.simplefilter('ignore')
+    _scipy = [stats.ttest_ind(samples[q['i']], samples[q['j']], equal_var=False) for q in pairs]
 print('@@OUT@@' + _json.dumps({
     'xlim': [float(v) for v in ax.get_xlim()], 'ylim': [float(v) for v in ax.get_ylim()],
     'n': [int(v) for v in n], 'means': means.tolist(), 'sds': sds.tolist(), 'sems': sems.tolist(),
     't': t_crit.tolist(), 'ci': ci_half.tolist(),
     'pairs': [{'i': int(q['i']), 'j': int(q['j']), 't': float(q['t']), 'df': float(q['df']),
                'p': float(q['p']), 'p_holm': float(q['p_holm'])} for q in pairs],
+    'scipy': [[float(r.statistic), float(r.pvalue)] for r in _scipy],
+    'alpha': globals().get('ALPHA'),
     'brackets': [[int(a), int(b), float(y), t] for a, b, y, t in _b],
     'texts': [t.get_text() for t in ax.texts],
     'xticklabels': [t.get_text() for t in ax.get_xticklabels()],
@@ -74,7 +83,15 @@ const DATA = {
   overlap: table('Group,M1,M2,M3,M4\nAlpha,10.2,9.1,11.5,8.8\nBeta,10.8,9.6,12.1,9.4\nGamma,11.1,10.2,12.4,9.9'),
   many: table('Sample,Trial1,Trial2,Trial3\npH 4,2.1,2.3,2.0\npH 5,3.4,3.6,3.5\npH 6,5.8,6.0,5.9\npH 7,8.2,8.5,8.1\npH 8,6.1,5.9,6.3\npH 9,3.2,3.0,3.4'),
   negative: table('Region,Q1,Q2,Q3,Q4\nNorth,-2.5,-1.8,-3.1,-2.2\nEquator,0.5,-0.3,1.1,-0.8\nSouth,3.2,2.8,3.6,3.0'),
-  ragged: table('Condition,V1,V2,V3,V4,V5\nBaseline,12.1,12.4,11.9\nStress,18.2,17.9,18.5,18.1,18.3\nRecovery,14.0,14.3')
+  ragged: table('Condition,V1,V2,V3,V4,V5\nBaseline,12.1,12.4,11.9\nStress,18.2,17.9,18.5,18.1,18.3\nRecovery,14.0,14.3'),
+  // Pairs whose p falls where the level matters. Against A, Welch's p is 0.0131 for B,
+  // 0.0942 for C, 0.009997 for D (0.010 to three decimals) and 0.0498 for E (0.050).
+  star: table('Group,R1,R2,R3,R4\nA,4.5,4.2,4.8,4.6\nB,5.3,4.9,5.5,5.0'),
+  between: table('Group,R1,R2,R3,R4\nA,4.5,4.2,4.8,4.6\nC,5.02,4.62,5.22,4.72'),
+  under01: table('Group,R1,R2,R3,R4\nA,4.5,4.2,4.8,4.6\nD,5.3,4.9,5.5,5.081'),
+  under05: table('Group,R1,R2,R3,R4\nA,4.5,4.2,4.8,4.6\nE,5.3,4.9,5.5,4.679'),
+  // Two groups of equal values, whose computed SDs are rounding noise, and one with spread.
+  constant: table('Group,R1,R2,R3,R4,R5,R6\nLow,0.1,0.1,0.1,0.1,0.1,0.1\nHigh,0.7,0.7,0.7,0.7,0.7,0.7\nMixed,0.5,0.6,0.7,0.65,0.55')
 };
 
 const CASES = {
@@ -82,7 +99,15 @@ const CASES = {
   overlapAll: { data: 'overlap', mode: 'sd', display: 'means', points: true, compare: 'all', labels: 'p', level: 0.99 },
   many: { data: 'many', mode: 'sem', display: 'bars', points: false, compare: 'all', labels: 'stars' },
   negative: { data: 'negative', mode: 'ci', display: 'bars', points: true, compare: 'significant', labels: 'stars', level: 0.9 },
-  ragged: { data: 'ragged', mode: 'sd', display: 'means', points: false, compare: 'none', labels: 'stars' }
+  ragged: { data: 'ragged', mode: 'sd', display: 'means', points: false, compare: 'none', labels: 'stars' },
+  // The level sets which pairs get a bracket; the stars do not move with it.
+  star99: { data: 'star', mode: 'ci', display: 'bars', points: true, compare: 'significant', labels: 'stars', level: 0.99 },
+  star99All: { data: 'star', mode: 'ci', display: 'bars', points: true, compare: 'all', labels: 'stars', level: 0.99 },
+  between90: { data: 'between', mode: 'ci', display: 'bars', points: true, compare: 'significant', labels: 'stars', level: 0.9 },
+  between95: { data: 'between', mode: 'ci', display: 'bars', points: true, compare: 'all', labels: 'stars' },
+  under01: { data: 'under01', mode: 'ci', display: 'means', points: true, compare: 'significant', labels: 'p', level: 0.99 },
+  under05: { data: 'under05', mode: 'sem', display: 'bars', points: false, compare: 'significant', labels: 'p' },
+  constant: { data: 'constant', mode: 'sd', display: 'bars', points: true, compare: 'all', labels: 'p' }
 };
 
 function make(c, style = {}) {
@@ -101,11 +126,68 @@ function previewRanges(drawn) {
   return [layout.xaxis.range, layout.yaxis.range];
 }
 
+describe('significanceLevel', () => {
+  test('is 1 - the confidence level, as the decimal it is', () => {
+    // 1 - 0.95 is 0.050000000000000044 in floating point, which lets p = 0.05 through.
+    expect([0.9, 0.95, 0.99].map(significanceLevel)).toEqual([0.1, 0.05, 0.01]);
+    expect(1 - 0.95).not.toBe(0.05);
+  });
+
+  test('is 0.05 for anything that is not a level', () => {
+    expect([undefined, NaN, 0, 1, 95].map((l) => significanceLevel(l))).toEqual([0.05, 0.05, 0.05, 0.05, 0.05]);
+  });
+});
+
+describe('pValueText', () => {
+  test('three decimals, and < 0.001 below that', () => {
+    expect([0.0421, 0.5, 1, 0.001, 0.00099, 0].map((p) => pValueText(p))).toEqual(['0.042', '0.500', '1.000', '0.001', '< 0.001', '< 0.001']);
+  });
+
+  test('a p under a level is never rounded up onto it', () => {
+    expect(pValueText(0.0099)).toBe('0.0099');
+    expect(pValueText(0.04996)).toBe('0.04996');
+    expect(pValueText(0.09996)).toBe('0.09996');
+    expect(pValueText(0.009996957137948953)).toBe('0.009997');
+    // Closer to the level than six decimals can show.
+    expect(pValueText(0.0499999999)).toBe('< 0.05');
+    expect(pValueText(0.00999999999)).toBe('< 0.01');
+  });
+
+  test('a p at or over a level keeps three decimals', () => {
+    expect([0.05, 0.0501, 0.01, 0.0104, 0.1].map((p) => pValueText(p))).toEqual(['0.050', '0.050', '0.010', '0.010', '0.100']);
+  });
+
+  test('respects another level when given one', () => {
+    expect(pValueText(0.19996)).toBe('0.200');
+    expect(pValueText(0.19996, 0.2)).toBe('0.19996');
+  });
+});
+
 describe('significanceLabel', () => {
   test('stars at 0.05, 0.01 and 0.001, or the p-value', () => {
     expect([0.2, 0.05, 0.049, 0.0099, 0.00099].map((p) => significanceLabel(p))).toEqual(['n.s.', 'n.s.', '*', '**', '***']);
     expect(significanceLabel(0.0421, 'p')).toBe('p = 0.042');
     expect(significanceLabel(0.0004, 'p')).toBe('p < 0.001');
+  });
+
+  test('the printed p never contradicts the stars beside it', () => {
+    // p = 0.0099 printed as 0.010 beside the two stars of p < 0.01.
+    expect([significanceLabel(0.0099), significanceLabel(0.0099, 'p')]).toEqual(['**', 'p = 0.0099']);
+    expect([significanceLabel(0.04996), significanceLabel(0.04996, 'p')]).toEqual(['*', 'p = 0.04996']);
+    expect(significanceLabel(0.0499999999, 'p')).toBe('p < 0.05');
+    for (const p of [0.0009, 0.00096, 0.0099, 0.00996, 0.0499, 0.04996, 0.0996, 0.09996]) {
+      const shown = Number(significanceLabel(p, 'p').replace(/^p [=<] /, ''));
+      for (const level of [0.001, 0.01, 0.05, 0.1]) if (p < level) expect([p, level, shown <= level]).toEqual([p, level, true]);
+      if (!significanceLabel(p, 'p').includes('<')) for (const level of [0.01, 0.05, 0.1]) expect(shown < level).toBe(p < level);
+    }
+  });
+
+  test('the stars keep their thresholds whatever the level; n.s. follows the level', () => {
+    // At the 99% level a pair can carry a star without being significant.
+    expect([0.2, 0.03, 0.0099, 0.0004].map((p) => significanceLabel(p, 'stars', 0.01))).toEqual(['n.s.', '*', '**', '***']);
+    // At the 90% level a pair under 0.1 is significant with no star to show it: its p-value says so.
+    expect([0.2, 0.1, 0.07, 0.03].map((p) => significanceLabel(p, 'stars', 0.1))).toEqual(['n.s.', 'n.s.', 'p = 0.070', '*']);
+    expect(significanceLabel(0.09996, 'stars', 0.1)).toBe('p = 0.09996');
   });
 });
 
@@ -125,6 +207,29 @@ describe('errorBarFigure', () => {
     expect(pts.y.values).toEqual(results.flatMap((r) => r.values));
     const brackets = panel.series.filter((s) => s.kind === 'bracket');
     expect(brackets.map((b) => [b.x1, b.x2, b.text])).toEqual([[0, 1, '***'], [1, 2, '***'], [0, 2, '***']]);
+  });
+
+  test('a pair gets a bracket when its adjusted p is below 1 - the level', () => {
+    const texts = (c) => make(c).desc.panels[0].series.filter((s) => s.kind === 'bracket').map((b) => b.text);
+    // p = 0.0131: significant at 90% and 95%, not at 99%, and one star throughout.
+    expect(texts({ ...CASES.star99, level: 0.9 })).toEqual(['*']);
+    expect(texts({ ...CASES.star99, level: 0.95 })).toEqual(['*']);
+    expect(texts(CASES.star99)).toEqual([]);
+    expect(texts(CASES.star99All)).toEqual(['*']);
+    // p = 0.0942: significant at 90% only, where no star stands for it.
+    expect(texts(CASES.between90)).toEqual(['p = 0.094']);
+    expect(texts({ ...CASES.between90, level: 0.95 })).toEqual([]);
+    expect(texts(CASES.between95)).toEqual(['n.s.']);
+    // p = 0.009997 and 0.0498, which three decimals would print as 0.010 and 0.050.
+    expect(texts(CASES.under01)).toEqual(['p = 0.009997']);
+    expect(texts(CASES.under05)).toEqual(['p = 0.0498']);
+  });
+
+  test('the comparisons it makes for itself use the same level', () => {
+    const { results } = computeGroups(DATA.star, { level: 0.99 });
+    const own = errorBarFigure(results, { level: 0.99 });
+    const given = errorBarFigure(results, { level: 0.99, comparisons: pairwiseComparisons(results) });
+    expect(own).toEqual(given);
   });
 
   test('means as points, drawn over the replicates', () => {
@@ -169,13 +274,25 @@ describe('errorBarBrackets', () => {
     expect(errorBarBrackets(groups, cmp, { compare: 'all' }).brackets.map((b) => b.text)).toEqual(['n.s.', 'n.s.', 'n.s.']);
     expect(errorBarBrackets(groups, cmp, { compare: 'none' }).brackets).toEqual([]);
   });
+
+  test('alpha decides which pairs are separated', () => {
+    const { results } = computeGroups(DATA.star);
+    const groups = results.map((r) => ({ key: r.key, n: r.n, mean: r.mean, error: r.ci, values: r.values }));
+    const cmp = pairwiseComparisons(results);
+    expect(errorBarBrackets(groups, cmp).brackets.map((b) => b.text)).toEqual(['*']);
+    expect(errorBarBrackets(groups, cmp, { alpha: 0.05 }).brackets).toHaveLength(1);
+    expect(errorBarBrackets(groups, cmp, { alpha: 0.01 }).brackets).toEqual([]);
+  });
 });
 
 describe('errorBarScript', () => {
   test('embeds the replicates, recomputes, and keeps names out of the code', () => {
     const { script } = make(CASES.basic);
     expect(script).toContain("'Control': [4.5, 4.2, 4.8, 4.6],");
-    expect(script).toContain('stats.ttest_ind(a, b, equal_var=False)');
+    expect(script).toContain("'p': 2 * stats.t.sf(abs(t), df)");
+    expect(script).toContain('ALPHA = round(1 - LEVEL, 12)');
+    expect(script).toContain("chosen = [pair for pair in pairs if pair['p_holm'] < ALPHA]");
+    expect(script).not.toMatch(/< 0\.05\]/);
     expect(script).toContain('ax.bar(0, means[0]');
     expect(script).toContain('for x1, x2, y, text in brackets:');
     expect(script.indexOf('for x1, x2, y, text in brackets:')).toBeLessThan(script.indexOf('\n# Axes\n'));
@@ -232,6 +349,36 @@ describe('the script, run', () => {
         expect(close(got.p_holm, w.pAdjusted, 1e-8)).toBe(true);
       });
     }
+  });
+
+  withPython("its t and p are SciPy's own Welch test, for groups with spread", () => {
+    for (const [name, { results, r }] of Object.entries(runs)) {
+      r.out.pairs.forEach((got, k) => {
+        const flat = [results[got.i], results[got.j]].some((g) => g.sd === 0);
+        if (flat) return;
+        expect([name, close(got.t, r.out.scipy[k][0], 1e-12), close(got.p, r.out.scipy[k][1], 1e-12)]).toEqual([name, true, true]);
+      });
+    }
+  });
+
+  withPython('judges the pairs at 1 - the level, as the page does', () => {
+    for (const [name, c] of Object.entries(CASES)) {
+      if (c.compare === 'none') continue;
+      expect([name, runs[name].r.out.alpha]).toEqual([name, significanceLevel(c.level || 0.95)]);
+    }
+    expect(runs.star99.r.out.brackets).toEqual([]);
+    expect(runs.star99All.r.out.texts).toEqual(['*']);
+    expect(runs.between90.r.out.texts).toEqual(['p = 0.094']);
+    expect(runs.between95.r.out.texts).toEqual(['n.s.']);
+    expect(runs.under01.r.out.texts).toEqual(['p = 0.009997']);
+    expect(runs.under05.r.out.texts).toEqual(['p = 0.0498']);
+  });
+
+  withPython('groups of equal values: no SD, no test between two of them', () => {
+    const { results, r } = runs.constant;
+    expect(results.map((g) => g.sd)).toEqual([0, 0, results[2].sd]);
+    expect(r.out.sds.slice(0, 2)).toEqual([0, 0]);
+    expect(r.out.pairs.map((q) => [q.i, q.j])).toEqual([[0, 2], [1, 2]]);
   });
 
   withPython('places the page\'s brackets, with its labels', () => {

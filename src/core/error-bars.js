@@ -97,6 +97,19 @@ function extent(values) {
   return [min, max];
 }
 
+/*
+ * The sample SD of a group, exactly 0 when its values are all the same. The
+ * computed SD of equal values is not always 0: the mean of six copies of 0.1
+ * is 0.09999999999999999, which leaves 1.5e-17, enough for Welch's test to
+ * find two constant groups apart by a t of 1e16.
+ */
+function spread(values) {
+  for (let i = 1; i < values.length; i++) {
+    if (values[i] !== values[0]) return sd(values);
+  }
+  return 0;
+}
+
 /**
  * Summary statistics for one group of replicates.
  *
@@ -116,7 +129,7 @@ export function summariseGroup(key, values, level = 0.95) {
 
   const n = values.length;
   const m = mean(values);
-  const s = n > 1 ? sd(values) : 0;
+  const s = spread(values);
   const sem = n > 0 ? s / Math.sqrt(n) : 0;
 
   // A single observation gives no estimate of dispersion, so the interval is
@@ -147,21 +160,66 @@ export function summariseGroup(key, values, level = 0.95) {
   };
 }
 
+const NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+// Digits, points and commas only: with a comma among them, a decimal comma
+// (6,1) or a thousands separator (1,234).
+const DIGITS_AND_SEPARATORS = /^[+-]?[\d.,]+([eE][+-]?\d+)?$/;
+
+/**
+ * Read one cell of a table as a replicate.
+ *
+ * A table parsed with Papa Parse's `dynamicTyping` arrives with most numbers
+ * already typed, but that option leaves as text anything with a leading plus
+ * (`+5`), anything of 2^53 or more (`1e16`) and anything out of range
+ * (`1e400`), so strings are read here by the same rule as numbers typed in
+ * full: an optional sign, digits with an optional point, an optional exponent.
+ *
+ * @param {*} cell
+ * @returns {{kind:'number'|'blank'|'comma'|'infinite'|'text', value:number}}
+ *          `number` with its `value`; `blank` for an empty cell; `comma` for
+ *          digits written with a comma (`6,1`, `1,234`), which are not read;
+ *          `infinite` for a number too large to hold (`1e400`); `text` for
+ *          anything else. `value` is NaN unless the kind is `number`.
+ */
+export function readCell(cell) {
+  if (typeof cell === 'number') {
+    if (Number.isFinite(cell)) return { kind: 'number', value: cell };
+    return { kind: Number.isNaN(cell) ? 'text' : 'infinite', value: NaN };
+  }
+  if (cell === null || cell === undefined) return { kind: 'blank', value: NaN };
+  if (typeof cell !== 'string') return { kind: 'text', value: NaN };
+  const text = cell.trim();
+  if (text === '') return { kind: 'blank', value: NaN };
+  if (NUMBER.test(text)) {
+    const value = Number(text);
+    return Number.isFinite(value) ? { kind: 'number', value } : { kind: 'infinite', value: NaN };
+  }
+  const comma = text.includes(',') && /\d/.test(text) && DIGITS_AND_SEPARATORS.test(text);
+  return { kind: comma ? 'comma' : 'text', value: NaN };
+}
+
 /**
  * Decide whether the first row of a table is a header.
  *
- * A header row is one whose value cells are all non-numeric while at least one
- * later row has numeric values there. Detecting this rather than trusting a
- * checkbox means a pasted spreadsheet works on the first try.
+ * A header row is one whose value cells hold no numbers while at least one
+ * later row has them there. Detecting this rather than trusting a
+ * checkbox means a pasted spreadsheet works on the first try. A cell that was
+ * meant as a number but cannot be read as one (`6,1`, `1e400`) counts as a
+ * number here, so a first row of them is kept as data and reported, not
+ * dropped as a header.
  *
  * @param {Array<Array<*>>} rows
  * @returns {boolean}
  */
 export function detectHeaderRow(rows) {
   if (!Array.isArray(rows) || rows.length < 2) return false;
-  const isNum = (v) => typeof v === 'number' && !Number.isNaN(v);
-  const firstAllText = rows[0].slice(1).every(c => !isNum(c));
-  const laterHasNumbers = rows.slice(1).some(r => r.slice(1).some(isNum));
+  const numeric = (c) => {
+    const kind = readCell(c).kind;
+    return kind === 'number' || kind === 'comma' || kind === 'infinite';
+  };
+  const values = (r) => (Array.isArray(r) ? r.slice(1) : []);
+  const firstAllText = values(rows[0]).every(c => !numeric(c));
+  const laterHasNumbers = rows.slice(1).some(r => values(r).some(numeric));
   return firstAllText && laterHasNumbers;
 }
 
@@ -169,23 +227,49 @@ export function detectHeaderRow(rows) {
  * Group rows by their first-column label, pooling the numeric cells.
  *
  * Repeated labels accumulate, so replicates may be spread across several rows.
+ * A cell under a label that holds something other than a number is left out
+ * of its group and counted in `unread`, with the first such cell as an
+ * example, so that a value never goes missing without a trace.
  *
  * @param {Array<Array<*>>} rows
- * @returns {{groups:Map<string, number[]>, skipped:number}}
+ * @returns {{groups:Map<string, number[]>, skipped:number, unread:{
+ *   total:number,
+ *   text:{count:number, example:string|null},
+ *   comma:{count:number, example:string|null},
+ *   infinite:{count:number, example:string|null}
+ * }}} `skipped` counts the rows with no label or no numbers. `unread` counts
+ *     the cells of labelled rows that are not numbers, by kind (see
+ *     `readCell`): `comma` for digits written with a comma, `infinite` for a
+ *     number too large to hold, `text` for the rest. Empty cells are not
+ *     counted.
  */
 export function groupRows(rows) {
   const groups = new Map();
   let skipped = 0;
-  if (!Array.isArray(rows)) return { groups, skipped };
-
-  const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
+  const unread = {
+    total: 0,
+    text: { count: 0, example: null },
+    comma: { count: 0, example: null },
+    infinite: { count: 0, example: null }
+  };
+  if (!Array.isArray(rows)) return { groups, skipped, unread };
 
   for (const row of rows) {
     if (!Array.isArray(row)) { skipped++; continue; }
     const label = row[0];
     if (label === null || label === undefined || label === '') { skipped++; continue; }
 
-    const values = row.slice(1).filter(isNum);
+    const values = [];
+    for (let k = 1; k < row.length; k++) {
+      const cell = readCell(row[k]);
+      if (cell.kind === 'number') values.push(cell.value);
+      else if (cell.kind !== 'blank') {
+        const tally = unread[cell.kind];
+        if (tally.count === 0) tally.example = String(row[k]).trim();
+        tally.count++;
+        unread.total++;
+      }
+    }
     if (values.length === 0) { skipped++; continue; }
 
     // Added to the group's own list: copying the list for every row makes a
@@ -194,7 +278,7 @@ export function groupRows(rows) {
     const list = groups.get(key);
     if (list) { for (const v of values) list.push(v); } else groups.set(key, values);
   }
-  return { groups, skipped };
+  return { groups, skipped, unread };
 }
 
 /**
@@ -202,14 +286,15 @@ export function groupRows(rows) {
  *
  * @param {Array<Array<*>>} rows
  * @param {{level?:number, hasHeader?:boolean|'auto'}} [options]
- * @returns {{results:object[], skipped:number, headerDetected:boolean}}
+ * @returns {{results:object[], skipped:number, headerDetected:boolean, unread:object}}
  *          Each result is `summariseGroup`'s, plus `values`: the group's
- *          replicates in the order they were read.
+ *          replicates in the order they were read. `unread` is `groupRows`'s
+ *          count of the cells that are not numbers.
  */
 export function computeGroups(rows, options = {}) {
   const { level = 0.95, hasHeader = 'auto' } = options;
   if (!Array.isArray(rows) || rows.length === 0) {
-    return { results: [], skipped: 0, headerDetected: false };
+    return { results: [], skipped: 0, headerDetected: false, unread: groupRows([]).unread };
   }
 
   const headerDetected = hasHeader === 'auto'
@@ -217,7 +302,7 @@ export function computeGroups(rows, options = {}) {
     : Boolean(hasHeader);
 
   const dataRows = headerDetected ? rows.slice(1) : rows;
-  const { groups, skipped } = groupRows(dataRows);
+  const { groups, skipped, unread } = groupRows(dataRows);
 
   const results = [];
   for (const [key, values] of groups) {
@@ -225,7 +310,7 @@ export function computeGroups(rows, options = {}) {
     // The replicates stay with their summary, for the plot and the tests.
     if (s) results.push({ ...s, values });
   }
-  return { results, skipped, headerDetected };
+  return { results, skipped, headerDetected, unread };
 }
 
 /**
@@ -408,13 +493,22 @@ export function resultsToCSV(results) {
  * Holm is used rather than plain Bonferroni because it is uniformly more
  * powerful while controlling the same family-wise error rate.
  *
+ * A pair is skipped when either group has fewer than two values, or when
+ * neither has any spread (both constant: the test has no variance to use).
+ *
  * @param {Array<{key:string, values:number[]}>} groups
+ * @param {{alpha?:number}} [options] - `alpha` is the family-wise level a
+ *        pair is called significant at: 0.05 by default, and 1 - the
+ *        confidence level when the caller reports intervals at another level
+ *        (`significanceLevel` in error-bars-figure.js).
  * @returns {Array<{a:string, b:string, t:number, df:number, p:number,
  *                  pAdjusted:number, significant:boolean}>}
+ *          `significant` is `pAdjusted < alpha`.
  */
-export function pairwiseComparisons(groups) {
+export function pairwiseComparisons(groups, options = {}) {
   const jStat = requireVendor('jStat');
   if (!Array.isArray(groups) || groups.length < 2) return [];
+  const alpha = Number.isFinite(options.alpha) ? options.alpha : 0.05;
 
   const out = [];
   for (let i = 0; i < groups.length; i++) {
@@ -425,8 +519,8 @@ export function pairwiseComparisons(groups) {
       const nb = b.values.length;
       if (na < 2 || nb < 2) continue;
 
-      const va = sd(a.values) ** 2;
-      const vb = sd(b.values) ** 2;
+      const va = spread(a.values) ** 2;
+      const vb = spread(b.values) ** 2;
       const se = Math.sqrt(va / na + vb / nb);
       if (se === 0) continue;
 
@@ -447,7 +541,7 @@ export function pairwiseComparisons(groups) {
     const adj = Math.min(1, entry.p * (m - k));
     running = Math.max(running, adj);
     entry.pAdjusted = running;
-    entry.significant = running < 0.05;
+    entry.significant = running < alpha;
   });
 
   return out;

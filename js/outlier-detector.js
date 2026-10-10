@@ -58,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const scanSummary = document.getElementById('scanSummary');
   const scanEmpty = document.getElementById('scanEmpty');
   const scanDetail = document.getElementById('scanDetail');
+  const scanWarning = document.getElementById('scanWarning');
   const grubbsNote = document.getElementById('grubbsNote');
   const previewNote = document.getElementById('previewNote');
   const exampleBtn = document.getElementById('exampleBtn');
@@ -240,25 +241,21 @@ document.addEventListener('DOMContentLoaded', () => {
     lastScan = { values, rows: indexMap.map(i => i + 1), method, threshold, column: targetCol };
     drawPlot();
 
-    const notes = [];
-    if (result.degenerate) notes.push('Every value is the same, so there is no spread to flag against.');
-    if (result.usedFallback) {
-      notes.push('More than half the values are identical, so the mean absolute deviation stands in for the MAD.');
-    }
-
     // Grubbs gives a formal significance statement alongside the flag count.
     const g = grubbsTest(values, 0.05);
     const grubbs = g && g.isOutlier
       ? `Grubbs' test agrees that the most extreme value is an outlier: G = ${g.G.toFixed(3)} ` +
-        `exceeds the critical ${g.critical.toFixed(3)} (p ${g.p < 0.001 ? '< 0.001' : '= ' + g.p.toFixed(3)}).`
+        `exceeds the critical ${g.critical.toFixed(3)} (p ${grubbsP(g.p)}).`
       : (g ? `Grubbs' test does not flag the most extreme value at the 5% level (G = ${g.G.toFixed(3)}, ` +
              `critical ${g.critical.toFixed(3)}).` : '');
 
     showScanResult({
       count: outlierIndices.size,
       detail: `${plural(outlierIndices.size, 'value')} of ${values.length} in "${targetCol}" ` +
-              `${outlierIndices.size === 1 ? 'lies' : 'lie'} beyond ${METHOD_NAMES[method]} threshold of ${threshold.toFixed(1)}.` +
-              (notes.length ? ' ' + notes.join(' ') : ''),
+              `${outlierIndices.size === 1 ? 'lies' : 'lie'} beyond ${METHOD_NAMES[method]} threshold of ${threshold.toFixed(1)}.`,
+      // The rule's spread (SD, MAD or IQR) came out as zero: the core says
+      // what the flags mean then, and it is shown apart from the count.
+      warning: result.warning || '',
       grubbs
     });
     renderArrayView();
@@ -268,6 +265,14 @@ document.addEventListener('DOMContentLoaded', () => {
         ? `Flagged ${plural(outlierIndices.size, 'outlier')}.`
         : 'No outliers with these settings.', outlierIndices.size ? 'success' : 'info');
     }
+  }
+
+  // Three decimals, and more when rounding would lift p onto the 5% level it is under.
+  function grubbsP(p) {
+    if (p < 0.001) return '< 0.001';
+    let digits = 3;
+    while (digits < 8 && p < 0.05 && Number(p.toFixed(digits)) >= 0.05) digits++;
+    return '= ' + p.toFixed(digits);
   }
 
   function showScanResult(r) {
@@ -281,6 +286,10 @@ document.addEventListener('DOMContentLoaded', () => {
     outlierCountLabel.textContent = r.count === 1 ? 'outlier' : 'outliers';
     scanSummary.classList.toggle('is-none', r.count === 0);
     scanDetail.textContent = r.detail;
+    if (scanWarning) {
+      scanWarning.hidden = !r.warning;
+      scanWarning.querySelector('span').textContent = r.warning || '';
+    }
     grubbsNote.textContent = r.grubbs;
   }
 

@@ -8,7 +8,10 @@
  * group on a categorical x axis, the replicates spread across each group, and
  * brackets over the pairs of groups that Welch's t-test separates after
  * Holm's correction (`pairwiseComparisons`), stacked so that none overlaps
- * another or the data under it.
+ * another or the data under it. A pair is separated when its adjusted p is
+ * below alpha = 1 - the confidence level of the intervals
+ * (`significanceLevel`), so the brackets and the intervals speak at one level;
+ * the stars on a bracket keep their conventional thresholds whatever it is.
  *
  * `errorBarScript` writes the matplotlib script for that figure. It does not
  * copy the page's numbers: it embeds the replicates, recomputes each group's
@@ -31,19 +34,65 @@ const POINT_SPREAD = 0.24;
 const BAR_WIDTH = 0.6;
 
 /**
- * A bracket's label for a Holm-adjusted p-value: stars (*** p < 0.001,
- * ** p < 0.01, * p < 0.05, n.s. otherwise) or the p-value itself.
+ * The significance level that goes with a confidence level: alpha = 1 - level,
+ * as the decimal it is (1 - 0.95 is 0.050000000000000044 in floating point).
+ *
+ * @param {number} [level=0.95]
+ * @returns {number} 0.05 for anything that is not a level between 0 and 1.
+ */
+export function significanceLevel(level = 0.95) {
+  if (!(level > 0 && level < 1)) return 0.05;
+  return Number((1 - level).toFixed(12));
+}
+
+/** The levels a printed p-value must not be rounded up onto. */
+const P_LEVELS = [0.01, 0.05, 0.1];
+
+/**
+ * A p-value as text: three decimals, `< 0.001` below that. A p just under a
+ * level (0.0099, 0.04996) is given more decimals, up to six, so that the
+ * printed value stays under the level it is under and never reads `0.010`
+ * beside the two stars of p < 0.01; closer than that, `< 0.01`.
+ *
+ * @param {number} p
+ * @param {number} [alpha=0.05] - a level to respect besides 0.01, 0.05 and 0.1
+ * @returns {string} `0.042`, `0.0099`, `< 0.001` or `< 0.05`
+ */
+export function pValueText(p, alpha = 0.05) {
+  if (p < 0.001) return '< 0.001';
+  const under = [...P_LEVELS, alpha].filter((a) => p < a);
+  for (let digits = 3; digits <= 6; digits++) {
+    const text = p.toFixed(digits);
+    if (under.every((a) => Number(text) < a)) return text;
+  }
+  return `< ${Math.min(...under)}`;
+}
+
+const pLabel = (p, alpha) => {
+  const text = pValueText(p, alpha);
+  return text.startsWith('<') ? `p ${text}` : `p = ${text}`;
+};
+
+/**
+ * A bracket's label for a Holm-adjusted p-value: stars or the p-value itself.
+ *
+ * The stars are the conventional ones whatever the level of the test:
+ * *** p < 0.001, ** p < 0.01, * p < 0.05. With no star, `n.s.` says the pair
+ * is not significant at `alpha`; a pair that is (0.05 <= p < alpha, at a
+ * confidence level under 95%) is labelled with its p-value, since no star
+ * stands for it and `n.s.` would be false.
  *
  * @param {number} p
  * @param {'stars'|'p'} [style='stars']
+ * @param {number} [alpha=0.05] - the level a pair is called significant at
  * @returns {string}
  */
-export function significanceLabel(p, style = 'stars') {
-  if (style === 'p') return p < 0.001 ? 'p < 0.001' : `p = ${p.toFixed(3)}`;
+export function significanceLabel(p, style = 'stars', alpha = 0.05) {
+  if (style === 'p') return pLabel(p, alpha);
   if (p < 0.001) return '***';
   if (p < 0.01) return '**';
   if (p < 0.05) return '*';
-  return 'n.s.';
+  return p < alpha ? pLabel(p, alpha) : 'n.s.';
 }
 
 /*
@@ -78,12 +127,13 @@ function groupExtents(groups, { display, points }) {
  * @param {Array<{key: string, n: number, mean: number, error: number, values: number[]}>} groups
  * @param {Array<{a: string, b: string, pAdjusted: number}>} comparisons - pairwiseComparisons()
  * @param {{display?: 'bars'|'means', points?: boolean, compare?: 'significant'|'all'|'none',
- *   labels?: 'stars'|'p'}} [options]
+ *   labels?: 'stars'|'p', alpha?: number}} [options] - `alpha` (0.05) is the level a pair
+ *   must be under to get a bracket when only the significant ones are drawn
  * @returns {{height: number, brackets: Array<{i: number, j: number, y: number, text: string,
  *   a: string, b: string, p: number}>}}
  */
 export function errorBarBrackets(groups, comparisons, options = {}) {
-  const { display = 'bars', points = false, compare = 'significant', labels = 'stars' } = options;
+  const { display = 'bars', points = false, compare = 'significant', labels = 'stars', alpha = 0.05 } = options;
   const ext = groupExtents(groups, { display, points });
   let hi = -Infinity; let lo = Infinity;
   for (const e of ext) { if (e.top > hi) hi = e.top; if (e.bottom < lo) lo = e.bottom; }
@@ -98,7 +148,7 @@ export function errorBarBrackets(groups, comparisons, options = {}) {
   const index = new Map(groups.map((g, i) => [g.key, i]));
   const chosen = (comparisons || [])
     .map((c) => ({ i: index.get(c.a), j: index.get(c.b), p: c.pAdjusted, a: c.a, b: c.b }))
-    .filter((c) => c.i !== undefined && c.j !== undefined && (compare === 'all' || c.p < 0.05))
+    .filter((c) => c.i !== undefined && c.j !== undefined && (compare === 'all' || c.p < alpha))
     .sort((x, y) => (x.j - x.i) - (y.j - y.i) || x.i - y.i);
   const placed = [];
   for (const c of chosen) {
@@ -106,7 +156,7 @@ export function errorBarBrackets(groups, comparisons, options = {}) {
     for (let k = c.i; k <= c.j; k++) y = Math.max(y, ext[k].top);
     y += gap;
     for (const b of placed) if (b.i <= c.j && b.j >= c.i) y = Math.max(y, b.y + step);
-    placed.push({ ...c, y, text: significanceLabel(c.p, labels) });
+    placed.push({ ...c, y, text: significanceLabel(c.p, labels, alpha) });
   }
   return { height, brackets: placed };
 }
@@ -118,7 +168,8 @@ export function errorBarBrackets(groups, comparisons, options = {}) {
  *   values: number[]}>} results - computeGroups().results
  * @param {object} [options]
  * @param {'sd'|'sem'|'ci'} [options.mode='ci'] - what the error bars show
- * @param {number} [options.level=0.95] - the interval's level, for the axis label
+ * @param {number} [options.level=0.95] - the interval's level, for the axis label; a pair
+ *   gets a bracket when its Holm-adjusted p is below 1 - level
  * @param {'bars'|'means'} [options.display='bars'] - a bar from zero, or the mean as a point
  * @param {boolean} [options.points=true] - each replicate, spread across its group
  * @param {'significant'|'all'|'none'} [options.compare='significant'] - which pairs get a bracket
@@ -138,8 +189,10 @@ export function errorBarFigure(results, options = {}) {
     key: String(r.key), n: r.n, mean: r.mean, values: r.values,
     error: r.n > 1 ? { sd: r.sd, sem: r.sem, ci: r.ci }[mode] : NaN
   }));
-  const comparisons = options.comparisons || (compare === 'none' ? [] : pairwiseComparisons(groups.map((g) => ({ key: g.key, values: g.values }))));
-  const { height, brackets } = errorBarBrackets(groups, comparisons, { display, points, compare, labels });
+  const alpha = significanceLevel(level);
+  const comparisons = options.comparisons ||
+    (compare === 'none' ? [] : pairwiseComparisons(groups.map((g) => ({ key: g.key, values: g.values })), { alpha }));
+  const { height, brackets } = errorBarBrackets(groups, comparisons, { display, points, compare, labels, alpha });
 
   const series = [];
   const replicates = {
@@ -223,8 +276,9 @@ export function errorBarScript(figure, spec = {}) {
   P.push('n = np.array([len(x) for x in samples])');
   P.push('means = np.array([x.mean() for x in samples])');
   P.push('# The sample SD (n - 1). One value has no spread: its SD, SEM and interval are 0,');
-  P.push('# and it gets no error bar.');
-  P.push('sds = np.array([x.std(ddof=1) if len(x) > 1 else 0.0 for x in samples])');
+  P.push('# and it gets no error bar. Equal values have none either, and are told by their');
+  P.push('# range: their computed SD can be rounding noise instead of 0.');
+  P.push('sds = np.array([x.std(ddof=1) if np.ptp(x) > 0 else 0.0 for x in samples])');
   P.push('sems = sds / np.sqrt(n)');
   P.push("# Student's t for the interval, two-sided, on n - 1 degrees of freedom.");
   P.push('q = 1 - (1 - LEVEL) / 2');
@@ -243,18 +297,21 @@ export function errorBarScript(figure, spec = {}) {
   P.push('');
   P.push("# Welch's t-test for every pair of groups with at least two values each (a pair");
   P.push("# with no spread in either is skipped), then Holm's correction across the pairs.");
+  P.push('# t and its degrees of freedom come from the SDs above, so that a group of equal');
+  P.push('# values enters with a variance of exactly 0; for groups with spread they are those');
+  P.push('# of scipy.stats.ttest_ind(a, b, equal_var=False).');
   P.push('pairs = []');
   P.push('for i in range(len(names)):');
   P.push('    for j in range(i + 1, len(names)):');
   P.push('        a, b = samples[i], samples[j]');
   P.push('        if len(a) < 2 or len(b) < 2:');
   P.push('            continue');
-  P.push('        va, vb = a.var(ddof=1) / len(a), b.var(ddof=1) / len(b)');
+  P.push('        va, vb = sds[i] ** 2 / len(a), sds[j] ** 2 / len(b)');
   P.push('        if va + vb == 0:');
   P.push('            continue');
-  P.push('        test = stats.ttest_ind(a, b, equal_var=False)');
+  P.push('        t = (means[i] - means[j]) / np.sqrt(va + vb)');
   P.push('        df = (va + vb) ** 2 / (va ** 2 / (len(a) - 1) + vb ** 2 / (len(b) - 1))');
-  P.push("        pairs.append({'i': i, 'j': j, 't': test.statistic, 'df': df, 'p': test.pvalue})");
+  P.push("        pairs.append({'i': i, 'j': j, 't': t, 'df': df, 'p': 2 * stats.t.sf(abs(t), df)})");
   P.push("p = np.array([pair['p'] for pair in pairs])");
   P.push("order = np.argsort(p, kind='stable')");
   P.push('p_holm = np.empty_like(p)');
@@ -273,16 +330,35 @@ export function errorBarScript(figure, spec = {}) {
     const S = ERROR_BAR_BRACKET_SPACING;
     P.push('', '');
     section(P, 'Brackets');
-    P.push(compare === 'all'
-      ? '# A bracket over every pair tested, labelled with its Holm-adjusted p-value.'
-      : '# A bracket over each pair whose Holm-adjusted p-value is below 0.05.');
-    P.push('');
-    P.push('');
-    P.push('def label(p):');
-    if (labels === 'p') {
-      P.push("    return 'p < 0.001' if p < 0.001 else f'p = {p:.3f}'");
+    if (compare === 'all') {
+      P.push('# A bracket over every pair tested, labelled with its Holm-adjusted p-value. A pair');
+      P.push('# is significant when that is below ALPHA, which is 1 - the confidence level.');
     } else {
-      P.push("    return '***' if p < 0.001 else '**' if p < 0.01 else '*' if p < 0.05 else 'n.s.'");
+      P.push('# A bracket over each pair whose Holm-adjusted p-value is below ALPHA, which is');
+      P.push('# 1 - the confidence level.');
+    }
+    P.push('ALPHA = round(1 - LEVEL, 12)');
+    P.push('');
+    P.push('');
+    P.push('# A p-value to three decimals, or to more where rounding would lift it onto a level');
+    P.push('# it is under (0.0099 is not printed as 0.010).');
+    P.push(`def ${labels === 'p' ? 'label' : 'p_label'}(p):`);
+    P.push('    if p < 0.001:');
+    P.push("        return 'p < 0.001'");
+    P.push(`    under = [a for a in (${P_LEVELS.map(pyNum).join(', ')}, ALPHA) if p < a]`);
+    P.push('    for digits in range(3, 7):');
+    P.push("        text = f'{p:.{digits}f}'");
+    P.push('        if all(float(text) < a for a in under):');
+    P.push("            return f'p = {text}'");
+    P.push("    return f'p < {min(under):g}'");
+    if (labels !== 'p') {
+      P.push('', '');
+      P.push('# Stars at the usual levels whatever ALPHA is; with no star, n.s., or the p-value');
+      P.push('# when it is below ALPHA.');
+      P.push('def label(p):');
+      P.push('    if p < 0.05:');
+      P.push("        return '***' if p < 0.001 else '**' if p < 0.01 else '*'");
+      P.push("    return p_label(p) if p < ALPHA else 'n.s.'");
     }
     P.push('', '');
     P.push(...wrapComment(`The top and bottom of what each group draws: ${display === 'means' ? 'the mean and its error bar' : 'the bar from zero and its error bar'}${points ? ', and the replicates' : ''}.`));
@@ -306,7 +382,7 @@ export function errorBarScript(figure, spec = {}) {
     P.push('# any bracket already over one of them.');
     P.push(compare === 'all'
       ? 'chosen = pairs'
-      : "chosen = [pair for pair in pairs if pair['p_holm'] < 0.05]");
+      : "chosen = [pair for pair in pairs if pair['p_holm'] < ALPHA]");
     P.push('brackets = []');
     P.push("for pair in sorted(chosen, key=lambda q: (q['j'] - q['i'], q['i'])):");
     P.push("    i, j = pair['i'], pair['j']");

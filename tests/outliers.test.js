@@ -102,6 +102,20 @@ describe('zScores', () => {
     expect(zScores([5, 5, 5])).toEqual([0, 0, 0]);
   });
 
+  test('a constant sample is told by its values, not by its computed spread', () => {
+    // The mean of six copies of 0.1 is 0.09999999999999999, which leaves an SD
+    // of 1.5e-17 and a score of 0.913 for every value; six copies of 0.3 give 0.
+    for (const v of [0.1, 0.3, 0.7, 1.1, 4.35]) {
+      expect(zScores(Array(6).fill(v))).toEqual([0, 0, 0, 0, 0, 0]);
+    }
+  });
+
+  test('a small real spread is still scored', () => {
+    // One value apart from n - 1 equal ones scores (n - 1) / sqrt(n).
+    const z = zScores([0.1, 0.1, 0.1, 0.1, 0.1, 0.1 + 1e-9]);
+    expect(z[5]).toBeCloseTo(5 / Math.sqrt(6), 6);
+  });
+
   test('returns an empty array for empty input', () => {
     expect(zScores([])).toEqual([]);
   });
@@ -153,6 +167,19 @@ describe('detectZScore', () => {
     expect(r.indices).toEqual([]);
     expect(r.degenerate).toBe(true);
   });
+
+  test('a constant sample is degenerate whatever rounding does to its SD', () => {
+    for (const v of [0.1, 0.3]) {
+      const r = detectZScore(Array(6).fill(v), 3);
+      expect([r.degenerate, r.indices, r.scores]).toEqual([true, [], [0, 0, 0, 0, 0, 0]]);
+      expect(r.warning).toMatch(/^Every value is the same, so the standard deviation is zero/);
+    }
+  });
+
+  test('has no warning when there is spread', () => {
+    const r = detectZScore(CONTAMINATED, 3);
+    expect([r.degenerate, r.warning]).toEqual([false, null]);
+  });
 });
 
 describe('detectModifiedZScore', () => {
@@ -173,7 +200,34 @@ describe('detectModifiedZScore', () => {
   });
 
   test('does not use the fallback for well-spread data', () => {
-    expect(detectModifiedZScore(CONTAMINATED, 3.5).usedFallback).toBe(false);
+    const r = detectModifiedZScore(CONTAMINATED, 3.5);
+    expect([r.usedFallback, r.degenerate, r.warning]).toEqual([false, false, null]);
+  });
+
+  test('with the MAD at zero, one value apart scores n / 1.253314 however near it is', () => {
+    // (x - median) / (1.253314 MeanAD) with MeanAD = |x - median| / n: the
+    // difference cancels, so the flag depends on n alone (above 3.5 from n = 5).
+    for (const gap of [95, 1e-7]) {
+      const five = detectModifiedZScore([5, 5, 5, 5, 5 + gap], 3.5);
+      expect(five.scores[4]).toBeCloseTo(5 / 1.253314, 6);
+      expect(five.indices).toEqual([4]);
+      const four = detectModifiedZScore([5, 5, 5, 5 + gap], 3.5);
+      expect(four.scores[3]).toBeCloseTo(4 / 1.253314, 6);
+      expect(four.indices).toEqual([]);
+    }
+  });
+
+  test('warns that the flags come from a MAD of zero', () => {
+    const r = detectModifiedZScore([5, 5, 5, 5, 5, 5.0000001], 3.5);
+    expect([r.usedFallback, r.degenerate, r.indices]).toEqual([true, true, [5]]);
+    expect(r.warning).toMatch(/^More than half the values are equal \(5\), so the median absolute deviation \(MAD\) is zero/);
+    expect(r.warning).toMatch(/however little it differs\.$/);
+  });
+
+  test('a constant sample flags nothing and says why', () => {
+    const r = detectModifiedZScore(Array(6).fill(0.1), 3.5);
+    expect([r.degenerate, r.indices, r.scores]).toEqual([true, [], [0, 0, 0, 0, 0, 0]]);
+    expect(r.warning).toMatch(/^Every value is the same/);
   });
 });
 
@@ -203,6 +257,30 @@ describe('detectIQR', () => {
 
   test('returns null for empty input', () => {
     expect(detectIQR([], 1.5)).toBeNull();
+  });
+
+  test('with an IQR of zero every value off the quartiles is flagged, with a warning', () => {
+    // matplotlib.cbook.boxplot_stats(x, whis=1.5) gives q1 = q3 = 5, iqr = 0
+    // and fliers [4.9999, 5.0001, 7] for these values (matplotlib 3.6.3), and
+    // R's boxplot.stats(x, coef = 1.5)$out is 5.0001, 4.9999, 7 (R 4.3.3).
+    const x = [5, 5, 5, 5, 5, 5, 5, 5.0001, 4.9999, 7];
+    const r = detectIQR(x, 1.5);
+    expect([r.iqr, r.lower, r.upper]).toEqual([0, 5, 5]);
+    expect(r.indices).toEqual([7, 8, 9]);
+    expect(r.degenerate).toBe(true);
+    expect(r.warning).toMatch(/^The middle half of the values are all equal \(5\), so the interquartile range is zero/);
+    expect(r.warning).toMatch(/every value that differs from it is flagged/);
+  });
+
+  test('a constant sample flags nothing and says why', () => {
+    const r = detectIQR(Array(6).fill(0.1), 1.5);
+    expect([r.degenerate, r.indices, r.iqr]).toEqual([true, [], 0]);
+    expect(r.warning).toMatch(/^Every value is the same, so the interquartile range is zero/);
+  });
+
+  test('has no warning when the quartiles differ', () => {
+    const r = detectIQR(CONTAMINATED, 1.5);
+    expect([r.degenerate, r.warning]).toEqual([false, null]);
   });
 });
 
@@ -234,6 +312,12 @@ describe('grubbsTest', () => {
     expect(grubbsTest([1, 2], 0.05)).toBeNull();
     expect(grubbsTest([5, 5, 5, 5], 0.05)).toBeNull();
   });
+
+  test('returns null for a constant sample whose computed SD is rounding noise', () => {
+    // Six copies of 0.1 gave G = 0.913 against an SD of 1.5e-17.
+    expect(grubbsTest(Array(6).fill(0.1), 0.05)).toBeNull();
+    expect(grubbsTest(Array(6).fill(0.7), 0.05)).toBeNull();
+  });
 });
 
 describe('detectOutliers dispatch', () => {
@@ -247,6 +331,15 @@ describe('detectOutliers dispatch', () => {
     expect(detectOutliers(CONTAMINATED, 'zscore').threshold).toBe(3);
     expect(detectOutliers(CONTAMINATED, 'modzscore').threshold).toBe(3.5);
     expect(detectOutliers(CONTAMINATED, 'iqr').threshold).toBe(1.5);
+  });
+
+  test('every method carries the warning of a spread of zero', () => {
+    const same = Array(6).fill(0.1);
+    for (const method of ['zscore', 'modzscore', 'iqr']) {
+      const r = detectOutliers(same, method);
+      expect([method, r.degenerate, r.indices]).toEqual([method, true, []]);
+      expect(typeof r.warning).toBe('string');
+    }
   });
 
   test('returns null for an unknown method', () => {

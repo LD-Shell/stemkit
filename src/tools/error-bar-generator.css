@@ -17,6 +17,17 @@
 .eb-chip:hover { border-color: var(--stk-accent); color: var(--stk-accent-text); }
 .eb-chip[aria-pressed="true"] { background: var(--stk-accent-soft); border-color: var(--stk-accent-soft-border); color: var(--stk-accent-text); }
 
+/* Upload CSV is a label around a visually hidden file input: show the
+   keyboard focus on the label. */
+label.stk-btn:focus-within { outline: 2px solid var(--stk-accent); outline-offset: 2px; }
+
+/* Cells that were not read as numbers, under the data they came from. */
+.eb-readnote { display: flex; align-items: flex-start; gap: .55rem; margin: .75rem 0 0; padding: .6rem .75rem; border-radius: .6rem; border: 1px solid #fcd34d; background: #fffbeb; color: #78350f; font-size: .8125rem; line-height: 1.5; overflow-wrap: anywhere; }
+.eb-readnote[hidden] { display: none; }
+.eb-readnote i { margin-top: .2rem; color: #b45309; }
+.dark .eb-readnote { border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.12); color: #fde68a; }
+.dark .eb-readnote i { color: #fcd34d; }
+
 /* The chart's own choices, between the plot area's header and the figure. */
 .eb-opts { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .65rem 1.1rem; padding: .1rem 1rem .9rem; }
 .eb-opt { display: flex; flex-direction: column; gap: .3rem; min-width: 0; }

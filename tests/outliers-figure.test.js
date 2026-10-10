@@ -101,8 +101,15 @@ const CASES = {
   modzscoreFile: fromFile('modzscore', 3.5),
   iqrFile: fromFile('iqr', 1.5),
   // More than half the values equal: the MAD is 0 and the mean absolute deviation stands in.
-  fallback: { values: [5, 5, 5, 5, 5, 5, 7, 5, 30, 5], rows: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], method: 'modzscore', threshold: 3.5, column: 'x', source: 'embed' }
+  fallback: { values: [5, 5, 5, 5, 5, 5, 7, 5, 30, 5], rows: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], method: 'modzscore', threshold: 3.5, column: 'x', source: 'embed' },
+  // The middle half of the values equal: the IQR is 0 and every other value is outside the fences.
+  iqrZero: { values: [5, 5, 5, 5, 5, 5, 5, 5.0001, 4.9999, 7], rows: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], method: 'iqr', threshold: 1.5, column: 'x', source: 'embed' }
 };
+
+// Every value the same, where numpy's SD is 1.5e-17 and not 0. Run apart from the
+// cases above: a figure of one value has no axis limits to compare.
+const CONSTANT = Array(6).fill(0.1);
+const constant = (method, threshold) => ({ values: CONSTANT, rows: [1, 2, 3, 4, 5, 6], method, threshold, column: 'x', source: 'embed' });
 
 const close = (a, b, rel = 1e-9) => Math.abs(a - b) <= rel * Math.max(1, Math.abs(a), Math.abs(b));
 
@@ -122,6 +129,12 @@ describe('outlierLines', () => {
     const l = outlierLines(EXAMPLE, 'iqr', 1.5);
     const r = detectOutliers(EXAMPLE, 'iqr', 1.5);
     expect([l.lower, l.upper, l.centre]).toEqual([r.lower, r.upper, null]);
+  });
+  test('a constant sample: the Z-score lines meet on the mean, whatever rounding leaves of the SD', () => {
+    const l = outlierLines(CONSTANT, 'zscore', 3);
+    expect(l.lower).toBe(l.centre);
+    expect(l.upper).toBe(l.centre);
+    expect(l.centre).toBeCloseTo(0.1, 15);
   });
 });
 
@@ -190,6 +203,27 @@ describe('the script, run', () => {
       if (lines.centre !== null) expect(close(r.out.centre, lines.centre, 1e-12)).toBe(true);
     }
   });
+
+  withPython('says when the spread a rule divides by is zero', () => {
+    expect(runs.fallback.r.stdout).toContain('More than half the values are equal, so the MAD is 0');
+    expect(runs.iqrZero.r.stdout).toContain('The middle half of the values are equal, so the IQR is 0');
+    expect(runs.iqrZero.r.out.flagged).toEqual([8, 9, 10]);
+    for (const name of ['zscore', 'modzscore', 'iqr']) expect(runs[name].r.stdout).not.toMatch(/is 0/);
+  });
+
+  withPython('a constant sample: nothing flagged, no Grubbs test, and the script says why', async () => {
+    for (const [method, threshold, says] of [['zscore', 1, 'the SD is 0'], ['modzscore', 2, 'the MAD is 0'], ['iqr', 0.5, 'the IQR is 0']]) {
+      const spec = constant(method, threshold);
+      const r = await run(make(spec).script);
+      expect([method, r.code, r.stderr]).toEqual([method, 0, '']);
+      expect(detectOutliers(spec.values, method, threshold).indices).toEqual([]);
+      expect(r.out.flagged).toEqual([]);
+      expect(r.out.lower).toBe(r.out.upper);
+      expect(grubbsTest(spec.values, 0.05)).toBeNull();
+      expect(r.out.grubbs).toBeNull();
+      expect(r.stdout).toContain(says);
+    }
+  }, 120000);
 
   withPython("reports the page's Grubbs' test", () => {
     for (const { spec, r } of Object.values(runs)) {

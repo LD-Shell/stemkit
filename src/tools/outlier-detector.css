@@ -24,6 +24,13 @@
 .dark .outlier-row { background-color: rgba(245, 158, 11, 0.14); color: #fcd34d; }
 .od-missing { color: var(--stk-fg-muted); }
 
+/* The rule's spread came out as zero: what the flags mean then, set apart from the count. */
+.od-warn { display: flex; align-items: flex-start; gap: .55rem; margin-top: .65rem; padding: .6rem .75rem; border-radius: .6rem; border: 1px solid #fcd34d; background: #fffbeb; color: #78350f; font-size: .8125rem; line-height: 1.5; }
+.od-warn[hidden] { display: none; }
+.od-warn i { margin-top: .2rem; color: #b45309; }
+.dark .od-warn { border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.12); color: #fde68a; }
+.dark .od-warn i { color: #fcd34d; }
+
 @media (prefers-reduced-motion: no-preference) {
   .toast-enter { animation: slideIn 0.3s forwards; }
 }

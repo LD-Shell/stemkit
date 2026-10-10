@@ -11,7 +11,9 @@
  */
 import { registerFromGlobals } from '../src/core/vendor.js';
 import { computeGroups, resultsToCSV, pairwiseComparisons } from '../src/core/error-bars.js';
-import { errorBarFigure, errorBarScript, significanceLabel } from '../src/core/error-bars-figure.js';
+import {
+  errorBarFigure, errorBarScript, significanceLabel, significanceLevel, pValueText
+} from '../src/core/error-bars-figure.js';
 
 // jStat and Papa are loaded as UMD globals by the page's <script> tags.
 registerFromGlobals();
@@ -25,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let computedResults = [];
   let comparisons = [];
   let currentLevel = 0.95;
-  let sigFigs = 4;
+  let decimals = 4;
 
   // What the chart shows, kept between visits.
   const chart = { mode: 'ci', display: 'bars', points: true, compare: 'significant', labels: 'stars' };
@@ -49,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const ciLevelSelect = document.getElementById('ciLevel');
   const ciHeader = document.getElementById('ciHeader');
   const decimalsSelect = document.getElementById('decimals');
+  const readNote = document.getElementById('ebReadNote');
 
   const plotSection = document.getElementById('ebPlot');
   const pointsToggle = document.getElementById('ebPoints');
@@ -94,8 +97,38 @@ document.addEventListener('DOMContentLoaded', () => {
   // results, so no statistics are shown for data that is no longer there.
   dataInput.addEventListener('input', () => {
     markChip(null);
-    if (!dataInput.value.trim()) clearResults();
+    if (!dataInput.value.trim()) { showUnread(null); clearResults(); }
   });
+
+  // The cells that were not read as numbers: how many, and one of them, so a
+  // value left out of its group is never left out of sight. It stays under
+  // the data until the next calculation.
+  function showUnread(unread) {
+    if (!readNote) return;
+    const parts = [];
+    if (unread && unread.total > 0) {
+      const cells = (n) => `${n} cell${n === 1 ? '' : 's'}`;
+      const { comma, infinite, text } = unread;
+      if (comma.count) {
+        // The point form is offered only where the comma can be nothing but a decimal
+        // one: 6,1 and 0,25, not 1,234 or 1.234,5.
+        const plain = /^[+-]?\d*,(\d{1,2}|\d{4,})$/.test(comma.example) ? ` (${comma.example.replace(',', '.')})` : '';
+        parts.push(`${cells(comma.count)} with a comma in the number ${comma.count === 1 ? 'was' : 'were'} not read, ` +
+          `for example “${comma.example}”: write decimals with a point${plain} ` +
+          'and leave out thousands separators.');
+      }
+      if (infinite.count) {
+        parts.push(`${cells(infinite.count)} ${infinite.count === 1 ? 'holds a number' : 'hold numbers'} too large to read, ` +
+          `for example “${infinite.example}”, and ${infinite.count === 1 ? 'was' : 'were'} left out.`);
+      }
+      if (text.count) {
+        parts.push(`${cells(text.count)} ${text.count === 1 ? 'is' : 'are'} not ${text.count === 1 ? 'a number' : 'numbers'}, ` +
+          `for example “${text.example}”, and ${text.count === 1 ? 'was' : 'were'} left out.`);
+      }
+    }
+    readNote.hidden = parts.length === 0;
+    readNote.querySelector('span').textContent = parts.join(' ');
+  }
 
   /** Back to the state before the first calculation. */
   function clearResults(message) {
@@ -133,13 +166,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const result = computeGroups(rows, { level: currentLevel, hasHeader });
     computedResults = result.results;
+    showUnread(result.unread);
 
     if (computedResults.length === 0) {
       clearResults('No numeric groups found. Put a text label in the first column and ' +
         'numeric replicates in the rest, or change the header setting.');
+      if (result.unread.total > 0) {
+        showToast('No numbers could be read. The note under the data says which cells were left out.', 'error');
+      }
       return;
     }
-    comparisons = pairwiseComparisons(computedResults);
+    comparisons = pairwiseComparisons(computedResults, { alpha: significanceLevel(currentLevel) });
 
     renderTable();
     renderPairs();
@@ -150,6 +187,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (result.skipped > 0) {
       msg += ` Skipped ${result.skipped} row${result.skipped > 1 ? 's' : ''} ` +
              `with no label or no numbers.`;
+    }
+    if (result.unread.total > 0) {
+      msg += ` ${result.unread.total} cell${result.unread.total > 1 ? 's were' : ' was'} not read as ` +
+             `${result.unread.total > 1 ? 'numbers' : 'a number'}: see the note under the data.`;
     }
     showToast(msg, 'success');
     exportCsvBtn.disabled = false;
@@ -173,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   if (decimalsSelect) decimalsSelect.addEventListener('change', () => {
-    sigFigs = parseInt(decimalsSelect.value, 10) || 4;
+    decimals = parseInt(decimalsSelect.value, 10) || 4;
     if (computedResults.length) { renderTable(); renderPairs(); }
   });
 
@@ -215,8 +256,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // # --- 3. Table ---
   // A value that cannot be computed (a single replicate has no SD) shows as
   // an en dash rather than a zero that looks like a measurement.
-  const fmt = (x) => (Number.isFinite(x) ? String(+x.toFixed(sigFigs)) : '–');
+  // Negative numbers carry a true minus sign, in both tables.
   const minus = (s) => String(s).replace(/^-/, '−');
+  const fmt = (x) => (Number.isFinite(x) ? minus(+x.toFixed(decimals)) : '–');
 
   // Cells in the order of the table's headings: Label, N, Mean, SD, SEM,
   // Median, IQR, CV, Min/Max, t*, CI.
@@ -240,31 +282,44 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // # --- 4. Pairwise tests ---
-  const pText = (p) => (p < 0.001 ? '< 0.001' : p.toFixed(3));
+  // A pair is significant, highlighted here and given a bracket on the chart,
+  // when its Holm-adjusted p is below alpha = 1 − the confidence level. The
+  // stars are the usual ones (0.05, 0.01, 0.001) whatever that level is.
   function renderPairs() {
     if (!pairsBox) return;
     if (computedResults.length < 2) { pairsBox.hidden = true; return; }
     pairsBox.hidden = false;
+    const alpha = significanceLevel(currentLevel);
+    const pct = Math.round(currentLevel * 100);
     const mean = new Map(computedResults.map(r => [r.key, r.mean]));
     pairsBody.innerHTML = comparisons.map(c => {
-      const sig = c.pAdjusted < 0.05;
+      const sig = c.pAdjusted < alpha;
       return `<tr${sig ? ' class="is-sig"' : ''}>
         <th scope="row">${escapeHtml(c.a)} <span class="eb-vs">vs</span> ${escapeHtml(c.b)}</th>
-        <td>${minus(fmt(mean.get(c.a) - mean.get(c.b)))}</td>
+        <td>${fmt(mean.get(c.a) - mean.get(c.b))}</td>
         <td>${minus(c.t.toFixed(3))}</td>
         <td>${c.df.toFixed(2)}</td>
-        <td>${pText(c.p)}</td>
-        <td class="eb-holm">${pText(c.pAdjusted)}</td>
-        <td class="eb-mark">${escapeHtml(significanceLabel(c.pAdjusted))}</td>
+        <td>${pValueText(c.p, alpha)}</td>
+        <td class="eb-holm">${pValueText(c.pAdjusted, alpha)}</td>
+        <td class="eb-mark">${escapeHtml(significanceLabel(c.pAdjusted, 'stars', alpha))}</td>
       </tr>`;
     }).join('');
     const untested = computedResults.filter(r => r.n < 2).map(r => r.key);
+    // Two groups of equal values each have no variance for the test to use.
+    const flat = computedResults.filter(r => r.n > 1 && r.sd === 0).map(r => r.key);
     const m = comparisons.length;
+    const between = alpha > 0.05
+      ? ` A pair below ${alpha} but not below 0.05 has no star and shows its p-value.`
+      : (alpha < 0.05 ? ` A pair can carry a star and still not be significant at ${alpha}.` : '');
     pairsNote.textContent = (m
       ? `Difference is the first group's mean minus the second's. Holm's method adjusts the ${m} p-value${m === 1 ? '' : 's'} ` +
-        'so that the chance of any false positive among the pairs stays at 5%. * p < 0.05, ** p < 0.01, *** p < 0.001.'
+        `so that the chance of any false positive among the pairs stays at ${100 - pct}%. A pair is significant ` +
+        `(highlighted here, and given a bracket on the chart) when its Holm p is below ${alpha}, which is ` +
+        `1 − the ${pct}% confidence level. The stars mean the same at every level: * p < 0.05, ** p < 0.01, ` +
+        `*** p < 0.001; n.s., not significant at ${alpha}.${between}`
       : 'No pair could be tested: each group needs at least two replicates, and a pair needs some spread.') +
-      (untested.length ? ` Not tested (one replicate): ${untested.join(', ')}.` : '');
+      (untested.length ? ` Not tested (one replicate): ${untested.join(', ')}.` : '') +
+      (flat.length > 1 ? ` Not tested against each other (every value the same): ${flat.join(', ')}.` : '');
   }
 
   // # --- 5. The chart ---
