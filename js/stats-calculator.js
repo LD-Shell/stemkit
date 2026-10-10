@@ -656,6 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const { names, groups } = sel;
     const r = oneWayAnova(groups);
     if (!r) return showToast('Each group needs at least 2 values.', 'error');
+    if (!Number.isFinite(r.F)) return showToast(`One-way ANOVA is undefined here: ${r.note}.`, 'error');
 
     const lev = leveneTest(groups);
     const norms = groups.map(dagostinoNormality);

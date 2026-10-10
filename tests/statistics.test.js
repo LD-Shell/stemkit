@@ -261,9 +261,30 @@ describe('distribution tails', () => {
       .toBeCloseTo(3.4611747382894255e-17, 25);
   });
 
+  test('describe takes a sample too long to pass as arguments, and a NaN makes its range NaN', () => {
+    const long = Array.from({ length: 400000 }, (_, i) => Math.cos(i) * 7);
+    const d = summarise(long);
+    expect(d.n).toBe(400000);
+    expect(d.min).toBe(long.reduce((a, b) => Math.min(a, b), Infinity));
+    expect(d.max).toBe(7);
+    expect(summarise([3, 1, 2])).toMatchObject({ min: 1, max: 3 });
+    expect(Number.isNaN(summarise([1, NaN, 3]).min)).toBe(true);
+    expect(Number.isNaN(summarise([1, NaN, 3]).max)).toBe(true);
+  });
+
   test('F tail is 1 at and below zero', () => {
     expect(fUpperTail(0, 2, 10)).toBe(1);
     expect(fUpperTail(-5, 2, 10)).toBe(1);
+  });
+
+  test('F tail is 0 for an infinite statistic and NaN for one that is not a number', () => {
+    // scipy.stats.f.sf(inf, 2, 6) is 0.0 and f.sf(nan, 2, 6) is nan.
+    expect(fUpperTail(Infinity, 2, 6)).toBe(0);
+    expect(Number.isNaN(fUpperTail(NaN, 2, 6))).toBe(true);
+    expect(fUpperTail(-Infinity, 2, 6)).toBe(1);
+    expect(Number.isNaN(fUpperTail(Infinity, 0, 6))).toBe(true);
+    // Just short of infinity it is still a number, and tiny.
+    expect(fUpperTail(1e300, 2, 6)).toBeLessThan(1e-200);
   });
 
   test('normal two-sided p-value matches known values', () => {
@@ -536,6 +557,34 @@ describe('oneWayAnova', () => {
     const r = oneWayAnova([[1, 2, 3], [1, 2, 3], [1, 2, 3]]);
     expect(r.F).toBeCloseTo(0, 12);
     expect(r.p).toBeCloseTo(1, 10);
+    expect(r.note).toBeNull();
+  });
+
+  test('groups that do not vary yield NaN with a note rather than an infinite F and p = 1', () => {
+    const r = oneWayAnova([[1, 1, 1], [2, 2, 2], [3, 3, 3]]);
+    expect(Number.isNaN(r.F)).toBe(true);
+    expect(Number.isNaN(r.p)).toBe(true);
+    expect(r.note).toContain('no within-group variance');
+    expect(r.ssWithin).toBe(0);
+    expect(r.ssBetween).toBeCloseTo(6, 12);
+    expect(r.etaSquared).toBe(1);
+    expect(r.groupMeans).toEqual([1, 2, 3]);
+    // Values whose mean does not come out exact in binary are no different.
+    const f = oneWayAnova([[0.1, 0.1, 0.1], [0.7, 0.7, 0.7]]);
+    expect(Number.isNaN(f.F)).toBe(true);
+    expect(f.ssWithin).toBe(0);
+    // Every value the same: nothing to analyse at all.
+    const same = oneWayAnova([[4, 4], [4, 4]]);
+    expect(Number.isNaN(same.F)).toBe(true);
+    expect(same.note).toContain('every value is the same');
+    // One group that varies is enough for the test to be defined.
+    const ok = oneWayAnova([[1, 1, 1], [2, 2, 2], [3, 3, 3.5]]);
+    expect(Number.isFinite(ok.F)).toBe(true);
+    expect(ok.p).toBeGreaterThan(0);
+    expect(ok.note).toBeNull();
+    // Tukey's comparisons after it are undefined too, not significant.
+    const hsd = tukeyHSD([[1, 1, 1], [2, 2, 2], [3, 3, 3]]);
+    expect(hsd.comparisons.every(c => Number.isNaN(c.q))).toBe(true);
   });
 
   test('reports per-group descriptives', () => {

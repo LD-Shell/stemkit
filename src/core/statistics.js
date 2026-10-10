@@ -186,14 +186,23 @@ export function ranks(a) {
  */
 export function describe(a) {
   if (!Array.isArray(a) || a.length === 0) return null;
+  // A loop rather than Math.min(...a), which overflows the call stack on a
+  // column of a few hundred thousand values; a NaN gives NaN, as it does there.
+  let min = Infinity;
+  let max = -Infinity;
+  for (const x of a) {
+    if (Number.isNaN(x)) { min = NaN; max = NaN; break; }
+    if (x < min) min = x;
+    if (x > max) max = x;
+  }
   return {
     n: a.length,
     mean: mean(a),
     sd: sd(a),
     variance: variance(a),
     median: median(a),
-    min: Math.min(...a),
-    max: Math.max(...a),
+    min,
+    max,
     skewness: skewness(a),
     kurtosis: kurtosis(a)
   };
@@ -339,12 +348,15 @@ export function tCritical(df, conf = 0.95) {
  * @param {number} f - Test statistic; non-negative.
  * @param {number} d1 - Numerator degrees of freedom.
  * @param {number} d2 - Denominator degrees of freedom.
- * @returns {number} P(F >= f).
+ * @returns {number} P(F >= f): 1 at or below zero, 0 for an infinite
+ *          statistic, NaN for one that is not a number.
  */
 export function fUpperTail(f, d1, d2) {
   const jStat = requireVendor('jStat');
-  if (!Number.isFinite(f) || f <= 0) return 1;
+  if (Number.isNaN(f)) return NaN;
+  if (f <= 0) return 1;
   if (!Number.isFinite(d1) || !Number.isFinite(d2) || d1 <= 0 || d2 <= 0) return NaN;
+  if (f === Infinity) return 0;
   return jStat.ibeta(d2 / (d2 + d1 * f), d2 / 2, d1 / 2);
 }
 
@@ -684,13 +696,19 @@ export function oneSampleTTest(a, mu0 = 0, options = {}) {
 /**
  * One-way analysis of variance across k >= 2 independent groups.
  *
+ * When no group varies (every value equals the others of its group) the
+ * within-group mean square is zero and F is a division by it. The statistic
+ * is then NaN with a note, as for the t-tests and Welch's ANOVA, rather than
+ * an infinite F: with no spread inside the groups there is nothing to judge
+ * the differences between them against.
+ *
  * @param {number[][]} groups
  * @returns {{F:number, dfBetween:number, dfWithin:number, p:number,
  *            ssBetween:number, ssWithin:number, ssTotal:number,
  *            msBetween:number, msWithin:number,
  *            etaSquared:number, omegaSquared:number,
  *            k:number, N:number, groupMeans:number[], groupSds:number[],
- *            groupNs:number[]}|null}
+ *            groupNs:number[], note:string|null}|null}
  */
 export function oneWayAnova(groups) {
   if (!Array.isArray(groups) || groups.length < 2) return null;
@@ -708,12 +726,19 @@ export function oneWayAnova(groups) {
     for (const x of g) ssW += Math.pow(x - m, 2);
   }
 
+  // A group of equal values has no spread, whatever rounding its mean picked up.
+  const flat = groups.every(g => g.every(x => x === g[0]));
+  if (flat) ssW = 0;
+
   const dfB = k - 1;
   const dfW = N - k;
   const msB = ssB / dfB;
   const msW = ssW / dfW;
-  const F = msB / msW;
-  const p = fUpperTail(F, dfB, dfW);
+  const F = flat ? NaN : msB / msW;
+  const p = flat ? NaN : fUpperTail(F, dfB, dfW);
+  const note = !flat ? null
+    : ssB === 0 ? 'every value is the same, so there is no variation to analyse'
+      : 'no group varies, so there is no within-group variance to compare the group means against';
 
   const ssT = ssB + ssW;
   const etaSquared = ssT === 0 ? NaN : ssB / ssT;
@@ -729,7 +754,8 @@ export function oneWayAnova(groups) {
     k, N,
     groupMeans: groups.map(mean),
     groupSds: groups.map(sd),
-    groupNs: groups.map(g => g.length)
+    groupNs: groups.map(g => g.length),
+    note
   };
 }
 
