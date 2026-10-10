@@ -42,9 +42,11 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { cspProblems } from './build-csp.mjs';
 
-const ROOT = path.resolve(path.join(import.meta.dirname ?? '.', '..'));
+// From the tool's own place, read off its URL: import.meta.dirname is newer than Node 18.
+const ROOT = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
 const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const text = html => html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 

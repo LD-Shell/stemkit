@@ -25,8 +25,10 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = path.resolve(path.join(import.meta.dirname ?? '.', '..'));
+// From the tool's own place, read off its URL: import.meta.dirname is newer than Node 18.
+const ROOT = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
 const args = new Set(process.argv.slice(2));
 const INTERNAL_ONLY = args.has('--internal-only');
 const AS_JSON = args.has('--json');

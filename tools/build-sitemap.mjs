@@ -32,9 +32,11 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
-const ROOT = path.resolve(path.join(import.meta.dirname ?? '.', '..'));
+// From the tool's own place, read off its URL: import.meta.dirname is newer than Node 18.
+const ROOT = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
 const ORIGIN = 'https://stemkit.net';
 const SITEMAP = path.join(ROOT, 'sitemap.xml');
 const CHECK = process.argv.includes('--check');
