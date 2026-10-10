@@ -38,7 +38,7 @@ inside the user's own browser: the data analysed never leaves it, no account is
 required and nothing is installed, so the tools stay usable for unpublished or
 confidential data. The same modules run under Node.js, so an interactive
 analysis can be captured as a version-pinned script. The 42 domain modules carry
-4599 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
+4979 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
 GROMACS, PLUMED, LAMMPS and physical invariants rather than against the
 implementation itself. That
 validation exposed four defects that had been altering reported results, among
@@ -192,7 +192,7 @@ enumerates the modules.
 ┌───────────────────────────────┐   ┌───────────────────────────────┐
 │        Browser host           │   │         Node.js host          │
 │  21 static HTML/CSS tool pages│   │  user analysis scripts        │
-│  DOM wiring only;             │   │  4599-test Jest suite;        │
+│  DOM wiring only;             │   │  4979-test Jest suite;        │
 │  FileReader input             │   │  smoke test                   │
 │  UMD bundles via <script>     │   │  UMD bundles: createRequire   │
 └───────────────┬───────────────┘   └───────────────┬───────────────┘
@@ -224,37 +224,38 @@ supplies the vendored libraries.
 **Table 1.** Modules of `stemkit-core`. Vendored dependencies are supplied by
 injection; modules marked *none* operate without any third-party code. Related
 modules share a row, and a row's tests include those of the page scripts built
-on it (265 in all).
+on it (409 in all).
 
 | Module | Domain | Tests | Dependency |
 | --- | --- | ---: | --- |
 | `gromacs-mdp`, `gromacs-ndx` | GROMACS `.mdp` settings and checks, index groups | 1168 | none |
 | `plumed`, `plumed-syntax`, `plumed-parse`, `plumed-atoms`, `plumed-run` | PLUMED input generation and checking, atom groups, run files | 644 | none |
-| `expression`, `nonlinear-fit`, `fit-python`, `plot-style` | Typed equations, Levenberg–Marquardt fitting, fit scripts | 393 | none |
-| `lammps-reference`, `lammps-input`, `lammps-data`, `lammps-workflow` | LAMMPS commands, input checks, data files, run inputs | 350 | none |
-| `statistics`, `statistics-figure` | Inferential and descriptive statistics | 191 | jStat |
+| `expression`, `nonlinear-fit`, `fit-python`, `plot-style` | Typed equations, Levenberg–Marquardt fitting, fit scripts | 459 | none |
+| `lammps-reference`, `lammps-input`, `lammps-data`, `lammps-workflow` | LAMMPS commands, input checks, data files, run inputs | 355 | none |
+| `bibtex` | Reference deduplication, sanitising | 236 | bibtex-parse-js |
+| `statistics`, `statistics-figure` | Inferential and descriptive statistics | 193 | jStat |
 | `data-cleaning`, `data-cleaning-python` | Tabular transformation, pandas script | 183 | Papa Parse |
-| `bibtex` | Reference deduplication, sanitising | 173 | bibtex-parse-js |
 | `structure` | Molecular geometry, PDB/GRO/XYZ, rigid transforms and their scripts | 165 | none |
-| `figure`, `figure-python` | Figure description, matplotlib script | 164 | none |
-| `xvg-parser` | GROMACS/PLUMED trajectory data | 129 | none |
+| `figure`, `figure-python` | Figure description, matplotlib script | 165 | none |
+| `xvg-parser` | GROMACS/PLUMED trajectory data | 162 | none |
+| `slurm` | SLURM job scripts, resource checks | 123 | none |
 | `plumed-analysis`, `plumed-analysis-figures` | COLVAR and HILLS analysis, free-energy surfaces | 121 | none |
 | `iso4` | ISO 4 word-level abbreviation (LTWA) | 119 | none |
+| `error-bars`, `error-bars-figure` | Group summaries, error bars | 107 | jStat |
+| `units` | Physical unit conversion | 106 | none |
 | `selection` | Atom selection, spatial queries | 94 | none |
 | `curve-fitting` | Least-squares regression | 81 | regression.js |
-| `error-bars`, `error-bars-figure` | Group summaries, error bars | 77 | jStat |
-| `units` | Physical unit conversion | 74 | none |
-| `outliers`, `outliers-figure` | Anomaly detection | 63 | jStat |
+| `outliers`, `outliers-figure` | Anomaly detection | 78 | jStat |
+| `scheduler` | Scheduler directives and launchers | 73 | none |
 | `plot-builder` | Plot builder tables and figures | 62 | none |
-| `slurm` | SLURM job scripts, resource checks | 61 | none |
 | `latex` | Table generation and escaping | 61 | none |
 | `digitizer` | Figure digitisation | 57 | none |
 | `pdf` | PDF export of figures | 56 | none |
 | `journals` | Whole-title journal abbreviation | 53 | none |
-| `scheduler` | Scheduler directives and launchers | 51 | none |
 | `version` | Release version and date | 5 | none |
 | `zip` | Archives of generated files | 4 | none |
-| **Total** | | **4599** | |
+| (no module) | Page scripts and site tools with no module under them: the Decision Matrix, the method tabs, the sitemap and page checks | 49 | none |
+| **Total** | | **4979** | |
 
 Four third-party libraries are vendored within the repository for the core:
 jStat for statistical distributions, Papa Parse for delimited-text parsing,
@@ -285,8 +286,8 @@ under that interpretation the UMD factory takes its browser branch and fails.
 Scoping `"type": "commonjs"` to the dependency directory alone restores correct
 behaviour.
 
-The test suite comprises 4599 tests in 58 suites across the 42 domain modules and the version module,
-with 88.5% statement and 93.0% line coverage of `src/core/`. Its governing
+The test suite comprises 4979 tests in 64 suites across the 42 domain modules and the version module,
+with 89.4% statement and 93.5% line coverage of `src/core/`. Its governing
 principle is that numerical results are validated against *independent*
 references rather than against the implementation under test, since a test
 written from the same source as the code confirms only internal consistency.
@@ -340,7 +341,7 @@ aids and are excluded. The plotting tools also share one plot area, built on
 | Data cleaner | `data-cleaning`, `data-cleaning-python` | Missing values, duplicates, filtering and column transforms, with a pandas script |
 | Scientific converter | `units` | 64 units in ten categories plus temperature, CODATA-sourced |
 | BibTeX sanitiser | `bibtex` | Field removal, page ranges, braces around capitals in titles |
-| BibTeX deduplicator | `bibtex` | Union-find over normalised DOIs and titles |
+| BibTeX deduplicator | `bibtex` | Union-find over normalised DOIs and titles; entries with different DOIs are never merged |
 | DOI to BibTeX | `bibtex` | Lookup at doi.org with field filtering |
 | Journal abbreviator | `journals`, `iso4` | Whole-title dictionary, then ISO 4 word-level fallback |
 | Visual LaTeX tables | `latex` | LaTeX and Markdown tables with correct escaping |
@@ -585,7 +586,8 @@ marked as such in the generated script rather than guessed.
 
 The remaining modules support manuscript preparation: LaTeX and Markdown
 table generation with correct escaping, ISO-4 journal title abbreviation, and
-BibTeX deduplication by union-find over normalised DOIs and titles.
+BibTeX deduplication by union-find over normalised DOIs and titles, in which
+entries with different DOIs are never merged.
 
 #### 2.2.5 Defects exposed by extraction
 
@@ -852,7 +854,7 @@ in pairs: it requires no installation, transmits no data and remains scriptable.
 
 Both properties are structural rather than contractual: computation occurs
 entirely within the browser, and the modules behind the interface are the ones
-that run under Node.js. The 4599-test suite validates every numerical result
+that run under Node.js. The 4979-test suite validates every numerical result
 against an independent reference, and the four defects that this
 strategy exposed (deflated standardised moments, tail probabilities floored at
 zero, misassigned elements in metalloproteins, and an adjusted moment fed into a
