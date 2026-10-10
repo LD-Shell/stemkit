@@ -9,7 +9,9 @@
  * entry A shares a DOI with B, and B shares a title with C, then all three
  * describe the same work even though A and C have nothing directly in common.
  * Pairwise comparison would report two separate conflicts and leave a
- * duplicate in the output.
+ * duplicate in the output. A DOI outranks a title: a title that entries with
+ * different DOIs share links nothing, so no group holds two DOIs (see
+ * `findDuplicates`).
  *
  * Field values are decoded by the vendored bibtex-parse-js bundle via the
  * injection layer. The document structure is read here first: the bundle
@@ -23,20 +25,82 @@
 import { requireVendor } from './vendor.js';
 
 /**
+ * The shape of a DOI: `10.`, a registrant code of four or more digits (which
+ * may be subdivided, `10.1000.10`), a slash, and a suffix with no white
+ * space. The suffix may hold any other character, brackets and semicolons
+ * included: `10.1002/(SICI)1097-0258(19980430)17:8<857::AID-SIM777>3.0.CO;2-E`.
+ */
+const DOI_SHAPE = /^10\.\d{4,9}(?:\.\d+)*\/\S+$/;
+
+// What is written in front of the `10.`: the resolver's address, with or
+// without its scheme, or a label (`doi:10.…`, `DOI 10.…`, and the URI forms
+// `info:doi/10.…` and `urn:doi:10.…`).
+const DOI_RESOLVER = String.raw`(?:https?:\/\/|\/\/)?(?:(?:dx|www)\.)?doi\.org\/+`;
+const DOI_LABEL = String.raw`(?:info:|urn:)?doi\s*[:\/]?\s*`;
+const RESOLVER_PREFIX = new RegExp(`^${DOI_RESOLVER}`, 'i');
+const LABEL_PREFIX = new RegExp(`^${DOI_LABEL}(?=10\\.)`, 'i');
+
+/**
+ * The bare DOI (`10.…`) in any of the forms a DOI is written in, in the case
+ * it was written in.
+ *
+ * A link's query string and fragment are not part of the DOI: in a link, a
+ * `?` or `#` that belongs to the DOI is written `%3F` or `%23`. Percent
+ * escapes are decoded wherever they appear, since a DOI copied out of a link
+ * keeps them (`%3C` for `<`); one that is not valid UTF-8 is left as written.
+ */
+function writtenDoi(raw) {
+  let s = String(raw || '').trim();
+  const link = RESOLVER_PREFIX.exec(s);
+  if (link) s = s.slice(link[0].length).replace(/[?#][\s\S]*$/, '');
+  return s
+    .replace(LABEL_PREFIX, '')
+    .replace(/(?:%[0-9a-f]{2})+/gi, run => {
+      try { return decodeURIComponent(run); } catch { return run; }
+    });
+}
+
+/**
  * Normalise a DOI for comparison.
  *
- * Strips any resolver prefix, lowercases (DOIs are case-insensitive by
- * specification), and removes whitespace.
+ * Every common way of writing a DOI gives the same bare `10.…`:
+ * `https://doi.org/10.…`, `http://dx.doi.org/…`, `https://www.doi.org/…`,
+ * `doi.org/…` with no scheme, `doi:10.…`, `DOI 10.…` and `info:doi/10.…`. A
+ * link's query string and fragment are dropped and percent escapes decoded
+ * (see `writtenDoi`). The result is lowercased (DOIs are case-insensitive by
+ * specification) and white space is removed.
  *
  * @param {string} raw
  * @returns {string}
  */
 export function normaliseDoi(raw) {
-  return String(raw || '')
-    .trim()
-    .toLowerCase()
-    .replace(/^https?:\/\/(dx\.)?doi\.org\//, '')
-    .replace(/\s+/g, '');
+  return writtenDoi(raw).replace(/\s+/g, '').toLowerCase();
+}
+
+/**
+ * Whether a text is one DOI, in any of the forms `normaliseDoi` reads.
+ *
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function isDoi(text) {
+  return DOI_SHAPE.test(normaliseDoi(text));
+}
+
+/**
+ * The address that resolves a DOI, `https://doi.org/…`.
+ *
+ * The characters that would end the path (`?`, `#`) or are not allowed in
+ * one (`<`, `>`, `%`, a space) are percent-encoded; the slashes stay.
+ *
+ * @param {string} doi  A bare DOI.
+ * @returns {string}
+ */
+export function doiUrl(doi) {
+  const bare = String(doi || '');
+  let path;
+  try { path = encodeURI(bare); } catch { path = bare; }
+  return 'https://doi.org/' + path.replace(/\?/g, '%3F').replace(/#/g, '%23');
 }
 
 /**
@@ -553,6 +617,21 @@ function titleInSource(entry) {
 }
 
 /**
+ * The DOI of an entry, normalised, or an empty string when its `doi` field
+ * is empty or does not hold a DOI (`n/a`, a publisher's page address).
+ *
+ * Some exports escape the underscore of a DOI for TeX (`\_` or `{\_}`); the
+ * escapes are undone, so every spelling is one DOI.
+ */
+function doiOf(entry) {
+  const written = getField((entry && entry.entryTags) || {}, 'doi')
+    .replace(/\\([_%&#$])/g, '$1')
+    .replace(/[{}]/g, '');
+  const doi = normaliseDoi(written);
+  return DOI_SHAPE.test(doi) ? doi : '';
+}
+
+/**
  * Group entries into duplicate sets.
  *
  * Two entries are linked when they share a normalised DOI or a normalised
@@ -560,14 +639,30 @@ function titleInSource(entry) {
  * compared as written in the source where that is known (see
  * `titleInSource`).
  *
+ * A DOI identifies a work, so two entries with different DOIs are never put
+ * in one group, whatever their titles. The rule that keeps them apart does
+ * not depend on the order of the file: a title carried by entries with two
+ * or more different DOIs ("Editorial", or a preprint and the article it
+ * became) is the title of more than one work, and links nothing. Entries with
+ * such a title are grouped by DOI alone, and one of them with no DOI is left
+ * on its own, since nothing says which of the works it is. Every other title
+ * links as before, so a group still forms across a chain such as
+ * A(doi) = B(title) = C, and no group can hold two DOIs. The entries of each
+ * title set aside are returned as `lookAlikes`, for a person to check.
+ *
+ * Only a `doi` field that holds a DOI counts as one (see `doiOf`).
+ *
  * @param {object[]} entries
  * @returns {{groups:Array<{members:Array<{originalIndex:number, data:object}>}>,
- *            singletons:object[], duplicateCount:number}}
+ *            singletons:object[], duplicateCount:number,
+ *            lookAlikes:Array<{members:Array<{originalIndex:number, data:object}>}>}}
+ *          `lookAlikes` holds, for each title that different DOIs share, every
+ *          entry with that title, in source order.
  */
 export function findDuplicates(entries) {
   const list = Array.isArray(entries) ? entries : [];
   const n = list.length;
-  if (n === 0) return { groups: [], singletons: [], duplicateCount: 0 };
+  if (n === 0) return { groups: [], singletons: [], duplicateCount: 0, lookAlikes: [] };
 
   const parent = new Array(n);
   for (let i = 0; i < n; i++) parent[i] = i;
@@ -587,19 +682,34 @@ export function findDuplicates(entries) {
     if (ra !== rb) parent[rb] = ra;
   };
 
+  const dois = list.map(doiOf);
+  const titles = list.map(entry => normaliseTitle(titleInSource(entry)));
+
+  // The DOIs each title is found with. Two or more: the title is not used.
+  const doisOfTitle = new Map();
+  titles.forEach((title, i) => {
+    if (!title || !dois[i]) return;
+    if (!doisOfTitle.has(title)) doisOfTitle.set(title, new Set());
+    doisOfTitle.get(title).add(dois[i]);
+  });
+  const sharedByWorks = (title) => (doisOfTitle.get(title) || { size: 0 }).size > 1;
+
   const doiOwner = new Map();
   const titleOwner = new Map();
+  const sameTitle = new Map();
 
   list.forEach((entry, i) => {
-    const tags = entry.entryTags || {};
-    const doi = normaliseDoi(getField(tags, 'doi'));
-    const title = normaliseTitle(titleInSource(entry));
+    const doi = dois[i];
+    const title = titles[i];
 
     if (doi) {
       if (doiOwner.has(doi)) union(doiOwner.get(doi), i);
       else doiOwner.set(doi, i);
     }
-    if (title) {
+    if (title && sharedByWorks(title)) {
+      if (!sameTitle.has(title)) sameTitle.set(title, []);
+      sameTitle.get(title).push(i);
+    } else if (title) {
       if (titleOwner.has(title)) union(titleOwner.get(title), i);
       else titleOwner.set(title, i);
     }
@@ -630,7 +740,12 @@ export function findDuplicates(entries) {
   // Stable ordering by first appearance in the source file.
   groups.sort((a, b) => a.members[0].originalIndex - b.members[0].originalIndex);
 
-  return { groups, singletons, duplicateCount };
+  // A Map keeps its keys in the order they were added: first appearance.
+  const lookAlikes = [...sameTitle.values()].map(members => ({
+    members: members.map(i => ({ originalIndex: i, data: list[i] }))
+  }));
+
+  return { groups, singletons, duplicateCount, lookAlikes };
 }
 
 /**
@@ -1230,22 +1345,70 @@ export function sanitiseText(text, options = {}) {
   return { text: out, entriesProcessed, fieldsRemoved };
 }
 
+// What may stand between the text around a DOI and the DOI: an opening
+// bracket or quotation mark.
+const DOI_OPENERS = String.raw`[(\[{<"'“‘«]*`;
+// With no separator chosen, a list is cut at white space, and at a comma or
+// semicolon only where the next DOI begins: older Wiley DOIs contain a
+// semicolon (…3.0.CO;2-E), which a plain split on ";" would cut in two.
+const AUTO_SEPARATOR = new RegExp(
+  String.raw`\s+|[,;]+(?=\s*${DOI_OPENERS}(?:${DOI_RESOLVER})?(?:${DOI_LABEL})?10\.\d)`, 'i');
+const LEADING_OPENERS = new RegExp(`^${DOI_OPENERS}`);
+// A label that white space parted from its DOI ("DOI: 10.…").
+const LABEL_ALONE = new RegExp(`^${DOI_OPENERS}doi\\s*:?$`, 'i');
+// Punctuation of the sentence a DOI sits in, never the end of a DOI.
+const SENTENCE_END = new Set([...'.,;:!?"\'”’»']);
+const OPENER_OF = { ')': '(', ']': '[', '}': '{', '>': '<' };
+
+const countOf = (text, ch) => text.split(ch).length - 1;
+
 /**
- * Normalise a list of DOIs pasted as text.
+ * The DOI in one piece of a pasted list, or an empty string when the piece
+ * is not a DOI.
  *
- * Accepts the forms people actually paste: newline-separated, comma- or
- * semicolon-separated, or full resolver URLs. Duplicates are removed
+ * The piece may be a DOI in any written form (see `normaliseDoi`), inside
+ * brackets or quotation marks, with the punctuation of its sentence after
+ * it. A closing bracket is dropped only when the DOI has no opening bracket
+ * for it: `(10.1000/a(b)c)` is the DOI `10.1000/a(b)c` in brackets, and
+ * `10.1000/a(b)` keeps its last character.
+ */
+function doiInPiece(piece) {
+  let s = writtenDoi(piece.replace(LEADING_OPENERS, ''));
+  while (s) {
+    const last = s[s.length - 1];
+    const opener = OPENER_OF[last];
+    const stray = opener && countOf(s, last) > countOf(s, opener);
+    if (!stray && !SENTENCE_END.has(last)) break;
+    s = s.slice(0, -1);
+  }
+  return DOI_SHAPE.test(s) ? s : '';
+}
+
+/**
+ * Read the DOIs in a pasted text.
+ *
+ * Accepts the forms people actually paste: one per line, separated by
+ * commas, semicolons or spaces, or scattered through a sentence; bare, as a
+ * resolver link (`https://doi.org/…`, `https://www.doi.org/…`,
+ * `dx.doi.org/…`) or labelled (`doi:10.…`); in brackets or quotation marks,
+ * with a full stop after. Each DOI is returned bare, in the case it was
+ * written in. A piece that is not a DOI is counted in `skipped` and left
+ * out, whichever separator is chosen. Duplicates are removed
  * case-insensitively, since a DOI is case-insensitive by specification and
  * fetching the same record twice wastes a request and produces a duplicate
  * entry.
  *
+ * With `'auto'` the text is cut at white space, and at a comma or semicolon
+ * only where the next DOI begins, so a DOI that contains one stays whole.
+ * The other values cut at that character and nowhere else.
+ *
  * @param {string} text
  * @param {'auto'|'comma'|'semicolon'|'space'|'newline'} [delimiter='auto']
- * @returns {{dois:string[], duplicates:number}}
+ * @returns {{dois:string[], duplicates:number, skipped:number}}
  */
 export function parseDoiList(text, delimiter = 'auto') {
   const src = String(text || '');
-  if (!src.trim()) return { dois: [], duplicates: 0 };
+  if (!src.trim()) return { dois: [], duplicates: 0, skipped: 0 };
 
   let parts;
   switch (delimiter) {
@@ -1253,33 +1416,42 @@ export function parseDoiList(text, delimiter = 'auto') {
     case 'semicolon': parts = src.split(';'); break;
     case 'space': parts = src.split(/\s+/); break;
     case 'newline': parts = src.split(/\r?\n/); break;
-    default:
-      // Semicolons and commas both appear inside DOIs only rarely, but a
-      // newline never does, so prefer an explicit separator when one is
-      // present and fall back to lines otherwise.
-      if (src.includes(';')) parts = src.split(';');
-      else if (src.includes(',')) parts = src.split(',');
-      else parts = src.split(/\r?\n/);
+    default: parts = src.split(AUTO_SEPARATOR);
   }
-
-  const cleaned = parts
-    .map(s => s.trim())
-    .filter(Boolean)
-    .map(s => s.replace(/^(https?:\/\/)?(dx\.)?doi\.org\//i, '').trim())
-    .filter(Boolean);
 
   const seen = new Set();
   const dois = [];
   let duplicates = 0;
+  let skipped = 0;
 
-  for (const d of cleaned) {
-    const key = d.toLowerCase();
+  for (const part of parts) {
+    const piece = part.trim();
+    if (!piece || LABEL_ALONE.test(piece)) continue;
+
+    const doi = doiInPiece(piece);
+    if (!doi) { skipped++; continue; }
+
+    const key = doi.toLowerCase();
     if (seen.has(key)) { duplicates++; continue; }
     seen.add(key);
-    dois.push(d);
+    dois.push(doi);
   }
 
-  return { dois, duplicates };
+  return { dois, duplicates, skipped };
+}
+
+/**
+ * Whether a text is BibTeX: it holds at least one complete entry
+ * (`@article{key, …}`) and is not markup. A web page, an empty reply and an
+ * entry cut off before its closing brace are not.
+ *
+ * @param {string} text
+ * @returns {boolean}
+ */
+export function looksLikeBibtex(text) {
+  const src = String(text || '').replace(/^﻿/, '').trim();
+  if (!src || src[0] === '<') return false;
+  return scanDocument(src).some(block => block.kind === 'entry' && block.closed);
 }
 
 /**

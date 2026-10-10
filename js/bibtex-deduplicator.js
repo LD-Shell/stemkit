@@ -12,6 +12,8 @@ import {
   chooseBest,
   serialiseLibrary,
   getField,
+  normaliseDoi,
+  isDoi,
   missingFields
 } from '../src/core/bibtex.js';
 
@@ -74,6 +76,12 @@ document.addEventListener('DOMContentLoaded', () => {
   let conflictGroups = [];
   let keptSingletons = [];
   let scanned = false;
+  // The text the results on the page were made from. Once the text in step 1
+  // differs from it, the results are out of date: they stay on the page,
+  // marked as such, and nothing can be chosen or downloaded until the text is
+  // scanned again (or put back as it was).
+  let scannedText = '';
+  let stale = false;
   const resolutions = {};
 
   // --- 2. Bindings ---
@@ -93,21 +101,61 @@ document.addEventListener('DOMContentLoaded', () => {
   const uniqueCount = document.getElementById('uniqueCount');
   const progressLabel = document.getElementById('progressLabel');
   const autoResolveBtn = document.getElementById('autoResolveBtn');
+  const scanError = document.getElementById('scanError');
+  const resultsPanel = document.getElementById('resultsPanel');
+  const staleNote = document.getElementById('staleNote');
+  const rescanBtn = document.getElementById('rescanBtn');
+  const lookAlikes = document.getElementById('lookAlikes');
+  const lookAlikesTitle = document.getElementById('lookAlikesTitle');
+  const lookAlikesList = document.getElementById('lookAlikesList');
 
   const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
   // --- 3. Input ---
   function syncInputButtons() {
-    const has = bibInput.value.trim() !== '';
+    const text = bibInput.value.trim();
+    const has = text !== '';
     scanBtn.disabled = !has;
+    rescanBtn.disabled = !has;
     clearBtn.disabled = !has && !scanned;
+    setStale(scanned && text !== scannedText);
   }
   bibInput.addEventListener('input', syncInputButtons);
+
+  // Scanning a large library again on every keystroke would be slow, and
+  // would throw away the choices already made. So the results of the last
+  // scan stay, dimmed and switched off, with a note saying why.
+  function setStale(now) {
+    if (now === stale) return;
+    stale = now;
+    staleNote.hidden = !stale;
+    resultsPanel.classList.toggle('is-stale', stale);
+    diagnosticsCard.classList.toggle('is-stale', stale);
+    autoResolveBtn.disabled = stale;
+    for (const card of conflictList.querySelectorAll('.dd-card')) card.disabled = stale;
+    updateProgress();
+  }
+
+  function showScanError(message) {
+    const note = document.createElement('p');
+    note.className = 'stk-callout stk-callout-danger';
+    const icon = document.createElement('i');
+    icon.className = 'fa-solid fa-triangle-exclamation';
+    icon.setAttribute('aria-hidden', 'true');
+    const body = document.createElement('span');
+    body.textContent = message;
+    note.append(icon, body);
+    // #scanError is an alert that is always in the page: what is put into it
+    // is read out.
+    scanError.replaceChildren(note);
+  }
+  const clearScanError = () => scanError.replaceChildren();
 
   // Offered twice: in the page head and in the empty step 2.
   document.querySelectorAll('[data-load-example]').forEach(btn => {
     btn.addEventListener('click', () => {
       bibInput.value = EXAMPLE;
+      clearScanError();
       syncInputButtons();
       showToast('Loaded five example entries. Press Scan for duplicates.');
       scanBtn.focus();
@@ -116,6 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   clearBtn.addEventListener('click', () => {
     bibInput.value = '';
+    clearScanError();
     resetResults();
     syncInputButtons();
     bibInput.focus();
@@ -129,6 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const reader = new FileReader();
     reader.onload = (event) => {
       bibInput.value = event.target.result;
+      clearScanError();
       syncInputButtons();
       // Set from a callback, not typed: tell the step badges.
       if (window.STEMKit) window.STEMKit.refreshSteps();
@@ -142,33 +192,64 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- 4. Scan (delegated to the core) ---
   scanBtn.addEventListener('click', scanForDuplicates);
 
+  // The note that the results are out of date has its own Scan again. It
+  // goes away with the note, so the focus is sent on: to the first choice,
+  // to the download when there is nothing to choose, or back to the text
+  // when the scan failed.
+  rescanBtn.addEventListener('click', () => {
+    const ok = scanForDuplicates();
+    const next = !ok ? bibInput : conflictList.querySelector('.dd-card') || exportBtn;
+    next.focus();
+  });
+
   function resetResults() {
     scanned = false;
+    scannedText = '';
     parsedEntries = [];
     conflictGroups = [];
     keptSingletons = [];
     Object.keys(resolutions).forEach(k => delete resolutions[k]);
     conflictList.innerHTML = '';
     conflictList.hidden = true;
+    lookAlikesList.innerHTML = '';
+    lookAlikes.hidden = true;
+    lookAlikes.open = false;
     emptyState.hidden = false;
     allResolved.hidden = true;
     exportedNote.hidden = true;
+    progressLabel.textContent = '';
+    exportBtn.disabled = true;
     autoResolveBtn.classList.add('hidden');
     diagnosticsCard.classList.add('hidden');
+    setStale(false);
   }
 
+  // A scan that fails leaves nothing of the scan before it: groups and
+  // counts made from another text would read as the result of this one.
+  function scanFailed(reason) {
+    const hadResults = scanned;
+    resetResults();
+    syncInputButtons();
+    showScanError(`Nothing was scanned. ${/[.!?]$/.test(reason) ? reason : reason + '.'}` +
+      (hadResults ? ' The results of the earlier scan have been cleared.' : ''));
+    return false;
+  }
+
+  /** Scan the text in step 1. True when there are results to show. */
   function scanForDuplicates() {
     const raw = bibInput.value.trim();
-    if (!raw) return;
+    if (!raw) return false;
 
     const parsed = parseBibtex(raw);
-    if (parsed.error) return showToast(parsed.error, 'error');
+    if (parsed.error) return scanFailed(parsed.error);
     if (parsed.entries.length === 0) {
-      return showToast('No BibTeX entries found. Each should start like @article{key, …}.', 'error');
+      return scanFailed('No BibTeX entries were found: each should start like @article{key, …}.');
     }
 
+    clearScanError();
     resetResults();
     scanned = true;
+    scannedText = raw;
     parsedEntries = parsed.entries;
 
     const result = findDuplicates(parsedEntries);
@@ -187,12 +268,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     emptyState.hidden = true;
     renderConflictList();
+    renderLookAlikes(result.lookAlikes);
     diagnosticsCard.classList.remove('hidden');
     updateProgress();
     syncInputButtons();
+    return true;
   }
 
   // --- 5. Groups ---
+  // Only a value that is a DOI counts as one when entries are compared, so
+  // the card says when a doi field holds something else.
+  const doiLabel = (value) => isDoi(value) ? 'Has a DOI'
+    : value.trim() ? 'The doi field is not a DOI' : 'No DOI';
+
   function renderConflictList() {
     conflictList.innerHTML = '';
     const total = conflictGroups.length;
@@ -229,6 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
         card.type = 'button';
         card.className = 'dd-card' + (entry === best ? ' is-best' : '');
         card.setAttribute('aria-pressed', String(resolutions[gi] === entry));
+        card.disabled = stale;
         card.innerHTML = `
           <span class="dd-card-head">
             <span class="dd-key">${escapeHtml(entry.citationKey || 'No key')}</span>
@@ -237,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <span class="dd-title">${escapeHtml(getField(tags, 'title') || 'No title')}</span>
           <span class="dd-author">${escapeHtml(getField(tags, 'author') || 'No author')}</span>
           ${where ? `<span class="dd-meta">${escapeHtml(where)}</span>` : ''}
-          <span class="dd-meta">${getField(tags, 'doi') ? 'Has a DOI' : 'No DOI'}${missing.length ? `; missing ${escapeHtml(missing.join(', '))}` : ''}</span>
+          <span class="dd-meta">${doiLabel(getField(tags, 'doi'))}${missing.length ? `; missing ${escapeHtml(missing.join(', '))}` : ''}</span>
           <span class="dd-keep" aria-hidden="true"><i class="fa-solid fa-circle-check"></i> Kept</span>`;
 
         card.addEventListener('click', () => {
@@ -256,6 +345,40 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Entries that share a title but carry different DOIs are not grouped: a
+  // DOI identifies a work. They are listed, since one of them with no DOI
+  // may still be a copy of another.
+  function renderLookAlikes(sets) {
+    lookAlikesList.innerHTML = '';
+    lookAlikes.hidden = sets.length === 0;
+    if (sets.length === 0) return;
+
+    const entries = sets.reduce((n, set) => n + set.members.length, 0);
+    lookAlikesTitle.textContent =
+      `${plural(sets.length, 'title is', 'titles are')} shared by entries with different DOIs ` +
+      `(${plural(entries, 'entry', 'entries')}). They were not grouped.`;
+
+    for (const set of sets) {
+      const item = document.createElement('li');
+      const title = document.createElement('span');
+      title.className = 'dd-alike-title';
+      title.textContent = getField(set.members[0].data.entryTags || {}, 'title') || 'No title';
+      const list = document.createElement('ul');
+      for (const member of set.members) {
+        const tags = member.data.entryTags || {};
+        const doi = getField(tags, 'doi');
+        const row = document.createElement('li');
+        const key = document.createElement('span');
+        key.className = 'dd-key';
+        key.textContent = member.data.citationKey || 'No key';
+        row.append(key, ` ${isDoi(doi) ? normaliseDoi(doi) : 'no DOI'}`);
+        list.appendChild(row);
+      }
+      item.append(title, list);
+      lookAlikesList.appendChild(item);
+    }
+  }
+
   autoResolveBtn.addEventListener('click', () => {
     conflictGroups.forEach((group, gi) => {
       resolutions[gi] = chooseBest(group.members);
@@ -269,9 +392,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const resolved = Object.keys(resolutions).length;
     const total = conflictGroups.length;
     const unique = keptSingletons.length + total;
-    const done = scanned && resolved >= total;
+    const done = scanned && !stale && resolved >= total;
 
     progressLabel.textContent = !scanned ? ''
+      : stale ? 'Out of date: the text in step 1 has changed since this scan. Scan again to download.'
       : total === 0 ? 'Nothing to choose: no entry has a duplicate.'
       : `${resolved} of ${plural(total, 'group', 'groups')} resolved.`;
 
@@ -299,6 +423,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   exportBtn.addEventListener('click', () => {
+    // The file is written from the text that was scanned, so it is only
+    // offered while that is still the text in step 1.
+    if (!scanned || stale) return;
     const finalList = buildFinalList();
     if (finalList.length === 0) return showToast('There is nothing to download.', 'error');
 

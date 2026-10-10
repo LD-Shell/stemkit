@@ -1,19 +1,201 @@
 /**
  * DOI to BibTeX | UI layer.
  *
- * BibTeX field removal lives in stemkit-core; this file handles DOI-list
- * parsing, fetching and DOM wiring.
+ * Reading the pasted list of DOIs, the address a DOI resolves at, the check
+ * that a reply is BibTeX, and BibTeX field removal live in stemkit-core; this
+ * file handles the requests and DOM wiring.
  */
-import { dropBibtexFields } from '../src/core/bibtex.js';
+import {
+    dropBibtexFields, parseDoiList, normaliseDoi, doiUrl, looksLikeBibtex
+} from '../src/core/bibtex.js';
 
-document.addEventListener("DOMContentLoaded", () => {
+
+// ═══════════════════════════════════════════
+// ONE DOI: THE REQUEST
+//
+//  No page is needed for this part, so it is
+//  exported and tested on its own.
+// ═══════════════════════════════════════════
+
+/** How long one request may take, reply included. */
+export const REQUEST_TIMEOUT_MS = 20000;
+/** How many times a DOI is asked for again after "429 Too Many Requests". */
+export const RATE_LIMIT_RETRIES = 2;
+/** The first wait when a 429 does not say how long; each later one doubles. */
+export const RATE_LIMIT_WAIT_S = 10;
+/** The longest wait that is sat out. Asked for more, the DOI fails at once. */
+export const RATE_LIMIT_MAX_WAIT_S = 60;
+
+/** Why a DOI could not be fetched, as a sentence for the failure report. */
+export class DoiError extends Error {
+    /** @param {string} message  @param {{rateLimited?:boolean}} [flags] */
+    constructor(message, { rateLimited = false } = {}) {
+        super(message);
+        this.name = "DoiError";
+        /** The server was still limiting requests when the tries ran out. */
+        this.rateLimited = rateLimited;
+    }
+}
+
+/**
+ * The wait a Retry-After header asks for, in whole seconds, or null when
+ * there is no header or it cannot be read. The header holds either a number
+ * of seconds or an HTTP date (RFC 9110, section 10.2.3).
+ *
+ * @param {string|null} value
+ * @param {number} [now]  Milliseconds since the epoch.
+ * @returns {number|null}
+ */
+export function retryAfterSeconds(value, now = Date.now()) {
+    const text = String(value ?? "").trim();
+    if (!text) return null;
+    if (/^\d+$/.test(text)) return Number(text);
+    // Every form of HTTP date starts with the name of the day. Date.parse
+    // alone would also take "1.5" for a date.
+    const at = /^[A-Za-z]{3}/.test(text) ? Date.parse(text) : NaN;
+    return Number.isNaN(at) ? null : Math.max(0, Math.ceil((at - now) / 1000));
+}
+
+/** "45 s", "2 minutes" */
+export function spellSeconds(seconds) {
+    if (seconds < 90) return `${seconds} s`;
+    return `${Math.round(seconds / 60)} minutes`;
+}
+
+/**
+ * Who sent a reply. doi.org passes a lookup on to the agency that registered
+ * the DOI (Crossref, DataCite, …), and the reply the page reads is the last
+ * one, so an error is the agency's more often than doi.org's.
+ */
+function answeredBy(response) {
+    try { return new URL(response.url).hostname || "The server"; } catch { return "The server"; }
+}
+
+/**
+ * Fetch the BibTeX entry of one DOI.
+ *
+ * Resolves with the entry, trimmed. Rejects with a `DoiError` whose message
+ * says what happened: no reply in time, no reply the browser could read, a
+ * status other than 200, or a reply that is not BibTeX (agencies answer an
+ * unknown format with a web page and status 200, or with nothing).
+ *
+ * On 429 the DOI is asked for again, up to `retries` times, after the wait
+ * the reply's Retry-After header asks for. A reply from another site shows
+ * that header only when the site allows it (Access-Control-Expose-Headers),
+ * and Crossref's does not, so without one the wait is `RATE_LIMIT_WAIT_S`,
+ * doubled each time. If the tries run out, or the wait asked for is longer
+ * than `RATE_LIMIT_MAX_WAIT_S`, the error has `rateLimited` set.
+ *
+ * @param {string} doi  A bare DOI.
+ * @param {object} [options]
+ * @param {Function} [options.fetch]      Stands in for `fetch` in tests.
+ * @param {Function} [options.sleep]      `(ms) => Promise`, likewise.
+ * @param {number}   [options.timeoutMs]
+ * @param {number}   [options.retries]
+ * @param {Function} [options.onWait]     Called before each wait, with
+ *        `{ who, seconds, asked, attempt, retries }`; `asked` says whether
+ *        the server named the wait.
+ * @param {Function} [options.onRetry]    Called when a wait is over.
+ * @returns {Promise<string>}
+ */
+export async function fetchBibtex(doi, options = {}) {
+    const {
+        fetch: request = globalThis.fetch,
+        sleep = pause,
+        timeoutMs = REQUEST_TIMEOUT_MS,
+        retries = RATE_LIMIT_RETRIES,
+        onWait = () => {},
+        onRetry = () => {},
+    } = options;
+
+    for (let attempt = 0; ; attempt++) {
+        // One clock for the whole exchange: a reply can stall after its
+        // headers, so the body is read before the timer is stopped.
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        let response;
+        let body = "";
+        try {
+            response = await request(doiUrl(doi), {
+                method: "GET",
+                headers: { "Accept": "application/x-bibtex; charset=utf-8" },
+                signal: controller.signal,
+            });
+            if (response.ok) body = await response.text();
+        } catch (err) {
+            if (controller.signal.aborted) {
+                throw new DoiError(`No reply within ${spellSeconds(Math.round(timeoutMs / 1000))}.`);
+            }
+            // A failed connection, a reply without permission for this page to
+            // read it, and a host the page may not contact all arrive as the
+            // same TypeError, with a message that differs by browser.
+            if (globalThis.navigator && globalThis.navigator.onLine === false) {
+                throw new DoiError("The browser is offline.");
+            }
+            throw new DoiError("No reply the browser could read. The connection failed, or the agency " +
+                "that registered this DOI does not answer lookups from a web page.");
+        } finally {
+            clearTimeout(timer);
+        }
+
+        const who = answeredBy(response);
+
+        if (response.status === 429) {
+            const named = retryAfterSeconds(response.headers.get("Retry-After"));
+            const seconds = named ?? RATE_LIMIT_WAIT_S * 2 ** attempt;
+            if (seconds > RATE_LIMIT_MAX_WAIT_S) {
+                throw new DoiError(`${who} is limiting requests (429) and asked for a wait of ` +
+                    `${spellSeconds(seconds)}. Try again after that.`, { rateLimited: true });
+            }
+            if (attempt >= retries) {
+                throw new DoiError(`${who} is limiting requests (429), and still was after ` +
+                    `${retries === 1 ? "1 more try" : `${retries} more tries`}. Try again in a few minutes.`,
+                    { rateLimited: true });
+            }
+            const wait = { who, seconds, asked: named !== null, attempt: attempt + 1, retries };
+            onWait(wait);
+            await sleep(seconds * 1000);
+            onRetry(wait);
+            continue;
+        }
+
+        if (!response.ok) {
+            if (response.status === 404) {
+                throw new DoiError(who === "doi.org"
+                    ? "doi.org does not know this DOI (404). Check it for a typing mistake."
+                    : `${who} has no record of this DOI (404).`);
+            }
+            if (response.status === 406) {
+                throw new DoiError(`${who} cannot give this DOI as BibTeX (406).`);
+            }
+            throw new DoiError(`${who} answered ${response.status}` +
+                `${response.statusText ? ` ${response.statusText}` : ""}.`);
+        }
+
+        const text = body.trim();
+        if (!text) throw new DoiError(`${who} sent an empty reply.`);
+        if (!looksLikeBibtex(text)) {
+            throw new DoiError(text[0] === "<"
+                ? `${who} sent a web page, not BibTeX.`
+                : `${who} sent a reply that is not a BibTeX entry.`);
+        }
+        return text;
+    }
+}
+
+function pause(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
+if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", () => {
 
     // ═══════════════════════════════════════════
     // 1. STATE
     // ═══════════════════════════════════════════
 
-    let rawEntries = [];        // Raw bibtex strings returned by doi.org
-    let fetchedDOIs = new Set(); // Lowercased DOIs already in rawEntries
+    let rawEntries = [];        // Raw bibtex strings, as they were sent
+    let fetchedDOIs = new Set(); // Normalised DOIs already in rawEntries
     let failedDOIs = [];        // Array of { doi, error } objects
     let selectedDelim = "auto";
     let isFetching = false;
@@ -143,61 +325,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ═══════════════════════════════════════════
-    // 5. DOI PARSING & DEDUPLICATION
-    // ═══════════════════════════════════════════
-
-    // A DOI (after any doi.org prefix) starts "10.", has a registrant code,
-    // a slash and a suffix, and contains no whitespace.
-    const DOI_PREFIX = /^(?:https?:\/\/)?(?:dx\.)?doi\.org\/|^doi:\s*/i;
-    const LOOKS_LIKE_DOI = /^10\.\d{4,9}\/\S+$/;
-
-    function parseDOIs(text) {
-        let parts;
-
-        if (selectedDelim === "auto") {
-            // Split on whitespace, and on a comma or semicolon only where the
-            // next DOI begins. Older Wiley DOIs contain a semicolon
-            // (…3.0.CO;2-T), which a plain split on ";" would cut in two.
-            parts = text.split(/\s+|[,;]+(?=\s*(?:https?:\/\/)?(?:dx\.)?(?:doi\.org\/|doi:\s*)?10\.)/i);
-        } else if (selectedDelim === "comma")     parts = text.split(",");
-          else if (selectedDelim === "semicolon") parts = text.split(";");
-          else if (selectedDelim === "space")     parts = text.split(/\s+/);
-          else                                    parts = text.split(/\n/);
-
-        let cleaned = parts
-            .map(s => s.trim().replace(DOI_PREFIX, "").trim())
-            .filter(Boolean);
-
-        // Auto-detect also drops words that are not DOIs (a pasted
-        // reference, "doi:" on its own), rather than asking doi.org for them.
-        let skipped = 0;
-        if (selectedDelim === "auto") {
-            cleaned = cleaned
-                .map(s => s.replace(/[,;.]+$/, ""))
-                .filter(s => {
-                    if (LOOKS_LIKE_DOI.test(s)) return true;
-                    skipped++;
-                    return false;
-                });
-        }
-
-        const seen = new Set();
-        const unique = [];
-        let dupes = 0;
-
-        for (const d of cleaned) {
-            const key = d.toLowerCase();
-            if (seen.has(key)) { dupes++; continue; }
-            seen.add(key);
-            unique.push(d);
-        }
-
-        return { dois: unique, dupes, skipped };
-    }
-
-
-    // ═══════════════════════════════════════════
-    // 6. BIBTEX FIELD FILTERING
+    // 5. BIBTEX FIELD FILTERING
     // ═══════════════════════════════════════════
 
     /**
@@ -214,7 +342,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ═══════════════════════════════════════════
-    // 7. OUTPUT
+    // 6. OUTPUT
     // ═══════════════════════════════════════════
 
     /** Full rebuild, after a field filter change. */
@@ -249,26 +377,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ═══════════════════════════════════════════
-    // 8. SINGLE DOI FETCH
-    // ═══════════════════════════════════════════
-
-    async function fetchSingleDOI(doi) {
-        const response = await fetch(`https://doi.org/${doi}`, {
-            method: "GET",
-            headers: { "Accept": "application/x-bibtex; charset=utf-8" },
-        });
-
-        if (!response.ok) {
-            if (response.status === 404) throw new Error("Not found at doi.org");
-            throw new Error(`doi.org answered ${response.status}`);
-        }
-
-        return await response.text();
-    }
-
-
-    // ═══════════════════════════════════════════
-    // 9. MAIN BATCH FETCH | STREAMING PIPELINE
+    // 7. MAIN BATCH FETCH | STREAMING PIPELINE
     //
     //  Each result streams into the textarea the
     //  instant it arrives. No spinner blocks the
@@ -296,10 +405,12 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        // The core reads the list, so the page and the package have one rule
+        // for what a DOI looks like and how it may be written.
         const parsed = isRetry
-            ? { dois: retryDoisArray, dupes: 0, skipped: 0 }
-            : parseDOIs(inputText);
-        const { dupes, skipped } = parsed;
+            ? { dois: retryDoisArray, duplicates: 0, skipped: 0 }
+            : parseDoiList(inputText, selectedDelim);
+        const { duplicates: dupes, skipped } = parsed;
 
         if (parsed.dois.length === 0) {
             showToast("None of that looks like a DOI. A DOI starts with 10., such as 10.1038/s41586-020-2649-2.", "error");
@@ -308,7 +419,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // A DOI fetched in an earlier batch is already in the bibliography;
         // fetching it again would only add a second copy.
-        const dois = parsed.dois.filter(d => !fetchedDOIs.has(d.toLowerCase()));
+        const dois = parsed.dois.filter(d => !fetchedDOIs.has(normaliseDoi(d)));
         const already = parsed.dois.length - dois.length;
 
         // What was left out, and why
@@ -342,6 +453,7 @@ document.addEventListener("DOMContentLoaded", () => {
         errorReport.classList.add("hidden");
         if (!isRetry) retryBtn.classList.add("hidden");
         let fetched = 0;
+        let notTried = 0;
         const startTime = performance.now();
 
         progressWrapper.classList.remove("hidden");
@@ -352,32 +464,53 @@ document.addEventListener("DOMContentLoaded", () => {
 
         for (let i = 0; i < dois.length; i++) {
             const doi = dois[i];
-            progressText.textContent = `Fetching ${i + 1} of ${dois.length}: ${truncate(doi, 40)}`;
+            const fetching = `Fetching ${i + 1} of ${dois.length}: ${truncate(doi, 40)}`;
+            progressText.textContent = fetching;
 
             try {
-                const bib = await fetchSingleDOI(doi);
-                const trimmed = bib.trim();
-                rawEntries.push(trimmed);
-                fetchedDOIs.add(doi.toLowerCase());
+                const bib = await fetchBibtex(doi, {
+                    // Told to slow down: say who asked, how long the wait is
+                    // and what happens after it.
+                    onWait: ({ who, seconds, asked, attempt, retries }) => {
+                        progressText.textContent =
+                            `${who} is limiting requests. Waiting ${asked ? `the ${spellSeconds(seconds)} it asked for` : spellSeconds(seconds)}` +
+                            `, then trying ${truncate(doi, 40)} again (retry ${attempt} of ${retries}).`;
+                    },
+                    onRetry: () => { progressText.textContent = fetching; },
+                });
+                rawEntries.push(bib);
+                fetchedDOIs.add(normaliseDoi(doi));
                 fetched++;
-                streamAppendEntry(trimmed);
+                streamAppendEntry(bib);
             } catch (err) {
-                // A network failure surfaces as a TypeError with a browser-specific message.
-                const reason = err instanceof TypeError ? "Could not reach doi.org" : err.message;
-                failedDOIs.push({ doi: doi, error: reason });
+                failedDOIs.push({ doi: doi, error: err.message });
+
+                // Still limited after the waits: asking for the rest now would
+                // only add to the load, and each would wait and fail the same
+                // way. They are listed as not tried, for Retry failed.
+                if (err.rateLimited) {
+                    for (const rest of dois.slice(i + 1)) {
+                        failedDOIs.push({ doi: rest, error: "Not tried: the batch stopped when requests were limited." });
+                        notTried++;
+                    }
+                }
                 failCountBadge.textContent = `${failedDOIs.length} failed`;
             }
 
             setProgress(i + 1, dois.length, progressText.textContent);
+            if (notTried > 0) break;
 
             // A short pause between requests, to go easy on doi.org and the
             // registration agencies behind it
-            if (i < dois.length - 1) await sleep(150);
+            if (i < dois.length - 1) await pause(150);
         }
 
         // ── Batch complete ──
         const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-        setProgress(dois.length, dois.length, `Fetched ${fetched} of ${dois.length} in ${elapsed} s`);
+        const tried = dois.length - notTried;
+        setProgress(tried, dois.length, notTried
+            ? `Stopped after ${tried} of ${dois.length}: requests are being limited. Fetched ${fetched} in ${elapsed} s`
+            : `Fetched ${fetched} of ${dois.length} in ${elapsed} s`);
 
         if (failedDOIs.length > 0) {
             failCountBadge.textContent = `${failedDOIs.length} failed`;
@@ -391,12 +524,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
         statsRow.classList.remove("hidden");
         statsRow.textContent =
-            `Last batch: ${fetched} fetched, ${failedDOIs.length} failed` +
+            `Last batch: ${fetched} fetched, ${failedDOIs.length - notTried} failed` +
+            (notTried ? `, ${notTried} not tried` : "") +
             (dupes ? `, ${plural(dupes, "repeat", "repeats")} skipped` : "") +
             (already ? `, ${already} already in the bibliography` : "") +
             `, in ${elapsed} s.`;
 
-        showToast(`Fetched ${fetched} of ${plural(dois.length, "DOI", "DOIs")} in ${elapsed} s.`,
+        showToast(notTried
+            ? `Stopped early: requests are being limited. Fetched ${fetched} of ${plural(dois.length, "DOI", "DOIs")}. Wait a few minutes, then press Retry failed.`
+            : `Fetched ${fetched} of ${plural(dois.length, "DOI", "DOIs")} in ${elapsed} s.`,
             failedDOIs.length === 0 ? "success" : "warn");
 
         isFetching = false;
@@ -411,7 +547,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ═══════════════════════════════════════════
-    // 10. ERROR REPORT
+    // 8. ERROR REPORT
     // ═══════════════════════════════════════════
 
     function buildErrorReport() {
@@ -428,7 +564,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ═══════════════════════════════════════════
-    // 11. EVENT BINDINGS
+    // 9. EVENT BINDINGS
     // ═══════════════════════════════════════════
 
     fetchBtn.addEventListener("click", () => executeFetch());
@@ -500,7 +636,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ═══════════════════════════════════════════
-    // 12. TOASTS (the shared .stk-toast component)
+    // 10. TOASTS (the shared .stk-toast component)
     // ═══════════════════════════════════════════
 
     function showToast(msg, type = "info") {
@@ -523,12 +659,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ═══════════════════════════════════════════
-    // 13. UTILITY HELPERS
+    // 11. UTILITY HELPERS
     // ═══════════════════════════════════════════
-
-    function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
 
     function escapeHtml(str) {
         const div = document.createElement("div");

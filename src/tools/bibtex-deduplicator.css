@@ -10,8 +10,23 @@
 #scanBtn:disabled + .dd-hint { display: block; }
 
 /* .stk-callout and the flex utility set display, which beats the hidden
-   attribute; these two are shown and hidden by it. */
-#allResolved[hidden], #conflictList[hidden] { display: none; }
+   attribute; these are shown and hidden by it. */
+#allResolved[hidden], #conflictList[hidden], #staleNote[hidden], #lookAlikes[hidden] { display: none; }
+
+/* Under Scan for duplicates: why a scan gave nothing. Empty until one fails. */
+.dd-scan-error:not(:empty) { margin-top: 0.75rem; }
+
+/* The text in step 1 changed after the scan. The results stay where they
+   were, dimmed and switched off, under a note that says so. */
+.dd-stale-note { flex-wrap: wrap; align-items: center; }
+.dd-stale-note > i { margin-top: 0; }
+.dd-stale-note > p { flex: 1 1 16rem; }
+.dd-stale-note strong { font-weight: 700; }
+.dd-stale-note .stk-btn { flex-shrink: 0; }
+.is-stale #conflictList, .is-stale #lookAlikes, .is-stale .dd-stat { opacity: 0.55; }
+.is-stale .dd-card { cursor: not-allowed; }
+.is-stale .dd-card:hover { border-color: var(--stk-border-strong); background: var(--stk-surface); }
+.is-stale .dd-card[aria-pressed="true"]:hover { border-color: var(--stk-accent); background: var(--stk-accent-soft); }
 
 /* Step 2 before a scan: what will appear, and an example to try. */
 .dd-empty {
@@ -84,6 +99,38 @@
 .dd-meta { color: var(--stk-fg-3); }
 .dd-keep { display: none; position: absolute; top: 0.7rem; right: 0.75rem; align-items: center; gap: 0.3rem; font-weight: 700; color: var(--stk-accent-text); }
 .dd-card[aria-pressed="true"] .dd-keep { display: inline-flex; }
+
+/* Under the groups: titles that entries with different DOIs share. They are
+   not grouped, and are listed for comparing by hand. */
+.dd-alike { margin-top: 1rem; border: 1px solid var(--stk-border); border-radius: var(--stk-radius-lg); font-size: 0.8125rem; }
+.dd-alike > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+  color: var(--stk-fg-2);
+}
+.dd-alike > summary::-webkit-details-marker { display: none; }
+.dd-alike > summary > i { color: var(--stk-fg-3); }
+.dd-alike > summary::after {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-left: auto;
+  flex-shrink: 0;
+  align-self: center;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+}
+.dd-alike[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.dd-alike-body { padding: 0 0.85rem 0.85rem; line-height: 1.55; color: var(--stk-fg-2); }
+.dd-alike-body > ul { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.6rem; }
+.dd-alike-title { font-weight: 600; color: var(--stk-fg); }
+.dd-alike-body ul ul { margin-top: 0.15rem; padding-left: 1rem; font-family: var(--stk-font-mono); font-size: 0.75rem; color: var(--stk-fg-3); overflow-wrap: anywhere; }
 
 /* Step 3 counts. */
 .dd-stat { padding: 0.85rem 0.5rem; text-align: center; border: 1px solid var(--stk-border); border-radius: var(--stk-radius-lg); background: var(--stk-surface-2); }

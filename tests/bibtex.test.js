@@ -1,13 +1,13 @@
 import { describe, test, expect } from '@jest/globals';
 import '../tests/setup.js';
 import {
-  normaliseDoi, normaliseTitle, parseBibtex, getField,
+  normaliseDoi, isDoi, doiUrl, normaliseTitle, parseBibtex, getField,
   findDuplicates, completenessScore, chooseBest, deduplicateAuto,
   serialiseEntry, serialiseLibrary,
   fixPageRange, stripOuterBraces, protectCapitals,
   removeFields, sanitiseLibrary, missingFields,
   readFieldsPreservingBraces, sanitiseText,
-  parseDoiList, filterBibtexFields, dropBibtexFields
+  parseDoiList, looksLikeBibtex, filterBibtexFields, dropBibtexFields
 } from '../src/core/bibtex.js';
 
 const LIBRARY = `
@@ -50,6 +50,95 @@ describe('normaliseDoi', () => {
   test('handles empty input', () => {
     expect(normaliseDoi('')).toBe('');
     expect(normaliseDoi(null)).toBe('');
+  });
+
+  test('every common written form gives the same bare DOI', () => {
+    for (const written of [
+      '10.1038/S41586-020-2649-2',
+      'doi:10.1038/s41586-020-2649-2',
+      'DOI: 10.1038/s41586-020-2649-2',
+      'DOI 10.1038/s41586-020-2649-2',
+      'info:doi/10.1038/s41586-020-2649-2',
+      'https://doi.org/10.1038/s41586-020-2649-2',
+      'HTTP://DX.DOI.ORG/10.1038/s41586-020-2649-2',
+      'https://www.doi.org/10.1038/s41586-020-2649-2',
+      'doi.org/10.1038/s41586-020-2649-2',
+      'dx.doi.org/10.1038/s41586-020-2649-2',
+      'www.doi.org/10.1038/s41586-020-2649-2',
+      '//doi.org/10.1038/s41586-020-2649-2'
+    ]) {
+      expect(normaliseDoi(written)).toBe('10.1038/s41586-020-2649-2');
+    }
+  });
+
+  test('a link\'s query string and fragment are not part of the DOI', () => {
+    expect(normaliseDoi('https://doi.org/10.1038/s41586-020-2649-2?utm_source=feed')).toBe('10.1038/s41586-020-2649-2');
+    expect(normaliseDoi('https://doi.org/10.1038/s41586-020-2649-2#Sec1')).toBe('10.1038/s41586-020-2649-2');
+    expect(normaliseDoi('doi.org/10.1038/s41586-020-2649-2?a=1#b')).toBe('10.1038/s41586-020-2649-2');
+  });
+
+  test('a ? or # that belongs to the DOI stays: escaped in a link, as written otherwise', () => {
+    // 10.1000/456#789 is the DOI Handbook's own example of a DOI that must be
+    // escaped in a link ("DOI Name Encoding Rules for URL Presentation").
+    expect(normaliseDoi('https://doi.org/10.1000/456%23789')).toBe('10.1000/456#789');
+    expect(normaliseDoi('10.1000/456#789')).toBe('10.1000/456#789');
+    expect(normaliseDoi('doi:10.1000/a?b')).toBe('10.1000/a?b');
+  });
+
+  test('percent escapes are decoded, so a DOI copied out of a link matches the DOI', () => {
+    const sici = '10.1002/(sici)1097-0258(19980430)17:8<857::aid-sim777>3.0.co;2-e';
+    expect(normaliseDoi('https://doi.org/10.1002/(SICI)1097-0258(19980430)17:8%3C857::AID-SIM777%3E3.0.CO;2-E')).toBe(sici);
+    expect(normaliseDoi('10.1002/%28SICI%291097-0258%2819980430%2917%3A8%3C857%3A%3AAID-SIM777%3E3.0.CO%3B2-E')).toBe(sici);
+    expect(normaliseDoi('10.1002/(SICI)1097-0258(19980430)17:8<857::AID-SIM777>3.0.CO;2-E')).toBe(sici);
+    // Not valid UTF-8: left as written rather than thrown on.
+    expect(normaliseDoi('10.1000/a%E9b')).toBe('10.1000/a%e9b');
+  });
+
+  test('text that only resembles a prefix is left alone', () => {
+    expect(normaliseDoi('https://example.org/10.1000/xyz')).toBe('https://example.org/10.1000/xyz');
+    expect(normaliseDoi('doing')).toBe('doing');
+  });
+});
+
+describe('isDoi', () => {
+  test('accepts a DOI in any written form', () => {
+    expect(isDoi('10.1038/s41586-020-2649-2')).toBe(true);
+    expect(isDoi('https://www.doi.org/10.1038/s41586-020-2649-2')).toBe(true);
+    expect(isDoi('doi:10.1002/(SICI)1097-0258(19980430)17:8<857::AID-SIM777>3.0.CO;2-E')).toBe(true);
+    // A registrant code may be subdivided: 10.1000.10 is the DOI Handbook's
+    // example ("Numbering").
+    expect(isDoi('10.1000.10/123456')).toBe(true);
+  });
+
+  test('rejects what is not one', () => {
+    for (const text of ['', 'n/a', '10.1038', '10.1038/', '10.1/x', '11.1038/x', 'https://doi.org/',
+      'https://www.nature.com/articles/s41586-020-2649-2', 'Harris et al.']) {
+      expect(isDoi(text)).toBe(false);
+    }
+  });
+});
+
+describe('doiUrl', () => {
+  test('puts a plain DOI after the resolver', () => {
+    expect(doiUrl('10.1038/s41586-020-2649-2')).toBe('https://doi.org/10.1038/s41586-020-2649-2');
+  });
+
+  test('escapes the characters that would end or break the path, and keeps the slashes', () => {
+    // The DOI Handbook requires %, ", #, a space and ? to be escaped in a
+    // link; Crossref's "Building URLs for DOIs containing special
+    // characters" adds that the slash must not be.
+    expect(doiUrl('10.1000/456#789')).toBe('https://doi.org/10.1000/456%23789');
+    expect(doiUrl('10.1000/a?b')).toBe('https://doi.org/10.1000/a%3Fb');
+    expect(doiUrl('10.1000/a%b')).toBe('https://doi.org/10.1000/a%25b');
+    expect(doiUrl('10.1002/(SICI)1097-0258(19980430)17:8<857::AID-SIM777>3.0.CO;2-E'))
+      .toBe('https://doi.org/10.1002/(SICI)1097-0258(19980430)17:8%3C857::AID-SIM777%3E3.0.CO;2-E');
+  });
+
+  test('the address reads back as the DOI', () => {
+    for (const doi of ['10.1000/456#789', '10.1000/a?b', '10.1000/a%b',
+      '10.1002/(SICI)1097-0258(19980430)17:8<857::AID-SIM777>3.0.CO;2-E']) {
+      expect(normaliseDoi(doiUrl(doi))).toBe(doi.toLowerCase());
+    }
   });
 });
 
@@ -237,6 +326,13 @@ describe('getField', () => {
   });
 });
 
+/** The citation keys of each duplicate group of a BibTeX text. */
+const groupKeys = (bib) => findDuplicates(parseBibtex(bib).entries)
+  .groups.map(g => g.members.map(m => m.data.citationKey));
+
+const permutations = (items) => (items.length < 2 ? [items] : items.flatMap((item, i) =>
+  permutations([...items.slice(0, i), ...items.slice(i + 1)]).map(rest => [item, ...rest])));
+
 describe('findDuplicates', () => {
   const entries = parseBibtex(LIBRARY).entries;
 
@@ -255,16 +351,32 @@ describe('findDuplicates', () => {
   });
 
   test('matches on DOI across resolver prefix and case', () => {
-    const bib = `@article{a, title={One}, doi={10.1/X}, year={2020}}
-@article{b, title={Two}, doi={https://doi.org/10.1/x}, year={2020}}`;
+    const bib = `@article{a, title={One}, doi={10.1000/X}, year={2020}}
+@article{b, title={Two}, doi={https://doi.org/10.1000/x}, year={2020}}`;
     const d = findDuplicates(parseBibtex(bib).entries);
     expect(d.groups).toHaveLength(1);
   });
 
+  test('matches on DOI across every written form', () => {
+    const bib = `@article{a, title={One}, doi={10.1038/s41586-020-2649-2}}
+@article{b, title={Two}, doi={doi:10.1038/S41586-020-2649-2}}
+@article{c, title={Three}, doi={https://www.doi.org/10.1038/s41586-020-2649-2}}
+@article{d, title={Four}, doi={dx.doi.org/10.1038/s41586-020-2649-2?utm_source=feed}}`;
+    expect(groupKeys(bib)).toEqual([['a', 'b', 'c', 'd']]);
+  });
+
+  test('an underscore escaped for TeX does not make a second DOI', () => {
+    // Some exports write \_ or {\_} where the DOI has an underscore.
+    const bib = String.raw`@inproceedings{a, title={One}, doi={10.1007/978-3-540-74958-5_26}}
+@inproceedings{b, title={One}, doi={10.1007/978-3-540-74958-5\_26}}
+@inproceedings{c, title={Two}, doi={10.1007/978-3-540-74958-5{\_}26}}`;
+    expect(groupKeys(bib)).toEqual([['a', 'b', 'c']]);
+  });
+
   test('links transitively through a shared intermediate', () => {
     // A shares a DOI with B; B shares a title with C. All three are one work.
-    const bib = `@article{a, title={Alpha}, doi={10.1/z}, year={2020}}
-@article{b, title={Beta}, doi={10.1/z}, year={2020}}
+    const bib = `@article{a, title={Alpha}, doi={10.1000/z}, year={2020}}
+@article{b, title={Beta}, doi={10.1000/z}, year={2020}}
 @article{c, title={Beta}, year={2020}}`;
     const d = findDuplicates(parseBibtex(bib).entries);
     expect(d.groups).toHaveLength(1);
@@ -288,6 +400,87 @@ describe('findDuplicates', () => {
   test('handles empty input', () => {
     expect(findDuplicates([]).groups).toEqual([]);
     expect(findDuplicates(null).groups).toEqual([]);
+    expect(findDuplicates(null).lookAlikes).toEqual([]);
+  });
+});
+
+describe('findDuplicates: a DOI outranks a title', () => {
+  const A = '@article{a, title={Editorial}, doi={10.1000/one}}';
+  const B = '@article{b, title={Editorial}, doi={10.1000/two}}';
+  const C = '@article{c, title={Editorial}}';
+  const D = '@article{d, title={Notes from the editor}, doi={10.1000/ONE}}';
+
+  test('the same title with different DOIs is two works', () => {
+    const d = findDuplicates(parseBibtex(`${A}\n${B}`).entries);
+    expect(d.groups).toEqual([]);
+    expect(d.duplicateCount).toBe(0);
+    expect(d.singletons.map(e => e.citationKey)).toEqual(['a', 'b']);
+  });
+
+  test('an entry with no DOI does not join two entries whose DOIs differ, nor either of them', () => {
+    // Nothing says whether c is a or b, so it is not called a copy of one.
+    const d = findDuplicates(parseBibtex(`${A}\n${B}\n${C}`).entries);
+    expect(d.groups).toEqual([]);
+    expect(d.singletons.map(e => e.citationKey)).toEqual(['a', 'b', 'c']);
+  });
+
+  test('the same DOI still groups, under another title', () => {
+    expect(groupKeys(`${A}\n${B}\n${C}\n${D}`)).toEqual([['a', 'd']]);
+    const d = findDuplicates(parseBibtex(`${A}\n${B}\n${C}\n${D}`).entries);
+    expect(d.duplicateCount).toBe(1);
+    expect(d.singletons.map(e => e.citationKey)).toEqual(['b', 'c']);
+  });
+
+  test('the groups do not depend on the order of the file', () => {
+    const E = '@article{e, title={Notes from the editor}}';
+    for (const order of permutations([A, B, C, D, E])) {
+      expect(groupKeys(order.join('\n')).map(g => g.sort()).sort()).toEqual([['a', 'd', 'e']]);
+    }
+  });
+
+  test('no group holds two DOIs, however the titles and DOIs chain', () => {
+    // p-q share a DOI, q-r a title that only one DOI has, r-s would share a
+    // title that two DOIs have, s-t share a DOI.
+    const bib = `@article{p, title={First}, doi={10.1000/x}}
+@article{q, title={Second}, doi={10.1000/x}}
+@article{r, title={Second}}
+@article{s, title={First}, doi={10.1000/y}}
+@article{t, title={Third}, doi={10.1000/y}}
+@article{u, title={Third}}`;
+    expect(groupKeys(bib)).toEqual([['p', 'q', 'r'], ['s', 't', 'u']]);
+  });
+
+  test('the entries of a title set aside are reported, in source order', () => {
+    const d = findDuplicates(parseBibtex(`${C}\n${A}\n@article{z, title={Unrelated}}\n${B}\n${D}`).entries);
+    expect(d.lookAlikes).toHaveLength(1);
+    expect(d.lookAlikes[0].members.map(m => m.data.citationKey)).toEqual(['c', 'a', 'b']);
+    expect(d.lookAlikes[0].members.map(m => m.originalIndex)).toEqual([0, 1, 3]);
+  });
+
+  test('a library with no such title reports none', () => {
+    expect(findDuplicates(parseBibtex(LIBRARY).entries).lookAlikes).toEqual([]);
+  });
+
+  test('two copies with one DOI and a third entry with another: the copies group', () => {
+    const bib = `${A}\n@article{a2, title={Editorial}, doi={https://doi.org/10.1000/one}}\n${B}`;
+    expect(groupKeys(bib)).toEqual([['a', 'a2']]);
+  });
+
+  test('a doi field that is not a DOI neither links nor keeps entries apart', () => {
+    // "n/a" twice is not one work; and it does not stop a title match.
+    const bib = `@article{a, title={One}, doi={n/a}}
+@article{b, title={Two}, doi={n/a}}
+@article{c, title={Three}, doi={TODO}}
+@article{d, title={Three}, doi={10.1000/three}}
+@article{e, title={Three}, doi={-}}`;
+    expect(groupKeys(bib)).toEqual([['c', 'd', 'e']]);
+    expect(findDuplicates(parseBibtex(bib).entries).lookAlikes).toEqual([]);
+  });
+
+  test('deduplicateAuto keeps both works that share a title', () => {
+    const r = deduplicateAuto(parseBibtex(`${A}\n${B}\n${C}\n${D}`).entries);
+    expect(r.entries.map(e => e.citationKey)).toEqual(['a', 'b', 'c']);
+    expect(r.removed).toBe(1);
   });
 });
 
@@ -775,38 +968,149 @@ describe('sanitiseText keeps each value in its written form', () => {
 });
 
 describe('parseDoiList', () => {
-  test('splits on newlines by default', () => {
-    expect(parseDoiList('10.1/a\n10.1/b').dois).toEqual(['10.1/a', '10.1/b']);
+  // The DOIs are ones the DOI to BibTeX page accepts: the page reads its
+  // list with this function.
+  const NUMPY = '10.1038/s41586-020-2649-2';
+  const JPCC = '10.1021/acs.jpcc.9b03054';
+  const SICI = '10.1002/(SICI)1097-0258(19980430)17:8<857::AID-SIM777>3.0.CO;2-E';
+
+  test('reads one DOI per line', () => {
+    expect(parseDoiList(`${NUMPY}\n${JPCC}`)).toEqual({ dois: [NUMPY, JPCC], duplicates: 0, skipped: 0 });
+    expect(parseDoiList(`${NUMPY}\r\n${JPCC}\r\n`).dois).toEqual([NUMPY, JPCC]);
   });
 
-  test('detects semicolon and comma separators', () => {
-    expect(parseDoiList('10.1/a; 10.1/b').dois).toHaveLength(2);
-    expect(parseDoiList('10.1/a, 10.1/b').dois).toHaveLength(2);
+  test('detects semicolon, comma and space separators', () => {
+    expect(parseDoiList(`${NUMPY}; ${JPCC}`).dois).toEqual([NUMPY, JPCC]);
+    expect(parseDoiList(`${NUMPY}, ${JPCC}`).dois).toEqual([NUMPY, JPCC]);
+    expect(parseDoiList(`${NUMPY},${JPCC};${SICI}`).dois).toEqual([NUMPY, JPCC, SICI]);
+    expect(parseDoiList(`${NUMPY} ${JPCC}\t${SICI}`).dois).toEqual([NUMPY, JPCC, SICI]);
+  });
+
+  test('a semicolon or comma inside a DOI does not cut it', () => {
+    expect(parseDoiList(`${SICI}; ${NUMPY}`).dois).toEqual([SICI, NUMPY]);
+    expect(parseDoiList(`${NUMPY};${SICI}`).dois).toEqual([NUMPY, SICI]);
+    expect(parseDoiList('10.1000/a,b, 10.1000/c').dois).toEqual(['10.1000/a,b', '10.1000/c']);
   });
 
   test('honours an explicit delimiter', () => {
-    expect(parseDoiList('10.1/a 10.1/b', 'space').dois).toHaveLength(2);
+    expect(parseDoiList(`${NUMPY} ${JPCC}`, 'space').dois).toEqual([NUMPY, JPCC]);
+    expect(parseDoiList(`${NUMPY},${JPCC}`, 'comma').dois).toEqual([NUMPY, JPCC]);
+    expect(parseDoiList(`${NUMPY};\n${JPCC}`, 'semicolon').dois).toEqual([NUMPY, JPCC]);
+    expect(parseDoiList(`${NUMPY}\n${JPCC}`, 'newline').dois).toEqual([NUMPY, JPCC]);
   });
 
-  test('strips resolver prefixes', () => {
-    const r = parseDoiList('https://doi.org/10.1/a\nhttp://dx.doi.org/10.1/b');
-    expect(r.dois).toEqual(['10.1/a', '10.1/b']);
+  test('an explicit delimiter cuts there and nowhere else', () => {
+    // Two DOIs on one line are not one DOI.
+    expect(parseDoiList(`${NUMPY} ${JPCC}\n${SICI}`, 'newline')).toEqual({ dois: [SICI], duplicates: 0, skipped: 1 });
+    // Chosen by hand, a semicolon cuts the DOI that contains one.
+    expect(parseDoiList(SICI, 'semicolon').dois).toEqual(['10.1002/(SICI)1097-0258(19980430)17:8<857::AID-SIM777>3.0.CO']);
   });
 
-  test('removes duplicates case-insensitively', () => {
+  test('strips resolver prefixes and labels', () => {
+    const r = parseDoiList([
+      `https://doi.org/${NUMPY}`,
+      `http://dx.doi.org/${JPCC}`,
+      'https://www.doi.org/10.1126/science.288.5468.1029',
+      'doi.org/10.1103/PhysRevLett.77.3865',
+      'doi:10.1063/1.448118',
+      'DOI: 10.1016/0021-9991(77)90098-5',
+      'info:doi/10.1107/S0021889881009618'
+    ].join('\n'));
+    expect(r).toEqual({
+      dois: [NUMPY, JPCC, '10.1126/science.288.5468.1029', '10.1103/PhysRevLett.77.3865', '10.1063/1.448118',
+        '10.1016/0021-9991(77)90098-5', '10.1107/S0021889881009618'],
+      duplicates: 0,
+      skipped: 0
+    });
+  });
+
+  test('keeps the case a DOI was written in', () => {
+    expect(parseDoiList('https://doi.org/10.1103/PhysRevLett.77.3865').dois).toEqual(['10.1103/PhysRevLett.77.3865']);
+  });
+
+  test('reads a DOI in brackets or quotation marks', () => {
+    for (const written of [`(${NUMPY})`, `[${NUMPY}]`, `<https://doi.org/${NUMPY}>`, `"${NUMPY}"`,
+      `(doi:${NUMPY})`, `“${NUMPY}”`, `(https://www.doi.org/${NUMPY}).`]) {
+      expect(parseDoiList(written)).toEqual({ dois: [NUMPY], duplicates: 0, skipped: 0 });
+    }
+  });
+
+  test('a closing bracket that belongs to the DOI stays', () => {
+    expect(parseDoiList('10.1000/abc(def)').dois).toEqual(['10.1000/abc(def)']);
+    expect(parseDoiList('(10.1000/abc(def))').dois).toEqual(['10.1000/abc(def)']);
+    expect(parseDoiList('(see 10.1000/abc(def)).').dois).toEqual(['10.1000/abc(def)']);
+    expect(parseDoiList('10.1000/abc[1]<2>, 10.1000/x').dois).toEqual(['10.1000/abc[1]<2>', '10.1000/x']);
+    expect(parseDoiList(`(${SICI})`).dois).toEqual([SICI]);
+    // A bracket with no partner in the DOI belongs to the sentence.
+    expect(parseDoiList('10.1016/0021-9991(77)90098-5)').dois).toEqual(['10.1016/0021-9991(77)90098-5']);
+  });
+
+  test('does not swallow the punctuation of the sentence around a DOI', () => {
+    const text = `See Harris et al. (${NUMPY}), the review at https://www.doi.org/${JPCC}, ` +
+      `and “${SICI}”. Also doi: 10.1126/science.288.5468.1029; 10.1103/PhysRevLett.77.3865!`;
+    expect(parseDoiList(text).dois).toEqual([NUMPY, JPCC, SICI, '10.1126/science.288.5468.1029',
+      '10.1103/PhysRevLett.77.3865']);
+  });
+
+  test('counts the pieces that are not DOIs, and leaves a label on its own out of the count', () => {
+    expect(parseDoiList(`See Harris et al. (${NUMPY}).`)).toEqual({ dois: [NUMPY], duplicates: 0, skipped: 4 });
+    expect(parseDoiList(`DOI: ${NUMPY}\ndoi ${JPCC}`)).toEqual({ dois: [NUMPY, JPCC], duplicates: 0, skipped: 0 });
+    expect(parseDoiList('10.1038\n10.1/x\nhttps://www.nature.com/articles/s41586-020-2649-2', 'newline'))
+      .toEqual({ dois: [], duplicates: 0, skipped: 3 });
+  });
+
+  test('a link\'s query string is not part of the DOI, and its escapes are decoded', () => {
+    expect(parseDoiList(`https://doi.org/${NUMPY}?utm_source=feed#Sec2`).dois).toEqual([NUMPY]);
+    expect(parseDoiList('https://doi.org/10.1002/(SICI)1097-0258(19980430)17:8%3C857::AID-SIM777%3E3.0.CO;2-E').dois)
+      .toEqual([SICI]);
+  });
+
+  test('removes duplicates case-insensitively, across written forms', () => {
     // A DOI is case-insensitive by specification, so these are one record.
-    const r = parseDoiList('10.1/ABC\n10.1/abc');
-    expect(r.dois).toHaveLength(1);
-    expect(r.duplicates).toBe(1);
+    const r = parseDoiList(`10.1000/ABC\n10.1000/abc\nhttps://www.doi.org/10.1000/Abc\ndoi:10.1000/abc`);
+    expect(r).toEqual({ dois: ['10.1000/ABC'], duplicates: 3, skipped: 0 });
+  });
+
+  test('every DOI returned is one, and normalises to itself', () => {
+    const { dois } = parseDoiList(`(${NUMPY}), ${JPCC}; “${SICI}”.`);
+    expect(dois).toHaveLength(3);
+    for (const doi of dois) {
+      expect(isDoi(doi)).toBe(true);
+      expect(normaliseDoi(doi)).toBe(doi.toLowerCase());
+    }
   });
 
   test('ignores blank entries', () => {
-    expect(parseDoiList('10.1/a\n\n\n10.1/b').dois).toHaveLength(2);
+    expect(parseDoiList(`${NUMPY}\n\n\n${JPCC}`).dois).toHaveLength(2);
   });
 
   test('handles empty input', () => {
-    expect(parseDoiList('').dois).toEqual([]);
+    expect(parseDoiList('')).toEqual({ dois: [], duplicates: 0, skipped: 0 });
     expect(parseDoiList(null).dois).toEqual([]);
+  });
+});
+
+describe('looksLikeBibtex', () => {
+  test('accepts an entry, on one line or many, with space around it', () => {
+    // doi.org's reply for a Crossref DOI starts with a space.
+    expect(looksLikeBibtex(' @article{Harris_2020, title={Array programming with NumPy}, year={2020} }\n')).toBe(true);
+    expect(looksLikeBibtex('@misc{https://doi.org/10.5281/zenodo.1,\n  doi = {10.5281/ZENODO.1},\n  year = {2013}\n}')).toBe(true);
+    expect(looksLikeBibtex('﻿@book{k, title = "T"}')).toBe(true);
+    expect(looksLikeBibtex('% exported\n@article(k, title = {T})')).toBe(true);
+  });
+
+  test('rejects an empty reply, a web page, JSON and plain text', () => {
+    expect(looksLikeBibtex('')).toBe(false);
+    expect(looksLikeBibtex('  \n ')).toBe(false);
+    expect(looksLikeBibtex(null)).toBe(false);
+    expect(looksLikeBibtex('<!DOCTYPE html><html><head><style>@media (max-width: 600px) { a { color: red } }</style></head></html>')).toBe(false);
+    expect(looksLikeBibtex('{"status":"error","message":"Resource not found."}')).toBe(false);
+    expect(looksLikeBibtex('Resource not found.')).toBe(false);
+  });
+
+  test('rejects an entry cut off before its end, and a file of macros alone', () => {
+    expect(looksLikeBibtex('@article{k, title={Cut off')).toBe(false);
+    expect(looksLikeBibtex('@string{jcp = "J. Chem. Phys."}')).toBe(false);
   });
 });
 
@@ -1027,8 +1331,8 @@ describe('values and entries BibTeX reads that the bundle alone would lose', () 
   });
 
   test('an entry with an empty key is an entry, as it is to BibTeX', () => {
-    const src = '@article{,\n  title = {No key},\n  doi = {10.1/same},\n  year = 2021\n}\n' +
-      '@article{b,\n  title = {Another title},\n  doi = {10.1/same},\n  year = 2022,\n  author = {B}\n}\n';
+    const src = '@article{,\n  title = {No key},\n  doi = {10.1000/same},\n  year = 2021\n}\n' +
+      '@article{b,\n  title = {Another title},\n  doi = {10.1000/same},\n  year = 2022,\n  author = {B}\n}\n';
     const r = parseBibtex(src);
     expect(r.error).toBeNull();
     expect(r.entries.map(e => e.citationKey)).toEqual(['', 'b']);
@@ -1040,7 +1344,7 @@ describe('values and entries BibTeX reads that the bundle alone would lose', () 
     const kept = deduplicateAuto(r.entries);
     expect(kept.entries).toHaveLength(1);
     expect(serialiseLibrary(kept.entries)).not.toContain('No key');
-    expect(serialiseLibrary([r.entries[0]])).toBe('@article{,\n  title = {No key},\n  doi = {10.1/same},\n  year = 2021\n}\n');
+    expect(serialiseLibrary([r.entries[0]])).toBe('@article{,\n  title = {No key},\n  doi = {10.1000/same},\n  year = 2021\n}\n');
     // Edited, it is written from its fields, still without a key.
     expect(serialiseEntry({ ...r.entries[0] })).toMatch(/^@article\{,\n/);
   });
