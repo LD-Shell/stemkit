@@ -1006,3 +1006,57 @@ describe('dropBibtexFields', () => {
     expect(parseBibtex(out).entries[0].entryTags.month).toBe('September');
   });
 });
+
+describe('values and entries BibTeX reads that the bundle alone would lose', () => {
+  test('a quoted value may hold a quote inside braces', () => {
+    const r = parseBibtex('@article{k1,\n  title = "Outer {"}quoted{"} text",\n  year = 2020,\n  author = {A. Author}\n}\n');
+    expect(r.error).toBeNull();
+    expect(r.entries).toHaveLength(1);
+    // The same as the braced spelling of that value: the fields after it are read too.
+    const braced = parseBibtex('@article{k1,\n  title = {Outer {"}quoted{"} text},\n  year = 2020,\n  author = {A. Author}\n}\n');
+    expect(r.entries[0].entryTags).toEqual(braced.entries[0].entryTags);
+    expect(Object.keys(r.entries[0].entryTags)).toEqual(['title', 'year', 'author']);
+    expect(getField(r.entries[0].entryTags, 'title')).toBe('Outer "quoted" text');
+    // A quoted value with no quote in it goes to the bundle as it is written.
+    expect(parseBibtex('@misc{k, note = "plain {Braced} text"}').entries[0].entryTags.note).toBe('plain Braced text');
+  });
+
+  test('a quoted value with a quote in braces is still written back as it was', () => {
+    const src = '@article{k1,\n  title = "Outer {"}quoted{"} text",\n  year = 2020\n}\n';
+    expect(serialiseLibrary(parseBibtex(src).entries)).toBe(src);
+  });
+
+  test('an entry with an empty key is an entry, as it is to BibTeX', () => {
+    const src = '@article{,\n  title = {No key},\n  doi = {10.1/same},\n  year = 2021\n}\n' +
+      '@article{b,\n  title = {Another title},\n  doi = {10.1/same},\n  year = 2022,\n  author = {B}\n}\n';
+    const r = parseBibtex(src);
+    expect(r.error).toBeNull();
+    expect(r.entries.map(e => e.citationKey)).toEqual(['', 'b']);
+    // It is compared with the others, so what is counted is what is written.
+    const d = findDuplicates(r.entries);
+    expect(d.groups).toHaveLength(1);
+    expect(d.groups[0].members).toHaveLength(2);
+    expect(serialiseLibrary(r.entries)).toBe(src);
+    const kept = deduplicateAuto(r.entries);
+    expect(kept.entries).toHaveLength(1);
+    expect(serialiseLibrary(kept.entries)).not.toContain('No key');
+    expect(serialiseLibrary([r.entries[0]])).toBe('@article{,\n  title = {No key},\n  doi = {10.1/same},\n  year = 2021\n}\n');
+    // Edited, it is written from its fields, still without a key.
+    expect(serialiseEntry({ ...r.entries[0] })).toMatch(/^@article\{,\n/);
+  });
+
+  test('an entry the field reader cannot follow is not rewritten', () => {
+    const odd = '@article{k3,\n  title = {T},\n  pages = 100 - 110,\n  note = {keep me},\n  doi = {10.1/x}\n}';
+    expect(filterBibtexFields(odd, ['title'])).toBe(odd);
+    expect(dropBibtexFields(odd, ['note'])).toBe(odd);
+    // Nor one that is never closed; the entries around them are filtered as usual.
+    const open = '@article{k4,\n  title = {T},\n  note = {no closing brace}';
+    expect(dropBibtexFields(open, ['note'])).toBe(open);
+    const mixed = `@misc{a, title = {A}, url = {u}}\n\n${odd}\n\n@misc{b, title = {B}, url = {u}}`;
+    const out = dropBibtexFields(mixed, ['url']);
+    expect(out).toContain(odd);
+    expect(out.match(/url/g)).toBeNull();
+    expect(out).toContain('@misc{a,\n  title = {A}\n}');
+    expect(out).toContain('@misc{b,\n  title = {B}\n}');
+  });
+});

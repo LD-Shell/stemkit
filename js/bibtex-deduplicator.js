@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
         card.setAttribute('aria-pressed', String(resolutions[gi] === entry));
         card.innerHTML = `
           <span class="dd-card-head">
-            <span class="dd-key">${escapeHtml(entry.citationKey)}</span>
+            <span class="dd-key">${escapeHtml(entry.citationKey || 'No key')}</span>
             ${entry === best ? '<span class="stk-badge stk-badge-accent">Most complete</span>' : ''}
           </span>
           <span class="dd-title">${escapeHtml(getField(tags, 'title') || 'No title')}</span>

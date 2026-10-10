@@ -363,15 +363,20 @@ function defineMacro(src, block, macros) {
  * The bundle accepts a bare value only when it is a number, and in a `#`
  * concatenation it drops the leading space of each part, so a value that
  * uses a macro or `#` is replaced by the braced text it stands for (see
- * `resolveMacro`). The bundle also reads only `{...}` entries, so a `(...)`
- * entry has its outer delimiters swapped. Anything the reader cannot follow
- * is left as it is, for the bundle to report.
+ * `resolveMacro`). The bundle ends a quoted value at the first `"`, where
+ * BibTeX ends it at the first one outside braces, so a quoted value holding
+ * `{"}` is braced as well. The bundle also reads only `{...}` entries, so a
+ * `(...)` entry has its outer delimiters swapped. Anything the reader cannot
+ * follow is left as it is, for the bundle to report.
  */
 function entryForParser(src, block, macros) {
   const edits = [];
   for (const f of readEntry(src, block).fields) {
-    const plain = f.parts.length === 1 &&
-      (f.parts[0].kind !== 'bare' || /^\d+$/.test(f.parts[0].text));
+    const [only] = f.parts;
+    const plain = f.parts.length === 1 && (
+      only.kind === 'braced' ||
+      (only.kind === 'quoted' && !only.text.includes('"')) ||
+      (only.kind === 'bare' && /^\d+$/.test(only.text)));
     if (plain) continue;
     const value = f.parts
       .map(p => (p.kind === 'bare' ? resolveMacro(p.text, macros) : p.text))
@@ -447,7 +452,9 @@ export function stripNonEntryBlocks(text) {
  * bare word is kept as its own text. As in BibTeX, a macro applies to the
  * entries after its definition. `#` concatenation is supported. `@comment`
  * and `@preamble` blocks are skipped; `strippedBlocks` counts them together
- * with the `@string` blocks.
+ * with the `@string` blocks. An entry with an empty key (`@article{,`, as
+ * JabRef writes one that has none) is read like any other, as BibTeX reads
+ * it; its `citationKey` is the empty string.
  *
  * A syntax error in any entry is reported, naming the entry, and no entries
  * are returned; nothing throws.
@@ -493,7 +500,7 @@ export function parseBibtex(text) {
     }
 
     const entry = (parsed || [])[0];
-    if (!entry || !entry.entryTags || !entry.citationKey) continue;
+    if (!entry || !entry.entryTags || typeof entry.citationKey !== 'string') continue;
     ORIGIN.set(entry, {
       doc, start: block.start, open: block.open, end: block.end, closed: block.closed,
       stamp: stampOf(entry)
@@ -1279,7 +1286,9 @@ export function parseDoiList(text, delimiter = 'auto') {
  * Rewrite each entry of a raw BibTeX document with only the fields `keep`
  * accepts, one field per line. Values are copied exactly as written.
  * `@string`, `@preamble` and `@comment` blocks, and text between entries,
- * pass through untouched.
+ * pass through untouched. So does an entry the reader cannot follow to its
+ * end (a value such as `pages = 100 - 110`, or a missing closing brace):
+ * rewriting it from the fields read so far would drop the rest.
  */
 function rewriteFields(bib, keep) {
   const text = String(bib || '');
@@ -1294,7 +1303,11 @@ function rewriteFields(bib, keep) {
       continue;
     }
 
-    const { key, fields } = readEntry(text, block);
+    const { key, fields, complete } = readEntry(text, block);
+    if (!complete || !block.closed) {
+      out += text.slice(block.start, block.end);
+      continue;
+    }
     const kept = fields
       .filter(f => keep(f.name.toLowerCase()))
       .map(f => `  ${f.name} = ${text.slice(f.valueStart, f.valueEnd)}`);
