@@ -997,6 +997,132 @@ describe('fitModel with awkward input', () => {
 });
 
 /* ------------------------------------------------------------------ *
+ * A fit that converges without being a fit
+ * ------------------------------------------------------------------ */
+
+describe('fitModel says when a converged fit is not to be trusted', () => {
+  const RAN_AWAY = /has run away/;
+  const NO_BETTER = /no better than a horizontal line at their mean/;
+  const x = linspace(0, 5.5, 12);
+  const rising = x.map((v, i) => 1 + 0.8 * v + 0.05 * Math.sin(3.1 * i));
+  const decay = { expression: 'y = A*exp(-x/tau)', columns: { x }, y: rising, parameters: [{ name: 'A' }, { name: 'tau', min: 0 }] };
+
+  test('a decay time that runs away on rising data is named, with what to try', () => {
+    const fit = fitModel(decay);
+    expect(fit.ok).toBe(true);
+    // The minimiser did stop: nothing in the old fields says anything is wrong.
+    expect(fit.converged).toBe(true);
+    const tau = fit.parameters[1];
+    expect(tau.value).toBeGreaterThan(1e9);
+    expect(tau.stderr).toBeGreaterThan(tau.value);
+    expect(tau.atBound).toBe(false);
+    expect(Math.abs(fit.r2)).toBeLessThan(1e-6);
+    // A is all that is left of the equation: the mean of the data.
+    expect(fit.parameters[0].value).toBeCloseTo(rising.reduce((a, b) => a + b, 0) / rising.length, 6);
+    expect(fit.message).toBe(`'tau' has run away. The fit is no worse with 'tau' a thousand or a million times larger ` +
+      `than the ${tau.value.toPrecision(3)} where it stopped, so these data set no limit on it, and neither that value ` +
+      "nor its uncertainty means anything. Try another equation, or a starting value and bounds for 'tau' that keep " +
+      'it at the scale of your data.');
+    expect(fit.warnings).toEqual([
+      fit.message,
+      'Allowing for the number of fitted parameters, the curve follows these data no better than a horizontal line ' +
+        'at their mean would (adjusted R² = -0.100): the equation explains none of their variation. If the data ' +
+        'do follow a trend, try another equation, or other starting values in case the fit settled in the wrong place.'
+    ]);
+  });
+
+  test('what the message claims is true of the fit', () => {
+    const fit = fitModel(decay);
+    const [A, tau] = fit.parameters.map(p => p.value);
+    const chi2 = t => rising.reduce((s, v, i) => s + (v - A * Math.exp(-x[i] / t)) ** 2, 0);
+    expect(Math.abs(chi2(1e3 * tau) - chi2(tau))).toBeLessThan(1e-9 * chi2(tau));
+    expect(Math.abs(chi2(1e6 * tau) - chi2(tau))).toBeLessThan(1e-9 * chi2(tau));
+    // The same data with the decay time free to be negative: an ordinary fit.
+    const free = fitModel({ ...decay, parameters: undefined });
+    expect(free.parameters[1].value).toBeLessThan(0);
+    expect(free.r2).toBeGreaterThan(0.95);
+    expect(free.warnings).toEqual([]);
+    expect(free.message).toMatch(/^Converged after \d+ iterations?\.$/);
+  });
+
+  test('a runaway is found wherever the iteration happens to stop', () => {
+    // From a start the user gives, the fit creeps for a hundred iterations and stops with a
+    // little still to gain; from the search, it gets there in a few steps.
+    for (const initial of [undefined, 1, 5.5, 1e3]) {
+      const fit = fitModel({ ...decay, parameters: [{ name: 'A' }, { name: 'tau', min: 0, initial }] });
+      expect(fit.converged).toBe(true);
+      expect(fit.warnings.filter(w => RAN_AWAY.test(w))).toHaveLength(1);
+    }
+    // Towards minus infinity too, and with weights.
+    const falling = x.map((v, i) => 6 - 0.8 * v + 0.05 * Math.sin(3.1 * i));
+    const down = fitModel({ ...decay, y: falling, sigma: x.map(() => 0.05), absoluteSigma: true, parameters: [{ name: 'A' }, { name: 'tau', max: 0 }] });
+    expect(down.parameters[1].value).toBeLessThan(-1e9);
+    expect(down.message).toMatch(/^'tau' has run away\./);
+    // Other equations that flatten out as a parameter grows.
+    const hyperbola = fitModel({ expression: 'y = A/(1 + x/K)', columns: { x }, y: rising, parameters: [{ name: 'A' }, { name: 'K', min: 0 }] });
+    expect(hyperbola.message).toMatch(/^'K' has run away\./);
+  });
+
+  test('a bound in the way is reported as the bound, not as a runaway', () => {
+    const fit = fitModel({ ...decay, parameters: [{ name: 'A' }, { name: 'tau', min: 0, max: 100 }] });
+    expect(fit.parameters[1]).toMatchObject({ value: 100, atBound: true, bound: 'upper' });
+    expect(fit.warnings.some(w => RAN_AWAY.test(w))).toBe(false);
+    expect(fit.warnings[0]).toMatch(/^'tau' finished at its upper bound \(100\)/);
+    // The curve is still no use, and that is said.
+    expect(fit.warnings.some(w => NO_BETTER.test(w))).toBe(true);
+  });
+
+  test('values the data do fix are left alone: near zero, very large, very small', () => {
+    const g = normal(31);
+    const t = linspace(0, 10, 40);
+    const fits = [
+      // An intercept and a phase that are zero within their errors.
+      fitModel({ expression: 'y = m*x + c', columns: { x: t }, y: t.map(v => 2 * v + 0.1 * g()) }),
+      fitModel({ expression: 'y = A*sin(w*x + phi)', columns: { x: t }, y: t.map(v => 3 * Math.sin(1.7 * v) + 0.05 * g()) }),
+      // A rate in 1/s over nanoseconds, and a prefactor of 4e9.
+      fitModel({ expression: 'y = A*exp(-k*x)', columns: { x: t.map(v => v * 1e-9) }, y: t.map(v => 5 * Math.exp(-0.4 * v) + 0.02 * g()) }),
+      fitModel({
+        expression: 'k = A*exp(-Ea/(R*T))', columns: { T: linspace(290, 380, 10) },
+        y: linspace(290, 380, 10).map(T => 4.2e9 * Math.exp(-68000 / (R_GAS * T)) * (1 + 0.02 * g())),
+        parameters: [{ name: 'A' }, { name: 'Ea' }, { name: 'R', initial: R_GAS, fixed: true }]
+      }),
+      // A decay too slow to see the end of: its time is poorly known, which the standard error says.
+      fitModel({ expression: 'y = A*exp(-x/tau)', columns: { x: t }, y: t.map(v => 5 * Math.exp(-v / 400) + 0.02 * g()) })
+    ];
+    for (const fit of fits) {
+      expect(fit.ok).toBe(true);
+      expect(fit.warnings.filter(w => RAN_AWAY.test(w) || NO_BETTER.test(w))).toEqual([]);
+      expect(fit.message).toMatch(/^Converged after \d+ iterations?\.$/);
+    }
+    expect(Math.abs(fits[0].parameters[1].value)).toBeLessThan(2 * fits[0].parameters[1].stderr);
+    expect(fits[2].parameters[1].value).toBeCloseTo(4e8, -7);
+    expect(fits[4].parameters[1].stderr).toBeGreaterThan(10);
+  });
+
+  test('a curve no better than the mean is said to be, once the parameters are allowed for', () => {
+    // No trend at all: the fitted line gains less than its two parameters cost.
+    const flat = [3.1, 2.4, 3.6, 2.9, 3.3, 2.2, 3.8, 2.7, 3.0, 3.4, 2.5, 3.2];
+    const none = fitModel({ expression: 'y = m*x + c', columns: { x }, y: flat });
+    expect(none.r2).toBeGreaterThan(0);
+    expect(none.adjR2).toBeLessThan(0);
+    expect(none.warnings).toHaveLength(1);
+    expect(none.warnings[0]).toMatch(NO_BETTER);
+    expect(none.warnings[0]).toContain(`(adjusted R² = ${none.adjR2.toFixed(3)})`);
+    // The fit itself is sound, so the headline still says how it converged.
+    expect(none.message).toMatch(/^Converged after \d+ iterations?\.$/);
+    // A weak trend that is there is not flagged.
+    const weak = fitModel({ expression: 'y = m*x + c', columns: { x }, y: flat.map((v, i) => v + 0.25 * x[i]) });
+    expect(weak.r2).toBeLessThan(0.6);
+    expect(weak.adjR2).toBeGreaterThan(0);
+    expect(weak.warnings).toEqual([]);
+    // Nothing fitted, nothing to say about the fit.
+    const held = fitModel({ expression: 'y = m*x + c', columns: { x }, y: flat, parameters: [{ name: 'm', initial: 5, fixed: true }, { name: 'c', initial: 0, fixed: true }] });
+    expect(held.r2).toBeLessThan(0);
+    expect(held.warnings).toEqual([]);
+  });
+});
+
+/* ------------------------------------------------------------------ *
  * Whether a switched-on band can be seen (core/plot-style)
  * ------------------------------------------------------------------ */
 
@@ -1044,32 +1170,107 @@ describe('bandVisibility', () => {
     expect(bandVisibility(plotted(fit, x, y, style), { ...style, yScale: 'log' }, fit).status).toBe('shown');
   });
 
-  test('the threshold is the fit line\'s width, in points on the main panel', () => {
+  /*
+   * A level curve under a band of one height everywhere, so the band's height
+   * on the page is its share of the y limits times the panel's height. The
+   * panels are the Curve Fitter's own at 6.4 x 4.8 in, measured on the page
+   * (Chromium, the axes Plotly draws at 96 px per inch): 411.95 px tall, and
+   * 307.14 px above a residual panel 0.3 of its height.
+   */
+  const level = (height) => {
+    const grid = linspace(0, 7, 50);
+    return { x, y: x.map(() => 1), curve: { x: grid, y: grid.map(() => 1) }, band: { x: grid, lower: grid.map(() => 1 - height / 2), upper: grid.map(() => 1 + height / 2) } };
+  };
+  const PAGE = { whole: 411.95 * 0.75, aboveResiduals: 307.14 * 0.75 };
+
+  test.each([['the main panel alone', PAGE.whole], ['the main panel above the residuals', PAGE.aboveResiduals]])(
+    'the threshold is the fit line\'s width on %s', (name, height) => {
+      const style = withBand();                       // the fit line is 2 pt
+      const plot = { width: 420, height, xView: [-0.35, 7.35], yView: [0, 2] };
+      const pt = (bandPt) => level((bandPt / height) * 2);
+      expect(bandVisibility(pt(1.99), style, null, plot).status).toBe('hidden');
+      expect(bandVisibility(pt(2.01), style, null, plot).status).toBe('shown');
+      // The line's width decides, not the panel: a 3 pt line hides what a 2 pt line showed.
+      const wide = { ...style, fit: { ...style.fit, width: 3 } };
+      expect(bandVisibility(pt(2.99), wide, null, plot).status).toBe('hidden');
+      expect(bandVisibility(pt(3.01), wide, null, plot).status).toBe('shown');
+    });
+
+  test('the same band is hidden in the shorter panel above the residuals and shown in the whole one', () => {
     const style = withBand();
-    const y = x.map(v => 2 * v + 1 + (v % 2 ? 0.02 : -0.02));
-    const fit = fitModel({ expression: 'y = a*x + b', columns: { x }, y });
-    const model = plotted(fit, x, y, style);
-    const widths = model.band.upper.map((u, i) => u - model.band.lower[i]);
-    const all = [...model.band.lower, ...model.band.upper, ...y, ...model.curve.y];
-    const bandPt = (Math.max(...widths) / (Math.max(...all) - Math.min(...all))) * style.height * 72 * 0.77;
-    expect(bandPt).toBeGreaterThan(0.2);
-    expect(bandPt).toBeLessThan(6);
-    const line = w => ({ ...style, fit: { ...style.fit, width: w } });
-    expect(bandVisibility(model, line(bandPt * 1.2), fit).status).toBe('hidden');
-    expect(bandVisibility(model, line(bandPt * 0.8), fit).status).toBe('shown');
-    // A residual panel shrinks the main one, and the band with it.
-    const resid = { ...line(bandPt * 0.8), residuals: { show: true, heightRatio: 0.5 } };
-    expect(bandVisibility(model, resid, fit).status).toBe('hidden');
+    const band = level((2.3 / PAGE.whole) * 2);       // 2.3 pt tall on the whole panel, 1.71 pt above the residuals
+    const plot = (height) => ({ width: 420, height, xView: [-0.35, 7.35], yView: [0, 2] });
+    expect(bandVisibility(band, style, null, plot(PAGE.whole)).status).toBe('shown');
+    expect(bandVisibility(band, style, null, plot(PAGE.aboveResiduals)).status).toBe('hidden');
   });
 
-  test('a narrow y range from fixed limits makes the same band visible', () => {
+  test('without a measured panel, the default layouts come out at their true heights', () => {
+    // 0.894 of the figure's height, and 0.666 with the residual panel (not matplotlib's 0.77 of a plain subplot).
+    const style = withBand();
+    const resid = { ...style, residuals: { show: true, heightRatio: 0.3 } };
+    const tall = (s, bandPt, panelPt) => bandVisibility(level((bandPt / panelPt) * 2), { ...s, yLim: [0, 2] }).status;
+    expect(tall(style, 1.96, PAGE.whole)).toBe('hidden');
+    expect(tall(style, 2.04, PAGE.whole)).toBe('shown');
+    expect(tall(resid, 1.96, PAGE.aboveResiduals)).toBe('hidden');
+    expect(tall(resid, 2.04, PAGE.aboveResiduals)).toBe('shown');
+  });
+
+  test('without limits, the y axis is taken with matplotlib\'s 5% margins', () => {
+    // The band spans 1 +/- h/2 and nothing else is taller, so the axis runs over 1.1 h
+    // and the band takes 1/1.1 of the panel whatever h is: it shows.
+    const style = withBand();
+    expect(bandVisibility(level(1e-9), style).status).toBe('shown');
+    // Error bars are part of what the axis is scaled to.
+    const bars = { ...level(0.01), sigma: x.map(() => 1) };   // the axis runs from -0.1 to 2.1
+    expect(bandVisibility(bars, style).status).toBe('hidden');   // 0.01/2.2 of 309 pt is 1.4 pt
+    expect(bandVisibility(bars, { ...style, data: { ...style.data, errorBars: false } }).status).toBe('shown');
+  });
+
+  test('on a climbing curve the band is measured across the line, not straight up', () => {
+    // A curve at 60 degrees on the page: a band 3 pt tall is 1.5 pt across, behind a 2 pt line.
+    const style = withBand();
+    const plot = { width: 300, height: 300 * Math.sqrt(3), xView: [0, 1], yView: [0, Math.sqrt(3)] };   // 300 pt a unit both ways
+    const grid = linspace(0, 1, 50);
+    const climbing = (bandPt) => {
+      const h = bandPt / 300;
+      const rise = grid.map(v => Math.sqrt(3) * v);
+      return { x: [0, 1], y: [0, Math.sqrt(3)], curve: { x: grid, y: rise }, band: { x: grid, lower: rise.map(v => v - h / 2), upper: rise.map(v => v + h / 2) } };
+    };
+    expect(bandVisibility(climbing(3), style, null, plot).status).toBe('hidden');
+    expect(bandVisibility(climbing(3.9), style, null, plot).status).toBe('hidden');
+    expect(bandVisibility(climbing(4.1), style, null, plot).status).toBe('shown');
+    // Wider axes flatten the curve: at 30 degrees the 3 pt band is 2.6 pt across.
+    expect(bandVisibility(climbing(3), style, null, { ...plot, width: 900 }).status).toBe('shown');
+    // On a log x axis the slope is that of the curve as drawn, over decades.
+    const logX = { ...style, xScale: 'log' };
+    const decades = climbing(3);
+    decades.curve.x = grid.map(v => 10 ** v); decades.band.x = decades.curve.x; decades.x = [1, 10];
+    expect(bandVisibility(decades, logX, null, { ...plot, xView: [1, 10] }).status).toBe('hidden');
+    expect(bandVisibility(decades, logX, null, { ...plot, xView: [1, 10], width: 900 }).status).toBe('shown');
+  });
+
+  test('a panel that is given in part, or wrongly, falls back to the estimate', () => {
+    const style = withBand();
+    const band = level((2.3 / PAGE.whole) * 2);
+    const yLim = { ...style, yLim: [0, 2] };
+    for (const plot of [undefined, null, {}, { height: NaN }, { height: -3, yView: [1, 1] }, { yView: [0, Infinity] }, 'tall']) {
+      expect(bandVisibility(band, yLim, null, plot).status).toBe('shown');
+    }
+    // The height alone is enough to change the answer.
+    expect(bandVisibility(band, yLim, null, { height: PAGE.aboveResiduals }).status).toBe('hidden');
+  });
+
+  test('limits that are set take the place of the data\'s range', () => {
     const style = withBand();
     const y = x.map(v => 2 * v + 1 + (v % 2 ? 1e-4 : -1e-4));
     const fit = fitModel({ expression: 'y = a*x + b', columns: { x }, y });
     const model = plotted(fit, x, y, style);
     expect(bandVisibility(model, style, fit).status).toBe('hidden');
-    const zoomed = { ...style, yLim: [0.999, 1.001] };
-    expect(bandVisibility(model, zoomed, fit).status).toBe('shown');
+    // Close in on the curve where it starts, and the band opens up.
+    expect(bandVisibility(model, { ...style, xLim: [0, 0.001], yLim: [0.999, 1.003] }, fit).status).toBe('shown');
+    // Stretching y alone does not: the curve then runs almost straight up, and the
+    // band is no wider from side to side than it was.
+    expect(bandVisibility(model, { ...style, yLim: [0.999, 1.003] }, fit).status).toBe('hidden');
   });
 
   test('no band asked for, none to draw, or several variables: off', () => {

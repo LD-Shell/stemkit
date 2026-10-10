@@ -43,6 +43,12 @@
  * Bad input never throws. Rows with blank or non-numeric values are dropped
  * and counted, a model that cannot be evaluated names the part that fails,
  * and parameters that the data cannot tell apart are named with a suggestion.
+ *
+ * A fit that converges is not always a fit. `warnings` also says when a
+ * parameter has run away (the fit is no worse with it a thousand and a
+ * million times larger, see `runawayParameters`) and when the curve follows
+ * the data no better than their mean (adjusted R² at or below zero). Both are
+ * read off the finished fit and change none of its numbers.
  */
 
 import {
@@ -731,6 +737,64 @@ function covarianceAt(model, data, p, free, lo, hi) {
   }
   const smin = Math.min(...s);
   return { cov, groups, condition: smin > 0 ? smax / smin : Infinity };
+}
+
+/* How many times larger a parameter is made to see whether the data limit it. */
+const RUNAWAY_FACTORS = [1e3, 1e6];
+
+/*
+ * The free parameters that have run away, as indices into `free`.
+ *
+ * A minimiser cannot arrive at infinity. When the best fit lies there (the
+ * decay time of A*exp(-x/tau) on data that rise, which is flattest with tau
+ * endless), every step makes the parameter larger and gains less, until the
+ * gain is below the tolerance and the iteration stops as converged, wherever
+ * it then is. The value is that stopping place and nothing more, and the
+ * linearised standard error beside it means as little.
+ *
+ * The size of the value cannot show this, having no scale to be judged
+ * against, so chi-square itself is asked: the parameter has run away when the
+ * fit is no worse with it a thousand times larger, and the same again with it
+ * a million times larger. "No worse" and "the same" allow the change the
+ * minimiser counts as none (`tol` of chi-square, its own test for having
+ * converged); the first is one-sided because the last steps of a runaway
+ * still gain a few times that.
+ *
+ * A parameter the data do determine cannot pass. Moving it by d with the
+ * others held raises chi-square by at least (d/stderr)^2 chi2/dof (the
+ * standard error being scaled by the reduced chi-square), so the first
+ * factor alone needs a value within sqrt(tol*dof)/999 of its standard error
+ * from zero: one part in 10^7 with a hundred points.
+ *
+ * Left out: a parameter that is zero, one whose covariance is already
+ * reported as undetermined (`skip`), one that a bound keeps from growing that
+ * far, and an exact fit, where every change is a large one. A parameter that
+ * shrinks towards zero without limit is not looked for: the same test cannot
+ * tell it from an honest value near zero.
+ */
+function runawayParameters(model, data, p, free, lo, hi, chi2, tol, skip) {
+  const out = [];
+  if (!(chi2 > 0) || !Number.isFinite(chi2)) return out;
+  const q = Float64Array.from(p);
+  const r = new Float64Array(data.n);
+  const slack = tol * chi2;
+  for (let k = 0; k < free.length; k++) {
+    const j = free[k];
+    if (skip.has(k) || p[j] === 0 || !Number.isFinite(p[j])) continue;
+    let before = chi2;
+    let ran = true;
+    for (let step = 0; step < RUNAWAY_FACTORS.length && ran; step++) {
+      const v = p[j] * RUNAWAY_FACTORS[step];
+      if (!Number.isFinite(v) || v < lo[j] || v > hi[j]) { ran = false; break; }
+      q[j] = v;
+      const trial = residualVector(model, data, q, r);
+      ran = step === 0 ? trial <= before + slack : Math.abs(trial - before) <= slack;
+      before = trial;
+    }
+    q[j] = p[j];
+    if (ran) out.push(k);
+  }
+  return out;
 }
 
 /* True when the model's residuals at p, and at p with slot j replaced, are bit
@@ -1737,8 +1801,13 @@ function listNames(names) {
  *   unweighted, in the units of y; `chi2`, `r2`, `aic` and `bic` use the
  *   weights when sigma is given. A fixed parameter reports `stderr: 0` and a
  *   zero-width interval. `rows` maps each entry of `predicted`/`residuals` to
- *   its original row. On failure `{ok:false, message, warnings, error?}`,
- *   where `error` carries the offsets of a parse error.
+ *   its original row. `warnings` lists, in plain sentences, what to know
+ *   before trusting the numbers: a parameter on a bound, parameters that
+ *   cannot be told apart or are strongly correlated, one that has run away,
+ *   a curve that follows the data no better than their mean. `message` is
+ *   the first of those that puts the result in doubt, else how the fit
+ *   converged. On failure `{ok:false, message, warnings, error?}`, where
+ *   `error` carries the offsets of a parse error.
  */
 export function fitModel(spec) {
   try {
@@ -2098,6 +2167,14 @@ function buildResult(r) {
         '(such as a product or ratio). Hold one of them fixed or rewrite the equation.');
     }
   }
+  const undetermined = new Set(covInfo.groups.flat());
+  for (const k of runawayParameters(model, data, p, free, lo, hi, chi2, opts.tolerance, undetermined)) {
+    const name = paramNames[free[k]];
+    messages.push(`'${name}' has run away. The fit is no worse with '${name}' a thousand or a million times ` +
+      `larger than the ${p[free[k]].toPrecision(3)} where it stopped, so these data set no limit on it, and neither ` +
+      'that value nor its uncertainty means anything. Try another equation, or a starting value and bounds for ' +
+      `'${name}' that keep it at the scale of your data.`);
+  }
   for (const prm of parameters) {
     if (prm.atBound) {
       warnings.push(`'${prm.name}' finished at its ${prm.bound} bound (${prm.value}). The best fit may lie ` +
@@ -2129,6 +2206,15 @@ function buildResult(r) {
       'found. Try starting values closer to the data, or allow more iterations.');
   }
   warnings.push(...messages);
+  // Adjusted R² at or below zero: over a constant at the mean, the equation gains
+  // no more per extra parameter than the scatter it leaves per degree of freedom
+  // (F <= 1 for the two).
+  if (nFree > 0 && adjR2 <= 0) {
+    warnings.push('Allowing for the number of fitted parameters, the curve follows these data no better than a ' +
+      `horizontal line at their mean would (adjusted R\u00b2 = ${adjR2.toFixed(3)}): the equation explains none of ` +
+      'their variation. If the data do follow a trend, try another equation, or other starting values in case ' +
+      'the fit settled in the wrong place.');
+  }
   const message = messages.length ? messages[0]
     : `Converged after ${fit.iterations} iteration${fit.iterations === 1 ? '' : 's'}.`;
 

@@ -7,10 +7,11 @@
 
 import { describe, test, expect } from '@jest/globals';
 import {
-  PRESETS, ROW_NUMBER, parseTable, columnIdentifier, mapColumns, presetEquation,
+  PRESETS, SAMPLES, ROW_NUMBER, parseTable, columnIdentifier, mapColumns, presetEquation,
   substitute, highlightPython, roundToError, fmt, resolveRoles
 } from '../js/curve-fitter.js';
-import { parseEquation, classify, toText } from '../src/core/expression.js';
+import { parseEquation, classify, toText, compile } from '../src/core/expression.js';
+import { fitModel } from '../src/core/nonlinear-fit.js';
 
 describe('parseTable', () => {
   test('semicolons with decimal commas and a header with units', () => {
@@ -133,6 +134,74 @@ describe('presets', () => {
       expect(roles.parameters.length).toBeGreaterThan(0);
       expect(roles.parameters).not.toContain(x);
     }
+  });
+});
+
+/*
+ * The fits the page shows first must read as fits: no parameter reported as
+ * run away, no curve reported as no better than the data's mean. What the
+ * samples do warn of is that two of their parameters are strongly correlated
+ * (the prefactor and the activation energy, the saturation current and the
+ * ideality factor), which is true of those equations.
+ */
+describe('the samples and presets fit without a warning about the fit', () => {
+  const DOUBT = /has run away|no better than a horizontal line|cannot be told apart|cannot be determined|did not settle|without settling|finished at its/;
+  const CORRELATED = /^'\w+' and '\w+' are strongly correlated/;
+  const specFor = (text, table, extra = {}) => {
+    const eq = parseEquation(text);
+    const roles = resolveRoles(eq, table.columns);
+    const map = mapColumns(roles.independent, roles.dependent, table.columns);
+    const bounds = extra.bounds || {};
+    const fixed = extra.fixed || {};
+    return {
+      ast: eq.ast,
+      independent: roles.independent,
+      parameters: [...roles.parameters, ...Object.keys(fixed).filter(n => !roles.parameters.includes(n))].map(name => (
+        Object.hasOwn(fixed, name) ? { name, initial: fixed[name], fixed: true } : { name, ...(bounds[name] || {}) })),
+      columns: Object.fromEntries(roles.independent.map(v => [v, table.columns[map.columns[v]].values])),
+      y: table.columns[map.columns[roles.dependent]].values,
+      sigma: map.sigma === null ? undefined : table.columns[map.sigma].values,
+      absoluteSigma: map.sigma !== null && !!extra.absoluteSigma
+    };
+  };
+
+  test.each(SAMPLES.map(s => [s.label, s]))('sample: %s', (label, sample) => {
+    const fit = fitModel(specFor(sample.equation, parseTable(sample.make()), sample));
+    expect(fit.ok).toBe(true);
+    expect(fit.converged).toBe(true);
+    expect(fit.message).toMatch(/^Converged after \d+ iterations?\.$/);
+    expect(fit.r2).toBeGreaterThan(0.99);
+    expect(fit.warnings.filter(w => !CORRELATED.test(w))).toEqual([]);
+    expect(fit.warnings.length).toBe(['arrhenius', 'diode'].includes(sample.id) ? 1 : 0);
+  });
+
+  /* A value for each preset's parameters, to make data the preset suits. */
+  const TRUTH = {
+    line: { m: 1.7, c: -0.4 }, quadratic: { a: 0.3, b: -1.2, c: 2 }, cubic: { a: 0.05, b: -0.4, c: 1, d: 2 },
+    decay: { A: 3, tau: 1.6, y0: 0.5 }, growth: { A: 0.8, k: 0.35 }, double: { A1: 3, tau1: 0.5, A2: 1.5, tau2: 4, y0: 0.2 },
+    power: { A: 2, n: 1.6 }, log: { a: 1, b: 2.5 }, gauss: { A: 5, mu: 4.2, sigma: 0.9, y0: 1 }, lorentz: { A: 5, x0: 4.2, w: 0.8, y0: 1 },
+    pvoigt: { A: 5, x0: 4.2, w: 0.8, eta: 0.4, y0: 1 }, logistic: { L: 10, k: 1.4, x0: 4 }, mm: { Vmax: 40, Km: 1.5 }, hill: { Vmax: 40, K: 2.5, n: 2.2 },
+    arrhenius: { A: 4e9, Ea: 65000 }, sine: { A: 2, P: 2.3, phi: 0.5, y0: 1 }, damped: { A: 2.5, tau: 3, P: 1.3, phi: 0.4, y0: 0.2 }
+  };
+  const range = (a, b, n) => Array.from({ length: n }, (_, i) => a + ((b - a) * i) / (n - 1));
+
+  test.each(PRESETS.map(p => [p.label, p]))('preset: %s, on data it suits', (label, preset) => {
+    const { text, x } = presetEquation(preset);
+    const truth = { ...TRUTH[preset.id], ...(preset.fixed || {}) };
+    const names = [x, ...Object.keys(truth)];
+    const f = compile(parseEquation(text).ast, names);
+    const xs = preset.id === 'arrhenius' ? range(290, 380, 12) : ['power', 'log', 'mm', 'hill'].includes(preset.id) ? range(0.25, 8, 40) : range(0, 8, 60);
+    const clean = xs.map(v => f(Float64Array.from([v, ...Object.values(truth)])));
+    const spread = Math.max(...clean) - Math.min(...clean);
+    // Scatter of 2% of the curve's range, the same on every run.
+    const ys = clean.map((v, i) => v + 0.02 * spread * Math.sin(12.9898 * (i + 1)) * Math.cos(78.233 * (i + 1)));
+    const table = { columns: [{ name: x, label: x, values: xs }, { name: 'y_', label: '', values: ys }] };
+    const fit = fitModel(specFor(text, table, preset));
+    expect(fit.ok).toBe(true);
+    expect(fit.converged).toBe(true);
+    expect(fit.r2).toBeGreaterThan(0.98);
+    expect(fit.warnings.filter(w => DOUBT.test(w))).toEqual([]);
+    expect(fit.message).toMatch(/^Converged after \d+ iterations?\.$/);
   });
 });
 

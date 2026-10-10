@@ -209,8 +209,70 @@ export function normalisePlotStyle(style = {}) {
   };
 }
 
-/** How much of the figure height the main panel takes: matplotlib's default subplot, 0.11 to 0.88. */
-const MAIN_PANEL_SHARE = 0.77;
+/*
+ * What matplotlib sets aside around a set of axes, in points, and the size of
+ * its text in font sizes. Constrained layout, which the figure is laid out
+ * with, takes these off the figure and gives the axes the rest, so the room
+ * the decorations take does not shrink with the figure.
+ */
+const AROUND = Object.freeze({
+  pad: 3,          // figure.constrained_layout.h_pad and w_pad (0.04167 in), at each edge
+  tickPad: 3.5,    // xtick.major.pad: from the tick marks to their labels
+  labelPad: 4,     // axes.labelpad: from the tick labels to the axis label
+  titlePad: 6,     // axes.titlepad
+  line: 0.94,      // a line of text, which is at least as tall as "lp"
+  ascent: 0.73,    // the part of it above the baseline, where a title stands
+  digit: 0.55      // the width of a digit
+});
+
+const PT_PER_IN = 72;
+
+/*
+ * The size of the main panel in points when the plot itself is not there to
+ * be measured: the figure less its decorations, which for the figure this
+ * style describes are the tick marks and their labels, the axis labels, a
+ * title when there is one, and with a residual panel the gap above it (its
+ * tick marks and two pads) and its share of the height. The tick labels of
+ * the y axis are taken as three digits wide. For the default style that is
+ * 0.894 of the figure's height, 0.666 with the residual panel; text that is
+ * larger, a title or a smaller figure leave less.
+ */
+function estimatedPanel(s) {
+  const sizes = textSizes(s);
+  const outside = (t) => (t.direction === 'out' ? t.length : t.direction === 'inout' ? t.length / 2 : 0);
+  const label = (text) => (String(text).trim() ? AROUND.labelPad + AROUND.line * s.fontSize : 0);
+  let down = 2 * AROUND.pad + outside(s.xTicks) + AROUND.tickPad + AROUND.line * sizes.tick + label(s.xLabel);
+  if (s.title.trim()) down += AROUND.titlePad + AROUND.ascent * sizes.title;
+  if (s.residuals.show) down += outside(s.xTicks) + 2 * AROUND.pad;
+  const across = 2 * AROUND.pad + outside(s.yTicks) + AROUND.tickPad + 3 * AROUND.digit * sizes.tick + label(s.yLabel);
+  return {
+    width: s.width * PT_PER_IN - across,
+    height: (s.height * PT_PER_IN - down) / (s.residuals.show ? 1 + s.residuals.heightRatio : 1)
+  };
+}
+
+/*
+ * The limits matplotlib gives an axis, in the axis's own coordinates (decades
+ * on a log axis): the span of what is drawn and a 5% margin at each end, or
+ * the limit that is set. Null when nothing can be drawn.
+ */
+function estimatedView(arrays, limits, log) {
+  const at = (v) => (log ? Math.log10(v) : v);
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const arr of arrays) {
+    for (const raw of arr || []) {
+      const v = Number(raw);
+      if (raw === null || !Number.isFinite(v) || (log && !(v > 0))) continue;
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
+    }
+  }
+  if (!(lo <= hi)) return null;
+  const margin = 0.05 * (at(hi) - at(lo));
+  const set = (v) => v !== null && Number.isFinite(v) && !(log && v <= 0);
+  return [set(limits[0]) ? at(limits[0]) : at(lo) - margin, set(limits[1]) ? at(limits[1]) : at(hi) + margin];
+}
 
 /**
  * Whether the confidence band a fit plot asks for can be seen, and if not, why.
@@ -223,22 +285,32 @@ const MAIN_PANEL_SHARE = 0.77;
  *     NaN wherever the curve depends on them. A point where every gradient is
  *     zero (x = 0 there) still comes out finite, with zero width, and draws
  *     nothing on its own.
- *   - `hidden`: even at its widest the band is thinner than the fit line, so
- *     the line covers it. The panel height is estimated from the figure's
- *     height (the main panel's share of it, less the residual panel's), so a
- *     band right at the threshold may show a sliver either way. Not judged on
- *     a log y axis.
+ *   - `hidden`: nowhere does the band reach past the fit line drawn over it.
+ *     The line covers what lies within half its width of the curve, measured
+ *     across the curve, so where the curve climbs the band may be taller than
+ *     the line is wide and still be covered: its height is taken across the
+ *     curve as it slopes on the page. Not judged on a log y axis.
  *
  * `off` means no band is asked for or none applies (several independent
  * variables, no fit yet); `shown` means it is drawn and wider than the line.
  *
- * @param {{y?: ArrayLike<number>, curve?: {y: ArrayLike<number>}, band?: {lower: ArrayLike<number>, upper: ArrayLike<number>}, multivariate?: object}|null} model
+ * How large the band comes out depends on the panel it is drawn in. A page
+ * that has drawn the plot passes the panel as `plot`; without it the panel's
+ * size is worked out from the style, as matplotlib's constrained layout
+ * leaves it once the tick labels, axis labels and title have their room, and
+ * its limits from what the plot draws with matplotlib's 5% margins, so a band
+ * right at the threshold may then show a sliver either way.
+ *
+ * @param {{x?: ArrayLike<number>, y?: ArrayLike<number>, sigma?: ArrayLike<number>, curve?: {x?: ArrayLike<number>, y: ArrayLike<number>}, band?: {x?: ArrayLike<number>, lower: ArrayLike<number>, upper: ArrayLike<number>}, multivariate?: object}|null} model
  *   what the plot draws, as fit-plot's figure takes it
  * @param {object} style  a plot style (normalised here)
  * @param {{covariance?: number[][]}|null} [fit]  the fit, for its covariance
+ * @param {{width?: number, height?: number, xView?: number[], yView?: number[]}|null} [plot]
+ *   the main panel as drawn: the width and height of its axes in points, and
+ *   the limits of its x and y axes. Any of them left out is estimated.
  * @returns {{status: 'off'|'shown'|'undetermined'|'hidden', message: string}}
  */
-export function bandVisibility(model, style, fit = null) {
+export function bandVisibility(model, style, fit = null, plot = null) {
   const s = normalisePlotStyle(style);
   const off = { status: 'off', message: '' };
   if (!s.band.show || !model || model.multivariate || !model.band || !model.curve) return off;
@@ -259,20 +331,48 @@ export function bandVisibility(model, style, fit = null) {
   }
   const shown = { status: 'shown', message: '' };
   if (s.yScale === 'log') return shown;
+
+  /* The panel: its size in points and the limits of its axes */
+  const given = plot && typeof plot === 'object' ? plot : {};
+  const size = estimatedPanel(s);
+  const positive = (v, fallback) => (Number.isFinite(v) && v > 0 ? v : fallback);
+  const xLog = s.xScale === 'log';
+  const along = (v) => (xLog ? Math.log10(v) : v);
+  const view = (v, log) => (Array.isArray(v) && v.length === 2 && v.every(q => Number.isFinite(q) && !(log && q <= 0))
+    ? [log ? Math.log10(v[0]) : v[0], log ? Math.log10(v[1]) : v[1]] : null);
+  const curveX = Array.from(model.curve.x || []);
+  const curveY = Array.from(model.curve.y || []);
+  const bandX = Array.from(model.band.x || []);
+  // What the axes are scaled to: the points when they are drawn, with their
+  // error bars, the curve and the band.
+  const sigma = s.data.errorBars && model.sigma ? Array.from(model.sigma, Number) : null;
+  const bars = !!sigma && sigma.some(v => v > 0);
+  const points = s.data.show && (s.data.marker !== 'none' || bars);
+  const dataX = points ? Array.from(model.x || []) : [];
+  const dataY = points ? Array.from(model.y || []) : [];
+  const barEnds = bars && points ? [dataY.map((v, i) => v - sigma[i]), dataY.map((v, i) => Number(v) + sigma[i])] : [];
+  const drawnCurve = s.fit.show ? [curveX, curveY] : [[], []];
+  const xView = view(given.xView, xLog) || estimatedView([dataX, drawnCurve[0], bandX], s.xLim, xLog);
+  const yView = view(given.yView, false) || estimatedView([dataY, ...barEnds, drawnCurve[1], lower, upper], s.yLim, false);
+  const perY = yView && Math.abs(yView[1] - yView[0]) > 0 ? positive(given.height, size.height) / Math.abs(yView[1] - yView[0]) : NaN;
+  if (!(perY > 0) || !Number.isFinite(perY)) return shown;
+  const perX = xView && Math.abs(xView[1] - xView[0]) > 0 ? positive(given.width, size.width) / Math.abs(xView[1] - xView[0]) : NaN;
+
+  /* The band's height across the curve, at its widest, in points */
+  const xs = bandX.length === lower.length ? bandX : curveX;
+  const sloped = perX > 0 && Number.isFinite(perX) && xs.length === lower.length && curveY.length === lower.length;
+  const across = (i) => {
+    if (!sloped) return 1;
+    const a = Math.max(i - 1, 0);
+    const b = Math.min(i + 1, lower.length - 1);
+    const run = (along(xs[b]) - along(xs[a])) * perX;
+    const rise = (curveY[b] - curveY[a]) * perY;
+    const length = Math.hypot(run, rise);
+    return Number.isFinite(length) && length > 0 ? Math.abs(run) / length : 1;
+  };
   let widest = 0;
-  let lo = Infinity;
-  let hi = -Infinity;
-  const take = v => { if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v; } };
-  for (const i of finite) { widest = Math.max(widest, upper[i] - lower[i]); take(lower[i]); take(upper[i]); }
-  Array.from(model.y || []).forEach(take);
-  Array.from(model.curve.y || []).forEach(take);
-  if (Number.isFinite(s.yLim[0])) lo = s.yLim[0];
-  if (Number.isFinite(s.yLim[1])) hi = s.yLim[1];
-  const range = hi - lo;
-  if (!(range > 0)) return shown;
-  const share = s.residuals.show ? 1 / (1 + s.residuals.heightRatio) : 1;
-  const panelPt = s.height * 72 * MAIN_PANEL_SHARE * share;
-  if ((widest / range) * panelPt >= s.fit.width) return shown;
+  for (const i of finite) widest = Math.max(widest, (upper[i] - lower[i]) * perY * across(i));
+  if (widest >= s.fit.width) return shown;
   const pct = String(Number((s.band.level * 100).toPrecision(4)));
   return {
     status: 'hidden',

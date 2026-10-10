@@ -1921,7 +1921,12 @@ function startPage() {
     schedulePython();
     const f = state.fit;
     if (f && f.ok) {
-      announce(`${f.converged ? 'Fit converged' : 'Fit did not converge'}. R squared ${fmt(f.r2, 5)}, ${plural(f.free.length, 'free parameter')}, ${plural(f.n, 'point')}.`);
+      // The warnings are listed with the results; say that there are some, and when
+      // the first of them puts the fit in doubt (see renderResults).
+      const warned = new Set(f.warnings || []).size;
+      const doubtful = (f.warnings || []).includes(f.message);
+      announce(`${!f.converged ? 'Fit did not converge' : doubtful ? 'Fit converged, but check it' : 'Fit converged'}. R squared ${fmt(f.r2, 5)}, ${plural(f.free.length, 'free parameter')}, ${plural(f.n, 'point')}.` +
+        (warned ? ` ${plural(warned, 'warning')} in the results.` : ''));
     } else if (f && !f.ok) {
       announce(`No fit: ${f.message}`);
     }
@@ -1969,7 +1974,11 @@ function startPage() {
       ui.barFit.hidden = true;
       return;
     }
-    setStatus(f.converged ? `Converged in ${plural(f.iterations, 'step')}` : 'Did not converge', f.converged ? 'ok' : 'warn');
+    // A fit can converge and still not be one to trust (a parameter run away, parameters that
+    // cannot be told apart): fitModel then leads with that warning instead of how it converged.
+    const doubtful = (f.warnings || []).includes(f.message);
+    setStatus(!f.converged ? 'Did not converge' : doubtful ? 'Check the fit' : `Converged in ${plural(f.iterations, 'step')}`,
+      f.converged && !doubtful ? 'ok' : 'warn');
     ui.barFit.innerHTML = `R<sup>2</sup>${f.weighted ? '<sub>w</sub>' : ''} ${fmt(f.r2, 6)}`;
     ui.barFit.hidden = false;
 
@@ -2621,12 +2630,21 @@ function startPage() {
     const model = plotModel();
     const info = await plotArea.update(model ? fitPlot.fitFigure(model, state.style) : null);
     ui.plotDrawn.hidden = !(info && state.fit && state.fit.ok);
-    showBandNote(model);
+    showBandNote(model, info);
+  }
+
+  /* The main panel as it was drawn, for bandVisibility: its axes in points and their limits. */
+  function drawnPanel(info) {
+    const box = info && info.axes && info.axes[0];
+    const views = info && info.views && info.views[0];
+    if (!box || !views) return null;
+    const pt = 72 / fitPlot.PX_PER_IN;
+    return { width: (box.r - box.l) * pt, height: (box.b - box.t) * pt, xView: views.x.view, yView: views.y.view };
   }
 
   /* Why a band that is switched on cannot be seen, if it cannot (core/plot-style's bandVisibility). */
-  function showBandNote(model) {
-    const text = bandVisibility(model, state.style, state.fit && state.fit.ok ? state.fit : null).message;
+  function showBandNote(model, info) {
+    const text = bandVisibility(model, state.style, state.fit && state.fit.ok ? state.fit : null, drawnPanel(info)).message;
     ui.plotNotes.textContent = '';
     if (text) {
       const para = document.createElement('p');

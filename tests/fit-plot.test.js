@@ -16,9 +16,10 @@ import { deflateSync } from 'node:zlib';
 import { crc32 } from '../src/core/zip.js';
 import {
   maxNLocator, multipleLocator, logLocator, autoMinorLocator, scalarFormat, logFormat, pyPercent, printfFormat,
-  textToHtml, axisTicks, fitCurveGrid, buildFitFigure, pngWithDpi, plotlyDash, rgba, fitFigure, foldFigureStyle
+  textToHtml, axisTicks, fitCurveGrid, buildFitFigure, pngWithDpi, plotlyDash, rgba, fitFigure, foldFigureStyle,
+  STYLE_PRESETS, PX_PER_IN
 } from '../js/fit-plot.js';
-import { defaultPlotStyle, normalisePlotStyle } from '../src/core/plot-style.js';
+import { bandVisibility, defaultPlotStyle, normalisePlotStyle } from '../src/core/plot-style.js';
 import { withBackground, backgroundChoice, normaliseFigure, COLOR_CYCLE_DARK } from '../src/core/figure.js';
 
 const MPL = {"lin": [{"a": -398810056.8485015, "b": 10339199069.722752, "n": 4, "auto": [-5000000000.0, 0.0, 5000000000.0, 10000000000.0, 15000000000.0], "cnt": 9, "maxn": [-1500000000.0, 0.0, 1500000000.0, 3000000000.0, 4500000000.0, 6000000000.0, 7500000000.0, 9000000000.0, 10500000000.0], "step": 1450000000.0, "mult": [-1450000000.0, 0.0, 1450000000.0, 2900000000.0, 4350000000.0, 5800000000.0, 7250000000.0, 8700000000.0, 10150000000.0, 11600000000.0], "lab": ["\u22120.5", "0.0", "0.5", "1.0", "1.5"], "off": "1e10", "slab": ["$\\mathdefault{\u22120.5}$", "$\\mathdefault{0.0}$", "$\\mathdefault{0.5}$", "$\\mathdefault{1.0}$", "$\\mathdefault{1.5}$"], "soff": "$\\times\\mathdefault{10^{10}}\\mathdefault{}$", "minor": [0.0, 1000000000.0, 2000000000.0, 3000000000.0, 4000000000.0, 5000000000.0, 6000000000.0, 7000000000.0, 8000000000.0, 9000000000.0, 10000000000.0]}, {"a": 55.44693628554259, "b": 55.455981099505834, "n": 1, "auto": [55.445, 55.45, 55.455, 55.46], "cnt": 6, "maxn": [55.446, 55.448, 55.449999999999996, 55.452, 55.454, 55.455999999999996], "step": 0.000923, "mult": [55.446456, 55.447379, 55.448302, 55.449225, 55.450148, 55.451071, 55.451994, 55.452917, 55.45384, 55.454763, 55.455686, 55.456609], "lab": ["\u22120.005", "0.000", "0.005", "0.010"], "off": "+5.545e1", "slab": ["$\\mathdefault{\u22125}$", "$\\mathdefault{0}$", "$\\mathdefault{5}$", "$\\mathdefault{10}$"], "soff": "$\\times\\mathdefault{10^{\u22123}}\\mathdefault{+5.545 \\times 10^{1}}$", "minor": [55.447, 55.448, 55.449000000000005, 55.45, 55.451, 55.452000000000005, 55.453, 55.45400000000001, 55.455000000000005, 55.456]}, {"a": -2.3056833093800333, "b": 0.94749515643894, "n": 7, "auto": [-2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0], "cnt": 8, "maxn": [-2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0], "step": 0.547, "mult": [-2.7350000000000003, -2.188, -1.6410000000000002, -1.0940000000000003, -0.5470000000000002, 0.0, 0.5469999999999997, 1.0939999999999999], "lab": ["\u22122.5", "\u22122.0", "\u22121.5", "\u22121.0", "\u22120.5", "0.0", "0.5", "1.0"], "off": "", "slab": ["$\\mathdefault{\u22122.5}$", "$\\mathdefault{\u22122.0}$", "$\\mathdefault{\u22121.5}$", "$\\mathdefault{\u22121.0}$", "$\\mathdefault{\u22120.5}$", "$\\mathdefault{0.0}$", "$\\mathdefault{0.5}$", "$\\mathdefault{1.0}$"], "soff": "", "minor": [-2.3, -2.2, -2.1, -2.0, -1.9, -1.7999999999999998, -1.7, -1.6, -1.5, -1.4, -1.2999999999999998, -1.2, -1.0999999999999999, -1.0, -0.8999999999999999, -0.7999999999999998, -0.7, -0.5999999999999999, -0.5, -0.3999999999999999, -0.2999999999999998, -0.19999999999999973, -0.09999999999999964, 0.0, 0.10000000000000009, 0.20000000000000018, 0.30000000000000027, 0.40000000000000036, 0.5, 0.6000000000000001, 0.7000000000000002, 0.8000000000000003, 0.9000000000000004]}, {"a": -0.5537894394923937, "b": 4.35586721704521, "n": 6, "auto": [-1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0], "cnt": 3, "maxn": [-2.0, 0.0, 2.0, 4.0, 6.0], "step": 2.08, "mult": [-2.08, 0.0, 2.08, 4.16, 6.24], "lab": ["\u22121", "0", "1", "2", "3", "4", "5"], "off": "", "slab": ["$\\mathdefault{\u22121}$", "$\\mathdefault{0}$", "$\\mathdefault{1}$", "$\\mathdefault{2}$", "$\\mathdefault{3}$", "$\\mathdefault{4}$", "$\\mathdefault{5}$"], "soff": "", "minor": [-0.6, -0.3999999999999999, -0.19999999999999996, 0.0, 0.20000000000000018, 0.40000000000000013, 0.6000000000000001, 0.8, 1.0, 1.2000000000000002, 1.4000000000000004, 1.6, 1.8000000000000003, 2.0, 2.2, 2.4000000000000004, 2.6, 2.8000000000000003, 3.0, 3.2, 3.4000000000000004, 3.6000000000000005, 3.8000000000000007, 4.0, 4.2, 4.4]}, {"a": -6.026047536227196e-06, "b": 1.1665934873267935e-05, "n": 8, "auto": [-7.499999999999999e-06, -4.9999999999999996e-06, -2.4999999999999998e-06, 0.0, 2.4999999999999998e-06, 4.9999999999999996e-06, 7.499999999999999e-06, 9.999999999999999e-06, 1.2499999999999999e-05], "cnt": 3, "maxn": [-1.2e-05, -6e-06, 0.0, 6e-06, 1.2e-05], "step": 3.25e-06, "mult": [-6.5e-06, -3.25e-06, 0.0, 3.2500000000000002e-06, 6.5e-06, 9.75e-06, 1.3000000000000001e-05], "lab": ["\u22120.75", "\u22120.50", "\u22120.25", "0.00", "0.25", "0.50", "0.75", "1.00", "1.25"], "off": "1e\u22125", "slab": ["$\\mathdefault{\u22120.75}$", "$\\mathdefault{\u22120.50}$", "$\\mathdefault{\u22120.25}$", "$\\mathdefault{0.00}$", "$\\mathdefault{0.25}$", "$\\mathdefault{0.50}$", "$\\mathdefault{0.75}$", "$\\mathdefault{1.00}$", "$\\mathdefault{1.25}$"], "soff": "$\\times\\mathdefault{10^{\u22125}}\\mathdefault{}$", "minor": [-5.999999999999999e-06, -5.5e-06, -4.9999999999999996e-06, -4.499999999999999e-06, -3.999999999999999e-06, -3.4999999999999995e-06, -2.9999999999999992e-06, -2.4999999999999998e-06, -1.9999999999999995e-06, -1.4999999999999992e-06, -9.999999999999997e-07, -4.999999999999994e-07, 0.0, 5.000000000000003e-07, 1.0000000000000006e-06, 1.5000000000000009e-06, 1.9999999999999995e-06, 2.4999999999999998e-06, 3e-06, 3.5000000000000004e-06, 4.000000000000001e-06, 4.500000000000001e-06, 4.9999999999999996e-06, 5.5e-06, 6e-06, 6.5000000000000004e-06, 7.000000000000001e-06, 7.499999999999999e-06, 8.000000000000001e-06, 8.5e-06, 8.999999999999999e-06, 9.5e-06, 9.999999999999999e-06, 1.0500000000000001e-05, 1.1e-05, 1.1499999999999998e-05]}], "log": [{"a": 1.4006292130656066e-10, "b": 1.6360512299696952e-10, "n": 4, "major": [1e-10, 1e-09], "minor": [1.3999999999999998e-10, 1.45e-10, 1.4999999999999997e-10, 1.5499999999999998e-10, 1.6e-10, 1.6499999999999997e-10], "lab": ["$\\mathdefault{10^{-10}}$", "$\\mathdefault{10^{-9}}$"], "mlab": ["$\\mathdefault{1.4\\times10^{-10}}$", "$\\mathdefault{1.45\\times10^{-10}}$", "$\\mathdefault{1.5\\times10^{-10}}$", "$\\mathdefault{1.55\\times10^{-10}}$", "$\\mathdefault{1.6\\times10^{-10}}$", "$\\mathdefault{1.65\\times10^{-10}}$"]}, {"a": 13.99479114354074, "b": 19.23199032195764, "n": 7, "major": [10.0, 100.0], "minor": [13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0], "lab": ["$\\mathdefault{10^{1}}$", "$\\mathdefault{10^{2}}$"], "mlab": ["$\\mathdefault{1.3\\times10^{1}}$", "$\\mathdefault{1.4\\times10^{1}}$", "$\\mathdefault{1.5\\times10^{1}}$", "$\\mathdefault{1.6\\times10^{1}}$", "$\\mathdefault{1.7\\times10^{1}}$", "$\\mathdefault{1.8\\times10^{1}}$", "$\\mathdefault{1.9\\times10^{1}}$", "$\\mathdefault{2\\times10^{1}}$"]}, {"a": 1.2200973962955827e-07, "b": 1078.415876329091, "n": 2, "major": [1e-15, 1e-06, 1000.0, 1000000000000.0], "minor": [], "lab": ["$\\mathdefault{10^{-15}}$", "$\\mathdefault{10^{-6}}$", "$\\mathdefault{10^{3}}$", "$\\mathdefault{10^{12}}$"], "mlab": []}, {"a": 2, "b": 30, "n": 9, "major": [1.0, 10.0, 100.0], "minor": [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0], "lab": ["$\\mathdefault{10^{0}}$", "$\\mathdefault{10^{1}}$", "$\\mathdefault{10^{2}}$"], "mlab": ["$\\mathdefault{2\\times10^{0}}$", "$\\mathdefault{3\\times10^{0}}$", "$\\mathdefault{4\\times10^{0}}$", "", "$\\mathdefault{6\\times10^{0}}$", "", "", "", "$\\mathdefault{2\\times10^{1}}$", "$\\mathdefault{3\\times10^{1}}$", "$\\mathdefault{4\\times10^{1}}$", "", "$\\mathdefault{6\\times10^{1}}$", "", "", ""]}, {"a": 0.5, "b": 800, "n": 6, "major": [0.1, 1.0, 10.0, 100.0, 1000.0], "minor": [0.2, 0.30000000000000004, 0.4, 0.5, 0.6000000000000001, 0.7000000000000001, 0.8, 0.9, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0], "lab": ["$\\mathdefault{10^{-1}}$", "$\\mathdefault{10^{0}}$", "$\\mathdefault{10^{1}}$", "$\\mathdefault{10^{2}}$", "$\\mathdefault{10^{3}}$"], "mlab": ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]}, {"a": 0.001, "b": 0.02, "n": 4, "major": [0.0001, 0.001, 0.01, 0.1], "minor": [0.0002, 0.00030000000000000003, 0.0004, 0.0005, 0.0006000000000000001, 0.0007, 0.0008, 0.0009000000000000001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009000000000000001, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09], "lab": ["$\\mathdefault{10^{-4}}$", "$\\mathdefault{10^{-3}}$", "$\\mathdefault{10^{-2}}$", "$\\mathdefault{10^{-1}}$"], "mlab": ["$\\mathdefault{2\\times10^{-4}}$", "$\\mathdefault{3\\times10^{-4}}$", "$\\mathdefault{4\\times10^{-4}}$", "", "$\\mathdefault{6\\times10^{-4}}$", "", "", "", "$\\mathdefault{2\\times10^{-3}}$", "$\\mathdefault{3\\times10^{-3}}$", "$\\mathdefault{4\\times10^{-3}}$", "", "$\\mathdefault{6\\times10^{-3}}$", "", "", "", "$\\mathdefault{2\\times10^{-2}}$", "$\\mathdefault{3\\times10^{-2}}$", "$\\mathdefault{4\\times10^{-2}}$", "", "$\\mathdefault{6\\times10^{-2}}$", "", "", ""]}], "printf": [["%.2f", 0, "0.00"], ["%.2f", 1e+16, "10000000000000000.00"], ["%g", 1e-300, "1e-300"], ["%.3e", -2.675, "-2.675e+00"], ["%d", 0.375, "0"], ["%5.1f", 1.5, "  1.5"], ["%+.1f", 1, "+1.0"], ["%+.1f", 2.5e-05, "+0.0"], ["%.0f", 99999.5, "100000"], ["%#.0f", 3.14159, "3."], ["%.1f%%", 123456.789, "123456.8%"], ["%e", 0.125, "1.250000e-01"], ["%.3g", 0.5, "0.5"], ["%10.4g", -0.0, "        -0"], ["%10.4g", 255, "       255"], ["%-6.2f|", 0.0001234, "0.00  |"], ["%E", 0.5, "5.000000E-01"], ["%G", -0.0, "-0"], ["%G", 255, "255"], ["%.12g", 0.0001234, "0.0001234"], ["% .2f", 1e+21, " 1000000000000000000000.00"], ["%08.3f", 1e-05, "0000.000"]]};
@@ -219,6 +220,79 @@ describe('buildFitFigure', () => {
     expect(() => buildFitFigure(model, s)).not.toThrow();
     expect(buildFitFigure(model, s).info.notes.join(' ')).toMatch(/ticks on the axis/);
     expect(() => buildFitFigure({}, {})).not.toThrow();
+  });
+});
+
+/*
+ * bandVisibility (core/plot-style) says whether the band reaches past the fit
+ * line, which depends on the panel the figure's layout leaves. The layout is
+ * the judge here: the main panel's height and limits are read from the figure
+ * as built, and a level band is made a shade thinner or thicker than the line
+ * on that panel.
+ */
+describe('bandVisibility on the figure as laid out', () => {
+  const merge = (a, b) => {
+    const out = { ...a };
+    for (const [k, v] of Object.entries(b)) out[k] = v && typeof v === 'object' && !Array.isArray(v) ? merge(a[k] || {}, v) : v;
+    return out;
+  };
+  const styled = (...changes) => normalisePlotStyle(changes.reduce(merge, merge(defaultPlotStyle(), { band: { show: true } })));
+  const resid = { residuals: { show: true } };
+  const grid = Array.from({ length: 60 }, (_, i) => (7 * i) / 59);
+  const x = [0, 1, 2, 3, 4, 5, 6, 7];
+  /* Points from 0 to 2 set the axis; the curve is level at 1 under a band `height` tall. */
+  const level = (height) => ({
+    x, y: x.map((v) => (v % 2 ? 2 : 0)),
+    curve: { x: grid, y: grid.map(() => 1) },
+    band: { x: grid, lower: grid.map(() => 1 - height / 2), upper: grid.map(() => 1 + height / 2) },
+    residuals: { r: x.map((v) => (v % 2 ? 1 : -1)) }
+  });
+  /* The main panel of the figure as laid out, as the page hands it to bandVisibility. */
+  const panel = (style) => {
+    const { info } = buildFitFigure(level(1e-6), style);
+    const box = info.axes[0];
+    const pt = 72 / PX_PER_IN;
+    return { width: (box.r - box.l) * pt, height: (box.b - box.t) * pt, xView: info.views[0].x.view, yView: info.views[0].y.view };
+  };
+  /* A band that is `points` tall on that panel. */
+  const tall = (points, p) => level((points / p.height) * (p.yView[1] - p.yView[0]));
+
+  const LAYOUTS = [
+    ['the default figure', styled()],
+    ['the default figure with residuals', styled(resid)],
+    ['residuals half the main panel\'s height', styled({ residuals: { show: true, heightRatio: 0.5 } })],
+    ['a small figure', styled({ width: 3.5, height: 2.6 })],
+    ['a large figure', styled({ width: 12, height: 9 })],
+    ['a title', styled({ title: 'Decay of the signal' })],
+    ['a title and residuals', styled({ title: 'Decay of the signal' }, resid)],
+    ['no x label', styled({ xLabel: '' })],
+    ['large text', styled({ fontSize: 18 })],
+    ['the publication look', styled(STYLE_PRESETS.publication)],
+    ['the publication look with residuals', styled(STYLE_PRESETS.publication, resid)],
+    ['the presentation look', styled(STYLE_PRESETS.presentation)],
+    ['the presentation look with residuals', styled(STYLE_PRESETS.presentation, resid)],
+    ['the minimal look', styled(STYLE_PRESETS.minimal)]
+  ];
+
+  test('the main panel is 0.894 of the default figure\'s height, 0.666 above the residuals', () => {
+    expect(panel(styled()).height / (4.8 * 72)).toBeCloseTo(0.894, 2);
+    expect(panel(styled(resid)).height / (4.8 * 72)).toBeCloseTo(0.666, 2);
+    // The decorations keep their size, so the share falls with the figure's height.
+    expect(panel(styled({ width: 3.5, height: 2.6 })).height / (2.6 * 72)).toBeCloseTo(0.804, 2);
+  });
+
+  test.each(LAYOUTS)('%s: with the panel as drawn, the note turns at the line\'s width', (name, style) => {
+    const p = panel(style);
+    const w = style.fit.width;
+    expect(bandVisibility(tall(w * 0.999, p), style, null, p).status).toBe('hidden');
+    expect(bandVisibility(tall(w * 1.001, p), style, null, p).status).toBe('shown');
+  });
+
+  test.each(LAYOUTS)('%s: with no panel given, the estimate is within 2%% of the layout', (name, style) => {
+    const p = panel(style);
+    const w = style.fit.width;
+    expect(bandVisibility(tall(w * 0.98, p), style).status).toBe('hidden');
+    expect(bandVisibility(tall(w * 1.02, p), style).status).toBe('shown');
   });
 });
 
