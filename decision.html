@@ -188,6 +188,7 @@
                     <div id="matrix-wrapper" hidden>
                         <p class="dm-hint dm-legend">Weight: how much a criterion matters, 1 (a little) to 5 (decisive). Score: how well an option does on it, 1 (poorly) to 10 (best). For a criterion where less is better, such as cost, give the cheapest option the highest score.</p>
                         <div id="matrix-container" class="dm-matrix stk-scroll"></div>
+                        <p id="dm-note" class="dm-note" hidden><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span id="dm-note-text"></span></p>
                         <div class="dm-actions">
                             <button type="button" id="btn-calculate" class="bg-brand-600 hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950">
                                 Rank the options
@@ -198,8 +199,11 @@
 
                 <section id="results-panel" class="dm-panel" data-stk-step="3" data-stk-done="visible:#results-panel" data-stk-reveal aria-labelledby="dm-step3" hidden>
                     <h2 id="dm-step3" class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>3</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 3: </span>Ranking</h2>
-                    <div id="results-container" aria-live="polite"></div>
+                    <div id="results-container"></div>
                 </section>
+
+                <!-- Read out by a screen reader: one sentence when the options are ranked or the ranking changes. -->
+                <p id="dm-status" class="sr-only" role="status" aria-live="polite"></p>
 
             </div>
         </div>
@@ -333,7 +337,7 @@
         </div>
     </footer>
 
-    <script src="js/decision.js"></script>
+    <script type="module" src="js/decision.js"></script>
     <script src="js/site.js"></script>
 </body>
 </html>

@@ -7,7 +7,7 @@
  */
 
 /* A component with its own display value would beat the hidden attribute. */
-.dm-panel[hidden], #matrix-wrapper[hidden], .dm-empty[hidden], .dm-error[hidden] { display: none; }
+.dm-panel[hidden], #matrix-wrapper[hidden], .dm-empty[hidden], .dm-error[hidden], .dm-note[hidden] { display: none; }
 
 .dm-panel {
   display: flex;
@@ -88,6 +88,24 @@
   font-variant-numeric: tabular-nums;
 }
 .dm-num:focus { outline: none; border-color: var(--stk-accent); box-shadow: 0 0 0 3px var(--stk-ring); }
+/* Outside its range while it is being typed; replaced by Rank the options. */
+.dm-num[aria-invalid="true"] { border-color: var(--stk-danger); background: var(--stk-danger-soft); }
+.dm-num.is-corrected { border-color: var(--stk-warn); background: var(--stk-warn-soft); }
+.dm-note {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0.65rem 0.8rem;
+  border-radius: var(--stk-radius-lg);
+  border: 1px solid var(--stk-warn-border);
+  background: var(--stk-warn-soft);
+  color: var(--stk-fg-2);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.dm-note i { margin-top: 0.25rem; color: var(--stk-warn); }
 .dm-actions { display: flex; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--stk-border); }
 @media (max-width: 479px) { .dm-actions > button { width: 100%; } }
 
@@ -107,6 +125,7 @@
 .dm-rank-row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: 0.35rem; }
 .dm-rank-name { font-weight: 600; color: var(--stk-fg-2); overflow-wrap: anywhere; }
 .dm-rank-name b { font-family: var(--stk-font-mono); font-size: 0.75rem; font-weight: 600; color: var(--stk-fg-muted); margin-right: 0.35rem; }
+.dm-tied { margin-left: 0.4rem; padding: 0.05rem 0.4rem; border-radius: 999px; border: 1px solid var(--stk-border-strong); font-size: 0.6875rem; font-weight: 600; color: var(--stk-fg-3); white-space: nowrap; }
 .dm-rank-score { flex-shrink: 0; font-family: var(--stk-font-mono); font-size: 0.8125rem; color: var(--stk-fg-3); font-variant-numeric: tabular-nums; }
 .dm-bar { height: 0.55rem; border-radius: 999px; background: var(--stk-surface-3); overflow: hidden; }
 .dm-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--stk-fg-faint); }
