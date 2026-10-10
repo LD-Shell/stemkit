@@ -278,6 +278,16 @@ describe('profileData', () => {
 describe('transformColumn', () => {
   const rows = [{ v: 1 }, { v: 10 }, { v: 100 }];
 
+  test('scales a column too long to pass as arguments', () => {
+    // Math.min(...column) throws "Maximum call stack size exceeded" somewhere past 100,000 values.
+    const long = Array.from({ length: 300000 }, (_, i) => ({ v: i }));
+    const out = transformColumn(long, ['v'], 'minmax');
+    expect(out.transformed).toBe(300000);
+    expect(out.rows[0].v).toBe(0);
+    expect(out.rows[299999].v).toBe(1);
+    expect(out.rows[150000].v).toBeCloseTo(150000 / 299999, 12);
+  });
+
   test('applies base-10 and natural logarithms', () => {
     expect(transformColumn(rows, ['v'], 'log10').rows.map(r => r.v))
       .toEqual([0, 1, 2]);

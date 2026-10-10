@@ -1824,7 +1824,11 @@ function numberSet(v) {
   const pair = Array.isArray(v) && v.length === 2 && v.every(x => typeof x === 'number');
   const items = pair ? [v] : (Array.isArray(v) ? v : [v]);
   for (const item of items) {
-    if (Array.isArray(item)) { ranges.push([Math.min(...item), Math.max(...item)]); continue; }
+    if (Array.isArray(item)) {
+      // Reduced, not spread into Math.min: a list may hold every atom of a system.
+      ranges.push([item.reduce((a, b) => Math.min(a, b), Infinity), item.reduce((a, b) => Math.max(a, b), -Infinity)]);
+      continue;
+    }
     if (typeof item === 'number') { ranges.push([item, item]); continue; }
     for (const part of String(item).split(/[\s,]+/).filter(Boolean)) {
       const m = /^(-?\d+)(?:\s*(?:-|to|:)\s*(-?\d+))?$/.exec(part);

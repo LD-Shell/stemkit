@@ -143,6 +143,37 @@ describe('groupRows', () => {
     const { groups } = groupRows([['A', 1, 'bad', 3]]);
     expect(groups.get('A')).toEqual([1, 3]);
   });
+
+  test('a long table of one value a row is pooled in order, and the rows are left as they were', () => {
+    const rows = Array.from({ length: 300000 }, (_, i) => [i % 2 ? 'B' : 'A', i]);
+    const first = rows[0].slice();
+    const { groups, skipped } = groupRows(rows);
+    expect(skipped).toBe(0);
+    expect(groups.get('A')).toHaveLength(150000);
+    expect(groups.get('A').slice(0, 3)).toEqual([0, 2, 4]);
+    expect(groups.get('B')[149999]).toBe(299999);
+    expect(rows[0]).toEqual(first);
+  });
+});
+
+describe('a group too large to pass as arguments', () => {
+  // Math.min(...values) throws "Maximum call stack size exceeded" somewhere past 100,000 values.
+  const values = Array.from({ length: 400000 }, (_, i) => Math.sin(i) * 100 + (i === 123456 ? 500 : 0));
+
+  test('summariseGroup finds its smallest and largest value', () => {
+    const r = summariseGroup('big', values);
+    expect(r.n).toBe(400000);
+    expect(r.max).toBeCloseTo(Math.sin(123456) * 100 + 500, 9);
+    expect(r.min).toBe(values.reduce((a, b) => Math.min(a, b), Infinity));
+    expect(r.min).toBeLessThan(-99.99);
+  });
+
+  test('computeGroups summarises it from one-value rows', () => {
+    const r = computeGroups(values.map(v => ['big', v]), { hasHeader: false });
+    expect(r.results).toHaveLength(1);
+    expect(r.results[0].n).toBe(400000);
+    expect(r.results[0].max).toBeGreaterThan(400);
+  });
 });
 
 describe('computeGroups', () => {

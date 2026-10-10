@@ -1458,7 +1458,8 @@
             });
 
             const rows = solute.map(a => a);
-            let resi = Math.max(...solute.map(a => a.resi));
+            // Reduced, not spread into Math.max: a solute may have more atoms than a call takes arguments.
+            let resi = solute.reduce((m, a) => Math.max(m, a.resi), -Infinity);
             for (const mol of water) { resi++; for (const a of mol) rows.push({ ...a, resn: 'SOL', resi }); }
             for (const a of [...ions.NA, ...ions.CL]) rows.push({ ...a, resi: ++resi });
 

@@ -81,6 +81,22 @@ export function quantile(values, p) {
   return s[lo] + (h - lo) * (s[hi] - s[lo]);
 }
 
+/*
+ * The smallest and largest of an array of any length. Math.min(...values)
+ * passes every value as an argument and runs out of stack somewhere past a
+ * hundred thousand of them; a NaN among the values gives NaN, as it does there.
+ */
+function extent(values) {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const v of values) {
+    if (Number.isNaN(v)) return [NaN, NaN];
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  return [min, max];
+}
+
 /**
  * Summary statistics for one group of replicates.
  *
@@ -110,6 +126,7 @@ export function summariseGroup(key, values, level = 0.95) {
 
   const q1 = quantile(values, 0.25);
   const q3 = quantile(values, 0.75);
+  const [min, max] = extent(values);
 
   return {
     key: String(key),
@@ -125,8 +142,8 @@ export function summariseGroup(key, values, level = 0.95) {
     q3,
     iqr: q3 - q1,
     cv: m !== 0 ? (s / Math.abs(m)) * 100 : 0,
-    min: Math.min(...values),
-    max: Math.max(...values)
+    min,
+    max
   };
 }
 
@@ -171,8 +188,11 @@ export function groupRows(rows) {
     const values = row.slice(1).filter(isNum);
     if (values.length === 0) { skipped++; continue; }
 
+    // Added to the group's own list: copying the list for every row makes a
+    // long table of one value a row take time that grows with its square.
     const key = String(label);
-    groups.set(key, (groups.get(key) || []).concat(values));
+    const list = groups.get(key);
+    if (list) { for (const v of values) list.push(v); } else groups.set(key, values);
   }
   return { groups, skipped };
 }

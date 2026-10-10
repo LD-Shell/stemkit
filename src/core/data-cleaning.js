@@ -473,11 +473,13 @@ export function transformColumn(rows, columns, operation) {
     const n = vec.length;
     const mean = vec.reduce((a, b) => a + b, 0) / n;
     const variance = vec.reduce((a, b) => a + (b - mean) ** 2, 0) / n;
+    // Reduced, not Math.min(...vec): a column of a few hundred thousand
+    // values is more arguments than a call can take.
     stats[c] = {
       mean,
       std: Math.sqrt(variance),
-      min: Math.min(...vec),
-      max: Math.max(...vec)
+      min: vec.reduce((a, b) => Math.min(a, b), Infinity),
+      max: vec.reduce((a, b) => Math.max(a, b), -Infinity)
     };
   }
 
