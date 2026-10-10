@@ -50,6 +50,25 @@ describe('extractQuoted', () => {
     expect(extractQuoted(undefined)).toBeNull();
     expect(extractQuoted(42)).toBeNull();
   });
+
+  // Grace 5.1.25 (the string rule of pars.yacc): gracebat draws the title
+  // of `@ title "a \"quoted\" word"` as: a "quoted" word.
+  test('reads \\" inside the string as a quote, as Grace does', () => {
+    expect(extractQuoted('@ title "a \\"quoted\\" word"')).toBe('a "quoted" word');
+    expect(extractQuoted('@ s0 legend "5\\" pipe"')).toBe('5" pipe');
+  });
+
+  test('keeps every other backslash for the text escapes', () => {
+    expect(extractQuoted('@ s1 legend "Rg\\sX\\N"')).toBe('Rg\\sX\\N');
+    expect(extractQuoted('@ title "back\\\\slash"')).toBe('back\\\\slash');
+  });
+
+  // Grace reports `@ s0 legend "L1 \\"` as a "Nonterminating string": the
+  // quote after the second backslash is an escaped one.
+  test('a string that ends in \\" is not closed', () => {
+    expect(extractQuoted('@ s0 legend "L1 \\\\"')).toBeNull();
+    expect(extractQuoted('@ s0 legend "L1 \\\\" more"')).toBe('L1 \\" more');
+  });
 });
 
 describe('parseMetadataLine', () => {
@@ -129,6 +148,33 @@ describe('parseDataLine', () => {
     expect(parseDataLine('1.0 NaN')).toBeNull();
     expect(parseDataLine('1.0 Infinity')).toBeNull();
     expect(parseDataLine('1.0 -Infinity')).toBeNull();
+  });
+
+  // What numpy.loadtxt reads as a number (numpy 1.26.4; Python's float
+  // agrees): 0x10, 0b11, 0o17 and 1_000 raise ValueError there, so a script
+  // could not read a row the page had plotted as 16, 3, 15 and 1000.
+  test('rejects hexadecimal, binary and octal forms, which numpy.loadtxt refuses', () => {
+    expect(parseDataLine('0x10 1')).toBeNull();
+    expect(parseDataLine('0X1F,2')).toBeNull();
+    expect(parseDataLine('0b11 1')).toBeNull();
+    expect(parseDataLine('0o17 1')).toBeNull();
+    expect(parseDataLine('1_000 1')).toBeNull();
+    expect(parseDataLine('1d3 1')).toBeNull();
+  });
+
+  test('reads every decimal form numpy.loadtxt reads', () => {
+    expect(parseDataLine('.5 5. +1 -1 1.e2 1E3 007 -0.0')).toEqual([0.5, 5, 1, -1, 100, 1000, 7, -0]);
+    expect(parseDataLine('1e 1')).toBeNull();
+    expect(parseDataLine('. 1')).toBeNull();
+    expect(parseDataLine('1.2.3 1')).toBeNull();
+  });
+
+  // numpy.loadtxt reads these spellings as nan and inf; a row that holds
+  // one is not a row of finite numbers.
+  test('rejects nan and inf in the spellings numpy.loadtxt reads', () => {
+    for (const t of ['nan', '-nan', 'NAN', 'inf', '+inf', '-inf', 'Inf', 'infinity', '1e999']) {
+      expect(parseDataLine(`1.0 ${t}`)).toBeNull();
+    }
   });
 
   test('rejects a comma-delimited record with an empty field instead of shifting columns', () => {
@@ -401,6 +447,122 @@ describe('parseXvg', () => {
     expect(r.matrix).toEqual([[0, 1], [1, 2], [0, 3], [1, 4]]);
     expect(r.skippedLines).toBe(0);
     expect(r.strayLines).toBe(0);
+  });
+
+  test('skips a row with a hexadecimal number, and counts it', () => {
+    const r = parseXvg('0 1\n1 0x10\n2 3\n');
+    expect(r.matrix).toEqual([[0, 1], [2, 3]]);
+    expect(r.skippedLines).toBe(1);
+    expect(r.strayLines).toBe(1);
+  });
+
+  test('does not take a row of nan for a header row', () => {
+    const r = parseXvg('nan nan\n0 1\n1 2\n');
+    expect(r.headers).toEqual(['X', 'Dataset 1']);
+    expect(r.skippedLines).toBe(1);
+    expect(parseXvg('t 0x10\n0 1\n').headers).toEqual(['t', '0x10']);
+  });
+});
+
+/*
+ * Files of several data sets. The set numbers are Grace's: each of these
+ * files was read with `gracebat -nxy` (Grace 5.1.25) and saved as a project,
+ * and the sets it made and the legends it gave them are the ones expected
+ * here. GROMACS writes its files for that reading (xvgr.cpp: xvgrLegend
+ * names s0, s1 ... for the columns after the first, and do_view opens the
+ * file with -nxy).
+ */
+describe('parseXvg, files of several data sets', () => {
+  // gmx tcaf, gmx analyze: (x, y) sets one after another. Grace: G0.S0 and
+  // G0.S1, with the two legends.
+  const TWO_SETS = [
+    '@    title "TCAF fits"', '@    xaxis  label "Time (ps)"', '@    yaxis  label "C(t)"', '@TYPE xy',
+    '@ s0 legend "k = 1.0"', '@ s1 legend "k = 2.0"',
+    '0 1.00', '1 0.60', '2 0.36', '3 0.22', '&', '0 1.00', '1 0.30', '2 0.09', '&'
+  ].join('\n') + '\n';
+  // gmx rms -split: two y columns, cut at t = 0. Grace: S0 and S1 from the
+  // first block (the two legends), S2 and S3 from the second (no legend).
+  const SPLIT = [
+    '@    xaxis  label "Time (ps)"', '@    yaxis  label "RMSD (nm)"', '@TYPE xy',
+    '@ s0 legend "Protein"', '@ s1 legend "Backbone"',
+    '0 0.10 0.20', '10 0.11 0.21', '20 0.12 0.22', '&', '0 0.30 0.40', '10 0.31 0.41', '20 0.32 0.42'
+  ].join('\n') + '\n';
+  // gmx anaeig -proj: a graph for each eigenvector. Grace: G0.S0 and G1.S0.
+  const GRAPHS = [
+    '@ with g0', '@ g0 on', '@ title "projection on eigenvectors (nm)"', '@ yaxis  label "vec 1"',
+    '0 1.0', '1 1.5', '2 1.2', '&',
+    '@ with g1', '@ g1 on', '@ xaxis  label "Time (ps)"', '@ yaxis  label "vec 2"',
+    '0 -0.5', '1 -0.2', '2 -0.9', '&'
+  ].join('\n') + '\n';
+
+  test('each set has its rows, its number and its own legend', () => {
+    const r = parseXvg(TWO_SETS);
+    expect(r.blocks).toEqual([
+      { start: 0, end: 4, graph: 0, sets: [0], headers: ['Time (ps)', 'k = 1.0'] },
+      { start: 4, end: 7, graph: 0, sets: [1], headers: ['Time (ps)', 'k = 2.0'] }
+    ]);
+    // The legend of s1 is the second set's, not the name of a third column.
+    expect(r.headers).toEqual(['Time (ps)', 'k = 1.0']);
+    expect(r.colCount).toBe(2);
+    expect(r.rowCount).toBe(7);
+  });
+
+  test('every column after the first is a set, numbered through the file', () => {
+    const r = parseXvg(SPLIT);
+    expect(r.blocks.map((b) => b.sets)).toEqual([[0, 1], [2, 3]]);
+    expect(r.blocks.map((b) => b.headers)).toEqual([
+      ['Time (ps)', 'Protein', 'Backbone'], ['Time (ps)', 'Dataset 3', 'Dataset 4']
+    ]);
+    expect(r.blocks.map((b) => [b.start, b.end])).toEqual([[0, 3], [3, 6]]);
+  });
+
+  test('the sets of each graph are numbered from 0, and a graph lends its only set its y label', () => {
+    const r = parseXvg(GRAPHS);
+    expect(r.blocks.map((b) => [b.graph, b.sets])).toEqual([[0, [0]], [1, [0]]]);
+    expect(r.blocks.map((b) => b.headers[1])).toEqual(['vec 1', 'vec 2']);
+    // Two graphs, two y labels: the file as a whole has none.
+    expect(r.labels).toEqual({ title: 'projection on eigenvectors (nm)', x: 'Time (ps)', y: null });
+    expect(r.yAxisLabel).toBe('Y');
+  });
+
+  test('a legend names the set of its own graph only', () => {
+    const r = parseXvg('@ with g1\n@ s0 legend "second graph"\n@ with g0\n0 1\n1 2\n&\n@ with g1\n0 3\n1 4\n');
+    expect(r.blocks.map((b) => b.headers[1])).toEqual(['Dataset 1', 'second graph']);
+  });
+
+  test('@target says which set the rows after it are (a Grace project file)', () => {
+    const r = parseXvg('@ s0 legend "a"\n@ s2 legend "c"\n@target G0.S2\n@type xy\n0 1\n1 2\n&\n@target G0.S0\n@type xy\n0 3\n1 4\n&\n');
+    expect(r.blocks.map((b) => b.sets)).toEqual([[2], [0]]);
+    expect(r.blocks.map((b) => b.headers[1])).toEqual(['c', 'a']);
+  });
+
+  test('a file in one block has one, and a file without rows none', () => {
+    const r = parseXvg(SAMPLE_XVG);
+    expect(r.blocks).toEqual([{ start: 0, end: 3, graph: 0, sets: [0, 1], headers: r.headers }]);
+    expect(parseXvg('@ title "Empty"\n').blocks).toEqual([]);
+    // An '&' with no rows after it, or two in a row, starts no block.
+    expect(parseXvg('0 1\n&\n&\n').blocks).toHaveLength(1);
+  });
+
+  test('any line that starts with & ends a set, as in Grace and GROMACS', () => {
+    const r = parseXvg('0 1\n1 2\n& end of the first\n  &\n0 3\n');
+    expect(r.blocks.map((b) => [b.start, b.end])).toEqual([[0, 2], [2, 3]]);
+    expect(r.skippedLines).toBe(0);
+  });
+
+  test('a block of rows of another width is skipped, and its sets keep their numbers', () => {
+    // Grace makes s0 and s1 of the three-column block, so the next is s2.
+    const r = parseXvg('@ s2 legend "third"\n0 1 2\n&\n0 1\n1 2\n&\n0 3\n1 4\n&\n0 5\n1 6\n');
+    expect(r.colCount).toBe(2);
+    expect(r.skippedLines).toBe(1);
+    expect(r.blocks.map((b) => b.sets)).toEqual([[2], [3], [4]]);
+    expect(r.blocks[0].headers[1]).toBe('third');
+  });
+
+  test('the columns of a header row are named in every set, with the set', () => {
+    const r = parseXvg('t,a,b\n0,1,2\n1,2,3\n&\n0,3,4\n1,4,5\n');
+    expect(r.blocks.map((b) => b.headers)).toEqual([['t', 'a (set 1)', 'b (set 1)'], ['t', 'a (set 2)', 'b (set 2)']]);
+    expect(parseXvg('t,a,b\n0,1,2\n1,2,3\n').headers).toEqual(['t', 'a', 'b']);
   });
 
   test('counts text found among the numeric records as stray lines', () => {
@@ -680,6 +842,14 @@ describe('generateMatplotlibCode', () => {
     const code = generateMatplotlibCode({ ...parsed, xIndex: 0, yIndices: [1] });
     expect(code).toContain("comments=['@', '#', '&']");
     expect(code).not.toContain('is_record');
+  });
+
+  test('draws the rows of each data set as a line of their own, under its legend', () => {
+    const parsed = parseXvg('@ s0 legend "A"\n@ s1 legend "B"\n0 1\n1 2\n&\n0 3\n1 4\n2 5\n');
+    const code = generateMatplotlibCode({ ...parsed, xIndex: 0, yIndices: [1] });
+    expect(code).toContain("ax.plot(data[0:2, 0], data[0:2, 1], color='#ef4444', lw=1.5, label='A')");
+    expect(code).toContain("ax.plot(data[2:5, 0], data[2:5, 1], color='#10b981', lw=1.5, label='B')");
+    expect(code).not.toContain('x = data[:, 0]');
   });
 
   test('keeps only all-numeric lines when the file has text among the records', () => {

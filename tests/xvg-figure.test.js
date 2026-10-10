@@ -12,7 +12,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   parseXvg, generateSampleXvg, extractColumn,
-  xvgFigure, xvgFigureScript, xvgReadLines, xvgColors, runningMean, averageWindow, graceToTex, graceToPlain
+  xvgFigure, xvgFigureScript, xvgReadLines, xvgColors, runningMean, averageWindow, graceToTex, graceToPlain,
+  xvgSeries, xvgWindow, xvgEmbeddedCount
 } from '../src/core/xvg-parser.js';
 import { normaliseFigure, applyStyle, colorCycle } from '../src/core/figure.js';
 import { buildFigure } from '../js/figure-plot.js';
@@ -121,6 +122,28 @@ const MESSY_CSV = 'time,a,b,\n' + Array.from({ length: 40 }, (_, i) => {
 const HEADED_CSV = '# exported\n\n"Time (ns)", "Distance (nm)"\r\n' +
   Array.from({ length: 30 }, (_, i) => `${i * 0.1}, ${(1 + i * i * 0.01).toFixed(3)}`).join('\r\n') + '\r\n';
 
+// Two (x, y) sets of different lengths, one after the other, as gmx tcaf
+// and gmx analyze write them: `xmgrace -nxy` makes them s0 and s1.
+const TWO_SETS = [
+  '@    title "TCAF fits"', '@    xaxis  label "Time (ps)"', '@    yaxis  label "C(t)"', '@TYPE xy',
+  '@ s0 legend "k = 1.0"', '@ s1 legend "k = 2.0"',
+  ...Array.from({ length: 40 }, (_, i) => `${i} ${Math.exp(-i / 10).toFixed(5)}`), '&',
+  ...Array.from({ length: 25 }, (_, i) => `${i * 2} ${Math.exp(-i / 4).toFixed(5)}`), '&'
+].join('\n') + '\n';
+
+// Two y columns in two blocks (gmx rms -split): s0 and s1, then s2 and s3.
+const SPLIT = [
+  '@    xaxis  label "Time (ps)"', '@    yaxis  label "RMSD (nm)"', '@TYPE xy',
+  '@ s0 legend "Protein"', '@ s1 legend "Backbone"', '@ s2 legend "Protein, part 2"',
+  ...Array.from({ length: 20 }, (_, i) => `${i * 10} ${(0.1 + 0.01 * Math.sin(i)).toFixed(4)} ${(0.2 + 0.001 * i).toFixed(4)}`), '&',
+  ...Array.from({ length: 30 }, (_, i) => `${i * 10} ${(0.3 + 0.01 * Math.cos(i)).toFixed(4)} ${(0.4 + 0.001 * i).toFixed(4)}`)
+].join('\n') + '\n';
+
+// A CSV in two sets: a header row, a note and a short row among the numbers,
+// and a comma at the end of every row.
+const MESSY_SETS = 'time,a,b,\n' + Array.from({ length: 12 }, (_, i) => (i === 5 ? 'note: restart,' : `${i},${(i * 0.5).toFixed(1)},${i * i},`)).join('\n') +
+  '\n&\n' + Array.from({ length: 9 }, (_, i) => (i === 2 ? `${i},7,` : `${i},${(3 + i * 0.25).toFixed(2)},${50 - i},`)).join('\n') + '\n';
+
 /* ------------------------------------------------------------------ *
  * Helpers
  * ------------------------------------------------------------------ */
@@ -171,6 +194,39 @@ describe('Grace text', () => {
     expect(graceToPlain('Rg\\sX\\N')).toBe('Rg_X');
     expect(graceToPlain('\\xa\\f{}-helix')).toBe('α-helix');
     expect(graceToPlain('Area (nm\\S2\\N)')).toBe('Area (nm^2)');
+  });
+
+  // What Grace 5.1.25 draws (gracebat, PostScript output) for a title of
+  // "\#{41}\#{e4} [\#{110000}] [\#{4}] [\#{zz}] [\#{4142}]": the bytes A, ä,
+  // [0x11 0x00 0x00] (no glyphs), [], [0x00] and [AB]. The argument is pairs
+  // of hexadecimal digits, a character of the font's 8-bit table each, not
+  // one Unicode number.
+  test('\\#{...} gives characters by pairs of hexadecimal digits, as Grace draws them', () => {
+    expect(graceToPlain('\\#{41}\\#{e4}')).toBe('Aä');
+    expect(graceToPlain('[\\#{4142}]')).toBe('[AB]');
+    expect(graceToPlain('d (\\#{c5})')).toBe('d (Å)');
+    expect(graceToPlain('[\\#{4}] [\\#{zz}] [\\#{}]')).toBe('[] [] []');
+    expect(graceToTex('nm\\S\\#{b2}\\N')).toBe('nm$^{²}$');
+    // In the Symbol font the character is a Greek letter, as one typed is.
+    expect(graceToPlain('\\xa\\#{62}\\f{}')).toBe('αβ');
+  });
+
+  test('a code above 10FFFF, or any other, never throws', () => {
+    expect(graceToPlain('[\\#{110000}]')).toBe('[]');
+    expect(graceToTex('A\\#{110000}\\S2\\N')).toBe('A$^{2}$');
+    expect(graceToPlain('\\#{FFFFFFFF}')).toBe('ÿÿÿÿ');
+    for (const s of ['\\#{-1}', '\\#{D800}', '\\#{7FFFFFFFFFFFFFFF}', '\\#{1e99}', '\\#', '\\#{', '\\', '\\f', '\\x\\#{']) {
+      expect(() => graceToTex(s)).not.toThrow();
+      expect(() => graceToPlain(s)).not.toThrow();
+    }
+  });
+
+  // Grace prints "X2 \#{41 open" as "X2 #{41 open" and "Y2 \f{Symbol open"
+  // as "Y2 f{Symbol open": without its closing brace the escape is its letter.
+  test('an escape whose brace never closes keeps the text after it', () => {
+    expect(graceToPlain('X2 \\#{41 open')).toBe('X2 #{41 open');
+    expect(graceToPlain('Y2 \\f{Symbol open')).toBe('Y2 f{Symbol open');
+    expect(graceToTex('\\R{red nm\\S2\\N')).toBe('R{red nm$^{2}$');
   });
 });
 
@@ -228,6 +284,76 @@ describe('xvgFigure', () => {
   });
 });
 
+describe('xvgFigure, files of several data sets', () => {
+  const two = parseXvg(TWO_SETS, { fallbackTitle: 'tcaf.xvg' });
+  const split = parseXvg(SPLIT);
+
+  test('offers a series for each column of each set, numbered through the file', () => {
+    expect(xvgSeries(two)).toEqual([
+      { index: 1, block: 0, column: 1, rows: 40, id: 'col1', name: 'k = 1.0' },
+      { index: 3, block: 1, column: 1, rows: 25, id: 'set2_col1', name: 'k = 2.0' }
+    ]);
+    expect(xvgSeries(split).map((q) => [q.index, q.id, q.name])).toEqual([
+      [1, 'col1', 'Protein'], [2, 'col2', 'Backbone'], [4, 'set2_col1', 'Protein, part 2'], [5, 'set2_col2', 'Dataset 4']
+    ]);
+    // With another column along x, the first is a series of every set.
+    expect(xvgSeries(split, 1).map((q) => q.index)).toEqual([0, 2, 3, 5]);
+    // A file in one block: its columns, numbered as before.
+    expect(xvgSeries(parseXvg(SAMPLE)).map((q) => [q.index, q.id])).toEqual([[1, 'col1'], [2, 'col2']]);
+  });
+
+  test('a name that sets share says which set each series is', () => {
+    const p = parseXvg('@ xaxis label "t"\n@ s0 legend "A"\n@ s1 legend "A"\n0 1\n1 2\n&\n0 3\n1 4\n');
+    expect(xvgSeries(p).map((q) => q.name)).toEqual(['A (set 1)', 'A (set 2)']);
+    expect(xvgFigure(p, { series: [1, 3] }).panels[0].series.map((q) => q.label)).toEqual(['A (set 1)', 'A (set 2)']);
+    // With another column along x, the first column is a series of each set.
+    expect(xvgSeries(p, 1).map((q) => q.name)).toEqual(['t (set 1)', 't (set 2)']);
+    expect(xvgSeries(two).map((q) => q.name)).toEqual(['k = 1.0', 'k = 2.0']);
+  });
+
+  test('draws each set against its own x column, under its own legend', () => {
+    const fig = xvgFigure(two, { series: [1, 3] });
+    const [a, b] = fig.panels[0].series;
+    expect([a.id, a.label, b.id, b.label]).toEqual(['col1', 'k = 1.0', 'set2_col1', 'k = 2.0']);
+    expect(a.x.values).toEqual(extractColumn(two.matrix.slice(0, 40), 0));
+    expect(a.y.values).toEqual(extractColumn(two.matrix.slice(0, 40), 1));
+    expect(b.x.values).toEqual(extractColumn(two.matrix.slice(40), 0));
+    expect(b.y.values).toEqual(extractColumn(two.matrix.slice(40), 1));
+    expect(b.x.values.slice(0, 3)).toEqual([0, 2, 4]);
+    expect([a.x.column, a.y.column, b.x.column, b.y.column]).toEqual([0, 1, 2, 3]);
+    expect(fig.xLabel).toBe('Time (ps)');
+    expect(fig.panels[0].yLabel).toBe('C(t)');
+  });
+
+  test('gives every series a colour of its own, kept whichever others are drawn', () => {
+    const cycle = colorCycle();
+    expect(xvgColors(3, 0, '#ffffff', 2)).toEqual({ 1: cycle[0], 2: cycle[1], 4: cycle[2], 5: cycle[3] });
+    const all = xvgFigure(split, { series: [1, 2, 4, 5] }).panels[0].series.map((q) => q.color);
+    expect(all).toEqual(cycle.slice(0, 4));
+    expect(xvgFigure(split, { series: [5] }).panels[0].series[0].color).toBe(cycle[3]);
+  });
+
+  test('a series of another set goes in the lower panel like any other', () => {
+    const fig = xvgFigure(split, { series: [1, 4, 5], lower: [5] });
+    expect(fig.panels.map((p) => p.series.map((q) => q.id))).toEqual([['col1', 'set2_col1'], ['set2_col2']]);
+    expect(fig.panels[1].yLabel).toBe('Dataset 4');
+  });
+
+  test('takes the running mean over each set by itself, no wider than the shortest drawn', () => {
+    expect(xvgWindow(two, [1, 3], 10)).toBe(10);
+    expect(xvgWindow(two, [1, 3], 30)).toBe(25);
+    expect(xvgWindow(two, [1], 30)).toBe(30);
+    expect(xvgWindow(two, [], 30)).toBe(0);
+    const fig = xvgFigure(two, { series: [1, 3], average: 30 });
+    expect(fig.legend.title).toBe('Running mean, 25 points');
+    const mean = fig.panels[0].series[3];
+    expect(mean.id).toBe('set2_col1_mean');
+    expect(mean.y.values).toEqual(runningMean(extractColumn(two.matrix.slice(40), 1), 25));
+    expect(mean.x.values).toEqual(runningMean(extractColumn(two.matrix.slice(40), 0), 25));
+    expect(fig.panels[0].series[1].y.values).toHaveLength(40 - 24);
+  });
+});
+
 describe('xvgFigureScript', () => {
   const parsed = parseXvg(SAMPLE);
 
@@ -269,6 +395,60 @@ describe('xvgFigureScript', () => {
     const code = xvgFigureScript(xvgFigure(p, { series: [1, 2], lower: [2] }), p, { filename: 'x.csv' });
     expect(code).toMatch(/^col1_2 = data\[:, 1\]/m);
     expect(code).toMatch(/^ax_lower_2 = data\[:, 2\]/m);
+  });
+
+  test('reads a file of several data sets set by set', () => {
+    const p = parseXvg(TWO_SETS);
+    const code = xvgFigureScript(xvgFigure(p, { series: [1, 3] }), p, { filename: 'tcaf.xvg' });
+    expect(code).toContain('def read_sets(path):');
+    expect(code).toContain("sets = read_sets('tcaf.xvg')");
+    expect(code).toMatch(/^Time_ps = sets\[0\]\[:, 0\] {2}# set 1, column 0: Time \(ps\)$/m);
+    expect(code).toMatch(/^k_1_0 = sets\[0\]\[:, 1\] {2}# set 1, column 1: k = 1\.0$/m);
+    expect(code).toMatch(/^Time_ps_2 = sets\[1\]\[:, 0\]/m);
+    expect(code).toMatch(/^k_2_0 = sets\[1\]\[:, 1\]/m);
+    expect(code).toContain('ax.plot(Time_ps_2, k_2_0,');
+    expect(code).not.toContain('data = np.loadtxt');
+    // Rows the page rejected are left out of every set.
+    const messy = xvgReadLines(parseXvg(MESSY_SETS), 'm.csv').join('\n');
+    expect(messy).toContain('def is_record(line):');
+    expect(messy).toContain('elif is_record(line):');
+    expect(messy).toContain("delimiter=','");
+  });
+
+  test('holds the numbers of each set when asked', () => {
+    const p = parseXvg('@ s0 legend "A"\n@ s1 legend "B"\n0 1\n1 2\n&\n5 3\n6 4\n7 5\n');
+    const code = xvgFigureScript(xvgFigure(p, { series: [1, 3] }), p, { source: 'embed' });
+    expect(code).toContain('# Set 2, column 1: B\nB = np.array([3, 4, 5], dtype=float)');
+    expect(code).toContain('# Set 2, column 0: X\nX_2 = np.array([5, 6, 7], dtype=float)');
+    expect(code).toContain('A = np.array([1, 2], dtype=float)');
+    expect(code).not.toContain('read_sets');
+  });
+});
+
+describe('the numbers a script would hold', () => {
+  const parsed = parseXvg(SAMPLE);
+  const rows = parsed.rowCount;
+
+  test('are every row of each column drawn, the x column among them', () => {
+    expect(xvgEmbeddedCount(xvgFigure(parsed, { series: [1] }), parsed)).toBe(2 * rows);
+    expect(xvgEmbeddedCount(xvgFigure(parsed, { series: [1, 2], lower: [2] }), parsed)).toBe(3 * rows);
+  });
+
+  test('count the columns behind a running mean when the data are not drawn', () => {
+    const fig = xvgFigure(parsed, { series: [1, 2], average: 10, raw: false });
+    expect(xvgEmbeddedCount(fig, parsed)).toBe(3 * rows);
+    expect(xvgEmbeddedCount(xvgFigure(parsed, { series: [1, 2], average: 10 }), parsed)).toBe(3 * rows);
+    // It is the count of what the script writes out.
+    const code = xvgFigureScript(fig, parsed, { source: 'embed' });
+    const held = [...code.matchAll(/= np\.array\(\[([^\]]*)\]/g)].reduce((n, m) => n + m[1].split(',').filter((v) => v.trim() !== '').length, 0);
+    expect(held).toBe(3 * rows);
+  });
+
+  test('count each set\'s own rows, and survive the style panel\'s copy of the figure', () => {
+    const two = parseXvg(TWO_SETS);
+    expect(xvgEmbeddedCount(xvgFigure(two, { series: [1, 3] }), two)).toBe(2 * 40 + 2 * 25);
+    expect(xvgEmbeddedCount(xvgFigure(two, { series: [3], average: 5, raw: false }), two)).toBe(2 * 25);
+    expect(xvgEmbeddedCount(normaliseFigure(xvgFigure(two, { series: [1, 3] })), two)).toBe(130);
   });
 });
 
@@ -327,5 +507,39 @@ describe('the script draws what the page shows', () => {
     expect(m.fig.panels[0].lineLengths).toEqual([messy.rowCount - 4, messy.rowCount - 4]);
     expect(h.fig.panels[0].ylabel).toBe('Distance (nm)');
     expect(h.fig.panels[0].lineLengths).toEqual([30]);
+  }, 60000);
+
+  withPython('a file of several data sets: each set a line of its own, read from the file or held', async () => {
+    const two = parseXvg(TWO_SETS);
+    const tFig = xvgFigure(two, { series: [1, 3], filename: 'tcaf.xvg' });
+    const split = parseXvg(SPLIT);
+    const sFig = xvgFigure(split, { series: [1, 2, 4, 5], lower: [2, 5], average: 4, filename: 'split.xvg' });
+    const messy = parseXvg(MESSY_SETS);
+    const mFig = xvgFigure(messy, { series: [1, 4], filename: 'sets.csv' });
+    const [t, e, s, m] = await Promise.all([
+      run(xvgFigureScript(tFig, two, { filename: 'tcaf.xvg' }), { 'tcaf.xvg': TWO_SETS }),
+      run(xvgFigureScript(tFig, two, { source: 'embed', filename: 'tcaf.xvg' })),
+      run(xvgFigureScript(sFig, split, { filename: 'split.xvg' }), { 'split.xvg': SPLIT }),
+      run(xvgFigureScript(mFig, messy, { filename: 'sets.csv' }), { 'sets.csv': MESSY_SETS })
+    ]);
+    for (const r of [t, e, s, m]) expect([r.code, r.stderr]).toEqual([0, '']);
+    expectSameLimits(tFig, t.fig, 'two sets');
+    expectSameLimits(tFig, e.fig, 'two sets, held');
+    expectSameLimits(sFig, s.fig, 'split');
+    expectSameLimits(mFig, m.fig, 'messy sets');
+    for (const r of [t, e]) {
+      expect(r.fig.panels[0].legend).toEqual(['k = 1.0', 'k = 2.0']);
+      expect(r.fig.panels[0].lineLengths).toEqual([40, 25]);
+      expect(r.fig.panels[0].lineData).toEqual([extractColumn(two.matrix, 1).slice(0, 3), extractColumn(two.matrix.slice(40), 1).slice(0, 3)]);
+    }
+    // s0 and s1 are the first block's columns, s2 the second block's first.
+    expect(s.fig.panels[0].legend).toEqual(['Protein', 'Protein, part 2']);
+    expect(s.fig.panels[1].legend).toEqual(['Backbone', 'Dataset 4']);
+    expect(s.fig.panels[0].lineLengths).toEqual([20, 17, 30, 27]);
+    const mean = runningMean(extractColumn(split.matrix.slice(20), 2), 4);
+    s.fig.panels[1].lineData[3].forEach((v, i) => expect(close(v, mean[i])).toBe(true));
+    // The note and the short row are left out of the set they are in.
+    expect(m.fig.panels[0].legend).toEqual(['a (set 1)', 'a (set 2)']);
+    expect(m.fig.panels[0].lineLengths).toEqual([11, 8]);
   }, 60000);
 });

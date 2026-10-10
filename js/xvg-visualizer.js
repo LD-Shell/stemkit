@@ -13,9 +13,11 @@ import {
   generateSampleXvg,
   xvgFigure,
   xvgFigureScript,
+  xvgEmbeddedCount,
+  xvgSeries,
+  xvgWindow,
   xvgColors,
-  graceToPlain,
-  averageWindow
+  graceToPlain
 } from '../src/core/xvg-parser.js';
 import { mountFigure } from './figure-plot.js';
 
@@ -39,6 +41,9 @@ document.addEventListener('DOMContentLoaded', () => {
     parsed: null,
     fileName: '',
     xIndex: 0,
+    // The series the file offers (each column of each data set but the x
+    // column), and the ones ticked, by their numbers (xvgSeries' index).
+    offered: [],
     active: new Set(),
     lower: new Set(),
     markers: !!saved.markers,
@@ -102,19 +107,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let embedRefused = false;
-  const valuesInScript = (fig) => {
-    let n = 0;
-    const cols = new Set();
-    fig.panels.forEach((p) => p.series.forEach((q) => {
-      if (!q.show || !q.refs) return;
-      for (const k of ['x', 'y']) if (q.refs[k] && q.refs[k].source === 'xvg') cols.add(q.refs[k].column);
-    }));
-    n = cols.size * (state.parsed ? state.parsed.rowCount : 0);
-    return n;
-  };
 
   function scriptFor(fig, source) {
-    embedRefused = source === 'embed' && valuesInScript(fig) > EMBED_LIMIT;
+    // Counted as the script would write them: the columns behind a running
+    // mean are held too, drawn or not.
+    embedRefused = source === 'embed' && xvgEmbeddedCount(fig, state.parsed) > EMBED_LIMIT;
     return xvgFigureScript(fig, state.parsed, { source: embedRefused ? 'files' : source, filename: state.fileName || 'your_file.xvg' });
   }
 
@@ -250,6 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ui.close.addEventListener('click', () => {
     state.parsed = null;
+    state.offered = [];
     state.fileName = '';
     plot.update(null);
     ui.workspace.hidden = true;
@@ -294,8 +292,10 @@ document.addEventListener('DOMContentLoaded', () => {
       state.parsed = parsed;
       state.fileName = filename;
       state.xIndex = 0;
-      state.active = new Set(defaultActiveColumns(parsed.colCount));
-      state.active.delete(0);
+      state.offered = xvgSeries(parsed, 0);
+      // The same columns of every data set to start with.
+      const first = new Set(defaultActiveColumns(parsed.colCount));
+      state.active = new Set(state.offered.filter((q) => first.has(q.column)).map((q) => q.index));
       state.lower = new Set();
       // Labels the person typed belong to the last file; the rest of their look stays.
       plot.setStyle(withoutText(plot.getStyle()));
@@ -308,13 +308,14 @@ document.addEventListener('DOMContentLoaded', () => {
         ui.xSelect.innerHTML = '';
         ui.seriesList.innerHTML = '';
         state.parsed = null;
+        state.offered = [];
         redraw();
         return;
       }
       const skipped = parsed.skippedLines > 0
         ? `, ${parsed.skippedLines.toLocaleString('en-GB')} line${parsed.skippedLines === 1 ? '' : 's'} skipped` : '';
-      ui.fileStats.textContent = `${parsed.rowCount.toLocaleString('en-GB')} rows, ${parsed.colCount} columns${skipped}`;
-      ui.window.max = String(parsed.rowCount);
+      const sets = parsed.blocks.length > 1 ? ` in ${parsed.blocks.length.toLocaleString('en-GB')} data sets` : '';
+      ui.fileStats.textContent = `${parsed.rowCount.toLocaleString('en-GB')} rows${sets}, ${parsed.colCount} columns${skipped}`;
       buildControls();
       redraw();
     }, 20);
@@ -335,6 +336,7 @@ document.addEventListener('DOMContentLoaded', () => {
    * Columns
    * ------------------------------------------------------------------ */
   const colName = (i) => graceToPlain((state.parsed && state.parsed.headers[i]) || `Column ${i}`);
+  const severalSets = () => !!state.parsed && state.parsed.blocks.length > 1;
 
   function buildControls() {
     const p = state.parsed;
@@ -351,20 +353,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ui.xSelect.addEventListener('change', () => {
     state.xIndex = parseInt(ui.xSelect.value, 10) || 0;
+    state.offered = xvgSeries(state.parsed, state.xIndex);
     // The x column cannot also be a series against itself.
-    state.active.delete(state.xIndex);
-    state.lower.delete(state.xIndex);
+    const still = new Set(state.offered.map((q) => q.index));
+    for (const i of [...state.active]) if (!still.has(i)) state.active.delete(i);
+    for (const i of [...state.lower]) if (!still.has(i)) state.lower.delete(i);
     renderSeriesList();
     redraw();
   });
 
-  /** One row per column except the x column: tick to plot, and the lower-panel switch. */
+  /** One row per series (each column of each data set but the x column): tick to plot, and the lower-panel switch. */
   function renderSeriesList() {
     const p = state.parsed;
     ui.seriesList.innerHTML = '';
     if (!p) return;
-    for (let i = 0; i < p.colCount; i++) {
-      if (i === state.xIndex) continue;
+    const several = severalSets();
+    for (const q of state.offered) {
+      const i = q.index;
+      const name = graceToPlain(q.name);
+      // Where the series is in the file: its column, and its data set when there are several.
+      const place = several ? `set ${q.block + 1}, col ${q.column}` : `col ${q.column}`;
       const row = document.createElement('div');
       row.className = 'xv-series';
       row.dataset.col = String(i);
@@ -372,13 +380,13 @@ document.addEventListener('DOMContentLoaded', () => {
         <label class="xv-series-main">
           <input type="checkbox" value="${i}">
           <span class="xv-swatch" aria-hidden="true"></span>
-          <span class="xv-series-name" title="${esc(colName(i))}">${esc(colName(i))}</span>
-          <span class="xv-colno">col ${i}</span>
+          <span class="xv-series-name" title="${esc(name)}">${esc(name)}</span>
+          <span class="xv-colno">${place}</span>
         </label>
         <button type="button" class="xv-axis-btn" aria-pressed="false" title="Draw this series in a second panel, under the others">Lower panel</button>`;
       const box = row.querySelector('input');
       const lowerBtn = row.querySelector('.xv-axis-btn');
-      lowerBtn.setAttribute('aria-label', `Draw ${colName(i)} in the lower panel`);
+      lowerBtn.setAttribute('aria-label', `Draw ${name} in the lower panel`);
       box.addEventListener('change', () => {
         if (box.checked) state.active.add(i);
         else { state.active.delete(i); state.lower.delete(i); }
@@ -413,11 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ui.tabDataInfo.title = `${state.active.size} series plotted`;
   }
 
-  const selectable = () => {
-    const out = [];
-    for (let i = 0; i < (state.parsed ? state.parsed.colCount : 0); i++) if (i !== state.xIndex) out.push(i);
-    return out;
-  };
+  const selectable = () => (state.parsed ? state.offered.map((q) => q.index) : []);
 
   // Select all / Clear all changes the state once and draws once.
   ui.toggleAll.addEventListener('click', () => {
@@ -452,7 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 200);
   });
   ui.window.addEventListener('change', () => {
-    const rows = state.parsed ? state.parsed.rowCount : Infinity;
+    const rows = meanRows();
     const n = Math.min(Math.max(2, Math.round(Number(ui.window.value)) || 2), Math.max(2, rows));
     ui.window.value = String(n);
     state.window = n;
@@ -464,20 +468,28 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ------------------------------------------------------------------ *
    * Drawing
    * ------------------------------------------------------------------ */
-  /* Each column's colour: the person's, else the cycle's for the figure's background. */
+  /* Each series' colour: the person's, else the cycle's for the figure's background. */
   function currentColors() {
     const p = state.parsed;
     if (!p) return {};
     const style = plot.getStyle();
-    const colors = xvgColors(p.colCount, state.xIndex, style.background || '#ffffff');
+    const colors = xvgColors(p.colCount, state.xIndex, style.background || '#ffffff', p.blocks.length);
     const own = style.series || {};
-    for (const i of Object.keys(colors)) {
-      const c = own[`col${i}`] && own[`col${i}`].color;
-      if (typeof c === 'string' && c) colors[i] = c;
+    for (const q of state.offered) {
+      const c = own[q.id] && own[q.id].color;
+      if (typeof c === 'string' && c) colors[q.index] = c;
     }
     return colors;
   }
   let lastColors = '';
+
+  /* The most points a running mean can span: the rows of the shortest series
+     drawn (of the file, while none is). */
+  function meanRows() {
+    const drawn = state.offered.filter((q) => state.active.has(q.index));
+    const rows = (drawn.length ? drawn : state.offered).map((q) => q.rows);
+    return rows.length ? Math.min(...rows) : Infinity;
+  }
 
   function redraw() {
     const p = state.parsed;
@@ -508,8 +520,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     plot.update(fig);
-    if (state.average && p) {
-      const w = averageWindow(state.window, p.rowCount);
+    if (p) ui.window.max = String(meanRows());
+    if (state.average && p && series.length) {
+      const w = xvgWindow(p, series, state.window, state.xIndex);
       if (w !== state.window && String(w) !== ui.window.value) ui.window.value = String(w);
     }
   }

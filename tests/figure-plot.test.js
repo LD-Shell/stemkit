@@ -296,6 +296,34 @@ describe('grid along one axis, text sizes', () => {
     expect(verticals(y)[0]).toBe(0);
   });
 
+  // matplotlib 3.6.3, running the script: the grid is hidden under a
+  // pcolormesh and a contourf, and contour lines cross over it. The script
+  // calls set_axisbelow(True), which puts the grid at zorder 0.5, and gives
+  // its series zorder 1 and up. (Left alone, axes.axisbelow is 'line': the
+  // grid at zorder 1.5, over a mesh at 1 and under lines at 2.) So the
+  // preview's grid is under every trace, and a vector export draws it
+  // before the cells of a heatmap.
+  test('the grid lies under heatmaps and contours, where the script puts it', async () => {
+    const { figureScript } = await import('../src/core/figure-python.js');
+    const z = [[0, 1, 2], [3, 4, 5]];
+    for (const kind of [{ kind: 'heatmap' }, { kind: 'contour', filled: true }, { kind: 'contour' }]) {
+      const fig = { grid: { show: true }, panels: [{ series: [{ id: 'q', x: [0, 1, 2], y: [0, 1], z, ...kind }] }] };
+      const f = buildFigure(fig);
+      expect(f.data).toHaveLength(1);
+      expect(gridShapes(f)).toHaveLength(1);
+      const code = figureScript(fig);
+      expect(code).toContain('axes.set_axisbelow(True)');
+      expect(code).toMatch(/ax\.(pcolormesh|contourf|contour)\([^)]*zorder=1\)/);
+    }
+    const v = buildFigure({ grid: { show: true }, panels: [{ series: [{ kind: 'heatmap', x: [0, 1, 2], y: [0, 1], z }] }] }, { vector: true });
+    const clear = v.layout.shapes.map((s) => s.layer === 'below' && s.fillcolor === 'rgba(0,0,0,0)');
+    const cells = v.layout.shapes.map((s) => s.layer === 'below' && s.fillcolor !== 'rgba(0,0,0,0)');
+    expect(cells.filter(Boolean)).toHaveLength(6);
+    expect(clear.indexOf(true)).toBeLessThan(cells.indexOf(true));
+    // A figure of lines alone: one grid shape under its traces, as ever.
+    expect(gridShapes(buildFigure({ grid: { show: true }, panels: [{ series }] }))).toHaveLength(1);
+  });
+
   test('titleSize and tickSize set their text; left out, they follow fontSize', () => {
     const size = (f, text) => f.layout.annotations.find((a) => a.text === text).font.size;
     const auto = buildFigure({ title: 'T', fontSize: 12, panels: [{ series }] });
