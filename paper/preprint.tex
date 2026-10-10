@@ -158,7 +158,7 @@ inside the user's own browser: the data analysed never leaves it, no account is
 required and nothing is installed, so the tools stay usable for unpublished or
 confidential data. The same modules run under Node.js, so an interactive
 analysis can be captured as a version-pinned script. The 42 domain modules carry
-4465 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
+4599 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
 GROMACS, PLUMED, LAMMPS and physical invariants rather than against the
 implementation itself. That
 validation exposed four defects that had been altering reported results, among
@@ -343,7 +343,7 @@ resulting layering and Table~\ref{tab:modules} enumerates the modules.
    libraries loaded by \texttt{<script>}}};
 \node[host] (node) at ($(browser.north east)+(7mm,0)+(0.2025\textwidth+6pt,0)$) {\textbf{Node.js}\\[2pt]
   {\footnotesize\color{stkslate700}analysis scripts and CI\\
-   4465 Jest tests and a smoke test\\
+   4599 Jest tests and a smoke test\\
    libraries loaded by \texttt{createRequire}}};
 
 % The core, in the site's accent colour, with its module families.
@@ -420,8 +420,9 @@ scripts built on it (265 in all).}
 \texttt{lammps-reference}, \texttt{lammps-input}, \texttt{lammps-data}, \texttt{lammps-workflow} & LAMMPS commands, input checks, data files, run inputs & 350 & none \\
 \texttt{statistics}, \texttt{statistics-figure} & Inferential and descriptive statistics & 191 & jStat \\
 \texttt{data-cleaning}, \texttt{data-cleaning-python} & Tabular transformation, pandas script & 183 & Papa Parse \\
-\texttt{structure} & Molecular geometry, PDB/GRO/XYZ, rigid transforms and their scripts & 165 & none \\
 \texttt{bibtex} & Reference deduplication, sanitising & 173 & bibtex-parse-js \\
+\texttt{structure} & Molecular geometry, PDB/GRO/XYZ, rigid transforms and their scripts & 165 & none \\
+\texttt{figure}, \texttt{figure-python} & Figure description, matplotlib script & 164 & none \\
 \texttt{xvg-parser} & GROMACS/PLUMED trajectory data & 129 & none \\
 \texttt{plumed-analysis}, \texttt{plumed-analysis-figures} & COLVAR and HILLS analysis, free-energy surfaces & 121 & none \\
 \texttt{iso4} & ISO 4 word-level abbreviation (LTWA) & 119 & none \\
@@ -429,19 +430,18 @@ scripts built on it (265 in all).}
 \texttt{curve-fitting} & Least-squares regression & 81 & regression.js \\
 \texttt{error-bars}, \texttt{error-bars-figure} & Group summaries, error bars & 77 & jStat \\
 \texttt{units} & Physical unit conversion & 74 & none \\
-\texttt{figure}, \texttt{figure-python} & Figure description, matplotlib script & 74 & none \\
 \texttt{outliers}, \texttt{outliers-figure} & Anomaly detection & 63 & jStat \\
+\texttt{plot-builder} & Plot builder tables and figures & 62 & none \\
 \texttt{slurm} & SLURM job scripts, resource checks & 61 & none \\
 \texttt{latex} & Table generation and escaping & 61 & none \\
 \texttt{digitizer} & Figure digitisation & 57 & none \\
 \texttt{pdf} & PDF export of figures & 56 & none \\
 \texttt{journals} & Whole-title journal abbreviation & 53 & none \\
 \texttt{scheduler} & Scheduler directives and launchers & 51 & none \\
-\texttt{plot-builder} & Plot builder tables and figures & 18 & none \\
 \texttt{version} & Release version and date & 5 & none \\
 \texttt{zip} & Archives of generated files & 4 & none \\
 \midrule
-\textbf{Total} & & \textbf{4465} & \\
+\textbf{Total} & & \textbf{4599} & \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -468,7 +468,7 @@ been registered.
 
 
 
-The test suite comprises 4465 tests in 58 suites across the 42 domain modules and the version module,
+The test suite comprises 4599 tests in 58 suites across the 42 domain modules and the version module,
 with 88.5\% statement and 93.0\% line coverage of \texttt{src/core/}. Its governing
 principle is that numerical results are validated against \emph{independent}
 references rather than against the implementation under test, since a test
@@ -527,7 +527,7 @@ Error-bar generator & \texttt{error-bars}, \texttt{error-bars-figure} & Group su
 Outlier detector & \texttt{outliers}, \texttt{outliers-figure} & Tukey fences, modified $Z$-score, Grubbs' test \\
 Curve fitter & \texttt{expression}, \texttt{nonlinear-fit}, \texttt{fit-python}, \texttt{plot-style} & Typed equations fitted by Levenberg--Marquardt, with standard errors and confidence bands \\
 Plot digitiser & \texttt{digitizer} & Pixel-to-data recovery with log-axis and uncertainty handling \\
-Plot builder & \texttt{plot-builder}, \texttt{figure} & Publication figures at a set print size and resolution, with matplotlib script export \\
+Plot builder & \texttt{plot-builder}, \texttt{figure} & Publication figures (lines, bars, histograms, box and violin plots, heatmaps, contours) on one or several panels, at a set print size and resolution, with matplotlib script export \\
 Data cleaner & \texttt{data-cleaning}, \texttt{data-cleaning-python} & Missing values, duplicates, filtering and column transforms, with a pandas script \\
 Scientific converter & \texttt{units} & 64 units in ten categories plus temperature, CODATA-sourced \\
 BibTeX sanitiser & \texttt{bibtex} & Field removal, page ranges, braces around capitals in titles \\
@@ -1095,7 +1095,7 @@ in pairs: it requires no installation, transmits no data and remains scriptable.
 
 Both properties are structural rather than contractual: computation occurs
 entirely within the browser, and the modules behind the interface are the ones
-that run under Node.js. The 4465-test suite validates every numerical result
+that run under Node.js. The 4599-test suite validates every numerical result
 against an independent reference, and the four defects that this strategy
 exposed (deflated standardised moments, tail probabilities floored
 at zero, misassigned elements in metalloproteins, and an adjusted moment fed
