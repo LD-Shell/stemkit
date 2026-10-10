@@ -16,7 +16,7 @@ authors:
 affiliations:
   - name: Independent Researcher
     index: 1
-date: 4 October 2026
+date: 10 October 2026
 bibliography: paper.bib
 ---
 
@@ -103,7 +103,7 @@ the programs themselves:
 
 Reference data are generated from the programs' own sources rather than typed
 by hand: the GROMACS option tables, the PLUMED keyword tables and the LAMMPS
-command reference. The 4440 tests run in continuous integration on three
+command reference. The 4465 tests run in continuous integration on three
 Node.js versions and with Python installed, so the scripts are checked too. A
 Content-Security-Policy on every page lets the browser itself refuse any
 request except the two that users make explicitly: a DOI lookup and a
