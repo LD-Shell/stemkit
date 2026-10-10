@@ -40,14 +40,23 @@ export function mean(a) {
   return s / a.length;
 }
 
+/*
+ * Whether the values are all alike. Their spread is then nothing, which the
+ * sums cannot be trusted to say: the mean of six 0.1s is not 0.1 in binary,
+ * and the "deviations" from it are rounding, not data.
+ */
+const allEqual = (a) => a.every((x) => x === a[0]);
+
 /**
  * Unbiased sample variance (n-1 denominator).
  *
  * @param {number[]} a - Array of at least two values.
- * @returns {number} The variance, or NaN when n < 2.
+ * @returns {number} The variance, exactly 0 when the values are all alike,
+ *          or NaN when n < 2.
  */
 export function variance(a) {
   if (!Array.isArray(a) || a.length < 2) return NaN;
+  if (allEqual(a)) return 0;
   const m = mean(a);
   let s = 0;
   for (const x of a) {
@@ -116,6 +125,7 @@ export function skewness(a) {
  */
 function momentSkewness(a) {
   if (!Array.isArray(a) || a.length < 3) return NaN;
+  if (allEqual(a)) return 0;
   const n = a.length;
   const m = mean(a);
 
@@ -142,6 +152,7 @@ function momentSkewness(a) {
  */
 export function kurtosis(a) {
   if (!Array.isArray(a) || a.length < 2) return NaN;
+  if (allEqual(a)) return 0;
   const n = a.length;
   const m = mean(a);
 
@@ -585,6 +596,15 @@ export function independentTTest(arr1, arr2, options = {}) {
     method = "Welch's independent-samples t-test (unequal variances)";
   }
 
+  // Two groups that do not vary have no standard error; t is undefined rather
+  // than infinite, as for the paired and one-sample tests.
+  if (se === 0) {
+    return {
+      t: NaN, df: pooled ? df : NaN, p: NaN, meanDiff: diff, d: NaN, g: NaN, ci: [diff, diff],
+      n1, n2, mean1: m1, mean2: m2, sd1: 0, sd2: 0, method
+    };
+  }
+
   const t = diff / se;
   const p = tTwoSided(t, df);
 
@@ -625,9 +645,22 @@ export function pairedTTest(arr1, arr2, options = {}) {
   const md = mean(d);
   const sdd = sd(d);
 
+  // Differences alike to within the rounding of the numbers themselves are
+  // one difference: 0.2 - 0.1 and 0.3 - 0.2 differ in the last bit, because
+  // none of the four is exact in binary. Each number is within half a unit in
+  // the last place of what was meant, so two differences of equal pairs can
+  // part by three such units at most; four is taken.
+  let scale = 0; let low = Infinity; let high = -Infinity;
+  for (let i = 0; i < n; i++) {
+    scale = Math.max(scale, Math.abs(pair.a[i]), Math.abs(pair.b[i]));
+    if (d[i] < low) low = d[i];
+    if (d[i] > high) high = d[i];
+  }
+  const constant = sdd === 0 || high - low <= 4 * Number.EPSILON * scale;
+
   // A constant difference gives zero standard error; t is undefined rather
   // than infinite, and the caller is told so explicitly.
-  if (sdd === 0) {
+  if (constant) {
     return {
       t: NaN, df: n - 1, p: NaN, meanDiff: md, sdDiff: 0,
       dz: NaN, ci: [md, md], n, diffs: d
@@ -858,7 +891,7 @@ export function pearsonCorrelation(arr1, arr2, options = {}) {
   }
 
   // A constant variable has no correlation to measure.
-  if (sxx === 0 || syy === 0) {
+  if (sxx === 0 || syy === 0 || allEqual(x) || allEqual(y)) {
     return { r: NaN, r2: NaN, t: NaN, df: n - 2, p: NaN, ci: [NaN, NaN], n };
   }
 
@@ -906,7 +939,7 @@ export function leastSquaresLine(arr1, arr2) {
     sxy += (x[i] - mx) * (y[i] - my);
     sxx += (x[i] - mx) * (x[i] - mx);
   }
-  if (sxx === 0) return { slope: NaN, intercept: NaN, n };
+  if (sxx === 0 || allEqual(x)) return { slope: NaN, intercept: NaN, n };
   const slope = sxy / sxx;
   return { slope, intercept: my - slope * mx, n };
 }

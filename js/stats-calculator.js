@@ -546,6 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const [arr1, arr2] = sel.groups;
     const r = independentTTest(arr1, arr2, { pooled });
     if (!r) return showToast('Each group needs at least 2 values.', 'error');
+    if (!Number.isFinite(r.t)) return showToast('Neither group varies, so the t statistic is undefined.', 'error');
 
     const { norms, warns } = normalityWarn(sel.names, sel.groups, 'Mann–Whitney U test');
     const lev = leveneTest([arr1, arr2]);

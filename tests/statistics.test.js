@@ -272,6 +272,44 @@ describe('distribution tails', () => {
     expect(Number.isNaN(summarise([1, NaN, 3]).max)).toBe(true);
   });
 
+  test('values all alike have no spread, whatever their mean rounds to', () => {
+    // The mean of six 0.1s is 0.10000000000000002: summed deviations from it are rounding, not data.
+    const tenths = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1];
+    expect(variance(tenths)).toBe(0);
+    expect(sd(tenths)).toBe(0);
+    expect(skewness(tenths)).toBe(0);
+    expect(kurtosis(tenths)).toBe(0);
+    expect(summarise(tenths).sd).toBe(0);
+    expect(variance([0.1, 0.1, 0.2])).toBeGreaterThan(0);
+    // Two such groups: no standard error, so no t, in either form of the test.
+    for (const pooled of [false, true]) {
+      const r = independentTTest(tenths, [0.7, 0.7, 0.7, 0.7, 0.7, 0.7], { pooled });
+      expect([pooled, Number.isNaN(r.t), Number.isNaN(r.p), r.sd1, r.sd2]).toEqual([pooled, true, true, 0, 0]);
+      expect(r.meanDiff).toBeCloseTo(-0.6, 12);
+      expect(r.ci).toEqual([r.meanDiff, r.meanDiff]);
+    }
+    // One group that varies is a test like any other.
+    expect(Number.isFinite(independentTTest(tenths, [0.7, 0.7, 0.7, 0.7, 0.7, 0.8]).t)).toBe(true);
+    expect(Number.isNaN(oneSampleTTest(tenths, 0.05).t)).toBe(true);
+    expect(dagostinoNormality([...tenths, 0.1, 0.1]).note).toContain('zero variance');
+    expect(Number.isNaN(pearsonCorrelation(tenths, [1, 2, 3, 4, 5, 6]).r)).toBe(true);
+    expect(Number.isNaN(pearsonCorrelation([1, 2, 3, 4, 5, 6], tenths).r)).toBe(true);
+    expect(Number.isNaN(leastSquaresLine(tenths, [1, 2, 3, 4, 5, 6]).slope)).toBe(true);
+  });
+
+  test('pairs that differ by the same amount, as written, have a constant difference', () => {
+    // 0.2 - 0.1, 0.3 - 0.2 and 0.4 - 0.3 are 0.1 to the last bit or one off it.
+    const r = pairedTTest([0.2, 0.3, 0.4, 0.5, 0.6], [0.1, 0.2, 0.3, 0.4, 0.5]);
+    expect([Number.isNaN(r.t), Number.isNaN(r.p), r.sdDiff]).toEqual([true, true, 0]);
+    expect(r.meanDiff).toBeCloseTo(0.1, 12);
+    const big = pairedTTest([1e6 + 0.3, 2e6 + 0.3, 3e6 + 0.3], [1e6, 2e6, 3e6]);
+    expect(Number.isNaN(big.t)).toBe(true);
+    // A difference that really varies, however little, is tested.
+    const real = pairedTTest([0.2, 0.3, 0.4, 0.5, 0.6], [0.1, 0.2, 0.3, 0.4, 0.5000001]);
+    expect(Number.isFinite(real.t)).toBe(true);
+    expect(real.sdDiff).toBeGreaterThan(0);
+  });
+
   test('F tail is 1 at and below zero', () => {
     expect(fUpperTail(0, 2, 10)).toBe(1);
     expect(fUpperTail(-5, 2, 10)).toBe(1);
