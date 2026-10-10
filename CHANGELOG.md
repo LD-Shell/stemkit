@@ -5,7 +5,12 @@ Notable changes to STEMKit and `stemkit-core`.
 `[output]` marks a change that alters a reported number. Figures produced with an
 earlier version are worth re-checking.
 
-## Unreleased
+## v0.4.0 — 2026-10-10
+
+Turning a structure by hand in the Coordinate Manipulator, video tutorials on
+the tool pages, and a round of fixes: the `gmx editconf` command, BibTeX
+entries the reader used to lose, and inputs at the edges (groups that do not
+vary, blank fields, very long columns).
 
 ### Added: turning a structure by hand in the Coordinate Manipulator
 
@@ -120,6 +125,53 @@ Every page was checked with axe against WCAG 2.2 A and AA, in both themes.
   it now selects everything outside the range. `Toggle surface` could not
   remove a surface, and changing its type, opacity or colour drew another on
   top; the surface is now replaced.
+- `[output]` **Coordinate Manipulator, the `gmx editconf` command.** editconf
+  translates, then rotates about the origin, and centres last of all. The
+  command put `-center 0 0 0` beside `-translate` after "centre, then
+  translate", so editconf undid the move; and for a structure turned about its
+  own centre it relied on a note saying that adding `-center 0 0 0` would make
+  the two agree, which holds only when the centre is already at the origin. The
+  command now lands on the page's coordinates whatever the order of the steps:
+  `-center` names where the geometric centre ends up, or `-translate` is the
+  move as it has to be made before the rotation. A centring on the centre of
+  mass, which editconf cannot do, is given as the geometric centre it leaves.
+  **`stemkit-core`: `editconfPlacement(steps, finalCentre)`** in `structure`
+  works these out, and is tested against editconf's order of operations.
+- **Coordinate Manipulator, typed numbers.** A padding of 0% was read as the
+  default 10%, so a box could not be fitted tight to the molecule. A distance
+  or an angle that is not a number was applied as 0 without a word; the field
+  is now marked, named in a message, and nothing is applied.
+- `[output]` **BibTeX tools, entries the reader lost.** A quoted value holding
+  a quote in braces, `title = "Outer {"}quoted{"} text"`, was cut at the inner
+  quote and every field after it dropped, so the Deduplicator compared and
+  showed a damaged entry. An entry with an empty key (`@article{,`, as JabRef
+  writes one that has none) was left out of the count and the comparison while
+  staying in the download; it is now an entry like any other, shown as
+  "No key". In the DOI lookup, removing or keeping fields rewrote an entry
+  from the fields read so far, so a value the reader cannot follow
+  (`pages = 100 - 110`) took the rest of the entry with it; such an entry is
+  now left exactly as it is.
+- `[output]` **Statistics Calculator, one-way ANOVA of groups that do not
+  vary.** With every group constant (`1, 1, 1` against `2, 2, 2`) the
+  within-group variance is zero; the page reported F as not available with
+  *p* = 1, "not significant". It now says the test is undefined and why, as the
+  t-tests and Welch's ANOVA already did. **`stemkit-core`:** `oneWayAnova`
+  returns `F` and `p` as NaN with a `note` in that case, and
+  `fUpperTail(Infinity, …)` is 0, not 1.
+- **DOI to BibTeX.** The "1 failed" count, the error report and the Retry
+  button of one batch stayed on the page while the next batch ran. They are
+  cleared when a batch starts.
+- `[output]` **Decision Matrix, blank fields.** A weight left blank counted as
+  1 and a score left blank as 1, the lowest of each, though the fields start at
+  3 and 5. A blank field now counts as the value it started with, and
+  **Calculate** writes that value back into it.
+- **Very long columns.** About 150,000 values in one group stopped the Error
+  Bar Generator with "Maximum call stack size exceeded", and the same limit
+  stood in the Statistics Calculator's summary of a sample, the Data Cleaner's
+  column transforms, an index-group range and the Structure
+  Inspector's solvation of a large solute. All take columns of any length now,
+  and the Error Bar Generator no longer slows with the square of the number of
+  rows when each row holds one value.
 
 ## v0.3.0 — 2026-10-01
 

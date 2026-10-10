@@ -26,7 +26,7 @@ console shows a CORS error. Serve over HTTP.
 
 ```bash
 npm install
-npm test               # 4440 tests, 44 modules
+npm test               # 4465 tests, 44 modules
 npm run test:coverage  # see docs/COVERAGE.md
 node tests/smoke.mjs   # end-to-end against a real install
 ```
@@ -113,11 +113,11 @@ Bump `version` in `package.json` first; npm never accepts the same version twice
 `npm publish` runs `npm test` and the smoke test first (`prepublishOnly`).
 
 The release also shows on the site: every page's footer ends
-`; version = v0.3.0 (2026-10-01)`, linked to the changelog. Bump
+`; version = v0.4.0 (2026-10-10)`, linked to the changelog. Bump
 `STEMKIT_VERSION` and `RELEASE_DATE` in `src/core/version.js`, then the footers:
 
 ```bash
-sed -i 's|>v0\.3\.0</a> (2026-10-01)</pre>|>v0.3.1</a> (2026-11-02)</pre>|' *.html
+sed -i 's|>v0\.4\.0</a> (2026-10-10)</pre>|>v0.4.1</a> (2026-11-02)</pre>|' *.html
 ```
 
 `tests/version.test.js` fails until `src/core/version.js` agrees with
