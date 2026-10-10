@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4=' 'sha256-sP7TsSrYueFCMpWsMk/bVSUHUJ70x+VtFAz81/+fzRI='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4=' 'sha256-BcMp+4hsxgnEH3/hk8Q6f/DjL6piqWM/PNnwPuHPiQM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 
     <title>MD Workflow Generator | GROMACS, LAMMPS & PLUMED | STEMKit</title>
     <meta name="title" content="MD Workflow Generator | GROMACS, LAMMPS & PLUMED | STEMKit">
@@ -211,7 +211,7 @@
                                 <input type="text" id="jobName" value="md_prod" class="stk-input stk-mono" autocomplete="off" spellcheck="false">
                             </div>
                             <div class="stk-field">
-                                <label for="jobTime">Wall time <span class="plumed-help" tabindex="0" data-tip="Maximum run time as HH:MM:SS or D-HH:MM:SS. The job is killed when this elapses, so pad it above the expected run time. Shorter wall times often schedule sooner.">?</span></label>
+                                <label for="jobTime">Wall time <span class="plumed-help" tabindex="0" data-tip="Maximum run time as HH:MM:SS or D-HH:MM:SS; minutes alone, MM:SS, D-HH and D-HH:MM are read as sbatch reads them. The job is killed when this elapses, so pad it above the expected run time. Shorter wall times often schedule sooner.">?</span></label>
                                 <input type="text" id="jobTime" value="24:00:00" class="stk-input stk-mono" placeholder="D-HH:MM:SS" autocomplete="off" spellcheck="false">
                             </div>
                             <div class="stk-field">
@@ -2997,19 +2997,6 @@
 
     <script src="js/site.js"></script>
     <script>
-        // Documentation engine tabs
-        document.querySelectorAll('.doc-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                const key = tab.getAttribute('data-doc-tab');
-                document.querySelectorAll('.doc-tab').forEach(t => {
-                    t.classList.toggle('active', t === tab);
-                    t.setAttribute('aria-selected', String(t === tab));
-                });
-                document.querySelectorAll('.doc-pane').forEach(p =>
-                    p.classList.toggle('active', p.getAttribute('data-doc-pane') === key));
-            });
-        });
-
         // Floating tooltip for the "?" help badges. Lives on <body>, so it is
         // never clipped by the scrolling side panel. Positioned each time.
         (function () {

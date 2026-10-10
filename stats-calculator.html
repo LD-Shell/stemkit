@@ -186,9 +186,9 @@
             <div class="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col" data-stk-step="1" data-stk-done="filled:#dataInput">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="stk-ptitle"><span class="stk-stepn" aria-hidden="true"><span>1</span><svg viewBox="0 0 16 16"><path d="M3.5 8.5 6.5 11.5 12.5 4.5"/></svg></span><span class="sr-only">Step 1: </span>Add your data</h2>
-                    <label class="cursor-pointer bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 px-3 py-1.5 rounded text-sm font-medium hover:bg-brand-100 dark:hover:bg-brand-900/50 transition-colors">
-                        <i class="fa-solid fa-upload mr-1"></i> Upload CSV
-                        <input type="file" id="fileInput" accept=".csv" class="hidden">
+                    <label class="sc-upload cursor-pointer bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 px-3 py-1.5 rounded text-sm font-medium hover:bg-brand-100 dark:hover:bg-brand-900/50 transition-colors">
+                        <i class="fa-solid fa-upload mr-1" aria-hidden="true"></i> Upload CSV
+                        <input type="file" id="fileInput" accept=".csv" class="sr-only">
                     </label>
                 </div>
                 <label for="dataInput" class="sr-only">Data</label>
