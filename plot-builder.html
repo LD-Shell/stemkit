@@ -7,7 +7,7 @@
     
     <title>Publication Plot Builder | CSV to PDF, SVG &amp; Python | STEMKit</title>
     <meta name="title" content="Publication Plot Builder | CSV to PDF, SVG &amp; Python | STEMKit">
-    <meta name="description" content="Build publication-ready plots in your browser: layer columns from several CSV files as lines, points, error bars or bands, set the size for a journal, and export PDF, SVG or PNG with the matplotlib script that draws it.">
+    <meta name="description" content="Build publication-ready plots in your browser: plot columns from several CSV files as lines, bars, histograms, box and violin plots, heatmaps or contours, on one or several panels, set the size for a journal, and export PDF, SVG or PNG with the matplotlib script that draws it.">
     <meta name="keywords" content="scientific plotting, multi-dataset graph, browser originlab alternative, plotly csv, export svg plot, STEMKit graphing">
     
     <link rel="canonical" href="https://stemkit.net/plot-builder.html">
@@ -25,12 +25,12 @@
             "@type": "WebApplication",
             "name": "STEMKit Plot Builder",
             "url": "https://stemkit.net/plot-builder.html",
-            "description": "Visually layer datasets and export publication-ready SVG graphics.",
+            "description": "Plot columns of CSV files as publication figures and export PDF, SVG, PNG or the matplotlib script.",
             "applicationCategory": "DesignApplication",
             "operatingSystem": "All",
             "browserRequirements": "Requires JavaScript",
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "featureList": [ "PDF, SVG and PNG export at the exact size", "Several CSV files in one figure", "Error bars, bands and stacked panels", "Matplotlib script that reads your CSV files", "100% client-side" ]
+            "featureList": [ "PDF, SVG and PNG export at the exact size", "Several CSV files in one figure", "Lines, bars, histograms, box and violin plots, heatmaps and contours", "Error bars, bands, second axes, panel grids and insets", "Matplotlib script that reads your CSV files", "100% client-side" ]
         }
     </script>
     
@@ -137,7 +137,7 @@
             <header class="stk-pagehead">
                 <div>
                     <h1 class="stk-pagehead-title">Plot Builder</h1>
-                    <p class="stk-pagehead-lede">Plot columns from one or more CSV files as lines, points, error bars or shaded bands, style the figure for a journal, and save it as PDF, PNG or SVG at the exact size you set, with the matplotlib script that draws it.</p>
+                    <p class="stk-pagehead-lede">Plot columns from one or more CSV files as lines, points, steps, error bars, shaded bands, bars (upright or flat, side by side or stacked, or the means of replicates), histograms, box and violin plots, heatmaps or contours, style the figure for a journal, and save it as PDF, PNG or SVG at the exact size you set, with the matplotlib script that draws it.</p>
                     <ul class="stk-pagehead-meta">
                         <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser; your files stay on this machine</li>
                         <li><i class="fa-brands fa-python" aria-hidden="true"></i> The script reads your CSV files by column name</li>
@@ -145,8 +145,22 @@
                         <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
                 </ul>
                 </div>
-                <div class="stk-pagehead-actions">
+                <div class="stk-pagehead-actions pb-actions">
                     <button type="button" id="pbExample" class="stk-btn stk-btn-sm"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load an example</button>
+                    <div class="pb-examples">
+                        <button type="button" id="pbExamples" class="stk-btn stk-btn-sm" aria-expanded="false" aria-controls="pbExamplesPanel"><i class="fa-solid fa-table-list" aria-hidden="true"></i> More examples <i class="fa-solid fa-chevron-down pb-examples-caret" aria-hidden="true"></i></button>
+                        <div id="pbExamplesPanel" class="pb-examples-panel" hidden>
+                            <p id="pbExamplesHint" class="pb-examples-hint">One example for each kind of chart. An example takes the place of the files and series on the page; your plot style stays.</p>
+                            <ul id="pbExamplesList" class="pb-examples-list" aria-label="Examples"></ul>
+                            <div id="pbExamplesConfirm" class="pb-examples-confirm" role="group" aria-labelledby="pbExamplesAsk" hidden>
+                                <p id="pbExamplesAsk"></p>
+                                <div class="pb-examples-confirm-b">
+                                    <button type="button" id="pbExamplesYes" class="stk-btn stk-btn-sm stk-btn-primary">Replace them</button>
+                                    <button type="button" id="pbExamplesNo" class="stk-btn stk-btn-sm stk-btn-ghost">Keep my work</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <button type="button" id="pbReset" class="stk-btn stk-btn-sm stk-btn-ghost" title="Remove the files and series, reset the plot style, and forget the style this page saved"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset</button>
                 </div>
             </header>
@@ -183,10 +197,32 @@
 
                         <section id="pbSeries" class="pb-pane" role="tabpanel" aria-labelledby="pbTabSeries" tabindex="-1" hidden>
                             <div class="pb-pane-h">
-                                <p class="pb-pane-lede">Each series plots one column against another.</p>
+                                <p class="pb-pane-lede">Each series plots one column against another, or charts its columns as bars, bars of means, a histogram, boxes, violins, a heatmap or contours.</p>
                                 <button type="button" id="pbAddSeries" class="stk-btn stk-btn-sm" disabled><i class="fa-solid fa-plus" aria-hidden="true"></i> Add a series</button>
                             </div>
                             <p id="pbSeriesEmpty" class="pb-pane-empty">Open a file on the <strong>Data</strong> tab, or load the example. Its first two columns of numbers are plotted at once.</p>
+                            <details id="pbLayout" class="stk-disclosure pb-layout" hidden>
+                                <summary><span class="pb-layout-t">Layout</span><span id="pbLayoutSum" class="pb-layout-sum"></span></summary>
+                                <div class="pb-layout-b">
+                                    <div class="pb-grid2">
+                                        <div class="stk-field"><label for="pbRows">Rows</label><input id="pbRows" type="number" inputmode="numeric" class="stk-input stk-input-sm" min="1" max="6" step="1" value="1"></div>
+                                        <div class="stk-field"><label for="pbCols">Columns</label><input id="pbCols" type="number" inputmode="numeric" class="stk-input stk-input-sm" min="1" max="4" step="1" value="1"></div>
+                                        <div class="stk-field"><label for="pbShareX">X axis</label><select id="pbShareX" class="stk-select stk-select-sm"><option value="none">Each panel its own</option><option value="col">Shared down a column</option><option value="all">Shared by all</option></select></div>
+                                        <div class="stk-field"><label for="pbShareY">Y axis</label><select id="pbShareY" class="stk-select stk-select-sm"><option value="none">Each panel its own</option><option value="row">Shared along a row</option><option value="all">Shared by all</option></select></div>
+                                        <div class="stk-field"><label for="pbGapH">Gap between rows (pt)</label><input id="pbGapH" type="number" inputmode="decimal" class="stk-input stk-input-sm" min="0" max="72" step="1" placeholder="Auto"></div>
+                                        <div class="stk-field" id="pbGapWField"><label for="pbGapW">Gap between columns (pt)</label><input id="pbGapW" type="number" inputmode="decimal" class="stk-input stk-input-sm" min="0" max="72" step="1" placeholder="Auto"></div>
+                                        <p class="pb-card-hint pb-wide">Each series goes to a panel with the <strong>Panel</strong> menu on its card. The gap is the space between panels, in points, besides the room their tick labels need; leave it empty for matplotlib's own (6&nbsp;pt). At 0, panels that share an axis share an edge.</p>
+                                        <div class="stk-field pb-check pb-wide"><label class="stk-check"><input id="pbLetters" type="checkbox"> Letter the panels</label></div>
+                                        <div class="stk-field" id="pbLetterStyleField"><label for="pbLetterStyle">Letters</label><select id="pbLetterStyle" class="stk-select stk-select-sm"><option>(a)</option><option>a</option><option>a)</option><option>A</option><option>(A)</option></select></div>
+                                        <div class="stk-field" id="pbLetterPlaceField"><label for="pbLetterPlace">Place</label><select id="pbLetterPlace" class="stk-select stk-select-sm"><option value="inside">Inside, top left</option><option value="outside">Outside, top left</option></select></div>
+                                    </div>
+                                    <div class="pb-insets-h">
+                                        <span class="stk-label-sm" id="pbInsetsTitle">Insets</span>
+                                        <button type="button" id="pbAddInset" class="stk-btn stk-btn-sm stk-btn-ghost"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add an inset</button>
+                                    </div>
+                                    <div id="pbInsets" class="pb-insets" role="group" aria-labelledby="pbInsetsTitle"></div>
+                                </div>
+                            </details>
                             <div id="pbSeriesList" class="pb-cards"></div>
                         </section>
 
@@ -215,7 +251,7 @@
                             <div id="pbPlotEmpty" class="fg-empty">
                                 <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
                                 <p class="fg-empty-title">Your figure will appear here</p>
-                                <p class="fg-empty-text">Open a CSV file on the left, or load the example. The preview is the figure at the size it will be saved, and redraws as you change anything.</p>
+                                <p class="fg-empty-text">Open a CSV file on the left, or load an example. The preview is the figure at the size it will be saved, and redraws as you change anything.</p>
                                 <button type="button" id="pbTryExample" class="stk-btn stk-btn-sm"><i class="fa-solid fa-flask-vial" aria-hidden="true"></i> Load an example</button>
                             </div>
                             <div id="pbFigure" class="fg-figure" hidden></div>
@@ -237,8 +273,8 @@
             <p class="stk-lead">Combine columns from one or more CSV files in one figure, style it while the preview redraws, then save it as PDF, PNG or SVG, or copy the matplotlib script that draws the same figure from your files.</p>
                 <section id="tutorial" class="stk-tut-slot" data-tutorial="plot-builder"></section>
             <div class="stk-grid stk-grid-2" style="margin-top:1.5rem;">
-                <div class="stk-step"><span class="stk-num">1</span><div><h3>Add data</h3><p>Drop one or more CSV, TSV or text files with a header row on the <strong>Data</strong> tab, or click <strong>Load an example</strong>. A cell that is blank or not a number is left out: a line breaks there, as it does in matplotlib.</p></div></div>
-                <div class="stk-step"><span class="stk-num">2</span><div><h3>Set up the series</h3><p>On the <strong>Series</strong> tab each series plots one column against another, from any loaded file, as a line, points, both, or a shaded band between two columns. Pick error columns for error bars, and put a series in a second panel to share the x axis with a quantity of another scale.</p></div></div>
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Add data</h3><p>Drop one or more CSV, TSV or text files with a header row on the <strong>Data</strong> tab, or click <strong>Load an example</strong> for two growth curves. <strong>More examples</strong> beside it has one for each kind of chart, from bars of means to a heatmap with contours: an example takes the place of the files and series on the page and keeps your plot style. A cell that is blank or not a number is left out: a line breaks there, as it does in matplotlib.</p></div></div>
+                <div class="stk-step"><span class="stk-num">2</span><div><h3>Set up the series</h3><p>On the <strong>Series</strong> tab each series plots one column against another, from any loaded file, as a line, points, both, or a shaded band between two columns. The <strong>Chart</strong> menu turns a series into bars (upright or lying flat, side by side or stacked, to 100% if you like), bars of the means of replicate rows with their standard deviation, standard error or confidence interval, a histogram (bins by number, by one of numpy's rules or at edges you type; counts, density, fraction or percent; a running total), box plots or violin plots by group, a heatmap, contours or a 2D histogram. Pick error columns for error bars, and put a series in a second panel to share the x axis with a quantity of another scale, or on the same panel against a y axis on the right or an x axis on top (the <strong>X axis</strong> and <strong>Y axis</strong> menus), each with its own label, scale and limits. The <strong>Layout</strong> section above the series lays the panels on a grid of rows and columns (each series' <strong>Panel</strong> menu then names the cells), shares the x axis down a column or the y axis along a row, sets the gap between panels in points (at 0, panels that share an axis share an edge), letters the panels (a), (b) and so on, and adds an inset: a small panel inside another that enlarges part of it, marked with a box.</p></div></div>
                 <div class="stk-step"><span class="stk-num">3</span><div><h3>Style it</h3><p>The <strong>Style</strong> tab holds the size, fonts, labels, limits, log scales, ticks, each series' colour, line and marker, the legend, grid and frame. It is the same panel as on the site's other plotting tools, and your size, fonts and frame are kept for your next visit.</p></div></div>
                 <div class="stk-step"><span class="stk-num">4</span><div><h3>Save or reproduce</h3><p>Save the figure with <strong>PDF</strong>, <strong>PNG</strong> or <strong>SVG</strong> at the size you set, or copy the <strong>Python script</strong> under the plot: it reads your CSV files by column name, or carries the numbers inside it.</p></div></div>
             </div>
@@ -263,7 +299,7 @@
             <div style="margin-top:1.25rem; display:flex; flex-direction:column; gap:1rem; max-width:52rem;">
                 <div><h3>Label your axes with units</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">An axis without units is ambiguous. Write the quantity and its unit, such as <em>Time (s)</em> or <em>Concentration (mM)</em>. Put mathematics between dollar signs, as matplotlib does: <code>OD$_{600}$</code>, <code>$\Delta G$ (kJ/mol)</code>, <code>Area (m$^2$)</code>.</p></div>
                 <div><h3>Use log scales deliberately</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">A log axis linearises exponential or power-law data and shows several orders of magnitude at once, but it can flatter noisy data. Use it when the process is multiplicative, and say so in the caption. Points at or below zero cannot be drawn on a log axis; the series says how many are left out.</p></div>
-                <div><h3>Show the spread</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">A mean without its spread hides how sure it is. Choose the column of standard deviations or errors as the series' <em>Y error</em>, or draw a band between a lower and an upper column, and say in the caption which it is: SD, SEM or a confidence interval.</p></div>
+                <div><h3>Show the spread</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">A mean without its spread hides how sure it is. Choose the column of standard deviations or errors as the series' <em>Y error</em>, or draw a band between a lower and an upper column, and say in the caption which it is: SD, SEM or a confidence interval. When your rows are the replicates themselves, <strong>Bars of means</strong> works the mean and its spread out for you and can draw every value over its bar; box and violin plots show the whole spread.</p></div>
                 <div><h3>Colours that survive greyscale and colour blindness</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">Around 8% of men have some colour-vision deficiency, and many journals print in greyscale. The default colours are checked to stay distinct for the common forms of colour blindness, and series drawn with points take a different marker each, so colour is not the only difference.</p></div>
                 <div><h3>Reproducibility</h3><p style="color:var(--stk-fg-muted);line-height:1.6;">The <strong>Python script</strong> means a figure isn't a dead end: it redraws the plot from the same CSV files, or carries the numbers inside it, so you can keep it under version control with your analysis. Everything runs in your browser; no data leaves your machine.</p></div>
             </div>

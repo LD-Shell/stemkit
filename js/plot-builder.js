@@ -17,13 +17,20 @@
  * On top of the shared preview the page adds its own pointer tools: drag
  * across a panel to zoom (the limits go into the style, so the exports and
  * the script show the same), double-click to fit again, and point at a
- * marker to read its values.
+ * marker to read its values. They work in every panel of a grid and in an
+ * inset, where a drag sets what the inset shows.
+ *
+ * The Layout section under the series sets where the panels go: the rows and
+ * columns of the grid, which panels share their axes, and the insets (kept
+ * with the files and series); the gap between panels and their letters are
+ * look, kept in the style.
  */
 import { mountFigure } from './figure-plot.js';
-import { formatSize } from '../src/core/figure.js';
+import { formatSize, WHISKER_RULES, isStack } from '../src/core/figure.js';
 import {
   readTable, builderFigure, pythonFiles, seriesNote, houseStyle, exampleCsv, EXAMPLE_LABELS,
-  sourceId, columnName, slug, DRAW_MODES
+  sourceId, columnName, slug, DRAW_MODES, CHART_KINDS, suggestColumns, DEFAULT_BINS, DEFAULT_BINS_2D, DEFAULT_LEVELS, axisChoices,
+  histogramOptions, LEVELS, EXAMPLES, builderExample, builderLayout, builderPanels, MAX_GRID_ROWS, MAX_GRID_COLS, MAX_INSETS
 } from '../src/core/plot-builder.js';
 
 const STYLE_KEY = 'stemkit.plot-builder.style';
@@ -41,7 +48,13 @@ const ui = {
   plot: $('pbPlot'), size: $('pbSize'), figure: $('pbFigure'), notes: $('pbPlotNotes'), hint: $('pbHint'),
   logX: $('pbLogX'), logXWrap: $('pbLogXWrap'), logY: $('pbLogY'), logYWrap: $('pbLogYWrap'),
   python: $('pbPython'), toasts: $('pbToasts'),
-  example: $('pbExample'), tryExample: $('pbTryExample'), reset: $('pbReset')
+  example: $('pbExample'), tryExample: $('pbTryExample'), reset: $('pbReset'),
+  examples: $('pbExamples'), examplesPanel: $('pbExamplesPanel'), examplesList: $('pbExamplesList'),
+  examplesConfirm: $('pbExamplesConfirm'), examplesAsk: $('pbExamplesAsk'), examplesYes: $('pbExamplesYes'), examplesNo: $('pbExamplesNo'),
+  layout: $('pbLayout'), layoutSum: $('pbLayoutSum'), rows: $('pbRows'), cols: $('pbCols'), shareX: $('pbShareX'), shareY: $('pbShareY'),
+  gapH: $('pbGapH'), gapW: $('pbGapW'), gapWField: $('pbGapWField'), letters: $('pbLetters'), letterStyle: $('pbLetterStyle'),
+  letterStyleField: $('pbLetterStyleField'), letterPlace: $('pbLetterPlace'), letterPlaceField: $('pbLetterPlaceField'),
+  addInset: $('pbAddInset'), insets: $('pbInsets')
 };
 const narrow = window.matchMedia('(max-width: 1023.98px)');
 
@@ -49,8 +62,10 @@ const narrow = window.matchMedia('(max-width: 1023.98px)');
  * State
  * ------------------------------------------------------------------ */
 
-const state = { files: [], series: [] };
+const emptyLayout = () => ({ rows: 1, cols: 1, sharex: null, sharey: 'none', insets: [] });
+const state = { files: [], series: [], layout: emptyLayout() };
 let nextSeries = 1;
+let nextInset = 1;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fileById = (id) => state.files.find((f) => f.id === id);
@@ -112,9 +127,12 @@ function pythonNote(fig, source) {
   const files = state.files.filter((f) => used.has(f.id));
   const read = source === 'files' ? files.filter((f) => !f.example) : [];
   const code = (t) => `<code>${esc(t)}</code>`;
-  let note = `Runs with Python 3, numpy and matplotlib 3.6 or later (3.11 or later to match the preview): ${code(`python ${fig.export.filename}.py`)}. `
+  // A confidence interval (a box plot's mean, bars of means) takes Student's t from scipy.
+  const scipy = fig.panels.some((p) => p.series.some((q) => q.show && ((q.kind === 'box' && q.mean) || (q.replicates && q.replicates.error === 'ci'))));
+  let note = `Runs with Python 3, numpy${scipy ? ', scipy' : ''} and matplotlib 3.6 or later (3.11 or later to match the preview): ${code(`python ${fig.export.filename}.py`)}. `
     + `It saves ${code(`${fig.export.filename}.${fig.export.format}`)}`;
   note += read.length ? `, reading ${read.map((f) => code(f.name)).join(' and ')} from the same folder.` : '.';
+  if (state.series.some((s) => ['heatmap', 'contour', 'hist2d'].includes(s.chart))) note += ' The grid of a heatmap, contour or 2D histogram is in the script as numbers.';
   if (source === 'files' && files.some((f) => f.example)) note += ' The example’s numbers are in the script.';
   if (source === 'files' && read.some((f) => f.table.readable.some((r) => !r))) note += ' A column whose name is repeated in its file is written into the script.';
   if (source === 'embed') {
@@ -173,9 +191,37 @@ function redraw() {
 
 /* The person's look changed in the Style panel. */
 function afterStyle() {
+  if (axesFromStyle()) return;
   const title = plot.getStyle().title || '';
   if (slug(title) !== lastSlug) redraw();
   syncCards();
+}
+
+/*
+ * The axes a series stands on belong to its card: one moved to a second
+ * axis in the Style panel moves there on its card, so that the axis takes
+ * its label from the series, and the style keeps no copy.
+ */
+function axesFromStyle() {
+  const style = plot.getStyle();
+  let moved = false;
+  for (const [id, own] of Object.entries(style.series || {})) {
+    const s = seriesById(id);
+    if (!own || (own.xAxis === undefined && own.yAxis === undefined)) continue;
+    if (s) {
+      if (own.xAxis !== undefined) s.xAxis = own.xAxis === 'top' ? 'top' : 'bottom';
+      if (own.yAxis !== undefined) s.yAxis = own.yAxis === 'right' ? 'right' : 'left';
+    }
+    delete own.xAxis; delete own.yAxis;
+    if (!Object.keys(own).length) delete style.series[id];
+    moved = true;
+  }
+  if (!moved) return false;
+  plot.setStyle(style);
+  saveStyle(plot.getStyle());
+  renderSeries();
+  redraw();
+  return true;
 }
 
 /* Change the look from the page (the header's switches, zooming, a series card). */
@@ -196,7 +242,7 @@ function afterDraw(info) {
   ui.logYWrap.hidden = !has;
   ui.hint.hidden = !has;
   if (has) {
-    ui.logX.checked = f.xScale === 'log';
+    ui.logX.checked = f.panels.every((p) => p.xScale === 'log');
     ui.logY.checked = f.panels.every((p) => p.yScale === 'log');
     showSize(f, info);
     const pw = Math.floor(info.widthIn * f.dpi + 1e-6);
@@ -209,6 +255,7 @@ function afterDraw(info) {
     }
   }
   syncCards();
+  syncLayout();
 }
 
 /* The size of the saved figure in its unit, its pixels at the PNG's resolution, and how large the preview shows it. */
@@ -252,6 +299,8 @@ ui.workspace.style.setProperty('--pb-head', `${headHeight()}px`);
 ui.logX.addEventListener('change', () => {
   const next = plot.getStyle();
   next.xScale = ui.logX.checked ? 'log' : 'linear';
+  // A scale set for one panel's x axis in the Style panel gives way to the switch.
+  if (next.panels) next.panels = next.panels.map((p) => { const o = { ...(p || {}) }; delete o.xScale; return o; });
   setStyle(next);
 });
 ui.logY.addEventListener('change', () => {
@@ -316,12 +365,12 @@ function firstColumns(f, avoid = new Set()) {
 function newSeries(fileId, o = {}) {
   const f = fileById(fileId);
   const cols = firstColumns(f);
-  const s = { id: `s${nextSeries++}`, fileId, x: cols.x, y: cols.y, y2: null, draw: 'line', yerr: null, xerr: null, panel: 0, ...o };
+  const s = { id: `s${nextSeries++}`, fileId, chart: 'curve', x: cols.x, y: cols.y, y2: null, z: null, groupBy: null, draw: 'line', yerr: null, xerr: null, panel: 0, xAxis: 'bottom', yAxis: 'left', ...o };
   state.series.push(s);
   return s;
 }
 
-function addFile(name, text, { example = false, id, size = 0 } = {}) {
+function addFile(name, text, { example = false, id, size = 0, labels = EXAMPLE_LABELS } = {}) {
   const table = readTable(text);
   if (!table.ok) { toast(`${name}: ${table.error}`, 'danger'); return null; }
   const taken = new Set(state.files.map((f) => f.source).filter(Boolean));
@@ -329,7 +378,7 @@ function addFile(name, text, { example = false, id, size = 0 } = {}) {
     id: id || `f${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
     name, size, example, table,
     source: example ? null : sourceId(name, taken),
-    labels: example ? EXAMPLE_LABELS : null
+    labels: example ? labels : null
   };
   state.files.push(f);
   return f;
@@ -358,7 +407,9 @@ async function addFiles(list) {
 }
 
 function loadExample() {
-  if (state.files.some((f) => f.example)) { toast('The example is already loaded.'); return; }
+  if (state.files.some((f) => f.example && f.name === 'growth_example.csv')) { toast('The example is already loaded.'); return; }
+  // Another of the examples is on the page: this one takes its place, as they do each other's.
+  if (state.files.some((f) => f.example)) { loadBuiltIn('growth'); return; }
   const f = addFile('growth_example.csv', exampleCsv(), { example: true, id: 'example' });
   if (!f) return;
   const col = (name) => f.table.headers.indexOf(name);
@@ -369,6 +420,45 @@ function loadExample() {
   redraw();
   selectTab('series');
   toast('Loaded two bacterial growth curves with their standard deviations. Try Log y.', 'ok');
+}
+
+/*
+ * One of the built-in examples (EXAMPLES in src/core/plot-builder.js) in
+ * place of the files and series on the page. The house style stays as it is
+ * (size, fonts, colours, frame, grid, legend, ticks, export); what belonged
+ * to the figure before (title, labels, limits, scales, each series' look)
+ * goes with it, so the example is drawn as it is meant to look.
+ */
+function loadBuiltIn(id) {
+  const ex = builderExample(id);
+  if (!ex) return;
+  state.files = [];
+  state.series = [];
+  state.layout = { ...emptyLayout(), ...JSON.parse(JSON.stringify(ex.layout || {})) };
+  const files = ex.files.map((f, i) => addFile(f.name, f.csv, { example: true, id: i ? `example${i + 1}` : 'example', labels: f.labels }));
+  // The example's own look (a gap, letters, a legend beside the plot) goes
+  // over the house style, its series found by their place.
+  const ids = new Map();
+  ex.series.forEach((s, k) => {
+    const f = files[s.file || 0];
+    if (!f) return;
+    const o = { ...s };
+    delete o.file;
+    for (const key of ['x', 'y', 'y2', 'z', 'yerr', 'xerr', 'groupBy']) if (typeof s[key] === 'string') o[key] = f.table.headers.indexOf(s[key]);
+    ids.set(`s${k + 1}`, newSeries(f.id, o).id);
+  });
+  const house = houseStyle(plot.getStyle());
+  const own = JSON.parse(JSON.stringify(ex.style || {}));
+  const style = { ...house, ...own };
+  if (house.panels && own.panels) style.panels = Array.from({ length: Math.max(house.panels.length, own.panels.length) }, (_, i) => ({ ...(house.panels[i] || {}), ...(own.panels[i] || {}) }));
+  if (style.series) style.series = Object.fromEntries(Object.entries(style.series).filter(([id]) => ids.has(id)).map(([id, look]) => [ids.get(id), look]));
+  plot.setStyle(style);
+  saveStyle(plot.getStyle());
+  renderFiles();
+  renderSeries();
+  redraw();
+  selectTab('series');
+  toast(`Loaded the example “${ex.name}”. ${ex.description}`, 'ok');
 }
 
 function removeFile(id) {
@@ -427,7 +517,51 @@ ui.files.addEventListener('click', (e) => {
  * Series
  * ------------------------------------------------------------------ */
 
-const DRAW_NAMES = { line: 'Line', points: 'Points', both: 'Both', band: 'Band' };
+const DRAW_NAMES = { line: 'Line', points: 'Points', both: 'Both', step: 'Step', band: 'Band' };
+const CHART_NAMES = {
+  curve: 'Line, points, step or band', bar: 'Bars', 'bars-mean': 'Bars of means', hist: 'Histogram', box: 'Box plot', violin: 'Violin plot',
+  heatmap: 'Heatmap', contour: 'Contour', hist2d: '2D histogram'
+};
+const CHART_HINTS = {
+  curve: '', bar: 'One bar per row: the X column names it, or places it when it holds numbers. Bars lying flat use the bottom and left axes.',
+  'bars-mean': 'One bar per name: the mean of the rows that share it, with their spread as an error bar. The script works them out from the file.',
+  violin: 'The spread of the Y column\u2019s values as a smoothed density, one violin per group of the Group by column.',
+  hist: 'The Y column\u2019s values, counted in bins.', box: 'The Y column\u2019s values as one box, or one box per group of the Group by column.',
+  heatmap: 'The Value column over X and Y, one cell for each different X and Y.', contour: 'Lines or bands of equal Value over X and Y.',
+  hist2d: 'How many rows fall in each cell of a grid over X and Y.'
+};
+
+const ORIENTATIONS = [['v', 'Upright'], ['h', 'Lying flat']];
+const STACKINGS = [['none', 'Side by side'], ['stack', 'Stacked'], ['percent', 'Stacked to 100%']];
+const ERROR_NAMES = [['sd', 'Standard deviation'], ['sem', 'Standard error'], ['ci', 'Confidence interval'], ['none', 'None']];
+const LEVEL_NAMES = LEVELS.map((l) => [l, `${Math.round(l * 100)}%`]);
+const BIN_MODE_NAMES = [['number', 'A number of bins'], ['rule', 'A rule'], ['edges', 'Edges I type']];
+const BIN_RULE_NAMES = [['auto', 'Automatic'], ['fd', 'Freedman–Diaconis'], ['sturges', 'Sturges'], ['sqrt', 'Square root'],
+  ['scott', 'Scott'], ['rice', 'Rice'], ['doane', 'Doane']];
+const NORMALISE_NAMES = [['counts', 'Counts'], ['density', 'Density'], ['fraction', 'Fraction'], ['percent', 'Percent']];
+const WHISKER_NAMES = WHISKER_RULES.map((r) => [String(r.value), r.label]);
+const INTERVAL_NAMES = [['', 'Not shown'], ...LEVELS.map((l) => [l, `With its ${Math.round(l * 100)}% interval`])];
+const INNER_NAMES = [['box', 'Box and median'], ['quartiles', 'Quartile lines'], ['median', 'Median line'], ['none', 'Nothing']];
+const VIOLIN_SCALE_NAMES = [['width', 'Each the same width'], ['area', 'All the same area']];
+const BANDWIDTH_NAMES = [['scott', 'Scott'], ['silverman', 'Silverman']];
+/* What a card's fields are, by the way their value is kept. */
+const TEXT_KEYS = ['orientation', 'stack', 'error', 'binsMode', 'binRule', 'normalise', 'whis', 'bandwidth', 'scale', 'inner', 'binEdges'];
+const CHECK_KEYS = ['density', 'filled', 'points', 'cumulative', 'notch'];
+/* Fields whose change changes which fields the card has. */
+const REBUILD_KEYS = ['orientation', 'error', 'binsMode'];
+/* A series' look that its card sets: the person's own choice of it in the Style panel gives way. */
+const CARD_LOOK = { whis: ['whis'], notch: ['notch'], interval: ['mean', 'level'], points: ['points'], inner: ['inner'], scale: ['scale'],
+  bandwidth: ['bandwidth'], cut: ['cut'] };
+
+function numberField(n, key, label, value, min, max, step = 1) {
+  return `<div class="stk-field"><label for="${n}-${key}">${label}</label><input id="${n}-${key}" type="number" inputmode="${step === 1 ? 'numeric' : 'decimal'}" class="stk-input stk-input-sm" data-f="${key}" min="${min}" max="${max}" step="${step}" value="${esc(value)}"></div>`;
+}
+function textField(n, key, label, value, placeholder) {
+  return `<div class="stk-field pb-wide"><label for="${n}-${key}">${label}</label><input id="${n}-${key}" type="text" class="stk-input stk-input-sm" data-f="${key}" value="${esc(value)}" placeholder="${esc(placeholder)}" autocomplete="off" spellcheck="false"></div>`;
+}
+function checkField(n, key, label, on) {
+  return `<div class="stk-field pb-check"><label class="stk-check"><input id="${n}-${key}" type="checkbox" data-f="${key}"${on ? ' checked' : ''}> ${label}</label></div>`;
+}
 
 function options(list, current) {
   return list.map(([v, l]) => `<option value="${esc(v)}"${String(v) === String(current) ? ' selected' : ''}>${esc(l)}</option>`).join('');
@@ -439,9 +573,54 @@ function seriesCard(s, k) {
   const cols = t.headers.map((_, i) => [i, columnName(t.headers, i)]);
   const none = [['', 'None'], ...cols];
   const n = s.id;
-  const band = s.draw === 'band';
+  const chart = CHART_KINDS.includes(s.chart) ? s.chart : 'curve';
+  const band = chart === 'curve' && s.draw === 'band';
   const multiFile = state.files.length > 1;
-  const panels = Math.min(4, state.series.length);
+  const places = panelChoices();
+  // A second axis on top or on the right, for the charts that can stand on one.
+  const axes = axisChoices(t, s);
+  const sel = (key, label, list, current) => `<div class="stk-field"><label for="${n}-${key}">${label}</label><select id="${n}-${key}" class="stk-select stk-select-sm" data-f="${key}">${options(list, current)}</select></div>`;
+  let body;
+  if (chart === 'curve') {
+    body = `${sel('x', 'X column', cols, s.x)}
+      ${sel('y', band ? 'From (lower)' : 'Y column', cols, s.y)}
+      ${band
+        ? sel('y2', 'To (upper)', cols, Number.isInteger(s.y2) ? s.y2 : s.y)
+        : s.draw === 'step' ? ''
+          : `${sel('yerr', 'Y error', none, Number.isInteger(s.yerr) ? s.yerr : '')}
+           ${sel('xerr', 'X error', none, Number.isInteger(s.xerr) ? s.xerr : '')}`}`;
+  } else if (chart === 'bar') {
+    const flat = s.orientation === 'h';
+    body = `${sel('x', flat ? 'Names or Y' : 'Names or X', cols, s.x)}${sel('y', flat ? 'Length (X)' : 'Height (Y)', cols, s.y)}
+      ${sel('yerr', flat ? 'X error' : 'Y error', none, Number.isInteger(s.yerr) ? s.yerr : '')}
+      ${sel('orientation', 'Bars', ORIENTATIONS, flat ? 'h' : 'v')}${sel('stack', 'With other bars', STACKINGS, s.stack || 'none')}`;
+  } else if (chart === 'bars-mean') {
+    body = `${sel('x', 'Names', cols, s.x)}${sel('y', 'Values', cols, s.y)}
+      ${sel('error', 'Error bars', ERROR_NAMES, s.error || 'sd')}${s.error === 'ci' ? sel('level', 'Level', LEVEL_NAMES, s.level || 0.95) : ''}
+      ${sel('orientation', 'Bars', ORIENTATIONS, s.orientation === 'h' ? 'h' : 'v')}${checkField(n, 'points', 'Each value as a point', !!s.points)}`;
+  } else if (chart === 'hist') {
+    const h = histogramOptions(s);
+    const mode = ['rule', 'edges'].includes(s.binsMode) ? s.binsMode : 'number';
+    body = `${sel('y', 'Values', cols, s.y)}${sel('binsMode', 'Bins', BIN_MODE_NAMES, mode)}
+      ${mode === 'rule' ? sel('binRule', 'Rule', BIN_RULE_NAMES, s.binRule || 'auto')
+        : mode === 'edges' ? textField(n, 'binEdges', 'Edges', s.binEdges || '', '0, 1, 2, 5, 10')
+          : numberField(n, 'bins', 'How many', s.bins || DEFAULT_BINS, 1, 1000)}
+      ${sel('normalise', 'Bars show', NORMALISE_NAMES, h.normalise)}${checkField(n, 'cumulative', 'Cumulative', !!s.cumulative)}`;
+  } else if (chart === 'box') {
+    body = `${sel('y', 'Values', cols, s.y)}${sel('groupBy', 'Group by', none, Number.isInteger(s.groupBy) ? s.groupBy : '')}
+      ${sel('whis', 'Whiskers reach', WHISKER_NAMES, s.whis || '1.5')}${sel('interval', 'Mean', INTERVAL_NAMES, s.interval || '')}
+      ${checkField(n, 'notch', 'Notch at the median', !!s.notch)}`;
+  } else if (chart === 'violin') {
+    body = `${sel('y', 'Values', cols, s.y)}${sel('groupBy', 'Group by', none, Number.isInteger(s.groupBy) ? s.groupBy : '')}
+      ${sel('inner', 'Inside', INNER_NAMES, s.inner || 'box')}${sel('scale', 'Widths', VIOLIN_SCALE_NAMES, s.scale || 'width')}
+      ${sel('bandwidth', 'Smoothing rule', BANDWIDTH_NAMES, s.bandwidth || 'scott')}${numberField(n, 'cut', 'Extend past the data', s.cut || 0, 0, 10, 0.5)}
+      ${checkField(n, 'points', 'Points', !!s.points)}`;
+  } else if (chart === 'heatmap' || chart === 'contour') {
+    body = `${sel('x', 'X column', cols, s.x)}${sel('y', 'Y column', cols, s.y)}${sel('z', 'Value (Z)', cols, Number.isInteger(s.z) ? s.z : s.y)}
+      ${chart === 'contour' ? `${numberField(n, 'levels', 'Levels', s.levels || DEFAULT_LEVELS, 1, 100)}${checkField(n, 'filled', 'Filled', s.filled !== false)}` : ''}`;
+  } else {
+    body = `${sel('x', 'X column', cols, s.x)}${sel('y', 'Y column', cols, s.y)}${numberField(n, 'bins', 'Bins per side', s.bins || DEFAULT_BINS_2D, 1, 500)}`;
+  }
   const card = document.createElement('div');
   card.className = 'pb-card';
   card.dataset.id = s.id;
@@ -454,22 +633,53 @@ function seriesCard(s, k) {
       <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost stk-btn-icon" data-act="remove" aria-label="Remove series ${k + 1}"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
     </div>
     ${multiFile ? `<div class="stk-field"><label for="${n}-file">File</label><select id="${n}-file" class="stk-select stk-select-sm" data-f="fileId">${options(state.files.map((x) => [x.id, x.name]), s.fileId)}</select></div>` : ''}
-    <div class="stk-field"><span class="stk-label-sm" id="${n}-draw-l">Draw</span>
+    <div class="stk-field"><label for="${n}-chart">Chart</label>
+      <select id="${n}-chart" class="stk-select stk-select-sm" data-f="chart">${options(CHART_KINDS.map((c) => [c, CHART_NAMES[c]]), chart)}</select></div>
+    ${chart === 'curve' ? `<div class="stk-field"><span class="stk-label-sm" id="${n}-draw-l">Draw</span>
       <div class="stk-seg stk-seg-fill" role="group" aria-labelledby="${n}-draw-l" data-f="draw">
         ${DRAW_MODES.map((d) => `<button type="button" data-value="${d}" aria-pressed="${s.draw === d}">${DRAW_NAMES[d]}</button>`).join('')}
       </div>
-    </div>
+    </div>` : `<p class="pb-card-hint">${esc(CHART_HINTS[chart])}</p>`}
     <div class="pb-grid2">
-      <div class="stk-field"><label for="${n}-x">X column</label><select id="${n}-x" class="stk-select stk-select-sm" data-f="x">${options(cols, s.x)}</select></div>
-      <div class="stk-field"><label for="${n}-y">${band ? 'From (lower)' : 'Y column'}</label><select id="${n}-y" class="stk-select stk-select-sm" data-f="y">${options(cols, s.y)}</select></div>
-      ${band
-        ? `<div class="stk-field"><label for="${n}-y2">To (upper)</label><select id="${n}-y2" class="stk-select stk-select-sm" data-f="y2">${options(cols, Number.isInteger(s.y2) ? s.y2 : s.y)}</select></div>`
-        : `<div class="stk-field"><label for="${n}-yerr">Y error</label><select id="${n}-yerr" class="stk-select stk-select-sm" data-f="yerr">${options(none, Number.isInteger(s.yerr) ? s.yerr : '')}</select></div>
-           <div class="stk-field"><label for="${n}-xerr">X error</label><select id="${n}-xerr" class="stk-select stk-select-sm" data-f="xerr">${options(none, Number.isInteger(s.xerr) ? s.xerr : '')}</select></div>`}
-      ${panels > 1 ? `<div class="stk-field"><label for="${n}-panel">Panel</label><select id="${n}-panel" class="stk-select stk-select-sm" data-f="panel">${options(Array.from({ length: panels }, (_, i) => [i, i === 0 ? '1 (top)' : String(i + 1)]), Math.min(s.panel || 0, panels - 1))}</select></div>` : ''}
+      ${body}
+      ${axes.x ? sel('xAxis', 'X axis', [['bottom', 'Bottom'], ['top', 'Top']], s.xAxis === 'top' ? 'top' : 'bottom') : ''}
+      ${axes.y ? sel('yAxis', 'Y axis', [['left', 'Left'], ['right', 'Right']], s.yAxis === 'right' ? 'right' : 'left') : ''}
+      ${places.length > 1 ? `<div class="stk-field"><label for="${n}-panel">Panel</label><select id="${n}-panel" class="stk-select stk-select-sm" data-f="panel">${options(places, panelKey(s, places))}</select></div>` : ''}
     </div>
     <p class="pb-card-note" data-note aria-live="polite"></p>`;
   return card;
+}
+
+/*
+ * The panels a series can go to, as the Panel menu lists them: in one
+ * column, as many as there are rows or series (four at most without more
+ * rows), the first on top; on a grid, every cell by its row and column;
+ * then the insets.
+ */
+function panelChoices() {
+  const lay = builderLayout(state.layout);
+  const list = [];
+  if (lay.cols === 1) {
+    const n = Math.max(lay.rows, Math.min(4, state.series.length));
+    for (let i = 0; i < n; i++) list.push([i, i === 0 ? '1 (top)' : String(i + 1)]);
+  } else {
+    for (let i = 0; i < lay.rows * lay.cols; i++) list.push([i, `Row ${Math.floor(i / lay.cols) + 1}, column ${(i % lay.cols) + 1}`]);
+  }
+  lay.insets.forEach((s, k) => list.push([s.id, `Inset ${k + 1}`]));
+  return list;
+}
+
+/* The panel a series is in, as one of the menu's values. */
+function panelKey(s, places = panelChoices()) {
+  if (typeof s.panel === 'string') return places.some(([v]) => v === s.panel) ? s.panel : 0;
+  const cells = places.filter(([v]) => typeof v === 'number').length;
+  return Math.min(Math.max(0, Math.round(s.panel || 0)), cells - 1);
+}
+
+/* Where a series is drawn among the figure's panels (-1: nowhere). */
+function panelIndex(s) {
+  const key = typeof s.panel === 'string' && state.layout.insets.some((x) => x.id === s.panel) ? s.panel : Math.max(0, Math.round(Number(s.panel) || 0));
+  return builderPanels(state).findIndex((p) => p.key === key);
 }
 
 function renderSeries() {
@@ -481,6 +691,7 @@ function renderSeries() {
     : 'Open a file on the <strong>Data</strong> tab, or load the example. Its first two columns of numbers are plotted at once.';
   ui.addSeries.disabled = !state.files.length;
   if (focusId && $(focusId)) $(focusId).focus();
+  renderInsets();
   syncTabs();
   syncCards();
 }
@@ -491,7 +702,7 @@ function syncCards() {
   const drawn = new Map();
   if (f) f.panels.forEach((p) => p.series.forEach((q) => drawn.set(q.id, q)));
   const style = plot ? plot.getStyle() : {};
-  const scales = f ? { xLog: f.xScale === 'log' } : {};
+  const samePanel = (a, b) => (typeof a.panel === 'string' || typeof b.panel === 'string' ? a.panel === b.panel : Math.max(0, a.panel || 0) === Math.max(0, b.panel || 0));
   ui.seriesList.querySelectorAll('.pb-card').forEach((card) => {
     const s = seriesById(card.dataset.id);
     if (!s) return;
@@ -504,21 +715,31 @@ function syncCards() {
     name.placeholder = fallback;
     if (document.activeElement !== name) name.value = own ?? fallback;
     const note = card.querySelector('[data-note]');
-    let yLog = false;
-    if (f) {
-      const panels = [...new Set(state.series.map((x) => Math.max(0, x.panel || 0)))].sort((a, b) => a - b);
-      const p = f.panels[panels.indexOf(Math.max(0, s.panel || 0))];
-      yLog = !!(p && p.yScale === 'log');
-    }
-    const msg = seriesNote(fileById(s.fileId), s, { ...scales, yLog });
+    // The scales of the axes of its panel: the note speaks of those it stands on.
+    const p = f ? f.panels[panelIndex(s)] : null;
+    const panelScales = p ? { xLog: p.xScale === 'log', yLog: p.yScale === 'log', x2Log: p.x2Scale === 'log', y2Log: p.y2Scale === 'log' } : {};
+    // The other stacked bars a stacked series stands with: in its panel, on its axes, lying the same way.
+    const partners = state.series.filter((x) => x !== s && x.chart === 'bar' && (x.stack === 'stack' || x.stack === 'percent')
+      && samePanel(x, s) && (x.orientation === 'h') === (s.orientation === 'h')
+      && (s.orientation === 'h' || ((x.xAxis === 'top') === (s.xAxis === 'top') && (x.yAxis === 'right') === (s.yAxis === 'right')))).length;
+    const msg = seriesNote(fileById(s.fileId), s, { ...panelScales, stackPartners: partners });
     if (note.textContent !== msg) note.textContent = msg;
+    // Edges that cannot be used are marked on their field; the note says why.
+    const edges = card.querySelector('[data-f="binEdges"]');
+    if (edges) {
+      const bad = !!histogramOptions(s).error && (s.binEdges || '').trim() !== '';
+      edges.classList.toggle('is-invalid', bad);
+      edges.setAttribute('aria-invalid', String(bad));
+    }
   });
 }
 
 function defaultLabel(s) {
   if (typeof s.label === 'string') return s.label;
   const t = fileById(s.fileId).table;
-  if (s.draw === 'band' && Number.isInteger(s.y2) && s.y2 !== s.y) return `${columnName(t.headers, s.y)} to ${columnName(t.headers, s.y2)}`;
+  if ((s.chart === 'heatmap' || s.chart === 'contour') && Number.isInteger(s.z)) return columnName(t.headers, s.z);
+  if (s.chart === 'hist2d') return 'Count';
+  if ((!s.chart || s.chart === 'curve') && s.draw === 'band' && Number.isInteger(s.y2) && s.y2 !== s.y) return `${columnName(t.headers, s.y)} to ${columnName(t.headers, s.y2)}`;
   return columnName(t.headers, s.y);
 }
 
@@ -559,25 +780,64 @@ ui.seriesList.addEventListener('focusout', (e) => {
 });
 
 ui.seriesList.addEventListener('change', (e) => {
-  const el = e.target.closest('select[data-f]');
+  const el = e.target.closest('select[data-f], input[data-f]:not([data-f="label"])');
   if (!el) return;
   const card = el.closest('.pb-card');
   const s = seriesById(card.dataset.id);
   const key = el.dataset.f;
-  const v = el.value;
+  const v = el.type === 'checkbox' ? el.checked : el.value;
   if (key === 'fileId') {
     s.fileId = v;
     const cols = firstColumns(fileById(v));
-    Object.assign(s, { x: cols.x, y: cols.y, y2: null, yerr: null, xerr: null });
+    Object.assign(s, { x: cols.x, y: cols.y, y2: null, z: null, groupBy: null, yerr: null, xerr: null });
+    if (s.chart && s.chart !== 'curve') Object.assign(s, suggestColumns(fileById(v).table, s.chart));
     delete s.label;
     renderSeries();
-  } else if (key === 'yerr' || key === 'xerr') {
+  } else if (key === 'chart') {
+    s.chart = v;
+    Object.assign(s, { yerr: null, xerr: null, y2: null });
+    if (v !== 'curve') Object.assign(s, { groupBy: null, z: null }, suggestColumns(fileById(s.fileId).table, v));
+    delete s.label;
+    renderSeries();
+    card.ownerDocument.querySelector(`.pb-card[data-id="${s.id}"] [data-f="chart"]`)?.focus();
+  } else if (key === 'yerr' || key === 'xerr' || key === 'groupBy') {
     s[key] = v === '' ? null : Number(v);
+  } else if (key === 'bins' || key === 'levels') {
+    const n = Math.round(Number(v));
+    if (!Number.isFinite(n)) return;
+    s[key] = key === 'levels' ? Math.min(100, Math.max(1, n)) : Math.min(s.chart === 'hist2d' ? 500 : 1000, Math.max(1, n));
+    el.value = String(s[key]);
+  } else if (CHECK_KEYS.includes(key)) {
+    s[key] = !!v;
+  } else if (key === 'cut') {
+    const c = Number(v);
+    if (!Number.isFinite(c)) return;
+    s.cut = Math.min(10, Math.max(0, c));
+    el.value = String(s.cut);
+  } else if (key === 'level') {
+    s.level = Number(v);
+  } else if (key === 'interval') {
+    s.interval = v === '' ? null : Number(v);
+  } else if (TEXT_KEYS.includes(key)) {
+    s[key] = v;
+    if (key === 'normalise') delete s.density;
   } else if (key === 'panel') {
-    s.panel = Number(v);
+    s.panel = /^\d+$/.test(v) ? Number(v) : v;
+    renderInsets();
+  } else if (key === 'xAxis' || key === 'yAxis') {
+    s[key] = v;
   } else {
     s[key] = Number(v);
     if (key === 'y') delete s.label;
+    // Bars named by text cannot stand on a top axis: the card offers it or not.
+    if (key === 'x' && s.chart === 'bar') { redraw(); renderSeries(); return; }
+  }
+  if (CARD_LOOK[key]) dropLook(s.id, CARD_LOOK[key]);
+  if (REBUILD_KEYS.includes(key)) {
+    redraw();
+    renderSeries();
+    card.ownerDocument.querySelector(`.pb-card[data-id="${s.id}"] [data-f="${key}"]`)?.focus();
+    return;
   }
   redraw();
 });
@@ -589,7 +849,8 @@ ui.seriesList.addEventListener('click', (e) => {
     const s = seriesById(card.dataset.id);
     const v = seg.dataset.value;
     if (v === s.draw) return;
-    const wasBand = s.draw === 'band';
+    const swap = (d) => d === 'band' || d === 'step';
+    const rebuild = swap(v) || swap(s.draw);
     s.draw = v;
     if (v === 'band' && !Number.isInteger(s.y2)) {
       const t = fileById(s.fileId).table;
@@ -600,10 +861,10 @@ ui.seriesList.addEventListener('click', (e) => {
     }
     // A marker or a line the person chose for another way of drawing would contradict this one.
     dropLook(s.id, v === 'line' ? ['marker'] : v === 'points' ? ['lineStyle'] : []);
-    if (v === 'band' || wasBand) renderSeries();
+    if (rebuild) renderSeries();
     else card.querySelectorAll('[data-f="draw"] > button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.value === v)));
     redraw();
-    if (v === 'band' || wasBand) card.ownerDocument.querySelector(`.pb-card[data-id="${s.id}"] [data-f="draw"] > [data-value="${v}"]`)?.focus();
+    if (rebuild) card.ownerDocument.querySelector(`.pb-card[data-id="${s.id}"] [data-f="draw"] > [data-value="${v}"]`)?.focus();
     return;
   }
   const act = e.target.closest('[data-act]');
@@ -634,6 +895,9 @@ ui.addSeries.addEventListener('click', () => {
     const usedCols = new Set(state.series.filter((x) => x.fileId === fileId && x !== s).flatMap((x) => [x.y, x.y2, x.yerr, x.xerr]).filter(Number.isInteger));
     s.x = last.x;
     s.draw = last.draw === 'band' ? 'line' : last.draw;
+    if (['bar', 'hist', 'box', 'violin', 'bars-mean'].includes(last.chart)) s.chart = last.chart;
+    // Bars follow the way the last ones lie and stand together.
+    if (last.chart === 'bar' || last.chart === 'bars-mean') Object.assign(s, { orientation: last.orientation, stack: last.chart === 'bar' ? last.stack : undefined });
     s.panel = last.panel || 0;
     s.y = t.headers.map((_, i) => i).find((i) => t.numeric[i] && i !== s.x && !usedCols.has(i)) ?? s.y;
   }
@@ -668,6 +932,212 @@ function scrollToInRail(node) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Layout: the grid, shared axes, the gap, panel letters, insets
+ * ------------------------------------------------------------------ */
+
+const pct = (v) => String(Math.round(v * 100));
+
+function insetCard(at, k) {
+  const n = `pb-${at.id}`;
+  const lay = builderLayout(state.layout);
+  // The panels an inset can stand in: the cells with a series in them.
+  const cells = builderPanels(state).filter((p) => p.cell !== null).map((p) => p.cell);
+  if (!cells.includes(at.parent)) cells.push(at.parent);
+  const name = (c) => (lay.cols === 1 ? (c === 0 ? '1 (top)' : String(c + 1)) : `Row ${Math.floor(c / lay.cols) + 1}, column ${(c % lay.cols) + 1}`);
+  const num = (key, label, value, extra = '') => `<div class="stk-field"><label for="${n}-${key}">${label}</label><input id="${n}-${key}" type="number" inputmode="decimal" class="stk-input stk-input-sm" data-i="${key}" value="${esc(value)}" ${extra}></div>`;
+  const lim = (v) => (v === null || v === undefined ? '' : short(v, 6));
+  const card = document.createElement('div');
+  card.className = 'pb-inset';
+  card.dataset.inset = at.id;
+  card.setAttribute('role', 'group');
+  card.setAttribute('aria-label', `Inset ${k + 1}`);
+  card.innerHTML = `
+    <div class="pb-inset-h"><span>Inset ${k + 1}</span>
+      <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost stk-btn-icon" data-i="remove" aria-label="Remove inset ${k + 1}"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+    <div class="pb-grid2">
+      <div class="stk-field"><label for="${n}-parent">Inset of panel</label><select id="${n}-parent" class="stk-select stk-select-sm" data-i="parent">${options(cells.sort((a, b) => a - b).map((c) => [c, name(c)]), at.parent)}</select></div>
+      <div class="stk-field pb-check"><label class="stk-check"><input id="${n}-zoom" type="checkbox" data-i="zoom"${at.zoom ? ' checked' : ''}> Mark what it enlarges</label></div>
+      ${num('x', 'From the left (%)', pct(at.x), 'min="0" max="90" step="1"')}${num('y', 'From the bottom (%)', pct(at.y), 'min="0" max="90" step="1"')}
+      ${num('w', 'Width (%)', pct(at.w), 'min="10" max="100" step="1"')}${num('h', 'Height (%)', pct(at.h), 'min="10" max="100" step="1"')}
+      ${num('x0', 'X from', lim(at.xLim[0]), 'step="any" placeholder="Auto"')}${num('x1', 'X to', lim(at.xLim[1]), 'step="any" placeholder="Auto"')}
+      ${num('y0', 'Y from', lim(at.yLim[0]), 'step="any" placeholder="Auto"')}${num('y1', 'Y to', lim(at.yLim[1]), 'step="any" placeholder="Auto"')}
+    </div>
+    <p class="pb-card-hint">Its series are those whose <strong>Panel</strong> is Inset ${k + 1}. Drag inside the inset to choose what it shows; double-click it to fit its data.</p>`;
+  return card;
+}
+
+/* The inset cards, kept in step with the insets of the state. */
+function renderInsets() {
+  const focusId = document.activeElement && document.activeElement.id;
+  state.layout.insets = builderLayout(state.layout).insets;
+  ui.insets.replaceChildren(...state.layout.insets.map((at, k) => insetCard(at, k)));
+  ui.addInset.disabled = state.layout.insets.length >= MAX_INSETS || !state.series.length;
+  if (focusId && $(focusId)) $(focusId).focus();
+}
+
+/* What the Layout section shows: the grid and the shared axes of the state,
+   the gap and the letters of the figure as drawn (they are in the style). */
+function syncLayout() {
+  const lay = builderLayout(state.layout);
+  const f = plot && plot.figure();
+  ui.layout.hidden = !state.series.length;
+  const put = (input, v) => { if (document.activeElement !== input) input.value = v; };
+  put(ui.rows, String(lay.rows));
+  put(ui.cols, String(lay.cols));
+  ui.shareX.value = lay.sharex;
+  ui.shareY.value = lay.sharey;
+  // In one column 'down a column' is 'all'; along a row means nothing there.
+  ui.shareX.querySelector('[value="col"]').hidden = lay.cols === 1;
+  ui.shareY.querySelector('[value="row"]').hidden = lay.cols === 1;
+  ui.gapWField.hidden = lay.cols === 1;
+  const gap = f ? f.panelGap : { h: null, w: null };
+  put(ui.gapH, gap.h === null ? '' : short(gap.h));
+  put(ui.gapW, gap.w === null ? '' : short(gap.w));
+  const letters = f ? f.panelLabels : { show: false, style: '(a)', position: 'inside' };
+  ui.letters.checked = letters.show;
+  ui.letterStyle.value = letters.style;
+  ui.letterPlace.value = letters.position;
+  ui.letterStyleField.hidden = !letters.show;
+  ui.letterPlaceField.hidden = !letters.show;
+  const n = builderPanels(state).filter((p) => p.cell !== null).length;
+  const parts = [lay.cols > 1 ? `${lay.rows} × ${lay.cols}` : plural(n, 'panel')];
+  if (n > 1 && lay.sharex !== 'none' && lay.cols > 1) parts.push(lay.sharex === 'all' ? 'x shared' : 'x shared by column');
+  if (n > 1 && lay.sharey !== 'none') parts.push(lay.sharey === 'all' ? 'y shared' : 'y shared by row');
+  if (gap.h !== null || gap.w !== null) parts.push(`gap ${[gap.h, lay.cols > 1 ? gap.w : null].filter((v) => v !== null).map((v) => short(v)).join(' × ')} pt`);
+  if (letters.show) parts.push('lettered');
+  if (lay.insets.length) parts.push(plural(lay.insets.length, 'inset'));
+  ui.layoutSum.textContent = parts.join(', ');
+  ui.addInset.disabled = lay.insets.length >= MAX_INSETS || !state.series.length;
+}
+
+/* The grid changed: the cards' Panel menus and the insets' follow it. */
+function relayout() {
+  renderSeries();
+  redraw();
+}
+
+ui.rows.addEventListener('change', () => {
+  const n = Math.round(Number(ui.rows.value));
+  state.layout.rows = Number.isFinite(n) ? Math.min(MAX_GRID_ROWS, Math.max(1, n)) : 1;
+  ui.rows.value = String(state.layout.rows);
+  relayout();
+});
+ui.cols.addEventListener('change', () => {
+  const before = builderLayout(state.layout).cols;
+  const n = Math.round(Number(ui.cols.value));
+  const cols = Number.isFinite(n) ? Math.min(MAX_GRID_COLS, Math.max(1, n)) : 1;
+  ui.cols.value = String(cols);
+  if (cols === before) return;
+  // Every series and inset keeps its row and, where there still is one, its column.
+  const move = (cell) => Math.floor(cell / before) * cols + Math.min(cell % before, cols - 1);
+  for (const s of state.series) if (typeof s.panel !== 'string') s.panel = move(Math.max(0, Math.round(s.panel || 0)));
+  for (const at of state.layout.insets) at.parent = move(at.parent);
+  state.layout.cols = cols;
+  // Enough rows for the panels there are.
+  const last = Math.max(0, ...state.series.filter((s) => typeof s.panel !== 'string').map((s) => s.panel));
+  state.layout.rows = Math.min(MAX_GRID_ROWS, Math.max(builderLayout(state.layout).rows, cols > 1 ? Math.floor(last / cols) + 1 : 1));
+  relayout();
+});
+ui.shareX.addEventListener('change', () => { state.layout.sharex = ui.shareX.value; redraw(); });
+ui.shareY.addEventListener('change', () => { state.layout.sharey = ui.shareY.value; redraw(); });
+
+/* The gap and the letters are look: they go into the style. */
+function setGap() {
+  const read = (input) => { const t = input.value.trim(); const v = Number(t); return t === '' || !Number.isFinite(v) ? null : Math.min(72, Math.max(0, v)); };
+  const next = plot.getStyle();
+  const gap = { h: read(ui.gapH), w: read(ui.gapW) };
+  if (gap.h === null && gap.w === null) delete next.panelGap; else next.panelGap = gap;
+  setStyle(next);
+}
+ui.gapH.addEventListener('change', setGap);
+ui.gapW.addEventListener('change', setGap);
+function setLetters() {
+  const next = plot.getStyle();
+  next.panelLabels = { ...(next.panelLabels || {}), show: ui.letters.checked, style: ui.letterStyle.value, position: ui.letterPlace.value };
+  setStyle(next);
+}
+ui.letters.addEventListener('change', setLetters);
+ui.letterStyle.addEventListener('change', setLetters);
+ui.letterPlace.addEventListener('change', setLetters);
+
+/*
+ * A new inset, in the first panel: it shows that panel's first curve again
+ * (the series is added with it), enlarged over the first quarter of its x
+ * range, with the box on the panel that marks it.
+ */
+ui.addInset.addEventListener('click', () => {
+  if (state.layout.insets.length >= MAX_INSETS || !state.series.length) return;
+  const cells = builderPanels(state).filter((p) => p.cell !== null);
+  const parent = cells.length ? cells[0].cell : 0;
+  let id = `inset${nextInset++}`;
+  while (state.layout.insets.some((x) => x.id === id)) id = `inset${nextInset++}`;
+  const at = { id, parent, x: 0.5, y: 0.5, w: 0.45, h: 0.42, zoom: true, xLim: [null, null], yLim: [null, null] };
+  const from = state.series.find((s) => typeof s.panel !== 'string' && Math.max(0, Math.round(s.panel || 0)) === parent && (!s.chart || s.chart === 'curve'));
+  if (from) {
+    const t = fileById(from.fileId).table;
+    const xs = t.columns[from.x] || []; const ys = t.columns[from.y] || [];
+    const ok = xs.map((v, i) => i).filter((i) => Number.isFinite(xs[i]) && Number.isFinite(ys[i]));
+    if (ok.length > 3) {
+      const lo = Math.min(...ok.map((i) => xs[i])); const hi = Math.max(...ok.map((i) => xs[i]));
+      const to = lo + (hi - lo) / 4;
+      const inside = ok.filter((i) => xs[i] <= to).map((i) => ys[i]);
+      if (inside.length > 1 && hi > lo) {
+        const y0 = Math.min(...inside); const y1 = Math.max(...inside);
+        const m = 0.05 * ((y1 - y0) || 1);
+        at.xLim = [tidy(lo, to - lo), tidy(to, to - lo)];
+        at.yLim = [tidy(y0 - m, y1 - y0 || 1), tidy(y1 + m, y1 - y0 || 1)];
+      }
+    }
+    const copy = newSeries(from.fileId, { x: from.x, y: from.y, draw: from.draw === 'band' ? 'line' : from.draw, panel: id, label: '' });
+    // The same curve, in the same colour.
+    const f = plot.figure();
+    const drawn = f ? f.panels.flatMap((p) => p.series).find((q) => q.id === from.id) : null;
+    if (drawn && drawn.color) {
+      const style = plot.getStyle();
+      style.series = { ...(style.series || {}), [copy.id]: { color: drawn.color } };
+      plot.setStyle(style);
+    }
+  } else at.zoom = false;
+  state.layout.insets.push(at);
+  ui.layout.open = true;
+  relayout();
+  const card = ui.insets.querySelector(`[data-inset="${id}"] select`);
+  if (card) card.focus();
+  toast(from ? `Added inset ${state.layout.insets.length} with a series of its own. Drag inside it to choose what it shows.` : `Added inset ${state.layout.insets.length}. Put a series in it with the Panel menu on its card.`, 'ok');
+});
+
+ui.insets.addEventListener('change', (e) => {
+  const el = e.target.closest('[data-i]');
+  if (!el) return;
+  const at = state.layout.insets.find((x) => x.id === el.closest('.pb-inset').dataset.inset);
+  if (!at) return;
+  const key = el.dataset.i;
+  const num = () => { const t = el.value.trim(); const v = Number(t); return t === '' || !Number.isFinite(v) ? null : v; };
+  if (key === 'parent') at.parent = Number(el.value);
+  else if (key === 'zoom') at.zoom = el.checked;
+  else if (['x', 'y', 'w', 'h'].includes(key)) { const v = num(); if (v !== null) at[key] = v / 100; }
+  else if (key === 'x0' || key === 'x1') at.xLim[key === 'x0' ? 0 : 1] = num();
+  else if (key === 'y0' || key === 'y1') at.yLim[key === 'y0' ? 0 : 1] = num();
+  renderInsets();
+  redraw();
+});
+ui.insets.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-i="remove"]');
+  if (!b) return;
+  const id = b.closest('.pb-inset').dataset.inset;
+  const k = state.layout.insets.findIndex((x) => x.id === id);
+  if (k < 0) return;
+  state.layout.insets.splice(k, 1);
+  // Its series go with it.
+  const gone = state.series.filter((s) => s.panel === id).map((s) => s.id);
+  state.series = state.series.filter((s) => s.panel !== id);
+  forgetSeries(gone);
+  relayout();
+  ui.addInset.focus();
+  toast(`Removed the inset${gone.length ? ' and its series' : ''}.`);
+});
+
+/* ------------------------------------------------------------------ *
  * The preview: zoom by dragging, fit by double-clicking, read a point
  * ------------------------------------------------------------------ */
 
@@ -689,36 +1159,35 @@ function locate(e) {
   const scale = info.scale || (r.width / info.widthPx) || 1;
   const fx = (e.clientX - r.left) / scale;
   const fy = (e.clientY - r.top) / scale;
-  const i = info.axes.findIndex((b) => fx >= b.l && fx <= b.r && fy >= b.t && fy <= b.b);
+  // An inset lies over its panel: it comes first.
+  const over = (b) => fx >= b.l && fx <= b.r && fy >= b.t && fy <= b.b;
+  const insets = info.insets || [];
+  let i = info.axes.findIndex((b, k) => insets[k] >= 0 && over(b));
+  if (i < 0) i = info.axes.findIndex(over);
   return { gd, info, scale, fx, fy, panel: i, rect: r };
 }
 
-/* The mapping between data and figure pixels on panel i. */
-function axesOf(gd, i) {
-  const fl = gd._fullLayout;
-  const xa = fl[i === 0 ? 'xaxis' : `xaxis${i + 1}`];
-  const ya = fl[i === 0 ? 'yaxis' : `yaxis${i + 1}`];
-  if (!xa || !ya || !xa.range || !ya.range) return null;
-  const lin = (a) => ({
-    log: a.type === 'log',
-    toPx: (v) => {
-      const t = a.type === 'log' ? Math.log10(v) : v;
-      return a._offset + ((t - a.range[0]) / (a.range[1] - a.range[0])) * a._length;
-    },
-    toData: (p) => {
-      const t = a.range[0] + ((p - a._offset) / a._length) * (a.range[1] - a.range[0]);
-      return a.type === 'log' ? 10 ** t : t;
-    }
-  });
-  const x = lin(xa);
-  const yb = lin(ya);
-  // Plotly's y pixels run down the page.
-  const y = {
-    log: yb.log,
-    toPx: (v) => 2 * ya._offset + ya._length - yb.toPx(v),
-    toData: (p) => yb.toData(2 * ya._offset + ya._length - p)
+/* The mapping between data and figure pixels on panel i: its bottom x and
+   left y, and its top x and right y (null when it has none). */
+function axesOf(info, i) {
+  const box = info.axes && info.axes[i];
+  const views = info.views && info.views[i];
+  if (!box || !views) return null;
+  const lin = (a, from, len) => {
+    if (!a) return null;
+    const t = (v) => (a.log ? Math.log10(v) : v);
+    const t0 = t(a.view[0]); const t1 = t(a.view[1]);
+    return {
+      log: a.log,
+      toPx: (v) => from + ((t(v) - t0) / (t1 - t0)) * len,
+      toData: (p) => { const u = t0 + ((p - from) / len) * (t1 - t0); return a.log ? 10 ** u : u; }
+    };
   };
-  return { x, y };
+  // y pixels run down the page.
+  return {
+    x: lin(views.x, box.l, box.r - box.l), y: lin(views.y, box.b, box.t - box.b),
+    x2: lin(views.x2, box.l, box.r - box.l), y2: lin(views.y2, box.b, box.t - box.b)
+  };
 }
 
 /* A limit rounded to the digits the zoom can resolve. */
@@ -763,34 +1232,65 @@ function endDrag(e) {
   drag = null;
   zoomBox.hidden = true;
   if (!d.last || !(d.last.wide || d.last.tall)) return;
-  const ax = axesOf(d.gd, d.panel);
+  const ax = axesOf(d.info, d.panel);
   if (!ax) return;
   const toFig = (cx, cy) => ({ fx: (cx - d.rect.left) / d.scale, fy: (cy - d.rect.top) / d.scale });
   const a = toFig(d.x0, d.y0); const b = toFig(d.last.x1, d.last.y1);
   const next = plot.getStyle();
-  if (d.last.wide) {
-    const lo = ax.x.toData(Math.min(a.fx, b.fx)); const hi = ax.x.toData(Math.max(a.fx, b.fx));
+  // The limits the box spans on an axis, smallest first.
+  const limits = (m, p0, p1) => {
+    const lo = m.toData(p0); const hi = m.toData(p1);
     const span = Math.abs(hi - lo) || 1;
-    next.xLim = [tidy(lo, span), tidy(hi, span)];
+    return [tidy(lo, span), tidy(hi, span)];
+  };
+  const xs = d.last.wide ? limits(ax.x, Math.min(a.fx, b.fx), Math.max(a.fx, b.fx)) : null;
+  const ys = d.last.tall ? limits(ax.y, Math.max(a.fy, b.fy), Math.min(a.fy, b.fy)) : null;
+  const panels = (next.panels || []).slice();
+  const own = (i) => { while (panels.length <= i) panels.push({}); panels[i] = { ...(panels[i] || {}) }; return panels[i]; };
+  // An inset's limits are its own, kept with it: what it shows is where it zooms.
+  const f = plot.figure();
+  const slot = builderPanels(state)[d.panel];
+  const inset = slot && slot.inset ? state.layout.insets.find((x) => x.id === slot.inset.id) : null;
+  if (inset) {
+    if (xs) inset.xLim = xs;
+    if (ys) inset.yLim = ys;
+    const mine = own(d.panel);
+    delete mine.xLim; delete mine.yLim;
+  } else {
+    // A shared axis is set on the first of the panels that share it; the
+    // one x axis of a plain stack is the figure's.
+    const share = (d.info.share && d.info.share[d.panel]) || { x: d.panel, y: d.panel };
+    if (xs) { if (f && isStack(f)) next.xLim = xs; else own(share.x).xLim = xs; }
+    if (ys) own(share.y).yLim = ys;
   }
-  if (d.last.tall) {
-    const lo = ax.y.toData(Math.max(a.fy, b.fy)); const hi = ax.y.toData(Math.min(a.fy, b.fy));
-    const span = Math.abs(hi - lo) || 1;
-    const panels = (next.panels || []).slice();
-    while (panels.length <= d.panel) panels.push({});
-    panels[d.panel] = { ...(panels[d.panel] || {}), yLim: [tidy(lo, span), tidy(hi, span)] };
-    next.panels = panels;
-  }
+  // A second axis zooms with the first: the same stretch of the panel.
+  if (d.last.wide && ax.x2) own(d.panel).x2Lim = limits(ax.x2, Math.min(a.fx, b.fx), Math.max(a.fx, b.fx));
+  if (d.last.tall && ax.y2) own(d.panel).y2Lim = limits(ax.y2, Math.max(a.fy, b.fy), Math.min(a.fy, b.fy));
+  if (panels.some((p) => p && Object.keys(p).length)) next.panels = panels;
+  if (inset) { plot.setStyle(next); saveStyle(plot.getStyle()); renderInsets(); redraw(); return; }
   setStyle(next);
 }
 ui.figure.addEventListener('pointerup', endDrag);
 ui.figure.addEventListener('pointercancel', (e) => { if (drag && e.pointerId === drag.id) { drag = null; zoomBox.hidden = true; } });
-ui.figure.addEventListener('dblclick', () => {
+ui.figure.addEventListener('dblclick', (e) => {
+  // On an inset: the inset alone fits its data again.
+  const at = locate(e);
+  const slot = at && at.panel >= 0 ? builderPanels(state)[at.panel] : null;
+  const inset = slot && slot.inset ? state.layout.insets.find((x) => x.id === slot.inset.id) : null;
+  if (inset) {
+    if (![...inset.xLim, ...inset.yLim].some((v) => v !== null)) return;
+    inset.xLim = [null, null];
+    inset.yLim = [null, null];
+    renderInsets();
+    redraw();
+    toast('The inset fits its data again.');
+    return;
+  }
   const next = plot.getStyle();
-  const had = next.xLim || (next.panels || []).some((p) => p && p.yLim);
+  const had = next.xLim || (next.panels || []).some((p) => p && (p.xLim || p.yLim || p.y2Lim || p.x2Lim));
   if (!had) return;
   delete next.xLim;
-  if (next.panels) next.panels = next.panels.map((p) => { const o = { ...(p || {}) }; delete o.yLim; return o; });
+  if (next.panels) next.panels = next.panels.map((p) => { const o = { ...(p || {}) }; delete o.xLim; delete o.yLim; delete o.y2Lim; delete o.x2Lim; return o; });
   setStyle(next);
   toast('The axes fit the data again.');
 });
@@ -805,12 +1305,14 @@ function hover(e) {
     const at = locate(e);
     const f = plot.figure();
     if (!at || at.panel < 0 || !f) { tip.hidden = true; return; }
-    const ax = axesOf(at.gd, at.panel);
-    if (!ax) { tip.hidden = true; return; }
+    const axes = axesOf(at.info, at.panel);
+    if (!axes) { tip.hidden = true; return; }
     const reach = 12 / at.scale;
     let best = null;
     for (const q of f.panels[at.panel].series) {
       if (!q.show || !Array.isArray(q.x) || !Array.isArray(q.y) || !['line', 'scatter', 'errorbar'].includes(q.kind)) continue;
+      // Each series by the axes it stands on.
+      const ax = { x: (q.xAxis === 'top' && axes.x2) || axes.x, y: (q.yAxis === 'right' && axes.y2) || axes.y };
       const n = Math.min(q.x.length, q.y.length);
       for (let i = 0; i < n; i++) {
         const xv = q.x[i]; const yv = q.y[i];
@@ -819,13 +1321,13 @@ function hover(e) {
         if (Math.abs(dx) > reach) continue;
         const dy = ax.y.toPx(yv) - at.fy;
         const d2 = dx * dx + dy * dy;
-        if (d2 <= reach * reach && (!best || d2 < best.d2)) best = { d2, q, i, xv, yv };
+        if (d2 <= reach * reach && (!best || d2 < best.d2)) best = { d2, q, i, xv, yv, ax };
       }
     }
     if (!best) { tip.hidden = true; return; }
     const host = ui.figure.getBoundingClientRect();
-    const px = at.rect.left + ax.x.toPx(best.xv) * at.scale - host.left;
-    const py = at.rect.top + ax.y.toPx(best.yv) * at.scale - host.top;
+    const px = at.rect.left + best.ax.x.toPx(best.xv) * at.scale - host.left;
+    const py = at.rect.top + best.ax.y.toPx(best.yv) * at.scale - host.top;
     const err = best.q.yerr ? ` ± ${short(best.q.yerr[1][best.i])}` : '';
     tip.innerHTML = `${best.q.label ? `<b>${esc(best.q.label)}</b><br>` : ''}${esc(short(best.xv))}, ${esc(short(best.yv))}${esc(err)}`;
     tip.style.left = `${Math.min(Math.max(px, 60), host.width - 60)}px`;
@@ -841,6 +1343,7 @@ function hover(e) {
 function resetAll() {
   state.files = [];
   state.series = [];
+  state.layout = emptyLayout();
   try { localStorage.removeItem(STYLE_KEY); } catch (e) { /* storage blocked */ }
   plot.setStyle({});
   renderFiles();
@@ -853,6 +1356,95 @@ function resetAll() {
 ui.example.addEventListener('click', loadExample);
 ui.tryExample.addEventListener('click', loadExample);
 ui.reset.addEventListener('click', resetAll);
+
+/* ------------------------------------------------------------------ *
+ * More examples: a button that shows a list of them
+ * ------------------------------------------------------------------ */
+
+ui.examplesList.replaceChildren(...EXAMPLES.map((e) => {
+  const li = document.createElement('li');
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'pb-example';
+  b.dataset.example = e.id;
+  const name = document.createElement('span');
+  name.className = 'pb-example-name';
+  name.textContent = e.name;
+  const text = document.createElement('span');
+  text.className = 'pb-example-text';
+  text.textContent = e.description;
+  b.append(name, text);
+  li.append(b);
+  return li;
+}));
+
+let exampleAsked = null;   // the example waiting for a yes, while the page holds the person's own files
+const exampleItems = () => Array.from(ui.examplesList.querySelectorAll('.pb-example'));
+
+function showExampleList() {
+  exampleAsked = null;
+  ui.examplesConfirm.hidden = true;
+  ui.examplesList.hidden = false;
+}
+function openExamples({ focus = false } = {}) {
+  showExampleList();
+  ui.examplesPanel.hidden = false;
+  ui.examples.setAttribute('aria-expanded', 'true');
+  if (focus) exampleItems()[0].focus();
+}
+function closeExamples({ focus = false } = {}) {
+  if (ui.examplesPanel.hidden) return;
+  ui.examplesPanel.hidden = true;
+  ui.examples.setAttribute('aria-expanded', 'false');
+  showExampleList();
+  if (focus) ui.examples.focus();
+}
+/* Load an example from the list. The person's own files are not replaced without a yes. */
+function chooseExample(id) {
+  const own = state.files.filter((f) => !f.example);
+  if (own.length && exampleAsked !== id) {
+    const ex = EXAMPLES.find((e) => e.id === id);
+    exampleAsked = id;
+    ui.examplesAsk.textContent = `“${ex.name}” takes the place of your ${plural(own.length, 'file')} and ${state.series.length} series. Your files stay on your machine, and the plot style stays as it is.`;
+    ui.examplesList.hidden = true;
+    ui.examplesConfirm.hidden = false;
+    ui.examplesYes.focus();
+    return;
+  }
+  closeExamples({ focus: true });
+  loadBuiltIn(id);
+}
+
+ui.examples.addEventListener('click', () => { if (ui.examplesPanel.hidden) openExamples(); else closeExamples(); });
+ui.examples.addEventListener('keydown', (e) => {
+  if (e.key !== 'ArrowDown') return;
+  e.preventDefault();
+  openExamples({ focus: true });
+});
+ui.examplesList.addEventListener('click', (e) => {
+  const b = e.target.closest('.pb-example');
+  if (b) chooseExample(b.dataset.example);
+});
+ui.examplesList.addEventListener('keydown', (e) => {
+  const items = exampleItems();
+  const i = items.indexOf(document.activeElement);
+  const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: items.length - 1 }[e.key];
+  if (to === undefined || i < 0) return;
+  e.preventDefault();
+  items[(to + items.length) % items.length].focus();
+});
+ui.examplesYes.addEventListener('click', () => { if (exampleAsked) chooseExample(exampleAsked); });
+ui.examplesNo.addEventListener('click', () => { showExampleList(); exampleItems()[0].focus(); });
+ui.examples.parentElement.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape' || ui.examplesPanel.hidden) return;
+  e.stopPropagation();
+  closeExamples({ focus: true });
+});
+// The list closes when the focus or a click goes elsewhere.
+ui.examples.parentElement.addEventListener('focusout', (e) => {
+  if (e.relatedTarget && !ui.examples.parentElement.contains(e.relatedTarget)) closeExamples();
+});
+document.addEventListener('pointerdown', (e) => { if (!ui.examples.parentElement.contains(e.target)) closeExamples(); });
 
 renderFiles();
 renderSeries();

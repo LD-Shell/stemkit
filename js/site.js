@@ -69,7 +69,7 @@
              ['latex-formatter', 'Typeset the fitted equation'],
              ['stats-calculator', 'Compare groups or correlate variables']] },
     { id: 'plot-builder', name: 'Plot Builder', cat: 'data', icon: 'fa-chart-area',
-      desc: 'Overlay several CSV files in one figure with error bars, bands and panels; style it and export PDF, PNG, SVG or the matplotlib script.',
+      desc: 'Plot CSV columns as lines, bars, histograms, box plots, heatmaps and more, on one or several panels; style it and export PDF, PNG, SVG or the matplotlib script.',
       tags: 'plot chart graph figure publication overlay svg png matplotlib python export axis',
       next: [['xvg-visualizer', 'Read GROMACS .xvg series directly'],
              ['curve-fitter', 'Fit a model to one of the series'],

@@ -176,8 +176,25 @@
 .pb-card .stk-field { min-width: 0; }
 .pb-card .stk-seg { width: 100%; }
 .pb-card .stk-seg > button { flex: 1 1 0; min-width: 0; padding: 0 .4rem; }
+.pb-card-hint { margin: 0; font-size: .75rem; line-height: 1.45; color: var(--stk-fg-3); }
+.pb-check { align-self: end; }
+.pb-wide { grid-column: 1 / -1; }
+.pb-check .stk-check { font-size: .8125rem; }
 .pb-card-note { margin: 0; font-size: .75rem; line-height: 1.45; color: var(--stk-warn); }
 .pb-card-note:empty { display: none; }
+
+/* Layout: the grid of panels, shared axes, gaps, letters and insets */
+.pb-layout { margin-bottom: .75rem; }
+.pb-layout[hidden] { display: none; }
+.pb-layout > summary { display: flex; align-items: baseline; gap: .5rem; }
+.pb-layout-t { font-weight: 600; }
+.pb-layout-sum { color: var(--stk-fg-3); font-size: .75rem; font-weight: 400; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-layout .stk-field { min-width: 0; }
+.pb-insets-h { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.pb-insets { display: flex; flex-direction: column; gap: .6rem; }
+.pb-insets:empty { display: none; }
+.pb-inset { display: flex; flex-direction: column; gap: .6rem; padding: .6rem; border: 1px solid var(--stk-border); border-radius: var(--stk-radius); background: var(--stk-surface-2); min-width: 0; }
+.pb-inset-h { display: flex; align-items: center; justify-content: space-between; gap: .5rem; font-weight: 600; font-size: .8125rem; }
 
 /* ---------------------------------------------------------------------------
    The plot
@@ -217,3 +234,56 @@
 }
 .pb-tip b { font-weight: 650; }
 .pb-tip[hidden] { display: none; }
+
+/* More examples: a button that opens a list beside it, one entry for each
+   kind of chart, each with a line that says what it shows. */
+.pb-examples { position: relative; display: inline-flex; }
+.pb-examples-caret { font-size: .7em; transition: transform .15s ease; }
+.pb-examples > [aria-expanded="true"] .pb-examples-caret { transform: rotate(180deg); }
+.pb-examples-panel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + .4rem);
+  right: 0;
+  width: min(23rem, calc(100vw - 2rem));
+  max-height: min(70vh, 34rem);
+  overflow-y: auto;
+  padding: .6rem;
+  border: 1px solid var(--stk-border-strong);
+  border-radius: var(--stk-radius-lg);
+  background: var(--stk-surface);
+  box-shadow: var(--stk-shadow);
+  text-align: left;
+}
+.pb-examples-panel[hidden] { display: none; }
+.pb-examples-hint { margin: .15rem .35rem .5rem; font-size: .75rem; line-height: 1.45; color: var(--stk-fg-muted); }
+.pb-examples-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .15rem; }
+.pb-examples-list[hidden], .pb-examples-confirm[hidden] { display: none; }
+.pb-example {
+  display: block;
+  width: 100%;
+  padding: .45rem .6rem;
+  border: 1px solid transparent;
+  border-radius: var(--stk-radius);
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pb-example:hover, .pb-example:focus-visible { background: var(--stk-surface-2); border-color: var(--stk-border); }
+.pb-example:focus-visible { outline: 2px solid var(--stk-accent); outline-offset: 1px; }
+.pb-example-name { display: block; font-size: .875rem; font-weight: 600; color: var(--stk-fg); }
+.pb-example-text { display: block; margin-top: .1rem; font-size: .75rem; line-height: 1.4; color: var(--stk-fg-muted); }
+.pb-examples-confirm { padding: .35rem; }
+.pb-examples-confirm > p { margin: 0 0 .6rem; font-size: .8125rem; line-height: 1.5; color: var(--stk-fg); }
+.pb-examples-confirm-b { display: flex; flex-wrap: wrap; gap: .5rem; }
+/* Where the buttons stand under the page's title, on the left, the list opens
+   from the left end of their row. */
+@media (max-width: 1023.98px) {
+  .pb-actions { position: relative; }
+  .pb-examples { position: static; }
+  .pb-examples-panel { left: 0; right: auto; width: min(23rem, 100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pb-examples-caret { transition: none; }
+}
