@@ -34,6 +34,7 @@ import {
   shapeAxis,
   axisTilt,
   netTransform,
+  editconfPlacement,
   describeStep,
   transformScript,
   transformLatex,
@@ -59,13 +60,9 @@ document.addEventListener('DOMContentLoaded', () => {
     title: '',
     unknownElements: [],
     boxEdited: false,
-    // What has been applied, in the source unit, so the equivalent
-    // `gmx editconf` command can be written out. Tracked as a net effect
-    // rather than a history: editconf takes one -translate and one -rotate.
-    applied: { tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: 0, centre: null, order: [], pivots: [] },
     // Every step that changed the coordinates, in order, as stemkit-core
     // describes one (see netTransform): the source of the equations, the
-    // Python script and the one rotation of the editconf command.
+    // Python script and the editconf command.
     steps: [],
     // Bumped whenever the coordinates change, so the preview cache knows to
     // rebuild without having to compare the atom list itself.
@@ -73,7 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const resetApplied = () => {
-    state.applied = { tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: 0, centre: null, order: [], pivots: [] };
     state.steps = [];
   };
 
@@ -466,9 +462,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // --- 5. Box ---
+  /** The padding in percent: what is typed, 0 included, or 10 when the field is blank or not a number. */
+  function boxPadding() {
+    const raw = boxPad ? boxPad.value.trim() : '';
+    const v = Number(raw);
+    return raw !== '' && Number.isFinite(v) && v >= 0 ? v : 10;
+  }
+
   function seedBoxInputs() {
     if (!boxLx) return;
-    const pad = boxPad ? Number(boxPad.value) || 10 : 10;
+    const pad = boxPadding();
     const box = state.box && state.box.length >= 3
       ? state.box
       : computeBoxFromBounds(state.atoms, state.unit, pad);
@@ -481,7 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function currentBox() {
     if (state.boxEdited && boxLx) {
-      const pad = boxPad ? Number(boxPad.value) || 10 : 10;
+      const pad = boxPadding();
       const fallback = computeBoxFromBounds(state.atoms, state.unit, pad);
       const pick = (raw, fb) => {
         const v = Number(raw);
@@ -494,8 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ];
     }
     if (state.box && state.box.length >= 3) return state.box.slice(0, 3);
-    const pad = boxPad ? Number(boxPad.value) || 10 : 10;
-    return computeBoxFromBounds(state.atoms, state.unit, pad);
+    return computeBoxFromBounds(state.atoms, state.unit, boxPadding());
   }
 
   /**
@@ -568,9 +570,41 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   }
 
+  /**
+   * The numbers of a row of fields, or null when one of them holds something
+   * that is not a number. A blank field is 0; a typing slip is named and its
+   * field takes the focus, so it is never applied as a silent 0.
+   */
+  function readNumbers(fields, what) {
+    const values = [];
+    let bad = null;
+    for (const [input, axis] of fields) {
+      const raw = input ? input.value.trim() : '';
+      const v = Number(raw);
+      const invalid = Boolean(input) && ((input.validity && input.validity.badInput) || !Number.isFinite(v));
+      if (input) {
+        if (invalid) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
+      }
+      if (invalid && !bad) bad = { input, axis };
+      values.push(invalid ? 0 : v);
+    }
+    if (bad) {
+      showToast(`The ${what} along ${bad.axis} is not a number. Type one, such as 1.5 or -30.`, 'error');
+      bad.input.focus();
+      return null;
+    }
+    return values;
+  }
+
+  [rotX, rotY, rotZ, transX, transY, transZ].forEach(input => {
+    if (input) input.addEventListener('input', () => input.removeAttribute('aria-invalid'));
+  });
+
   if (btnRotate) btnRotate.addEventListener('click', () => {
     if (!requireStructure()) return;
-    const { x: dx, y: dy, z: dz } = fieldAngles();
+    const angles = readNumbers([[rotX, 'x'], [rotY, 'y'], [rotZ, 'z']], 'angle');
+    if (!angles) return;
+    const [dx, dy, dz] = angles;
     if (!dx && !dy && !dz) {
       showToast('No rotation to apply yet. Type an angle, or choose Turn molecule and drag it.', 'info');
       return;
@@ -585,10 +619,6 @@ document.addEventListener('DOMContentLoaded', () => {
     pushUndo('rotation');
     state.atoms = rotateAtoms(state.atoms, dx, dy, dz, pivot);
     state.revision++;
-    state.applied.rx += dx; state.applied.ry += dy; state.applied.rz += dz;
-    state.applied.order.push('rotate');
-    if (!state.applied.pivots) state.applied.pivots = [];
-    state.applied.pivots.push(pivotName);
     state.steps.push({ type: 'rotate', angles: { x: dx, y: dy, z: dz }, pivot: pivotName, centre: pivot });
     // The rotation is in the coordinates now, so nothing is left waiting. A
     // turn about a centre leaves the structure where it was, so the view
@@ -612,9 +642,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnTranslate) btnTranslate.addEventListener('click', () => {
     if (!requireStructure()) return;
-    const dx = Number(transX.value) || 0;
-    const dy = Number(transY.value) || 0;
-    const dz = Number(transZ.value) || 0;
+    const move = readNumbers([[transX, 'x'], [transY, 'y'], [transZ, 'z']], 'distance');
+    if (!move) return;
+    const [dx, dy, dz] = move;
     if (!dx && !dy && !dz) {
       showToast('No distance to move by yet. Type one first.', 'info');
       return;
@@ -622,8 +652,6 @@ document.addEventListener('DOMContentLoaded', () => {
     pushUndo('translation');
     state.atoms = translateAtoms(state.atoms, dx, dy, dz);
     state.revision++;
-    state.applied.tx += dx; state.applied.ty += dy; state.applied.tz += dz;
-    state.applied.order.push('translate');
     state.steps.push({ type: 'translate', vector: { x: dx, y: dy, z: dz } });
     afterTransform(`Translated by (${dx}, ${dy}, ${dz}).`);
   });
@@ -637,8 +665,6 @@ document.addEventListener('DOMContentLoaded', () => {
     pushUndo('centring');
     state.atoms = centreAtoms(state.atoms, mode);
     state.revision++;
-    state.applied.centre = mode;
-    state.applied.order.push('centre');
     state.steps.push({ type: 'centre', mode, centre: { x: was.x, y: was.y, z: was.z } });
     afterTransform(mode === 'mass'
       ? 'Centred on the centre of mass.'
@@ -1682,11 +1708,12 @@ document.addEventListener('DOMContentLoaded', () => {
    * user:
    *
    *  - editconf works in nanometres throughout, so a source measured in
-   *    angstrom has its translation converted here.
-   *  - this tool rotates about the geometric centre; editconf's `-rotate`
-   *    turns the coordinates about the origin. The two agree only when the
-   *    structure is centred on the origin first, which is why a rotation
-   *    without a preceding centring is flagged.
+   *    angstrom has its lengths converted here.
+   *  - this tool rotates about the geometric centre by default and applies
+   *    the steps in the order they were made; editconf's `-rotate` turns the
+   *    coordinates about the origin, after `-translate` and before `-center`.
+   *    stemkit-core's editconfPlacement works out the one translation or
+   *    centre that makes the command land on the same coordinates.
    */
 
   const NM_PER = { A: 0.1, nm: 1 };
@@ -1699,7 +1726,6 @@ document.addEventListener('DOMContentLoaded', () => {
   function editconfCommand() {
     if (!state.atoms.length) return null;
 
-    const a = state.applied;
     const inFile = state.fileName || `input.${state.format || 'gro'}`;
     const outFmt = exportFormat ? exportFormat.value : 'gro';
     const outName = exportBaseName();
@@ -1724,46 +1750,40 @@ document.addEventListener('DOMContentLoaded', () => {
                  `the download button here.`);
     }
 
-    // Centring. editconf's -center moves the geometric centre; there is no
-    // centre-of-mass equivalent, so that case is called out.
-    if (a.centre) {
-      parts.push('-center 0 0 0');
-      if (a.centre === 'mass') {
-        notes.push('-center uses the geometric centre; editconf has no ' +
-                   'centre-of-mass option, so this will differ slightly for a ' +
-                   'structure whose mass is unevenly distributed.');
-      }
-    }
+    // Where the steps put the structure, as the one translation or centre and
+    // the one rotation editconf can replay (see editconfPlacement).
+    const turns = state.steps.filter(step => step.type === 'rotate');
+    const moves = state.steps.filter(step => step.type === 'translate');
+    const centrings = state.steps.filter(step => step.type === 'centre');
+    const place = editconfPlacement(state.steps, geometricCentre(state.atoms));
+    const nm = v => {
+      const text = toNm(v).toFixed(4);
+      return /^-0\.0+$/.test(text) ? text.slice(1) : text;
+    };
+    const angle = v => String(Number(v.toFixed(4)));
 
-    if (a.tx || a.ty || a.tz) {
-      parts.push(`-translate ${toNm(a.tx).toFixed(4)} ${toNm(a.ty).toFixed(4)} ${toNm(a.tz).toFixed(4)}`);
+    if (place.translate) {
+      parts.push(`-translate ${place.translate.map(nm).join(' ')}`);
       if (state.unit !== 'nm') {
         notes.push(`Translation converted from ${state.unit} to nm, which is what editconf expects.`);
+      }
+      const firstTurn = state.steps.findIndex(step => step.type === 'rotate');
+      const lastMove = state.steps.map(step => step.type).lastIndexOf('translate');
+      if (place.rotate && firstTurn > -1 && firstTurn < lastMove) {
+        notes.push('A rotation was applied before a translation. editconf always ' +
+                   'translates first and rotates second, so -translate is the move ' +
+                   'as it has to be made before the rotation. The coordinates come ' +
+                   'out the same.');
       }
     }
 
     // Rotations do not add angle by angle, so the angles written are those
     // of the one rotation the steps add up to, in editconf's own order (a
     // turn about x, then y, then z).
-    const turns = state.steps.filter(step => step.type === 'rotate');
-    const net = eulerFromMatrix(netTransform(turns).matrix);
-    const angle = v => String(Number(v.toFixed(4)));
-    if (turns.length && [net.x, net.y, net.z].some(v => Math.abs(v) > 5e-5)) {
-      parts.push(`-rotate ${angle(net.x)} ${angle(net.y)} ${angle(net.z)}`);
+    if (place.rotate) {
+      parts.push(`-rotate ${angle(place.rotate.x)} ${angle(place.rotate.y)} ${angle(place.rotate.z)}`);
       if (turns.length > 1) {
         notes.push(`${turns.length} rotations were applied; -rotate gives the one rotation they add up to.`);
-      }
-      // Only a rotation about a centre, not about the origin, displaces the
-      // structure relative to editconf.
-      const offOrigin = (a.pivots || ['geometric']).filter(p => p !== 'origin');
-      if (!a.centre && offOrigin.length) {
-        const about = offOrigin.every(p => p === 'mass') ? 'the centre of mass'
-          : offOrigin.every(p => p === 'geometric') ? 'the geometric centre'
-            : 'the geometric centre and the centre of mass';
-        notes.push(`This tool rotated about ${about}; editconf rotates ` +
-                   'about the origin, so the structure will also be displaced. ' +
-                   'editconf applies -center after -rotate, so adding -center 0 0 0 ' +
-                   'removes that displacement and makes the two agree.');
       }
       if (state.box) {
         notes.push('editconf rotates coordinates and velocities but not the cell, ' +
@@ -1790,23 +1810,40 @@ document.addEventListener('DOMContentLoaded', () => {
       // editconf.cpp:786, giving -box or -d turns centring on unless -c was
       // named explicitly. Setting a box here does not move anything, so -noc
       // is needed or the command would centre a structure this tool left alone.
-      if (!a.centre) {
+      if (!place.center) {
         parts.push('-noc');
         notes.push('-noc is included because -box would otherwise centre the ' +
                    'system in the box, which was not done here.');
       }
     }
 
-    // editconf translates before it rotates, so that sequence replays exactly.
-    // The reverse does not: a rotation applied first here would be applied
-    // second there, giving different coordinates.
-    const rotIdx = a.order.lastIndexOf('rotate');
-    const transIdx = a.order.lastIndexOf('translate');
-    if (rotIdx > -1 && transIdx > -1 && rotIdx < transIdx) {
-      notes.push('A rotation was applied before this translation. editconf ' +
-                 'always translates first and rotates second, so this sequence ' +
-                 'cannot be replayed in one command, run it as two, rotating ' +
-                 'in the first and translating in the second.');
+    // Centring comes last in editconf, so it is written last: the point the
+    // geometric centre is moved to, which is where it stands now.
+    if (place.center) {
+      parts.push(`-center ${place.center.map(nm).join(' ')}`);
+      if (state.unit !== 'nm' && place.center.some(v => Number(nm(v)) !== 0)) {
+        notes.push(`-center converted from ${state.unit} to nm, which is what editconf expects.`);
+      }
+      if (centrings.some(step => step.mode === 'mass')) {
+        notes.push('editconf has no centre-of-mass option: -center places the ' +
+                   'geometric centre. It is given the point where the geometric ' +
+                   'centre stands now, which leaves the centre of mass where this ' +
+                   'tool put it.');
+      }
+      if (moves.length) {
+        notes.push('editconf centres last of all, so a -translate beside -center ' +
+                   'would be undone. The move is in -center instead, which names ' +
+                   'where the geometric centre ends up.');
+      }
+      const offOrigin = turns.filter(step => step.pivot !== 'origin');
+      if (!centrings.length && offOrigin.length) {
+        const about = offOrigin.every(step => step.pivot === 'mass') ? 'the centre of mass'
+          : offOrigin.every(step => step.pivot === 'geometric') ? 'the geometric centre'
+            : 'the geometric centre and the centre of mass';
+        notes.push(`This tool rotated about ${about}; editconf rotates about the ` +
+                   'origin and centres afterwards, so -center names where the ' +
+                   'geometric centre stands and the coordinates come out the same.');
+      }
     }
 
     return { command: parts.join(' \\\n  '), notes };
@@ -1895,10 +1932,9 @@ document.addEventListener('DOMContentLoaded', () => {
       label,
       coords,
       vels,
-      // The editconf command is derived from what has been applied, so the
-      // record of that has to travel with the coordinates or the command
-      // would describe a state that no longer exists.
-      applied: JSON.parse(JSON.stringify(state.applied)),
+      // The editconf command is derived from the steps, so the record of
+      // them has to travel with the coordinates or the command would
+      // describe a state that no longer exists.
       steps: JSON.parse(JSON.stringify(state.steps)),
       box: state.box ? state.box.slice() : null,
       boxVectors: state.boxVectors ? state.boxVectors.slice() : null,
@@ -1933,7 +1969,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    state.applied = snap.applied;
     state.steps = snap.steps || [];
     state.box = snap.box;
     state.boxVectors = snap.boxVectors;

@@ -13,7 +13,7 @@ import {
   rotationMatrix, rotateAtoms, translateAtoms, centreAtoms, scaleAtoms,
   rotateAtomsByMatrix, IDENTITY_ROTATION, multiplyRotations, transposeRotation, rotateVector,
   eulerFromMatrix, quaternionFromMatrix, matrixFromQuaternion, axisAngleFromMatrix, rotationBetween,
-  principalAxes, shapeAxis, axisTilt, netTransform, describeStep, transformScript, transformLatex,
+  principalAxes, shapeAxis, axisTilt, netTransform, editconfPlacement, describeStep, transformScript, transformLatex,
   unitFactor, targetUnit, computeBoxFromBounds, boxFitsStructure,
   padStr, formatXYZ, formatPDB, formatGRO, formatStructure,
   structureStats
@@ -1160,6 +1160,61 @@ describe('the record of the steps', () => {
     });
     expect(netTransform([])).toEqual({ matrix: [...IDENTITY_ROTATION], offset: [0, 0, 0] });
     expect(netTransform(null).offset).toEqual([0, 0, 0]);
+  });
+
+  // gmx editconf as editconf.cpp runs it: -translate, then -rotate about the
+  // origin, then -center, which moves the geometric centre to the point named.
+  const editconf = (atoms, { translate, rotate, center }) => {
+    let out = atoms.map(a => ({ ...a }));
+    if (translate) out = translateAtoms(out, translate[0], translate[1], translate[2]);
+    if (rotate) out = rotateAtoms(out, rotate.x, rotate.y, rotate.z, { x: 0, y: 0, z: 0 });
+    if (center) {
+      const g = geometricCentre(out);
+      out = translateAtoms(out, center[0] - g.x, center[1] - g.y, center[2] - g.z);
+    }
+    return out;
+  };
+
+  test.each([
+    ['centre, then translate', [['centre', 'geometric'], ['translate', 1, 2, 3]], ['center']],
+    ['translate, then centre', [['translate', 1, 2, 3], ['centre', 'geometric']], ['center']],
+    ['translate only', [['translate', 1.25, 0, -3], ['translate', 0.5, 0.5, 0.5]], ['translate']],
+    ['a turn about the geometric centre', [['rotate', 10, -32.5, 45, 'geometric']], ['center', 'rotate']],
+    ['a turn about the geometric centre, then a move', [['rotate', 10, -32.5, 45, 'geometric'], ['translate', 4, -1, 2]], ['center', 'rotate']],
+    ['a move, then a turn about the centre of mass', [['translate', 4, -1, 2], ['rotate', 0, 90, 12, 'mass']], ['center', 'rotate']],
+    ['a turn about the origin', [['rotate', 77.7, 5, -120, 'origin']], ['rotate']],
+    ['a move, then a turn about the origin', [['translate', 4, -1, 2], ['rotate', 77.7, 5, -120, 'origin']], ['rotate', 'translate']],
+    ['a turn about the origin, then a move', [['rotate', 77.7, 5, -120, 'origin'], ['translate', 4, -1, 2]], ['rotate', 'translate']],
+    ['centred on the mass, turned and moved', [['centre', 'mass'], ['rotate', 20, 30, 40, 'mass'], ['translate', 0.1, 0.2, 0.3]], ['center', 'rotate']],
+    ['two turns that undo each other', [['rotate', 30, 0, 0, 'geometric'], ['rotate', -30, 0, 0, 'geometric']], ['center']],
+    ['every kind of step', [...PLAN, ['rotate', 3, 4, 5, 'mass'], ['centre', 'mass'], ['translate', -2, 0, 1]], ['center', 'rotate']]
+  ])('one editconf command lands where the steps did: %s', (name, plan, options) => {
+    const { atoms, steps } = applySteps(start, plan);
+    const place = editconfPlacement(steps, geometricCentre(atoms));
+    expect(Object.keys(place).filter(k => place[k]).sort()).toEqual(options);
+    const replay = editconf(start, place);
+    replay.forEach((a, i) => {
+      expect(worst([a.x, a.y, a.z], [atoms[i].x, atoms[i].y, atoms[i].z])).toBeLessThan(1e-9);
+    });
+  });
+
+  test('editconf centres last, so the centre carries a move made after centring', () => {
+    const { atoms, steps } = applySteps(start, [['centre', 'geometric'], ['translate', 1, 2, 3]]);
+    const place = editconfPlacement(steps, geometricCentre(atoms));
+    expect(worst(place.center, [1, 2, 3])).toBeLessThan(1e-12);
+    expect(place.translate).toBeNull();
+    // The command the page used to write, -center 0 0 0 with -translate 1 2 3, loses the move.
+    const old = editconf(start, { translate: [1, 2, 3], center: [0, 0, 0] });
+    expect(worst([old[0].x, old[0].y, old[0].z], [atoms[0].x, atoms[0].y, atoms[0].z])).toBeGreaterThan(1);
+  });
+
+  test('a move made after a turn about the origin is written as it must be made before it', () => {
+    const { steps, atoms } = applySteps(start, [['rotate', 0, 0, 90, 'origin'], ['translate', 1, 0, 0]]);
+    const place = editconfPlacement(steps, geometricCentre(atoms));
+    // Turning (0, -1, 0) a quarter turn about z gives (1, 0, 0).
+    expect(worst(place.translate, [0, -1, 0])).toBeLessThan(1e-12);
+    expect(editconfPlacement([], { x: 5, y: 5, z: 5 })).toEqual({ rotate: null, translate: null, center: null });
+    expect(editconfPlacement(null)).toEqual({ rotate: null, translate: null, center: null });
   });
 
   test('two rotations do not add angle by angle, and the net one says so', () => {

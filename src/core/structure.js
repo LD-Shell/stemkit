@@ -1248,6 +1248,44 @@ export function netTransform(steps) {
   return { matrix: m, offset: d };
 }
 
+/**
+ * The options of one `gmx editconf` command that puts a structure where a
+ * list of steps put it.
+ *
+ * editconf applies `-translate` first, then `-rotate` about the origin, and
+ * `-center` last of all, moving the geometric centre to the point named
+ * (editconf.cpp, GROMACS 2025.1). So a translation given beside `-center` is
+ * undone by it, and a turn about one of the structure's own centres is a turn
+ * about the origin and a shift. Two forms replay every list of steps exactly:
+ *
+ *   - when a step centred the structure, or turned it about its geometric
+ *     centre or centre of mass: `-rotate` and `-center`, naming the point
+ *     where the geometric centre ended up;
+ *   - otherwise `-translate` by Mᵀd and `-rotate`, since M(r + Mᵀd) = Mr + d
+ *     whatever the order the steps were made in.
+ *
+ * @param {object[]} steps - As for netTransform.
+ * @param {{x:number, y:number, z:number}} finalCentre - The geometric centre
+ *   of the coordinates after the steps.
+ * @returns {{rotate:{x:number, y:number, z:number}|null, translate:number[]|null, center:number[]|null}}
+ *   Angles in degrees and lengths in the unit of the steps; null for an option
+ *   the command does not need.
+ */
+export function editconfPlacement(steps, finalCentre) {
+  const list = Array.isArray(steps) ? steps : [];
+  const { matrix, offset } = netTransform(list);
+  const angles = eulerFromMatrix(matrix);
+  const rotate = list.some(s => s.type === 'rotate') && [angles.x, angles.y, angles.z].some(v => Math.abs(v) > 5e-5)
+    ? angles : null;
+  const anchored = list.some(s => s.type === 'centre' || (s.type === 'rotate' && s.pivot !== 'origin'));
+  if (anchored) {
+    const c = finalCentre || { x: 0, y: 0, z: 0 };
+    return { rotate, translate: null, center: [c.x, c.y, c.z] };
+  }
+  const t = rotateVector(transposeRotation(matrix), offset);
+  return { rotate, translate: t.some(v => v !== 0) ? t : null, center: null };
+}
+
 const PIVOT_NAME = { geometric: 'the geometric centre', mass: 'the centre of mass', origin: 'the origin' };
 const UNIT_NAME = { A: 'Å', nm: 'nm' };
 
