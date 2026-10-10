@@ -96,9 +96,9 @@ script ran with, for a methods section or a log line.
 | `nonlinear-fit` | Levenberg–Marquardt fitting of any typed equation, with automatic starting values, bounds, fixed parameters, weights, standard errors, confidence intervals and bands; matches `scipy.optimize.curve_fit` | none |
 | `fit-python` | The Python script (SciPy `curve_fit` and matplotlib) that repeats a fit and draws its figure | none |
 | `plot-style` | One description of a fitted plot's look, shared by the browser preview and the matplotlib script; `bandVisibility` says whether a switched-on confidence band can be seen, and why not | none |
-| `figure` | One description of a figure (panels, lines, points, error bars, bars, histograms, box plots, heatmaps, contours, brackets), shared by the browser preview and the script | none |
-| `plot-builder` | The Plot Builder's CSV reading (as Python's `csv` and `float()` read it) and its figure | none |
-| `figure-python` | The matplotlib script that draws a figure description, reading the data from the user's files or embedding it | none |
+| `figure` | One description of a figure (panels stacked or on a grid of rows and columns, shared axes, the gap between panels, panel letters, insets, a second y axis on the right and x axis on top, lines, points, error bars, bars upright or lying flat, side by side or stacked, bars of means, histograms with numpy's bin rules, box plots, violin plots, heatmaps, contours, brackets), shared by the browser preview and the script | none |
+| `plot-builder` | The Plot Builder's CSV reading (as Python's `csv` and `float()` read it), its figure for each kind of chart, where its panels go (a grid, shared axes, insets), and its built-in examples | none |
+| `figure-python` | The matplotlib script that draws a figure description (`plt.subplots`, a GridSpec for panels that span cells, `inset_axes`), reading the data from the user's files or embedding it | none |
 | `pdf` | A PDF writer: vector pages from SVG, or a JPEG page | none |
 | `structure` | PDB/GRO/XYZ parsing, centre of mass, R<sub>g</sub>, principal axes, rotations (as angles, a matrix, or one turn about an axis), the steps applied as equations and as a Python script, format conversion | none |
 | `slurm` | SLURM batch-script generation for GROMACS and LAMMPS | none |
@@ -262,7 +262,7 @@ npm test                # full suite
 npm run test:coverage   # with coverage
 ```
 
-The suite comprises 4465 tests across the 42 domain modules and `version` (`src/core` also holds the aggregate
+The suite comprises 4599 tests across the 42 domain modules and `version` (`src/core` also holds the aggregate
 export, the Node entry and the injection layer, which carry no domain logic). Numerical results are validated against
 independent references rather than against the implementation itself:
 

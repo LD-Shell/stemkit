@@ -5,6 +5,155 @@ Notable changes to STEMKit and `stemkit-core`.
 `[output]` marks a change that alters a reported number. Figures produced with an
 earlier version are worth re-checking.
 
+## Unreleased
+
+### Added: more charts in the Plot Builder
+
+- **Nine kinds of chart.** Each series has a **Chart** menu: line, points,
+  step or band (as before, with **Step** new), bars, bars of means, a
+  histogram, box plots, violin plots, a heatmap, contours, and a 2D
+  histogram. Bars name themselves from a text
+  column or sit at the numbers of a numeric one, with an optional Y error;
+  a histogram takes its bins and density; box plots group one column by
+  another or take one box per column; heatmaps and contours lay a value
+  column over X and Y; a 2D histogram counts rows in a grid of equal bins as
+  `numpy.histogram2d` does.
+- **The script and the exports draw the same charts.** Every kind was run
+  through the generated matplotlib script, reading the file and with the
+  numbers embedded. The grid of a heatmap, contour or 2D histogram is in the
+  script as numbers.
+- **A second y axis on the right and x axis on top.** A series card's
+  **X axis** and **Y axis** menus put a line, bars or a histogram against a
+  y axis on the right (temperature and pressure against time) or an x axis on
+  top (wavelength below, wavenumber above), or both. Each has its own label,
+  taken from the first series on it, scale, limits and ticks in the Style
+  panel, and takes the colour of its series when it has only one. Zooming
+  zooms both; one legend lists the series of every axis. The script draws
+  them with matplotlib's `twinx` and `twiny`, and the preview, PDF, PNG and
+  SVG match it.
+- **Bars lying flat, and stacked.** A bar series' **Bars** menu lays it flat:
+  the names go up the left axis, the first at the top, and the lengths and
+  error bars run along x. **With other bars** stacks it on the stacked series
+  before it, values below zero downwards, or stacks them to 100% with each
+  value as its share; error bars stand at the end of each bar and the legend
+  reads down the stack. Stacked bars may stand on the right axis; bars lying
+  flat use the bottom and left axes, and their card says so if a second axis
+  was chosen.
+- **Bars of means.** A new chart for replicate rows: one bar for each name
+  with the mean of its rows and their standard deviation, standard error or
+  t-based confidence interval (90, 95 or 99%) as the error bar, and each value
+  over its bar if you like. The card counts the values of each name and says
+  which have only one. The script reads the value column and works out the
+  same means and errors with numpy (scipy for an interval).
+- **Histogram options.** Bins as a number, as one of numpy's rules (auto,
+  Freedman–Diaconis, Sturges, square root, Scott, Rice, Doane: the same edges
+  as `numpy.histogram_bin_edges`, which the script calls by name), or as
+  edges you type, checked as you type them; bars as counts, density, fraction
+  or percent; and a running total.
+- **Violin plots.** Grouped as box plots are, drawn from the kernel density
+  matplotlib's `violinplot` uses (Scott's or Silverman's bandwidth), from the
+  smallest value to the largest or further, each violin the same width or all
+  the same area, with a box and median, quartile lines or a median line
+  inside, and the points. The script works the density out with numpy alone.
+- **Box plot options.** Whiskers to the last value within 1.5 × IQR, to the
+  smallest and largest value, or within the 5th to 95th or 10th to 90th
+  percentiles; a notch at the median; the mean with its 90, 95 or 99%
+  interval. On the card and in the Style panel.
+- **Fixed: bars placed by numbers were at most 1 wide.** Bars 5 apart were
+  drawn as thin lines. A bar's width is now in the units of its axis with no
+  upper limit, the builder makes bars four fifths of their closest gap wide
+  whatever the gap, and the Style panel's **Bar width** is a share of that
+  gap. Bars on names are unchanged.
+- **Fixed: a bar with no number widened the x axis** in the preview, where
+  matplotlib leaves it out of the limits.
+- **An example for each kind of chart.** **More examples**, beside **Load an
+  example**, lists twelve built-in data sets with the series that show them
+  off: growth curves, two y axes, a top x axis, grouped bars, bars of means,
+  stacked bars, histograms, box and violin plots, a heatmap with contours, a
+  2D histogram, a step line and two panels. An example takes the place of the
+  files and series on the page (it asks first when the files are yours) and
+  keeps your plot style. Box plots and violins in two panels now stand over
+  each other.
+- **`stemkit-core`:** `plot-builder` gains `CHART_KINDS`, `gridFromXyz`,
+  `histogram2d`, `boxGroups`, `suggestColumns` and `axisChoices`; `readTable`
+  also returns each cell's text (`texts`). `figure` gains the series fields
+  `xAxis` and `yAxis`, the panel fields `y2Label`, `y2Scale`, `y2Lim`,
+  `y2Ticks`, `y2Color` and their `x2` counterparts, and `hasAxis`. For the
+  charts above, `figure` gains the `violin` kind; `orientation`, `stack`,
+  per-bar `bottom` and `replicates` on bars; `normalise`, `cumulative` and
+  rule names for `bins` on histograms; `notch` and percentile `whis` on
+  boxes; the panel field `yCategories`; and `histogramBinEdges`,
+  `histogramHeights`, `numpySum`, `kdeBandwidth`, `gaussianKde`,
+  `violinStats`, `groupMeans`, `barData` and `legendOrder`. `plot-builder`
+  gains `parseEdges`, `replicateGroups`, `histogramOptions`, `EXAMPLES`,
+  `builderExample` and `exampleState`.
+
+### Added: panels on a grid, shared axes, gaps, letters and insets
+
+- **A grid of panels.** The Plot Builder's Series tab has a **Layout**
+  section with the rows and columns of the figure, and each series' **Panel**
+  menu names the cells ("Row 2, column 1"). In one column nothing changes:
+  the panels stack, share the x axis, and an empty one is left out. On a grid
+  every panel has an x axis of its own, with its own label, scale, limits and
+  ticks in the Style panel; the widths of the columns and the heights of the
+  rows are set there too, and the title stands over the whole grid.
+- **Shared axes.** The x axis shared down each column or by all the panels,
+  the y axis along each row or by all: one scale and one range for the group,
+  and tick labels and axis labels on its outer panels only, as
+  `plt.subplots(sharex=..., sharey=...)` draws them.
+- **The gap between panels.** The space between stacked panels was
+  matplotlib's own and could not be changed: 3 pt of padding on each side of
+  every panel, 6 pt between two, plus the room for whatever sticks out of a
+  panel, mostly half the height of its first and last tick labels. **Gap
+  between rows** and **Gap between columns** now set it in points, in the
+  Layout section and in the Style panel; left empty it is matplotlib's. At 0,
+  panels that share an axis share an edge: the line between them is drawn
+  once, and the tick marks and tick labels that would reach across it are
+  left out. The script sets the padding and spacing of matplotlib's layout
+  engine, and the margin at the figure's edge stays as it was.
+- **Panel letters.** (a), (b) and so on in reading order, written as (a), a,
+  a), A or (A), inside the top left corner of each panel or outside it, from
+  any starting letter, bold or not, at a size of their own; any panel may
+  have a text of its own instead. Outside, they are counted in the margins.
+- **Insets.** **Add an inset** draws a small panel inside another, with a
+  series of its own, placed and sized as shares of its panel. **Mark what it
+  enlarges** draws the box of the inset's limits on the panel and two lines
+  to the inset's corners (matplotlib's `inset_axes` and
+  `indicate_inset_zoom`). An inset takes no room in the layout.
+- **Zoom, fit and read-out in every panel.** Dragging in a panel of a grid
+  sets the limits of the axes that panel shares; dragging in an inset sets
+  what the inset shows, and double-clicking it fits its data again.
+- **The script and the exports.** A grid with a panel in every cell is one
+  `plt.subplots(rows, cols, ...)`; cells left empty or panels spanning several
+  cells make a GridSpec. The preview lays grids out as matplotlib's
+  constrained layout does (a margin for each column and row from what its
+  panels need, colour bars beside their panels, legends outside), and was
+  compared with matplotlib on grids, spans, gaps, letters and insets, on light
+  and dark backgrounds: the panels land within a pixel or two.
+- **Three more examples:** a 2 by 2 grid with shared axes and letters, three
+  spectra stacked with no gap, and a curve with a zoomed inset. The stacked
+  bars example now has its legend beside the plot instead of over the bars.
+- **The Style panel with many panels.** Past four panels the labels are
+  shown one panel at a time, and past five axes the axis is chosen from a
+  list; a shared axis is set once for the panels that share it.
+- **Fixed: a legend larger than its panel.** matplotlib makes room around a
+  panel for a legend that does not fit inside it; the preview did not, so a
+  short panel with a long legend was drawn larger than the saved figure had
+  it.
+- **Fixed: setting one panel's label froze every panel's.** Editing any
+  field of a panel in the Style panel copied the labels, scales, limits and
+  ticks of all the panels into the style, where they hid the labels of the
+  next file. Only the field that was set is kept now.
+- **`stemkit-core`:** `figure` gains `layout` (`rows`, `cols`,
+  `widthRatios`, `heightRatios`), `sharex`, `sharey`, `panelGap` and
+  `panelLabels`; the panel fields `row`, `col`, `rowSpan`, `colSpan`, `inset`,
+  `letter`, and `xLabel`, `xScale`, `xLim`, `xTicks` and `xCategories` of its
+  own (the figure's are the defaults); and `panelLetters`, `panelEdges`,
+  `layoutPads`, `isStack` and `titledPanel`. `figure-python` gains
+  `gridLines`, `insetLines` and `gapLines`. `plot-builder` gains
+  `builderLayout` and `builderPanels`, and an example may bring a `layout`
+  and a `style`.
+
 ## v0.4.0 — 2026-10-10
 
 Turning a structure by hand in the Coordinate Manipulator, video tutorials on
