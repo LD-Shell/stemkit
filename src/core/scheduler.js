@@ -40,13 +40,13 @@
  */
 
 import {
-  DEFAULT_WALLTIME,
-  DEFAULT_ARRAY_RANGE,
-  isValidWallTime,
-  isValidArrayRange,
+  parseWallTime,
+  parseArraySpec,
   parseMemory,
-  arrayConcurrency,
-  walltimeToHours,
+  resolveWallTime,
+  resolveArrayRange,
+  resolveMemory,
+  arrayMemoryWarning,
   buildSlurmHeader
 } from './slurm.js';
 
@@ -161,14 +161,19 @@ export function launcher(scheduler, config = {}) {
  * ------------------------------------------------------------------ */
 
 /**
- * Convert a SLURM-style wall time to whole seconds.
+ * Convert a SLURM-style wall time to whole seconds, adding the fields up as
+ * Slurm does (`parseWallTime` in `core/slurm`), so every consumer agrees
+ * with the validator.
  *
- * @param {string} t - D-HH:MM:SS, HH:MM:SS, MM:SS or plain minutes.
- * @returns {number|null}
+ * @param {string} t - Any form sbatch takes: minutes, minutes:seconds,
+ *   hours:minutes:seconds, days-hours, days-hours:minutes or
+ *   days-hours:minutes:seconds.
+ * @returns {number|null} null when the string is unparseable or asks for no
+ *   limit (0, -1, INFINITE, UNLIMITED), which is not a number of seconds.
  */
 export function walltimeToSeconds(t) {
-  const h = walltimeToHours(t);
-  return h === null ? null : Math.round(h * 3600);
+  const parsed = parseWallTime(t);
+  return parsed && !parsed.unlimited ? parsed.seconds : null;
 }
 
 /**
@@ -202,21 +207,17 @@ export function lsfWallTime(t) {
 
 /**
  * Resolve the wall time for a non-SLURM header, substituting the same
- * default `core/slurm` uses when the string is unusable.
+ * default `core/slurm` uses when the string is unusable. "No limit" is
+ * something only sbatch can be asked for, so it is unusable here.
  *
- * @param {string} walltime
+ * @param {object} c - From `readConfig`.
  * @param {Array<object>} warnings
- * @returns {string} A valid SLURM-style wall time.
+ * @returns {string} A valid SLURM-style wall time with a finite length.
  */
-function effectiveWalltime(walltime, warnings) {
-  if (isValidWallTime(walltime)) return walltime.trim();
-  warnings.push({
-    level: 'warn',
-    field: 'walltime',
-    message: `Wall time looks malformed, expected D-HH:MM:SS, HH:MM:SS, or ` +
-             `minutes. Substituted ${DEFAULT_WALLTIME}.`
-  });
-  return DEFAULT_WALLTIME;
+function effectiveWalltime(c, warnings) {
+  const wall = resolveWallTime(c.walltime, { unlimited: false, scheduler: c.label });
+  warnings.push(...wall.warnings);
+  return wall.value;
 }
 
 /* ------------------------------------------------------------------ *
@@ -228,10 +229,11 @@ const UNIT_ORDER = ['K', 'M', 'G', 'T'];
 /**
  * Express a memory amount with an integer value, stepping down to a smaller
  * unit when needed (1.5T becomes 1536G). PBS and Grid Engine sizes take an
- * integer; kilobytes are rounded when nothing smaller would help.
+ * integer; kilobytes are rounded up when nothing smaller would help, so the
+ * job is never given less than was asked for.
  *
  * @param {number} value
- * @param {'M'|'G'|'T'} unit
+ * @param {'K'|'M'|'G'|'T'} unit
  * @returns {{value:number, unit:string}}
  */
 function integerAmount(value, unit) {
@@ -241,20 +243,29 @@ function integerAmount(value, unit) {
     v *= 1024;
     i -= 1;
   }
-  return { value: Math.round(v), unit: UNIT_ORDER[i] };
+  return { value: Math.ceil(v), unit: UNIT_ORDER[i] };
 }
 
 /**
- * Convert a SLURM-style memory string to a scheduler's own spelling.
+ * Convert a memory string to a scheduler's own spelling. The input is the
+ * one form the generator takes for every scheduler (`parseMemory` in
+ * `core/slurm`: a number, then K, M, G or T; a number on its own is
+ * megabytes), so the same text asks for the same amount whichever scheduler
+ * is chosen.
  *
- *   - PBS:  a size, integer plus `kb|mb|gb|tb` (PBS Professional Reference
- *           Guide, "Formats": size).
+ *   - PBS:  a size, an integer plus `kb|mb|gb|tb` (PBS Professional Reference
+ *           Guide, "Formats": size; `to_size` in OpenPBS
+ *           src/lib/Libattr/attr_fn_size.c reads an unsigned integer and a
+ *           suffix). A bare number would be bytes there, so the unit is
+ *           always written.
  *   - LSF:  a bare number in the unit `LSF_UNIT_FOR_LIMITS` selects, MB on
  *           most sites, so the value is rendered in MB.
- *   - SGE:  a memory specifier, integer plus `K|M|G` (sge_types(1)); T is not
- *           universal, so terabytes are expressed in gigabytes.
+ *   - SGE:  a memory specifier, an integer plus `K|M|G` (sge_types(1): the
+ *           capitals multiply by 1024, and "If no multiplier is present, the
+ *           value is just counted in bytes"); T is not universal, so
+ *           terabytes are expressed in gigabytes.
  *
- * @param {string} mem - e.g. "32G", "4000M", "1.5T".
+ * @param {string} mem - e.g. "32G", "4000M", "1.5T", "512000K", "4000".
  * @param {'pbs'|'lsf'|'sge'} scheduler
  * @returns {string|null} null when the string cannot be parsed.
  */
@@ -262,7 +273,7 @@ export function convertMemory(mem, scheduler) {
   const parsed = parseMemory(mem);
   if (!parsed) return null;
   if (scheduler === 'lsf') {
-    const factor = { M: 1, G: 1024, T: 1024 * 1024 }[parsed.unit];
+    const factor = { K: 1 / 1024, M: 1, G: 1024, T: 1024 * 1024 }[parsed.unit];
     return String(Math.ceil(parsed.value * factor));
   }
   let { value, unit } = parsed;
@@ -274,13 +285,23 @@ export function convertMemory(mem, scheduler) {
   return scheduler === 'pbs' ? `${a.value}${a.unit.toLowerCase()}b` : `${a.value}${a.unit}`;
 }
 
-function memoryWarning(directive) {
-  return {
-    level: 'warn',
-    field: 'memory',
-    message: 'No memory requested. Most clusters then apply a small default ' +
-             `(often ~1 GB/CPU), which can kill MD jobs. Set a value for ${directive}.`
-  };
+/**
+ * Resolve the memory request for a non-SLURM header, with the messages
+ * `core/slurm` gives for the same mistakes.
+ *
+ * @param {object} c - From `readConfig`.
+ * @param {string} directive - How the request is named in this header.
+ * @param {string} omitted - The sentence saying no line was written.
+ * @param {Array<object>} warnings
+ * @returns {{value:(string|null), parsed:(object|null)}}
+ */
+function effectiveMemory(c, directive, omitted, warnings) {
+  const mem = resolveMemory(c.memory, {
+    directive, omitted, scheduler: c.label, zero: false,
+    write: text => convertMemory(text, c.id)
+  });
+  warnings.push(...mem.warnings);
+  return mem;
 }
 
 /* ------------------------------------------------------------------ *
@@ -288,20 +309,15 @@ function memoryWarning(directive) {
  * ------------------------------------------------------------------ */
 
 /**
- * Parse a SLURM-style array range into its segments.
+ * Parse a SLURM-style array range into its segments. The syntax and its
+ * checks are sbatch's, in `parseArraySpec` of `core/slurm`.
  *
  * @param {string} range - e.g. `1-10`, `1-100:2%4`, `1,3,5`, `1-5,10-15`.
  * @returns {{segments:Array<{start:number, end:number, step:number}>, cap:(number|null)}|null}
  */
 export function parseArrayRange(range) {
-  if (!isValidArrayRange(range)) return null;
-  const [body, capText] = range.trim().split('%');
-  const segments = body.split(',').map(seg => {
-    const m = seg.match(/^(\d+)(?:-(\d+))?(?::(\d+))?$/);
-    return { start: parseInt(m[1], 10), end: m[2] ? parseInt(m[2], 10) : parseInt(m[1], 10),
-             step: m[3] ? parseInt(m[3], 10) : 1 };
-  });
-  return { segments, cap: capText ? parseInt(capText, 10) : null };
+  const spec = parseArraySpec(range);
+  return spec ? { segments: spec.segments, cap: spec.cap } : null;
 }
 
 /**
@@ -310,60 +326,66 @@ export function parseArrayRange(range) {
  *
  * @param {string} arrayRange
  * @param {Array<object>} warnings
- * @returns {{range:string, parsed:{segments:Array<object>, cap:(number|null)}}}
+ * @returns {{range:string, parsed:object}} `parsed` is from `parseArraySpec`.
  */
 function effectiveArray(arrayRange, warnings) {
-  let range = arrayRange;
-  let parsed = parseArrayRange(range);
-  if (!parsed) {
-    range = DEFAULT_ARRAY_RANGE;
-    parsed = parseArrayRange(range);
-    warnings.push({
-      level: 'warn',
-      field: 'arrayRange',
-      message: `Array range looks malformed, expected e.g. 1-10 or 1-100:2. ` +
-               `Substituted ${DEFAULT_ARRAY_RANGE}.`
-    });
-  }
-  return { range: range.trim(), parsed };
+  const resolved = resolveArrayRange(arrayRange);
+  warnings.push(...resolved.warnings);
+  return { range: resolved.range, parsed: resolved.spec };
 }
+
+const rangeText = seg => `${seg.start}-${seg.end}${seg.step > 1 ? `:${seg.step}` : ''}`;
 
 /**
  * A single `X-Y[:Z]` range for the schedulers whose array option takes one
- * range only (PBS `-J`, Grid Engine `-t`). A comma list keeps its first
- * segment and says so.
+ * range only (PBS `-J`, Grid Engine `-t`). A range is written as given; a
+ * list whose indices are evenly spaced is written as the range it amounts to
+ * (`1,3,5` is `1-5:2`); any other list keeps its first part, and `partial`
+ * says so. The counts are those of what is written.
+ *
+ * @param {object} parsed - From `parseArraySpec`.
+ * @returns {{text:string, start:number, total:number, concurrent:number, partial:boolean}}
  */
-function singleRange(parsed, range, option, warnings) {
-  const seg = parsed.segments[0];
-  if (parsed.segments.length > 1) {
-    warnings.push({
-      level: 'warn',
-      field: 'arrayRange',
-      message: `${option} takes a single X-Y[:Z] range, so only the first part of ` +
-               `${range} was used. Submit the other parts as separate arrays.`
-    });
+function singleRange(parsed) {
+  const whole = parsed.segments.length === 1 ? parsed.segments[0] : parsed.progression;
+  if (whole) {
+    return { text: rangeText(whole), start: whole.start, total: parsed.total, concurrent: parsed.concurrent, partial: false };
   }
-  return `${seg.start}-${seg.end}${seg.step > 1 ? `:${seg.step}` : ''}`;
+  const first = parsed.segments[0];
+  const total = Math.floor((first.end - first.start) / first.step) + 1;
+  return { text: rangeText(first), start: first.start, total, concurrent: parsed.cap ? Math.min(parsed.cap, total) : total, partial: true };
 }
 
-/** The array-memory total, as `core/slurm` reports it. */
-function arrayMemoryWarning(memory, range, warnings) {
-  const mem = parseMemory(memory);
-  const conc = arrayConcurrency(range);
-  if (!mem || !conc) return;
-  const total = mem.value * conc.concurrent;
-  warnings.push({
+/** Says that a list was cut down to its first part. */
+function partialArrayWarning(option, range) {
+  return {
     level: 'warn',
-    field: 'arrayMemory',
-    message: `Array job: the memory request is per task. With ${conc.concurrent} ` +
-             `task(s) running concurrently that is ${total}${mem.unit} in flight. ` +
-             `Confirm this fits your queue limit, if not, cap concurrency ` +
-             `in the array range (e.g. 1-${conc.total}%4).`,
-    totalMemory: total,
-    unit: mem.unit,
-    concurrent: conc.concurrent
-  });
+    field: 'arrayRange',
+    message: `${option} takes a single X-Y[:Z] range, so only the first part of ` +
+             `${range} was used. Submit the other parts as separate arrays.`
+  };
 }
+
+/**
+ * How many array tasks a scheduler's header will ask for, and how many of
+ * them may run at once: the distinct indices of the range, or of its first
+ * part where the scheduler takes a single range and the list is not one.
+ *
+ * @param {string} scheduler
+ * @param {string} range - A SLURM-style array range.
+ * @returns {{total:number, concurrent:number}|null} null when the range is
+ *   not valid (the header then substitutes the default and says so).
+ */
+export function arrayTasks(scheduler, range) {
+  const id = getScheduler(scheduler).id;
+  const parsed = parseArraySpec(range);
+  if (!parsed) return null;
+  const { total, concurrent } = id === 'pbs' || id === 'sge' ? singleRange(parsed) : parsed;
+  return { total, concurrent };
+}
+
+/** How the array-memory total is worded outside SLURM. */
+const ARRAY_MEMORY_WORDS = { request: 'the memory request', limit: 'queue' };
 
 /* ------------------------------------------------------------------ *
  * Headers
@@ -381,6 +403,7 @@ const atLeastOne = n => Math.max(1, parseInt(n, 10) || 1);
  * rather than merely wasteful, so the translated headers are kept valid.
  */
 function readConfig(config) {
+  const { id, label } = getScheduler(config.scheduler || 'slurm');
   const {
     engine = 'gromacs',
     jobName = 'md_job',
@@ -400,7 +423,7 @@ function readConfig(config) {
   const threads = atLeastOne(cpusPerTask);
   const ranksPerNode = threaded ? 1 : atLeastOne(tasksPerNode);
   return {
-    engine, jobName, partition,
+    id, label, engine, jobName, partition,
     nodes: atLeastOne(nodes),
     gpus: Math.max(0, parseInt(gpus, 10) || 0),
     cpusPerTask, tasksPerNode, walltime,
@@ -457,29 +480,22 @@ function buildPbsHeader(c, warnings) {
   // OMP_NUM_THREADS.
   let chunk = `select=${c.nodes}:ncpus=${c.coresPerNode}:mpiprocs=${c.ranksPerNode}:ompthreads=${c.threads}`;
   if (c.gpus > 0) chunk += `:ngpus=${c.gpus}`;
-  let memory = null;
-  if (c.memory) {
-    memory = convertMemory(c.memory, 'pbs');
-    if (memory) chunk += `:mem=${memory}`;
-    else warnings.push({ level: 'warn', field: 'memory',
-      message: `Memory "${c.memory}" was not understood (expected e.g. 32G or 4000M) and was left out of the select line.` });
-  } else {
-    warnings.push(memoryWarning('mem in the select chunk'));
-  }
+  const mem = effectiveMemory(c, 'mem in the select chunk', 'It was left out of the select line.', warnings);
+  if (mem.value) chunk += `:mem=${mem.value}`;
   lines.push(`#PBS -l ${chunk}`);
   // Without it PBS may pack two small chunks onto one host, which is not what
   // a request for N nodes means.
   if (c.nodes > 1) lines.push('#PBS -l place=scatter');
 
-  const wall = effectiveWalltime(c.walltime, warnings);
+  const wall = effectiveWalltime(c, warnings);
   lines.push(`#PBS -l walltime=${formatHMS(walltimeToSeconds(wall))}`);
 
-  let effectiveRange = c.arrayRange;
+  let tasks = null;
   if (c.array) {
     const { range, parsed } = effectiveArray(c.arrayRange, warnings);
-    effectiveRange = range;
-    const single = singleRange(parsed, range, 'PBS -J', warnings);
-    lines.push(`#PBS -J ${single}${parsed.cap ? `%${parsed.cap}` : ''}`);
+    tasks = singleRange(parsed);
+    if (tasks.partial) warnings.push(partialArrayWarning('PBS -J', range));
+    lines.push(`#PBS -J ${tasks.text}${parsed.cap ? `%${parsed.cap}` : ''}`);
     if (parsed.cap) {
       warnings.push({ level: 'info', field: 'arrayRange',
         message: `The %${parsed.cap} concurrency cap needs a PBS server that supports max_run_subjobs (OpenPBS and current PBS Professional); an older server rejects the -J line.` });
@@ -494,7 +510,7 @@ function buildPbsHeader(c, warnings) {
     lines.push(`#PBS -M ${c.mailUser}`);
   }
 
-  if (c.array && memory) arrayMemoryWarning(c.memory, effectiveRange, warnings);
+  if (tasks && mem.value) warnings.push(arrayMemoryWarning(mem.parsed, tasks, ARRAY_MEMORY_WORDS));
 
   const notes = [];
   if (c.gpus > 0) {
@@ -522,11 +538,11 @@ function buildPbsHeader(c, warnings) {
 function buildLsfHeader(c, warnings) {
   const lines = ['#!/bin/bash -e'];
 
-  let effectiveRange = c.arrayRange;
+  let tasks = null;
   if (c.array) {
-    const { range, parsed } = effectiveArray(c.arrayRange, warnings);
-    effectiveRange = range;
-    if (parsed.segments.some(s => s.start === 0)) {
+    const { parsed } = effectiveArray(c.arrayRange, warnings);
+    tasks = parsed;
+    if (parsed.min === 0) {
       warnings.push({ level: 'warn', field: 'arrayRange',
         message: 'LSF array indices start at 1; an index of 0 is rejected at submission. Start the range at 1.' });
     }
@@ -544,22 +560,16 @@ function buildLsfHeader(c, warnings) {
   lines.push(`#BSUB -n ${slots}`);
   lines.push(`#BSUB -R "span[ptile=${c.coresPerNode}]"`);
 
-  let memory = null;
-  if (c.memory) {
-    memory = convertMemory(c.memory, 'lsf');
-    if (memory) lines.push(`#BSUB -R "rusage[mem=${memory}]"`);
-    else warnings.push({ level: 'warn', field: 'memory',
-      message: `Memory "${c.memory}" was not understood (expected e.g. 32G or 4000M) and no rusage[mem] line was written.` });
-  } else {
-    warnings.push(memoryWarning('rusage[mem]'));
-  }
+  const mem = effectiveMemory(c, 'rusage[mem]', 'No rusage[mem] line was written.', warnings);
+  if (mem.value) lines.push(`#BSUB -R "rusage[mem=${mem.value}]"`);
   if (c.gpus > 0) lines.push(`#BSUB -gpu "num=${c.gpus}"`);
 
-  const wall = lsfWallTime(effectiveWalltime(c.walltime, warnings));
+  const asked = effectiveWalltime(c, warnings);
+  const wall = lsfWallTime(asked);
   lines.push(`#BSUB -W ${wall.value}`);
   if (wall.rounded) {
     warnings.push({ level: 'info', field: 'walltime',
-      message: `LSF -W has minute resolution, so ${c.walltime.trim()} was rounded up to ${wall.value} (hours:minutes).` });
+      message: `LSF -W has minute resolution, so ${asked} was rounded up to ${wall.value} (hours:minutes).` });
   }
 
   const suffix = c.array ? '%J_%I' : '%J';
@@ -571,7 +581,7 @@ function buildLsfHeader(c, warnings) {
     lines.push(`#BSUB -u ${c.mailUser}`);
   }
 
-  if (c.array && memory) arrayMemoryWarning(c.memory, effectiveRange, warnings);
+  if (tasks && mem.value) warnings.push(arrayMemoryWarning(mem.parsed, tasks, ARRAY_MEMORY_WORDS));
 
   const notes = [
     '# Site-specific: -n counts slots, which are cores on most LSF sites (ranks x',
@@ -618,28 +628,23 @@ function buildSgeHeader(c, warnings) {
   }
   lines.push(`#$ -pe ${c.pe} ${c.nodes * c.coresPerNode}`);
 
-  const wall = effectiveWalltime(c.walltime, warnings);
+  const wall = effectiveWalltime(c, warnings);
   lines.push(`#$ -l h_rt=${formatHMS(walltimeToSeconds(wall))}`);
 
-  let memory = null;
-  if (c.memory) {
-    memory = convertMemory(c.memory, 'sge');
-    if (memory) lines.push(`#$ -l h_vmem=${memory}`);
-    else warnings.push({ level: 'warn', field: 'memory',
-      message: `Memory "${c.memory}" was not understood (expected e.g. 32G or 4000M) and no h_vmem line was written.` });
-  } else {
-    warnings.push(memoryWarning('-l h_vmem'));
-  }
+  const mem = effectiveMemory(c, '-l h_vmem', 'No h_vmem line was written.', warnings);
+  const memory = mem.value;
+  if (memory) lines.push(`#$ -l h_vmem=${memory}`);
 
-  let effectiveRange = c.arrayRange;
+  let tasks = null;
   if (c.array) {
     const { range, parsed } = effectiveArray(c.arrayRange, warnings);
-    effectiveRange = range;
-    if (parsed.segments[0].start === 0) {
+    tasks = singleRange(parsed);
+    if (tasks.partial) warnings.push(partialArrayWarning('Grid Engine -t', range));
+    if (tasks.start === 0) {
       warnings.push({ level: 'warn', field: 'arrayRange',
         message: 'Grid Engine array indices are 1-based (qsub -t requires n >= 1); a range starting at 0 is rejected at submission.' });
     }
-    lines.push(`#$ -t ${singleRange(parsed, range, 'Grid Engine -t', warnings)}`);
+    lines.push(`#$ -t ${tasks.text}`);
     if (parsed.cap) lines.push(`#$ -tc ${parsed.cap}`);
   }
 
@@ -651,7 +656,7 @@ function buildSgeHeader(c, warnings) {
     lines.push(`#$ -M ${c.mailUser}`);
   }
 
-  if (c.array && memory) arrayMemoryWarning(c.memory, effectiveRange, warnings);
+  if (tasks && memory) warnings.push(arrayMemoryWarning(mem.parsed, tasks, ARRAY_MEMORY_WORDS));
 
   // h_vmem is two things at once: an address-space limit on each process
   // and, where the site declares it consumable (qconf -sc), a reservation

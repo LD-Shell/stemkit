@@ -396,8 +396,15 @@ function formatImmediate(fmt, x) {
   return (fmt.slice(0, m.index) + formatC(m[0], x) + fmt.slice(m.index + m[0].length)).replace(/%%/g, '%');
 }
 
+/*
+ * Variable::compute_equal sets a result below the smallest normal double to
+ * 0.0 before it is printed, which also drops the sign of a negative zero:
+ * $(ceil(-0.5)) and ${v} both read 0, never -0.
+ */
+const zeroOnUnderflow = (x) => (Math.abs(x) < 2.2250738585072014e-308 ? 0 : x);
+
 /* How LAMMPS turns an equal-style result into text for ${name}: {:.15g}. */
-const fmtVar = (x) => formatC('%.15g', Math.abs(x) < 2.2250738585072014e-308 ? 0 : x);
+const fmtVar = (x) => formatC('%.15g', zeroOnUnderflow(x));
 
 /* ------------------------------------------------------------------ *
  * Formulas (equal-, vector- and atom-style variables, $(...))
@@ -624,7 +631,8 @@ function evalFunction(tok, env) {
       case 'atan2': return Math.atan2(a, b);
       case 'ceil': return Math.ceil(a);
       case 'floor': return Math.floor(a);
-      case 'round': return a < 0 ? -Math.round(-a) : Math.round(a);
+      // MYROUND in variable.cpp: a half goes up, also below zero (round(-2.5) is -2).
+      case 'round': return a - Math.floor(a) >= 0.5 ? Math.ceil(a) : Math.floor(a);
       case 'sign': return a >= 0 ? 1 : -1;
       case 'ternary': return a !== 0 ? b : c;
       default: return null; // random numbers and functions of the step
@@ -1124,7 +1132,7 @@ class Machine {
         }
         const v = this.evaluate(ref.name, 'immediate', report);
         if (v === false) return null;
-        out += v === null ? UNKNOWN : formatImmediate(ref.format, v);
+        out += v === null ? UNKNOWN : formatImmediate(ref.format, zeroOnUnderflow(v));
         continue;
       }
       const value = this.retrieve(ref.name, report);

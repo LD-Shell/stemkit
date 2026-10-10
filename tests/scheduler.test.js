@@ -3,7 +3,7 @@ import {
   SCHEDULERS, DEFAULT_PE,
   getScheduler, submitCommand, envVars, launcher,
   walltimeToSeconds, formatHMS, lsfWallTime, convertMemory, parseArrayRange,
-  buildHeader
+  arrayTasks, buildHeader
 } from '../src/core/scheduler.js';
 import { buildSlurmHeader, DEFAULT_WALLTIME, DEFAULT_ARRAY_RANGE } from '../src/core/slurm.js';
 
@@ -97,6 +97,22 @@ describe('wall-time conversion', () => {
     expect(walltimeToSeconds('soon')).toBeNull();
   });
 
+  // sbatch(1) lists "days-hours" and "days-hours:minutes" beside the forms
+  // with seconds; time_str2secs (Slurm, src/common/parse_time.c) adds the
+  // fields up without a range check.
+  test('walltimeToSeconds agrees with the validator on the day forms and wide fields', () => {
+    expect(walltimeToSeconds('2-12')).toBe(216000);
+    expect(walltimeToSeconds('1-12:30')).toBe(131400);
+    expect(walltimeToSeconds('100:00:00')).toBe(360000);
+    expect(walltimeToSeconds('120:00')).toBe(7200);
+    expect(walltimeToSeconds('99:99:99')).toBe(362439);
+  });
+
+  test('walltimeToSeconds is null for no limit', () => {
+    expect(walltimeToSeconds('0')).toBeNull();
+    expect(walltimeToSeconds('UNLIMITED')).toBeNull();
+  });
+
   test('formatHMS does not wrap hours at 24', () => {
     expect(formatHMS(129600)).toBe('36:00:00');
     expect(formatHMS(5415)).toBe('01:30:15');
@@ -134,6 +150,26 @@ describe('convertMemory', () => {
   test('returns null for an unparseable string', () => {
     expect(convertMemory('lots', 'pbs')).toBeNull();
   });
+
+  // A bare number is megabytes for sbatch; left bare it would be bytes for
+  // PBS (to_size in OpenPBS attr_fn_size.c) and for Grid Engine
+  // (sge_types(1)), so the unit is always written.
+  test('a bare number is megabytes for every scheduler', () => {
+    expect(convertMemory('4000', 'pbs')).toBe('4000mb');
+    expect(convertMemory('4000', 'lsf')).toBe('4000');
+    expect(convertMemory('4000', 'sge')).toBe('4000M');
+  });
+
+  test('kilobytes are kept, and rounded up to a megabyte for LSF', () => {
+    expect(convertMemory('512000K', 'pbs')).toBe('512000kb');
+    expect(convertMemory('512000K', 'sge')).toBe('512000K');
+    expect(convertMemory('512000K', 'lsf')).toBe('500');
+    expect(convertMemory('1500K', 'lsf')).toBe('2');
+  });
+
+  test('a fraction of a kilobyte is rounded up, never down', () => {
+    expect(convertMemory('0.3M', 'pbs')).toBe('308kb');   // 307.2 kb
+  });
 });
 
 describe('parseArrayRange', () => {
@@ -146,6 +182,39 @@ describe('parseArrayRange', () => {
 
   test('returns null for malformed input', () => {
     expect(parseArrayRange('a-b')).toBeNull();
+  });
+
+  test('returns null for what sbatch rejects', () => {
+    expect(parseArrayRange('10-1')).toBeNull();
+    expect(parseArrayRange('1-10:0')).toBeNull();
+    expect(parseArrayRange('5:2')).toBeNull();
+  });
+
+  test('reads a list that mixes single indices and ranges', () => {
+    expect(parseArrayRange('1,3-5%2')).toEqual({
+      segments: [{ start: 1, end: 1, step: 1 }, { start: 3, end: 5, step: 1 }], cap: 2
+    });
+  });
+});
+
+describe('arrayTasks', () => {
+  test('counts distinct indices for the schedulers that take a list', () => {
+    expect(arrayTasks('slurm', '1-5,10-15%2')).toEqual({ total: 11, concurrent: 2 });
+    expect(arrayTasks('lsf', '1-5,3-8')).toEqual({ total: 8, concurrent: 8 });
+  });
+
+  test('counts only the part PBS and Grid Engine are given', () => {
+    expect(arrayTasks('pbs', '1-5,10-15%2')).toEqual({ total: 5, concurrent: 2 });
+    expect(arrayTasks('sge', '1-5,10-15')).toEqual({ total: 5, concurrent: 5 });
+  });
+
+  test('counts a whole list where it amounts to a single range', () => {
+    expect(arrayTasks('pbs', '1,3,5,7')).toEqual({ total: 4, concurrent: 4 });
+  });
+
+  test('is null for an invalid range', () => {
+    expect(arrayTasks('slurm', '10-1')).toBeNull();
+    expect(arrayTasks('sge', '')).toBeNull();
   });
 });
 
@@ -195,6 +264,18 @@ describe('buildHeader: PBS', () => {
     const { script, warnings } = buildHeader({ scheduler: 'pbs', ...threaded, array: true, arrayRange: '1-5,10-15' });
     expect(script).toContain('#PBS -J 1-5\n');
     expect(warnings.some(w => w.field === 'arrayRange' && /single X-Y/.test(w.message))).toBe(true);
+  });
+
+  test('a comma list totals memory over the part that was written', () => {
+    const { warnings } = buildHeader({ scheduler: 'pbs', ...threaded, array: true, arrayRange: '1-5,10-15' });
+    expect(warnings.find(w => w.field === 'arrayMemory')).toMatchObject({ concurrent: 5, totalMemory: 160 });
+  });
+
+  test('an evenly spaced list is written as the range it amounts to', () => {
+    const { script, warnings } = buildHeader({ scheduler: 'pbs', ...threaded, array: true, arrayRange: '2,4,6%2' });
+    expect(script).toContain('#PBS -J 2-6:2%2\n');
+    expect(warnings.some(w => /single X-Y/.test(w.message))).toBe(false);
+    expect(buildHeader({ scheduler: 'sge', ...threaded, array: true, arrayRange: '1-3,4-6' }).script).toContain('#$ -t 1-6\n');
   });
 
   test('mail is requested on abort and end', () => {
@@ -262,6 +343,11 @@ describe('buildHeader: LSF', () => {
 
   test('warns that indices start at 1', () => {
     const { warnings } = buildHeader({ scheduler: 'lsf', ...threaded, array: true, arrayRange: '0-9' });
+    expect(warnings.some(w => w.field === 'arrayRange' && /start at 1/.test(w.message))).toBe(true);
+  });
+
+  test('warns about an index of 0 anywhere in a list', () => {
+    const { warnings } = buildHeader({ scheduler: 'lsf', ...threaded, array: true, arrayRange: '5-9,0' });
     expect(warnings.some(w => w.field === 'arrayRange' && /start at 1/.test(w.message))).toBe(true);
   });
 
@@ -342,6 +428,93 @@ describe('buildHeader: Grid Engine', () => {
     expect(buildHeader({ scheduler: 'sge', ...threaded }).script).toContain('reserved per slot: 32G x 8 on');
     expect(buildHeader({ scheduler: 'sge', ...mpi, cpusPerTask: 2 }).script).toContain('64G x 32 on');
     expect(buildHeader({ scheduler: 'sge', ...threaded, memory: '' }).script).toContain('reserved per slot on');
+  });
+});
+
+describe('buildHeader: wall time, memory and arrays read alike by every scheduler', () => {
+  const ALL = ['slurm', 'pbs', 'lsf', 'sge'];
+  const memoryLine = script => script.split('\n').find(l => /^#(SBATCH|PBS|BSUB|\$) .*(mem=|h_vmem)/.test(l)) || '';
+
+  test('a day form without seconds is converted, not replaced', () => {
+    expect(buildHeader({ scheduler: 'slurm', ...threaded, walltime: '2-12' }).script).toContain('#SBATCH --time=2-12\n');
+    expect(buildHeader({ scheduler: 'pbs', ...threaded, walltime: '2-12' }).script).toContain('#PBS -l walltime=60:00:00');
+    expect(buildHeader({ scheduler: 'lsf', ...threaded, walltime: '2-12' }).script).toContain('#BSUB -W 60:00');
+    expect(buildHeader({ scheduler: 'sge', ...threaded, walltime: '2-12' }).script).toContain('#$ -l h_rt=60:00:00');
+    for (const scheduler of ALL) {
+      expect(buildHeader({ scheduler, ...threaded, walltime: '2-12' }).warnings.some(w => w.field === 'walltime')).toBe(false);
+    }
+  });
+
+  test('out-of-range fields are added up the same way, with one warning', () => {
+    // 99:99:99 is 362439 s, which is 100:40:39.
+    expect(buildHeader({ scheduler: 'pbs', ...threaded, walltime: '99:99:99' }).script).toContain('#PBS -l walltime=100:40:39');
+    expect(buildHeader({ scheduler: 'sge', ...threaded, walltime: '99:99:99' }).script).toContain('#$ -l h_rt=100:40:39');
+    expect(buildHeader({ scheduler: 'lsf', ...threaded, walltime: '99:99:99' }).script).toContain('#BSUB -W 100:41');
+    for (const scheduler of ALL) {
+      const w = buildHeader({ scheduler, ...threaded, walltime: '99:99:99' }).warnings.filter(x => x.field === 'walltime' && x.level === 'warn');
+      expect(w).toHaveLength(1);
+      expect(w[0].message).toContain('100:40:39');
+    }
+  });
+
+  test('no limit is written for SLURM only; the others get the default and are told why', () => {
+    expect(buildHeader({ scheduler: 'slurm', ...threaded, walltime: '0' }).script).toContain('#SBATCH --time=0\n');
+    for (const [scheduler, label] of [['pbs', 'PBS Pro / OpenPBS'], ['lsf', 'LSF'], ['sge', 'Grid Engine']]) {
+      const { script, warnings } = buildHeader({ scheduler, ...threaded, walltime: '0' });
+      expect(script).toMatch(/(walltime=24:00:00|-W 24:00|h_rt=24:00:00)/);
+      expect(warnings.find(w => w.field === 'walltime').message).toContain(`${label} needs a time`);
+    }
+  });
+
+  test('a bad memory value writes no line and gives the same message everywhere', () => {
+    const messages = ALL.map(scheduler => {
+      const { script, warnings } = buildHeader({ scheduler, ...threaded, memory: 'zz' });
+      expect(memoryLine(script)).toBe('');
+      const w = warnings.filter(x => x.field === 'memory');
+      expect(w).toHaveLength(1);
+      return w[0].message.replace(/ (No|It was) [^.]*\.$/, '');
+    });
+    expect(new Set(messages).size).toBe(1);
+    expect(messages[0]).toContain('Memory "zz" was not understood');
+  });
+
+  test('a bare number is megabytes in every script, with a warning that says so', () => {
+    const lines = Object.fromEntries(ALL.map(scheduler => {
+      const { script, warnings } = buildHeader({ scheduler, ...threaded, memory: '4000' });
+      expect(warnings.find(w => w.field === 'memory').message).toContain('4000 megabytes');
+      return [scheduler, memoryLine(script)];
+    }));
+    expect(lines.slurm).toBe('#SBATCH --mem=4000M');
+    expect(lines.pbs).toContain(':mem=4000mb');
+    expect(lines.lsf).toBe('#BSUB -R "rusage[mem=4000]"');
+    expect(lines.sge).toBe('#$ -l h_vmem=4000M');
+  });
+
+  test('the same amount is asked for whichever scheduler is chosen', () => {
+    // 1.5T = 1536G = 1572864 MB.
+    expect(memoryLine(buildHeader({ scheduler: 'slurm', ...threaded, memory: '1.5T' }).script)).toBe('#SBATCH --mem=1536G');
+    expect(memoryLine(buildHeader({ scheduler: 'pbs', ...threaded, memory: '1.5T' }).script)).toContain(':mem=1536gb');
+    expect(memoryLine(buildHeader({ scheduler: 'lsf', ...threaded, memory: '1.5T' }).script)).toBe('#BSUB -R "rusage[mem=1572864]"');
+    expect(memoryLine(buildHeader({ scheduler: 'sge', ...threaded, memory: '1.5T' }).script)).toBe('#$ -l h_vmem=1536G');
+  });
+
+  test('a memory of zero is an sbatch request only', () => {
+    expect(memoryLine(buildHeader({ scheduler: 'slurm', ...threaded, memory: '0' }).script)).toBe('#SBATCH --mem=0');
+    for (const scheduler of ['pbs', 'lsf', 'sge']) {
+      const { script, warnings } = buildHeader({ scheduler, ...threaded, memory: '0' });
+      expect(memoryLine(script)).toBe('');
+      expect(warnings.find(w => w.field === 'memory').message).toContain('needs an amount');
+    }
+  });
+
+  test('an array range sbatch rejects is replaced, with the reason, by every scheduler', () => {
+    for (const scheduler of ALL) {
+      for (const bad of ['10-1', '1-10:0', '5:2', '1-5%2,10-15']) {
+        const { script, warnings } = buildHeader({ scheduler, ...threaded, array: true, arrayRange: bad });
+        expect(script).toMatch(/(--array=1-5\n|-J 1-5\n|\[1-5\]"|-t 1-5\n)/);
+        expect(warnings.find(w => w.field === 'arrayRange').message).toContain(`Array range "${bad}" is not valid`);
+      }
+    }
   });
 });
 

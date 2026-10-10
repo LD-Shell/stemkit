@@ -72,19 +72,19 @@ export function buildHeaderFromDOM(engine, warnings, dom) {
 /**
  * Render a structured warning as the HTML the page already styles.
  *
- * Backticked fragments in the core's messages become `<code>` elements, so a
- * directive such as `--mem` is set in monospace as it was before.
+ * A value quoted from the form ("1-5%2,10-15"), directives such as
+ * `--mem=32G`, times such as 1-12:00:00 and array ranges such as 1,3,5-8%2
+ * are set in monospace, each wrapped once: a single pass, so a range inside
+ * a time or a quoted value is not wrapped a second time.
  *
  * @param {{level:string, field:string, message:string}} w
  * @returns {string}
  */
 function formatWarning(w) {
-  const text = escapeHtml(w.message)
-    // Directives, sizes, and time formats read better in monospace.
-    .replace(/(--[a-z-]+(?:=[^\s.,]+)?)/g, '<code>$1</code>')
-    .replace(/\b(\d+-?\d*:\d{2}:\d{2})\b/g, '<code>$1</code>')
-    .replace(/\b(\d+-\d+(?::\d+)?(?:%\d+)?)\b/g, '<code>$1</code>');
-  return text;
+  return escapeHtml(w.message).replace(
+    /&quot;(.+?)&quot;|--[a-z-]+(?:=[^\s.,]+)?|\b\d+(?:[-:,]\d+)+(?:%\d+)?(?![\w%])/g,
+    (m, quoted) => (quoted === undefined ? `<code>${m}</code>` : `&quot;<code>${quoted}</code>&quot;`)
+  );
 }
 
 /**

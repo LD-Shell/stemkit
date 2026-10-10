@@ -181,6 +181,57 @@ describe('checkInput: variables and control flow', () => {
     expect(checkInput('print $(2:%d)\n').firstError).toMatchObject({ lammps: 'Incorrect conversion in format string' });
   });
 
+  // A jump compares labels as text, so it shows the exact string a formula
+  // was replaced with. The values are what lmp (29 Aug 2024, Update 2) prints
+  // for print "$(...)" and for ${v} of an equal-style variable.
+  const substitutes = (formula, text) => {
+    const immediate = checkInput(`jump SELF $(${formula})\nundefinedcommand\nlabel ${text}\n`);
+    const named = checkInput(`variable v equal ${formula}\njump SELF \${v}\nundefinedcommand\nlabel ${text}\n`);
+    return errors(immediate).length === 0 && errors(named).length === 0;
+  };
+
+  test('round() sends a half up, below zero too (MYROUND in variable.cpp)', () => {
+    expect(substitutes('round(-2.5)', '-2')).toBe(true);
+    expect(substitutes('round(-1.5)', '-1')).toBe(true);
+    expect(substitutes('round(-3.5)', '-3')).toBe(true);
+    expect(substitutes('round(2.5)', '3')).toBe(true);
+    expect(substitutes('round(1.5)', '2')).toBe(true);
+    expect(substitutes('round(0.5)', '1')).toBe(true);
+  });
+
+  test('round() away from a half goes to the nearest integer', () => {
+    expect(substitutes('round(-2.4)', '-2')).toBe(true);
+    expect(substitutes('round(-2.6)', '-3')).toBe(true);
+    expect(substitutes('round(-0.6)', '-1')).toBe(true);
+    expect(substitutes('round(0.49999999999999994)', '0')).toBe(true);
+    expect(substitutes('round(-7)', '-7')).toBe(true);
+  });
+
+  test('a formula follows the branch LAMMPS takes on a rounded value', () => {
+    expect(errors(checkInput('if "$(round(-2.5)) == -2" then "print ok" else "undefinedcommand"\n'))).toEqual([]);
+  });
+
+  test('a negative zero is printed as 0 (compute_equal zeroes an underflow)', () => {
+    expect(substitutes('round(-0.5)', '0')).toBe(true);
+    expect(substitutes('round(-0.4)', '0')).toBe(true);
+    expect(substitutes('ceil(-0.5)', '0')).toBe(true);
+    expect(substitutes('-0.0', '0')).toBe(true);
+    expect(substitutes('0*-1', '0')).toBe(true);
+    expect(errors(checkInput('jump SELF L$(ceil(-0.5):%.2f)\nundefinedcommand\nlabel L0.00\n'))).toEqual([]);
+  });
+
+  test('ceil, floor, % and ^ keep the sign as C does', () => {
+    expect(substitutes('ceil(-1.5)', '-1')).toBe(true);
+    expect(substitutes('floor(-0.5)', '-1')).toBe(true);
+    expect(substitutes('floor(-1.5)', '-2')).toBe(true);
+    expect(substitutes('-7%3', '-1')).toBe(true);   // fmod takes the sign of the dividend
+    expect(substitutes('7%-3', '1')).toBe(true);
+    expect(substitutes('-5.5%2', '-1.5')).toBe(true);
+    expect(substitutes('-2^2', '4')).toBe(true);    // unary minus binds tighter than ^
+    expect(substitutes('2^3^2', '64')).toBe(true);  // ^ associates to the left
+    expect(substitutes('ternary(-0.0,1,2)', '2')).toBe(true);
+  });
+
   test('charge() without charges is reported, since LAMMPS crashes on it', () => {
     const r = checkInput(`${LJ}print "$(charge(all))"\n`);
     expect(r.firstError).toMatchObject({ line: 15, id: 'charge-crash' });

@@ -30,8 +30,8 @@
  */
 
 import { buildHeaderFromDOM } from './script-generator-slurm.js';
-import { getScheduler, envVars, launcher, submitCommand } from '../src/core/scheduler.js';
-import { estimateCoreHours, arrayConcurrency } from '../src/core/slurm.js';
+import { getScheduler, envVars, launcher, submitCommand, arrayTasks } from '../src/core/scheduler.js';
+import { estimateCoreHours, parseWallTime } from '../src/core/slurm.js';
 import { createPlumedBuilder } from './script-generator-plumed.js';
 import { createGromacsTab } from './script-generator-gromacs.js';
 import { gromacsRunBlock, gromacsMdrunFlags, gpuFlagWarnings, gmxBuild, plumedStages } from './script-generator-gromacs-model.js';
@@ -773,14 +773,21 @@ document.addEventListener('DOMContentLoaded', () => {
             items.push(['Wall time', `${fmt(est.hours, 2)} h`]);
             items.push(['Core-hours', fmt(est.coreHours, 1)]);
         } else {
-            items.push(['Wall time', 'unreadable']);
+            // A time of 0 (or UNLIMITED) is a request sbatch takes, for no limit;
+            // the header says what becomes of it under the other schedulers.
+            const wall = parseWallTime(config.walltime);
+            items.push(['Wall time', !wall ? 'unreadable' : currentScheduler() === 'slurm' ? 'no limit' : 'needs a time']);
         }
         if (isChecked('jobArrayToggle')) {
-            const conc = arrayConcurrency(getStr('jobArrayRange', ''));
+            // Counted as the chosen scheduler will run it: distinct indices, and
+            // only the first part of a list where the option takes one range.
+            const conc = arrayTasks(currentScheduler(), getStr('jobArrayRange', ''));
             if (conc) {
-                items.push(['Array', `${fmt(conc.total)} tasks, ${fmt(conc.concurrent)} in flight`]);
+                items.push(['Array', `${fmt(conc.total)} ${conc.total === 1 ? 'task' : 'tasks'}, ${fmt(conc.concurrent)} in flight`]);
                 items.push(['In flight', `${fmt(cores * conc.concurrent)} cores` + (gpus ? `, ${fmt(gpus * conc.concurrent)} GPUs` : '')]);
                 if (est) items.push(['Core-hours, all tasks', fmt(est.coreHours * conc.total, 1)]);
+            } else {
+                items.push(['Array', 'unreadable']);
             }
         }
         host.innerHTML = items.map(([k, v]) =>
