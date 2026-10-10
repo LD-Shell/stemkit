@@ -424,6 +424,10 @@ export const BIN_RULES = Object.freeze(['auto', 'fd', 'sturges', 'sqrt', 'scott'
 /*
  * The bin width a rule gives finite values `a` (0: one bin), as numpy's
  * _hist_bin_* functions work it out: the same sums, in the same order.
+ * 'auto' is the rule of numpy 2.3 and later, which keeps the
+ * Freedman-Diaconis width from falling under half the square-root rule's;
+ * the script works the same width out itself, so an older numpy draws these
+ * bins too.
  */
 function binWidth(rule, a) {
   const n = a.length;
@@ -448,10 +452,8 @@ function binWidth(rule, a) {
       return ptp / (1.0 + Math.log2(n) + Math.log2(1.0 + Math.abs(g1) / sg1));
     }
     case 'fd': return fd();
-    default: {   // auto: the narrower of Freedman-Diaconis and Sturges
-      const w = fd();
-      return w ? Math.min(w, sturges()) : sturges();
-    }
+    default:   // auto: the narrower of Sturges and the wider of Freedman-Diaconis and half the square-root rule
+      return Math.min(Math.max(fd(), ptp / Math.sqrt(n) / 2), sturges());
   }
 }
 

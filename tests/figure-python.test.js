@@ -1150,6 +1150,10 @@ describe('horizontal and stacked bars, histogram options, box options, violins a
     const code = figureScript(FIG.hist);
     expect(code).toContain("# The histogram of a_values: the bins numpy's 'fd' rule gives (Freedman-Diaconis), as\n# the page's.");
     expect(code).toContain("a_counts, a_edges = np.histogram(a_values[np.isfinite(a_values)], bins='fd')");
+    // 'auto' changed in numpy 2.3, so the script counts those bins itself and every numpy draws the same.
+    expect(code).toContain('def auto_bins(values):');
+    expect(code).toContain('bins=auto_bins(b_values[np.isfinite(b_values)]))');
+    expect(figureScript({ panels: [{ series: [{ id: 'a', kind: 'histogram', values: [1, 2, 3, 4], bins: 'fd' }] }] })).not.toContain('auto_bins');
     expect(code).toContain('a_counts = 100 * a_counts / max(a_counts.sum(), 1)  # the percentage in each bin');
     expect(code).toContain('b_counts = b_counts / max(b_counts.sum(), 1)  # the fraction in each bin');
     expect(code).toContain('b_counts = np.cumsum(b_counts)  # the running total, up to the end of each bin');
@@ -1437,7 +1441,14 @@ for name, values in sets.items():
     x = np.array(values, dtype=float)
     out[name] = {'edges': {}, 'counts': {}, 'kde': None}
     for rule in ['auto', 'fd', 'sturges', 'sqrt', 'scott', 'rice', 'doane']:
-        counts, edges = np.histogram(x, bins=rule)
+        bins = rule
+        if rule == 'auto' and tuple(int(p) for p in np.__version__.split('.')[:2]) < (2, 3):
+            # numpy before 2.3 took the Freedman-Diaconis width as it was; the rule it has had since, written out.
+            span = np.ptp(x)
+            fd = 2.0 * np.subtract(*np.percentile(x, [75, 25])) * x.size ** (-1.0 / 3.0)
+            width = min(max(fd, span / np.sqrt(x.size) / 2), span / (np.log2(x.size) + 1.0))
+            bins = int(np.ceil(span / width)) if width else 1
+        counts, edges = np.histogram(x, bins=bins)
         out[name]['edges'][rule] = edges.tolist()
         out[name]['counts'][rule] = counts.tolist()
     if len(x) > 1 and x.min() < x.max():
@@ -1845,9 +1856,12 @@ describe('panel layout in the script', () => {
         const [text, l, t, r, b] = a.texts[a.texts.length - 1];
         expect([k, i, text]).toEqual([k, i, letters[i]]);
         const L = info.letters[i];
-        // The corner the letter is anchored at is exact; its far side depends on the font.
-        if (f.panelLabels.position === 'outside') expect([Math.abs(r - L.r) < 1.5, Math.abs(b - L.b) < 2.5]).toEqual([true, true]);
-        else expect([Math.abs(l - L.l) < 1.5, Math.abs(t - L.t) < 2.5]).toEqual([true, true]);
+        // Measured from the panel's own corner, in matplotlib and in the preview: where the layout put the
+        // panel is checked above, and at this resolution a tick label's width moves it by a pixel or two from
+        // one FreeType to the next. The corner the letter is anchored at is exact; its far side depends on the font.
+        const [al, at] = a.box; const A = info.axes[i];
+        if (f.panelLabels.position === 'outside') expect([k, i, Math.abs((r - al) - (L.r - A.l)) < 0.5, Math.abs((b - at) - (L.b - A.t)) < 0.5]).toEqual([k, i, true, true]);
+        else expect([k, i, Math.abs((l - al) - (L.l - A.l)) < 0.5, Math.abs((t - at) - (L.t - A.t)) < 0.5]).toEqual([k, i, true, true]);
       });
     }
     // Outside, a letter is inside the page: the layout made room for it.

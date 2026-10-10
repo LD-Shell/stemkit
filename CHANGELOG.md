@@ -49,7 +49,10 @@ earlier version are worth re-checking.
   Freedman–Diaconis, Sturges, square root, Scott, Rice, Doane: the same edges
   as `numpy.histogram_bin_edges`, which the script calls by name), or as
   edges you type, checked as you type them; bars as counts, density, fraction
-  or percent; and a running total.
+  or percent; and a running total. "auto" is the rule of numpy 2.3 and
+  later, which no longer lets the bins get narrower than half the square-root
+  rule's; the script counts those bins itself, so an older numpy draws the
+  same histogram.
 - **Violin plots.** Grouped as box plots are, drawn from the kernel density
   matplotlib's `violinplot` uses (Scott's or Silverman's bandwidth), from the
   smallest value to the largest or further, each violin the same width or all

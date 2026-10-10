@@ -396,7 +396,12 @@ bars for the file it reads.
 `bins` as text is one of numpy's rules, and the edges are the ones
 `numpy.histogram_bin_edges` gives (`histogramBinEdges`; the sums are added
 up pairwise as numpy adds them, so the number of bins is numpy's on any
-data); the script passes the name to `np.histogram`. `normalise` scales the
+data); the script passes the name to `np.histogram`. `'auto'` is the one
+rule numpy has changed: since numpy 2.3 it is the narrower of Sturges'
+width and the wider of the Freedman-Diaconis width and half the square-root
+rule's, where older versions took the Freedman-Diaconis width as it was. The
+preview follows numpy 2.3, and for this rule the script defines `auto_bins`
+and counts the bins itself, so every numpy draws the same. `normalise` scales the
 heights and `cumulative` adds them up, as matplotlib's `hist` does: for a
 density the running total is of the fraction, and ends at 1.
 
@@ -677,8 +682,9 @@ PATH=/tmp/mpl/bin:$PATH npm test
 Ticks and labels on log axes are compared with matplotlib 3.11 and later
 only, minor ticks on linear axes with 3.8 and later, and "best" legends with
 3.9 and later; axis limits with every version. CI runs `npm test` with the
-current numpy, scipy, matplotlib and pandas, and with matplotlib 3.6.3 (numpy
-1.26.4, scipy 1.11.4, pandas 2.1.4, as Ubuntu 24.04 has them); checked by
+current numpy, scipy, matplotlib and pandas on Python 3.13 and on Python 3.15,
+and with matplotlib 3.6.3 (numpy 1.26.4, scipy 1.11.4, pandas 2.1.4, as
+Ubuntu 24.04 has them) on Python 3.11; checked by
 hand with 3.6.3, 3.7.5, 3.8.4, 3.9.4, 3.10.9 and 3.11.2.
 
 For a page, open it at 1280 and 390 px wide in both themes. Check the console

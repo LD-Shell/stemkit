@@ -227,7 +227,7 @@ const KEYWORDS = new Set([
 /** The names the script uses itself. */
 export const FIGURE_SCRIPT_NAMES = Object.freeze([
   'np', 'plt', 'matplotlib', 'ticker', 'stats', 'csv', 'fig', 'ax', 'axes', 'spine', 'formatter', 'cbar',
-  'read_csv', 'read_table', 'to_grid', 'counts', 'edges', 'SHOW_BACKENDS', 'violin_density'
+  'read_csv', 'read_table', 'to_grid', 'counts', 'edges', 'SHOW_BACKENDS', 'violin_density', 'auto_bins'
 ]);
 
 /**
@@ -1202,7 +1202,24 @@ const VIOLIN_DENSITY = [
 ];
 
 /* numpy's rules for the number of bins, as a comment names them. */
-const BIN_RULE_NAMES = { auto: 'the smaller of Freedman-Diaconis and Sturges', fd: 'Freedman-Diaconis', sturges: 'Sturges', sqrt: 'the square root of the number of values',
+const AUTO_BINS = [
+  'def auto_bins(values):',
+  '    """The number of bins numpy\'s \'auto\' rule gives, as numpy 2.3 and later work it out.',
+  '',
+  '    The narrower of Sturges\' width and the wider of the Freedman-Diaconis width and half',
+  '    the square-root rule\'s. numpy before 2.3 took the Freedman-Diaconis width as it was,',
+  '    so the rule is written out here and the bins are the same whichever numpy runs this.',
+  '    """',
+  '    if values.size == 0:',
+  '        return 1',
+  '    span = np.ptp(values)',
+  '    spread = np.subtract(*np.percentile(values, [75, 25]))',
+  '    width = min(max(2.0 * spread * values.size ** (-1.0 / 3.0), span / np.sqrt(values.size) / 2),',
+  '                span / (np.log2(values.size) + 1.0))',
+  '    return int(np.ceil(span / width)) if width else 1'
+];
+
+const BIN_RULE_NAMES = { auto: 'the narrower of Sturges and the wider of Freedman-Diaconis and half the square-root rule', fd: 'Freedman-Diaconis', sturges: 'Sturges', sqrt: 'the square root of the number of values',
   scott: 'Scott', rice: 'Rice', doane: 'Doane' };
 
 /** `name = np.array([...])` of whole numbers, wrapped. */
@@ -1408,6 +1425,7 @@ export function figureScript(figure, options = {}) {
 
   let needsStats = false;
   let needsViolin = false;
+  let needsAutoBins = false;
   const plans = f.panels.map((p, pi) => {
     const drawn = p.series.filter((q) => q.show);
     const images = drawn.filter((q) => IMAGE_KINDS.includes(q.kind));
@@ -1483,7 +1501,11 @@ export function figureScript(figure, options = {}) {
           if (q.values) {
             const v = arrayOf(q.values, r.values, `${id}_values`);
             const rule = typeof q.bins === 'string';
-            const bins = Array.isArray(q.bins) ? `[${q.bins.map(pyNum).join(', ')}]` : rule ? pyStr(q.bins) : pyNum(q.bins);
+            // 'auto' changed in numpy 2.3: the script counts its bins itself, the other rules are numpy's own.
+            const auto = q.bins === 'auto';
+            if (auto) needsAutoBins = true;
+            const bins = Array.isArray(q.bins) ? `[${q.bins.map(pyNum).join(', ')}]`
+              : auto ? `auto_bins(${v}[np.isfinite(${v})])` : rule ? pyStr(q.bins) : pyNum(q.bins);
             if (rule) append(derivedLines, wrapComment(`The histogram of ${v}: the bins numpy's '${q.bins}' rule gives (${BIN_RULE_NAMES[q.bins]}), as the page's.`));
             else derivedLines.push(`# The histogram of ${v}: numpy's bins, as the page's.`);
             append(derivedLines, pyCall(`${cn}, ${en} = np.histogram`, [`${v}[np.isfinite(${v})]`, `bins=${bins}`, ...(q.density ? ['density=True'] : [])]));
@@ -1578,6 +1600,7 @@ export function figureScript(figure, options = {}) {
     if (readers.has('table') || readers.has('grid')) helpers.push(READ_TABLE);
     if (readers.has('grid')) helpers.push(TO_GRID);
     if (needsViolin) helpers.push(VIOLIN_DENSITY);
+    if (needsAutoBins) helpers.push(AUTO_BINS);
     helpers.forEach((h) => { append(L, h); L.push('', ''); });
     append(L, dataLines);
     if (prelude.length) { if (dataLines.length) blank(); append(L, prelude); }

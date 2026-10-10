@@ -28,8 +28,10 @@ const REF = {
   // numpy.histogram_bin_edges(hist.values, bins=rule): the number of bins of each rule, and 'fd' in full
   rules: { auto: 12, fd: 12, sturges: 7, sqrt: 8, scott: 7, rice: 8, doane: 8 },
   fd: { counts: [2, 1, 1, 7, 10, 15, 11, 5, 2, 2, 0, 1], edge1: -3.636461416666667 },
-  // The same rules on data with little in it: values all alike, one value, two, three
+  // The same rules on data with little in it: values all alike, one value, two, three; and values with no
+  // spread between their quartiles, where 'auto' is numpy 2.3's rule (seven bins; numpy before 2.3 made five)
   awkward: [
+    { values: [1, 1, 1, 1, 1, 1, 1, 1, 2, 10], edges: { auto: [1.0, 2.2857142857142856, 3.5714285714285716, 4.857142857142858, 6.142857142857143, 7.428571428571429, 8.714285714285715, 10.0], fd: [1.0, 10.0], sturges: [1.0, 2.8, 4.6, 6.4, 8.2, 10.0], sqrt: [1.0, 3.25, 5.5, 7.75, 10.0], scott: [1.0, 4.0, 7.0, 10.0], rice: [1.0, 2.8, 4.6, 6.4, 8.2, 10.0], doane: [1.0, 2.2857142857142856, 3.5714285714285716, 4.857142857142858, 6.142857142857143, 7.428571428571429, 8.714285714285715, 10.0] } },
     { values: [2.5, 2.5, 2.5, 2.5], edges: { auto: [2, 3], fd: [2, 3], sturges: [2, 3], sqrt: [2, 3], scott: [2, 3], rice: [2, 3], doane: [2, 3] } },
     { values: [7], edges: { auto: [6.5, 7.5], fd: [6.5, 7.5], sturges: [6.5, 7.5], sqrt: [6.5, 7.5], scott: [6.5, 7.5], rice: [6.5, 7.5], doane: [6.5, 7.5] } },
     { values: [1, 2], edges: { auto: [1, 1.5, 2], fd: [1, 1.5, 2], sturges: [1, 1.5, 2], sqrt: [1, 1.5, 2], scott: [1, 2], rice: [1, 1.3333333333333333, 1.6666666666666665, 2], doane: [1, 2] } },

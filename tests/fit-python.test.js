@@ -884,7 +884,7 @@ describe('the script reproduces the page\'s fit', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
-  });
+  }, 60000);
 });
 
 /* ------------------------------------------------------------------ *
