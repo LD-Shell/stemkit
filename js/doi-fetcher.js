@@ -334,8 +334,13 @@ document.addEventListener("DOMContentLoaded", () => {
         fetchBtn.disabled = true;
         retryBtn.disabled = true;
 
-        // Reset failures for this batch
+        // Reset failures for this batch, and what the page still shows of the
+        // last one: its count, its report and (unless this is the retry) its
+        // Retry button would otherwise sit beside the new batch until it ends.
         failedDOIs = [];
+        failCountBadge.textContent = "";
+        errorReport.classList.add("hidden");
+        if (!isRetry) retryBtn.classList.add("hidden");
         let fetched = 0;
         const startTime = performance.now();
 
