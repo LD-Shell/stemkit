@@ -828,8 +828,8 @@ replicate difference survives an assumption check, becomes an operation
 performed at the moment the question arises rather than one deferred until an
 environment is available. The tools are also usable in teaching and in shared
 computing environments where installation is not an option, since a URL is the
-only prerequisite. Fifteen of the tools have a narrated, captioned video
-tutorial that works through the tool step by step on an example; each is shown on its tool's page and the set is collected in a
+only prerequisite. Each of the research tools has a narrated, captioned video
+tutorial that works through the tool step by step on an example (the MD workflow generator has one for each engine); each is shown on its tool's page and the set is collected in a
 YouTube playlist (<https://www.youtube.com/playlist?list=PLAqgfbqFf32M>).
 
 STEMKit is released under the MIT licence, hosted at <https://stemkit.net>,
