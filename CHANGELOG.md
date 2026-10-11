@@ -5,6 +5,15 @@ Notable changes to STEMKit and `stemkit-core`.
 `[output]` marks a change that alters a reported number. Figures produced with an
 earlier version are worth re-checking.
 
+## Unreleased
+
+### Changed
+
+- **Guide sections.** The Plot Builder and the XVG Visualizer set out the text
+  under the tool as the other pages do: a "How-to guide" chip, notes in cards
+  on a grid, and references in a narrow column. On every page the guide now
+  sits in the same column, and the questions are the same width.
+
 ## v0.5.0 — 2026-10-10
 
 The Plot Builder draws nine kinds of chart, on a second pair of axes and on a

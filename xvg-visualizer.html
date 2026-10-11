@@ -251,40 +251,45 @@
         </div>
     </main>
 
-    <div class="stk-wrap">
+    <div class="stk-docs">
     <section class="stk-section" id="how-to-use" aria-label="How to use this tool">
-        <span class="stk-chip"><i class="fa-solid fa-circle-play"></i> Guide</span>
-        <h2 class="stk-h2">How to visualize your data</h2>
-        <p class="stk-lead">Drop a GROMACS <code>.xvg</code> (or any whitespace or CSV table of numbers) and plot any of its columns. The page reads the file's own labels, so the axes and legends come out labelled.</p>
-                <section id="tutorial" class="stk-tut-slot" data-tutorial="xvg-visualizer"></section>
-        <div class="stk-grid stk-grid-2" style="margin-top:1.5rem;">
-            <div class="stk-step"><span class="stk-num">1</span><div><h3>Load a file</h3><p>Drag &amp; drop or select a <code>.xvg</code>, <code>.csv</code>, <code>.txt</code> or <code>.dat</code> file, or press <strong>Load a sample</strong> to try a synthetic RMSD and radius-of-gyration trace. Everything is parsed in your browser.</p></div></div>
-            <div class="stk-step"><span class="stk-num">2</span><div><h3>Pick columns</h3><p>Choose which column is the x axis, then tick any number of series to overlay. A series on a very different scale goes in a <strong>Lower panel</strong> under the others, sharing the x axis. Legends and axis titles come from the file's <code>@</code> lines, or a CSV's header row, when present; GROMACS's sub- and superscripts and Greek letters are set as they print.</p></div></div>
-            <div class="stk-step"><span class="stk-num">3</span><div><h3>Smooth and style it</h3><p>Draw a <strong>running mean</strong> over a noisy trace, with the data faded under it, and switch markers or a log y axis from the plot's header. The <strong>Style</strong> tab sets the size, fonts, labels, limits, ticks, colours, legend and grid of the saved figure; the preview is drawn at that size, as it will be saved.</p></div></div>
-            <div class="stk-step"><span class="stk-num">4</span><div><h3>Save it, or take the script</h3><p>Save the figure as PDF, PNG or SVG. The <strong>Python script</strong> under the plot draws the same figure with matplotlib: it reads your file with <code>numpy.loadtxt</code>, or holds the numbers itself, works out any running mean with numpy, and saves the figure at the same size.</p></div></div>
+        <div class="stk-wrap">
+            <span class="stk-chip"><i class="fa-solid fa-file-csv"></i> How-to guide</span>
+            <h2 class="stk-h2">How to visualize your data</h2>
+            <p class="stk-lead">Drop a GROMACS <code>.xvg</code> (or any whitespace or CSV table of numbers) and plot any of its columns. The page reads the file's own labels, so the axes and legends come out labelled.</p>
+            <section id="tutorial" class="stk-tut-slot" data-tutorial="xvg-visualizer"></section>
+            <div class="stk-grid stk-grid-2">
+                <div class="stk-step"><span class="stk-num">1</span><div><h3>Load a file</h3><p>Drag &amp; drop or select a <code>.xvg</code>, <code>.csv</code>, <code>.txt</code> or <code>.dat</code> file, or press <strong>Load a sample</strong> to try a synthetic RMSD and radius-of-gyration trace. Everything is parsed in your browser.</p></div></div>
+                <div class="stk-step"><span class="stk-num">2</span><div><h3>Pick columns</h3><p>Choose which column is the x axis, then tick any number of series to overlay. A series on a very different scale goes in a <strong>Lower panel</strong> under the others, sharing the x axis. Legends and axis titles come from the file's <code>@</code> lines, or a CSV's header row, when present; GROMACS's sub- and superscripts and Greek letters are set as they print.</p></div></div>
+                <div class="stk-step"><span class="stk-num">3</span><div><h3>Smooth and style it</h3><p>Draw a <strong>running mean</strong> over a noisy trace, with the data faded under it, and switch markers or a log y axis from the plot's header. The <strong>Style</strong> tab sets the size, fonts, labels, limits, ticks, colours, legend and grid of the saved figure; the preview is drawn at that size, as it will be saved.</p></div></div>
+                <div class="stk-step"><span class="stk-num">4</span><div><h3>Save it, or take the script</h3><p>Save the figure as PDF, PNG or SVG. The <strong>Python script</strong> under the plot draws the same figure with matplotlib: it reads your file with <code>numpy.loadtxt</code>, or holds the numbers itself, works out any running mean with numpy, and saves the figure at the same size.</p></div></div>
+            </div>
         </div>
     </section>
 
     <section class="stk-section" id="how-it-works" aria-label="About the XVG format">
-        <span class="stk-chip"><i class="fa-solid fa-file-lines"></i> Format</span>
-        <h2 class="stk-h2">About the GROMACS .xvg format</h2>
-        <p class="stk-lead">.xvg is the plain-text output written by GROMACS analysis tools (and read by Grace/xmgrace). Knowing its structure explains what this tool does automatically.</p>
-        <div style="margin-top:1.25rem; display:flex; flex-direction:column; gap:1rem; max-width:52rem;">
-            <div><h3 class="stk-label">Comment &amp; metadata lines</h3><p class="stk-body">Lines starting with <code>#</code> are comments; lines starting with <code>@</code> are Grace formatting commands. This tool reads <code>@ title</code>, <code>@ xaxis label</code>, <code>@ yaxis label</code> and <code>@ sN legend</code> to label the plot, and skips everything else, so the raw numeric matrix is all that gets plotted. A line starting with <code>&amp;</code> ends one data set, and a file may hold several: each is plotted as series of its own, against its own first column, under the legend GROMACS and Grace give it (sets are numbered through the file as <code>xmgrace -nxy</code> numbers them, so two columns in two sets are <code>s0</code> and <code>s1</code>). A row with text in it, an empty cell in a CSV, or a different number of values from most rows is skipped whole and counted in the file summary at the top of the settings, so no value moves into the wrong column. A comma at the end of every row is ignored.</p></div>
-            <div><h3 class="stk-label">The data block</h3><p class="stk-body">Below the metadata is a whitespace-separated numeric table: the first column is usually the independent variable (time, distance, reaction coordinate) and each remaining column a data series. Common outputs include RMSD (<code>gmx rms</code>), radius of gyration (<code>gmx gyrate</code>), and PMF/free-energy profiles.</p></div>
-            <div><h3 class="stk-label">Reproducing in Python</h3><p class="stk-body">The <strong>Python script</strong> reads the file with <code>numpy.loadtxt(..., comments=['@', '#', '&amp;'])</code>, which is the idiomatic way to read an .xvg: the <code>comments</code> argument makes NumPy skip exactly the metadata lines and set breaks described above, leaving the numeric matrix. A file of several data sets is read set by set instead, the rows between its <code>&amp;</code> lines into an array each, so that each series is drawn from its own rows. For a comma-separated file it also passes <code>delimiter=','</code> and skips the header row. If the file has skipped rows among the numbers, the script passes <code>loadtxt</code> only the lines that are all numbers, so it reads the same rows as the plot. A running mean is <code>numpy.convolve</code> with a window of equal weights, and a lower panel is a second axes from <code>plt.subplots(2, 1, sharex=True)</code>. The script sets the same fonts, sizes, colours, ticks and legend as the preview, which is drawn to match matplotlib 3.11 (the script runs on 3.6 and later).</p></div>
+        <div class="stk-wrap">
+            <h2 class="stk-h2">About the GROMACS .xvg format</h2>
+            <p class="stk-lead">.xvg is the plain-text output written by GROMACS analysis tools (and read by Grace/xmgrace). Knowing its structure explains what this tool does automatically.</p>
+            <div class="stk-grid stk-grid-2">
+                <div class="stk-card"><h3>Comment &amp; metadata lines</h3><p>Lines starting with <code>#</code> are comments; lines starting with <code>@</code> are Grace formatting commands. This tool reads <code>@ title</code>, <code>@ xaxis label</code>, <code>@ yaxis label</code> and <code>@ sN legend</code> to label the plot, and skips everything else, so the raw numeric matrix is all that gets plotted. A line starting with <code>&amp;</code> ends one data set, and a file may hold several: each is plotted as series of its own, against its own first column, under the legend GROMACS and Grace give it (sets are numbered through the file as <code>xmgrace -nxy</code> numbers them, so two columns in two sets are <code>s0</code> and <code>s1</code>). A row with text in it, an empty cell in a CSV, or a different number of values from most rows is skipped whole and counted in the file summary at the top of the settings, so no value moves into the wrong column. A comma at the end of every row is ignored.</p></div>
+                <div class="stk-card"><h3>The data block</h3><p>Below the metadata is a whitespace-separated numeric table: the first column is usually the independent variable (time, distance, reaction coordinate) and each remaining column a data series. Common outputs include RMSD (<code>gmx rms</code>), radius of gyration (<code>gmx gyrate</code>), and PMF/free-energy profiles.</p></div>
+                <div class="stk-card"><h3>Reproducing in Python</h3><p>The <strong>Python script</strong> reads the file with <code>numpy.loadtxt(..., comments=['@', '#', '&amp;'])</code>, which is the idiomatic way to read an .xvg: the <code>comments</code> argument makes NumPy skip exactly the metadata lines and set breaks described above, leaving the numeric matrix. A file of several data sets is read set by set instead, the rows between its <code>&amp;</code> lines into an array each, so that each series is drawn from its own rows. For a comma-separated file it also passes <code>delimiter=','</code> and skips the header row. If the file has skipped rows among the numbers, the script passes <code>loadtxt</code> only the lines that are all numbers, so it reads the same rows as the plot. A running mean is <code>numpy.convolve</code> with a window of equal weights, and a lower panel is a second axes from <code>plt.subplots(2, 1, sharex=True)</code>. The script sets the same fonts, sizes, colours, ticks and legend as the preview, which is drawn to match matplotlib 3.11 (the script runs on 3.6 and later).</p></div>
+            </div>
         </div>
     </section>
 
     <section class="stk-section" id="references" aria-label="References and documentation">
-        <span class="stk-chip"><i class="fa-solid fa-book"></i> References</span>
-        <h2 class="stk-h2">References &amp; documentation</h2>
-        <ol class="stk-refs-list" style="margin-top:1rem;">
-            <li>Abraham, M.&nbsp;J., Murtola, T., Schulz, R., et&nbsp;al. (2015). GROMACS: High performance molecular simulations through multi-level parallelism. <em>SoftwareX</em>, 1&ndash;2, 19&ndash;25. <a href="https://manual.gromacs.org/current/reference-manual/file-formats.html" target="_blank" rel="noopener">GROMACS file formats</a>.</li>
-            <li>Turner, P.&nbsp;J. (2005). <em>XMGRACE</em> (Grace 5.1). Center for Coastal and Land-Margin Research, OGI. <span>(origin of the .xvg/@-command format)</span></li>
-            <li>Harris, C.&nbsp;R., Millman, K.&nbsp;J., van der Walt, S.&nbsp;J., et&nbsp;al. (2020). Array programming with NumPy. <em>Nature</em>, 585, 357&ndash;362. <a href="https://numpy.org/doc/stable/reference/generated/numpy.loadtxt.html" target="_blank" rel="noopener">numpy.loadtxt</a>.</li>
-            <li>Software: <a href="https://plotly.com/javascript/" target="_blank" rel="noopener">Plotly.js</a> draws the preview; the script uses <a href="https://matplotlib.org/stable/" target="_blank" rel="noopener">matplotlib</a> and NumPy.</li>
-        </ol>
+        <div class="stk-wrap" style="max-width:52rem;">
+            <span class="stk-chip"><i class="fa-solid fa-book"></i> References</span>
+            <h2 class="stk-h2">References &amp; documentation</h2>
+            <ol class="stk-refs-list" style="margin-top:1rem;">
+                <li>Abraham, M.&nbsp;J., Murtola, T., Schulz, R., et&nbsp;al. (2015). GROMACS: High performance molecular simulations through multi-level parallelism. <em>SoftwareX</em>, 1&ndash;2, 19&ndash;25. <a href="https://manual.gromacs.org/current/reference-manual/file-formats.html" target="_blank" rel="noopener">GROMACS file formats</a>.</li>
+                <li>Turner, P.&nbsp;J. (2005). <em>XMGRACE</em> (Grace 5.1). Center for Coastal and Land-Margin Research, OGI. <span>(origin of the .xvg/@-command format)</span></li>
+                <li>Harris, C.&nbsp;R., Millman, K.&nbsp;J., van der Walt, S.&nbsp;J., et&nbsp;al. (2020). Array programming with NumPy. <em>Nature</em>, 585, 357&ndash;362. <a href="https://numpy.org/doc/stable/reference/generated/numpy.loadtxt.html" target="_blank" rel="noopener">numpy.loadtxt</a>.</li>
+                <li>Software: <a href="https://plotly.com/javascript/" target="_blank" rel="noopener">Plotly.js</a> draws the preview; the script uses <a href="https://matplotlib.org/stable/" target="_blank" rel="noopener">matplotlib</a> and NumPy.</li>
+            </ol>
+        </div>
     </section>
     </div>
 

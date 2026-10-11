@@ -2883,7 +2883,7 @@
 
         <!-- ================= FAQ ================= -->
         <section class="stk-section" id="faq" aria-label="Frequently asked questions">
-            <div class="stk-wrap">
+            <div class="stk-wrap" style="max-width:52rem;">
                 <h2 class="stk-h2">Frequently asked questions</h2>
                 <div style="margin-top:1rem;">
                     <details class="stk-faq"><summary>Why did the tool add <code>-npme 1</code> or warn about my GPU flags?</summary><div>These are GROMACS rules. PME on a GPU supports only one PME rank, so <code>-npme 1</code> is added when you request <code>-pme gpu</code> with more than one rank. <code>-bonded gpu</code> requires <code>-nb gpu</code> because bonded offload is part of the same particle-particle workload. <code>-pme gpu</code>, <code>-bonded gpu</code> and <code>-update gpu</code> run only in dynamics, so energy minimisation keeps <code>-nb gpu</code> alone; <code>-pme gpu</code> needs PME electrostatics, so a Martini (reaction-field) stage leaves it out; and <code>-update gpu</code> (GPU-resident mode) cannot constrain all bonds of a protein and is refused with Nose-Hoover or virtual sites such as TIP4P&rsquo;s, so stages with those leave it out. The script says above each <code>mdrun</code> line what it left out and why. The thread-MPI <code>gmx</code> also gets <code>-ntmpi 1</code>, which a GPU run given <code>-ntomp</code> needs and which keeps a run without GPUs to the CPUs the job was given, and the MPI build <code>gmx_mpi</code> never gets <code>-ntmpi</code>, which it rejects.</div></details>

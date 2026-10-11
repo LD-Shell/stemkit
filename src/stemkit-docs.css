@@ -18,6 +18,9 @@
 /* A link to a guide section lands below the sticky header, not under it. */
 .stk-section[id], .stk-section [id] { scroll-margin-top: 6rem; }
 .stk-wrap { max-width: 80rem; margin: 0 auto; padding-left: 1.5rem; padding-right: 1.5rem; }
+/* Guide sections that follow <main> keep the column of those inside it. */
+.stk-docs { width: 100%; max-width: 80rem; margin: 0 auto; padding: 0 1rem 1.5rem; }
+@media (min-width: 640px) { .stk-docs { padding: 0 1.5rem 2rem; } }
 .stk-chip { display:inline-flex; align-items:center; gap:.45rem; font-size:.8125rem; font-weight:600; padding:.3rem .75rem; border-radius:9999px; background:var(--stk-accent-soft); color:var(--stk-accent-text); border:1px solid var(--stk-accent-soft-border); }
 .stk-h2 { font-size:1.6rem; font-weight:800; letter-spacing:-.02em; margin:.75rem 0 .5rem; }
 .stk-lead { max-width:48rem; font-size:1rem; color:var(--stk-fg-3); line-height:1.65; }
