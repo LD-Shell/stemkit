@@ -33,6 +33,7 @@
         'coordinate-manipulator': { id: 'anLTv6TRsp0', title: 'Coordinate Manipulator: translate, rotate and re-box PDB, GRO and XYZ' },
         'script-generator':     { id: 'MHB83FVXmtE', title: 'MD Workflow Generator: one cluster request, four schedulers' },
         'script-generator-gromacs': { id: 'MHTZ6l1vMiw', title: 'MD Workflow Generator: set up a GROMACS run, every .mdp file explained' },
+        'script-generator-lammps': { id: '0UpF2W8kcuM', title: 'MD Workflow Generator, LAMMPS tab: a whole run from one data file' },
         'script-generator-plumed': { id: '1smK9m7Xmo8', title: 'MD Workflow Generator, PLUMED tab: build, check and read a plumed.dat' }
     };
 
