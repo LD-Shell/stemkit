@@ -4096,11 +4096,21 @@ export function stylePanelKit(bind) {
       return Number.isFinite(v) ? v / k() : undefined;
     };
     const apply = () => { const v = value(); if (v !== undefined) commit(path, v); };
-    listen(input, 'input', () => later(path, apply));
-    listen(input, 'change', () => { clearTimeout(timers.get(path)); apply(); show(); });
-    const show = () => {
+    // While a number is being typed the figure follows it, but only once what
+    // is typed is a number inside the limits: "2" on the way to "2.6" would
+    // otherwise be clamped to the minimum and written back over the typing.
+    const inRange = () => {
+      const t = input.value.trim();
+      if (t === '') return nullable;
+      const v = Number(t), lo = input.min === '' ? -Infinity : Number(input.min), hi = input.max === '' ? Infinity : Number(input.max);
+      return Number.isFinite(v) && v >= lo && v <= hi;
+    };
+    listen(input, 'input', () => { if (inRange()) later(path, apply); else clearTimeout(timers.get(path)); });
+    listen(input, 'change', () => { clearTimeout(timers.get(path)); timers.delete(path); apply(); show(true); });
+    const show = (force) => {
       if (limits) for (const [a, v] of Object.entries(limits())) input.setAttribute(a, v);
-      if (document.activeElement === input && timers.has(path)) return;
+      // A field being typed in is left as it is; it is shown afresh on Enter or on leaving it.
+      if (!force && document.activeElement === input) return;
       const v = read(path);
       const d = typeof digits === 'function' ? digits() : digits;
       input.value = v === null || v === undefined ? '' : d === undefined || d === null ? fmtNum(v * k()) : String(Number((v * k()).toFixed(d)));

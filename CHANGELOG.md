@@ -7,6 +7,15 @@ earlier version are worth re-checking.
 
 ## Unreleased
 
+### Fixed
+
+- **Number fields in the style panels.** Typing a decimal such as 2.6, or a
+  number whose first digits are below the minimum such as 10 or 123, could
+  overwrite the field while it was being typed: "2.6" ended as 4 and "8.5" as
+  40. A field is now left alone while it has focus, a value outside its limits
+  is applied on Enter or on leaving the field, and the figure follows the
+  typing once what is typed is a number within the limits.
+
 ### Changed
 
 - **Guide sections.** The Plot Builder and the XVG Visualizer set out the text
