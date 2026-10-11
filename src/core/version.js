@@ -9,7 +9,7 @@
  */
 
 /** The release, as in `package.json` (without the leading "v"). */
-export const STEMKIT_VERSION = '0.4.0';
+export const STEMKIT_VERSION = '0.5.0';
 
 /** The day the release was published, ISO 8601 (YYYY-MM-DD). */
 export const RELEASE_DATE = '2026-10-10';

@@ -5,7 +5,13 @@ Notable changes to STEMKit and `stemkit-core`.
 `[output]` marks a change that alters a reported number. Figures produced with an
 earlier version are worth re-checking.
 
-## Unreleased
+## v0.5.0 — 2026-10-10
+
+The Plot Builder draws nine kinds of chart, on a second pair of axes and on a
+grid of panels with letters and insets, with fifteen examples to start from;
+and a second round of fixes: job arrays, wall times and memory as the
+schedulers read them, unit factors from the exact constants, samples that do
+not vary, files of several data sets, and duplicates told apart by their DOIs.
 
 ### Added: more charts in the Plot Builder
 
