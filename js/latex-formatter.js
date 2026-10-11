@@ -32,76 +32,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const EXAMPLE = 'H = \\sum_{i=1}^{N} \\frac{p_i^2}{2m} + V(q_1, \\ldots, q_N)';
 
   // --- Keypress sounds ---
-  // MathLive ships its own keypress sounds and looks them up by filename under
-  // `soundsDirectory`. Overriding the map here rather than editing the vendored
-  // bundle keeps js/dependencies/mathlive.min.js untouched and upgradeable.
-  //
-  // Only Backspace and Delete make a sound. The standard keypress used to
-  // name sound/hee-hee.mp3, which was never committed, so every keystroke
-  // requested a missing file; `default`, `return` and `spacebar` are now
-  // silent rather than pointed at MathLive's own files, which are not in
-  // sound/ either. Add a file and name it here to give typing a sound.
-  const KEY_SOUNDS = { delete: 'fahhh.mp3' };
-
+  // MathLive plays keypress sounds from `soundsDirectory` unless told not to.
+  // The editor is silent: no sound file is loaded or played. Set here rather
+  // than in the vendored bundle, which stays untouched and upgradeable.
   if (window.MathfieldElement) {
     try {
-      window.MathfieldElement.soundsDirectory = 'sound';
-      window.MathfieldElement.keypressSound = {
-        default: KEY_SOUNDS.standard || null,
-        delete: KEY_SOUNDS.delete || null,
-        return: KEY_SOUNDS.standard || null,
-        spacebar: KEY_SOUNDS.standard || null
-      };
+      window.MathfieldElement.soundsDirectory = null;
+      window.MathfieldElement.keypressSound = null;
+      window.MathfieldElement.plonkSound = null;
     } catch (e) {
-      // A sound that will not load should never stop the editor working.
-      console.warn('Could not configure MathLive keypress sounds:', e);
+      // A setting that will not apply should never stop the editor working.
+      console.warn('Could not silence MathLive keypress sounds:', e);
     }
-  }
-
-  /*
-   * Typing on a physical keyboard is silent with the configuration above
-   * alone. Inside MathLive the keypress sound is played only when a command
-   * carries a `feedback` flag, and that flag is set by the on-screen maths
-   * keyboard, the same branch that triggers haptic vibration. Ordinary
-   * keystrokes take a different path, so on a desktop the sound never fires
-   * no matter which files are configured.
-   *
-   * Playing it here restores the behaviour people expect from typing.
-   */
-  const soundCache = {};
-
-  function keySound(kind) {
-    if (soundCache[kind] !== undefined) return soundCache[kind];
-    if (!KEY_SOUNDS[kind]) return (soundCache[kind] = null);
-    try {
-      const el = new Audio(`sound/${KEY_SOUNDS[kind]}`);
-      el.preload = 'auto';
-      soundCache[kind] = el;
-    } catch {
-      soundCache[kind] = null;
-    }
-    return soundCache[kind];
-  }
-
-  function playKeySound(kind) {
-    const base = keySound(kind);
-    if (!base) return;
-    // A fresh node per keystroke, so held or fast typing overlaps rather than
-    // cutting the previous sound short.
-    const note = base.cloneNode();
-    note.volume = 0.5;
-    // Autoplay rules and a missing file both surface as a rejected promise;
-    // neither should reach the console on every keystroke.
-    const played = note.play();
-    if (played && typeof played.catch === 'function') played.catch(() => {});
-  }
-
-  if (mathField) {
-    mathField.addEventListener('keydown', (e) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;   // shortcuts stay silent
-      const isDelete = e.key === 'Backspace' || e.key === 'Delete';
-      playKeySound(isDelete ? 'delete' : 'standard');
-    });
   }
 
   // Theming is handled by the shared inline script in the page.

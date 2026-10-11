@@ -20,6 +20,14 @@ None of them is modified; the files are the published distributions.
 | 3Dmol.js | not yet pinned | BSD-3-Clause | https://github.com/3dmol/3Dmol.js |
 | bibtex-parse-js | 0.0.11 | MIT | https://github.com/ORCID/bibtexParseJs |
 
+The licence text of each bundle sits beside it in `js/dependencies/`:
+`3Dmol-min.js.LICENSE.txt` (the file 3Dmol.js's own header names),
+`katex.LICENSE.txt`, `mathlive.LICENSE.txt`, `plotly.LICENSE.txt` and
+`chart.LICENSE.txt`; jStat, Papa Parse, regression.js and bibtex-parse-js are in
+`js/dependencies/LICENSES.md`. The texts are those the projects publish for
+the versions above; 3Dmol.js's is its current text, and the vendored build
+predates it.
+
 **Note on versions.** Five bundles record their version in the file header:
 Plotly.js, Chart.js, MathLive, Papa Parse, and bibtex-parse-js, a jsDelivr
 minification that names its source, `bibtex-parse-js@0.0.11`. KaTeX records it
@@ -66,6 +74,18 @@ stylesheet from another host.
 | Font Awesome (free tier) | CC BY 4.0 (icons), SIL OFL 1.1 (fonts), MIT (code) | https://fontawesome.com |
 | Inter (variable weight, latin subset, vendored at `css/fonts/inter/` from `@fontsource-variable/inter` 5.3.0, licence text alongside) | SIL OFL 1.1 | https://rsms.me/inter/ |
 | KaTeX fonts | SIL OFL 1.1 | bundled with KaTeX |
+
+## Sounds
+
+The two ambient sounds of the Ambient Pomodoro, in `sound/`, are credited on
+that page and listed here. Both are trimmed and looped.
+
+| File | Recording | Author | Licence |
+|---|---|---|---|
+| `sound/rain.mp3` | Rain_Loop.wav, https://freesound.org/people/Snoopy20111/sounds/399072/ | Snoopy20111 | CC0 1.0 |
+| `sound/cafe.mp3` | small cafe ambience.wav, https://freesound.org/people/Tomlija/sounds/99632/ | Tomlija | CC BY 3.0 |
+
+Brown noise on the same page is generated in the browser and uses no recording.
 
 ## Data
 

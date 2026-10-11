@@ -20,7 +20,8 @@
     "js/dependencies/regression.min.js",
     "js/dependencies/bibtexParse.min.js",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "THIRD_PARTY_LICENSES.md"
   ],
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",

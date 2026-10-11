@@ -382,3 +382,8 @@ metadata.
 
 MIT; see `LICENSE`. The four bundled libraries keep their own MIT licences:
 `js/dependencies/LICENSES.md`.
+
+Two groups of files are generated from LGPL-licensed projects and stay under
+those licences: `gromacs-mdp-docs.js` and `gromacs-mdp-options.js` (from
+GROMACS, LGPL 2.1 or later) and `plumed-syntax/` (from PLUMED, LGPL 3 or
+later). `THIRD_PARTY_LICENSES.md` names the sources and what was taken.

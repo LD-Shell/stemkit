@@ -7,3 +7,7 @@ error-bar-theory-preview.html
 theory-preview.html
 test-report.txt
 __pycache__/
+# upstream sources the generated tables are built from (never committed)
+/gromacs-2025.1/
+/lammps/
+/plumed2/

@@ -27,6 +27,13 @@ earlier version are worth re-checking.
 
 ### Changed
 
+- **Equation Formatter, no keypress sound.** Deleting no longer plays a
+  sound, and `sound/fahhh.mp3` is gone; the editor is silent.
+- **Third-party notices.** The licence text of 3Dmol.js, KaTeX, MathLive,
+  Plotly.js and Chart.js now sits beside each bundle, the two Pomodoro sounds
+  are listed in `THIRD_PARTY_LICENSES.md`, and that file is part of the npm
+  package, with a note in `src/core/README.md` that the GROMACS option text
+  and the PLUMED keyword tables stay under the LGPL.
 - **MD Workflow Generator, how-to guide by engine.** The guide has a tab for
   GROMACS, LAMMPS and PLUMED and one for the cluster card and the schedulers,
   each with its own video and steps (LAMMPS and PLUMED had none), and it
