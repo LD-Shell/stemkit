@@ -16,7 +16,7 @@
         'trailer':              { id: 'b8-Njiae9tQ', title: 'STEMKit Tools' },
         'plot-digitizer':       { id: 'BTx_5dfdDRc', title: 'Plot Digitizer: turn a graph image into numbers' },
         'curve-fitter':         { id: 'yQQcxk8NcqM', title: 'Curve Fitter: fit an equation you type to your data' },
-        'plot-builder':         { id: '18X3mi_31bw', title: 'Plot Builder: CSV to a publication figure and the Python that draws it' },
+        'plot-builder':         { id: 'iHjPWz7EJFo', title: 'Plot Builder: CSV to a publication figure and the Python that draws it' },
         'latex-formatter':      { id: '1LKQKjukP-4', title: 'Equation Formatter: write, check and copy LaTeX equations' },
         'stats-calculator':     { id: 'C4d3TF0i8Aw', title: 'Statistics Calculator: t-tests, ANOVA and post-hoc tests' },
         'error-bar-generator':  { id: 'jDro2zCEqHs', title: 'Error Bar Generator: SD, SEM or confidence interval, with brackets' },
