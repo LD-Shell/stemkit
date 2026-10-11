@@ -54,7 +54,7 @@ reproducibility; data privacy
 
 | Nr | Code metadata description | Metadata |
 | --- | --- | --- |
-| C1 | Current code version | v0.4.0 |
+| C1 | Current code version | v0.5.0 |
 | C2 | Permanent link to code/repository used for this code version | <https://github.com/LD-Shell/stemkit> ; archived on Zenodo under the concept DOI `10.5281/zenodo.21543112`, which resolves to the current release |
 | C3 | Legal code license | MIT License |
 | C4 | Code versioning system used | git |
