@@ -21,7 +21,7 @@
         'stats-calculator':     { id: 'C4d3TF0i8Aw', title: 'Statistics Calculator: t-tests, ANOVA and post-hoc tests' },
         'error-bar-generator':  { id: 'jDro2zCEqHs', title: 'Error Bar Generator: SD, SEM or confidence interval, with brackets' },
         'scientific-converter': { id: '5w2IoN1mtdM', title: 'Scientific Converter: one value in every unit of its quantity' },
-        'doi-fetcher':          { id: '29JvEmZ-KFY', title: 'DOI to BibTeX: turn a list of DOIs into a .bib file' },
+        'doi-fetcher':          { id: 'h-z_5BUreg8', title: 'DOI to BibTeX: turn a list of DOIs into a .bib file' },
         'bibtex-deduplicator':  { id: '9vVG0ms15gg', title: 'BibTeX Deduplicator: remove duplicate references from a .bib file' },
         'bibtex-sanitizer':     { id: 'NkJ6df-sKko', title: 'BibTeX Sanitizer: clean a messy .bib file' },
         'latex-tables':         { id: 'lbvZNv5k-Ak', title: 'Visual LaTeX Tables: turn a spreadsheet table into LaTeX' },
