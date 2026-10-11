@@ -640,9 +640,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // =====================================================================
     const OUTPUT_FILE = { gromacs: 'submit.sh', lammps: 'submit.sh', plumed: 'plumed.dat' };
     const engineTabs = Array.from(document.querySelectorAll('[data-engine-tab]'));
+    // The how-to guide's tab for the engine in use (set once the guide's tabs exist, below).
+    let syncHowTab = () => {};
 
     function switchEngine(engine) {
         currentEngine = engine;
+        syncHowTab(engine);
 
         // Only the selected tab is in the tab order; the arrow keys reach the others.
         engineTabs.forEach(btn => {
@@ -1018,6 +1021,43 @@ document.addEventListener('DOMContentLoaded', () => {
             selectDocTab(docTabs[to], true);
         });
     });
+
+    // The how-to guide's tabs follow the same pattern as the method tabs, with
+    // a pane for each engine and one for the cluster card. They are separate
+    // from the method tabs, and the guide follows the engine tab in use.
+    const howTabs = Array.from(document.querySelectorAll('.how-tab'));
+    const howPanes = Array.from(document.querySelectorAll('.how-pane'));
+    function selectHowTab(tab, focus) {
+        const key = tab.getAttribute('data-how-tab');
+        howTabs.forEach(x => {
+            const on = x === tab;
+            x.classList.toggle('active', on);
+            x.setAttribute('aria-selected', on ? 'true' : 'false');
+            x.tabIndex = on ? 0 : -1;
+        });
+        howPanes.forEach(pane => pane.classList.toggle('active', pane.getAttribute('data-how-pane') === key));
+        if (focus) tab.focus();
+    }
+    howPanes.forEach(pane => {
+        if (pane.querySelector(FOCUSABLE)) pane.removeAttribute('tabindex');
+        else pane.tabIndex = 0;
+    });
+    howTabs.forEach((tab, i) => {
+        tab.addEventListener('click', () => selectHowTab(tab, false));
+        tab.addEventListener('keydown', (e) => {
+            if (e.altKey || e.ctrlKey || e.metaKey) return;
+            const last = howTabs.length - 1;
+            const to = { ArrowRight: i === last ? 0 : i + 1, ArrowLeft: i === 0 ? last : i - 1, Home: 0, End: last }[e.key];
+            if (to === undefined) return;
+            e.preventDefault();
+            selectHowTab(howTabs[to], true);
+        });
+    });
+    syncHowTab = (engine) => {
+        const tab = howTabs.find(t => t.getAttribute('data-how-tab') === engine);
+        if (tab) selectHowTab(tab, false);
+    };
+    syncHowTab(currentEngine);
 
     // Switches toggle themselves and then announce a change, so the same
     // listeners serve them and the checkboxes.

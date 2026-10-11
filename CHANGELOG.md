@@ -27,6 +27,12 @@ earlier version are worth re-checking.
 
 ### Changed
 
+- **MD Workflow Generator, how-to guide by engine.** The guide has a tab for
+  GROMACS, LAMMPS and PLUMED and one for the cluster card and the schedulers,
+  each with its own video and steps (LAMMPS and PLUMED had none), and it
+  follows the engine tab in use. The three engine videos moved from the method
+  section to their tabs. The FAQ is grouped under GROMACS, LAMMPS, PLUMED,
+  schedulers and the page itself.
 - **Guide sections.** The Plot Builder and the XVG Visualizer set out the text
   under the tool as the other pages do: a "How-to guide" chip, notes in cards
   on a grid, and references in a narrow column. On every page the guide now

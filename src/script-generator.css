@@ -360,20 +360,23 @@ a.plumed-doclink:hover { text-decoration: underline; }
    Documentation: the per-engine tabs in the method section
 --------------------------------------------------------------------------- */
 .hl { color: var(--stk-accent-text); font-weight: 600; }
-.doc-tabs { display: flex; flex-wrap: wrap; gap: .4rem; margin: 1.25rem 0 1.75rem; border-bottom: 1px solid var(--stk-border); padding-bottom: .75rem; }
-.doc-tab { display: inline-flex; align-items: center; gap: .45rem; font-size: .85rem; font-weight: 700; padding: .5rem .95rem; border-radius: var(--stk-radius); cursor: pointer; border: 1px solid transparent; color: var(--stk-fg-muted); background: transparent; transition: background-color var(--stk-ease), color var(--stk-ease); }
-.doc-tab:hover { background: var(--stk-surface-2); color: var(--stk-fg); }
-.doc-tab.active { background: var(--stk-accent); color: var(--stk-accent-fg); border-color: var(--stk-accent); }
-.doc-tab.active:hover { background: var(--stk-accent-hover); color: var(--stk-accent-fg); }
-.doc-pane { display: none; }
-.doc-pane.active { display: block; }
-.doc-pane ul.sg-list { font-size: .88rem; color: var(--stk-fg-muted); line-height: 1.7; padding-left: 1.1rem; margin-top: .6rem; }
+.doc-tabs, .how-tabs { display: flex; flex-wrap: wrap; gap: .4rem; margin: 1.25rem 0 1.75rem; border-bottom: 1px solid var(--stk-border); padding-bottom: .75rem; }
+.doc-tab, .how-tab { display: inline-flex; align-items: center; gap: .45rem; font-size: .85rem; font-weight: 700; padding: .5rem .95rem; border-radius: var(--stk-radius); cursor: pointer; border: 1px solid transparent; color: var(--stk-fg-muted); background: transparent; transition: background-color var(--stk-ease), color var(--stk-ease); }
+.doc-tab:hover, .how-tab:hover { background: var(--stk-surface-2); color: var(--stk-fg); }
+.doc-tab.active, .how-tab.active { background: var(--stk-accent); color: var(--stk-accent-fg); border-color: var(--stk-accent); }
+.doc-tab.active:hover, .how-tab.active:hover { background: var(--stk-accent-hover); color: var(--stk-accent-fg); }
+.doc-pane, .how-pane { display: none; }
+.doc-pane.active, .how-pane.active { display: block; }
+.doc-pane ul.sg-list, .how-pane ul.sg-list { font-size: .88rem; color: var(--stk-fg-muted); line-height: 1.7; padding-left: 1.1rem; margin-top: .6rem; }
 /* The directive mapping table never breaks a directive mid-token: each
    directive is its own <code>, cells wrap between them, and on a phone the
    table scrolls sideways inside its wrapper instead. */
 .sg-map { min-width: 60rem; }
 .sg-map code { white-space: nowrap !important; overflow-wrap: normal !important; }
 @media (max-width: 640px) {
-  .doc-tab { font-size: .78rem; padding: .4rem .7rem; }
-  .doc-tabs { gap: .3rem; }
+  .doc-tab, .how-tab { font-size: .78rem; padding: .4rem .7rem; }
+  .doc-tabs, .how-tabs { gap: .3rem; }
 }
+
+.stk-faq-group { margin: 1.6rem 0 .2rem; font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--stk-accent-text); }
+.stk-faq-group:first-child { margin-top: 0; }
