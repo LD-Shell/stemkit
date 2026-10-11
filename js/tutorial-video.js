@@ -28,7 +28,8 @@
         'journal-abbreviator':  { id: 'bL4YU7Hfp10', title: 'Journal Abbreviator: abbreviate journal names in a reference list or .bib' },
         'xvg-visualizer':       { id: 'N2NhCOuFNxs', title: 'XVG Visualizer: plot GROMACS .xvg and CSV files' },
         'outlier-detector':     { id: 't1pzzCoXxFM', title: 'Outlier Detector: flag unusual values in a column' },
-        'data-cleaner':         { id: 'wIOWS0ST7rU', title: 'Data Cleaner: clean a CSV with a recipe you can reuse' }
+        'data-cleaner':         { id: 'wIOWS0ST7rU', title: 'Data Cleaner: clean a CSV with a recipe you can reuse' },
+        'structure-inspector':  { id: 'lEYXGW2WdYY', title: 'Structure Inspector: view, find, measure and export 3D structures' }
     };
 
     function el(tag, cls, text) {

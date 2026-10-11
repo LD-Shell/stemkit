@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://files.rcsb.org; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://files.rcsb.org; frame-src https://www.youtube-nocookie.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
     <title>Structure Inspector | 3D WebGL Molecular Viewer | STEMKit</title>
     <meta name="title" content="Structure Inspector | 3D WebGL Molecular Viewer | STEMKit">
     <meta name="description" content="Free 3D molecular viewer: load PDB, GRO, XYZ, CIF, MOL2 or CUBE files, find residues and species, measure bonds and angles, and export images.">
@@ -64,6 +64,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="src/tools/structure-inspector.css">
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
@@ -130,6 +131,7 @@
                 <ul class="stk-pagehead-meta">
                     <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
                     <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use</a></li>
+                    <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
                 </ul>
             </div>
             <div id="headActions" class="stk-pagehead-actions" hidden>
@@ -895,6 +897,7 @@
             <span class="stk-chip"><i class="fa-solid fa-cube"></i> How-to guide</span>
             <h2 id="howToTitle" class="stk-h2">How to inspect a molecular structure</h2>
             <p class="stk-lead">Open a coordinate file, turn it until you can see what matters, find the residues or molecules you care about by name, then measure and export. Everything is drawn by your own graphics card; nothing is uploaded.</p>
+            <section id="tutorial" class="stk-tut-slot" data-tutorial="structure-inspector"></section>
             <div class="stk-grid stk-grid-2">
                 <div class="stk-step"><span class="stk-num">1</span><div><h3>Open a structure</h3><p>Drop a <strong>PDB, GRO, XYZ, CIF, MOL2, SDF</strong> or other coordinate file on the page, choose one, type a four-character <strong>PDB ID</strong> to fetch it from RCSB, or open a sample. The <strong>Helix in a water box</strong> sample is a small solvated system with ions and a box, built in your browser, for trying the MD features.</p></div></div>
                 <div class="stk-step"><span class="stk-num">2</span><div><h3>Move around</h3><p>Drag to rotate, scroll or pinch to zoom, right-drag or drag with two fingers to pan. The controls in the corner of the viewer do the same without a mouse: hold an arrow to keep turning, drag the centre of the pad like a trackball, slide the zoom rail, look along <strong>X</strong>, <strong>Y</strong> or <strong>Z</strong>, fit, reset or spin. Click an atom to make it the centre of rotation; double-click to zoom to its residue.</p></div></div>
@@ -1179,6 +1182,7 @@
     <div id="toastContainer" class="stk-toasts" aria-live="polite"></div>
 
     <script src="js/site.js"></script>
+    <script defer src="js/tutorial-video.js"></script>
     <script defer src="js/structure-inspector.js"></script>
 </body>
 </html>
