@@ -81,8 +81,8 @@ Three further pages are workflow helpers, not research tools, and are not part
 of the scholarly contribution: Pomodoro timer, decision matrix, kinetics
 sandbox.
 
-Fifteen tools have a narrated video tutorial, shown on the tool's page
-and collected in the
+Every research tool has a narrated video tutorial, shown on the tool's page
+(the MD workflow generator has one for each engine) and collected in the
 [STEMKit Tutorials playlist](https://www.youtube.com/playlist?list=PLAqgfbqFf32M) on YouTube. The player
 loads from YouTube only when play is pressed.
 
