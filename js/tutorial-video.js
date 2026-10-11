@@ -26,7 +26,7 @@
         'bibtex-sanitizer':     { id: 'NkJ6df-sKko', title: 'BibTeX Sanitizer: clean a messy .bib file' },
         'latex-tables':         { id: 'lbvZNv5k-Ak', title: 'Visual LaTeX Tables: turn a spreadsheet table into LaTeX' },
         'journal-abbreviator':  { id: 'bL4YU7Hfp10', title: 'Journal Abbreviator: abbreviate journal names in a reference list or .bib' },
-        'xvg-visualizer':       { id: 'Jhy6LdatiDc', title: 'XVG Visualizer: plot GROMACS .xvg and CSV files' },
+        'xvg-visualizer':       { id: 'N2NhCOuFNxs', title: 'XVG Visualizer: plot GROMACS .xvg and CSV files' },
         'outlier-detector':     { id: 't1pzzCoXxFM', title: 'Outlier Detector: flag unusual values in a column' },
         'data-cleaner':         { id: 'wIOWS0ST7rU', title: 'Data Cleaner: clean a CSV with a recipe you can reuse' }
     };
