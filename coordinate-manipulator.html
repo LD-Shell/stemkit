@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     
     <title>Coordinate Manipulator | PDB, GRO & XYZ Editor | STEMKit</title>
     <meta name="title" content="Coordinate Manipulator | PDB, GRO & XYZ Editor | STEMKit">
@@ -77,6 +77,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="css/dependencies/katex.min.css">
     <script defer src="js/dependencies/katex.min.js"></script>
     <link rel="stylesheet" href="src/tools/python-panel.css">
@@ -148,6 +149,7 @@
                 <ul class="stk-pagehead-meta">
                     <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
                     <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
+                    <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
                 </ul>
             </div>
         </header>
@@ -470,6 +472,7 @@
             <span class="stk-chip"><i class="fa-solid fa-cubes"></i> How-to guide</span>
             <h2 class="stk-h2">How to translate and convert molecular coordinates</h2>
             <p class="stk-lead">Shift a structure by a vector, centre it on the origin, or convert between PDB, GRO and XYZ (with correct unit handling) without installing anything.</p>
+            <section id="tutorial" class="stk-tut-slot" data-tutorial="coordinate-manipulator"></section>
             <div class="stk-grid stk-grid-3">
                 <div class="stk-step"><span class="stk-num">1</span><div><h3>Load a structure</h3><p>Drag &amp; drop (or click to browse) a <code>.pdb</code>, <code>.gro</code> or <code>.xyz</code> file. Parsing starts automatically.</p></div></div><div class="stk-step"><span class="stk-num">2</span><div><h3>Inspect the system</h3><p>Read off the atom count, geometric centre and bounding box, all shown in the file’s native units (Å for PDB/XYZ, nm for GRO).</p></div></div><div class="stk-step"><span class="stk-num">3</span><div><h3>Transform</h3><p>Apply a translation vector, or press <strong>Centre on origin</strong> to move either the geometric centre or the true centre of mass to (0,&nbsp;0,&nbsp;0). For a rotation, type the angles or set the view to <strong>Turn molecule</strong> and drag it, then press <strong>Rotate</strong>.</p></div></div><div class="stk-step"><span class="stk-num">4</span><div><h3>Export</h3><p>Choose an output format and click <strong>Download</strong>. Coordinates are converted to the correct units for the target format automatically.</p></div></div>
             </div>
@@ -603,6 +606,7 @@
     <div id="toastContainer" class="stk-toasts" aria-live="polite"></div>
 
     <script src="js/site.js"></script>
+    <script defer src="js/tutorial-video.js"></script>
     <script type="module" src="js/coordinate-manipulator.js"></script>
 </body>
 </html>

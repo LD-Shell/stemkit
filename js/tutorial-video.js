@@ -29,7 +29,8 @@
         'xvg-visualizer':       { id: 'N2NhCOuFNxs', title: 'XVG Visualizer: plot GROMACS .xvg and CSV files' },
         'outlier-detector':     { id: 't1pzzCoXxFM', title: 'Outlier Detector: flag unusual values in a column' },
         'data-cleaner':         { id: 'wIOWS0ST7rU', title: 'Data Cleaner: clean a CSV with a recipe you can reuse' },
-        'structure-inspector':  { id: 'lEYXGW2WdYY', title: 'Structure Inspector: view, find, measure and export 3D structures' }
+        'structure-inspector':  { id: 'lEYXGW2WdYY', title: 'Structure Inspector: view, find, measure and export 3D structures' },
+        'coordinate-manipulator': { id: 'anLTv6TRsp0', title: 'Coordinate Manipulator: translate, rotate and re-box PDB, GRO and XYZ' }
     };
 
     function el(tag, cls, text) {
