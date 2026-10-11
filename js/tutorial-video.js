@@ -20,7 +20,7 @@
         'latex-formatter':      { id: '1LKQKjukP-4', title: 'Equation Formatter: write, check and copy LaTeX equations' },
         'stats-calculator':     { id: 'C4d3TF0i8Aw', title: 'Statistics Calculator: t-tests, ANOVA and post-hoc tests' },
         'error-bar-generator':  { id: 'jDro2zCEqHs', title: 'Error Bar Generator: SD, SEM or confidence interval, with brackets' },
-        'scientific-converter': { id: 'Bzk6f46ePNw', title: 'Scientific Converter: one value in every unit of its quantity' },
+        'scientific-converter': { id: '5w2IoN1mtdM', title: 'Scientific Converter: one value in every unit of its quantity' },
         'doi-fetcher':          { id: '29JvEmZ-KFY', title: 'DOI to BibTeX: turn a list of DOIs into a .bib file' },
         'bibtex-deduplicator':  { id: '78_d0617q6A', title: 'BibTeX Deduplicator: remove duplicate references from a .bib file' },
         'bibtex-sanitizer':     { id: 'NkJ6df-sKko', title: 'BibTeX Sanitizer: clean a messy .bib file' },
