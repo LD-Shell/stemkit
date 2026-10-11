@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4=' 'sha256-BcMp+4hsxgnEH3/hk8Q6f/DjL6piqWM/PNnwPuHPiQM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-NVprGzYm160SIPe19oVCMUaCAjJxaTXpUSJCf6kfpa4=' 'sha256-BcMp+4hsxgnEH3/hk8Q6f/DjL6piqWM/PNnwPuHPiQM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'">
 
     <title>MD Workflow Generator | GROMACS, LAMMPS & PLUMED | STEMKit</title>
     <meta name="title" content="MD Workflow Generator | GROMACS, LAMMPS & PLUMED | STEMKit">
@@ -78,6 +78,7 @@
     <link rel="stylesheet" href="src/home.css">
     <link rel="stylesheet" href="src/output.css">
     <link rel="stylesheet" href="src/stemkit-docs.css">
+    <link rel="stylesheet" href="src/tutorial-video.css">
     <link rel="stylesheet" href="src/tools/figure.css">
     <link rel="stylesheet" href="src/tools/python-panel.css">
     <link rel="stylesheet" href="src/script-generator.css">
@@ -147,6 +148,7 @@
                 <ul class="stk-pagehead-meta">
                     <li><i class="fa-solid fa-lock" aria-hidden="true"></i> Runs in your browser</li>
                     <li><a href="#how-to-use"><i class="fa-solid fa-book-open" aria-hidden="true"></i> How to use it</a></li>
+                    <li><a href="#tutorial"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the tutorial</a></li>
                 </ul>
             </div>
             <div class="stk-pagehead-actions">
@@ -2612,6 +2614,7 @@
                 <span class="stk-chip"><i class="fa-solid fa-server"></i> How-to guide</span>
                 <h2 class="stk-h2">How to build a GROMACS workflow or a batch script</h2>
                 <p class="stk-lead">Pick an engine and work through its set-up; the files are written as you type. For GROMACS that is the whole run: a <code>.mdp</code> file for every stage (minimisation, NVT and NPT equilibration, production, and optionally annealing and pulling), each checked the way <code>grompp</code> checks it and explained line by line, the index groups your <code>.mdp</code> files need, and the job script that chains <code>grompp</code> and <code>mdrun</code>, all in one zip. For LAMMPS it is the same: an input for every stage from minimisation to production, explained and checked line by line, groups from your data file, and the job script with the flags of the accelerator package you choose, or a job script for an input you already have; for PLUMED it composes a <code>plumed.dat</code> from collective variables picked by category. It remembers your settings between visits.</p>
+                <section id="tutorial" class="stk-tut-slot" data-tutorial="script-generator"></section>
                 <div class="stk-grid stk-grid-2">
                     <div class="stk-step"><span class="stk-num">1</span><div><h3>System: the physics every stage shares</h3><p>Choose the force field (AMBER, CHARMM36, GROMOS 54A7, OPLS-AA or Martini 3), which sets the cut-offs, dispersion correction and time step it was parametrised with, and what you simulate: a solute in water, a membrane (semi-isotropic pressure coupling) or a liquid. Then the temperature and pressure, the thermostat and barostat (the guide next to them explains each), the rigid bonds and the time step, with hydrogen mass repartitioning for 4&nbsp;fs.</p></div></div>
                     <div class="stk-step"><span class="stk-num">2</span><div><h3>Stages: what runs, and for how long</h3><p>Switch stages on or off and give each a length in ps or ns, its output intervals, and whether the solute is held by position restraints. Velocities are handled for you: new ones for the first dynamics stage, carried over through the checkpoint after it. The panel at the top shows the workflow at a glance, with the steps, frames and file sizes.</p></div></div>
@@ -3043,6 +3046,7 @@
             window.addEventListener('scroll', hide, true);
         })();
     </script>
+    <script defer src="js/tutorial-video.js"></script>
     <script type="module" src="js/script-generator.js"></script>
 </body>
 </html>
