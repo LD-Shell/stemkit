@@ -32,7 +32,8 @@
         'structure-inspector':  { id: 'lEYXGW2WdYY', title: 'Structure Inspector: view, find, measure and export 3D structures' },
         'coordinate-manipulator': { id: 'anLTv6TRsp0', title: 'Coordinate Manipulator: translate, rotate and re-box PDB, GRO and XYZ' },
         'script-generator':     { id: 'MHB83FVXmtE', title: 'MD Workflow Generator: one cluster request, four schedulers' },
-        'script-generator-gromacs': { id: 'MHTZ6l1vMiw', title: 'MD Workflow Generator: set up a GROMACS run, every .mdp file explained' }
+        'script-generator-gromacs': { id: 'MHTZ6l1vMiw', title: 'MD Workflow Generator: set up a GROMACS run, every .mdp file explained' },
+        'script-generator-plumed': { id: '1smK9m7Xmo8', title: 'MD Workflow Generator, PLUMED tab: build, check and read a plumed.dat' }
     };
 
     function el(tag, cls, text) {
