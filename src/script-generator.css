@@ -380,3 +380,9 @@ a.plumed-doclink:hover { text-decoration: underline; }
 
 .stk-faq-group { margin: 1.6rem 0 .2rem; font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--stk-accent-text); }
 .stk-faq-group:first-child { margin-top: 0; }
+.how-tabs-label { margin: 1.5rem 0 0; font-size: .9rem; font-weight: 600; color: var(--stk-fg); display: flex; align-items: center; gap: .5rem; scroll-margin-top: 5rem; }
+.how-tabs-label i { color: var(--stk-accent-text); }
+.how-tabs { margin-top: .75rem; }
+.how-tab:not(.active) { border-color: var(--stk-border-strong, var(--stk-border)); background: var(--stk-surface); color: var(--stk-fg); }
+.how-tab:not(.active):hover { border-color: var(--stk-accent); background: var(--stk-accent-soft, var(--stk-surface-2)); color: var(--stk-accent-text); }
+.how-tab:focus-visible { outline: 2px solid var(--stk-accent); outline-offset: 2px; }

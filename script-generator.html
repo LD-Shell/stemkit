@@ -2613,8 +2613,9 @@
             <div class="stk-wrap">
                 <span class="stk-chip"><i class="fa-solid fa-server"></i> How-to guide</span>
                 <h2 class="stk-h2">How to build an MD workflow</h2>
-                <p class="stk-lead">Pick an engine and work through its set-up; the files are written as you type, checked the way the engine checks them and explained line by line. Each tab below has its own video and steps: GROMACS writes a <code>.mdp</code> file for every stage, the index groups and the job script that chains <code>grompp</code> and <code>mdrun</code>; LAMMPS writes an input for every stage from a data file, with groups and a job script that carries on after a wall-time stop; PLUMED composes a <code>plumed.dat</code> from collective variables picked by category and reads a finished run; the last tab covers the cluster request all of them share. The page remembers your settings between visits.</p>
-                <div class="how-tabs" id="tutorial" role="tablist" aria-label="How to use, by engine">
+                <p class="stk-lead">Each tab below has its own video and steps. The files are written as you type, checked the way the engine checks them and explained line by line, and the page remembers your settings between visits.</p>
+                <p class="how-tabs-label" id="tutorial"><i class="fa-solid fa-hand-pointer" aria-hidden="true"></i> Choose your engine, then follow its steps:</p>
+                <div class="how-tabs" role="tablist" aria-label="How to use, by engine">
                     <button type="button" class="how-tab active" id="how-tab-gromacs" data-how-tab="gromacs" role="tab" aria-selected="true" aria-controls="how-pane-gromacs"><i class="fa-solid fa-atom" aria-hidden="true"></i> GROMACS</button>
                     <button type="button" class="how-tab" id="how-tab-lammps" data-how-tab="lammps" role="tab" aria-selected="false" aria-controls="how-pane-lammps" tabindex="-1"><i class="fa-solid fa-cubes" aria-hidden="true"></i> LAMMPS</button>
                     <button type="button" class="how-tab" id="how-tab-plumed" data-how-tab="plumed" role="tab" aria-selected="false" aria-controls="how-pane-plumed" tabindex="-1"><i class="fa-solid fa-wave-square" aria-hidden="true"></i> PLUMED</button>

@@ -19,10 +19,11 @@ const tabs = [...guide.matchAll(/<button\b[^>]*class="how-tab[^>]*>/g)].map(m =>
 const panes = [...guide.matchAll(/<div\b[^>]*class="how-pane[^>]*>/g)].map(m => attrs(m[0]));
 
 describe('how-to guide tabs of script-generator.html', () => {
-  test('the tab list has a role, a name, and the id the page head links to', () => {
+  test('the tab list has a role and a name, and the label above it is where the page head links to', () => {
     expect(attrs(guide.match(/<div class="how-tabs"[^>]*>/)[0])).toMatchObject({
-      id: 'tutorial', role: 'tablist', 'aria-label': 'How to use, by engine'
+      role: 'tablist', 'aria-label': 'How to use, by engine'
     });
+    expect(guide).toMatch(/<p class="how-tabs-label" id="tutorial">[^<]*<i [^>]*aria-hidden="true"><\/i>[^<]*<\/p>\s*<div class="how-tabs"/);
     expect(html).toContain('<a href="#tutorial">');
   });
 
