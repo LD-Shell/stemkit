@@ -5461,6 +5461,13 @@ export function mountFigure(host, options = {}) {
       return drawn;
     },
     /** A new title for the header (and so for the style drawer's). */
+    /** Choose where the script reads its data from, as pressing the switch does. */
+    setPythonSource(id) {
+      if (!py || !py.sources || !py.sources.some((s) => s.id === id) || id === pySource) return;
+      pySource = id;
+      if (python && python.setSource) python.setSource(id);
+      renderPython();
+    },
     setTitle(text) {
       headerTitle = String(text ?? '');
       const t = header && header.querySelector('.fg-t');

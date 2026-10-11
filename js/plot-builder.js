@@ -23,7 +23,8 @@
  * The Layout section under the series sets where the panels go: the rows and
  * columns of the grid, which panels share their axes, and the insets (kept
  * with the files and series); the gap between panels and their letters are
- * look, kept in the style.
+ * look, kept in the style for as long as the figure is on the page. They are
+ * not part of the look kept for the next visit, which is the house style.
  */
 import { mountFigure } from './figure-plot.js';
 import { formatSize, WHISKER_RULES, isStack } from '../src/core/figure.js';
@@ -101,6 +102,16 @@ function saveStyle(style) {
 
 const pyFiles = {};
 let plot = null;
+/* Where the script reads the data: what the person chose, but "Data in the
+   script" while every file in use is an example, whose numbers are always
+   written into it. */
+let chosenSource = 'files';
+function syncScriptSource() {
+  if (!plot || !plot.setPythonSource) return;
+  const used = new Set(state.series.map((s) => s.fileId));
+  const files = state.files.filter((f) => used.has(f.id));
+  plot.setPythonSource(files.length && files.every((f) => f.example) ? 'embed' : chosenSource);
+}
 
 function headHeight() {
   const nav = document.querySelector('body > nav');
@@ -165,7 +176,8 @@ plot = mountFigure(ui.plot, {
     sources: [{ id: 'files', label: 'Read the CSV files' }, { id: 'embed', label: 'Data in the script' }],
     files: pyFiles,
     header: ['Figure from the STEMKit Plot Builder (https://stemkit.net/plot-builder.html)'],
-    note: pythonNote
+    note: pythonNote,
+    onSourceChange: (id) => { chosenSource = id; }
   }
 });
 
@@ -236,6 +248,7 @@ function setStyle(next) {
  * ------------------------------------------------------------------ */
 
 function afterDraw(info) {
+  syncScriptSource();
   const f = plot.figure();
   const has = !!(f && info);
   ui.logXWrap.hidden = !has;
@@ -1041,9 +1054,9 @@ ui.cols.addEventListener('change', () => {
 ui.shareX.addEventListener('change', () => { state.layout.sharex = ui.shareX.value; redraw(); });
 ui.shareY.addEventListener('change', () => { state.layout.sharey = ui.shareY.value; redraw(); });
 
-/* The gap and the letters are look: they go into the style. */
+/* The gap and the letters are look: they go into the style (not into the house style kept between visits). */
 function setGap() {
-  const read = (input) => { const t = input.value.trim(); const v = Number(t); return t === '' || !Number.isFinite(v) ? null : Math.min(72, Math.max(0, v)); };
+  const read = (input) => { const t = input.value.trim(); const v = Number(t); return t === '' || !Number.isFinite(v) ? null : Math.min(144, Math.max(0, v)); };
   const next = plot.getStyle();
   const gap = { h: read(ui.gapH), w: read(ui.gapW) };
   if (gap.h === null && gap.w === null) delete next.panelGap; else next.panelGap = gap;

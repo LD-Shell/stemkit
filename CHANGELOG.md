@@ -15,6 +15,15 @@ earlier version are worth re-checking.
   40. A field is now left alone while it has focus, a value outside its limits
   is applied on Enter or on leaving the field, and the figure follows the
   typing once what is typed is a number within the limits.
+- **Plot Builder, panel gap.** The gap fields in the Layout section stopped at
+  72 pt, while the figure and the Style panel take up to 144 pt, so a larger
+  gap typed there was cut back.
+- **Plot Builder, script source.** With an example on the page, the switch
+  above the script showed "Read the CSV files" pressed, although an example's
+  numbers are always written into the script. It now shows "Data in the
+  script" while every file in use is an example, and goes back to the
+  person's own choice once a file of theirs is loaded.
+- **Changelog.** v0.5.0 listed twelve built-in examples; there are fifteen.
 
 ### Changed
 
@@ -94,10 +103,11 @@ not vary, files of several data sets, and duplicates told apart by their DOIs.
 - **Fixed: a bar with no number widened the x axis** in the preview, where
   matplotlib leaves it out of the limits.
 - **An example for each kind of chart.** **More examples**, beside **Load an
-  example**, lists twelve built-in data sets with the series that show them
+  example**, lists fifteen built-in data sets with the series that show them
   off: growth curves, two y axes, a top x axis, grouped bars, bars of means,
   stacked bars, histograms, box and violin plots, a heatmap with contours, a
-  2D histogram, a step line and two panels. An example takes the place of the
+  2D histogram, a step line, two panels, a grid of panels, stacked spectra and
+  a zoomed inset. An example takes the place of the
   files and series on the page (it asks first when the files are yours) and
   keeps your plot style. Box plots and violins in two panels now stand over
   each other.
