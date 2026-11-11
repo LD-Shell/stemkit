@@ -11,7 +11,7 @@ author:
     affiliation: Independent Researcher
     email: lanrelangmuir@gmail.com
     corresponding: true
-date: 10 October 2026
+date: 11 November 2026
 keywords:
   - computational chemistry
   - molecular dynamics
@@ -38,7 +38,7 @@ inside the user's own browser: the data analysed never leaves it, no account is
 required and nothing is installed, so the tools stay usable for unpublished or
 confidential data. The same modules run under Node.js, so an interactive
 analysis can be captured as a version-pinned script. The 42 domain modules carry
-4979 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
+4989 tests validated against SciPy, NumPy, statsmodels, pandas, matplotlib,
 GROMACS, PLUMED, LAMMPS and physical invariants rather than against the
 implementation itself. That
 validation exposed four defects that had been altering reported results, among
@@ -54,13 +54,13 @@ reproducibility; data privacy
 
 | Nr | Code metadata description | Metadata |
 | --- | --- | --- |
-| C1 | Current code version | v0.5.0 |
+| C1 | Current code version | v0.5.1 |
 | C2 | Permanent link to code/repository used for this code version | <https://github.com/LD-Shell/stemkit> ; archived on Zenodo under the concept DOI `10.5281/zenodo.21543112`, which resolves to the current release |
 | C3 | Legal code license | MIT License |
 | C4 | Code versioning system used | git |
 | C5 | Software code languages, tools and services used | JavaScript (ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS |
 | C6 | Compilation requirements, operating environments and dependencies | Browser tools: any current browser supporting ECMAScript modules and the `FileReader` API; no installation and no build step. Library: Node.js ≥ 18; on npm as `stemkit-core`. No runtime dependencies: jStat, Papa Parse, regression.js and bibtex-parse-js are vendored and bundled. `npm install` in a clone adds only the development dependencies (Jest, Tailwind CSS) |
-| C7 | If available, link to developer documentation/manual | <https://github.com/LD-Shell/stemkit#readme>; per-module API documentation in `src/core/README.md`; hosted tools at <https://stemkit.net>; narrated video tutorials for 15 tools at <https://www.youtube.com/playlist?list=PLAqgfbqFf32M> |
+| C7 | If available, link to developer documentation/manual | <https://github.com/LD-Shell/stemkit#readme>; per-module API documentation in `src/core/README.md`; hosted tools at <https://stemkit.net>; narrated video tutorials for every research tool at <https://www.youtube.com/playlist?list=PLAqgfbqFf32M> |
 | C8 | Support email for questions | lanrelangmuir@gmail.com (issue tracker: <https://github.com/LD-Shell/stemkit/issues>) |
 
 ## 1. Motivation and significance
@@ -192,7 +192,7 @@ enumerates the modules.
 ┌───────────────────────────────┐   ┌───────────────────────────────┐
 │        Browser host           │   │         Node.js host          │
 │  21 static HTML/CSS tool pages│   │  user analysis scripts        │
-│  DOM wiring only;             │   │  4979-test Jest suite;        │
+│  DOM wiring only;             │   │  4989-test Jest suite;        │
 │  FileReader input             │   │  smoke test                   │
 │  UMD bundles via <script>     │   │  UMD bundles: createRequire   │
 └───────────────┬───────────────┘   └───────────────┬───────────────┘
@@ -224,7 +224,7 @@ supplies the vendored libraries.
 **Table 1.** Modules of `stemkit-core`. Vendored dependencies are supplied by
 injection; modules marked *none* operate without any third-party code. Related
 modules share a row, and a row's tests include those of the page scripts built
-on it (409 in all).
+on it (439 in all).
 
 | Module | Domain | Tests | Dependency |
 | --- | --- | ---: | --- |
@@ -235,8 +235,8 @@ on it (409 in all).
 | `bibtex` | Reference deduplication, sanitising | 236 | bibtex-parse-js |
 | `statistics`, `statistics-figure` | Inferential and descriptive statistics | 193 | jStat |
 | `data-cleaning`, `data-cleaning-python` | Tabular transformation, pandas script | 183 | Papa Parse |
+| `figure`, `figure-python` | Figure description, matplotlib script | 167 | none |
 | `structure` | Molecular geometry, PDB/GRO/XYZ, rigid transforms and their scripts | 165 | none |
-| `figure`, `figure-python` | Figure description, matplotlib script | 165 | none |
 | `xvg-parser` | GROMACS/PLUMED trajectory data | 162 | none |
 | `slurm` | SLURM job scripts, resource checks | 123 | none |
 | `plumed-analysis`, `plumed-analysis-figures` | COLVAR and HILLS analysis, free-energy surfaces | 121 | none |
@@ -254,8 +254,8 @@ on it (409 in all).
 | `journals` | Whole-title journal abbreviation | 53 | none |
 | `version` | Release version and date | 5 | none |
 | `zip` | Archives of generated files | 4 | none |
-| (no module) | Page scripts and site tools with no module under them: the Decision Matrix, the method tabs, the sitemap and page checks | 49 | none |
-| **Total** | | **4979** | |
+| (no module) | Page scripts and site tools with no module under them: the Decision Matrix, the method and how-to tabs, the sitemap and page checks | 57 | none |
+| **Total** | | **4989** | |
 
 Four third-party libraries are vendored within the repository for the core:
 jStat for statistical distributions, Papa Parse for delimited-text parsing,
@@ -286,8 +286,8 @@ under that interpretation the UMD factory takes its browser branch and fails.
 Scoping `"type": "commonjs"` to the dependency directory alone restores correct
 behaviour.
 
-The test suite comprises 4979 tests in 64 suites across the 42 domain modules and the version module,
-with 89.4% statement and 93.5% line coverage of `src/core/`. Its governing
+The test suite comprises 4989 tests in 66 suites across the 42 domain modules and the version module,
+with 89.5% statement and 93.6% line coverage of `src/core/`. Its governing
 principle is that numerical results are validated against *independent*
 references rather than against the implementation under test, since a test
 written from the same source as the code confirms only internal consistency.
@@ -854,7 +854,7 @@ in pairs: it requires no installation, transmits no data and remains scriptable.
 
 Both properties are structural rather than contractual: computation occurs
 entirely within the browser, and the modules behind the interface are the ones
-that run under Node.js. The 4979-test suite validates every numerical result
+that run under Node.js. The 4989-test suite validates every numerical result
 against an independent reference, and the four defects that this
 strategy exposed (deflated standardised moments, tail probabilities floored at
 zero, misassigned elements in metalloproteins, and an adjusted moment fed into a
