@@ -11,7 +11,7 @@ author:
     affiliation: Independent Researcher
     email: lanrelangmuir@gmail.com
     corresponding: true
-date: 11 November 2026
+date: November 2026
 keywords:
   - computational chemistry
   - molecular dynamics
