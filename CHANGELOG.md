@@ -5,7 +5,20 @@ Notable changes to STEMKit and `stemkit-core`.
 `[output]` marks a change that alters a reported number. Figures produced with an
 earlier version are worth re-checking.
 
-## Unreleased
+## v0.5.1 — 2026-11-11
+
+A video tutorial on every research tool, the MD Workflow Generator's guide
+set out by engine, and number fields that are no longer rewritten while they
+are typed in.
+
+### Added: video tutorials
+
+- **Every research tool has a video tutorial.** The Structure Inspector, the
+  Coordinate Manipulator and the MD Workflow Generator have theirs now; the
+  generator has four, for the cluster request, GROMACS, LAMMPS and PLUMED.
+- **New videos for five tools** whose pages changed in v0.5.0: the Plot
+  Builder, the Scientific Converter, the XVG Visualizer, the BibTeX
+  Deduplicator and DOI to BibTeX.
 
 ### Fixed
 
