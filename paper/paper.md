@@ -16,7 +16,7 @@ authors:
 affiliations:
   - name: Independent Researcher
     index: 1
-date: 11 November 2026
+date: November 2026
 bibliography: paper.bib
 ---
 
@@ -126,16 +126,16 @@ PLUMED setting it writes and checking existing inputs before they are run.
 
 # AI usage disclosure
 
-The author conceived STEMKit and set its scope and design: which tools to
-build, what each must do, the methods they use, and the independent references
-and programs each must agree with. The author also tested the tools and decided
-what was released. Claude (Anthropic), used through Claude Code, assisted with
-the implementation, writing code, tests and documentation to the author's
-specifications, and helped draft and revise this paper. Correctness does not
-rest on the model: every numerical routine is tested against an independent
-reference or against the programs themselves, those tests run in continuous
-integration, and the author reviewed the results. The author takes full
-responsibility for the software and this paper.
+The author conceived STEMKit and decided its scope and design: which tools to
+build, what each should do, the methods they use, and the independent
+references and programs each has to agree with. The author also tested the
+tools and decided what was released. Claude (Anthropic), used through Claude
+Code, assisted with the implementation, writing code, tests and documentation
+to the author's specifications, and helped revise this paper. The correctness
+of the software does not depend on the model: every numerical routine is tested
+against an independent reference or against the programs themselves, the tests
+run in continuous integration, and the author reviewed the results. The author
+takes full responsibility for the software and this paper.
 
 # Acknowledgements
 
