@@ -103,11 +103,13 @@ the programs themselves:
 
 Reference data are generated from the programs' own sources rather than typed
 by hand: the GROMACS option tables, the PLUMED keyword tables and the LAMMPS
-command reference. The 4989 tests run in continuous integration on three
+command reference. The 5003 tests run in continuous integration on two
 Node.js versions and with Python installed, so the scripts are checked too. A
 Content-Security-Policy on every page lets the browser itself refuse any
-request except the two that users make explicitly: a DOI lookup and a
-Protein Data Bank download.
+request except those that users trigger: a DOI lookup, a Protein Data Bank
+download and, once a tutorial video is played, YouTube's player. No user data
+or result leaves the browser; the host of stemkit.net may still log page
+requests, as any web server does.
 
 # Research impact statement
 
