@@ -114,11 +114,11 @@ Bump `version` in `package.json` first; npm never accepts the same version twice
 `npm publish` runs `npm test` and the smoke test first (`prepublishOnly`).
 
 The release also shows on the site: every page's footer ends
-`; version = v0.5.1 (2026-11-11)`, linked to the changelog. Bump
+`; version = v0.6.0 (2026-11-14)`, linked to the changelog. Bump
 `STEMKIT_VERSION` and `RELEASE_DATE` in `src/core/version.js`, then the footers:
 
 ```bash
-sed -i 's|>v0\.5\.1</a> (2026-11-11)</pre>|>v0.5.2</a> (2026-12-02)</pre>|' *.html
+sed -i 's|>v0\.6\.0</a> (2026-11-14)</pre>|>v0.6.1</a> (2026-12-02)</pre>|' *.html
 ```
 
 `tests/version.test.js` fails until `src/core/version.js` agrees with

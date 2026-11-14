@@ -5,7 +5,7 @@ Notable changes to STEMKit and `stemkit-core`.
 `[output]` marks a change that alters a reported number. Figures produced with an
 earlier version are worth re-checking.
 
-## Unreleased
+## v0.6.0 — 2026-11-14
 
 Ion names in `.gro` files, a caveat on normality checks of fewer than 20
 values, array memory worded and totalled as SLURM defines it, and Node 22 as
