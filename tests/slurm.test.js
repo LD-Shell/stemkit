@@ -497,15 +497,31 @@ describe('buildSlurmHeader', () => {
     expect(buildSlurmHeader({}).script).not.toContain('--mail-user');
   });
 
-  test('warns that array memory is per task and totals it', () => {
+  test('warns that --mem is per node and every array element a job, and totals the most in flight', () => {
     const { warnings } = buildSlurmHeader({
       array: true, arrayRange: '1-100', memory: '32G'
     });
     const w = warnings.find(x => x.field === 'arrayMemory');
     expect(w).toBeDefined();
-    // 100 concurrent tasks at 32G each is 3200G in flight.
+    // 100 elements allowed to run at once at 32G each is up to 3200G in flight.
     expect(w.totalMemory).toBe(3200);
     expect(w.unit).toBe('G');
+    expect(w.message).toContain('--mem=32G is per node and every array element is its own job');
+    expect(w.message).toContain('100 element(s) allowed to run at once that is up to 3200G in flight');
+    // The request is not "per task": to SLURM that word means an MPI rank.
+    expect(w.message).not.toMatch(/per task/);
+  });
+
+  test('counts the nodes of each element, since --mem is per node', () => {
+    const { warnings } = buildSlurmHeader({
+      nodes: 2, array: true, arrayRange: '1-100%5', memory: '32G'
+    });
+    const w = warnings.find(x => x.field === 'arrayMemory');
+    // 5 elements at once, each on 2 nodes at 32G per node.
+    expect(w.concurrent).toBe(5);
+    expect(w.nodes).toBe(2);
+    expect(w.totalMemory).toBe(320);
+    expect(w.message).toContain('5 element(s) allowed to run at once, each on 2 nodes, that is up to 320G in flight');
   });
 
   test('respects a concurrency cap when totalling array memory', () => {

@@ -25,7 +25,7 @@ python3 -m http.server 8000     # then open http://localhost:8000/
 Opening the HTML files over `file://` will not work. Seventeen tools load ES
 modules, which browsers block outside HTTP.
 
-Use the library, from npm (Node 18 or later, no dependencies):
+Use the library, from npm (Node 22 or later, no dependencies):
 
 ```bash
 npm install stemkit-core
@@ -43,7 +43,7 @@ Run the tests, from a clone:
 
 ```bash
 npm install
-npm test                        # 4989 tests, 44 modules
+npm test                        # 5003 tests, 44 modules
 node tests/smoke.mjs            # end-to-end against a real install
 ```
 
@@ -51,7 +51,7 @@ node tests/smoke.mjs            # end-to-end against a real install
 
 | Script | Does |
 |---|---|
-| `npm test` | Jest, 4989 tests |
+| `npm test` | Jest, 5003 tests |
 | `npm run test:coverage` | coverage report (see `docs/COVERAGE.md`) |
 | `npm run check:links` | internal and external link check |
 | `npm run check:links:internal` | internal only, no network |

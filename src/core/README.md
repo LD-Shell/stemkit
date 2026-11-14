@@ -22,7 +22,7 @@ the same code path can be scripted, version-pinned, and tested.
 npm install stemkit-core
 ```
 
-Node.js 18 or later. The package has no dependencies: the four libraries some
+Node.js 22 or later. The package has no dependencies: the four libraries some
 modules call are bundled with it (see below).
 
 To work on the library, clone the repository, a complete runnable site;
@@ -221,8 +221,9 @@ groups.map(g => descriptives(g));
 
 // Advice, not a decision: the test, a one-line reason and the checks behind it.
 const { test, reason } = recommendTest({ design: 'independent', groups, names });
-// 'welch-anova', "Low looks normal (D'Agostino p = .848); Placebo and High have too few
-// values to check (under 8); the variances differ (Levene p = .005), which Welch's ANOVA allows for."
+// 'welch-anova', "Low looks normal (D'Agostino p = .848), though with under 20 values the check
+// is weak; Placebo and High have too few values to check (under 8); the variances differ
+// (Levene p = .005), which Welch's ANOVA allows for."
 
 const w = welchAnova(groups);                 // F, df1, df2, p, eta squared
 gamesHowell(groups).comparisons               // { i, j, diff, t, df, pAdjusted, ci } per pair
@@ -262,7 +263,7 @@ npm test                # full suite
 npm run test:coverage   # with coverage
 ```
 
-The suite comprises 4989 tests across the 42 domain modules and `version` (`src/core` also holds the aggregate
+The suite comprises 5003 tests across the 42 domain modules and `version` (`src/core` also holds the aggregate
 export, the Node entry and the injection layer, which carry no domain logic). Numerical results are validated against
 independent references rather than against the implementation itself:
 
@@ -308,20 +309,28 @@ the library does instead. Each has a regression test.
 **Standardised moments.** Skewness and kurtosis are defined against the
 *population* standard deviation. Using the sample (n−1) value deflates
 skewness by ((n−1)/n)^(3/2) (about 15% at n = 10) and propagates into any
-normality test built on it.
+normality test built on it. K² is computed from n = 8, as `scipy.stats.normaltest`
+does, but its kurtosis part is only valid from n = 20 (scipy warns below it), so
+`dagostinoNormality` returns a `note` for 8 to 19 values and `recommendTest` calls
+a pass on them weak.
 
 **Tail p-values.** Computing an upper tail as `1 - cdf(x)` cancels
 catastrophically once the CDF rounds to 1.0 in double precision: an ANOVA
 result of p ≈ 3.5 × 10⁻¹⁷ is reported as exactly 0. The complementary
 incomplete beta and gamma forms are used instead, preserving full relative
-precision. Beyond |z| ≈ 8 the vendored `erfc` underflows, and a documented
-asymptotic expansion takes over.
+precision. The vendored `erfc` is itself `1 - erf`, so it has no relative accuracy
+left beyond |z| ≈ 8; the normal tail uses the `erfc` of `expression` instead
+(a series below 2.5, a continued fraction above), which stays within 1.3 × 10⁻¹²
+of the true value until the double-precision floor near |z| = 38.5.
 
 **Element inference.** PDB atom names are ambiguous: `CA` is C-alpha in a
 protein and calcium in an ion record. Naïve rules mis-assign heme iron (`FE`
 in `HEM`) and selenomethionine selenium, and drop numeric-prefixed hydrogens
 (`1HB`, `2HG1`) entirely, giving wrong molecular weights and centres of mass
-for metalloproteins. The resolution here is checked against 25 real atom names.
+for metalloproteins. In a monatomic ion residue the name is looked up in a table of
+the CHARMM, AMBER, OPLS-AA and GROMOS ion names (`ION_ELEMENTS`), so `SOD`, `CLA` and
+`POT` are sodium, chloride and potassium, not sulphur, carbon and phosphorus. The
+resolution here is checked against 25 real atom names and the ion table.
 
 **Uncertainties of a nonlinear fit.** `fitModel` follows `curve_fit`: the
 covariance is (JᵀWJ)⁻¹ scaled by the reduced chi-square, unless the

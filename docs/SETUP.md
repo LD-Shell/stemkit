@@ -26,7 +26,7 @@ console shows a CORS error. Serve over HTTP.
 
 ```bash
 npm install
-npm test               # 4989 tests, 44 modules
+npm test               # 5003 tests, 44 modules
 npm run test:coverage  # see docs/COVERAGE.md
 node tests/smoke.mjs   # end-to-end against a real install
 ```
@@ -36,8 +36,8 @@ mis-scoped `type` field, a vendored bundle that fails to load. It calls into 28
 of the 44 modules; `iso4`, `journals`, `pdf`, `zip`, `version`, `lammps-reference`, the
 per-page figure modules and the PLUMED modules beyond `plumed` have no case yet.
 
-Node 18 or later. CI (`.github/workflows/ci.yml`) runs `npm test` and the smoke
-test on Node 18, 22 and 24, then `npm run check:chrome`, `check:links:internal`
+Node 22 or later. CI (`.github/workflows/ci.yml`) runs `npm test` and the smoke
+test on Node 22 and 24, then `npm run check:chrome`, `check:links:internal`
 and `check:sitemap`. Some suites also run the real programs when they are
 installed (Python, BibTeX, `plumed`, and LAMMPS and GROMACS through `LMP_BIN`
 and `GMX_BIN`); without them those tests are skipped.
@@ -82,7 +82,7 @@ stemkit/
 │   └── dependencies/       vendored UMD bundles
 ├── tests/                  Jest suites plus smoke.mjs
 ├── tools/                  build and check scripts behind the npm scripts
-├── .github/workflows/      CI: tests on Node 18, 22 and 24, site checks
+├── .github/workflows/      CI: tests on Node 22 and 24, site checks
 ├── abbr/                   ISSN LTWA word list for ISO 4
 ├── docs/                   setup, stylesheets, figures, coverage
 ├── paper/                  the JOSS paper (paper.md) and the preprint

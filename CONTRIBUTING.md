@@ -22,7 +22,7 @@ security advisory page than filed as a public issue.
     npm install
     npm test
 
-You need Node 18 or later.
+You need Node 22 or later.
 
 The site is static, so any local server will serve it:
 
@@ -61,7 +61,7 @@ formula inside a click handler, it will be asked to move.
     npm run check:sitemap          every page is in sitemap.xml, dated by its last commit
 
 CI runs all but the coverage report on every pull request, with the tests on
-Node 18, 22 and 24. Some tests run the real programs (Python, BibTeX, PLUMED,
+Node 22 and 24. Some tests run the real programs (Python, BibTeX, PLUMED,
 LAMMPS through `LMP_BIN`, GROMACS through `GMX_BIN`) and are skipped where those are
 not installed.
 

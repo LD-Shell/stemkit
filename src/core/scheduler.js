@@ -384,7 +384,12 @@ export function arrayTasks(scheduler, range) {
   return { total, concurrent };
 }
 
-/** How the array-memory total is worded outside SLURM. */
+/**
+ * How the array-memory total is worded outside SLURM. Every element of an array
+ * is a job of its own and makes the request again; whether the request is per
+ * host or per slot depends on the site for LSF and Grid Engine, so only PBS,
+ * whose select chunk is one per node, counts the nodes as well.
+ */
 const ARRAY_MEMORY_WORDS = { request: 'the memory request', limit: 'queue' };
 
 /* ------------------------------------------------------------------ *
@@ -510,7 +515,9 @@ function buildPbsHeader(c, warnings) {
     lines.push(`#PBS -M ${c.mailUser}`);
   }
 
-  if (tasks && mem.value) warnings.push(arrayMemoryWarning(mem.parsed, tasks, ARRAY_MEMORY_WORDS));
+  if (tasks && mem.value) {
+    warnings.push(arrayMemoryWarning(mem.parsed, tasks, { ...ARRAY_MEMORY_WORDS, perNode: true }, c.nodes));
+  }
 
   const notes = [];
   if (c.gpus > 0) {

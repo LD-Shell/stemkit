@@ -221,6 +221,8 @@ export {
   zTwoSided,
   chiSquaredUpperTail,
   dagostinoNormality,
+  K2_KURTOSIS_MIN_N,
+  weakNormalityText,
   leveneTest,
   independentTTest,
   pairedTTest,

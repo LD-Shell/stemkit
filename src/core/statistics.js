@@ -457,16 +457,29 @@ export function chiSquaredUpperTail(x, df) {
  * ------------------------------------------------------------------ */
 
 /**
+ * The smallest sample for which the kurtosis part of K² is inside its valid
+ * range. Anscombe and Glynn (1983) give their transformation for n >= 20, and
+ * scipy.stats.kurtosistest warns below it; the skewness part is valid from 8.
+ */
+export const K2_KURTOSIS_MIN_N = 20;
+
+/**
  * D'Agostino–Pearson K² omnibus test of normality.
  *
  * Combines the standardised skewness statistic of D'Agostino (1970) with the
  * Anscombe–Glynn (1983) kurtosis statistic; K² is referred to chi-squared on
- * two degrees of freedom. Requires n >= 8 for the transformations to be valid.
+ * two degrees of freedom. The skewness transformation needs n >= 8, so that is
+ * the smallest sample tested, as in scipy.stats.normaltest. The kurtosis
+ * transformation is valid from n = 20 ({@link K2_KURTOSIS_MIN_N}); between 8 and
+ * 19 the statistic and p-value are scipy's, the result carries a `note` saying
+ * that half of the statistic is outside its range, and a non-rejection is weak
+ * evidence of normality.
  *
  * @param {number[]} a
  * @returns {{K2:number, p:number, ok:boolean|null, note:string|null}}
  *          `ok` is true when normality is not rejected at alpha = 0.05, and
- *          null when the sample is too small to test.
+ *          null when the sample is too small to test. `note` says why a sample
+ *          was not tested, or that a tested one has fewer than 20 values.
  */
 export function dagostinoNormality(a) {
   if (!Array.isArray(a)) return { K2: NaN, p: NaN, ok: null, note: 'invalid input' };
@@ -509,7 +522,11 @@ export function dagostinoNormality(a) {
 
   const K2 = Zb1 * Zb1 + Zb2 * Zb2;
   const p = chiSquaredUpperTail(K2, 2);
-  return { K2, p, ok: p > 0.05, note: null };
+  const note = n < K2_KURTOSIS_MIN_N
+    ? `fewer than ${K2_KURTOSIS_MIN_N} values: the kurtosis part of the test is outside its valid range, ` +
+      'so a pass is weak evidence of normality'
+    : null;
+  return { K2, p, ok: p > 0.05, note };
 }
 
 /**
@@ -1511,6 +1528,25 @@ export function dunnTest(groups, options = {}) {
  * Choosing a test
  * ------------------------------------------------------------------ */
 
+/**
+ * What to say under a normality verdict that passed on fewer than 20 values.
+ *
+ * K² is tested from 8 values, but its kurtosis part is only valid from 20
+ * ({@link K2_KURTOSIS_MIN_N}), so a pass there is weak evidence of normality
+ * and a green tick on its own would overstate it. A rejection is not softened.
+ *
+ * @param {string[]} names - What each check was run on, in the order of `checks`.
+ * @param {Array<{ok:boolean|null, note:string|null}>} checks - `dagostinoNormality` results.
+ * @returns {string|null} The sentence, or null when no passing check was on a short sample.
+ */
+export function weakNormalityText(names, checks) {
+  const short = names.filter((_, i) => checks[i] && checks[i].ok === true && checks[i].note);
+  if (!short.length) return null;
+  return `Normality was checked on fewer than ${K2_KURTOSIS_MIN_N} values for ${listNames(short)}. ` +
+         "Below that the kurtosis part of D'Agostino's K² is outside its valid range, " +
+         'so a pass is weak evidence of normality.';
+}
+
 /** "p = .032", or "p < .001" rather than "p = < .001". */
 function pText(p) {
   const f = formatP(p);
@@ -1532,7 +1568,9 @@ function listNames(names) {
  *   - Normality is D'Agostino–Pearson at α = .05, for each group, each
  *     variable, or the paired differences. A sample under 8 cannot be tested;
  *     it counts as no evidence against normality, and the reason says it was
- *     not checked rather than implying it passed.
+ *     not checked rather than implying it passed. A sample of 8 to 19 is
+ *     tested, but the kurtosis part of the test is outside its valid range
+ *     there, so a pass is reported as weak evidence ({@link K2_KURTOSIS_MIN_N}).
  *   - Any departure from normality: the rank-based counterpart (Mann–Whitney,
  *     Wilcoxon, Kruskal–Wallis, Spearman).
  *   - Two independent groups: Welch's t whatever Levene's test says. It costs
@@ -1550,7 +1588,8 @@ function listNames(names) {
  *        `groups` holds two or more samples for 'independent', two for
  *        'paired' and 'association', and one for 'one-sample'.
  * @returns {{test:string, reason:string,
- *            normality:Array<{name:string, n:number, p:number, ok:boolean|null}>,
+ *            normality:Array<{name:string, n:number, p:number, ok:boolean|null,
+ *                             note:string|null}>,
  *            levene:object|null}|null}
  *          `test` is one of 'welch-t', 'mann-whitney', 'paired-t',
  *          'wilcoxon', 'one-sample-t', 'one-sample-wilcoxon', 'anova',
@@ -1576,10 +1615,11 @@ export function recommendTest({ design, groups, names } = {}) {
 
   const normality = samples.map(s => {
     const r = dagostinoNormality(s.values);
-    return { name: s.name, n: s.values.length, p: r.p, ok: r.ok };
+    return { name: s.name, n: s.values.length, p: r.p, ok: r.ok, note: r.note };
   });
   const failed = normality.filter(x => x.ok === false);
   const passed = normality.filter(x => x.ok === true);
+  const weak = passed.filter(x => x.n < K2_KURTOSIS_MIN_N);
   const untested = normality.filter(x => x.ok === null);
   const ps = (list) => list.map(x => pText(x.p)).join(', ');
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -1608,8 +1648,16 @@ export function recommendTest({ design, groups, names } = {}) {
   const parts = [];
   if (passed.length) {
     const one = passed.length === 1 && !/differences$/.test(passed[0].name);
-    parts.push(`${listNames(passed.map(x => x.name))} ${one ? 'looks' : 'look'} normal ` +
-               `(D'Agostino ${ps(passed)})`);
+    let part = `${listNames(passed.map(x => x.name))} ${one ? 'looks' : 'look'} normal ` +
+               `(D'Agostino ${ps(passed)})`;
+    // A pass on 8 to 19 values rests on a statistic half outside its valid range.
+    if (weak.length === passed.length) {
+      part += `, though with under ${K2_KURTOSIS_MIN_N} values the check is weak`;
+    } else if (weak.length) {
+      part += `, though ${listNames(weak.map(x => x.name))} ${weak.length === 1 ? 'has' : 'have'} ` +
+              `under ${K2_KURTOSIS_MIN_N} values, so that check is weak`;
+    }
+    parts.push(part);
   }
   if (untested.length) {
     parts.push(passed.length

@@ -61,7 +61,8 @@
  */
 
 import {
-  elementSymbol, isVirtualSite, isPlaceholderCell, ATOMIC_WEIGHTS, PLACEHOLDER_CELL_WARNING
+  elementSymbol, isVirtualSite, isPlaceholderCell, ATOMIC_WEIGHTS, PLACEHOLDER_CELL_WARNING,
+  ION_ELEMENTS
 } from './structure.js';
 import {
   compileSelection, SpatialGrid, SOLVENT_RESIDUES, ION_RESIDUES, NUCLEIC_RESIDUES
@@ -1609,26 +1610,6 @@ function cached(top, key, make) {
   if (!(key in entry)) entry[key] = make();
   return entry[key];
 }
-
-/*
- * Ion names, as residue or atom names, to the element. A .gro file has no
- * element column, and a guess from the atom name alone reads CHARMM's SOD as
- * sulphur, CLA as carbon and POT as phosphorus, and AMBER's NA+ as nitrogen.
- * In a residue that is an ion the name is the ion's, so it is looked up here
- * first.
- */
-const ION_ELEMENTS = (() => {
-  const source = {
-    Li: 'LI LI+ LIT', Na: 'NA NA+ SOD', K: 'K K+ POT', Rb: 'RB RB+ RUB', Cs: 'CS CS+ CES',
-    Mg: 'MG MG2 MG2+', Ca: 'CA CA2 CA2+ CAL', Sr: 'SR SR2+', Ba: 'BA BA2+ BAR',
-    Zn: 'ZN ZN2 ZN2+', Cd: 'CD CD2 CD2+', Cu: 'CU CU1 CU+ CU2 CU2+', Fe: 'FE FE2 FE3 FE2+ FE3+',
-    Mn: 'MN MN2 MN2+', Co: 'CO CO2+', Ni: 'NI NI2+', Hg: 'HG HG2+',
-    F: 'F F-', Cl: 'CL CL- CLA', Br: 'BR BR-', I: 'I I- IOD'
-  };
-  const table = new Map();
-  for (const [el, names] of Object.entries(source)) for (const n of names.split(' ')) table.set(n, el);
-  return table;
-})();
 
 /* The first letters of the elements a protein, nucleic-acid or water residue holds. */
 const ORGANIC_ELEMENTS = new Set(['C', 'H', 'N', 'O', 'S', 'P']);

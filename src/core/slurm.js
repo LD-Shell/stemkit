@@ -11,14 +11,20 @@
  * Two aspects deserve comment because they are the usual sources of wasted
  * allocation:
  *
- *   1. **The resource model differs by engine.** GROMACS is threaded and wants
- *      one MPI task per node with many CPUs per task; LAMMPS is MPI-parallel
- *      and wants many tasks per node. Emitting the wrong shape either wastes
- *      most of a node or oversubscribes it.
- *   2. **`--mem` in an array job is per task, not per job.** A 32 GB request
- *      across a 100-task array asks the scheduler for 3.2 TB in flight. The
- *      generator computes the real total and warns, since this routinely
- *      wedges a queue.
+ *   1. **The resource model differs by engine.** GROMACS is written as a
+ *      threaded job, one MPI task per node with the node's cores as OpenMP
+ *      threads, the usual shape on one node and for GPU runs (a multi-node CPU
+ *      run commonly uses many ranks with a few threads each, which is not
+ *      written); LAMMPS is MPI-parallel and wants many tasks per node. Emitting
+ *      a shape the engine cannot use either wastes most of a node or
+ *      oversubscribes it.
+ *   2. **`--mem` is per node, and every element of an array is its own job.**
+ *      A 32 GB request in a 100-element array commits 32 GB per node of every
+ *      element: 3.2 TB if all 100 run at once. How many do is set by the free
+ *      resources and by the `%N` throttle in the array range, so the generator
+ *      totals the elements allowed to run at once (the throttle if there is
+ *      one, otherwise all of them), times the nodes, as an upper bound and
+ *      warns, since this routinely wedges a queue.
  *
  * The wall time, the array range and the memory size are read as sbatch reads
  * them. Where sbatch(1) leaves a case open (a field above its usual range, a
@@ -464,27 +470,41 @@ export function resolveMemory(memory, target) {
 }
 
 /**
- * The array-memory total: the request is per task, so what is in flight is
- * that times the tasks running at once.
+ * The array-memory total. Every element of an array is a job of its own and
+ * makes the request again, so what can be in flight is the request times the
+ * elements allowed to run at once (the `%N` throttle, else all of them), an
+ * upper bound that the free resources may lower. SLURM's `--mem` is per node,
+ * so there the nodes of each element count as well; the other schedulers'
+ * memory requests stay at one per element, since whether they are per host or
+ * per slot depends on the site.
  *
  * @param {{value:number, unit:string}} mem - From `parseMemory`.
- * @param {{total:number, concurrent:number}} tasks
- * @param {{request:string, limit:string}} words - How the request and the
- *   limit it must fit are named for this scheduler.
+ * @param {{total:number, concurrent:number}} tasks - The elements of the array
+ *   and how many may run at once.
+ * @param {{request:string, limit:string, perNode?:boolean}} words - How the
+ *   request and the limit it must fit are named for this scheduler; `perNode`
+ *   says the request is made on every node of a job, as SLURM's is.
+ * @param {number} [nodes=1] - Nodes of each element; counted when `perNode`.
  * @returns {object} A warning.
  */
-export function arrayMemoryWarning(mem, tasks, words) {
-  const total = mem.value * tasks.concurrent;
+export function arrayMemoryWarning(mem, tasks, words, nodes = 1) {
+  const copies = words.perNode && nodes > 1 ? nodes : 1;
+  const total = mem.value * tasks.concurrent * copies;
+  const what = words.perNode
+    ? `${words.request} is per node and every array element is its own job`
+    : `every array element is its own job and makes ${words.request} again`;
+  const where = copies > 1 ? `, each on ${copies} nodes,` : '';
   return {
     level: 'warn',
     field: 'arrayMemory',
-    message: `Array job: ${words.request} is per task. With ${tasks.concurrent} ` +
-             `task(s) running concurrently that is ${total}${mem.unit} in flight. ` +
+    message: `Array job: ${what}. With ${tasks.concurrent} element(s) allowed to run at once${where} ` +
+             `that is up to ${total}${mem.unit} in flight. ` +
              `Confirm this fits your ${words.limit} limit, if not, cap concurrency ` +
              `in the array range (e.g. 1-${tasks.total}%4).`,
     totalMemory: total,
     unit: mem.unit,
-    concurrent: tasks.concurrent
+    concurrent: tasks.concurrent,
+    nodes: copies
   };
 }
 
@@ -582,9 +602,12 @@ export function buildSlurmHeader(config = {}) {
     lines.push('#SBATCH --mail-type=END,FAIL,TIME_LIMIT_80');
   }
 
-  // Array memory is requested per task; surface the true in-flight total.
+  // --mem is per node and every array element is its own job; surface the
+  // most that can be in flight.
   if (tasks && mem.parsed && mem.parsed.value > 0) {
-    warnings.push(arrayMemoryWarning(mem.parsed, tasks, { request: `--mem=${mem.value}`, limit: 'partition' }));
+    warnings.push(arrayMemoryWarning(
+      mem.parsed, tasks, { request: `--mem=${mem.value}`, limit: 'partition', perNode: true }, Number(nodes)
+    ));
   }
 
   return { script: lines.join('\n') + '\n', warnings };

@@ -8,7 +8,9 @@
  * The element-inference correction in the core changes results here: heme iron
  * (`FE` in `HEM`), selenomethionine selenium, and numeric-prefixed hydrogens
  * (`1HB`, `2HG1`) were previously misassigned or dropped, so molecular weights
- * and centres of mass for metalloproteins were wrong.
+ * and centres of mass for metalloproteins were wrong. So were the ions of a
+ * `.gro` file: CHARMM's `SOD`, `POT` and `CLA` were read as sulphur,
+ * phosphorus and carbon, and are now looked up as the ions they are.
  */
 import {
   parseStructure,
@@ -19,7 +21,6 @@ import {
   geometricCentre,
   centreOfMass,
   boundingBox,
-  radiusOfGyration,
   rotateAtoms,
   rotationMatrix,
   IDENTITY_ROTATION,

@@ -73,7 +73,7 @@
   },
   "homepage": "https://stemkit.net",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "devDependencies": {
     "jest": "^29.7.0",

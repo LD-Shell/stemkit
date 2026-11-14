@@ -12,7 +12,7 @@
  */
 import { describe, test, expect } from '@jest/globals';
 import { deflateSync } from 'node:zlib';
-// zlib's own crc32 needs Node 20.15; the package supports Node 18.
+// zlib's own crc32 needs Node 22.2 (or 20.15), and the package allows Node 22.0.
 import { crc32 } from '../src/core/zip.js';
 import {
   maxNLocator, multipleLocator, logLocator, autoMinorLocator, scalarFormat, logFormat, pyPercent, printfFormat,

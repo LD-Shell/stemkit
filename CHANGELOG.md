@@ -5,6 +5,50 @@ Notable changes to STEMKit and `stemkit-core`.
 `[output]` marks a change that alters a reported number. Figures produced with an
 earlier version are worth re-checking.
 
+## Unreleased
+
+Ion names in `.gro` files, a caveat on normality checks of fewer than 20
+values, array memory worded and totalled as SLURM defines it, and Node 22 as
+the oldest supported release.
+
+### Fixed
+
+- `[output]` **Ions in a CHARMM `.gro`.** A `.gro` file has no element column,
+  and `SOD`, `POT`, `CLA` and `CAL` were read as sulphur, phosphorus and
+  carbon (`NA+`, `CL-` and `CA2+` of OPLS-AA and GROMOS as nitrogen and
+  carbon), in every release from v0.1.1 to v0.5.1. The Coordinate Manipulator
+  therefore gave such ions the wrong mass, and the system the wrong molecular
+  weight and centre of mass, and wrote the wrong element into an exported PDB
+  or XYZ file; PLUMED atom selection by element was off in the same way. In an
+  ion residue the name is now looked up in a table of the CHARMM, AMBER,
+  OPLS-AA and GROMOS ion names (`ION_ELEMENTS` in `core/structure`), which the
+  index-group module now shares instead of keeping its own copy. CD2 of a
+  leucine and CA of an alanine stay carbon.
+- `[output]` **MD Workflow Generator, array memory.** The warning of v0.5.0
+  and v0.5.1 said `--mem` was "per task". It is per node, and every element
+  of an array is a job of its own, so the warning says that, counts the nodes
+  of each element for SLURM and PBS (a two-node element at 32G in a `1-100%5`
+  array is up to 320G in flight, not 160G) and says "up to", since the free
+  resources may keep fewer running. LSF and Grid Engine, where the request is
+  per host or per slot by site, count one request per element. The guide's
+  wording follows.
+- **Statistics Calculator, normality of 8 to 19 values.** K² is tested from 8
+  values, as `scipy.stats.normaltest` does, but its kurtosis part is only
+  valid from 20 (scipy warns below it). A pass on fewer than 20 values now
+  carries a `note` (`dagostinoNormality`), is called weak in the advice
+  (`recommendTest`), and gets a line under the verdict in the assumption
+  checks (`weakNormalityText`). The statistic, the p-value and the test
+  suggested are unchanged.
+
+### Changed
+
+- **Node 22 or later.** `engines` is `>=22.0.0`: Node 18 and 20 are past end
+  of life. CI runs the tests on 22 and 24.
+- `src/core/README.md` described the normal tail as a documented asymptotic
+  expansion; it is the `erfc` of `expression`, accurate to 1.3e-12 relative.
+- The Coordinate Manipulator no longer imports `radiusOfGyration`, which it
+  never used; the function stays in `stemkit-core`.
+
 ## v0.5.1 — 2026-11-11
 
 A video tutorial on every research tool, the MD Workflow Generator's guide

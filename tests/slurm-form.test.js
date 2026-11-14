@@ -49,7 +49,7 @@ describe('buildHeaderFromDOM', () => {
 
   test('directives and example ranges are set in monospace', () => {
     const { warnings } = build({ jobArrayToggle: true, jobArrayRange: '1-10' });
-    expect(warnings[0]).toContain('<code>--mem=32G</code> is per task');
+    expect(warnings[0]).toContain('<code>--mem=32G</code> is per node and every array element is its own job');
     expect(warnings[0]).toContain('(e.g. <code>1-10%4</code>)');
   });
 

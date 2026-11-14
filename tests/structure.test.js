@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   boxVectorsFromAngles, anglesFromBoxVectors, isTriclinic,
-  ATOMIC_WEIGHTS, DEFAULT_MASS, MIN_BOX_NM,
+  ATOMIC_WEIGHTS, DEFAULT_MASS, MIN_BOX_NM, ION_ELEMENTS,
   safeFloat, elementSymbol, atomicMass, massBreakdown, isVirtualSite, isPlaceholderCell,
   parsePDB, parseGRO, parseXYZ, parseStructure,
   geometricCentre, centreOfMass, boundingBox, radiusOfGyration,
@@ -107,6 +107,74 @@ describe('elementSymbol', () => {
     expect(elementSymbol({ atomName: 'NA', resName: 'NA' })).toBe('Na');
     expect(elementSymbol({ atomName: 'CL', resName: 'CL' })).toBe('Cl');
     expect(elementSymbol({ atomName: 'K', resName: 'K' })).toBe('K');
+  });
+
+  // A .gro file has no element column, so the names a force field gives its
+  // ions are all there is to go on. A guess from the name alone reads SOD as
+  // sulphur, POT as phosphorus and CLA as carbon.
+  test("reads CHARMM's ion names as their elements", () => {
+    const charmm = {
+      SOD: 'Na', POT: 'K', CLA: 'Cl', CAL: 'Ca', CES: 'Cs', LIT: 'Li', RUB: 'Rb',
+      BAR: 'Ba', CD2: 'Cd', ZN2: 'Zn'
+    };
+    for (const [name, element] of Object.entries(charmm)) {
+      expect(elementSymbol({ atomName: name, resName: name })).toBe(element);
+    }
+  });
+
+  test('reads the ion names of AMBER, OPLS-AA and GROMOS, charge and all', () => {
+    const named = {
+      'Na+': 'Na', 'Cl-': 'Cl', 'K+': 'K', 'NA+': 'Na', 'CL-': 'Cl', 'LI+': 'Li',
+      'CA2+': 'Ca', 'MG2+': 'Mg', 'ZN2+': 'Zn'
+    };
+    for (const [name, element] of Object.entries(named)) {
+      expect(elementSymbol({ atomName: name, resName: name })).toBe(element);
+    }
+  });
+
+  test('finds the ion from the atom name inside an ion residue of another name', () => {
+    expect(elementSymbol({ atomName: 'CL', resName: 'CLA' })).toBe('Cl');
+    expect(elementSymbol({ atomName: 'NA+', resName: 'ION' })).toBe('Na'); // Martini
+  });
+
+  test('an atom is an ion only inside an ion residue', () => {
+    // CD2 is a carbon in leucine and phenylalanine and cadmium only as a
+    // residue of its own; the I of inosine holds no atom named like an ion.
+    expect(elementSymbol({ atomName: 'CD2', resName: 'LEU' })).toBe('C');
+    expect(elementSymbol({ atomName: 'CD2', resName: 'PHE' })).toBe('C');
+    expect(elementSymbol({ atomName: 'CAL', resName: 'ALA' })).toBe('C');
+    expect(elementSymbol({ atomName: 'N1', resName: 'I' })).toBe('N');
+    expect(elementSymbol({ atomName: 'P', resName: 'I' })).toBe('P');
+  });
+
+  test('the ion table is keyed in upper case and names only elements that have a weight', () => {
+    expect(ION_ELEMENTS.size).toBeGreaterThan(50);
+    for (const [name, element] of ION_ELEMENTS) {
+      expect(name).toBe(name.toUpperCase());
+      expect(ATOMIC_WEIGHTS[element]).toBeGreaterThan(0);
+    }
+  });
+
+  test('a CHARMM-built .gro weighs what its atoms weigh', () => {
+    // A sodium, a chloride and a TIP3P water as CHARMM-GUI names them. Read as
+    // names alone the ions weighed 32.06 (S) and 12.011 (C).
+    const row = ([resi, resn, name, n, x, y, z]) => String(resi).padStart(5) + resn.padEnd(5) +
+      name.padStart(5) + String(n).padStart(5) + [x, y, z].map(v => v.toFixed(3).padStart(8)).join('');
+    const gro = ['CHARMM system', '    5',
+      row([1, 'SOD', 'SOD', 1, 1.0, 1.0, 1.0]),
+      row([2, 'CLA', 'CLA', 2, 2.0, 1.0, 1.0]),
+      row([3, 'TIP3', 'OH2', 3, 3.0, 1.0, 1.0]),
+      row([3, 'TIP3', 'H1', 4, 3.096, 1.0, 1.0]),
+      row([3, 'TIP3', 'H2', 5, 2.976, 1.093, 1.0]),
+      '   5.00000   5.00000   5.00000'].join('\n');
+    const { atoms } = parseStructure(gro, 'system.gro');
+    expect(atoms).toHaveLength(5);
+    const b = massBreakdown(atoms);
+    expect(b.unidentified).toEqual([]);
+    expect(b.rows.map(r => r.symbol).sort()).toEqual(['Cl', 'H', 'Na', 'O']);
+    const expected = ATOMIC_WEIGHTS.Na + ATOMIC_WEIGHTS.Cl + ATOMIC_WEIGHTS.O + 2 * ATOMIC_WEIGHTS.H;
+    expect(b.total).toBeCloseTo(expected, 9);
+    expect(centreOfMass(atoms).mass).toBeCloseTo(expected, 9);
   });
 
   test('handles water and nucleic-acid names', () => {

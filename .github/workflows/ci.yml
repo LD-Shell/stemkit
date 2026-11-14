@@ -16,8 +16,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The oldest Node the package supports (engines) and the current LTS lines.
-        node: [18, 22, 24]
+        # The oldest Node the package supports (engines) and the newer LTS line.
+        node: [22, 24]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

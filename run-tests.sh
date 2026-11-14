@@ -33,14 +33,14 @@ hr
 
 # --- 2. toolchain ----------------------------------------------------------
 if ! command -v node >/dev/null 2>&1; then
-  echo "ERROR: node is not installed. Node.js >= 18 is required."
+  echo "ERROR: node is not installed. Node.js >= 22 is required."
   exit 1
 fi
 
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
 echo "node $(node --version)   npm $(npm --version 2>/dev/null || echo '?')"
-if [ "$NODE_MAJOR" -lt 18 ]; then
-  echo "ERROR: Node.js >= 18 is required (package.json engines field)."
+if [ "$NODE_MAJOR" -lt 22 ]; then
+  echo "ERROR: Node.js >= 22 is required (package.json engines field)."
   exit 1
 fi
 

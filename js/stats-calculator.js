@@ -37,6 +37,7 @@ import {
   dunnTest,
   recommendTest,
   dagostinoNormality,
+  weakNormalityText,
   leveneTest,
   classifyFields,
   pivotLongToGroups,
@@ -511,6 +512,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   const descRows = (sel) => sel.names.map((n, i) => ({ name: n, values: sel.groups[i] }));
 
+  // A pass on fewer than 20 values is weak evidence of normality (the kurtosis
+  // part of K² is outside its valid range there), so it is said under the
+  // verdict, where a green tick would otherwise stand alone.
+  function weakNormality(names, norms) {
+    const text = weakNormalityText(names, norms);
+    return text ? [{ level: 'warn', text }] : [];
+  }
+
   function normalityWarn(names, groups, alternative) {
     const norms = groups.map(dagostinoNormality);
     const bad = names.filter((n, i) => norms[i].ok === false);
@@ -521,6 +530,7 @@ document.addEventListener('DOMContentLoaded', () => {
         text: `Normality (D'Agostino K²) is questionable for ${bad.join(' & ')}. Consider the ${alternative}.`
       });
     }
+    warns.push(...weakNormality(names, norms));
     return { norms, warns };
   }
 
@@ -608,6 +618,7 @@ document.addEventListener('DOMContentLoaded', () => {
         text: `Differences are consistent with normality (D'Agostino ${pEq(normD.p)}).`
       });
     }
+    warns.push(...weakNormality(['the differences'], [normD]));
 
     return {
       method: `Paired t-test, ${n1Name} against ${n2Name}`,
@@ -681,6 +692,7 @@ document.addEventListener('DOMContentLoaded', () => {
               `unequal groups consider the Kruskal–Wallis test.`
       });
     }
+    warns.push(...weakNormality(names, norms));
 
     const ph = names.length > 2 ? tukeyHSD(groups) : null;
     return {
@@ -785,6 +797,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (norm.ok === true) {
       warns.push({ level: 'ok', text: `The values are consistent with normality (D'Agostino ${pEq(norm.p)}).` });
     }
+    warns.push(...weakNormality([name], [norm]));
     const mu = formatNumber(r.mu0);
 
     return {
@@ -890,6 +903,7 @@ document.addEventListener('DOMContentLoaded', () => {
               `bivariate normality for its p-value; consider Spearman's ρ.`
       });
     }
+    if (!spearman) warns.push(...weakNormality([n1Name, n2Name], [normX, normY]));
 
     const ciText = Number.isFinite(r.ci[0]) ? `[${r.ci[0].toFixed(3)}, ${r.ci[1].toFixed(3)}]` : 'undefined for n = 3';
     const ciApa = Number.isFinite(r.ci[0]) ? `, 95% CI [${r.ci[0].toFixed(2)}, ${r.ci[1].toFixed(2)}]` : '';

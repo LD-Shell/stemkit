@@ -435,6 +435,29 @@ describe('buildHeader: wall time, memory and arrays read alike by every schedule
   const ALL = ['slurm', 'pbs', 'lsf', 'sge'];
   const memoryLine = script => script.split('\n').find(l => /^#(SBATCH|PBS|BSUB|\$) .*(mem=|h_vmem)/.test(l)) || '';
 
+  // Every element of an array is a job of its own and asks again. SLURM's --mem
+  // and PBS's select chunk are per node, so those count the nodes of an element;
+  // for LSF and Grid Engine, per host or per slot depending on the site, it is
+  // one request per element and the wording does not say per node.
+  test('the array-memory warning says each element is its own job, and counts nodes where the request is per node', () => {
+    const array = { ...threaded, nodes: 2, array: true, arrayRange: '1-100%5', memory: '32G' };
+    const warning = scheduler => buildHeader({ scheduler, ...array }).warnings.find(w => w.field === 'arrayMemory');
+    for (const scheduler of ALL) {
+      expect(warning(scheduler).message).toContain('every array element is its own job');
+      expect(warning(scheduler).message).not.toMatch(/per task/);
+      expect(warning(scheduler).concurrent).toBe(5);
+    }
+    expect(warning('slurm')).toMatchObject({ totalMemory: 320, nodes: 2 });
+    expect(warning('slurm').message).toContain('is per node and every array element');
+    expect(warning('pbs')).toMatchObject({ totalMemory: 320, nodes: 2 });
+    expect(warning('pbs').message).toContain('the memory request is per node and every array element');
+    for (const scheduler of ['lsf', 'sge']) {
+      expect(warning(scheduler)).toMatchObject({ totalMemory: 160, nodes: 1 });
+      expect(warning(scheduler).message).toContain('makes the memory request again');
+      expect(warning(scheduler).message).not.toContain('per node');
+    }
+  });
+
   test('a day form without seconds is converted, not replaced', () => {
     expect(buildHeader({ scheduler: 'slurm', ...threaded, walltime: '2-12' }).script).toContain('#SBATCH --time=2-12\n');
     expect(buildHeader({ scheduler: 'pbs', ...threaded, walltime: '2-12' }).script).toContain('#PBS -l walltime=60:00:00');

@@ -338,7 +338,7 @@
                     <p>Most tools compute with <code>stemkit-core</code>: 42 domain modules covered by 4,434 tests validated against SciPy, NumPy and statsmodels. The same functions run in Node, so an analysis explored here can be scripted, version-pinned and re-run.</p>
                     <ol class="hm-setup">
                         <li>
-                            <p>Install it from npm. It needs Node 18 or later and brings no other packages with it.</p>
+                            <p>Install it from npm. It needs Node 22 or later and brings no other packages with it.</p>
                             <div class="hm-code-box">
                                 <div class="hm-code-head">
                                     <span class="hm-code-file">Terminal</span>
@@ -469,8 +469,9 @@ const { script, warnings } = generateScript({
 console.log(script);
 warnings.forEach(w =&gt; console.warn(`[${w.level}] ${w.message}`));
 
-// [warn] Array job: --mem=32G is per task. With 10 task(s) running
-// concurrently that is 320G in flight. ...</code></pre>
+// [warn] Array job: --mem=32G is per node and every array element is its
+// own job. With 10 element(s) allowed to run at once that is up to 320G in
+// flight. ...</code></pre>
                                     </div>
                                 </div>
                                 <div class="hm-snip-panel" role="tabpanel" id="snip-bibtex" aria-labelledby="snip-tab-bibtex" hidden>

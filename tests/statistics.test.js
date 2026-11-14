@@ -5,7 +5,7 @@ import {
   mean, variance, sd, median, skewness, kurtosis, ranks, describe as summarise,
   descriptives, boxPlotStats,
   tTwoSided, tCritical, fUpperTail, zTwoSided, chiSquaredUpperTail,
-  dagostinoNormality, leveneTest,
+  dagostinoNormality, K2_KURTOSIS_MIN_N, weakNormalityText, leveneTest,
   independentTTest, pairedTTest, oneSampleTTest, oneWayAnova, welchAnova,
   pearsonCorrelation,
   leastSquaresLine, spearmanCorrelation,
@@ -1191,6 +1191,16 @@ describe('dunnTest', () => {
   });
 });
 
+/*
+ * Two seeded normal samples of 24, rounded to three places, for the checks that
+ * depend on the size of the sample (numpy default_rng(7); normaltest p = .980
+ * and .452 from SciPy 1.18.1).
+ */
+const NORMAL_24 = [10.002, 10.597, 9.452, 8.219, 9.091, 8.017, 10.12, 12.68, 9.016, 8.759, 10.98,
+  10.714, 10.211, 8.139, 9.941, 11.391, 7.312, 9.085, 6.198, 7.421, 6.317, 9.53, 7.465, 10.543];
+const NORMAL_24_B = [12.47, 11.439, 4.45, 10.384, 11.854, 12.34, 7.41, 10.567, 9.064, 9.573, 15.183,
+  9.577, 11.902, 14.653, 10.249, 11.665, 12.331, 12.191, 8.325, 12.228, 16.076, 7.359, 14.578, 12.358];
+
 describe('assumption checks', () => {
   test("D'Agostino K-squared matches scipy normaltest", () => {
     const r = dagostinoNormality(A);
@@ -1222,6 +1232,58 @@ describe('assumption checks', () => {
     const r = dagostinoNormality([1, 2, 3, 4, 5]);
     expect(r.ok).toBeNull();
     expect(r.note).toContain('n < 8');
+  });
+
+  // Anscombe and Glynn's kurtosis transformation is valid from n = 20, and
+  // scipy.stats.kurtosistest warns below it; the skewness part is valid from
+  // 8. The statistic is scipy's either way, so a sample of 8 to 19 is tested
+  // and carries a note, and one of 20 or more carries none. The values below
+  // are from SciPy 1.18.1 for a seeded normal sample, rounded to three places.
+  test('matches scipy at n = 24, where both parts of K-squared are in range, and carries no note', () => {
+    // stats.normaltest(NORMAL_24)
+    const r = dagostinoNormality(NORMAL_24);
+    expect(r.K2).toBeCloseTo(0.0407315321466236, 12);
+    expect(r.p).toBeCloseTo(0.9798402154468128, 12);
+    expect(r.ok).toBe(true);
+    expect(r.note).toBeNull();
+  });
+
+  test('says that a sample of 8 to 19 values is outside the range of the kurtosis part', () => {
+    for (const n of [8, 12, 19]) {
+      const r = dagostinoNormality(NORMAL_24.slice(0, n));
+      expect(Number.isFinite(r.K2)).toBe(true);
+      expect(r.ok).not.toBeNull();
+      expect(r.note).toContain('fewer than 20 values');
+      expect(r.note).toContain('weak evidence');
+    }
+    expect(dagostinoNormality(NORMAL_24.slice(0, 20)).note).toBeNull();
+    expect(K2_KURTOSIS_MIN_N).toBe(20);
+  });
+
+  test('the sentence under the verdict names the groups whose pass rests on a short sample', () => {
+    const short = dagostinoNormality(NORMAL_24.slice(0, 12));
+    const long = dagostinoNormality(NORMAL_24);
+    expect(weakNormalityText(['A'], [short])).toBe('Normality was checked on fewer than 20 values for A. ' +
+      "Below that the kurtosis part of D'Agostino's K² is outside its valid range, so a pass is weak evidence of normality.");
+    expect(weakNormalityText(['Big', 'Small', 'Other'], [long, short, short])).toContain('for Small and Other.');
+    expect(weakNormalityText(['Big'], [long])).toBeNull();
+    // A rejection is not softened, and a sample too small to test has nothing to qualify.
+    const rejected = dagostinoNormality([1, 1, 1, 1, 1, 1, 1, 9, 9, 30]);
+    expect(rejected.ok).toBe(false);
+    expect(weakNormalityText(['X'], [rejected])).toBeNull();
+    expect(weakNormalityText(['X'], [dagostinoNormality([1, 2, 3])])).toBeNull();
+  });
+
+  test('the note does not change the statistic: below 20 values it is still scipy\'s', () => {
+    // stats.normaltest(NORMAL_24[:n]); scipy warns that kurtosistest is only
+    // valid for n >= 20 for the first three and not for the last.
+    const scipy = { 8: [2.4816219104567336, 0.2891496354253202], 12: [1.7214076536595795, 0.4228643542776459],
+      19: [0.3091587343358056, 0.8567754895994097], 20: [0.0510933423835649, 0.9747768839052011] };
+    for (const [n, [K2, p]] of Object.entries(scipy)) {
+      const r = dagostinoNormality(NORMAL_24.slice(0, Number(n)));
+      expect(r.K2).toBeCloseTo(K2, 12);
+      expect(r.p).toBeCloseTo(p, 12);
+    }
   });
 
   test('declines to test a zero-variance sample', () => {
@@ -1264,7 +1326,8 @@ describe('recommendTest', () => {
     // normaltest p: A .373, B .661; levene p = .247
     const r = recommendTest({ design: 'independent', groups: [A, B], names: ['Control', 'Treated'] });
     expect(r.test).toBe('welch-t');
-    expect(r.reason).toBe("Control and Treated look normal (D'Agostino p = .373, p = .661); " +
+    expect(r.reason).toBe("Control and Treated look normal (D'Agostino p = .373, p = .661), " +
+      'though with under 20 values the check is weak; ' +
       "Welch's t is the safe default whether or not the variances match.");
     expect(r.levene.p).toBeCloseTo(0.24689534322848375, 6);
   });
@@ -1289,8 +1352,9 @@ describe('recommendTest', () => {
     // levene p = .0051; U2 normaltest p = .848; U1 (n = 7) and U3 (n = 6) untestable
     const r = recommendTest({ design: 'independent', groups: [U1, U2, U3], names: ['U1', 'U2', 'U3'] });
     expect(r.test).toBe('welch-anova');
-    expect(r.reason).toBe("U2 looks normal (D'Agostino p = .848); U1 and U3 have too few " +
-      "values to check (under 8); the variances differ (Levene p = .005), which Welch's ANOVA allows for.");
+    expect(r.reason).toBe("U2 looks normal (D'Agostino p = .848), though with under 20 values the check is weak; " +
+      'U1 and U3 have too few values to check (under 8); ' +
+      "the variances differ (Levene p = .005), which Welch's ANOVA allows for.");
   });
 
   test('three skewed groups: Kruskal-Wallis', () => {
@@ -1302,7 +1366,8 @@ describe('recommendTest', () => {
     // normaltest(X1 - X2) p = .608; normaltest(S2 - S1) p = .0039
     const t = recommendTest({ design: 'paired', groups: [X1, X2] });
     expect(t.test).toBe('paired-t');
-    expect(t.reason).toBe("The paired differences look normal (D'Agostino p = .608).");
+    expect(t.reason).toBe("The paired differences look normal (D'Agostino p = .608), " +
+      'though with under 20 values the check is weak.');
     const w = recommendTest({ design: 'paired', groups: [S2, S1] });
     expect(w.test).toBe('wilcoxon');
     expect(w.reason).toContain('The paired differences depart from normality (D\'Agostino p = .004)');
@@ -1324,6 +1389,31 @@ describe('recommendTest', () => {
     const r = recommendTest({ design: 'association', groups: [conc, resp], names: ['Dose', 'Response'] });
     expect(r.test).toBe('spearman');
     expect(r.reason).toBe("Dose departs from normality (D'Agostino p < .001), so a rank correlation is safer.");
+  });
+
+  test('a pass on under 20 values is called weak, and a pass on 20 or more is not', () => {
+    const big = recommendTest({ design: 'independent', groups: [NORMAL_24, NORMAL_24_B], names: ['G1', 'G2'] });
+    expect(big.test).toBe('welch-t');
+    expect(big.reason).toBe("G1 and G2 look normal (D'Agostino p = .980, p = .452); " +
+      "Welch's t is the safe default whether or not the variances match.");
+    expect(big.normality.map(x => x.note)).toEqual([null, null]);
+
+    // Only one of the two is short: the reason names it.
+    const mixed = recommendTest({
+      design: 'independent', groups: [NORMAL_24, NORMAL_24_B.slice(0, 12)], names: ['Big', 'Small']
+    });
+    expect(mixed.reason).toBe("Big and Small look normal (D'Agostino p = .980, p = .342), " +
+      "though Small has under 20 values, so that check is weak; Welch's t is the safe default whether or not the variances match.");
+    expect(mixed.normality.map(x => x.n)).toEqual([24, 12]);
+    expect(mixed.normality[1].note).toContain('fewer than 20 values');
+  });
+
+  test('the advice itself does not change with the weakness of the check', () => {
+    const short = recommendTest({ design: 'independent', groups: [NORMAL_24.slice(0, 12), NORMAL_24_B.slice(0, 12)] });
+    const long = recommendTest({ design: 'independent', groups: [NORMAL_24, NORMAL_24_B] });
+    expect(short.test).toBe(long.test);
+    // A rejection on a short sample is not softened: the rank-based test is the cautious choice.
+    expect(recommendTest({ design: 'independent', groups: [S1, S2] }).reason).not.toContain('weak');
   });
 
   test('too small to test anything: says so rather than calling the data normal', () => {

@@ -119,6 +119,45 @@ const UNAMBIGUOUS_TWO_LETTER = Object.freeze(new Set([
   'Re', 'Ir', 'Pt', 'Au', 'Tl', 'Bi', 'Th'
 ]));
 
+/**
+ * Ion names, as residue or atom names, to the element.
+ *
+ * A `.gro` file has no element column, and a guess from the atom name alone
+ * reads CHARMM's `SOD` as sulphur, `CLA` as carbon and `POT` as phosphorus, and
+ * the `NA+` and `CA2+` of OPLS-AA and GROMOS as nitrogen and carbon. In a
+ * monatomic ion residue the atom's name is the ion's, so {@link elementSymbol}
+ * looks it up here first. The keys are the ion names of the CHARMM, AMBER,
+ * OPLS-AA and GROMOS force fields (charge suffixes and all) in upper case.
+ *
+ * @type {ReadonlyMap<string, string>}
+ */
+export const ION_ELEMENTS = Object.freeze(new Map(Object.entries({
+  Li: 'LI LI+ LIT', Na: 'NA NA+ SOD', K: 'K K+ POT', Rb: 'RB RB+ RUB', Cs: 'CS CS+ CES',
+  Mg: 'MG MG2 MG2+', Ca: 'CA CA2 CA2+ CAL', Sr: 'SR SR2+', Ba: 'BA BA2+ BAR',
+  Zn: 'ZN ZN2 ZN2+', Cd: 'CD CD2 CD2+', Cu: 'CU CU1 CU+ CU2 CU2+', Fe: 'FE FE2 FE3 FE2+ FE3+',
+  Mn: 'MN MN2 MN2+', Co: 'CO CO2+', Ni: 'NI NI2+', Hg: 'HG HG2+',
+  F: 'F F-', Cl: 'CL CL- CLA', Br: 'BR BR-', I: 'I I- IOD'
+}).flatMap(([element, names]) => names.split(' ').map(name => [name, element]))));
+
+/** An atom or residue name in the form {@link ION_ELEMENTS} is keyed by. */
+const ionKey = (name) => String(name || '').trim().toUpperCase();
+
+/**
+ * The element of an atom in a monatomic ion residue, or undefined when the
+ * residue is not one. The residue must be an ion by name (or Martini's generic
+ * `ION`), so that CD2 in a leucine stays a carbon and CA in an alanine an alpha
+ * carbon; inside it the atom's own name is the ion's.
+ *
+ * @param {string} [atomName]
+ * @param {string} [resName]
+ * @returns {string|undefined}
+ */
+function ionElement(atomName, resName) {
+  const residue = ionKey(resName);
+  if (!ION_ELEMENTS.has(residue) && residue !== 'ION') return undefined;
+  return ION_ELEMENTS.get(ionKey(atomName));
+}
+
 const DEG2RAD = Math.PI / 180;
 
 /** Minimum box edge in nm; a planar system would otherwise give a zero cell. */
@@ -145,17 +184,21 @@ export function safeFloat(v) {
  * to be separated:
  *
  *   1. An explicit element column (PDB columns 77-78) always wins.
- *   2. A leading digit is a hydrogen-count prefix ("1HB", "2HG1") so it is
+ *   2. In a monatomic ion residue (CHARMM's SOD, POT, CLA and CAL, AMBER's
+ *      Na+ and Cl-, OPLS-AA and GROMOS's NA+, CL- and CA2+, Martini's ION) the
+ *      atom's name is the ion's and is looked up in {@link ION_ELEMENTS}. A
+ *      guess from the name alone reads SOD as sulphur and CLA as carbon.
+ *   3. A leading digit is a hydrogen-count prefix ("1HB", "2HG1") so it is
  *      stripped before reading the symbol. Without this, roughly a third of the
  *      hydrogens in a typical structure fall through as unknown.
- *   3. An unambiguous two-letter metal ("FE", "ZN", "SE") is read as that
+ *   4. An unambiguous two-letter metal ("FE", "ZN", "SE") is read as that
  *      element wherever it occurs, so heme iron and selenomethionine selenium
  *      are identified correctly.
- *   4. Otherwise a two-letter prefix whose second character is uppercase is a
+ *   5. A two-letter symbol is trusted when the residue shares its name, which
+ *      is the convention for the monatomic ions the table does not list.
+ *   6. Otherwise a two-letter prefix whose second character is uppercase is a
  *      PDB remoteness indicator, and only the first letter is the element:
  *      "CA" in a protein residue is C-alpha, not calcium.
- *   5. As a final fallback, a two-letter symbol is trusted when the residue
- *      shares its name, which is the convention for monatomic ions.
  *
  * @param {{element?:string, atomName?:string, resName?:string}} atom
  * @returns {string} Element symbol, or 'X' when nothing can be inferred.
@@ -167,6 +210,10 @@ export function elementSymbol(atom) {
     const e = String(atom.element).trim();
     if (e) return e[0].toUpperCase() + (e[1] ? e[1].toLowerCase() : '');
   }
+
+  // An ion residue names its ion: SOD is sodium, not sulphur.
+  const ion = ionElement(atom.atomName, atom.resName);
+  if (ion) return ion;
 
   // Strip a leading hydrogen-count digit: "1HB" -> "HB".
   const raw = String(atom.atomName || '').trim().replace(/^\d+/, '');
