@@ -4,9 +4,11 @@
 npm run test:coverage
 ```
 
-Roughly 89% of statements and 94% of lines across `src/core/`. Some suites run
-only when Python, PLUMED, LAMMPS or GROMACS is installed, so the figure moves a
-little between machines.
+89.5% of statements and 93.6% of lines across `src/core/`, as the paper quotes
+them: with Python and PLUMED installed and `GMX_BIN` and `LMP_BIN` unset, which
+skips 45 tests. Without Python, 213 tests skip and the figures are 89.1% and
+93.3%. Some suites run only when Python, PLUMED, LAMMPS or GROMACS is
+installed, so the figure moves a little between machines.
 
 Two files report far below that without being untested gaps. (`lammps-input.js`
 also reports far below it, and that one is a gap; see below.)
@@ -47,8 +49,8 @@ in any of those changes a published number.
 
 Real gaps, unlike the two files above, are genuinely untested code:
 
-- `lammps-input.js`, the LAMMPS input checker: about 63% of statements, 56% of
-  branches, 80% of functions. Its agreement with LAMMPS is tested separately,
+- `lammps-input.js`, the LAMMPS input checker: about 64% of statements, 56% of
+  branches, 81% of functions. Its agreement with LAMMPS is tested separately,
   by `npm run check:lammps` against an installed LAMMPS.
 - `lammps-data.js`: about 83% of statements, 76% of branches.
 - `gromacs-mdp.js`: about 85% of statements, 78% of branches.

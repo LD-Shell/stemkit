@@ -5,6 +5,31 @@ Notable changes to STEMKit and `stemkit-core`.
 `[output]` marks a change that alters a reported number. Figures produced with an
 earlier version are worth re-checking.
 
+## Unreleased
+
+Documentation and test tooling after v0.6.0. No result changes.
+
+### Added
+
+- **`ARCHITECTURE.md`.** What a page does, how a figure is built, how the core
+  gets its libraries, every module with what it imports, the generated files,
+  and where each kind of change goes.
+
+### Changed
+
+- **`run-tests.sh`** compared the counts of each test file with a table of its
+  own, written for the October suite. It reads Table 1 of the paper instead,
+  counts each row's test files (the page scripts built on a module count with
+  it), compares the domain modules with the namespaces `index.js` exports, and
+  says which documents quote a total other than the suite's.
+- Corrected in the documentation: eighteen tool pages load ES modules, not
+  seventeen; the coverage figures, with what they were measured with; the split
+  of the test total; the SciPy versions the reference values come from; the
+  heading of the numerical notes; the npm scripts and `run-tests.sh` in the
+  README.
+- Jest ignores any hidden directory at the repository root, as it already did
+  the upstream source trees.
+
 ## v0.6.0 — 2026-11-14
 
 Ion names in `.gro` files, a caveat on normality checks of fewer than 20

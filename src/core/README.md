@@ -263,13 +263,17 @@ npm test                # full suite
 npm run test:coverage   # with coverage
 ```
 
-The suite comprises 5003 tests across the 42 domain modules and `version` (`src/core` also holds the aggregate
-export, the Node entry and the injection layer, which carry no domain logic). Numerical results are validated against
-independent references rather than against the implementation itself:
+The suite comprises 5003 tests in 66 suites: 4941 under the 42 domain modules
+(the tests of a page script count with the module it is built on), 5 for
+`version`, and 57 for page scripts and site checks with no module under them.
+`src/core` also holds the aggregate export, the Node entry and the injection
+layer, which carry no domain logic. `./run-tests.sh` compares each count with
+Table 1 of the paper. Numerical results are validated against independent
+references rather than against the implementation itself:
 
-- **SciPy 1.17.1**, t-tests, ANOVA, Pearson, Mann–Whitney, Wilcoxon, Levene,
-  D'Agostino, quantiles
-- **SciPy 1.11.4**, one-sample t, one-sample Wilcoxon, Spearman, Kruskal–Wallis,
+- **SciPy 1.17.1 and 1.18.1**, t-tests, ANOVA, Pearson, Mann–Whitney, Wilcoxon
+  (paired and one-sample), Levene, D'Agostino, the normal tail, quantiles
+- **SciPy 1.11.4**, one-sample t, Spearman, Kruskal–Wallis,
   the chi-squared and studentized-range tails, Tukey HSD, descriptives; with
   **statsmodels 0.14.1** for Welch's ANOVA and Holm's adjustment and
   **matplotlib 3.6.3** for box-plot whiskers. Games–Howell and Dunn's test,
@@ -303,8 +307,8 @@ independent references rather than against the implementation itself:
 
 ## Numerical notes
 
-Four places where the obvious implementation gives a wrong number, and what
-the library does instead. Each has a regression test.
+Places where the obvious implementation gives a wrong number, or a plot that
+shows nothing, and what the library does instead. Each has a regression test.
 
 **Standardised moments.** Skewness and kurtosis are defined against the
 *population* standard deviation. Using the sample (n−1) value deflates

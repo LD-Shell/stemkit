@@ -22,7 +22,7 @@ cd stemkit
 python3 -m http.server 8000     # then open http://localhost:8000/
 ```
 
-Opening the HTML files over `file://` will not work. Seventeen tools load ES
+Opening the HTML files over `file://` will not work. Eighteen tool pages load ES
 modules, which browsers block outside HTTP.
 
 Use the library, from npm (Node 22 or later, no dependencies):
@@ -43,7 +43,7 @@ Run the tests, from a clone:
 
 ```bash
 npm install
-npm test                        # 5003 tests, 44 modules
+npm test                        # 5003 tests in 66 suites
 node tests/smoke.mjs            # end-to-end against a real install
 ```
 
@@ -53,6 +53,8 @@ node tests/smoke.mjs            # end-to-end against a real install
 |---|---|
 | `npm test` | Jest, 5003 tests |
 | `npm run test:coverage` | coverage report (see `docs/COVERAGE.md`) |
+| `npm run test:watch` | Jest, rerunning on change |
+| `./run-tests.sh` | the suite and the smoke test, with each count compared with Table 1 of the paper and with the documents that quote the total |
 | `npm run check:links` | internal and external link check |
 | `npm run check:links:internal` | internal only, no network |
 | `npm run check:chrome` | shared header, theme script, tool names, footer version and CSP agree across pages |
@@ -64,7 +66,8 @@ node tests/smoke.mjs            # end-to-end against a real install
 | `npm run check:gromacs`, `check:ndx` | compare the `.mdp` checker and index groups with an installed GROMACS (`GMX_BIN`) |
 | `npm run check:plumed` | compare the PLUMED input reader with installed PLUMED versions (`PLUMED_BINS`) |
 | `npm run check:lammps`, `check:lammps-data`, `check:lammps-workflow` | compare the LAMMPS input checker, data-file reader and workflow builder with an installed LAMMPS (`LMP_BIN`) |
-| `npm run build:lammps-docs` | regenerate the LAMMPS reference tables from a LAMMPS source tree |
+| `npm run build:gromacs-mdp`, `build:plumed-syntax`, `build:lammps-docs` | regenerate the GROMACS, PLUMED and LAMMPS reference tables from their source trees, which are not in the repository (`ARCHITECTURE.md` lists the files) |
+| `npm run check:lammps-docs` | fail if the LAMMPS tables differ from what `build:lammps-docs` writes |
 
 ## What is here
 
@@ -88,9 +91,10 @@ loads from YouTube only when play is pressed.
 
 `stemkit-core` holds the computation: 42 DOM-free domain modules, plus an
 aggregate export (`index.js`), a Node entry (`node.js`), a
-dependency-injection layer (`vendor.js`) and the release version
-(`version.js`).
-API reference in [`src/core/README.md`](src/core/README.md).
+dependency-injection layer (`vendor.js`), the release version (`version.js`)
+and eight generated or internal files that belong to one module each.
+API reference in [`src/core/README.md`](src/core/README.md); how the pieces
+call one another in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Who it is for
 
@@ -112,6 +116,7 @@ version-pinnable and testable.
 
 | File | Covers |
 |---|---|
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | how a page runs, how the core is wired, the modules, where a change goes |
 | [`src/core/README.md`](src/core/README.md) | library API |
 | [`docs/SETUP.md`](docs/SETUP.md) | layout, deployment, gotchas |
 | [`docs/COVERAGE.md`](docs/COVERAGE.md) | reading the coverage report |

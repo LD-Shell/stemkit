@@ -18,7 +18,7 @@ Open <http://localhost:8000/>.
 - Use `python3`. Plain `python` is still Python 2 on many systems.
 - Port above 1024, or you need root.
 
-**`file://` does not work.** Seventeen tools load their code as ES modules, which
+**`file://` does not work.** Eighteen tool pages load their code as ES modules, which
 browsers block outside HTTP. The page renders, every button is dead, and the
 console shows a CORS error. Serve over HTTP.
 
@@ -26,7 +26,7 @@ console shows a CORS error. Serve over HTTP.
 
 ```bash
 npm install
-npm test               # 5003 tests, 44 modules
+npm test               # 5003 tests in 66 suites
 npm run test:coverage  # see docs/COVERAGE.md
 node tests/smoke.mjs   # end-to-end against a real install
 ```
@@ -44,16 +44,20 @@ and `GMX_BIN`); without them those tests are skipped.
 
 ## Layout
 
+Where the files are. How the pieces call one another is in
+[`ARCHITECTURE.md`](../ARCHITECTURE.md).
+
 ```
 stemkit/
 ├── *.html                  18 research tools, 3 workflow utilities,
 │                           plus index, privacy and 404
 ├── src/
-│   ├── core/               the library, no DOM: 44 modules (vendor.js, the
-│   │                       DI boundary, is one), index.js (barrel), node.js
-│   │                       (Node entry), and the tables the GROMACS, PLUMED
-│   │                       and LAMMPS modules read (eight files and
-│   │                       plumed-syntax/)
+│   ├── core/               the library, no DOM: 44 modules (the 42 domain
+│   │                       modules, vendor.js, the DI boundary, and
+│   │                       version.js), index.js (barrel), node.js (Node
+│   │                       entry), eight files that belong to one module
+│   │                       each (generated tables, curated lists, parts of
+│   │                       the longest modules) and plumed-syntax/
 │   ├── tailwind/input.css  design tokens, shared .stk-* components,
 │   │                       hand-written rules that survive a rebuild
 │   ├── tools/              stylesheets, 25 files: one per tool (20), the

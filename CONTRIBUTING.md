@@ -51,19 +51,23 @@ A change to how something is *calculated* belongs in `src/core/` with a test. A
 change to how something is *shown* belongs in `js/`. If a pull request puts a
 formula inside a click handler, it will be asked to move.
 
+[`ARCHITECTURE.md`](ARCHITECTURE.md) shows what each module imports and says
+where each kind of change goes, with the tests that cover it.
+
 ## Tests
 
     npm test                       run everything
     npm run test:coverage          with a coverage report
     node tests/smoke.mjs           the package, imported by name
+    ./run-tests.sh                 both, with each count compared with the paper
     npm run check:chrome           header, catalogue and footer agree
     npm run check:links:internal   no broken links between pages
     npm run check:sitemap          every page is in sitemap.xml, dated by its last commit
 
-CI runs all but the coverage report on every pull request, with the tests on
-Node 22 and 24. Some tests run the real programs (Python, BibTeX, PLUMED,
-LAMMPS through `LMP_BIN`, GROMACS through `GMX_BIN`) and are skipped where those are
-not installed.
+CI runs all but the coverage report and `run-tests.sh` on every pull request,
+with the tests on Node 22 and 24. Some tests run the real programs (Python,
+BibTeX, PLUMED, LAMMPS through `LMP_BIN`, GROMACS through `GMX_BIN`) and are
+skipped where those are not installed.
 
 New behaviour in the core needs a test. Fixing a bug means adding the test that
 would have caught it, which is more useful than testing the fix.
