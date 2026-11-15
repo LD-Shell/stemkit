@@ -60,7 +60,7 @@ reproducibility; data privacy
 | C4 | Code versioning system used | git |
 | C5 | Software code languages, tools and services used | JavaScript (ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS |
 | C6 | Compilation requirements, operating environments and dependencies | Browser tools: any current browser supporting ECMAScript modules and the `FileReader` API; no installation and no build step. Library: Node.js ≥ 22 (continuous integration runs 22 and 24); on npm as `stemkit-core`. No runtime dependencies: jStat, Papa Parse, regression.js and bibtex-parse-js are vendored and bundled. `npm install` in a clone adds only the development dependencies (Jest, Tailwind CSS) |
-| C7 | If available, link to developer documentation/manual | <https://github.com/LD-Shell/stemkit#readme>; per-module API documentation in `src/core/README.md`; hosted tools at <https://stemkit.net>; narrated video tutorials for every research tool at <https://www.youtube.com/playlist?list=PLAqgfbqFf32M> |
+| C7 | If available, link to developer documentation/manual | <https://github.com/LD-Shell/stemkit#readme>; per-module API documentation in `src/core/README.md`; the architecture, with what each module imports, in `ARCHITECTURE.md`; hosted tools at <https://stemkit.net>; narrated video tutorials for every research tool at <https://www.youtube.com/playlist?list=PLAqgfbqFf32M> |
 | C8 | Support email for questions | lanrelangmuir@gmail.com (issue tracker: <https://github.com/LD-Shell/stemkit/issues>) |
 
 ## 1. Motivation and significance
@@ -324,7 +324,8 @@ package exports 44 namespaces, the 42 plus `version` and the injection layer
 `vendor`, which carry no domain logic. The test suite comprises 5003 tests in 66
 suites: 4941 under the 42 domain modules, 5 for `version`, and 57 for page
 scripts and site checks with no module under them (the last row of Table 1).
-Statement coverage of `src/core/` is 89.5% and line coverage 93.6%. The suite's
+Statement coverage of `src/core/` is 89.5% and line coverage 93.6% (with Python
+and PLUMED installed, GROMACS and LAMMPS not). The suite's
 governing principle is that numerical results are checked against *independent*
 references, not against the implementation under test, since a test written from
 the same source as the code confirms only internal consistency.

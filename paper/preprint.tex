@@ -185,7 +185,7 @@ Archive & Zenodo, concept DOI \href{https://doi.org/10.5281/zenodo.21543112}{\te
 Licence & MIT \\
 Languages & JavaScript (ECMAScript 2020 modules), HTML5, CSS3; Node.js; Jest; Tailwind CSS \\
 Requirements & Browser tools: any current browser with ECMAScript modules and the \texttt{FileReader} API; nothing to install. Library: Node.js $\geq 22$ (continuous integration runs 22 and 24), on npm as \texttt{stemkit-core}, with no runtime dependencies (jStat, Papa Parse, regression.js and bibtex-parse-js are bundled) \\
-Documentation & \url{https://github.com/LD-Shell/stemkit\#readme}; API in \texttt{src/core/README.md}; tools at \url{https://stemkit.net} \\
+Documentation & \url{https://github.com/LD-Shell/stemkit\#readme}; API in \texttt{src/core/README.md}; architecture in \texttt{ARCHITECTURE.md}; tools at \url{https://stemkit.net} \\
 Tutorials & Narrated video tutorials for every research tool, shown on each tool's page and collected at \url{https://www.youtube.com/playlist?list=PLAqgfbqFf32M} \\
 Support & \url{https://github.com/LD-Shell/stemkit/issues} \\
 \bottomrule
@@ -518,7 +518,8 @@ Counting differs by purpose. The core has 42 domain modules
 logic. The test suite comprises 5003 tests in 66 suites: 4941 under the 42 domain
 modules, 5 for \texttt{version}, and 57 for page scripts and site checks with no
 module under them (the last row of Table~\ref{tab:modules}). Statement coverage
-of \texttt{src/core/} is 89.5\% and line coverage 93.6\%. The suite's governing
+of \texttt{src/core/} is 89.5\% and line coverage 93.6\% (with Python and PLUMED
+installed, GROMACS and LAMMPS not). The suite's governing
 principle is that numerical results are checked against \emph{independent}
 references, not against the implementation under test, since a test written from
 the same source as the code confirms only internal consistency.
