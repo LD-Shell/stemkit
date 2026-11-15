@@ -93,13 +93,13 @@
       "<rootDir>/lammps/",
       "<rootDir>/plumed2/",
       "<rootDir>/gromacs-2025.1/",
-      "<rootDir>/.claude/"
+      "<rootDir>/\\.[^/]+/"
     ],
     "modulePathIgnorePatterns": [
       "<rootDir>/lammps/",
       "<rootDir>/plumed2/",
       "<rootDir>/gromacs-2025.1/",
-      "<rootDir>/.claude/"
+      "<rootDir>/\\.[^/]+/"
     ]
   }
 }
