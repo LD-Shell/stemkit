@@ -23,6 +23,7 @@ import {
   ANALYSIS_FIGURES, ENERGY_LABELS, availableFigures, analysisFigure, analysisScript, analysisData, fmt
 } from '../src/core/plumed-analysis-figures.js';
 import { findTarget } from './script-generator-plumed-model.js';
+import { fileRefusal } from './file-check.js';
 
 const PLOTLY_SRC = 'js/dependencies/plotly.min.js';
 const MAX_BYTES = 300 * 1024 * 1024;
@@ -616,7 +617,13 @@ export function createPlumedAnalyse(ctx, builder) {
       return true;
     });
     if (!list.length) return;
-    Promise.all(list.map(file => file.text().then(text => ({ name: file.name, text }))
+    // COLVAR and HILLS have no extension, so the bytes decide whether a file is text.
+    const textOf = file => fileRefusal(file).then((why) => {
+      if (!why) return file.text().then(text => ({ name: file.name, text }));
+      showToast(why, 'danger');
+      return null;
+    });
+    Promise.all(list.map(file => textOf(file)
       .catch(() => { showToast(`Could not read ${file.name}.`, 'danger'); return null; })))
       .then(read => take(read.filter(Boolean)));
   }

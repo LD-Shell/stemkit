@@ -9,6 +9,7 @@
 import { lintPlumedInput, explainPlumedInput, importPlumedInput } from '../src/core/plumed-parse.js';
 import { messageToHtml } from '../src/core/plumed.js';
 import { parseOnlyCommand } from './script-generator-plumed-model.js';
+import { fileRefusal } from './file-check.js';
 
 const LEVELS = {
   error: { label: 'Error', badge: 'stk-badge-danger', icon: 'fa-circle-xmark', plural: 'errors' },
@@ -156,6 +157,10 @@ export function createPlumedCheck(ctx, builder) {
       showToast(`${file.name} is larger than 2 MB; a PLUMED input is a few kilobytes.`, 'danger');
       return;
     }
+    fileRefusal(file).then((why) => (why ? showToast(why, 'danger') : readText(file)));
+  }
+
+  function readText(file) {
     file.text().then((t) => {
       setText(t);
       showToast(`${file.name} read, ${t.split('\n').length} lines.`, 'ok');

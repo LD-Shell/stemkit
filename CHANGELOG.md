@@ -7,13 +7,36 @@ earlier version are worth re-checking.
 
 ## Unreleased
 
-Documentation and test tooling after v0.6.0. No result changes.
+A file a page cannot read is refused instead of shown as text, and
+documentation and test tooling after v0.6.0. No result changes.
 
 ### Added
 
 - **`ARCHITECTURE.md`.** What a page does, how a figure is built, how the core
   gets its libraries, every module with what it imports, the generated files,
   and where each kind of change goes.
+
+### Fixed
+
+- **A workbook opened as text.** The Curve Fitter read any file it was given
+  as text, so an `.xlsx` file dropped on the page, or chosen with the picker
+  set to "All files", filled the data box with the bytes of a zip archive
+  under a note that said "Loaded". The Error Bar Generator, the Statistics
+  Calculator and the BibTeX Deduplicator did the same, and the XVG Visualizer
+  opened an empty plot, in every release so far; so did the three **Check a
+  file** boxes of the MD Workflow Generator. A page now holds a file to the
+  extensions it reads and says which they are, and a workbook is named as
+  one, with what to do instead: save the sheet as CSV, or copy its cells and
+  paste them. The first bytes are judged as well (`js/file-check.js`): a
+  workbook saved under a `.csv` or `.txt` name, which the Plot Builder, the
+  Data Cleaner and the Outlier Detector read as a table of noise, is refused
+  on every page, and so is a binary file, such as a LAMMPS restart file,
+  where the MD Workflow Generator reads an input, a data file or a COLVAR.
+  The Curve Fitter and the XVG Visualizer no longer open a text table under
+  an extension they do not name, such as `.out`: rename it, or paste it. An
+  error message on the Curve Fitter, the Error Bar Generator and the
+  Statistics Calculator stays for six seconds, long enough to read what to
+  do.
 
 ### Changed
 

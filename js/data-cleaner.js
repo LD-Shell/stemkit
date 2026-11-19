@@ -18,6 +18,7 @@ import {
 } from '../src/core/data-cleaning.js';
 import { generateCleaningScript, cleaningFileNames } from '../src/core/data-cleaning-python.js';
 import { createPythonPanel } from './python-panel.js';
+import { whyNotRead } from './file-check.js';
 
 // A small file with the problems the tool is for: gaps, a repeated row,
 // names typed with stray spaces and mixed case, a note in a number column,
@@ -189,7 +190,13 @@ function startPage() {
       return;
     }
     file.arrayBuffer()
-      .then(buffer => { const d = decode(buffer); loadText(d.text, name, d.encoding); })
+      .then(buffer => {
+        // A workbook under a text file's name would be read as a table of noise.
+        const why = whyNotRead(name, new Uint8Array(buffer), { sheet: 'open' });
+        if (why) { toast(why, 'danger'); return; }
+        const d = decode(buffer);
+        loadText(d.text, name, d.encoding);
+      })
       .catch(() => toast('Could not read that file.', 'danger'));
   }
 

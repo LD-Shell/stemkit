@@ -20,6 +20,7 @@ import {
   graceToPlain
 } from '../src/core/xvg-parser.js';
 import { mountFigure } from './figure-plot.js';
+import { fileRefusal } from './file-check.js';
 
 const STYLE_KEY = 'stemkit.xvg-visualizer.figure';
 const VIEW_KEY = 'stemkit.xvg-visualizer.view';
@@ -269,7 +270,29 @@ document.addEventListener('DOMContentLoaded', () => {
     if (opening) window.scrollTo(0, 0);
   }
 
+  // Why a file was not opened: the one thing this page says in passing.
+  const toasts = document.createElement('div');
+  toasts.className = 'stk-toasts';
+  toasts.setAttribute('aria-live', 'polite');
+  ui.main.appendChild(toasts);
+  function refuse(message) {
+    const t = document.createElement('div');
+    t.className = 'stk-toast stk-toast-danger';
+    t.setAttribute('role', 'alert');
+    t.innerHTML = '<i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span></span>';
+    t.querySelector('span').textContent = message;
+    toasts.appendChild(t);
+    setTimeout(() => t.remove(), 6000);
+  }
+
+  /* A dropped file has not passed the input's accept list. One that is
+     refused leaves the page as it was, with the file already open. */
   function readFile(file) {
+    fileRefusal(file, { extensions: ['xvg', 'csv', 'tsv', 'txt', 'dat'], sheet: 'open' })
+      .then((why) => (why ? refuse(why) : readText(file)));
+  }
+
+  function readText(file) {
     openWorkspace();
     ui.fileName.textContent = file.name;
     ui.fileStats.textContent = 'Reading the file…';

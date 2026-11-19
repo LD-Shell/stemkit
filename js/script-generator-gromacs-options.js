@@ -23,6 +23,7 @@ import {
   normaliseName, MDP_RELEASE, gromacsVersion, gromacsVersionInfo
 } from '../src/core/gromacs-mdp.js';
 import { GX_STAGE, GX_STAGES, builderFromMdp, diffOverrides } from './script-generator-gromacs-model.js';
+import { whyNotRead } from './file-check.js';
 
 const KIND_TEXT = {
   enum: 'one of the values below', boolean: 'yes or no', integer: 'a whole number', real: 'a number',
@@ -559,6 +560,8 @@ export function createGromacsCheck(ctx, gx) {
     // The bytes as saved: file.text() drops a byte-order mark, which grompp
     // keeps as part of the first name, so decode without stripping it.
     file.arrayBuffer().then((buf) => {
+      const why = whyNotRead(file.name, new Uint8Array(buf));
+      if (why) { showToast(why, 'danger'); return; }
       const t = new TextDecoder('utf-8', { ignoreBOM: true }).decode(buf);
       setText(t, file.name);
       const cr = loneCr(t);

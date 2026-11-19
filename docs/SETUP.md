@@ -78,6 +78,8 @@ stemkit/
 │   │                       section, and the list of videos
 │   ├── figure-plot.js      the shared plot area, style panel and export
 │   │   python-panel.js     (docs/FIGURES.md); the shared Python panel
+│   ├── file-check.js       which files a page reads: the extensions it
+│   │                       names, and text only; no DOM
 │   ├── script-generator-*  the MD workflow generator's GROMACS, PLUMED,
 │   │                       LAMMPS and scheduler parts; the *-model.js
 │   │                       files hold no DOM, so the tests run them in Node

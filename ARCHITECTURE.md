@@ -59,7 +59,10 @@ flowchart TD
 - **Input.** A file chosen or dropped, or text pasted, is read in the browser
   and held in memory. Nothing a person opens is sent anywhere; the three
   requests that leave the site, to doi.org, RCSB and the YouTube player, are
-  named on `privacy.html`.
+  named on `privacy.html`. A page that reads text asks `js/file-check.js`
+  first: a file is held to the extensions the page names and to bytes that
+  are text, so a workbook is refused, with what to do instead, and not shown
+  as text.
 - **Core.** A page script reads the form, calls the core and writes the result
   back. What decides a number is in `src/core/`, which touches no DOM. Page
   logic that needs a test sits in a DOM-free file beside its script (the
@@ -426,11 +429,12 @@ check:gromacs`, `check:ndx`, `check:plumed`, `check:lammps`,
 
 The test files follow the code by topic: `tests/<module>.test.js` for each
 module; `tests/<tool>-page.test.js` for the helpers behind a page script,
-`gromacs-ui` and `lammps-ui` for the MD Workflow Generator's `-model.js` files
-and `slurm-form` for its scheduler adapter (the pages themselves are checked in
-a browser); `plumed-crosscheck.test.js`, which records what PLUMED 2.9, 2.10 and
-2.11 did with what the builder writes, and `plumed-program.test.js`, which runs
-the real program; `site-tools.test.js` for `tools/build-sitemap.mjs` and
+`gromacs-ui` and `lammps-ui` for the MD Workflow Generator's `-model.js` files,
+`slurm-form` for its scheduler adapter and `file-check` for the files a page
+reads (the pages themselves are checked in a browser);
+`plumed-crosscheck.test.js`, which records what PLUMED 2.9, 2.10 and 2.11 did
+with what the builder writes, and `plumed-program.test.js`, which runs the
+real program; `site-tools.test.js` for `tools/build-sitemap.mjs` and
 `tools/check-chrome.mjs`; and `version.test.js`. `tests/smoke.mjs`, which is
 not a Jest file, imports the package by name as a user's script does. Reference
 values are frozen from SciPy, NumPy, statsmodels, pandas, matplotlib, GROMACS,

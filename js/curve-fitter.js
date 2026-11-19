@@ -33,6 +33,7 @@ import {
 import { fitModel } from '../src/core/nonlinear-fit.js';
 import { generateFitScript } from '../src/core/fit-python.js';
 import { bandVisibility, defaultPlotStyle, normalisePlotStyle } from '../src/core/plot-style.js';
+import { fileRefusal } from './file-check.js';
 
 /* ------------------------------------------------------------------ *
  * Reading a pasted or uploaded table
@@ -959,7 +960,8 @@ function startPage() {
       t.appendChild(b);
     }
     ui.toasts.appendChild(t);
-    setTimeout(() => t.remove(), action ? 8000 : 3200);
+    // A refusal says what to do instead, which takes longer to read.
+    setTimeout(() => t.remove(), action ? 8000 : kind === 'danger' ? 6000 : 3200);
   }
 
   let announceTimer = null;
@@ -1266,7 +1268,14 @@ function startPage() {
     ui.file.value = '';
   });
 
+  /* The extensions the file input accepts: a dropped file has not passed that
+     list, and a workbook read as text is the bytes of a zip archive in the box. */
   function readFile(file) {
+    fileRefusal(file, { extensions: ['csv', 'tsv', 'txt', 'dat', 'xvg'], sheet: 'paste' })
+      .then((why) => (why ? toast(why, 'danger') : readText(file)));
+  }
+
+  function readText(file) {
     if (file.size > 50 * 1024 * 1024) {
       toast(`${file.name} is larger than 50 MB; open a smaller file or a part of it.`, 'danger');
       return;

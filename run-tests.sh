@@ -111,6 +111,7 @@ const WITH = {
   'bibtex-commands': 'bibtex', 'doi-fetcher-page': 'bibtex',
   'curve-fitter-page': 'expression', 'fit-plot': 'expression',
   'decision': '(no module)', 'doc-tabs': '(no module)', 'how-tabs': '(no module)', 'site-tools': '(no module)',
+  'file-check': '(no module)',
   'digitizer-figure': 'digitizer',
   'figure-plot': 'figure', 'number-fields': 'figure',
   'gromacs-ui': 'gromacs-mdp',

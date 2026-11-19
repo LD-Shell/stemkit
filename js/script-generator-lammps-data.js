@@ -12,6 +12,7 @@
  */
 
 import { SEVERITY, formatCount } from './script-generator-lammps-model.js';
+import { fileRefusal } from './file-check.js';
 
 const NAME_OK = /^[A-Za-z0-9_]+$/;
 const MAX_BYTES = 256 * 1024 * 1024;
@@ -125,7 +126,9 @@ export function createLammpsData(ctx, hooks) {
       showToast(`${file.name} is larger than 256 MB; the page reads data files up to that size.`, 'danger');
       return;
     }
-    file.text().then(t => load(t, file.name)).catch(() => showToast(`Could not read ${file.name}.`, 'danger'));
+    // A data file has no settled extension, so the bytes decide: a binary restart file is not one.
+    fileRefusal(file).then((why) => (why ? showToast(why, 'danger') : file.text().then(t => load(t, file.name))))
+      .catch(() => showToast(`Could not read ${file.name}.`, 'danger'));
   }
 
   function clear() {

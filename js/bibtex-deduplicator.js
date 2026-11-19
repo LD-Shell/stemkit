@@ -6,6 +6,7 @@
  * conflict resolution.
  */
 import { registerFromGlobals } from '../src/core/vendor.js';
+import { fileRefusal } from './file-check.js';
 import {
   parseBibtex,
   findDuplicates,
@@ -174,7 +175,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // everything downstream is identical whichever way the data arrived.
   fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
+    fileInput.value = '';
     if (!file) return;
+    // The picker's "All files" lets anything through, and the box takes text.
+    fileRefusal(file, { extensions: ['bib', 'txt'] }).then((why) => (why ? showToast(why, 'error') : readFile(file)));
+  });
+
+  function readFile(file) {
     const reader = new FileReader();
     reader.onload = (event) => {
       bibInput.value = event.target.result;
@@ -186,8 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     reader.onerror = () => showToast('Could not read that file.', 'error');
     reader.readAsText(file);
-    fileInput.value = '';
-  });
+  }
 
   // --- 4. Scan (delegated to the core) ---
   scanBtn.addEventListener('click', scanForDuplicates);

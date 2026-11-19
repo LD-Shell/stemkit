@@ -8,6 +8,7 @@
  * and the exports, and writes the script into the Python panel.
  */
 import { registerFromGlobals } from '../src/core/vendor.js';
+import { fileRefusal } from './file-check.js';
 import {
   detectOutliers,
   extractNumericColumn,
@@ -138,6 +139,15 @@ document.addEventListener('DOMContentLoaded', () => {
       showToast('Choose a .csv, .tsv or .txt file.', 'error');
       return;
     }
+    fileInput.value = '';
+    // A workbook under a text file's name would be read as a table of noise.
+    fileRefusal(file, { sheet: 'open' }).then((why) => {
+      if (why) showToast(why, 'error');
+      else parseFile(file);
+    });
+  }
+
+  function parseFile(file) {
     Papa.parse(file, {
       header: true,
       dynamicTyping: true,
@@ -153,7 +163,6 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       error: () => showToast('Could not read that file.', 'error')
     });
-    fileInput.value = '';
   }
 
   // Fifteen readings near 80 with one far too high (250) and one far too low

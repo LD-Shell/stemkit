@@ -10,6 +10,7 @@
  * the Python panel.
  */
 import { registerFromGlobals } from '../src/core/vendor.js';
+import { fileRefusal } from './file-check.js';
 import { computeGroups, resultsToCSV, pairwiseComparisons } from '../src/core/error-bars.js';
 import {
   errorBarFigure, errorBarScript, significanceLabel, significanceLevel, pValueText
@@ -200,11 +201,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (fileInput) fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => { dataInput.value = ev.target.result; markChip(null); calculate(); };
-    reader.readAsText(file);
     fileInput.value = '';
+    if (!file) return;
+    // The picker's "All files" lets a workbook through, and its bytes are not a table.
+    fileRefusal(file, { extensions: ['csv', 'tsv', 'txt'], sheet: 'paste' }).then((why) => {
+      if (why) { showToast(why, 'error'); return; }
+      const reader = new FileReader();
+      reader.onload = (ev) => { dataInput.value = ev.target.result; markChip(null); calculate(); };
+      reader.readAsText(file);
+    });
   });
 
   if (ciLevelSelect) ciLevelSelect.addEventListener('change', () => {
@@ -415,10 +420,11 @@ document.addEventListener('DOMContentLoaded', () => {
     toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
     toast.innerText = msg;
     container.appendChild(toast);
+    // An error says what to do instead, which takes longer to read.
     setTimeout(() => {
       toast.style.opacity = '0';
       setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, type === 'error' ? 6000 : 3000);
   }
 
   // # --- 8. Theory (KaTeX) ---

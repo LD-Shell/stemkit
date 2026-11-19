@@ -11,6 +11,7 @@
  */
 
 import { SEVERITY, expandIncludes, packagesFromHelp, basicRows, followsIncludes } from './script-generator-lammps-model.js';
+import { fileRefusal } from './file-check.js';
 
 /* A data file: a count line ("N atoms") and an Atoms section. */
 const looksLikeData = (t) => /^\s*\d+\s+atoms\s*$/m.test(t) && /^\s*Atoms\b/m.test(t);
@@ -201,6 +202,11 @@ export function createLammpsCheck(ctx, lx) {
   function readFile(file) {
     if (!file) return;
     if (file.size > 256 * 1024 * 1024) { showToast(`${file.name} is larger than 256 MB.`, 'danger'); return; }
+    // An input has no settled extension, so the bytes decide: a restart file or a workbook is not one.
+    fileRefusal(file).then((why) => (why ? showToast(why, 'danger') : readText(file)));
+  }
+
+  function readText(file) {
     file.text().then((t) => {
       if (looksLikeData(t)) {
         const d = lx.readData ? lx.readData(t) : null;

@@ -27,6 +27,7 @@
  * not part of the look kept for the next visit, which is the house style.
  */
 import { mountFigure } from './figure-plot.js';
+import { fileRefusal } from './file-check.js';
 import { formatSize, WHISKER_RULES, isStack } from '../src/core/figure.js';
 import {
   readTable, builderFigure, pythonFiles, seriesNote, houseStyle, exampleCsv, EXAMPLE_LABELS,
@@ -403,6 +404,9 @@ async function addFiles(list) {
     if (!/\.(csv|tsv|txt)$/i.test(file.name)) { toast(`Skipped ${file.name}: the builder reads .csv, .tsv and .txt tables.`, 'danger'); continue; }
     if (state.files.some((f) => !f.example && f.name === file.name && f.size === file.size)) { toast(`${file.name} is already loaded.`); continue; }
     if (file.size > MAX_BYTES) { toast(`${file.name} is over 50 MB, too large to plot in the browser.`, 'danger'); continue; }
+    // A workbook under a text file's name would be read as a table of noise.
+    const why = await fileRefusal(file, { sheet: 'open' });
+    if (why) { toast(why, 'danger'); continue; }
     let text;
     try { text = await file.text(); } catch (e) { toast(`Could not read ${file.name}.`, 'danger'); continue; }
     const f = addFile(file.name, text, { size: file.size });
