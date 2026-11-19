@@ -10,7 +10,9 @@ import { describe, test, expect } from '@jest/globals';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { extensionOf, listExtensions, looksBinary, whyNotRead, fileRefusal } from '../js/file-check.js';
+import {
+  extensionOf, listExtensions, looksBinary, whyNotRead, fileRefusal, decodeText, encodingName, readTextFile
+} from '../js/file-check.js';
 import { buildZip } from '../src/core/zip.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -172,6 +174,44 @@ describe('fileRefusal', () => {
     // A browser too old to hand over a slice's bytes: the check steps aside.
     await expect(fileRefusal({ name: 'old.csv', slice: () => ({}) }, fitter)).resolves.toBe('');
     await expect(fileRefusal(null, fitter)).resolves.toBe('The file was not opened. Choose a .csv, .tsv, .txt, .dat or .xvg file.');
+  });
+});
+
+/*
+ * The text of a file. A spreadsheet does not always save UTF-8: its plain
+ * "CSV" is in the Windows code page and its "Unicode Text" in UTF-16, and a
+ * page that let the browser guess showed U+FFFD where a micro sign had been.
+ */
+describe('decodeText', () => {
+  const NAMES = 'Signal (µV),Température (°C)\r\n1,2\r\n';
+
+  test('UTF-8, with a byte-order mark or without, which is dropped', () => {
+    expect(decodeText(utf8(NAMES))).toEqual({ text: NAMES, encoding: 'utf-8' });
+    expect(decodeText(bytes([0xef, 0xbb, 0xbf], [...utf8(NAMES)]))).toEqual({ text: NAMES, encoding: 'utf-8' });
+    expect(decodeText(new Uint8Array(0))).toEqual({ text: '', encoding: 'utf-8' });
+    expect(decodeText(utf8(TABLE).buffer)).toEqual({ text: TABLE, encoding: 'utf-8' });
+  });
+
+  test('the Windows code page, where the bytes are not UTF-8', () => {
+    // 0xb5 and 0xb0 alone are not UTF-8: the micro sign and the degree sign of Windows-1252.
+    expect(decodeText(Buffer.from(NAMES, 'latin1'))).toEqual({ text: NAMES, encoding: 'windows-1252' });
+  });
+
+  test('UTF-16 by its byte-order mark, either way round', () => {
+    expect(decodeText(utf16(NAMES))).toEqual({ text: NAMES, encoding: 'utf-16le' });
+    expect(decodeText(utf16(NAMES, true))).toEqual({ text: NAMES, encoding: 'utf-16be' });
+  });
+
+  test('an encoding is named to the person only when it is not UTF-8', () => {
+    expect(['utf-8', 'windows-1252', 'utf-16le', 'utf-16be', undefined].map(encodingName)).toEqual(['', 'Windows-1252', 'UTF-16', 'UTF-16', '']);
+  });
+
+  test('a file is read whole and decoded', async () => {
+    await expect(readTextFile(new File([Buffer.from(NAMES, 'latin1')], 'names.csv'))).resolves.toEqual({ text: NAMES, encoding: 'windows-1252' });
+    await expect(readTextFile(new File([utf16(TABLE)], 'table.txt'))).resolves.toEqual({ text: TABLE, encoding: 'utf-16le' });
+    const gone = { arrayBuffer: () => Promise.reject(new Error('NotReadableError')) };
+    await expect(readTextFile(gone)).rejects.toThrow('NotReadableError');
+    await expect(readTextFile({})).rejects.toThrow();
   });
 });
 

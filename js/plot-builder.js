@@ -27,10 +27,10 @@
  * not part of the look kept for the next visit, which is the house style.
  */
 import { mountFigure } from './figure-plot.js';
-import { fileRefusal } from './file-check.js';
+import { fileRefusal, readTextFile, encodingName } from './file-check.js';
 import { formatSize, WHISKER_RULES, isStack } from '../src/core/figure.js';
 import {
-  readTable, builderFigure, pythonFiles, seriesNote, houseStyle, exampleCsv, EXAMPLE_LABELS,
+  readTable, builderFigure, pythonFiles, seriesNote, houseStyle, exampleCsv, EXAMPLE_LABELS, SPACES,
   sourceId, columnName, slug, DRAW_MODES, CHART_KINDS, suggestColumns, DEFAULT_BINS, DEFAULT_BINS_2D, DEFAULT_LEVELS, axisChoices,
   histogramOptions, LEVELS, EXAMPLES, builderExample, builderLayout, builderPanels, MAX_GRID_ROWS, MAX_GRID_COLS, MAX_INSETS
 } from '../src/core/plot-builder.js';
@@ -384,13 +384,16 @@ function newSeries(fileId, o = {}) {
   return s;
 }
 
-function addFile(name, text, { example = false, id, size = 0, labels = EXAMPLE_LABELS } = {}) {
+/* `file` is the person's own file, kept to read it again when they say whether
+   its first row holds names; `encoding` is the one its text was decoded from,
+   which the script opens it in. */
+function addFile(name, text, { example = false, id, size = 0, labels = EXAMPLE_LABELS, encoding = 'utf-8', file = null } = {}) {
   const table = readTable(text);
   if (!table.ok) { toast(`${name}: ${table.error}`, 'danger'); return null; }
   const taken = new Set(state.files.map((f) => f.source).filter(Boolean));
   const f = {
     id: id || `f${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
-    name, size, example, table,
+    name, size, example, table, encoding, file,
     source: example ? null : sourceId(name, taken),
     labels: example ? labels : null
   };
@@ -407,12 +410,13 @@ async function addFiles(list) {
     // A workbook under a text file's name would be read as a table of noise.
     const why = await fileRefusal(file, { sheet: 'open' });
     if (why) { toast(why, 'danger'); continue; }
-    let text;
-    try { text = await file.text(); } catch (e) { toast(`Could not read ${file.name}.`, 'danger'); continue; }
-    const f = addFile(file.name, text, { size: file.size });
+    let read;
+    try { read = await readTextFile(file); } catch (e) { toast(`Could not read ${file.name}.`, 'danger'); continue; }
+    const f = addFile(file.name, read.text, { size: file.size, encoding: read.encoding, file });
     if (!f) continue;
     const numeric = f.table.numeric.filter(Boolean).length;
-    toast(`Loaded ${file.name}: ${plural(f.table.rows, 'row')}, ${plural(f.table.headers.length, 'column')}.`, 'ok');
+    toast(`Loaded ${file.name}: ${plural(f.table.rows, 'row')}, ${plural(f.table.headers.length, 'column')}.` +
+      (f.table.header ? '' : ' Its first row is all numbers, so it was read as data.'), 'ok');
     if (numeric < 2) toast(`${file.name} has fewer than two columns of numbers. Choose the columns to plot on the Series tab.`, 'warn');
     if (!state.series.length) { newSeries(f.id); first = first || f; }
   }
@@ -494,14 +498,21 @@ function removeFile(id) {
 function renderFiles() {
   ui.files.innerHTML = state.files.map((f) => {
     const t = f.table;
-    const delim = { ',': 'commas', '\t': 'tabs', ';': 'semicolons', '|': 'bars' }[t.delimiter] || 'commas';
-    const warn = t.notUtf8 ? '<p class="pb-file-warn">Not UTF-8 text: the preview may be right, but the script will not read it. Save the file as UTF-8, or put the data in the script.</p>' : '';
+    const delim = { ',': 'commas', '\t': 'tabs', ';': 'semicolons', '|': 'bars', [SPACES]: 'spaces' }[t.delimiter] || 'commas';
+    // How the file was read, which the script is told too.
+    const how = [
+      ...(t.headers.length > 1 ? [`by ${delim}`] : []),
+      ...(t.decimal === ',' ? ['decimal commas'] : []),
+      ...(encodingName(f.encoding) ? [`read as ${encodingName(f.encoding)}`] : [])
+    ].map((w) => `, ${w}`).join('');
+    // A first row of numbers may hold names all the same (doses, years): the person says.
+    const header = f.file ? `<label class="stk-check pb-file-h"><input type="checkbox" data-header-file="${esc(f.id)}"${t.header ? ' checked' : ''}> First row holds the names</label>` : '';
     return `<li class="pb-file">
         <i class="fa-solid ${f.example ? 'fa-flask-vial' : 'fa-file-csv'}" aria-hidden="true"></i>
         <span class="pb-file-t"><span class="pb-file-name" title="${esc(f.name)}">${esc(f.name)}</span>
-        <span class="pb-file-meta">${plural(t.rows, 'row')}, ${plural(t.headers.length, 'column')}${t.headers.length > 1 ? `, by ${delim}` : ''}</span></span>
+        <span class="pb-file-meta">${plural(t.rows, 'row')}, ${plural(t.headers.length, 'column')}${how}</span></span>
         <button type="button" class="stk-btn stk-btn-sm stk-btn-ghost stk-btn-icon" data-remove-file="${esc(f.id)}" aria-label="Remove ${esc(f.name)}"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-        ${warn}
+        ${header}
       </li>`;
   }).join('');
   ui.addSeries.disabled = !state.files.length;
@@ -529,6 +540,38 @@ ui.files.addEventListener('click', (e) => {
   const b = e.target.closest('[data-remove-file]');
   if (b) removeFile(b.dataset.removeFile);
 });
+ui.files.addEventListener('change', (e) => {
+  const box = e.target.closest('[data-header-file]');
+  if (box) setHeader(box.dataset.headerFile, box.checked);
+});
+
+/* Read a file again with its first row as names, or as data. The series keep
+   their columns by place; one that is no longer there goes back to a column
+   that is. */
+async function setHeader(id, header) {
+  const f = fileById(id);
+  if (!f || !f.file) return;
+  let table = null;
+  try {
+    table = readTable((await readTextFile(f.file)).text, { header });
+  } catch (e) {
+    toast(`Could not read ${f.name} again.`, 'danger');
+  }
+  if (table && !table.ok) toast(`${f.name}: ${table.error}`, 'danger');
+  if (table && table.ok) {
+    f.table = table;
+    const width = table.headers.length;
+    for (const s of state.series.filter((x) => x.fileId === id)) {
+      const cols = firstColumns(f);
+      for (const key of ['x', 'y']) if (!(s[key] < width)) s[key] = cols[key];
+      for (const key of ['y2', 'z', 'yerr', 'xerr', 'groupBy']) if (Number.isInteger(s[key]) && s[key] >= width) s[key] = null;
+    }
+    toast(header ? `${f.name}: the first row names the columns.` : `${f.name}: the first row is read as data.`, 'ok');
+  }
+  renderFiles();
+  renderSeries();
+  redraw();
+}
 
 /* ------------------------------------------------------------------ *
  * Series

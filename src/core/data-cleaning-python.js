@@ -17,7 +17,7 @@
  */
 
 import {
-  SPACE_CHARACTERS, describeStep, checkRecipe, normaliseStep, stripSpaces
+  SPACE_CHARACTERS, WHITESPACE, describeStep, checkRecipe, normaliseStep, stripSpaces
 } from './data-cleaning.js';
 
 /* ------------------------------------------------------------------ *
@@ -186,6 +186,44 @@ const HELPERS = {
       '    can hold both. Blank lines are skipped and short rows padded with NaN.',
       '    """',
       '    rows = [row for row in csv.reader(lines, delimiter=sep) if row]',
+      '    width = max((len(row) for row in rows), default=0)',
+      '    names = column_names(rows[0] if header and rows else [], width)',
+      '    body = rows[1:] if header else rows',
+      '    data = [[cell(row[i] if i < len(row) else "", decimal) for i in range(width)] for row in body]',
+      '    return pd.DataFrame(data, columns=names)'
+    ]
+  },
+  // read_table for a file whose delimiter is WHITESPACE. It has the same
+  // Python name, so a script holds one reader, and it still takes sep=",".
+  read_table_columns: {
+    imports: ['csv', 're', 'pandas'],
+    needs: ['cell', 'column_names'],
+    code: [
+      'GAP = re.compile(r"[ \\t]+")',
+      '',
+      '',
+      'def read_table(lines, sep=None, decimal=".", header=True):',
+      '    """Read a table as the Data Cleaner does.',
+      '',
+      '    With sep=None the table is set out in columns: the values stand between runs',
+      '    of spaces or tabs, lines that start with # are left out, and in the header a',
+      '    unit in brackets stays with the name before it. Each cell becomes a number,',
+      '    NaN when it is empty, or stays text, so a column can hold both. Blank lines',
+      '    are skipped and short rows padded with NaN.',
+      '    """',
+      '    if sep is None:',
+      '        stripped = (line.strip(" \\t\\r\\n") for line in lines)',
+      '        rows = [GAP.split(line) for line in stripped if line and not line.startswith("#")]',
+      '        if header and rows:',
+      '            names = []',
+      '            for word in rows[0]:',
+      '                if names and word[0] in "([{":',
+      '                    names[-1] += " " + word',
+      '                else:',
+      '                    names.append(word)',
+      '            rows[0] = names',
+      '    else:',
+      '        rows = [row for row in csv.reader(lines, delimiter=sep) if row]',
       '    width = max((len(row) for row in rows), default=0)',
       '    names = column_names(rows[0] if header and rows else [], width)',
       '    body = rows[1:] if header else rows',
@@ -466,7 +504,7 @@ const HELPERS = {
 };
 
 // The order helpers appear in the script: reading and writing first.
-const HELPER_ORDER = ['SPACES', 'cell', 'column_names', 'read_table', 'number_text', 'text_of', 'write_table', 'report',
+const HELPER_ORDER = ['SPACES', 'cell', 'column_names', 'read_table', 'read_table_columns', 'number_text', 'text_of', 'write_table', 'report',
   'is_number', 'numeric_values', 'on_text', 'on_numbers', 'mean', 'median', 'fill_gaps', 'fill_down', 'keep_rows',
   'sort_rows', 'trim', 'tidy_spaces', 'title_case', 'to_number', 'round_to', 'PRECISE', 'log10', 'ln', 'min_max', 'z_score'];
 
@@ -706,7 +744,9 @@ export function generateCleaningScript(spec) {
   const output = spec.output || names.output;
   const problems = checkRecipe(columns, steps);
 
-  const helpers = new Set(['read_table', 'write_table', 'report']);
+  // A table set out in columns has its own reader, under the same name.
+  const inColumns = source.delimiter === WHITESPACE;
+  const helpers = new Set([inColumns ? 'read_table_columns' : 'read_table', 'write_table', 'report']);
   const imports = new Set();
   const blocks = steps.map((step, i) => {
     const n = i + 1;
@@ -746,7 +786,8 @@ export function generateCleaningScript(spec) {
   imports.add('csv');
 
   const readArgs = [];
-  if (source.delimiter && source.delimiter !== ',') readArgs.push(`sep=${pyString(source.delimiter)}`);
+  if (inColumns) readArgs.push('sep=None');
+  else if (source.delimiter && source.delimiter !== ',') readArgs.push(`sep=${pyString(source.delimiter)}`);
   if (source.decimal === ',') readArgs.push('decimal=","');
   if (source.header === false) readArgs.push('header=False');
   const readTail = readArgs.length ? `, ${readArgs.join(', ')}` : '';

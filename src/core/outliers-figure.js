@@ -9,8 +9,9 @@
  * the values where the modified Z-score reaches ±k, or Tukey's fences).
  *
  * `outlierScript` writes the matplotlib script that draws it. The script
- * reads the column from the person's CSV file (as the page read it: the
- * same numbers, the same rows) or holds the values, flags them with numpy
+ * reads the column from the person's file (as the page read it: the same
+ * delimiter, decimal mark and header, so the same numbers on the same rows)
+ * or holds the values, flags them with numpy
  * by the rule outliers.js applies, runs Grubbs' test with scipy, prints what
  * it found, and draws the chart from its own flags and lines.
  * tests/outliers-figure.test.js runs it and compares the flags, the lines
@@ -18,7 +19,7 @@
  */
 
 import { detectOutliers, quartiles, median, MAD_TO_SIGMA, MEANAD_TO_SIGMA } from './outliers.js';
-import { figureScript, pyStr, pyNum, pyArray } from './figure-python.js';
+import { figureScript, pyStr, pyNum, pyArray, pyCall, pyEncoding } from './figure-python.js';
 
 /** The lines' colour: a neutral grey that reads on light and dark figures. */
 const LINE_COLOUR = '#6b7280';
@@ -121,24 +122,48 @@ export function outlierFigure(spec = {}) {
 
 const section = (L, title) => L.push(`# ${title} ` + '-'.repeat(Math.max(4, 76 - title.length)));
 
+/* One reader for every way the page reads a table (readTable of
+   data-cleaning.js), so the call says how the file is written and the script
+   guesses nothing: the cells are split and the numbers told as on the page. */
 const READ_COLUMN = [
-  'def read_column(path, column, delimiter=\',\'):',
-  '    """The numbers in one column of a CSV file with a header row, and their rows.',
+  '# A number as the page reads one: digits with an optional sign, a decimal mark and an',
+  '# exponent, with spaces or tabs around it.',
+  'NUMBER = {',
+  "    '.': re.compile(r'[ \\t]*[-+]?([0-9]+\\.?[0-9]*|\\.[0-9]+)([eE][-+]?[0-9]+)?[ \\t]*'),",
+  "    ',': re.compile(r'[ \\t]*[-+]?([0-9]+,?[0-9]*|,[0-9]+)([eE][-+]?[0-9]+)?[ \\t]*'),",
+  '}',
+  "WHOLE_NUMBER = re.compile(r'[ \\t]*[-+]?[0-9]+[ \\t]*')",
   '',
-  '    Rows are counted from 1 under the header, blank lines left out. A cell counts as a',
-  '    number as the page reads one: digits with an optional minus, point and exponent,',
-  '    below 2**53 in size; anything else (text, blanks, true/false) is skipped.',
+  '',
+  "def read_column(path, column, delimiter=',', decimal='.', header=True, encoding='utf-8-sig'):",
+  '    """The numbers in one column of a table in a text file, and the rows they are on.',
+  '',
+  '    The column is found by its name in the header row, or by its place (0 is the',
+  '    first) when it is given as a number. Rows are counted from 1 under the header,',
+  '    blank lines left out. A cell counts as a number as the page reads one; text,',
+  '    blanks and whole numbers of 2**53 or more (they would lose digits) are skipped.',
+  '    delimiter=None is for a table set out in columns: values between runs of spaces',
+  "    or tabs, lines that start with # left out. decimal=',' reads 1,5 as 1.5.",
   '    """',
+  "    with open(path, newline='', encoding=encoding) as fh:",
+  '        if delimiter is None:',
+  "            lines = (line.strip(' \\t\\r\\n') for line in fh)",
+  "            records = [re.split(r'[ \\t]+', line) for line in lines if line and not line.startswith('#')]",
+  '        else:',
+  '            records = [record for record in csv.reader(fh, delimiter=delimiter) if record]',
+  '    if header:',
+  "        names = [name.strip(' \\t') for name in records[0]] if records else []",
+  '        records = records[1:]',
+  '        if isinstance(column, str):',
+  '            column = names.index(column)',
   '    rows, values = [], []',
-  "    with open(path, newline='', encoding='utf-8-sig') as fh:",
-  '        reader = csv.reader(fh, delimiter=delimiter)',
-  '        header = [name.strip() for name in next(reader)]',
-  '        k = header.index(column.strip())',
-  '        for number, record in enumerate((r for r in reader if r), start=1):',
-  "            cell = record[k] if k < len(record) else ''",
-  '            if NUMBER.match(cell) and abs(float(cell)) < 2 ** 53:',
+  '    for number, record in enumerate(records, start=1):',
+  "        cell = record[column] if column < len(record) else ''",
+  '        if NUMBER[decimal].fullmatch(cell):',
+  "            value = float(cell.replace(decimal, '.'))",
+  '            if math.isfinite(value) and not (WHOLE_NUMBER.fullmatch(cell) and abs(value) >= 2 ** 53):',
   '                rows.append(number)',
-  '                values.append(float(cell))',
+  '                values.append(value)',
   '    return np.array(rows), np.array(values, dtype=float)'
 ];
 
@@ -152,8 +177,12 @@ const READ_COLUMN = [
  * @param {'zscore'|'modzscore'|'iqr'} spec.method
  * @param {number} spec.threshold
  * @param {string} [spec.column]
- * @param {{name: string, delimiter?: string}|null} [spec.file] - the CSV the values came
- *   from, to read them from it
+ * @param {{name: string, delimiter?: string|null, decimal?: '.'|',', header?: boolean,
+ *   encoding?: string, position?: number, headerCells?: string[]|null}|null} [spec.file] - the
+ *   file the values came from and how the page read it, to read them from it: the
+ *   delimiter (null for a table set out in columns), the decimal mark, whether the
+ *   first row names the columns, the encoding, the column's place (0 is the first)
+ *   and the header row as the file writes it
  * @param {'files'|'embed'} [spec.source='embed']
  * @returns {string}
  */
@@ -163,15 +192,27 @@ export function outlierScript(figure, spec = {}) {
   const P = [];
   const imports = ['from scipy import stats'];
   if (fromFile) {
-    imports.unshift('import csv', 'import re');
-    P.push("NUMBER = re.compile(r'^\\s*-?(\\d+\\.?|\\.\\d+|\\d+\\.\\d+)([eE][-+]?\\d+)?\\s*$')");
-    P.push('', '');
+    imports.unshift('import csv', 'import math', 'import re');
     P.push(...READ_COLUMN);
     P.push('', '');
-    P.push('# Point this at your file; the column is found by its header.');
-    const args = [pyStr(file.name), pyStr(column)];
-    if (file.delimiter && file.delimiter !== ',') args.push(`delimiter=${pyStr(file.delimiter)}`);
-    P.push(`row, value = read_column(${args.join(', ')})`);
+    // By its name when the script's reading of the header row gives that name
+    // once; by its place otherwise (no header, a name used twice or left
+    // blank, a table set out in columns, whose header the page joins up).
+    const cells = Array.isArray(file.headerCells) ? file.headerCells : null;
+    const plain = (c) => String(c).replace(/^[ \t]+|[ \t]+$/g, '');
+    const inColumns = file.delimiter === null;
+    const byName = file.header !== false && !inColumns
+      && (cells ? cells.filter((c) => plain(c) === column).length === 1 : !Number.isInteger(file.position));
+    P.push(byName
+      ? '# Point this at your file; the column is found by its header.'
+      : `# Point this at your file. The column ${pyStr(column)} is found by its place: ${file.position}, counting from 0.`);
+    const args = [pyStr(file.name), byName ? pyStr(column) : String(file.position)];
+    if (inColumns) args.push('delimiter=None');
+    else if (file.delimiter && file.delimiter !== ',') args.push(`delimiter=${pyStr(file.delimiter)}`);
+    if (file.decimal === ',') args.push("decimal=','");
+    if (file.header === false) args.push('header=False');
+    if (file.encoding && pyEncoding(file.encoding) !== 'utf-8-sig') args.push(`encoding=${pyStr(pyEncoding(file.encoding))}`);
+    P.push(...pyCall('row, value = read_column', args));
   } else {
     P.push(spec.source === 'files'
       ? '# The example has no file to read, so its values are here.'

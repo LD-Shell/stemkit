@@ -33,7 +33,7 @@ import {
 import { fitModel } from '../src/core/nonlinear-fit.js';
 import { generateFitScript } from '../src/core/fit-python.js';
 import { bandVisibility, defaultPlotStyle, normalisePlotStyle } from '../src/core/plot-style.js';
-import { fileRefusal } from './file-check.js';
+import { fileRefusal, readTextFile, encodingName } from './file-check.js';
 
 /* ------------------------------------------------------------------ *
  * Reading a pasted or uploaded table
@@ -1169,9 +1169,10 @@ function startPage() {
 
   const parseDataSoon = debounce(() => applyData(), 180);
 
-  function setData(text, name = '') {
+  function setData(text, name = '', encoding = '') {
     state.dataText = text;
     state.dataName = name;
+    state.dataEncoding = encoding;
     if (ui.dataText.value !== text) ui.dataText.value = text;
     applyData();
   }
@@ -1212,6 +1213,7 @@ function startPage() {
         DELIMITER_NAMES[t.delimiter] + (t.decimalComma ? ', decimal commas' : ''),
         t.header ? 'column names from the header' : 'no header row'
       ];
+      if (state.dataName && state.dataEncoding) bits.push(`read as ${state.dataEncoding}`);
       if (state.dataName) bits.unshift(`<span class="cf-mono">${esc(clip(state.dataName, 28))}</span>`);
       ui.dataStats.innerHTML = bits.join(', ');
       renderColumnList();
@@ -1280,17 +1282,16 @@ function startPage() {
       toast(`${file.name} is larger than 50 MB; open a smaller file or a part of it.`, 'danger');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
+    // Decoded here and not by the browser's guess: a spreadsheet's plain CSV is in
+    // the Windows code page, where a micro sign read as UTF-8 is lost.
+    readTextFile(file).then(({ text, encoding }) => {
       state.sample = null;
-      setData(String(reader.result || ''), file.name);
+      setData(text, file.name, encodingName(encoding));
       const base = file.name.replace(/\.[^.]+$/, '').replace(/[^\w.-]+/g, '_') || 'data';
       state.csvName = `${base}_fit.csv`;
       ui.csvName.value = state.csvName;
       toast(`Loaded ${file.name}: ${plural(state.table.rows, 'row')}.`, 'ok');
-    };
-    reader.onerror = () => toast(`Could not read ${file.name}.`, 'danger');
-    reader.readAsText(file);
+    }).catch(() => toast(`Could not read ${file.name}.`, 'danger'));
   }
 
   // Drop a file anywhere on the workspace; the data tab comes forward to take it.

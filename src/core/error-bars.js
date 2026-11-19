@@ -168,11 +168,13 @@ const DIGITS_AND_SEPARATORS = /^[+-]?[\d.,]+([eE][+-]?\d+)?$/;
 /**
  * Read one cell of a table as a replicate.
  *
- * A table parsed with Papa Parse's `dynamicTyping` arrives with most numbers
- * already typed, but that option leaves as text anything with a leading plus
- * (`+5`), anything of 2^53 or more (`1e16`) and anything out of range
- * (`1e400`), so strings are read here by the same rule as numbers typed in
- * full: an optional sign, digits with an optional point, an optional exponent.
+ * A table arrives from the page's reader (readTable of data-cleaning.js) with
+ * most numbers already typed, those with a decimal comma among them where the
+ * file shows that it is one. That reader leaves as text a whole number of 2^53
+ * or more and anything out of range (`1e400`), and a caller may pass cells
+ * nobody has typed, so strings are read here by the same rule as numbers typed
+ * in full: an optional sign, digits with an optional point, an optional
+ * exponent.
  *
  * @param {*} cell
  * @returns {{kind:'number'|'blank'|'comma'|'infinite'|'text', value:number}}

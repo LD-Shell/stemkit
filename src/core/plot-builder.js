@@ -126,58 +126,208 @@ export function parseCsv(text, delimiter = ',') {
 
 export const DELIMITERS = Object.freeze([',', '\t', ';', '|']);
 
+/* Whether every comma in these records sits between the digits of a number (1,5), with one at least. */
+const COMMA_BETWEEN_DIGITS = /^[+-]?\d+,\d+(?:[eE][+-]?\d+)?$/;
+function commasAreDecimal(records) {
+  let seen = false;
+  for (const record of records) {
+    for (const cell of record) {
+      const t = String(cell ?? '').trim();
+      if (!t.includes(',')) continue;
+      if (!COMMA_BETWEEN_DIGITS.test(t)) return false;
+      seen = true;
+    }
+  }
+  return seen;
+}
+
 /**
  * The delimiter a table is written with: of comma, tab, semicolon and bar,
  * the one that splits the header into two or more columns and the most of the
  * next rows into as many; the most columns breaks a tie. A comma when none
  * does.
  *
+ * A comma is not the delimiter when another of them splits the rows as well
+ * and, read that way, every comma sits between the digits of a number:
+ * `0,25<tab>3,2` is two values with decimal commas, not three.
+ *
  * @param {string} text
  * @returns {string}
  */
 export function sniffDelimiter(text) {
   const sample = String(text ?? '').slice(0, 64 * 1024);
-  let best = { d: ',', score: -1, width: 0 };
+  const better = (a, b) => (a.score > b.score || (a.score === b.score && a.width > b.width) ? a : b);
+  const tried = [];
   for (const d of DELIMITERS) {
     const recs = parseCsv(sample, d).filter((r) => r.length).slice(0, 30);
     if (!recs.length) continue;
     const width = recs[0].length;
     if (width < 2) continue;
-    const score = recs.slice(1).filter((r) => r.length === width).length;
-    if (score > best.score || (score === best.score && width > best.width)) best = { d, score, width };
+    tried.push({ d, score: recs.slice(1).filter((r) => r.length === width).length, width, recs });
+  }
+  let best = tried.reduce((a, b) => better(b, a), { d: ',', score: -1, width: 0 });
+  if (best.d === ',') {
+    const others = tried.filter((t) => t.d !== ',' && t.score >= best.score && commasAreDecimal(t.recs));
+    if (others.length) best = others.reduce((a, b) => better(b, a));
   }
   return best.d;
 }
 
 /**
- * A file read as the script reads it.
+ * The delimiter of a table set out in columns, its values between runs of
+ * spaces or tabs (a .txt as a program prints one). The script reads such a
+ * file with read_csv(path, delimiter=None).
+ */
+export const SPACES = 'spaces';
+
+/* White space as Python's str.split() and str.strip() know it. */
+const PY_SPACE = String.raw`\t-\r\x1c-\x20\x85\xa0  -     　`;
+const PY_SPLIT = new RegExp(`[${PY_SPACE}]+`);
+const PY_STRIP = new RegExp(`^[${PY_SPACE}]+|[${PY_SPACE}]+$`, 'g');
+
+/**
+ * The records of a table set out in columns, as the script splits them: each
+ * line at its runs of white space (Python's str.split()), with blank lines
+ * and lines whose first character after any space is `#` left out.
  *
  * @param {string} text
- * @param {{delimiter?: string}} [options] - the delimiter (default: sniffed)
- * @returns {{ok: boolean, error?: string, delimiter: string, headers: string[], columns: number[][],
- *   texts: string[][], rows: number, numeric: boolean[], readable: boolean[], counts: number[], notUtf8: boolean}}
+ * @returns {string[][]}
+ */
+export function parseColumns(text) {
+  const records = [];
+  for (const raw of String(text ?? '').split(/\r\n|\r|\n/)) {
+    const line = raw.replace(PY_STRIP, '');
+    if (line !== '' && line[0] !== '#') records.push(line.split(PY_SPLIT));
+  }
+  return records;
+}
+
+/* A header set out in columns: a unit in brackets stays with the name before it ("Time (s)"). */
+function joinUnits(cells) {
+  const names = [];
+  for (const cell of cells) {
+    if (names.length && /^[([{]/.test(cell)) names[names.length - 1] += ` ${cell}`;
+    else names.push(cell);
+  }
+  return names;
+}
+
+/*
+ * A comma in a number is a decimal mark or sets off thousands. 1,234 may be
+ * either (one to three digits, not starting with 0, then exactly three);
+ * 1,234,567 and 1,234.5 set off thousands for certain; any other number with
+ * one comma (0,5 and 3,2004) can only have a decimal comma.
+ */
+const GROUPED = /^[+-]?[1-9]\d{0,2},\d{3}$/;
+const THOUSANDS = /^[+-]?\d{1,3}(?:,\d{3})+(?:\.\d*)?(?:[eE][+-]?\d+)?$/;
+const COMMA_FLOAT = /^[+-]?(?:\d+,\d*|,\d+)(?:[eE][+-]?\d+)?$/;
+
+/**
+ * The decimal mark of a table not split at commas: a comma where a number
+ * shows that it is one, with the numbers written with a comma outnumbering
+ * those written with a point. Where every comma is like 1,234 the file does
+ * not say, and a semicolon between the values is taken as the sign of a
+ * decimal comma, as a spreadsheet writes one where the other is the custom.
+ * The same rule as readTable of data-cleaning.js.
+ *
+ * @param {string[][]} records - without the header row
+ * @param {string} delimiter
+ * @returns {'.'|','}
+ */
+export function sniffDecimal(records, delimiter) {
+  if (delimiter === ',') return '.';
+  let decimal = 0;
+  let grouped = 0;
+  let point = 0;
+  for (const record of records.slice(0, 200)) {
+    for (const cell of record) {
+      const t = String(cell ?? '').trim();
+      if (t.includes(',')) {
+        if (GROUPED.test(t)) grouped++;
+        else if (COMMA_FLOAT.test(t)) decimal++;
+        else if (THOUSANDS.test(t)) return '.';
+      } else if (t.includes('.') && Number.isFinite(pyFloat(t))) point++;
+    }
+  }
+  if (decimal + grouped <= point) return '.';
+  return decimal > 0 || delimiter === ';' ? ',' : '.';
+}
+
+/**
+ * A file read as the script reads it.
+ *
+ * The table is split at commas, tabs, semicolons or bars, whichever splits
+ * its lines alike, and failing those at its runs of spaces (SPACES), where
+ * lines that start with `#` are comments. Where it is not split at commas
+ * and its numbers show a decimal comma, each comma is read as a point
+ * (sniffDecimal). The first row names the columns unless it is all numbers:
+ * then the file has no header, the columns are called by their place, and
+ * the script reads them by number.
+ *
+ * @param {string} text
+ * @param {{delimiter?: string, header?: boolean}} [options] - the delimiter (default:
+ *   sniffed), and whether the first row names the columns (default: unless it is all numbers)
+ * @returns {{ok: boolean, error?: string, delimiter: string, decimal: '.'|',', header: boolean,
+ *   headers: string[], columns: number[][], texts: string[][], rows: number, numeric: boolean[],
+ *   readable: boolean[], counts: number[], notUtf8: boolean}}
  *   columns[i] holds a number (or NaN) for every row; texts[i] the cell's text, trimmed, for every
  *   row (the names of categories and groups); numeric[i] says whether at least half the
- *   rows have a number there; readable[i] whether the script can read the column by its name;
- *   counts[i] how many rows have a number there
+ *   rows have a number there; readable[i] whether the script can read the column from the file
+ *   (by its name, or by its number in a file with no header or set out in columns);
+ *   counts[i] how many rows have a number there; headers[i] is '' for a column with no name
  */
 export function readTable(text, options = {}) {
   let s = String(text ?? '');
   if (s.charCodeAt(0) === 0xfeff) s = s.slice(1);   // utf-8-sig
-  const delimiter = options.delimiter || sniffDelimiter(s);
-  const records = parseCsv(s, delimiter);
-  const empty = { ok: false, delimiter, headers: [], columns: [], texts: [], rows: 0, numeric: [], readable: [], counts: [], notUtf8: s.includes('�') };
+  const notUtf8 = s.includes('�');
+  let delimiter = options.delimiter || sniffDelimiter(s);
+  let records = delimiter === SPACES ? parseColumns(s) : parseCsv(s, delimiter);
+  const empty = { ok: false, delimiter, decimal: '.', header: true, headers: [], columns: [], texts: [], rows: 0, numeric: [], readable: [], counts: [], notUtf8 };
   if (!records.length || !records[0].length) return { ...empty, error: 'The first line should name the columns.' };
-  const headers = records[0].map((h) => h.trim());
-  if (headers.length < 2) return { ...empty, headers, error: 'It needs at least two columns, separated by commas, tabs or semicolons.' };
-  const body = records.slice(1).filter((r) => r.length);
-  const columns = headers.map((_, i) => body.map((r) => pyFloat(r[i])));
+  if (!options.delimiter && (records[0].length < 2 || delimiter === ',')) {
+    // Set out in columns, if the lines agree on how many: where no comma, tab,
+    // semicolon or bar splits them, and where the only commas are the decimal
+    // marks of numbers that stand between spaces (0,25  3,2).
+    const spaced = parseColumns(s);
+    const sample = spaced.slice(0, 31);
+    const widths = new Map();
+    for (const r of sample.slice(1)) widths.set(r.length, (widths.get(r.length) || 0) + 1);
+    let width = 0;
+    let most = 0;
+    for (const [w, n] of widths) if (n > most) { most = n; width = w; }
+    const split = records[0].length >= 2;
+    if (width >= 2 && (!split || (most === sample.length - 1 && commasAreDecimal(sample)))) { delimiter = SPACES; records = spaced; }
+  }
+  if (records[0].length < 2) {
+    return { ...empty, headers: records[0].map((h) => h.trim()), error: 'It needs at least two columns, separated by commas, tabs, semicolons or spaces.' };
+  }
+  records = records.filter((r) => r.length);
+  const inColumns = delimiter === SPACES;
+  const decimal = sniffDecimal(records.slice(1), delimiter);
+  const number = decimal === ',' ? (c) => pyFloat(String(c ?? '').replace(/,/g, '.')) : pyFloat;
+  // A first row of numbers is data: the file has no header.
+  const filled = records[0].filter((c) => String(c).trim() !== '');
+  const header = typeof options.header === 'boolean' ? options.header
+    : !(filled.length > 0 && filled.every((c) => Number.isFinite(number(c))));
+  const body = header ? records.slice(1) : records;
+  let headers;
+  if (header && !inColumns) {
+    headers = records[0].map((h) => h.trim());
+  } else {
+    // The script finds these columns by number, as many as the longest row has.
+    let width = 0;
+    for (const r of body) if (r.length > width) width = r.length;
+    const names = header ? [records[0], joinUnits(records[0])].find((n) => n.length === width) : null;
+    headers = Array.from({ length: width }, (_, i) => (names ? names[i].trim() : ''));
+  }
+  const columns = headers.map((_, i) => body.map((r) => number(r[i])));
   const texts = headers.map((_, i) => body.map((r) => String(r[i] ?? '').trim()));
   const counts = columns.map((c) => c.reduce((n, v) => n + (Number.isFinite(v) ? 1 : 0), 0));
   const numeric = counts.map((n) => n > 0 && n >= body.length / 2);
-  const readable = headers.map((h, i) => headers.lastIndexOf(h) === i);
-  if (!body.length) return { ...empty, headers, error: 'It has a header but no rows of data.' };
-  return { ok: true, delimiter, headers, columns, texts, rows: body.length, numeric, readable, counts, notUtf8: s.includes('�') };
+  const readable = header && !inColumns ? headers.map((h, i) => headers.lastIndexOf(h) === i) : headers.map(() => true);
+  const table = { ok: true, delimiter, decimal, header, headers, columns, texts, rows: body.length, numeric, readable, counts, notUtf8 };
+  if (!body.length) return { ...table, ok: false, error: header ? 'It has a header but no rows of data.' : 'It has no rows of data.' };
+  return table;
 }
 
 /** A column's name for the page: its header, or its place when the header is blank. */
@@ -922,7 +1072,12 @@ function fieldOf(file, i) {
   const t = file.table;
   const name = t.headers[i];
   const f = { values: t.columns[i] || [], name: name || `column_${i + 1}` };
-  if (!file.example && t.readable[i] && file.source) { f.source = file.source; f.column = name; }
+  // By its header where the first row names the columns apart; by its number in a
+  // file with no header and in one set out in columns.
+  if (!file.example && t.readable[i] && file.source) {
+    f.source = file.source;
+    f.column = t.header !== false && t.delimiter !== SPACES ? name : i;
+  }
   return f;
 }
 
@@ -1230,7 +1385,14 @@ export function pythonFiles(state) {
   const out = {};
   for (const f of state.files || []) {
     if (!used.has(f.id) || f.example || !f.source) continue;
-    out[f.source] = { file: f.name, format: 'csv', ...(f.table.delimiter !== ',' ? { delimiter: f.table.delimiter } : {}) };
+    const t = f.table;
+    out[f.source] = {
+      file: f.name, format: 'csv',
+      ...(t.delimiter === SPACES ? { delimiter: null } : t.delimiter !== ',' ? { delimiter: t.delimiter } : {}),
+      ...(t.decimal === ',' ? { decimal: ',' } : {}),
+      ...(t.header === false ? { header: false } : {}),
+      ...(f.encoding && f.encoding !== 'utf-8' ? { encoding: f.encoding } : {})
+    };
   }
   return out;
 }

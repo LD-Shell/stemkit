@@ -37,7 +37,7 @@
  */
 
 import { normaliseFigure, colorCycle } from './figure.js';
-import { figureScript, identifier, pyArray, pyCall, pyStr, comment } from './figure-python.js';
+import { figureScript, identifier, pyArray, pyCall, pyStr, pyEncoding, comment } from './figure-python.js';
 
 /** Default colour palette used for series assignment (UI-agnostic hex list). */
 export const COLOR_PALETTE = Object.freeze([
@@ -138,6 +138,42 @@ function readNumber(token) {
   return m[1] === '-' ? -Infinity : Infinity;
 }
 
+/*
+ * A spreadsheet may write a table that numpy.loadtxt does not read as it
+ * stands: semicolons between the values, a comma for the decimal mark, every
+ * value in double quotes. The page reads such a file by rewriting each line
+ * first, and the script it writes rewrites it the same way (clean() in
+ * xvgReadLines), so that the two still read the same numbers:
+ *   - quotes are dropped where they hold one value and nothing that would
+ *     split it (no comma, semicolon, space or tab inside);
+ *   - where the decimal mark is a comma, every comma becomes a point.
+ */
+const QUOTED_VALUE = /"([^",; \t]*)"/g;
+
+function cleanLine(line, dialect) {
+  let s = line;
+  if (s.includes('"')) s = s.replace(QUOTED_VALUE, '$1');
+  if (dialect && dialect.decimal === ',') s = s.replace(/,/g, '.');
+  return s;
+}
+
+/*
+ * The ways a table of numbers may be written, as parseXvg tries them: as
+ * numpy.loadtxt reads one (null), then with semicolons between the values,
+ * with a decimal point or a decimal comma, then with spaces between values
+ * that have a decimal comma.
+ */
+const DIALECTS = Object.freeze([
+  null,
+  Object.freeze({ delimiter: ';', decimal: '.' }),
+  Object.freeze({ delimiter: ';', decimal: ',' }),
+  Object.freeze({ delimiter: null, decimal: ',' })
+]);
+
+/* 1,234 may be 1.234 or 1234: one to three digits, not starting with 0, then exactly three. */
+const GROUPED = /^[+-]?[1-9]\d{0,2},\d{3}$/;
+const COMMA_NUMBER = /^[+-]?(?:\d+,\d*|,\d+)(?:[eE][+-]?\d+)?$/;
+
 /**
  * Tokenise a data record into finite numbers.
  *
@@ -145,24 +181,31 @@ function readNumber(token) {
  * numpy.loadtxt reads one (a decimal number, with an exponent or without);
  * partially numeric lines (stray text, nan, inf, a hexadecimal 0x10) are
  * rejected outright so that malformed records never silently contaminate a
- * trajectory.
+ * trajectory. Double quotes around a value are dropped first.
  *
  * A line containing a comma is split on commas alone, and an empty field
  * rejects the record in the same way. Collapsing it instead would move every
  * later value one column to the left, so a series would silently take its
  * numbers from the wrong column.
  *
+ * With a `dialect` the line is read as a spreadsheet may have written it:
+ * split at semicolons (`delimiter: ';'`) or at spaces (`delimiter: null`),
+ * and with `decimal: ','` each comma taken for a decimal point.
+ *
  * @param {string} line - A single data line.
+ * @param {{delimiter: ';'|null, decimal: '.'|','}|null} [dialect] - null for
+ *        the reading numpy.loadtxt gives.
  * @returns {number[]|null} The numeric row, or null when the line is not a
  *          valid all-numeric record.
  */
-export function parseDataLine(line) {
+export function parseDataLine(line, dialect = null) {
   if (typeof line !== 'string') return null;
-  const trimmed = line.trim();
+  const trimmed = cleanLine(line, dialect).trim();
   if (trimmed === '') return null;
-  const tokens = trimmed.includes(',')
-    ? trimmed.split(',').map(t => t.trim())
-    : trimmed.split(/\s+/);
+  let tokens;
+  if (dialect && dialect.delimiter === ';') tokens = trimmed.split(';').map(t => t.trim());
+  else if (dialect) tokens = trimmed.split(/\s+/);
+  else tokens = trimmed.includes(',') ? trimmed.split(',').map(t => t.trim()) : trimmed.split(/\s+/);
 
   const row = new Array(tokens.length);
   for (let i = 0; i < tokens.length; i++) {
@@ -172,6 +215,38 @@ export function parseDataLine(line) {
     row[i] = n;
   }
   return row;
+}
+
+/*
+ * The dialect that reads the most rows of one width from the first lines of
+ * a file that are neither blank nor Grace's; the earlier one on a tie, so a
+ * file numpy.loadtxt reads is read as before. A decimal comma between spaces
+ * needs a number to show it (0,5 or 3,2004): a file whose every comma is
+ * like 1,234 does not say whether that is 1.234 or 1234, and is left unread.
+ */
+function chooseDialect(lines) {
+  const sample = [];
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (line === '' || line[0] === '@' || line[0] === '#' || line[0] === '&') continue;
+    sample.push(line);
+    if (sample.length === 200) break;
+  }
+  const shown = () => sample.some(line => cleanLine(line, null).split(/\s+/).some(t => COMMA_NUMBER.test(t) && !GROUPED.test(t)));
+  let best = null;
+  let bestRows = -1;
+  for (const dialect of DIALECTS) {
+    if (dialect && dialect.decimal === ',' && dialect.delimiter === null && !shown()) continue;
+    const widths = new Map();
+    for (const line of sample) {
+      const row = parseDataLine(line, dialect);
+      if (row) widths.set(row.length, (widths.get(row.length) || 0) + 1);
+    }
+    let rows = 0;
+    for (const n of widths.values()) if (n > rows) rows = n;
+    if (rows > bestRows) { best = dialect; bestRows = rows; }
+  }
+  return best;
 }
 
 /**
@@ -207,17 +282,63 @@ export function resolveHeaders(colCount, legends = {}, xAxisLabel = 'X', names =
   return headers;
 }
 
+/* A line split at commas or semicolons, a field in double quotes kept whole, its quotes dropped. */
+function splitQuoted(line, delimiter) {
+  const out = [];
+  let cell = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"' && line[i + 1] === '"') { cell += '"'; i++; } else if (ch === '"') quoted = false; else cell += ch;
+    } else if (ch === '"' && cell.trim() === '') {
+      quoted = true;
+      cell = '';
+    } else if (ch === delimiter) {
+      out.push(cell);
+      cell = '';
+    } else {
+      cell += ch;
+    }
+  }
+  out.push(cell);
+  return out;
+}
+
 /**
  * Split a header row into column names, dropping quotes around each name.
  *
+ * Between commas or semicolons a name in double quotes may hold the
+ * delimiter. Between spaces the names are the words, unless that gives
+ * another number of them than the file has columns: then the row is split at
+ * its tabs, between which a name may hold spaces, and failing that a word
+ * that starts with a bracket is taken as the unit of the name before it
+ * ("Time (s)").
+ *
  * @param {string} line
- * @param {string|null} delimiter - ',' for a CSV, null for whitespace.
+ * @param {string|null} delimiter - ',' or ';', or null for whitespace.
+ * @param {number} [width] - the number of columns the names should come to
  * @returns {string[]}
  */
-function splitHeaderRow(line, delimiter) {
-  const fields = delimiter === ',' ? line.split(',') : line.split(/\s+/);
-  while (fields.length && fields[fields.length - 1].trim() === '') fields.pop();
-  return fields.map(f => f.trim().replace(/^(["'])(.*)\1$/, '$2').trim());
+function splitHeaderRow(line, delimiter, width) {
+  const tidy = (fields) => {
+    const f = fields.slice();
+    while (f.length && f[f.length - 1].trim() === '') f.pop();
+    return f.map(x => x.trim().replace(/^(["'])(.*)\1$/, '$2').trim());
+  };
+  if (delimiter === ',' || delimiter === ';') return tidy(splitQuoted(line, delimiter));
+  const words = tidy(line.trim().split(/\s+/));
+  if (!Number.isInteger(width) || words.length === width) return words;
+  if (line.includes('\t')) {
+    const byTab = tidy(line.split('\t'));
+    if (byTab.length === width) return byTab;
+  }
+  const joined = [];
+  for (const word of words) {
+    if (joined.length && /^[([{]/.test(word)) joined[joined.length - 1] += ` ${word}`;
+    else joined.push(word);
+  }
+  return joined.length === width ? joined : words;
 }
 
 /**
@@ -254,7 +375,11 @@ function hasTrailingDelimiter(lines) {
  *
  * `delimiter`, `skipRows` and `strayLines` describe the file for
  * `numpy.loadtxt`: the delimiter is ',' when the records are comma-separated
- * (null means whitespace, NumPy's default), `skipRows` counts the lines before
+ * and ';' when a spreadsheet wrote them with semicolons (null means
+ * whitespace, NumPy's default), `decimal` is ',' when the numbers are written
+ * with a decimal comma, which the script turns into points before loadtxt
+ * sees them, and `quoted` is true when values stand in double quotes, which
+ * the script drops. `skipRows` counts the lines before
  * the first record whenever any of them was rejected, such as a CSV header
  * row, and `strayLines` counts the rejected lines found after the first
  * record, which
@@ -289,6 +414,8 @@ function hasTrailingDelimiter(lines) {
  *   yAxisLabel: string,
  *   skippedLines: number,
  *   delimiter: string|null,
+ *   decimal: '.'|',',
+ *   quoted: boolean,
  *   skipRows: number,
  *   strayLines: number,
  *   trailingDelimiter: boolean,
@@ -314,7 +441,11 @@ export function parseXvg(rawText, options = {}) {
 
   const text = typeof rawText === 'string' ? rawText : '';
   const lines = text.split(/\r\n|\r|\n/);
-  const trailingDelimiter = hasTrailingDelimiter(lines);
+  // How the numbers are written: as numpy.loadtxt reads them (null), or as a
+  // spreadsheet may write them, with semicolons or decimal commas.
+  const dialect = chooseDialect(lines);
+  const trailingDelimiter = dialect === null && hasTrailingDelimiter(lines);
+  let quoted = false;
 
   // First pass: parse every candidate record and find the most common width.
   const parsed = new Array(lines.length).fill(null);
@@ -323,8 +454,9 @@ export function parseXvg(rawText, options = {}) {
     const line = lines[i].trim();
     if (line === '' || line[0] === '@' || line[0] === '#' || line[0] === '&') continue;
     const body = trailingDelimiter && line.endsWith(',') ? line.slice(0, -1) : line;
-    const row = parseDataLine(body);
+    const row = parseDataLine(body, dialect);
     if (row === null) continue;
+    if (!quoted && line.includes('"')) quoted = true;
     parsed[i] = row;
     widths.set(row.length, (widths.get(row.length) || 0) + 1);
   }
@@ -409,12 +541,12 @@ export function parseXvg(rawText, options = {}) {
     }
     sawNumeric = true;
     if (matrix.length === 0) {
-      delimiter = line.includes(',') ? ',' : null;
+      delimiter = dialect ? dialect.delimiter : (line.includes(',') ? ',' : null);
       if (rejectedBefore) skipRows = i;
       if (headerLine !== null) {
         // A header names at least one column in words; a line that is numbers
         // apart from empty fields is a malformed record instead.
-        const fields = splitHeaderRow(headerLine, delimiter);
+        const fields = splitHeaderRow(headerLine, delimiter, colCount);
         const named = fields.some(f => f !== '' && readNumber(f) === null);
         if (fields.length === colCount && named) {
           names = fields;
@@ -460,6 +592,8 @@ export function parseXvg(rawText, options = {}) {
     yAxisLabel,
     skippedLines,
     delimiter,
+    decimal: dialect ? dialect.decimal : '.',
+    quoted,
     skipRows,
     strayLines,
     trailingDelimiter,
@@ -1149,29 +1283,51 @@ export function xvgFigure(parsed, view = {}) {
  * for each block: the rows between the lines that start with '&', as the
  * page divided them.
  *
+ * A file a spreadsheet wrote with decimal commas, or with its values in
+ * quotes, is rewritten line by line before loadtxt reads it (clean), the way
+ * the page rewrote it; one in another encoding than UTF-8 is opened in that
+ * encoding.
+ *
  * @param {object} parsed - parseXvg's result
  * @param {string} [filename='your_file.xvg']
+ * @param {{encoding?: string}} [options] - encoding: the one the page decoded
+ *   the file from (decodeText of js/file-check.js), when it is not UTF-8
  * @returns {string[]}
  */
-export function xvgReadLines(parsed, filename = 'your_file.xvg') {
+export function xvgReadLines(parsed, filename = 'your_file.xvg', options = {}) {
   const p = parsed || {};
   const width = Number.isInteger(p.colCount) && p.colCount > 0 ? p.colCount : 0;
   const trailing = Boolean(p.trailingDelimiter) && width > 0;
+  const comma = p.decimal === ',';
+  const quoted = Boolean(p.quoted);
+  const rewritten = comma || quoted;
+  const other = options.encoding && options.encoding !== 'utf-8' ? pyEncoding(options.encoding) : null;
+  const opened = (path) => `open(${path}, encoding=${pyStr(other || 'utf-8')})`;
   const args = [...(p.delimiter ? [`delimiter=${pyStr(p.delimiter)}`] : []), ...(trailing ? [`usecols=range(${width})`] : [])];
   const L = [];
   const several = tableOf(p).blocks.length > 1;
   // Lines the page rejected, before the numbers or among them: the script
   // then keeps a line only if it is a row the page kept.
   const picky = p.strayLines > 0 || (several && p.skipRows > 0);
+  if (rewritten) {
+    const does = [...(quoted ? ['the quotes around a value dropped'] : []), ...(comma ? ['decimal commas made points'] : [])];
+    L.push('def clean(line):');
+    L.push(`    """A line as the page read it: ${does.join(', ')}."""`);
+    if (quoted) L.push(String.raw`    line = re.sub(r'"([^",; \t]*)"', r'\1', line)`);
+    L.push(comma ? "    return line.replace(',', '.')" : '    return line');
+    L.push('', '');
+  }
   if (picky) {
+    const split = p.delimiter === ';' ? 'semicolons' : comma ? 'spaces' : 'commas or spaces';
     L.push('def is_record(line):');
-    L.push(`    """Whether a line is a row the page plotted: ${width ? `${width} numbers` : 'numbers'}, split at commas or spaces."""`);
+    L.push(`    """Whether a line is a row the page plotted: ${width ? `${width} numbers` : 'numbers'}, split at ${split}."""`);
     if (trailing) {
       L.push('    line = line.strip()');
       L.push("    if line.endswith(','):  # every row ends with a comma, which is not a value");
       L.push('        line = line[:-1]');
     }
-    L.push("    fields = line.split(',') if ',' in line else line.split()");
+    L.push(p.delimiter === ';' ? "    fields = line.split(';')"
+      : comma ? '    fields = line.split()' : "    fields = line.split(',') if ',' in line else line.split()");
     L.push('    try:');
     L.push(`        return ${width ? `len(fields) == ${width}` : 'bool(fields)'} and all(np.isfinite(float(v)) for v in fields)`);
     L.push('    except ValueError:');
@@ -1182,9 +1338,9 @@ export function xvgReadLines(parsed, filename = 'your_file.xvg') {
     L.push('def read_sets(path):');
     L.push('    """The data sets of a file: the rows between its & lines, an array for each."""');
     L.push('    sets, rows = [], []');
-    L.push("    with open(path, encoding='utf-8') as fh:");
+    L.push(`    with ${opened('path')} as fh:`);
     L.push("        for line in [*fh, '&']:");
-    L.push('            line = line.strip()');
+    L.push(rewritten ? '            line = clean(line.strip())' : '            line = line.strip()');
     L.push("            if line.startswith('&'):");
     L.push('                if rows:');
     L.push(...pyCall('sets.append(np.loadtxt', ['rows', ...args, 'ndmin=2)'], '                    '));
@@ -1203,15 +1359,22 @@ export function xvgReadLines(parsed, filename = 'your_file.xvg') {
   if (picky) {
     L.push('# Point this at your file. Only the rows the page plotted are read: text, rows of');
     L.push('# another length and the @, # and & lines are left out, as the page left them out.');
-    L.push(`with open(${pyStr(filename)}, encoding='utf-8') as fh:`);
-    L.push(...pyCall('data = np.loadtxt', ['[line for line in fh if is_record(line)]', ...args, 'ndmin=2'], '    '));
+    L.push(`with ${opened(pyStr(filename))} as fh:`);
+    L.push(...pyCall('data = np.loadtxt', [rewritten ? '[row for row in map(clean, fh) if is_record(row)]' : '[line for line in fh if is_record(line)]', ...args, 'ndmin=2'], '    '));
     return L;
   }
   const rows = Number.isInteger(p.skipRows) && p.skipRows > 0 ? p.skipRows : 0;
   const skip = rows === 1 ? 'the first line' : `the first ${rows} lines`;
   L.push(`# Point this at your file. Lines starting with @ or # and the & between data sets${rows ? ',' : ' are'}`);
   L.push(rows ? `# and ${skip} (before the numbers), are skipped.` : '# skipped.');
-  L.push(...pyCall('data = np.loadtxt', [pyStr(filename), ...args, ...(rows ? [`skiprows=${rows}`] : []), "comments=['@', '#', '&']", 'ndmin=2']));
+  const rest = [...args, ...(rows ? [`skiprows=${rows}`] : []), "comments=['@', '#', '&']"];
+  if (rewritten) {
+    L.push('# Each line is rewritten first, as the page read it (clean, above).');
+    L.push(`with ${opened(pyStr(filename))} as fh:`);
+    L.push(...pyCall('data = np.loadtxt', ['[clean(line) for line in fh]', ...rest, 'ndmin=2'], '    '));
+    return L;
+  }
+  L.push(...pyCall('data = np.loadtxt', [pyStr(filename), ...rest, ...(other ? [`encoding=${pyStr(other)}`] : []), 'ndmin=2']));
   return L;
 }
 
@@ -1226,6 +1389,8 @@ export function xvgReadLines(parsed, filename = 'your_file.xvg') {
  * @param {object} [options]
  * @param {'files'|'embed'} [options.source='files'] - read the file, or hold its numbers
  * @param {string} [options.filename='your_file.xvg'] - the file the script reads
+ * @param {string} [options.encoding] - the encoding the page decoded the file from, when
+ *   it is not UTF-8 (decodeText of js/file-check.js)
  * @returns {string}
  */
 export function xvgFigureScript(figure, parsed, options = {}) {
@@ -1238,7 +1403,7 @@ export function xvgFigureScript(figure, parsed, options = {}) {
 
   // The names figureScript gives the panels, legend handles and markers are
   // kept free, and so are this script's own.
-  const taken = new Set(['data', 'sets', 'read_sets', 'running_mean', 'is_record']);
+  const taken = new Set(['data', 'sets', 'read_sets', 'running_mean', 'is_record', 'clean']);
   f.panels.forEach((panel) => {
     taken.add(`ax_${panel.id}`);
     panel.series.forEach((q) => { taken.add(q.id); taken.add(`${q.id}_points`); });
@@ -1294,7 +1459,7 @@ export function xvgFigureScript(figure, parsed, options = {}) {
       L.push(...pyArray(name, extractColumn(several ? matrix.slice(block.start, block.end) : matrix, c)));
     }
   } else {
-    L.push(...xvgReadLines(p, filename), '');
+    L.push(...xvgReadLines(p, filename, { encoding: options.encoding }), '');
     for (const [n, name] of listed) {
       L.push(`${name} = ${several ? `sets[${place(n).k}]` : 'data'}[:, ${place(n).c}]  # ${where(n)}: ${label(n)}`);
     }
@@ -1313,7 +1478,8 @@ export function xvgFigureScript(figure, parsed, options = {}) {
 
   const header = [`A plot of ${filename}, from STEMKit's XVG Visualizer (https://stemkit.net/xvg-visualizer.html).`];
   if (!embed) header.push(`It reads ${filename}: keep the file beside the script, or change the path under Data.`);
-  return figureScript({ ...f, panels }, { prelude: L, header });
+  // The quotes around a value are dropped with a regular expression.
+  return figureScript({ ...f, panels }, { prelude: L, header, ...(!embed && p.quoted ? { imports: ['import re'] } : {}) });
 }
 
 /**

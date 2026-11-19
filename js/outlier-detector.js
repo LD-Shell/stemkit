@@ -8,7 +8,8 @@
  * and the exports, and writes the script into the Python panel.
  */
 import { registerFromGlobals } from '../src/core/vendor.js';
-import { fileRefusal } from './file-check.js';
+import { fileRefusal, readTextFile, encodingName } from './file-check.js';
+import { readTable, WHITESPACE } from '../src/core/data-cleaning.js';
 import {
   detectOutliers,
   extractNumericColumn,
@@ -37,9 +38,12 @@ document.addEventListener('DOMContentLoaded', () => {
   let headers = [];
   let outlierIndices = new Set();
   let scanned = false;
-  // The file the data came from (null for the example), and the last scan,
-  // which the chart and the script are drawn from.
+  // The file the data came from and how it was read (null for the example),
+  // its text, kept to read it again when the person says whether the first
+  // row holds names, and the last scan, which the chart and the script are
+  // drawn from.
   let sourceFile = null;
+  let opened = null;
   let lastScan = null;
   let showLines = true;
 
@@ -48,6 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileInput = document.getElementById('fileInput');
   const chooseFileBtn = document.getElementById('chooseFileBtn');
   const changeFileBtn = document.getElementById('changeFileBtn');
+  const headerRow = document.getElementById('headerRow');
+  const headerRowWrap = document.getElementById('headerRowWrap');
   const workspace = document.getElementById('workspace');
   const colSelect = document.getElementById('colSelect');
   const methodSelect = document.getElementById('methodSelect');
@@ -148,27 +154,41 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function parseFile(file) {
-    Papa.parse(file, {
-      header: true,
-      dynamicTyping: true,
-      skipEmptyLines: true,
-      delimiter: '',
-      complete: (results) => {
-        if (!results.data || results.data.length === 0) {
-          showToast('No rows could be read from that file.', 'error');
-          return;
-        }
-        const fields = (results.meta.fields || []).filter(h => h !== null && h !== undefined && h !== '');
-        loadRows(results.data, fields, file.name, { name: file.name, delimiter: results.meta.delimiter || ',' });
-      },
-      error: () => showToast('Could not read that file.', 'error')
+    readTextFile(file)
+      .then(({ text, encoding }) => loadText(text, file.name, encoding))
+      .catch(() => showToast('Could not read that file.', 'error'));
+  }
+
+  /* The table as the Data Cleaner's reader makes it out: the delimiter (or
+     columns set apart by spaces), a decimal comma, and whether the first row
+     holds names, which the person can overrule. */
+  function loadText(text, name, encoding, header) {
+    const read = readTable(text, typeof header === 'boolean' ? { header } : {});
+    if (!read.columns.length || !read.rows.length) {
+      showToast(header === undefined ? 'No rows could be read from that file.' : 'That leaves no rows to read.', 'error');
+      headerRow.checked = sourceFile ? sourceFile.header : true;
+      return;
+    }
+    opened = { text, name, encoding };
+    const rows = read.rows.map(r => Object.fromEntries(read.columns.map((c, i) => [c, r[i]])));
+    loadRows(rows, read.columns, name, {
+      name, encoding,
+      delimiter: read.settings.delimiter === WHITESPACE ? null : read.settings.delimiter,
+      decimal: read.settings.decimal,
+      header: read.settings.header,
+      headerCells: read.headerCells,
+      unclear: read.notes.unclearCommas
     });
   }
+  headerRow.addEventListener('change', () => {
+    if (opened) loadText(opened.text, opened.name, opened.encoding, headerRow.checked);
+  });
 
   // Fifteen readings near 80 with one far too high (250) and one far too low
   // (3): the Z-score catches only the first, the modified Z-score both.
   function loadExample() {
     const rows = [78, 80, 79, 81, 77, 80, 79, 82, 78, 250, 80, 79, 3, 81, 79];
+    opened = null;
     loadRows(rows.map((v, i) => ({ sample_id: i + 1, measurement: v })),
       ['sample_id', 'measurement'], 'sample_measurements.csv');
   }
@@ -187,7 +207,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('fileName').textContent = fileName;
     document.getElementById('dataMeta').textContent =
-      `${plural(rawData.length, 'row')}, ${plural(headers.length, 'column')}`;
+      `${plural(rawData.length, 'row')}, ${plural(headers.length, 'column')}${file ? howRead(file) : ''}`;
+    headerRowWrap.hidden = !file;
+    if (file) headerRow.checked = file.header;
     populateColumnSelector();
     showScanResult(null);
     renderArrayView();
@@ -195,6 +217,19 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadZone.classList.add('hidden');
     workspace.classList.remove('hidden');
     workspace.classList.add('flex');
+  }
+
+  /* How a file was read, for the line under its name. */
+  function howRead(file) {
+    const by = { ',': 'commas', '\t': 'tabs', ';': 'semicolons', '|': 'bars', ' ': 'spaces' }[file.delimiter];
+    const bits = [`by ${file.delimiter === null ? 'spaces' : by || 'commas'}`];
+    if (file.decimal === ',') bits.push('decimal commas');
+    if (!file.header) bits.push('no header row');
+    if (encodingName(file.encoding)) bits.push(`read as ${encodingName(file.encoding)}`);
+    // 1,234 may be 1.234 or 1234, and the file does not say: not read, and said.
+    const n = file.unclear ? file.unclear.count : 0;
+    const unread = n ? `. ${plural(n, 'cell')} such as \u201c${file.unclear.example}\u201d ${n === 1 ? 'was' : 'were'} left as text: the comma may be a decimal mark or set off thousands` : '';
+    return `, ${bits.join(', ')}${unread}`;
   }
 
   // Every column is offered, but the first one with numbers in it is chosen,
@@ -338,8 +373,10 @@ document.addEventListener('DOMContentLoaded', () => {
         host: pyHost,
         title: 'Python script',
         filename: 'outliers.py',
-        sources: [{ id: 'files', label: 'Read the CSV' }, { id: 'embed', label: 'Data in the script' }],
-        script: (figure, source) => (lastScan ? outlierScript(figure, { ...lastScan, source, file: sourceFile }) : ''),
+        sources: [{ id: 'files', label: 'Read the file' }, { id: 'embed', label: 'Data in the script' }],
+        script: (figure, source) => (lastScan ? outlierScript(figure, {
+          ...lastScan, source, file: sourceFile && { ...sourceFile, position: headers.indexOf(lastScan.column) }
+        }) : ''),
         note: (figure, source) => {
           const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
           const reads = source === 'files' && sourceFile

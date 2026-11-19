@@ -19,7 +19,7 @@
  *   - Beyond |z| ~ 8 an asymptotic expansion takes over from the vendored erfc.
  */
 import { registerFromGlobals } from '../src/core/vendor.js';
-import { fileRefusal } from './file-check.js';
+import { fileRefusal, readTextFile, encodingName } from './file-check.js';
 import {
   independentTTest,
   pairedTTest,
@@ -51,7 +51,7 @@ import {
 } from '../src/core/statistics.js';
 import { generateLatexTable, generateMarkdownTable } from '../src/core/latex.js';
 import { statisticsFigure, statisticsScript } from '../src/core/statistics-figure.js';
-import { toCSV } from '../src/core/data-cleaning.js';
+import { toCSV, readTable, WHITESPACE } from '../src/core/data-cleaning.js';
 
 // jStat, Papa, and KaTeX are loaded as UMD globals by the page's <script> tags.
 registerFromGlobals();
@@ -107,6 +107,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let numericFields = [];
   let categoricalFields = [];
   let activeFormat = 'wide';
+  // How the table in the box was read, for the line under it, and the
+  // encoding of the file it came from, until the box is edited.
+  let readAs = null;
+  let fileEncoding = '';
   let lastRunSig = null;
   let lastView = null;
 
@@ -117,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const dataMeta = $('dataMeta');
 
   const formatSelect = $('formatSelect');
+  const headerSelect = $('headerSelect');
   const longControls = $('longControls');
   const valueColSelect = $('valueColSelect');
   const groupColSelect = $('groupColSelect');
@@ -182,11 +187,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!file) return;
     // The picker's "All files" lets a workbook through, and its bytes are not a table.
     fileRefusal(file, { extensions: ['csv', 'tsv', 'txt'], sheet: 'paste' }).then((why) => {
-      if (why) { showToast(why, 'error'); return; }
-      const reader = new FileReader();
-      reader.onload = (ev) => { markSample(null); dataInput.value = ev.target.result; parseData(); };
-      reader.readAsText(file);
-    });
+      if (why) { showToast(why, 'error'); return null; }
+      return readTextFile(file).then(({ text, encoding }) => {
+        markSample(null);
+        dataInput.value = text;
+        fileEncoding = encodingName(encoding);
+        parseData();
+      });
+    }).catch(() => showToast('Could not read that file.', 'error'));
   });
 
   // The data is read as it is typed or pasted, so there is no separate parse
@@ -195,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let parseTimer = null;
   dataInput.addEventListener('input', () => {
     markSample(null);
+    fileEncoding = '';
     clearTimeout(parseTimer);
     parseTimer = setTimeout(() => {
       if (dataInput.value.trim()) parseData({ quiet: true });
@@ -203,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function clearParsed() {
-    parsedData = {}; variables = []; rawRows = []; rawFields = [];
+    parsedData = {}; variables = []; rawRows = []; rawFields = []; readAs = null;
     [var1, var2, groupSelect].forEach(el => { el.innerHTML = ''; el.disabled = true; });
     runTestBtn.disabled = true;
     dataMeta.innerText = 'Read as you type or paste.';
@@ -212,53 +221,66 @@ document.addEventListener('DOMContentLoaded', () => {
     settingsChanged();
   }
 
+  /* The table as the Data Cleaner's reader makes it out: the delimiter (or
+     columns set apart by spaces), a decimal comma where the numbers are
+     written with one, and a header row unless the first row is all numbers,
+     which the First row control overrules. */
   function parseData(opts = {}) {
     const quiet = !!opts.quiet;
-    const rawText = dataInput.value.trim();
-    if (!rawText) return quiet ? clearParsed() : showToast('Please input some data first.', 'error');
+    if (!dataInput.value.trim()) return quiet ? clearParsed() : showToast('Please input some data first.', 'error');
 
-    Papa.parse(rawText, {
-      header: true,
-      dynamicTyping: true,
-      skipEmptyLines: true,
-      delimitersToGuess: ['\t', ',', ';', '|', ' '],
-      complete: (results) => {
-        if (results.errors.length > 0 && results.data.length === 0) {
-          if (quiet) dataMeta.innerText = 'Could not read a table yet. The first row should be a header.';
-          else showToast('Error parsing data. Ensure the first row is a header.', 'error');
-          return;
-        }
+    const first = headerSelect ? headerSelect.value : 'auto';
+    const read = readTable(dataInput.value, first === 'auto' ? {} : { header: first === 'yes' });
+    if (!read.columns.length || !read.rows.length) {
+      if (quiet) dataMeta.innerText = 'Could not read a table yet: it needs a row of values under the names.';
+      else showToast('No rows of values could be read. Check what the first row is set to.', 'error');
+      return;
+    }
 
-        rawRows = results.data;
-        rawFields = (results.meta.fields || [])
-          .filter(f => f && String(f).trim() !== '');
+    rawRows = read.rows.map(r => Object.fromEntries(read.columns.map((c, i) => [c, r[i]])));
+    rawFields = read.columns;
+    readAs = { ...read.settings, unclear: read.notes.unclearCommas };
 
-        const cls = classifyFields(rawRows, rawFields);
-        numericFields = cls.numeric;
-        categoricalFields = cls.categorical;
+    const cls = classifyFields(rawRows, rawFields);
+    numericFields = cls.numeric;
+    categoricalFields = cls.categorical;
 
-        // Long format is one numeric column split by a grouping column;
-        // anything else is wide.
-        const chosen = formatSelect ? formatSelect.value : 'auto';
-        activeFormat = chosen === 'auto'
-          ? ((numericFields.length === 1 &&
-              categoricalFields.some(c => !numericFields.includes(c)))
-              ? 'long' : 'wide')
-          : chosen;
+    // Long format is one numeric column split by a grouping column;
+    // anything else is wide.
+    const chosen = formatSelect ? formatSelect.value : 'auto';
+    activeFormat = chosen === 'auto'
+      ? ((numericFields.length === 1 &&
+          categoricalFields.some(c => !numericFields.includes(c)))
+          ? 'long' : 'wide')
+      : chosen;
 
-        if (activeFormat === 'long') {
-          setupLongControls();
-          buildLongGroups();
-        } else {
-          buildWideGroups();
-        }
+    if (activeFormat === 'long') {
+      setupLongControls();
+      buildLongGroups();
+    } else {
+      buildWideGroups();
+    }
 
-        if (!quiet) showToast(
-          `Parsed as ${activeFormat === 'long' ? 'long / tidy' : 'wide'} format.`,
-          'success'
-        );
-      }
-    });
+    if (!quiet) showToast(
+      `Parsed as ${activeFormat === 'long' ? 'long / tidy' : 'wide'} format.`,
+      'success'
+    );
+  }
+
+  /* How the table was read, after the counts in the line under the box: only
+     what a person could not take for granted. */
+  function howRead() {
+    if (!readAs) return '';
+    const bits = [];
+    const by = { '\t': 'tabs', ';': 'semicolons', '|': 'bars', ' ': 'spaces', [WHITESPACE]: 'spaces' }[readAs.delimiter];
+    if (by) bits.push(`by ${by}`);
+    if (readAs.decimal === ',') bits.push('decimal commas');
+    if (!readAs.header) bits.push(`no header row, so the columns are named ${rawFields[0]}${rawFields.length > 1 ? ', ...' : ''}`);
+    if (fileEncoding) bits.push(`read as ${fileEncoding}`);
+    // 1,234 may be 1.234 or 1234, and the table does not say: not read, and said.
+    const n = readAs.unclear ? readAs.unclear.count : 0;
+    const unread = n ? `. ${n} cell${n === 1 ? '' : 's'} such as \u201c${readAs.unclear.example}\u201d ${n === 1 ? 'was' : 'were'} left as text: the comma may be a decimal mark or set off thousands` : '';
+    return `${bits.length ? `; ${bits.join(', ')}` : ''}${unread}`;
   }
 
   function buildWideGroups() {
@@ -278,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     dataMeta.innerText =
       `${rawRows.length} rows, ${variables.length} numeric ` +
-      `column${variables.length === 1 ? '' : 's'} (wide)`;
+      `column${variables.length === 1 ? '' : 's'} (wide)${howRead()}`;
     updateDropdowns();
   }
 
@@ -297,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     dataMeta.innerText =
       `${rawRows.length} rows, ${variables.length} ` +
-      `group${variables.length === 1 ? '' : 's'} of "${valueCol}" by "${groupCol}" (long)`;
+      `group${variables.length === 1 ? '' : 's'} of "${valueCol}" by "${groupCol}" (long)${howRead()}`;
     updateDropdowns();
   }
 
@@ -379,6 +401,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (formatSelect) formatSelect.addEventListener('change', () => {
     if (rawRows.length) parseData();
+  });
+  if (headerSelect) headerSelect.addEventListener('change', () => {
+    if (dataInput.value.trim()) parseData();
   });
   if (valueColSelect) valueColSelect.addEventListener('change', () => {
     if (activeFormat === 'long') buildLongGroups();
@@ -1770,6 +1795,8 @@ document.addEventListener('DOMContentLoaded', () => {
       markSample(key);
       // 1) fill data + format, then parse (synchronous for string input)
       if (formatSelect) formatSelect.value = s.format;
+      if (headerSelect) headerSelect.value = 'auto';
+      fileEncoding = '';
       dataInput.value = s.csv;
       parseData({ quiet: true });
 

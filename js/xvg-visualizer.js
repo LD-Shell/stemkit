@@ -20,7 +20,7 @@ import {
   graceToPlain
 } from '../src/core/xvg-parser.js';
 import { mountFigure } from './figure-plot.js';
-import { fileRefusal } from './file-check.js';
+import { fileRefusal, readTextFile, encodingName } from './file-check.js';
 
 const STYLE_KEY = 'stemkit.xvg-visualizer.figure';
 const VIEW_KEY = 'stemkit.xvg-visualizer.view';
@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const state = {
     parsed: null,
     fileName: '',
+    encoding: 'utf-8',
     xIndex: 0,
     // The series the file offers (each column of each data set but the x
     // column), and the ones ticked, by their numbers (xvgSeries' index).
@@ -113,7 +114,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Counted as the script would write them: the columns behind a running
     // mean are held too, drawn or not.
     embedRefused = source === 'embed' && xvgEmbeddedCount(fig, state.parsed) > EMBED_LIMIT;
-    return xvgFigureScript(fig, state.parsed, { source: embedRefused ? 'files' : source, filename: state.fileName || 'your_file.xvg' });
+    return xvgFigureScript(fig, state.parsed, {
+      source: embedRefused ? 'files' : source, filename: state.fileName || 'your_file.xvg', encoding: state.encoding
+    });
   }
 
   function scriptNote(fig, source) {
@@ -297,16 +300,17 @@ document.addEventListener('DOMContentLoaded', () => {
     ui.fileName.textContent = file.name;
     ui.fileStats.textContent = 'Reading the file…';
     ui.workspace.setAttribute('aria-busy', 'true');
-    const reader = new FileReader();
-    reader.onload = (e) => loadText(e.target.result, file.name);
-    reader.onerror = () => {
-      ui.workspace.removeAttribute('aria-busy');
-      ui.fileStats.textContent = `${file.name} could not be read.`;
-    };
-    reader.readAsText(file);
+    // Decoded here, not by the browser's guess: a spreadsheet's file may be in
+    // the Windows code page, and the script must open it in the same one.
+    readTextFile(file)
+      .then(({ text, encoding }) => loadText(text, file.name, encoding))
+      .catch(() => {
+        ui.workspace.removeAttribute('aria-busy');
+        ui.fileStats.textContent = `${file.name} could not be read.`;
+      });
   }
 
-  function loadText(text, filename) {
+  function loadText(text, filename, encoding = 'utf-8') {
     // Parsing a long trajectory takes a moment: let the page say so first.
     ui.workspace.setAttribute('aria-busy', 'true');
     setTimeout(() => {
@@ -314,6 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ui.workspace.removeAttribute('aria-busy');
       state.parsed = parsed;
       state.fileName = filename;
+      state.encoding = encoding;
       state.xIndex = 0;
       state.offered = xvgSeries(parsed, 0);
       // The same columns of every data set to start with.
@@ -327,7 +332,11 @@ document.addEventListener('DOMContentLoaded', () => {
       ui.fileName.textContent = filename;
       ui.fileName.title = filename;
       if (parsed.rowCount === 0) {
-        ui.fileStats.textContent = 'No rows of numbers to plot.';
+        // 1,234 may be 1.234 or 1234: such a file is not guessed at, and is told so.
+        const unclear = /(^|[ \t;])[+-]?[1-9]\d{0,2},\d{3}(?=$|[ \t;\r])/m.exec(text);
+        ui.fileStats.textContent = unclear
+          ? `No rows of numbers to plot: \u201c${unclear[0].trim().replace(/^;/, '')}\u201d could have a decimal comma or thousands set off, so it is not read.`
+          : 'No rows of numbers to plot.';
         ui.xSelect.innerHTML = '';
         ui.seriesList.innerHTML = '';
         state.parsed = null;
@@ -338,7 +347,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const skipped = parsed.skippedLines > 0
         ? `, ${parsed.skippedLines.toLocaleString('en-GB')} line${parsed.skippedLines === 1 ? '' : 's'} skipped` : '';
       const sets = parsed.blocks.length > 1 ? ` in ${parsed.blocks.length.toLocaleString('en-GB')} data sets` : '';
-      ui.fileStats.textContent = `${parsed.rowCount.toLocaleString('en-GB')} rows${sets}, ${parsed.colCount} columns${skipped}`;
+      // How a spreadsheet's file was read, where numpy would not read it as it stands.
+      const how = [
+        ...(parsed.delimiter === ';' ? ['by semicolons'] : []),
+        ...(parsed.decimal === ',' ? ['decimal commas'] : []),
+        ...(encodingName(encoding) ? [`read as ${encodingName(encoding)}`] : [])
+      ].map((w) => `, ${w}`).join('');
+      ui.fileStats.textContent = `${parsed.rowCount.toLocaleString('en-GB')} rows${sets}, ${parsed.colCount} columns${skipped}${how}`;
       buildControls();
       redraw();
     }, 20);

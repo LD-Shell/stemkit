@@ -18,7 +18,7 @@ import {
 } from '../src/core/data-cleaning.js';
 import { generateCleaningScript, cleaningFileNames } from '../src/core/data-cleaning-python.js';
 import { createPythonPanel } from './python-panel.js';
-import { whyNotRead } from './file-check.js';
+import { whyNotRead, decodeText } from './file-check.js';
 
 // A small file with the problems the tool is for: gaps, a repeated row,
 // names typed with stray spaces and mixed case, a note in a number column,
@@ -166,18 +166,6 @@ function startPage() {
 
   /* ---------------- reading the file ---------------- */
 
-  function decode(buffer) {
-    const bytes = new Uint8Array(buffer);
-    if (bytes[0] === 0xff && bytes[1] === 0xfe) return { text: new TextDecoder('utf-16le').decode(bytes), encoding: 'utf-16le' };
-    if (bytes[0] === 0xfe && bytes[1] === 0xff) return { text: new TextDecoder('utf-16be').decode(bytes), encoding: 'utf-16be' };
-    try {
-      return { text: new TextDecoder('utf-8', { fatal: true }).decode(bytes), encoding: 'utf-8' };
-    } catch (e) {
-      // Not UTF-8: most likely a spreadsheet's export in the Windows code page.
-      return { text: new TextDecoder('windows-1252').decode(bytes), encoding: 'windows-1252' };
-    }
-  }
-
   function handleFile(file) {
     if (!file) return;
     const name = file.name || 'data.csv';
@@ -194,7 +182,7 @@ function startPage() {
         // A workbook under a text file's name would be read as a table of noise.
         const why = whyNotRead(name, new Uint8Array(buffer), { sheet: 'open' });
         if (why) { toast(why, 'danger'); return; }
-        const d = decode(buffer);
+        const d = decodeText(buffer);
         loadText(d.text, name, d.encoding);
       })
       .catch(() => toast('Could not read that file.', 'danger'));

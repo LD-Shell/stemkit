@@ -1,5 +1,5 @@
 /**
- * Which files a page reads.
+ * Which files a page reads, and the text in them.
  *
  * The tools read plain text. An input's `accept` list keeps other files out
  * of the picker, but not a file that is dropped on the page, nor one chosen
@@ -7,6 +7,11 @@
  * bytes of a zip archive in the data box. So a page asks here before it reads
  * a file: is the extension one it names, and do the first bytes hold text.
  * The answer is a sentence for the person, or '' to go ahead.
+ *
+ * The text is then decoded here too (decodeText, readTextFile), because a
+ * spreadsheet does not always save UTF-8: Excel's plain "CSV" is in the
+ * Windows code page, where a micro sign or an accent read as UTF-8 comes out
+ * as U+FFFD.
  *
  * No DOM, so the tests run it in Node.
  */
@@ -134,4 +139,42 @@ export function fileRefusal(file, options = {}) {
     .then(() => file.slice(0, HEAD_BYTES).arrayBuffer())
     .then((buffer) => whyNotRead(name, new Uint8Array(buffer), options))
     .catch(() => '');
+}
+
+/**
+ * The text of a file's bytes, in the encoding a spreadsheet may have saved:
+ * UTF-16 when it starts with that byte-order mark (Excel's "Unicode Text"),
+ * UTF-8 when the bytes are valid UTF-8 (a byte-order mark is dropped), and
+ * otherwise Windows-1252, the code page of Excel's plain "CSV" in western
+ * Europe and the Americas. Every byte is a character there, so that last
+ * reading cannot fail; a file in another old code page comes out with the
+ * wrong letters, never with an error.
+ *
+ * @param {ArrayBuffer|Uint8Array} bytes
+ * @returns {{text: string, encoding: 'utf-8'|'utf-16le'|'utf-16be'|'windows-1252'}}
+ */
+export function decodeText(bytes) {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || 0);
+  if (b[0] === 0xff && b[1] === 0xfe) return { text: new TextDecoder('utf-16le').decode(b), encoding: 'utf-16le' };
+  if (b[0] === 0xfe && b[1] === 0xff) return { text: new TextDecoder('utf-16be').decode(b), encoding: 'utf-16be' };
+  try {
+    return { text: new TextDecoder('utf-8', { fatal: true }).decode(b), encoding: 'utf-8' };
+  } catch (e) {
+    return { text: new TextDecoder('windows-1252').decode(b), encoding: 'windows-1252' };
+  }
+}
+
+/** An encoding as a page names it to the person, or '' for UTF-8, which needs no saying. */
+export function encodingName(encoding) {
+  return { 'windows-1252': 'Windows-1252', 'utf-16le': 'UTF-16', 'utf-16be': 'UTF-16' }[encoding] || '';
+}
+
+/**
+ * The text of a file a person chose or dropped, decoded by decodeText.
+ *
+ * @param {File} file
+ * @returns {Promise<{text: string, encoding: string}>} Rejects when the file cannot be read.
+ */
+export function readTextFile(file) {
+  return Promise.resolve().then(() => file.arrayBuffer()).then(decodeText);
 }

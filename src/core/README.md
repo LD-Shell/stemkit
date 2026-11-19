@@ -88,7 +88,7 @@ script ran with, for a methods section or a log line.
 
 | Module | Purpose | Needs |
 |---|---|---|
-| `xvg-parser` | GROMACS/Grace `.xvg` and other numeric tables; the XVG Visualizer's figure and its script | none |
+| `xvg-parser` | GROMACS/Grace `.xvg` and other numeric tables, a spreadsheet's among them (semicolons, decimal commas, values in quotes); the XVG Visualizer's figure and its script | none |
 | `statistics` | Descriptives, t-tests, classic and Welch's ANOVA, Pearson and Spearman correlation, non-parametrics, post-hoc comparisons, assumption checks, test choice | jStat |
 | `outliers` | Z-score, modified Z-score, Tukey IQR, Grubbs' test | jStat |
 | `curve-fitting` | Preset models (linear, polynomial, exponential, power, logarithmic) with goodness-of-fit and adequacy checks | regression.js |
@@ -97,7 +97,7 @@ script ran with, for a methods section or a log line.
 | `fit-python` | The Python script (SciPy `curve_fit` and matplotlib) that repeats a fit and draws its figure | none |
 | `plot-style` | One description of a fitted plot's look, shared by the browser preview and the matplotlib script; `bandVisibility` says whether a switched-on confidence band can be seen, and why not | none |
 | `figure` | One description of a figure (panels stacked or on a grid of rows and columns, shared axes, the gap between panels, panel letters, insets, a second y axis on the right and x axis on top, lines, points, error bars, bars upright or lying flat, side by side or stacked, bars of means, histograms with numpy's bin rules, box plots, violin plots, heatmaps, contours, brackets), shared by the browser preview and the script | none |
-| `plot-builder` | The Plot Builder's CSV reading (as Python's `csv` and `float()` read it), its figure for each kind of chart, where its panels go (a grid, shared axes, insets), and its built-in examples | none |
+| `plot-builder` | The Plot Builder's reading of a table (as the script's `csv` and `float()` read it: with a decimal comma, without a header or set out in columns where the file is written so), its figure for each kind of chart, where its panels go (a grid, shared axes, insets), and its built-in examples | none |
 | `figure-python` | The matplotlib script that draws a figure description (`plt.subplots`, a GridSpec for panels that span cells, `inset_axes`), reading the data from the user's files or embedding it | none |
 | `pdf` | A PDF writer: vector pages from SVG, or a JPEG page | none |
 | `structure` | PDB/GRO/XYZ parsing, centre of mass, R<sub>g</sub>, principal axes, rotations (as angles, a matrix, or one turn about an axis), the steps applied as equations and as a Python script, format conversion | none |
@@ -120,7 +120,7 @@ script ran with, for a methods section or a log line.
 | `lammps-workflow` | A whole LAMMPS run: force-field presets, minimise/NVT/NPT/production inputs chained by restart files, the job block that continues after a wall-time stop, README | none |
 | `selection` | Atom selection language, spatial neighbour queries | none |
 | `units` | 64 units in 10 categories, plus temperature; CODATA 2018 / SI 2019 | none |
-| `data-cleaning` | Tabular cleaning, deduplication, imputation, profiling | Papa Parse |
+| `data-cleaning` | Tabular cleaning, deduplication, imputation, profiling; `readTable`, the reader of delimited text that the Data Cleaner, the Outlier Detector, the Statistics Calculator and the Error Bar Generator share (delimiter, decimal mark and header row made out from the text) | Papa Parse |
 | `data-cleaning-python` | The pandas script that repeats a cleaning recipe, with the same output file | none |
 | `latex` | LaTeX/Markdown table generation and text escaping | none |
 | `bibtex` | Parsing, union-find deduplication, field sanitising | bibtex-parse-js |

@@ -14,6 +14,8 @@
 .od-filebar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: .9rem 1.25rem; border-radius: 1rem; border: 1px solid var(--stk-border); background: var(--stk-surface); box-shadow: var(--stk-shadow-sm); }
 .od-filebar .stk-ptitle { min-width: 0; }
 .od-meta { margin: .2rem 0 0 2.1rem; font-size: .8125rem; color: var(--stk-fg-3); }
+.od-read-h { margin-left: auto; font-size: .75rem; font-weight: 600; color: var(--stk-fg-3); }
+.od-read-h[hidden] { display: none; }
 
 /* An outlier is something to look at, not an error: amber, not red. */
 .od-count { display: flex; align-items: baseline; gap: .5rem; margin-bottom: .35rem; font-size: .95rem; font-weight: 600; color: #b45309; }

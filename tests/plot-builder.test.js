@@ -12,7 +12,7 @@ import { mkdtempSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  pyFloat, parseCsv, sniffDelimiter, readTable, columnName, slug, sourceId, exampleCsv, EXAMPLE_LABELS,
+  pyFloat, parseCsv, parseColumns, sniffDelimiter, readTable, columnName, slug, sourceId, exampleCsv, EXAMPLE_LABELS, SPACES,
   builderFigure, builderLook, pythonFiles, seriesNote, houseStyle,
   CHART_KINDS, DRAW_MODES, gridFromXyz, histogram2d, boxGroups, suggestColumns, seriesColumns, axisChoices,
   parseEdges, replicateGroups, histogramOptions, LEVELS, BIN_MODES, EXAMPLES, builderExample, exampleState,
@@ -117,6 +117,15 @@ describe('sniffDelimiter and readTable', () => {
     expect(sniffDelimiter('time;value\n1,5;2,3\n2,5;3,1')).toBe(';');
     expect(sniffDelimiter('a|b|c\n1|2|3')).toBe('|');
     expect(sniffDelimiter('one column\n1\n2')).toBe(',');
+  });
+
+  test('a comma between the digits of every number is a decimal mark, not the delimiter', () => {
+    // Each splits as evenly at its commas, into more fields.
+    expect(sniffDelimiter('0,25\t3,2004\n0,5\t2,8171\n')).toBe('\t');
+    expect(sniffDelimiter('0,25;3,2004;0,0382\n0,5;2,8171;0,0318\n')).toBe(';');
+    // Commas that are not all inside numbers stay the delimiter.
+    expect(sniffDelimiter('1,2,3\t4,5,6\n7,8,9\t1,2,3\n')).toBe(',');
+    expect(sniffDelimiter('a,b\tc\n1,2\t3\n')).toBe(',');
   });
 
   test('read headers, numbers and the columns the script can name', () => {
@@ -1335,4 +1344,131 @@ describe('panel layout', () => {
       for (const r of out) rmSync(r.dir, { recursive: true, force: true });
     }
   }, 120000);
+});
+
+/* ------------------------------------------------------------------ *
+ * Tables that are not a plain CSV with a header
+ * ------------------------------------------------------------------ */
+
+/*
+ * The same three columns as a spreadsheet or a program may write them:
+ * semicolons and decimal commas, no header row, columns set apart by spaces,
+ * another encoding than UTF-8. The preview and the script must read the same
+ * numbers from each, and the script finds a column by its header or, where
+ * the file has none to go by, by its number.
+ */
+const WT = [0, 0.25, 0.5, 0.75, 1, 1.25];
+const WA = [3.5923, 3.2004, NaN, 2.5001, 2.2081, 1.9915];
+const WB = [0.0331, 0.0382, 0.0318, 0.0358, 0.0364, 0.0337];
+const written = (sep, cell, head) => [...(head ? [head.join(sep)] : []),
+  ...WT.map((t, i) => [t, WA[i], WB[i]].map((v) => (Number.isFinite(v) ? cell(v) : 'n/a')).join(sep))];
+const point = String;
+const decimalComma = (v) => String(v).replace('.', ',');
+const WRITTEN = [
+  { name: 'semicolons.csv', text: written(';', decimalComma, ['Time (s)', 'Signal (mV)', 'Error (mV)']).join('\r\n') + '\r\n',
+    is: { delimiter: ';', decimal: ',', header: true }, call: "read_csv('semicolons.csv', delimiter=';', decimal=',')", column: "['Signal (mV)']" },
+  { name: 'tabs no header.txt', text: written('\t', decimalComma).join('\n') + '\n',
+    is: { delimiter: '\t', decimal: ',', header: false }, call: "read_csv('tabs no header.txt', delimiter='\\t', decimal=',', header=False)", column: '[1]' },
+  { name: 'no_header.csv', text: written(',', point).join('\n') + '\n',
+    is: { delimiter: ',', decimal: '.', header: false }, call: "read_csv('no_header.csv', header=False)", column: '[1]' },
+  { name: 'columns.txt', text: ['# a decay', '#  t   signal   error', '  Time (s)   Signal (mV)   Error (mV)', ...written('    ', (v) => v.toFixed(4)).map((l) => `   ${l}`), ''].join('\n'),
+    is: { delimiter: SPACES, decimal: '.', header: true }, call: "read_csv('columns.txt', delimiter=None)", column: '[1]',
+    headers: ['Time (s)', 'Signal (mV)', 'Error (mV)'] },
+  { name: 'columns_bare.dat.txt', text: written('  ', decimalComma).join('\r\n') + '\r\n',
+    is: { delimiter: SPACES, decimal: ',', header: false }, call: "read_csv('columns_bare.dat.txt', delimiter=None, decimal=',', header=False)", column: '[1]' },
+  { name: 'windows.csv', encoding: 'windows-1252', text: written(',', point, ['Temps (s)', 'Signal (µV)', 'Écart (µV)']).join('\r\n') + '\r\n',
+    is: { delimiter: ',', decimal: '.', header: true }, call: "read_csv('windows.csv', encoding='cp1252')", column: "['Signal (µV)']" },
+  { name: 'unicode text.txt', encoding: 'utf-16le', text: written('\t', decimalComma, ['Time (s)', 'Signal (µV)', 'Error']).join('\r\n') + '\r\n',
+    is: { delimiter: '\t', decimal: ',', header: true }, call: "read_csv('unicode text.txt', delimiter='\\t', decimal=',', encoding='utf-16')", column: "['Signal (µV)']" },
+  // A first row of numbers that names the columns all the same, as the person says.
+  { name: 'doses.csv', text: ['0,10,50', ...written(',', point)].join('\n') + '\n', header: true,
+    is: { delimiter: ',', decimal: '.', header: true }, call: "read_csv('doses.csv')", column: "['10']", headers: ['0', '10', '50'] }
+];
+const writtenBytes = (w) => (w.encoding === 'windows-1252' ? Buffer.from(w.text, 'latin1')
+  : w.encoding === 'utf-16le' ? Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(w.text, 'utf16le')]) : Buffer.from(w.text, 'utf8'));
+const writtenFile = (w) => ({
+  id: w.name, name: w.name, source: sourceId(w.name, new Set()), encoding: w.encoding || 'utf-8',
+  table: readTable(w.text, typeof w.header === 'boolean' ? { header: w.header } : {})
+});
+const writtenState = (w) => ({ files: [writtenFile(w)], series: [{ id: 's1', fileId: w.name, x: 0, y: 1, draw: 'line' }, { id: 's2', fileId: w.name, x: 0, y: 2, draw: 'points' }] });
+
+describe('a table that is not a plain CSV with a header', () => {
+  test('is read with its delimiter, its decimal mark and with or without a header', () => {
+    for (const w of WRITTEN) {
+      const t = writtenFile(w).table;
+      expect([w.name, t.ok, t.delimiter, t.decimal, t.header]).toEqual([w.name, true, w.is.delimiter, w.is.decimal, w.is.header]);
+      expect([w.name, t.rows, t.columns.length]).toEqual([w.name, 6, 3]);
+      expect([w.name, t.columns[0], t.columns[1], t.columns[2]]).toEqual([w.name, WT, WA, WB]);
+      expect([w.name, t.numeric, t.readable]).toEqual([w.name, [true, true, true], [true, true, true]]);
+      if (w.headers) expect([w.name, t.headers]).toEqual([w.name, w.headers]);
+      else if (!w.is.header) expect([w.name, t.headers]).toEqual([w.name, ['', '', '']]);
+    }
+  });
+
+  test('a file with no header names its columns by their place', () => {
+    const t = readTable('1,2\n3,4\n');
+    expect(t.header).toBe(false);
+    expect(t.rows).toBe(2);
+    expect([0, 1].map((i) => columnName(t.headers, i))).toEqual(['Column 1', 'Column 2']);
+    // Told that the first row holds the names, the reader takes it for them.
+    const named = readTable('1,2\n3,4\n', { header: true });
+    expect([named.header, named.headers, named.rows]).toEqual([true, ['1', '2'], 1]);
+    // And told that it does not, a row of words is data: text has no number.
+    const data = readTable('a,b\n3,4\n', { header: false });
+    expect([data.header, data.rows, data.columns[0]]).toEqual([false, 2, [NaN, 3]]);
+  });
+
+  test('a comma is a decimal mark only where the numbers show it', () => {
+    expect(readTable('a;b\n0,5;1,234\n').columns).toEqual([[0.5], [1.234]]);
+    // 1,234 alone: between tabs the file does not say, and the cell has no number ...
+    expect(readTable('a\tb\n1,234\t7\n2,345\t8\n')).toMatchObject({ decimal: '.', columns: [[NaN, NaN], [7, 8]] });
+    // ... between semicolons a spreadsheet wrote it with decimal commas.
+    expect(readTable('a;b\n1,234;7\n').columns).toEqual([[1.234], [7]]);
+    // Thousands set off for certain, or more numbers with a point: the point it is.
+    expect(readTable('a\tb\n1,234,567\t0,5\n').decimal).toBe('.');
+    expect(readTable('a\tb\tc\n0.5\t1.5\t2,5\n').columns[2]).toEqual([NaN]);
+    // A file split at commas has no decimal commas.
+    expect(readTable('a,b\n1,5\n').decimal).toBe('.');
+  });
+
+  test('columns set apart by spaces are read where no delimiter splits the lines', () => {
+    const t = readTable('t  signal\n0   1.5\n1   2.5\n');
+    expect([t.delimiter, t.headers, t.columns]).toEqual([SPACES, ['t', 'signal'], [[0, 1], [1.5, 2.5]]]);
+    expect(parseColumns('# c\n\n 1\t2  3 \r\n   # d\r4 5\n')).toEqual([['1', '2', '3'], ['4', '5']]);
+    // One column under a name of two words is still one column, and says so.
+    expect(readTable('just one\n1\n2').error).toMatch(/two columns/);
+    // A header that cannot be matched to the columns leaves them without names.
+    expect(readTable('time of day  signal\n0   1.5\n1   2.5\n')).toMatchObject({ delimiter: SPACES, headers: ['', ''], rows: 2 });
+  });
+
+  test('the script is told how each file is written, and finds a column by its header or its number', () => {
+    for (const w of WRITTEN) {
+      const state = writtenState(w);
+      const code = figureScript(builderFigure(state), { data: 'files', files: pythonFiles(state) }).replace(/\n\s+/g, ' ');
+      expect([w.name, code.includes(`= ${w.call}`)]).toEqual([w.name, true]);
+      expect([w.name, code.includes(`_columns${w.column}`)]).toEqual([w.name, true]);
+      expect([w.name, /by number, 0 first/.test(code)]).toEqual([w.name, w.column === '[1]']);
+    }
+    // A plain CSV keeps the reader it had.
+    const plain = figureScript(FIGS.linear, { data: 'files', files: pythonFiles(STATE) });
+    expect(plain).toContain('csv.DictReader');
+    expect(plain).not.toContain('decimal=');
+  });
+
+  const ran = {};
+  withPython('the script draws from each file the numbers the preview drew', async () => {
+    await Promise.all(WRITTEN.map(async (w) => {
+      const state = writtenState(w);
+      const script = figureScript(builderFigure(state), { data: 'files', files: pythonFiles(state) });
+      ran[w.name] = await run(script, { [w.name]: writtenBytes(w) });
+    }));
+    for (const w of WRITTEN) {
+      const r = ran[w.name];
+      expect([w.name, r.code, r.stderr]).toEqual([w.name, 0, '']);
+      const [line, points] = r.fig.panels[0].lines;
+      expect([w.name, line[0], line[1]]).toEqual([w.name, WT, WA.map((v) => (Number.isFinite(v) ? v : null))]);
+      expect([w.name, points[1]]).toEqual([w.name, WB]);
+    }
+    Object.values(ran).forEach((r) => rmSync(r.dir, { recursive: true, force: true }));
+  }, 240000);
 });

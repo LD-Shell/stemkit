@@ -186,6 +186,7 @@
                             <option value="&#9;">Tab</option>
                             <option value="|">Pipe</option>
                             <option value=" ">Space</option>
+                            <option value="whitespace">Spaces, in columns</option>
                         </select>
                     </label>
                     <label class="dc-read-f"><span>Decimal</span>
@@ -325,7 +326,7 @@
             </div>
             <div class="stk-note" style="margin-top:1rem;">
                 <i class="fa-solid fa-circle-info" style="margin-top:.15rem;"></i>
-                <div><strong>How a cell is read.</strong> A cell is a number when it is ASCII digits with an optional sign, one decimal separator and an exponent, such as <code>12</code>, <code>-0.5</code> or <code>1e-7</code>; an empty cell is missing; anything else, including <code>NA</code>, <code>true</code> and dates, stays text, so a column can hold numbers and text side by side. Whole numbers of 2<sup>53</sup> and above stay text, so long IDs keep their digits. Mark text such as <code>NA</code> as missing with <strong>Replace values</strong>.</div>
+                <div><strong>How a cell is read.</strong> A cell is a number when it is ASCII digits with an optional sign, one decimal separator and an exponent, such as <code>12</code>, <code>-0.5</code> or <code>1e-7</code>; an empty cell is missing; anything else, including <code>NA</code>, <code>true</code> and dates, stays text, so a column can hold numbers and text side by side. Whole numbers of 2<sup>53</sup> and above stay text, so long IDs keep their digits. A comma is read as the decimal mark only where the file is not split at commas and shows that it is one (<code>0,5</code>, <code>3,2004</code>): <code>1,234</code> could be 1.234 or 1234, so it stays text unless the file is split at semicolons or you choose the decimal comma above the table. In a table set out in columns with spaces, lines that start with <code>#</code> are left out. Mark text such as <code>NA</code> as missing with <strong>Replace values</strong>.</div>
             </div>
         </div>
     </section>

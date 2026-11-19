@@ -543,3 +543,123 @@ describe('the script draws what the page shows', () => {
     expect(m.fig.panels[0].lineLengths).toEqual([11, 8]);
   }, 60000);
 });
+
+/*
+ * A table as a spreadsheet writes it: semicolons, decimal commas, values in
+ * quotes, another encoding than UTF-8. numpy.loadtxt reads none of these as
+ * they stand, so the script rewrites each line as the page did; what
+ * matplotlib is given must be the numbers the page read.
+ */
+const T = [0, 0.25, 0.5, 0.75, 1, 1.25];
+const A = [3.5923, 3.2004, 2.8171, 2.5001, 2.2081, 1.9915];
+const B = [0.0331, 0.0382, 0.0318, 0.0358, 0.0364, 0.0337];
+const withComma = (v) => String(v).replace('.', ',');
+const table = (sep, cell = String, head = null) => [...(head ? [head.join(sep)] : []), ...T.map((t, i) => [t, A[i], B[i]].map(cell).join(sep))];
+const SHEETS = [
+  { name: 'semicolons_decimal_commas.csv', text: table(';', withComma, ['Time (s)', 'Signal (mV)', 'Error (mV)']).join('\r\n') + '\r\n', delimiter: ';', decimal: ',' },
+  { name: 'semicolons.csv', text: table(';').join('\n') + '\n', delimiter: ';', decimal: '.' },
+  { name: 'spaces_decimal_commas.txt', text: table('   ', withComma).map((l) => `  ${l}`).join('\n') + '\n', delimiter: null, decimal: ',' },
+  { name: 'tabs_decimal_commas.txt', text: table('\t', withComma, ['Time (s)', 'Signal (mV)', 'Error (mV)']).join('\r\n') + '\r\n', delimiter: null, decimal: ',' },
+  { name: 'quoted.csv', text: ['"Time (s)","Signal, mV","Error (mV)"', ...table(',', (v) => `"${v}"`)].join('\n') + '\n', delimiter: ',', decimal: '.', quoted: true },
+  { name: 'quoted_semicolons.csv', text: table(';', (v) => `"${v}"`).join('\n') + '\n', delimiter: ';', decimal: '.', quoted: true },
+  { name: 'windows_1252.csv', encoding: 'windows-1252', text: table(',', String, ['Time (s)', 'Signal (µV)', 'Température (°C)']).join('\r\n') + '\r\n', delimiter: ',', decimal: '.' },
+  { name: 'windows_1252_decimal_commas.csv', encoding: 'windows-1252', text: ['# mesuré à 20 °C', ...table(';', withComma, ['Temps (s)', 'Signal (µV)', 'Écart'])].join('\r\n') + '\r\n', delimiter: ';', decimal: ',' },
+  { name: 'utf_16.txt', encoding: 'utf-16le', text: table('\t', String, ['Time (s)', 'Signal (µV)', 'Error']).join('\r\n') + '\r\n', delimiter: null, decimal: '.' },
+  // Lines the page rejects among the numbers: only the rows it kept are read.
+  { name: 'stray_lines.csv', text: ['t;a;b', ...table(';', withComma).slice(0, 3), 'calibration;;', '0,6;;', ...table(';', withComma).slice(3)].join('\n') + '\n', delimiter: ';', decimal: ',', stray: 2 },
+  // Two data sets, with decimal commas: read set by set.
+  { name: 'two_sets.xvg', text: ['@ s0 legend "a"', '@ s1 legend "b"', ...T.map((t, i) => `${withComma(t)}  ${withComma(A[i])}`), '&', ...T.map((t, i) => `${withComma(t)}  ${withComma(B[i])}`)].join('\n') + '\n', delimiter: null, decimal: ',', sets: 2 }
+];
+const sheetBytes = (s) => (s.encoding === 'windows-1252' ? Buffer.from(s.text, 'latin1')
+  : s.encoding === 'utf-16le' ? Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(s.text, 'utf16le')]) : Buffer.from(s.text, 'utf8'));
+
+describe('a table as a spreadsheet writes it', () => {
+  test('is read with its semicolons, decimal commas and quotes', () => {
+    for (const s of SHEETS) {
+      const p = parseXvg(s.text);
+      expect([s.name, p.delimiter, p.decimal, p.quoted]).toEqual([s.name, s.delimiter, s.decimal, Boolean(s.quoted)]);
+      if (s.sets) {
+        expect([s.name, p.blocks.length, p.colCount, p.rowCount]).toEqual([s.name, 2, 2, 12]);
+        expect(p.matrix.slice(0, 6).map((r) => r[1])).toEqual(A);
+        expect(p.matrix.slice(6).map((r) => r[1])).toEqual(B);
+      } else {
+        expect([s.name, p.rowCount, p.colCount, p.strayLines]).toEqual([s.name, 6, 3, s.stray || 0]);
+        expect(p.matrix.map((r) => r[0])).toEqual(T);
+        expect(p.matrix.map((r) => r[1])).toEqual(A);
+        expect(p.matrix.map((r) => r[2])).toEqual(B);
+      }
+    }
+  });
+
+  test('keeps the names of its columns', () => {
+    const names = (name) => parseXvg(SHEETS.find((s) => s.name === name).text).headers;
+    expect(names('semicolons_decimal_commas.csv')).toEqual(['Time (s)', 'Signal (mV)', 'Error (mV)']);
+    expect(names('tabs_decimal_commas.txt')).toEqual(['Time (s)', 'Signal (mV)', 'Error (mV)']);
+    expect(names('quoted.csv')).toEqual(['Time (s)', 'Signal, mV', 'Error (mV)']);
+    expect(names('windows_1252_decimal_commas.csv')).toEqual(['Temps (s)', 'Signal (µV)', 'Écart']);
+  });
+
+  test('the script rewrites a line only where the page did, and opens the file in its encoding', () => {
+    const lines = (name) => {
+      const s = SHEETS.find((x) => x.name === name);
+      return xvgReadLines(parseXvg(s.text), s.name, { encoding: s.encoding }).join('\n');
+    };
+    expect(lines('semicolons.csv')).toContain("data = np.loadtxt('semicolons.csv', delimiter=';', comments=['@', '#', '&'], ndmin=2)");
+    expect(lines('semicolons.csv')).not.toContain('def clean');
+    expect(lines('semicolons_decimal_commas.csv')).toContain("    return line.replace(',', '.')");
+    expect(lines('semicolons_decimal_commas.csv')).toContain("with open('semicolons_decimal_commas.csv', encoding='utf-8') as fh:");
+    expect(lines('semicolons_decimal_commas.csv').replace(/\s+/g, ' ')).toContain("[clean(line) for line in fh], delimiter=';', skiprows=1");
+    expect(lines('quoted.csv')).toContain(String.raw`    line = re.sub(r'"([^",; \t]*)"', r'\1', line)`);
+    expect(lines('quoted.csv')).toContain('    return line\n');
+    expect(lines('windows_1252.csv').replace(/\s+/g, ' ')).toContain("skiprows=1, comments=['@', '#', '&'], encoding='cp1252', ndmin=2)");
+    expect(lines('windows_1252_decimal_commas.csv')).toContain("encoding='cp1252') as fh:");
+    expect(lines('utf_16.txt').replace(/\s+/g, ' ')).toContain("encoding='utf-16', ndmin=2)");
+    expect(lines('stray_lines.csv')).toContain("    fields = line.split(';')");
+    expect(lines('stray_lines.csv')).toContain('[row for row in map(clean, fh) if is_record(row)]');
+    expect(lines('two_sets.xvg')).toContain('            line = clean(line.strip())');
+    // The quotes are dropped with a regular expression, so the script imports re for them alone.
+    const whole = (name, source) => {
+      const s = SHEETS.find((x) => x.name === name);
+      const p = parseXvg(s.text);
+      return xvgFigureScript(xvgFigure(p, { series: [1] }), p, { filename: s.name, source });
+    };
+    expect(whole('quoted.csv')).toMatch(/^import re$/m);
+    expect(whole('quoted.csv', 'embed')).not.toMatch(/^import re$/m);
+    expect(whole('semicolons_decimal_commas.csv')).not.toMatch(/^import re$/m);
+  });
+
+  test('a comma that may set off thousands is not taken for a decimal mark', () => {
+    // 1,234 between spaces: 1.234 or 1234? The file does not say, and nothing is read ...
+    expect(parseXvg('1,234  2,345\n3,456  4,567\n').rowCount).toBe(0);
+    // ... one number that can only have a decimal comma settles it for the file ...
+    expect(parseXvg('1,234  0,5\n3,456  4,567\n').matrix).toEqual([[1.234, 0.5], [3.456, 4.567]]);
+    // ... and between semicolons the file is one a spreadsheet wrote with decimal commas.
+    expect(parseXvg('1,234;2,345\n3,456;4,567\n').matrix).toEqual([[1.234, 2.345], [3.456, 4.567]]);
+  });
+
+  test('a file numpy reads as it stands is read as before', () => {
+    // Two numbers a line with a comma between them: two columns, not one with a decimal comma.
+    const p = parseXvg('1,2\n3,4\n');
+    expect([p.delimiter, p.decimal, p.colCount]).toEqual([',', '.', 2]);
+    expect(xvgReadLines(p, 'd.csv').join('\n')).toContain("data = np.loadtxt('d.csv', delimiter=',', comments=['@', '#', '&'], ndmin=2)");
+    const xvg = parseXvg(SAMPLE);
+    expect([xvg.delimiter, xvg.decimal, xvg.quoted]).toEqual([null, '.', false]);
+  });
+
+  const ran = {};
+  withPython('the script reads from each file the numbers the page read', async () => {
+    await Promise.all(SHEETS.map(async (s) => {
+      const p = parseXvg(s.text);
+      const series = s.sets ? [1, 3] : [1, 2];
+      const script = xvgFigureScript(xvgFigure(p, { series }), p, { filename: s.name, encoding: s.encoding });
+      ran[s.name] = await run(script, { [s.name]: sheetBytes(s) });
+    }));
+    for (const s of SHEETS) {
+      const r = ran[s.name];
+      expect([s.name, r.code, r.stderr]).toEqual([s.name, 0, '']);
+      const drawn = r.fig.panels[0];
+      expect([s.name, drawn.lineLengths]).toEqual([s.name, [6, 6]]);
+      expect([s.name, drawn.lineData]).toEqual([s.name, [A.slice(0, 3), B.slice(0, 3)]]);
+    }
+  }, 240000);
+});

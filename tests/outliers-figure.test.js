@@ -2,7 +2,7 @@
  * The Outlier Detector's figure and script (src/core/outliers-figure.js).
  *
  * When Python with numpy, scipy and matplotlib is installed, the scripts are
- * run: reading the CSV or holding the values, they must flag the rows
+ * run: reading the file or holding the values, they must flag the rows
  * outliers.js flags, draw the rule's lines where the page draws them, report
  * Grubbs' test as the page does, and leave matplotlib with the preview's axis
  * limits (js/figure-plot.js).
@@ -14,6 +14,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { detectOutliers, grubbsTest, extractNumericColumn } from '../src/core/outliers.js';
+import { readTable, WHITESPACE } from '../src/core/data-cleaning.js';
 import { outlierFigure, outlierScript, outlierLines } from '../src/core/outliers-figure.js';
 import { normaliseFigure, applyStyle } from '../src/core/figure.js';
 import { buildFigure } from '../js/figure-plot.js';
@@ -65,19 +66,34 @@ function run(script, files = {}) {
 const EXAMPLE = [78, 80, 79, 81, 77, 80, 79, 82, 78, 250, 80, 79, 3, 81, 79];
 
 // A file as a person might have one, with the cells the page skips: text, blanks,
-// true/false, a number too large for Papa Parse to read as one, a blank line.
+// true/false, a whole number too large to keep its digits, a blank line.
 const CSV_TEXT = [
   'id;site ; level',
   '1;A;4.1', '2;B;3.9', '3;A;n/a', '4;B;4.4', '', '5;A;-0.5e1', '6;B;4.0', '7;A;', '8;B;true',
   '9;A;4.2', '10;B;12.5', '11;A;3.8', '12;B;9007199254740993', '13;A;4.05', '14;B; 4.3 ', '15;A;.5'
 ].join('\n') + '\n';
 
-/* The rows as Papa Parse gives them to the page (header, dynamic typing, blank lines skipped). */
-function papaRows(text) {
-  const lines = text.split('\n').filter((l) => l !== '');
-  const head = lines[0].split(';');
-  const num = (c) => (/^\s*-?(\d+\.?|\.\d+|\d+\.\d+)([eE][-+]?\d+)?\s*$/.test(c) && Math.abs(parseFloat(c)) < 2 ** 53 ? parseFloat(c) : c);
-  return lines.slice(1).map((l) => Object.fromEntries(l.split(';').map((c, i) => [head[i], c === 'true' ? true : num(c)])));
+/* A file as the page reads it (js/outlier-detector.js): the table of the Data
+   Cleaner's reader, its rows keyed by column, and what the script is told
+   about the file. */
+function pageRead(name, text, encoding = 'utf-8', settings = {}) {
+  const read = readTable(text, settings);
+  const rows = read.rows.map((r) => Object.fromEntries(read.columns.map((c, i) => [c, r[i]])));
+  const file = {
+    name, encoding,
+    delimiter: read.settings.delimiter === WHITESPACE ? null : read.settings.delimiter,
+    decimal: read.settings.decimal, header: read.settings.header, headerCells: read.headerCells
+  };
+  return { read, rows, file };
+}
+
+/* A scan of one column of such a file, with the script reading the file. */
+function scanOf(page, column, method, threshold) {
+  const { values, indexMap } = extractNumericColumn(page.rows, column);
+  return {
+    values, rows: indexMap.map((i) => i + 1), method, threshold, column,
+    file: { ...page.file, position: page.read.columns.indexOf(column) }, source: 'files'
+  };
 }
 
 function make(spec, style = {}) {
@@ -88,10 +104,42 @@ function make(spec, style = {}) {
 const embedded = (method, threshold) => ({
   values: EXAMPLE, rows: EXAMPLE.map((_, i) => i + 1), method, threshold, column: 'measurement', source: 'embed'
 });
-const fromFile = (method, threshold) => {
-  const { values, indexMap } = extractNumericColumn(papaRows(CSV_TEXT), ' level');
-  return { values, rows: indexMap.map((i) => i + 1), method, threshold, column: ' level', file: { name: 'levels.csv', delimiter: ';' }, source: 'files' };
-};
+const fromFile = (method, threshold) => scanOf(pageRead('levels.csv', CSV_TEXT), 'level', method, threshold);
+
+/*
+ * The same eight readings, 4.1 3.9 4.4 12.5 4.2 3.8 4.05 4.3, in every way a
+ * file may be written: each must give the script the numbers and rows the
+ * page read. `bytes` is the file as saved; `text` what the page decoded.
+ */
+const LEVELS = [4.1, 3.9, 4.4, 12.5, 4.2, 3.8, 4.05, 4.3];
+const comma = (v) => String(v).replace('.', ',');
+const latin1 = (text) => Buffer.from(text, 'latin1');
+const utf16 = (text) => Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(text, 'utf16le')]);
+const WRITTEN = [
+  { name: 'semicolons_decimal_commas.csv', column: 'level', text: ['id;level', ...LEVELS.map((v, i) => `${i + 1};${comma(v)}`)].join('\r\n') + '\r\n' },
+  { name: 'tabs_decimal_commas_no_header.txt', column: 'column_2', text: LEVELS.map((v, i) => `${i + 1}\t${comma(v)}`).join('\n') + '\n' },
+  { name: 'no_header.csv', column: 'column_2', text: LEVELS.map((v, i) => `${i + 1},${v}`).join('\n') + '\n' },
+  { name: 'one_column.txt', column: 'column_1', text: LEVELS.join('\n') + '\n' },
+  { name: 'in_columns.dat', column: 'level (mM)', text: ['# readings', '# id  level', '  id    level (mM)   site', ...LEVELS.map((v, i) => `  ${String(i + 1).padStart(2)}    ${v.toFixed(2).padStart(6)}       ${'AB'[i % 2]}`), ''].join('\n') },
+  // A first row with a word in it is taken for names; here the person has said it is data.
+  { name: 'in_columns_decimal_commas.txt', column: 'column_2', settings: { header: false }, text: LEVELS.map((v, i) => `${i + 1}   ${comma(v)}\t x`).join('\r') + '\r' },
+  { name: 'windows_1252.csv', column: 'level (µM)', encoding: 'windows-1252', text: ['id,level (µM),température', ...LEVELS.map((v, i) => `${i + 1},${v},20`)].join('\r\n') + '\r\n' },
+  { name: 'utf_16.txt', column: 'level (µM)', encoding: 'utf-16le', text: ['id\tlevel (µM)', ...LEVELS.map((v, i) => `${i + 1}\t${v}`)].join('\r\n') + '\r\n' },
+  { name: 'utf_8_bom.csv', column: 'level', bom: true, text: ['id,level', ...LEVELS.map((v, i) => `${i + 1},${v}`)].join('\n') + '\n' },
+  { name: 'quoted.csv', column: 'level, mM', text: ['"id","level, mM"', ...LEVELS.map((v, i) => `"${i + 1}","${v}"`)].join('\n') + '\n' },
+  // Two columns of one name, and one with none: neither can be found by its header.
+  { name: 'names_twice.csv', column: 'level_2', text: ['level,level,', ...LEVELS.map((v, i) => `${i + 1},${v},x`)].join('\n') + '\n' },
+  { name: 'no_name.csv', column: 'column_2', text: ['id,,site', ...LEVELS.map((v, i) => `${i + 1},${v},A`)].join('\n') + '\n' },
+  // A first row of numbers that holds names all the same, as the person says.
+  { name: 'numbers_as_names.csv', column: '10', settings: { header: true }, text: ['0,10', ...LEVELS.map((v, i) => `${i + 1},${v}`)].join('\n') + '\n' },
+  // Signs, exponents and sizes: a plus sign is read, and so is a number past 2**53
+  // that is not written as a whole number. NaN, 1e400, a whole number too long
+  // to keep its digits and a number with its unit are not.
+  { name: 'signs_and_sizes.csv', column: 'x', values: [5e22, -3e22, 6.02e23, 1e22, 5e22, 2.5e22],
+    text: 'x\n+5e22\n-3e22\n6.02e23\n 1E+22 \n.5e23\n25000000000000000000000.0\nNaN\n1e400\n9007199254740993\n 12 kg\n' }
+];
+const bytesOf = (w) => (w.encoding === 'windows-1252' ? latin1(w.text) : w.encoding === 'utf-16le' ? utf16(w.text)
+  : Buffer.concat([Buffer.from(w.bom ? [0xef, 0xbb, 0xbf] : []), Buffer.from(w.text, 'utf8')]));
 
 const CASES = {
   zscore: embedded('zscore', 3),
@@ -163,23 +211,56 @@ describe('outlierFigure', () => {
 
 describe('outlierScript', () => {
   test('reads the column from the file, or holds the values', () => {
-    expect(make(CASES.zscoreFile).script).toContain("row, value = read_column('levels.csv', ' level', delimiter=';')");
+    // The header cell is " level": the script strips it, as the page did, and finds it by name.
+    expect(make(CASES.zscoreFile).script).toContain("row, value = read_column('levels.csv', 'level', delimiter=';')");
     const held = make(CASES.zscore).script;
     expect(held).not.toContain('read_column');
     expect(held).toMatch(/^row = np\.array\(\[1, 2, 3/m);
     // An example has no file: its values are held even when the file is asked for.
     expect(make({ ...CASES.zscore, source: 'files' }).script).toContain('# The example has no file to read');
   });
+
+  test('the call says how the file is written', () => {
+    const call = (name) => {
+      const w = WRITTEN.find((x) => x.name === name);
+      const script = make(scanOf(pageRead(w.name, w.text, w.encoding, w.settings), w.column, 'zscore', 2)).script;
+      return script.slice(script.indexOf('row, value = read_column')).split('\n\n')[0].replace(/\s+/g, ' ');
+    };
+    expect(call('semicolons_decimal_commas.csv')).toBe("row, value = read_column('semicolons_decimal_commas.csv', 'level', delimiter=';', decimal=',')");
+    expect(call('tabs_decimal_commas_no_header.txt')).toBe("row, value = read_column('tabs_decimal_commas_no_header.txt', 1, delimiter='\\t', decimal=',', header=False)");
+    expect(call('no_header.csv')).toBe("row, value = read_column('no_header.csv', 1, header=False)");
+    expect(call('in_columns.dat')).toBe("row, value = read_column('in_columns.dat', 1, delimiter=None)");
+    expect(call('in_columns_decimal_commas.txt')).toBe("row, value = read_column('in_columns_decimal_commas.txt', 1, delimiter=None, decimal=',', header=False)");
+    expect(call('windows_1252.csv')).toBe("row, value = read_column('windows_1252.csv', 'level (µM)', encoding='cp1252')");
+    expect(call('utf_16.txt')).toBe("row, value = read_column('utf_16.txt', 'level (µM)', delimiter='\\t', encoding='utf-16')");
+    expect(call('quoted.csv')).toBe("row, value = read_column('quoted.csv', 'level, mM')");
+    // Found by place where the header cannot find it: a name used twice, a column with no name.
+    expect(call('names_twice.csv')).toBe("row, value = read_column('names_twice.csv', 1)");
+    expect(call('no_name.csv')).toBe("row, value = read_column('no_name.csv', 1)");
+    expect(call('numbers_as_names.csv')).toBe("row, value = read_column('numbers_as_names.csv', '10')");
+  });
+
+  test('a file given without its header row, as before, is read by the name', () => {
+    const spec = { ...CASES.zscoreFile, file: { name: 'levels.csv', delimiter: ';' } };
+    expect(make(spec).script).toContain("row, value = read_column('levels.csv', 'level', delimiter=';')");
+  });
 });
 
 const runs = {};
+const written = {};
 beforeAll(async () => {
   if (!PYTHON) return;
-  await Promise.all(Object.entries(CASES).map(async ([name, spec]) => {
-    const m = make(spec);
-    runs[name] = { ...m, r: await run(m.script, { 'levels.csv': CSV_TEXT }) };
-  }));
-}, 180000);
+  await Promise.all([
+    ...Object.entries(CASES).map(async ([name, spec]) => {
+      const m = make(spec);
+      runs[name] = { ...m, r: await run(m.script, { 'levels.csv': CSV_TEXT }) };
+    }),
+    ...WRITTEN.map(async (w) => {
+      const m = make(scanOf(pageRead(w.name, w.text, w.encoding, w.settings), w.column, 'iqr', 1.5));
+      written[w.name] = { ...m, r: await run(m.script, { [w.name]: bytesOf(w) }) };
+    })
+  ]);
+}, 240000);
 
 describe('the script, run', () => {
   withPython('runs without errors or warnings', () => {
@@ -192,6 +273,18 @@ describe('the script, run', () => {
       expect(r.out.rows).toEqual(spec.rows);
       expect(r.out.values).toEqual(spec.values);
     }
+  });
+
+  withPython('reads every way a file is written as the page read it', () => {
+    for (const w of WRITTEN) {
+      const { spec, r } = written[w.name];
+      expect([w.name, r.code, r.stderr]).toEqual([w.name, 0, '']);
+      // The page read the eight readings, on rows 1 to 8 ...
+      expect([w.name, spec.values]).toEqual([w.name, w.values || LEVELS]);
+      // ... and so did the script, from the bytes of the file.
+      expect([w.name, r.out.values, r.out.rows]).toEqual([w.name, spec.values, spec.rows]);
+    }
+    expect(written['signs_and_sizes.csv'].spec.rows).toEqual([1, 2, 3, 4, 5, 6]);
   });
 
   withPython('flags the rows the page flags, and draws the lines where the page does', () => {

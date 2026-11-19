@@ -609,8 +609,14 @@ const INTEGER_TEXT = /^[ \t]*[-+]?[0-9]+[ \t]*$/;
 /** Whole numbers from here up lose digits as doubles, so they stay text (IDs, barcodes). */
 const EXACT_INTEGER_LIMIT = 2 ** 53;
 
+/**
+ * The delimiter of a table set out in columns: runs of spaces or tabs stand
+ * between the values, as in a .dat file or a table printed in fixed widths.
+ */
+export const WHITESPACE = 'whitespace';
+
 /** Delimiters the reader guesses between, in order of preference. */
-export const DELIMITERS = [',', '\t', ';', '|', ' '];
+export const DELIMITERS = [',', '\t', ';', '|', ' ', WHITESPACE];
 
 /**
  * Remove the characters in SPACE_CHARACTERS from both ends of a string.
@@ -734,6 +740,36 @@ export function splitRecords(text, delimiter = ',') {
   return records;
 }
 
+const COLUMN_GAP = /[ \t]+/;
+
+/**
+ * Split a table set out in columns into records. Each line gives what stands
+ * between its runs of spaces and tabs; a blank line gives nothing, and
+ * neither does a line whose first character after any spaces is `#`, the
+ * comment of a .dat file. Quotes mean nothing here.
+ *
+ * @param {string} text
+ * @returns {string[][]}
+ */
+export function splitColumns(text) {
+  const records = [];
+  for (const raw of String(text ?? '').split(/\r\n|\r|\n/)) {
+    const line = raw.replace(/^[ \t]+|[ \t]+$/g, '');
+    if (line !== '' && line[0] !== '#') records.push(line.split(COLUMN_GAP));
+  }
+  return records;
+}
+
+/* A header set out in columns: a unit in brackets stays with the name before it ("Time (s)"). */
+function joinUnits(cells) {
+  const names = [];
+  for (const cell of cells) {
+    if (names.length && /^[([{]/.test(cell)) names[names.length - 1] += ` ${cell}`;
+    else names.push(cell);
+  }
+  return names;
+}
+
 function nextOf(s, from, to, a, b) {
   for (let i = from; i < to; i++) {
     const c = s[i];
@@ -774,46 +810,118 @@ function firstLines(text, count) {
   return { sample: text.slice(0, pos), whole: pos >= text.length };
 }
 
+const COMMA_DECIMAL = /^[ \t]*[-+]?[0-9]+,[0-9]+(?:[eE][-+]?[0-9]+)?[ \t]*$/;
+
+/* Whether every comma in these records sits inside a number, between its digits (1,5). */
+function commasAreDecimal(records) {
+  let seen = false;
+  for (const record of records) {
+    for (const cell of record) {
+      if (!cell.includes(',')) continue;
+      if (!COMMA_DECIMAL.test(cell)) return false;
+      seen = true;
+    }
+  }
+  return seen;
+}
+
+const NUMBERS_APART = /^[ \t]*[-+]?[0-9]+[.,]?[0-9]*(?:[eE][-+]?[0-9]+)?(?:[ \t]+[-+]?[0-9]+[.,]?[0-9]*(?:[eE][-+]?[0-9]+)?)+[ \t]*$/;
+
 /**
  * Guess the delimiter: the candidate that splits the first lines into the
  * steadiest number of fields (at least two), earlier candidates winning ties.
+ *
+ * Four things keep a decimal comma and a padded column from being taken for
+ * a delimiter. A comma is not one when another candidate splits the lines as
+ * steadily and, read that way, every comma sits between the digits of a
+ * number: `0,25;3,2` is two values, and so is `0,25<tab>3,2`. A single space
+ * is not one when it leaves empty fields, since those spaces are padding. A
+ * tab is not one when it leaves several numbers in a cell with spaces between
+ * them, in a table that splits as steadily at its runs of spaces and tabs:
+ * the columns are lined up with both. And spaces are tried only when no
+ * comma, tab, semicolon or bar splits the lines, so that names with spaces in
+ * a CSV file stay whole.
  *
  * @param {string} text
  * @returns {string}
  */
 export function guessDelimiter(text) {
   const { sample, whole } = firstLines(String(text ?? '').replace(/\r\n?/g, '\n'), 30);
-  let best = null;
-  let bestDelta = Infinity;
-  let bestAverage = 0;
+  let tried = [];
   for (const d of DELIMITERS) {
-    let records = splitRecords(sample, d).filter(r => r.length > 0);
+    let records = d === WHITESPACE ? splitColumns(sample) : splitRecords(sample, d).filter(r => r.length > 0);
     if (!whole && records.length > 1) records = records.slice(0, -1);
     if (!records.length) continue;
+    if (d === ' ' && records.some(r => r.includes(''))) continue;
     const counts = records.map(r => r.length);
     const average = counts.reduce((a, b) => a + b, 0) / counts.length;
     let delta = 0;
     for (let i = 1; i < counts.length; i++) delta += Math.abs(counts[i] - counts[i - 1]);
-    if (average > 1.99 && (delta < bestDelta || (delta === bestDelta && average > bestAverage))) {
-      best = d;
-      bestDelta = delta;
-      bestAverage = average;
-    }
+    if (average > 1.99) tried.push({ d, delta, average, records });
   }
-  return best || ',';
+  const comma = tried.find(t => t.d === ',');
+  if (comma && tried.some(t => t !== comma && t.delta <= comma.delta && commasAreDecimal(t.records))) {
+    tried = tried.filter(t => t !== comma);
+  }
+  const tab = tried.find(t => t.d === '\t');
+  const columns = tried.find(t => t.d === WHITESPACE);
+  if (tab && columns && columns.delta <= tab.delta && tab.records.some(r => r.some(cell => NUMBERS_APART.test(cell)))) {
+    tried = tried.filter(t => t !== tab);
+  }
+  const steadiest = (list) => list.reduce(
+    (best, t) => (!best || t.delta < best.delta || (t.delta === best.delta && t.average > best.average) ? t : best), null);
+  const spaces = (t) => t.d === ' ' || t.d === WHITESPACE;
+  const best = steadiest(tried.filter(t => !spaces(t))) || steadiest(tried.filter(spaces));
+  return best ? best.d : ',';
 }
 
+/*
+ * A comma in a number is one of two things. `1,234` may be 1.234 written with
+ * a decimal comma or 1234 with its thousands set off: one to three digits, not
+ * starting with 0, then exactly three.
+ */
+const GROUPED = /^[ \t]*[-+]?[1-9][0-9]{0,2},[0-9]{3}[ \t]*$/;
+/* Thousands set off for certain: two commas or more, or a decimal point after them (1,234,567 and 1,234.5). */
+const THOUSANDS = /^[ \t]*[-+]?[0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]*)?(?:[eE][-+]?[0-9]+)?[ \t]*$/;
+
+/**
+ * Whether a cell is written like `1,234`, which can be read two ways (1.234
+ * or 1234). The reader leaves such a cell as text unless the file shows that
+ * its commas are decimal marks.
+ *
+ * @param {*} cell
+ * @returns {boolean}
+ */
+export function unclearComma(cell) {
+  return typeof cell === 'string' && GROUPED.test(cell);
+}
+
+/*
+ * The decimal mark of a file not split by commas. A comma is one only on
+ * evidence: a number that cannot be a whole number with its thousands set off
+ * (0,5 or 3,2004 or 12,25), with such numbers and those like 1,234 together
+ * outnumbering the ones written with a point. A file that sets thousands off
+ * for certain (1,234,567 or 1,234.5) uses the point. Where every comma is like
+ * 1,234 the file does not say; a semicolon between the values is then taken as
+ * the sign of a decimal comma, as a spreadsheet writes one where the other is
+ * the custom, and anything else leaves the point.
+ */
 function guessDecimal(records, delimiter) {
   if (delimiter === ',') return '.';
-  let comma = 0;
+  let decimal = 0;
+  let grouped = 0;
   let point = 0;
   for (const record of records.slice(0, 200)) {
     for (const cell of record) {
-      if (cell.includes(',') && NUMBER_TEXT[','].test(cell)) comma++;
-      else if (cell.includes('.') && NUMBER_TEXT['.'].test(cell)) point++;
+      if (cell.includes(',')) {
+        if (GROUPED.test(cell)) grouped++;
+        else if (NUMBER_TEXT[','].test(cell)) decimal++;
+        else if (THOUSANDS.test(cell)) return '.';
+      } else if (cell.includes('.') && NUMBER_TEXT['.'].test(cell)) point++;
     }
   }
-  return comma > point ? ',' : '.';
+  if (decimal + grouped <= point) return '.';
+  return decimal > 0 || delimiter === ';' ? ',' : '.';
 }
 
 function guessHeader(records, decimal) {
@@ -828,37 +936,62 @@ function guessHeader(records, decimal) {
  * Read delimited text into a table.
  *
  * Settings not given are guessed: the delimiter from the first lines, a
- * decimal comma when numbers are written that way in a file not split by
- * commas, and a header row unless the first row is all numbers. Blank lines
- * are skipped. A row shorter than the widest one is padded with missing
+ * decimal comma when a file not split by commas shows that its numbers are
+ * written with one (0,5 or 3,2004; a file whose every comma is like 1,234
+ * shows nothing, and is read with a decimal comma only when it is split by
+ * semicolons), and a header row unless the first row is all numbers. Blank
+ * lines are skipped. A row shorter than the widest one is padded with missing
  * values, and a leading byte-order mark is dropped.
+ *
+ * With the delimiter WHITESPACE the table is set out in columns: the values
+ * stand between runs of spaces or tabs, lines that start with `#` are left
+ * out, and in the header a unit in brackets stays with the name before it.
  *
  * @param {string} text
  * @param {{delimiter?:string, decimal?:'.'|',', header?:boolean}} [settings]
  * @returns {{columns:string[], rows:any[][],
  *            settings:{delimiter:string, decimal:'.'|',', header:boolean},
- *            notes:{shortRows:number}}}
+ *            notes:{shortRows:number, unclearCommas:{count:number, example:string|null}},
+ *            headerCells:string[]|null}}
+ *          `notes.unclearCommas` counts the cells written like `1,234` that
+ *          were left as text because the file does not show whether its commas
+ *          are decimal marks (see unclearComma), with the first as an example.
+ *          `headerCells` holds the header row as the file writes it, before
+ *          the names are trimmed and made unique (null without a header), for
+ *          a script that finds a column by its name in the file.
  */
 export function readTable(text, settings = {}) {
   let src = String(text ?? '');
   if (src.charCodeAt(0) === 0xfeff) src = src.slice(1);
   src = src.replace(/\r\n?/g, '\n');
   const delimiter = settings.delimiter || guessDelimiter(src);
-  const records = splitRecords(src, delimiter).filter(r => r.length > 0);
+  const records = delimiter === WHITESPACE ? splitColumns(src) : splitRecords(src, delimiter).filter(r => r.length > 0);
   const decimal = settings.decimal === ',' || settings.decimal === '.' ? settings.decimal : guessDecimal(records, delimiter);
   const header = typeof settings.header === 'boolean' ? settings.header : guessHeader(records, decimal);
+  if (header && delimiter === WHITESPACE && records.length) records[0] = joinUnits(records[0]);
   let width = 0;
   for (const r of records) if (r.length > width) width = r.length;
   const columns = columnNames(header && records.length ? records[0] : [], width);
   const body = header ? records.slice(1) : records;
   let shortRows = 0;
+  // Cells like 1,234 left as text, because the file does not say what the comma is.
+  const unclear = { count: 0, example: null };
   const rows = body.map(r => {
     if (r.length < width) shortRows++;
     const row = new Array(width);
-    for (let i = 0; i < width; i++) row[i] = readCell(i < r.length ? r[i] : '', decimal);
+    for (let i = 0; i < width; i++) {
+      row[i] = readCell(i < r.length ? r[i] : '', decimal);
+      if (decimal === '.' && unclearComma(row[i])) {
+        if (!unclear.count) unclear.example = stripSpaces(row[i]);
+        unclear.count++;
+      }
+    }
     return row;
   });
-  return { columns, rows, settings: { delimiter, decimal, header }, notes: { shortRows } };
+  return {
+    columns, rows, settings: { delimiter, decimal, header }, notes: { shortRows, unclearCommas: unclear },
+    headerCells: header && records.length ? records[0] : null
+  };
 }
 
 /**

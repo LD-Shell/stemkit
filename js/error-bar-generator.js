@@ -10,13 +10,14 @@
  * the Python panel.
  */
 import { registerFromGlobals } from '../src/core/vendor.js';
-import { fileRefusal } from './file-check.js';
+import { fileRefusal, readTextFile } from './file-check.js';
+import { readTable } from '../src/core/data-cleaning.js';
 import { computeGroups, resultsToCSV, pairwiseComparisons } from '../src/core/error-bars.js';
 import {
   errorBarFigure, errorBarScript, significanceLabel, significanceLevel, pValueText
 } from '../src/core/error-bars-figure.js';
 
-// jStat and Papa are loaded as UMD globals by the page's <script> tags.
+// jStat is loaded as a UMD global by the page's <script> tags.
 registerFromGlobals();
 
 const STYLE_KEY = 'stemkit.error-bar-generator.figure';
@@ -114,6 +115,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // The point form is offered only where the comma can be nothing but a decimal
         // one: 6,1 and 0,25, not 1,234 or 1.234,5.
         const plain = /^[+-]?\d*,(\d{1,2}|\d{4,})$/.test(comma.example) ? ` (${comma.example.replace(',', '.')})` : '';
+        // Read where the values are not split at commas and the comma can only be a
+        // decimal one; what is left is 1,234 with no such number beside it, or a file
+        // split at commas.
         parts.push(`${cells(comma.count)} with a comma in the number ${comma.count === 1 ? 'was' : 'were'} not read, ` +
           `for example “${comma.example}”: write decimals with a point${plain} ` +
           'and leave out thousands separators.');
@@ -145,17 +149,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function calculate() {
-    const rawText = dataInput.value.trim();
-    if (!rawText) return showToast('Paste or upload some data first.', 'error');
+    if (!dataInput.value.trim()) return showToast('Paste or upload some data first.', 'error');
 
-    // Parsed without header mode so the core can decide for itself whether the
-    // first row is a header; the control acts as an explicit override.
-    const parsed = Papa.parse(rawText, {
-      header: false, dynamicTyping: true, skipEmptyLines: true
-    });
-
-    const rows = (parsed.data || [])
-      .filter(r => Array.isArray(r) && r.some(c => c !== null && c !== ''));
+    // The table as the Data Cleaner's reader makes it out: split at commas,
+    // tabs, semicolons or the spaces between columns, with a decimal comma
+    // where the numbers show one. It is read without a header, so the core
+    // can decide for itself whether the first row is one; the control acts
+    // as an explicit override.
+    const rows = readTable(dataInput.value, { header: false }).rows
+      .filter(r => r.some(c => c !== null && c !== ''));
 
     if (rows.length === 0) return showToast('Could not parse any rows.', 'error');
     if (rows[0].length < 2) {
@@ -205,11 +207,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!file) return;
     // The picker's "All files" lets a workbook through, and its bytes are not a table.
     fileRefusal(file, { extensions: ['csv', 'tsv', 'txt'], sheet: 'paste' }).then((why) => {
-      if (why) { showToast(why, 'error'); return; }
-      const reader = new FileReader();
-      reader.onload = (ev) => { dataInput.value = ev.target.result; markChip(null); calculate(); };
-      reader.readAsText(file);
-    });
+      if (why) { showToast(why, 'error'); return null; }
+      return readTextFile(file).then(({ text }) => { dataInput.value = text; markChip(null); calculate(); });
+    }).catch(() => showToast('Could not read that file.', 'error'));
   });
 
   if (ciLevelSelect) ciLevelSelect.addEventListener('change', () => {

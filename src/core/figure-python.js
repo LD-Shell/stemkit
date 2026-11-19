@@ -78,6 +78,18 @@ export function short(v, digits = 6) {
 }
 
 /**
+ * The name Python opens a file's encoding by, from the name the page read it
+ * under (decodeText in js/file-check.js). 'utf-8-sig' drops a byte-order mark,
+ * as the page does, and 'utf-16' reads the one it needs.
+ *
+ * @param {string} [encoding]
+ * @returns {string}
+ */
+export function pyEncoding(encoding) {
+  return { 'windows-1252': 'cp1252', 'utf-16le': 'utf-16', 'utf-16be': 'utf-16' }[encoding] || 'utf-8-sig';
+}
+
+/**
  * A Python string literal. Text with backslashes (LaTeX such as `$\tau$`)
  * is written raw so it reads as typed; anything a raw string cannot hold is
  * escaped instead.
@@ -1138,6 +1150,43 @@ const READ_CSV = [
   '    return {name: np.array([number(row[name]) for row in rows]) for name in reader.fieldnames}'
 ];
 
+/* read_csv for a file that is not a plain CSV with a header: the same reading
+   of the same cells, with the ways such a file differs given as arguments. It
+   is written into the script only when one of its files needs it (csvNeedsMore). */
+const READ_CSV_MORE = [
+  "def read_csv(path, delimiter=',', decimal='.', header=True, encoding='utf-8-sig'):",
+  '    """The columns of a table in a text file; blank or non-numeric cells become NaN.',
+  '',
+  '    A column is found by its number (0 is the first), and by its name too when the',
+  '    first row names the columns; with header=False the first row is data.',
+  '    delimiter=None is for a table set out in columns: values between runs of spaces',
+  "    or tabs, lines that start with # left out, columns by number. decimal=','",
+  '    reads 1,5 as 1.5.',
+  '    """',
+  "    with open(path, newline='', encoding=encoding) as fh:",
+  '        if delimiter is None:',
+  "            rows = [line.split() for line in fh if line.strip() and not line.lstrip().startswith('#')]",
+  '        else:',
+  '            rows = [row for row in csv.reader(fh, delimiter=delimiter) if row]',
+  '    names = [name.strip() for name in rows[0]] if header and rows and delimiter is not None else []',
+  '    body = rows[1:] if header else rows',
+  '    width = max([len(names)] + [len(row) for row in body])',
+  '',
+  '    def number(text):',
+  '        try:',
+  "            return float(text.replace(',', '.') if decimal == ',' else text)",
+  '        except ValueError:',
+  '            return np.nan',
+  '',
+  '    columns = {i: np.array([number(row[i]) if i < len(row) else np.nan for row in body]) for i in range(width)}',
+  '    columns.update({name: columns[i] for i, name in enumerate(names)})',
+  '    return columns'
+];
+
+/** Whether a file needs more of read_csv than a delimiter: a decimal comma, no header, columns, another encoding. */
+const csvNeedsMore = (src) => src.delimiter === null || src.decimal === ',' || src.header === false
+  || (!!src.encoding && pyEncoding(src.encoding) !== 'utf-8-sig');
+
 const READ_TABLE = [
   'def read_table(path):',
   '    """The columns of a text table: numbers separated by spaces or tabs.',
@@ -1236,8 +1285,11 @@ const IMAGE_KINDS = ['heatmap', 'contour'];
  * @param {object} [options]
  * @param {'embed'|'files'} [options.data='embed'] - read the fields that name a file column
  *   from the files, or embed every number
- * @param {Object<string, {file: string, format?: 'csv'|'table', delimiter?: string}>} [options.files] -
- *   the person's files, by the source id the data fields use
+ * @param {Object<string, {file: string, format?: 'csv'|'table', delimiter?: string|null, decimal?: '.'|',',
+ *   header?: boolean, encoding?: string}>} [options.files] - the person's files, by the source id
+ *   the data fields use. For a 'csv' file: its delimiter (null for a table set out in columns),
+ *   its decimal mark, whether its first row names the columns (a data field then names a column
+ *   by its header, otherwise by its number) and the encoding the page decoded it from
  * @param {string[]} [options.header] - the first comment lines (without '#')
  * @param {string[]} [options.imports] - more import lines
  * @param {string[]} [options.prelude] - Python lines after the data, before the figure; they may
@@ -1310,10 +1362,20 @@ export function figureScript(figure, options = {}) {
     const name = identifier(`${id}_columns`, taken);
     const fmt = src.format === 'csv' ? 'csv' : 'table';
     readers.add(fmt);
+    // A file with no header row, or one set out in columns, has its columns found by number.
+    const byNumber = fmt === 'csv' && (src.header === false || src.delimiter === null);
+    if (fmt === 'csv' && csvNeedsMore(src)) readers.add('csv-more');
+    const how = fmt !== 'csv' ? [] : [
+      ...(src.delimiter === null ? ['delimiter=None'] : src.delimiter && src.delimiter !== ',' ? [`delimiter=${pyStr(src.delimiter)}`] : []),
+      ...(src.decimal === ',' ? ["decimal=','"] : []),
+      ...(src.header === false ? ['header=False'] : []),
+      ...(src.encoding && pyEncoding(src.encoding) !== 'utf-8-sig' ? [`encoding=${pyStr(pyEncoding(src.encoding))}`] : [])
+    ];
     const call = fmt === 'csv'
-      ? pyCall(`${name} = read_csv`, [pyStr(src.file), ...(src.delimiter && src.delimiter !== ',' ? [`delimiter=${pyStr(src.delimiter)}`] : [])])
+      ? pyCall(`${name} = read_csv`, [pyStr(src.file), ...how])
       : [`${name} = read_table(${pyStr(src.file)})`];
-    dataLines.push(`# Point this at your file${fmt === 'csv' ? '; the columns are found by their headers' : ''}.`, ...call);
+    const found = fmt !== 'csv' ? '' : byNumber ? '; the columns are found by number, 0 first' : '; the columns are found by their headers';
+    dataLines.push(`# Point this at your file${found}.`, ...call);
     sourcesUsed.set(id, name);
     return name;
   };
@@ -1596,7 +1658,7 @@ export function figureScript(figure, options = {}) {
   if (dataLines.length || derivedLines.length || prelude.length) {
     section('Data');
     const helpers = [];
-    if (readers.has('csv')) helpers.push(READ_CSV);
+    if (readers.has('csv')) helpers.push(readers.has('csv-more') ? READ_CSV_MORE : READ_CSV);
     if (readers.has('table') || readers.has('grid')) helpers.push(READ_TABLE);
     if (readers.has('grid')) helpers.push(TO_GRID);
     if (needsViolin) helpers.push(VIOLIN_DENSITY);

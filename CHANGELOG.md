@@ -7,8 +7,10 @@ earlier version are worth re-checking.
 
 ## Unreleased
 
-A file a page cannot read is refused instead of shown as text, and
-documentation and test tooling after v0.6.0. No result changes.
+Tables as a spreadsheet or a program writes them are read by every data tool:
+decimal commas, columns set apart by spaces, no header row, text that is not
+UTF-8. A file a page cannot read is refused instead of shown as text. Also
+documentation and test tooling after v0.6.0.
 
 ### Added
 
@@ -37,6 +39,62 @@ documentation and test tooling after v0.6.0. No result changes.
   error message on the Curve Fitter, the Error Bar Generator and the
   Statistics Calculator stays for six seconds, long enough to read what to
   do.
+
+- `[output]` **Decimal commas.** A table written with decimal commas
+  (`0,25;3,2`, as a spreadsheet saves it in most of Europe, or the same
+  between tabs when cells are copied) was misread. The Outlier Detector and
+  the Statistics Calculator split it at the commas and took one wrong column
+  with no warning; the XVG Visualizer read no rows; the Error Bar Generator and
+  the Plot Builder left the numbers unread and said so. All five read it now,
+  as the Curve Fitter and the Data Cleaner did, and the scripts of the Outlier
+  Detector, the XVG Visualizer and the Plot Builder read the file the same way.
+  A comma is a decimal mark only where the file shows that it is one: `0,5` and
+  `3,2004` can be nothing else, while `1,234` may be 1.234 or 1234. A file
+  whose every comma is like `1,234` is read with decimal commas only when it
+  is split at semicolons; otherwise those cells are left unread and the page
+  counts them. The Data Cleaner follows the same rule, where it used to read
+  `1,234` between tabs as 1.234, and its delimiter is no longer taken to be a
+  comma when every comma sits inside a number (`0,25<tab>3,2` with no header).
+- `[output]` **A file with no header row.** The Outlier Detector, the
+  Statistics Calculator and the Plot Builder took a first row of numbers for
+  the names of the columns and left it out of the data. A first row made only
+  of numbers is now read as data and the columns are called by their place.
+  Each of the three says so and has a control to overrule it (**First row
+  holds the names**, or **First row** on the Statistics Calculator), for a
+  table whose columns are named by numbers such as doses or years. The Outlier
+  Detector's and the Plot Builder's scripts then read the columns by number.
+- **Columns set apart by spaces.** A table printed in columns (a `.dat` file,
+  a `.txt` from an instrument) was split at every single space by the Data
+  Cleaner, into a dozen columns or more, and misread by the Outlier Detector,
+  the Statistics Calculator and the Error Bar Generator; the Plot Builder
+  refused it. All five read it: the values stand between runs of spaces or
+  tabs, lines that start with `#` are left out, and in the header a unit in
+  brackets stays with its name (`Time (s)`). The Data Cleaner's delimiter list
+  has it as **Spaces, in columns**, and its script and the Outlier Detector's
+  and the Plot Builder's read such a file with `sep=None` or `delimiter=None`.
+- **Text that is not UTF-8.** A name with µ, ° or an accent in a file saved in
+  the Windows code page (a spreadsheet's plain "CSV") came out with U+FFFD in
+  the Curve Fitter, the Outlier Detector, the Error Bar Generator, the
+  Statistics Calculator and the XVG Visualizer, and went into the BibTeX
+  Deduplicator's cleaned file that way. Each page now decodes the file itself,
+  as the Data Cleaner did (UTF-16 by its byte-order mark, then UTF-8, then
+  Windows-1252), and has its script open the file in the same encoding; the
+  pages that report how a file was read say when it was not UTF-8. The Plot
+  Builder's warning that its script could not read such a file is gone with
+  the cause.
+- **XVG Visualizer.** A CSV file with every value in quotes read no rows; the
+  quotes around a value are dropped now, in the script too. The names of the
+  columns are kept from a header split by tabs or written with units in
+  brackets (`Time (ps)  RMSD [nm]`), and a name in quotes may hold a comma.
+- `[output]` **What counts as a number in a table.** The Outlier Detector,
+  the Statistics Calculator and the Error Bar Generator read their tables
+  with the Data Cleaner's reader in place of Papa Parse's typing. A number of
+  2^53 or more that is not written as a whole number (`6.02e23`, `1e20`) was
+  skipped as text by the first two and is read; so is one with a plus sign
+  (`+5`). `true`, `false` and dates stay the text they are. A column with no
+  name is called `column_3` by its place where it used to be left out, and
+  the second of two columns with one name gets `_2`. The Outlier Detector's
+  script reads a cell by the same rule.
 
 ### Changed
 

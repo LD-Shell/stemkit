@@ -6,7 +6,8 @@ import {
   trimWhitespace, changeCase, sortByColumn, filterRows,
   roundColumn, renameColumn, dropColumns, profileData,
   transformColumn,
-  readCell, splitRecords, columnNames, guessDelimiter, readTable, writeTable, cellText, stripSpaces,
+  readCell, splitRecords, splitColumns, columnNames, guessDelimiter, readTable, writeTable, cellText, stripSpaces, WHITESPACE,
+  unclearComma,
   exactSum, exactMean, exactPopulationSD, median, exactLn, exactLog10, roundNumber, compareCodePoints,
   titleCase, textToNumber, compareCells, applyStep, runRecipe, checkStep, checkRecipe, columnsAfterStep,
   stepColumns, describeStep, listColumns, normaliseStep, recipeToJSON, parseRecipe, profileTable, STEP_TYPES
@@ -434,6 +435,58 @@ describe('guessDelimiter', () => {
     expect(guessDelimiter('a b c\n1 2 3\n')).toBe(' ');
     expect(guessDelimiter('a, b, c\n1, 2, 3\n')).toBe(',');
   });
+
+  test('a comma between the digits of every number is a decimal mark, with no header to say so', () => {
+    // Each of these splits evenly at its commas too, into more fields.
+    expect(guessDelimiter('0,25\t3,2004\n0,5\t2,8171\n')).toBe('\t');
+    expect(guessDelimiter('0,25;3,2004;0,0382\n0,5;2,8171;0,0318\n')).toBe(';');
+    expect(guessDelimiter('  0,25   3,2004\n  0,50   2,8171\n')).toBe(WHITESPACE);
+    expect(guessDelimiter('1,5 2,25\n3,5 4,75\n')).toBe(' ');
+    // Commas that are not all inside numbers stay delimiters.
+    expect(guessDelimiter('1, 2, 3\n4, 5, 6\n')).toBe(',');
+    expect(guessDelimiter('1,2,3\t4,5,6\n7,8,9\t1,2,3\n')).toBe(',');
+    expect(guessDelimiter('x,y\n"1,234",2\n"2,345",3\n')).toBe(',');
+  });
+
+  test('columns padded with spaces are a table set out in columns, not single spaces', () => {
+    const fixed = '   0.000     3.5923   0.0331\n   0.250     3.2004   0.0382\n';
+    expect(splitRecords(fixed, ' ')[0]).toHaveLength(12);
+    expect(guessDelimiter(fixed)).toBe(WHITESPACE);
+    expect(guessDelimiter('Time (s)   Signal (mV)\n0.00       3.59\n0.25       3.20\n')).toBe(WHITESPACE);
+    expect(guessDelimiter('# made by a logger\na b c\n1 2 3\n4 5 6\n')).toBe(WHITESPACE);
+    expect(guessDelimiter('Control   4.1  4.3\nTreated   5.6  5.9\n')).toBe(WHITESPACE);
+  });
+
+  test('columns lined up with tabs and spaces both are a table set out in columns', () => {
+    // One tab on every line, and two numbers left in a cell on either side of some spaces.
+    expect(guessDelimiter('1   4,1\t x\n2   3,9\t y\n')).toBe(WHITESPACE);
+    expect(guessDelimiter('0.00   3.59\t0.03\n0.25   3.20\t0.04\n')).toBe(WHITESPACE);
+    // Words with spaces between tabs stay whole, and so does a number with its unit.
+    expect(guessDelimiter('John Smith\t12 kg\nMary Jones\t15 kg\n')).toBe('\t');
+    expect(guessDelimiter('run 1\t0.5\nrun 2\t0.7\n')).toBe('\t');
+  });
+
+  test('spaces are tried only when no comma, tab, semicolon or bar splits the lines', () => {
+    expect(guessDelimiter('First name,Last name\nAda,Lovelace\nAlan,Turing\n')).toBe(',');
+    expect(guessDelimiter('John Smith,12 kg\nMary Jones,15 kg\n')).toBe(',');
+    expect(guessDelimiter('Time (s)\tSignal (mV)\n0\t3.59\n')).toBe('\t');
+    expect(guessDelimiter('3.1\n2.9\n')).toBe(',');
+  });
+});
+
+describe('splitColumns', () => {
+  test('gives what stands between runs of spaces and tabs', () => {
+    expect(splitColumns('  1.5   2\t3  \n4 5\t\t6\n')).toEqual([['1.5', '2', '3'], ['4', '5', '6']]);
+  });
+
+  test('leaves out blank lines and lines that start with #, on any line ending', () => {
+    expect(splitColumns('# t y\r\n\r\n  # indented\r1 2\r   \n3 4 # kept\n')).toEqual([['1', '2'], ['3', '4', '#', 'kept']]);
+    expect(splitColumns('')).toEqual([]);
+  });
+
+  test('quotes mean nothing', () => {
+    expect(splitColumns('"a b" 1\n')).toEqual([['"a', 'b"', '1']]);
+  });
 });
 
 describe('readTable', () => {
@@ -467,6 +520,68 @@ describe('readTable', () => {
   test('follows the settings it is given', () => {
     const t = readTable('a;b\n1.5;2\n', { delimiter: ';', decimal: ',', header: false });
     expect(t.rows[1]).toEqual(['1.5', 2]);
+  });
+
+  test('reads a table set out in columns: comments left out, units kept with their names', () => {
+    const t = readTable('# decay\n# t  signal\nTime (s)   Signal [mV]   n\n  0.00      3.5923    1\n  0.25      3.2004\n');
+    expect(t.settings).toEqual({ delimiter: WHITESPACE, decimal: '.', header: true });
+    expect(t.columns).toEqual(['Time (s)', 'Signal [mV]', 'n']);
+    expect(t.rows).toEqual([[0, 3.5923, 1], [0.25, 3.2004, null]]);
+    expect(t.notes.shortRows).toBe(1);
+  });
+
+  test('reads such a table without a header, and with decimal commas', () => {
+    const t = readTable('  0,25   3,2004   0,0382\n  0,50   2,8171   0,0318\n');
+    expect(t.settings).toEqual({ delimiter: WHITESPACE, decimal: ',', header: false });
+    expect(t.columns).toEqual(['column_1', 'column_2', 'column_3']);
+    expect(t.rows).toEqual([[0.25, 3.2004, 0.0382], [0.5, 2.8171, 0.0318]]);
+  });
+
+  test('a file split by tabs or semicolons with decimal commas and no header is read as numbers', () => {
+    expect(readTable('0,25\t3,2004\n0,5\t2,8171\n').rows).toEqual([[0.25, 3.2004], [0.5, 2.8171]]);
+    const t = readTable('0,25;3,2004;0,0382\n0,5;2,8171;0,0318\n');
+    expect(t.settings).toEqual({ delimiter: ';', decimal: ',', header: false });
+    expect(t.rows[1]).toEqual([0.5, 2.8171, 0.0318]);
+  });
+
+  test('a comma is a decimal mark only when the file shows it', () => {
+    // 0,5 cannot be a whole number with its thousands set off: the file is read with decimal commas, 1,234 too.
+    expect(readTable('a\tb\n0,5\t1,234\n1,5\t2,345\n').rows).toEqual([[0.5, 1.234], [1.5, 2.345]]);
+    // Every comma like 1,234: between tabs the file does not say, and the cells stay text ...
+    const t = readTable('a\tb\n1,234\t7\n2,345\t8\n');
+    expect(t.settings.decimal).toBe('.');
+    expect(t.rows).toEqual([['1,234', 7], ['2,345', 8]]);
+    expect(t.notes.unclearCommas).toEqual({ count: 2, example: '1,234' });
+    // ... between semicolons it is the file a spreadsheet writes where the comma is the decimal mark.
+    expect(readTable('a;b\n1,234;7\n2,345;8\n').rows).toEqual([[1.234, 7], [2.345, 8]]);
+    // Thousands set off for certain: the point is the decimal mark, and 1,234 is not guessed at.
+    expect(readTable('a\tb\n1,234,567\t1,234\n0,5\t2\n').settings.decimal).toBe('.');
+    expect(readTable('a;b\n1,234.5;1,234\n').rows[0]).toEqual(['1,234.5', '1,234']);
+    // Numbers with a point outnumber those with a comma: the point it is.
+    expect(readTable('a\tb\tc\n0.5\t1.5\t2,5\n').rows[0]).toEqual([0.5, 1.5, '2,5']);
+    // Told the decimal mark, the reader follows, and nothing is unclear.
+    const told = readTable('a\tb\n1,234\t7\n', { decimal: ',' });
+    expect(told.rows[0]).toEqual([1.234, 7]);
+    expect(told.notes.unclearCommas).toEqual({ count: 0, example: null });
+    expect(readTable('a,b\n1,2\n').notes.unclearCommas.count).toBe(0);
+  });
+
+  test('unclearComma: one to three digits, then exactly three', () => {
+    for (const cell of ['1,234', '12,345', '123,456', ' -1,234 ', '+9,000']) expect(unclearComma(cell)).toBe(true);
+    for (const cell of ['0,123', '1,23', '1,2345', '1234,567', '1,234,567', '1,234.5', '1,234e3', '1.234', 'a,bcd', '', 1234, null]) {
+      expect(unclearComma(cell)).toBe(false);
+    }
+  });
+
+  test('a single column of numbers has no header, and one under a name has', () => {
+    expect(readTable('3.1\n2.9\n3.4\n')).toMatchObject({ columns: ['column_1'], rows: [[3.1], [2.9], [3.4]] });
+    expect(readTable('mass\n3.1\n2.9\n')).toMatchObject({ columns: ['mass'], rows: [[3.1], [2.9]] });
+  });
+
+  test('the brackets of a unit join it to its name only in a header set out in columns', () => {
+    expect(readTable('x (nm) y\n1 2\n', { delimiter: WHITESPACE }).columns).toEqual(['x (nm)', 'y']);
+    expect(readTable('x (nm) y\n1 2\n', { delimiter: WHITESPACE, header: false }).rows[0]).toEqual(['x', '(nm)', 'y']);
+    expect(readTable('x, (nm)\n1,2\n').columns).toEqual(['x', '(nm)']);
   });
 });
 

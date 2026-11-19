@@ -6,7 +6,7 @@
  * conflict resolution.
  */
 import { registerFromGlobals } from '../src/core/vendor.js';
-import { fileRefusal } from './file-check.js';
+import { fileRefusal, readTextFile } from './file-check.js';
 import {
   parseBibtex,
   findDuplicates,
@@ -181,18 +181,17 @@ document.addEventListener('DOMContentLoaded', () => {
     fileRefusal(file, { extensions: ['bib', 'txt'] }).then((why) => (why ? showToast(why, 'error') : readFile(file)));
   });
 
+  // An older library may be in Latin-1 or the Windows code page: decoded here,
+  // so that an accented name is not lost on the way into the cleaned file.
   function readFile(file) {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      bibInput.value = event.target.result;
+    readTextFile(file).then(({ text }) => {
+      bibInput.value = text;
       clearScanError();
       syncInputButtons();
       // Set from a callback, not typed: tell the step badges.
       if (window.STEMKit) window.STEMKit.refreshSteps();
       showToast(`Loaded ${file.name}. Press Scan for duplicates.`, 'success');
-    };
-    reader.onerror = () => showToast('Could not read that file.', 'error');
-    reader.readAsText(file);
+    }).catch(() => showToast('Could not read that file.', 'error'));
   }
 
   // --- 4. Scan (delegated to the core) ---

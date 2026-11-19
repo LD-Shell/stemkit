@@ -120,6 +120,30 @@ describe('parseMetadataLine', () => {
 });
 
 describe('parseDataLine', () => {
+  test('drops the quotes a spreadsheet puts around a value', () => {
+    expect(parseDataLine('"0.25","3.2"')).toEqual([0.25, 3.2]);
+    expect(parseDataLine('"0.25"  "3.2"')).toEqual([0.25, 3.2]);
+    // Quotes that hold more than one value, or none, are not a value's.
+    expect(parseDataLine('"0.25 3.2"')).toBeNull();
+    expect(parseDataLine('"a","3.2"')).toBeNull();
+    expect(parseDataLine('0.25"')).toBeNull();
+  });
+
+  test('reads a line as a spreadsheet may write it, told how', () => {
+    const semicolons = { delimiter: ';', decimal: '.' };
+    const european = { delimiter: ';', decimal: ',' };
+    const spaced = { delimiter: null, decimal: ',' };
+    expect(parseDataLine('0.25;3.2;1e-3', semicolons)).toEqual([0.25, 3.2, 0.001]);
+    expect(parseDataLine('0,25;3,2', semicolons)).toBeNull();
+    expect(parseDataLine('0,25; 3,2 ;-1,5e2', european)).toEqual([0.25, 3.2, -150]);
+    expect(parseDataLine('0,25;;3,2', european)).toBeNull();
+    expect(parseDataLine('  0,25   3,2\t7', spaced)).toEqual([0.25, 3.2, 7]);
+    expect(parseDataLine('0,25 x', spaced)).toBeNull();
+    // Without being told, a comma splits the line, as numpy.loadtxt would have it.
+    expect(parseDataLine('0,25 3,2')).toBeNull();
+    expect(parseDataLine('0,25')).toEqual([0, 25]);
+  });
+
   test('parses whitespace-delimited numbers', () => {
     expect(parseDataLine('0.0  1.5  -2.25')).toEqual([0.0, 1.5, -2.25]);
   });
@@ -408,10 +432,34 @@ describe('parseXvg', () => {
   });
 
   test('ignores a header row whose width does not match the data but still skips it', () => {
-    const r = parseXvg('Time (ps)  RMSD\n0 0.1\n1 0.2\n');
+    const r = parseXvg('Time of day  RMSD\n0 0.1\n1 0.2\n');
     expect(r.headers).toEqual(['X', 'Dataset 1']);
     expect(r.skippedLines).toBe(1);
     expect(r.skipRows).toBe(1);
+  });
+
+  test('a unit in brackets stays with the name before it in a header set out in columns', () => {
+    // Four words over two columns: "(ps)" and "[nm]" are units, not columns.
+    const r = parseXvg('Time (ps)  RMSD [nm]\n0 0.1\n1 0.2\n');
+    expect(r.headers).toEqual(['Time (ps)', 'RMSD [nm]']);
+    expect(r.skippedLines).toBe(0);
+    expect(r.skipRows).toBe(1);
+    // Words that are as many as the columns are the names, brackets or not.
+    expect(parseXvg('t (ps)\n0 0.1\n1 0.2\n').headers).toEqual(['t', '(ps)']);
+  });
+
+  test('names between tabs may hold spaces', () => {
+    const r = parseXvg('Time (s)\tSignal in mV\tError (mV)\r\n0\t3.59\t0.03\r\n0.25\t3.2\t0.04\r\n');
+    expect(r.headers).toEqual(['Time (s)', 'Signal in mV', 'Error (mV)']);
+    expect(r.delimiter).toBeNull();
+    expect(r.matrix).toEqual([[0, 3.59, 0.03], [0.25, 3.2, 0.04]]);
+    expect(r.skippedLines).toBe(0);
+  });
+
+  test('a name in quotes may hold the comma', () => {
+    const r = parseXvg('"Time (s)","Signal, mV"\n0,3.59\n0.25,3.2\n');
+    expect(r.headers).toEqual(['Time (s)', 'Signal, mV']);
+    expect(r.quoted).toBe(false);
   });
 
   test('does not treat a text line after the data as a header', () => {

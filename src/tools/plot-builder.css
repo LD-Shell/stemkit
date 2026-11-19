@@ -138,7 +138,7 @@
 .pb-file-t { display: flex; flex-direction: column; min-width: 0; }
 .pb-file-name { font-weight: 600; color: var(--stk-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pb-file-meta { color: var(--stk-fg-3); font-size: .75rem; }
-.pb-file-warn { grid-column: 2 / -1; margin: .3rem 0 0; font-size: .75rem; line-height: 1.45; color: var(--stk-warn); }
+.pb-file-h { grid-column: 2 / -1; margin: .3rem 0 0; font-size: .75rem; color: var(--stk-fg-3); }
 
 /* Series cards */
 .pb-cards { display: flex; flex-direction: column; gap: .75rem; }

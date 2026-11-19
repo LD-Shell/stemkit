@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  readTable, runRecipe, writeTable, describeStep, SPACE_CHARACTERS, STEP_TYPES, FILTER_OPS, TRANSFORMS
+  readTable, runRecipe, writeTable, describeStep, SPACE_CHARACTERS, STEP_TYPES, FILTER_OPS, TRANSFORMS, WHITESPACE
 } from '../src/core/data-cleaning.js';
 import {
   generateCleaningScript, pyString, pyFloat, pyTripleQuoted, cleaningFileNames, stepToPython
@@ -485,6 +485,25 @@ const CASES = [
     encoding: 'utf-16le',
     steps: [{ type: 'sort', column: 'value' }]
   },
+  // Tables set out in columns: comment lines, a header with units, a short
+  // row, a blank line, quotes that mean nothing, tabs among the spaces.
+  {
+    name: 'in_columns',
+    text: ['# decay of a signal', '# t  signal  error', 'Time (s)   Signal [mV]   Note', '  0.00      3.5923    start',
+      '  0.25      3.2004', '', '   # half way', '  0.50\t2.8171    "x y"', ' 12        -1e-3      n/a  '].join('\n'),
+    steps: [{ type: 'sort', column: 'Signal [mV]', descending: true }, { type: 'dropMissing', columns: ['Note'] }]
+  },
+  {
+    name: 'in_columns_decimal_comma',
+    text: '0,25\t 3,2004   0,0382\r\n0,5   2,8171\t0,0318\r\n1  2  3\r\n',
+    steps: [{ type: 'transform', columns: ['column_2'], operation: 'log10' }]
+  },
+  {
+    name: 'in_columns_no_header_asked',
+    text: 'a b\n1  2\n3  4\n',
+    settings: { delimiter: WHITESPACE, header: false },
+    steps: [{ type: 'trim', columns: [] }]
+  },
   // STEMKIT_CLEAN_CASES=500 npm test runs a longer search.
   ...Array.from({ length: Number(process.env.STEMKIT_CLEAN_CASES) || 40 }, (_, i) => randomCase(1000 + i))
 ];
@@ -538,7 +557,8 @@ beforeAll(() => {
     writeFileSync(join(dir, 'embed.py'), generateCleaningScript({ ...spec, form: 'script', data: 'embed', text: embedText }).code);
     writeFileSync(join(dir, 'module.py'), generateCleaningScript({ ...spec, form: 'function' }).code);
     const readArgs = {};
-    if (read.settings.delimiter !== ',') readArgs.sep = read.settings.delimiter;
+    if (read.settings.delimiter === WHITESPACE) readArgs.sep = null;
+    else if (read.settings.delimiter !== ',') readArgs.sep = read.settings.delimiter;
     if (read.settings.decimal !== '.') readArgs.decimal = read.settings.decimal;
     if (!read.settings.header) readArgs.header = false;
     return {

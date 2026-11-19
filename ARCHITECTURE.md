@@ -62,7 +62,9 @@ flowchart TD
   named on `privacy.html`. A page that reads text asks `js/file-check.js`
   first: a file is held to the extensions the page names and to bytes that
   are text, so a workbook is refused, with what to do instead, and not shown
-  as text.
+  as text. The same file decodes the text (UTF-16 by its byte-order mark,
+  UTF-8, or the Windows code page a spreadsheet's plain CSV is in), and the
+  page passes the encoding on to a script that reads the file.
 - **Core.** A page script reads the form, calls the core and writes the result
   back. What decides a number is in `src/core/`, which touches no DOM. Page
   logic that needs a test sits in a DOM-free file beside its script (the
@@ -335,11 +337,11 @@ Files and text.
 
 | module | what it holds |
 | :-- | :-- |
-| `xvg-parser.js` | GROMACS and Grace `.xvg` files and other numeric tables, with Grace's quotes and escapes; column statistics; the XVG Visualizer's figure (`xvgFigure`) and its script |
+| `xvg-parser.js` | GROMACS and Grace `.xvg` files and other numeric tables, with Grace's quotes and escapes, and a spreadsheet's semicolons, decimal commas and quoted values; column statistics; the XVG Visualizer's figure (`xvgFigure`) and its script |
 | `structure.js` | PDB, GRO and XYZ: parsing, `elementSymbol` and the ion table `ION_ELEMENTS`, masses, centre of mass, radius of gyration, principal axes, rotations, the steps as equations and as a Python script (`transformScript`), format conversion |
 | `selection.js` | the atom selection language and spatial neighbour queries, with no 3Dmol.js behind it, so the language runs in Node |
 | `units.js` | 64 units in 10 categories, plus temperature; CODATA 2018 / SI 2019 factors, rounded once (`UNIT_DB`, `convert`) |
-| `data-cleaning.js` | tabular cleaning, deduplication, imputation and profiling; every operation returns a new array |
+| `data-cleaning.js` | tabular cleaning, deduplication, imputation and profiling; every operation returns a new array. `readTable` makes out a table's delimiter (or columns set apart by spaces), decimal mark and header row; the Outlier Detector, the Statistics Calculator and the Error Bar Generator read with it too |
 | `data-cleaning-python.js` | the pandas script that repeats a cleaning recipe and writes the same CSV |
 | `latex.js` | LaTeX and Markdown tables, text escaping |
 | `bibtex.js` | BibTeX parsing, duplicate detection by union-find on DOI and title, field sanitising |
@@ -363,7 +365,7 @@ Statistics, fitting and figures.
 | `plot-style.js` | how a fitted plot looks, one description for the preview and the script; `bandVisibility` |
 | `figure.js` | the figure description and `normaliseFigure` |
 | `figure-python.js` | `figureScript`, the matplotlib script that draws a description |
-| `plot-builder.js` | the Plot Builder: CSV reading as Python's `csv` and `float()` read it, the figure of each of its nine chart kinds, panel layouts, fifteen built-in examples |
+| `plot-builder.js` | the Plot Builder: a table read as the script's `csv` and `float()` read it (with a decimal comma, without a header or set out in columns, where the file is so), the figure of each of its nine chart kinds, panel layouts, fifteen built-in examples |
 | `statistics-figure.js`, `error-bars-figure.js`, `outliers-figure.js`, `plumed-analysis-figures.js` | the figure and the Python script of the Statistics Calculator, the Error Bar Generator, the Outlier Detector and the PLUMED "Analyse a run" tab |
 
 Simulation inputs.
